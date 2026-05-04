@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+web-build/
+coverage/
+.turbo/
+
+# Expo / React Native
+.expo/
+.kotlin/
+*.tsbuildinfo
+
+# Tooling
+.vercel/
+.idea/
+
+# Cursor MCP (may contain API tokens — use mcp.json.example)
+.cursor/mcp.json
+
+# Local deploy artifacts (regenerate from scripts)
+widget-wink-build.zip

@@ -1,0 +1,10 @@
+{
+  "name": "bokito-chat-widget",
+  "private": true,
+  "scripts": {
+    "dev": "vite --open /"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

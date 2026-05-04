@@ -1,0 +1,29 @@
+---
+description: Log new Bokito platform knowledge to BOKITO_KNOWLEDGE.md
+alwaysApply: true
+---
+
+# Bokito Platform Knowledge Logging
+
+Whenever new information is learned about the Bokito platform — including features, modules, workflows, SOPs, business rules, configuration options, user flows, data models, integrations, or pricing — **update `BOKITO_KNOWLEDGE.md`** in the project root immediately.
+
+## When to update
+
+- A user explains how a feature works or is configured
+- A new module, page, or capability is discussed
+- A business rule or SOP is mentioned
+- A workflow or user flow is clarified
+- A limitation or edge case is discovered
+- Integration behavior is described
+
+## How to update
+
+1. Find the most relevant section in `BOKITO_KNOWLEDGE.md`
+2. Add the new knowledge under that section (create a new section if none fits)
+3. Be concise and factual — write like internal product documentation
+4. Never duplicate existing entries; update them instead
+5. Always use present tense ("Users can...", "The system...")
+
+## File location
+
+`BOKITO_KNOWLEDGE.md` in the project root (`c:\Users\Test\Documents\Coding\Bokito-ai chat\BOKITO_KNOWLEDGE.md`)

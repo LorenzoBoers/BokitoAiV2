@@ -1,0 +1,12 @@
+---
+description: Forbid emojis in UI and agent-facing copy
+alwaysApply: true
+---
+
+# No Emojis Policy
+
+- Never use emoji characters in UI text, labels, tooltips, logs, prompts, docs, or generated copy.
+- Prefer icon components (e.g. Lucide) instead of emoji characters for visual cues.
+- Keep labels professional and plain text (for example `Active`, `Paused`, `Wake`, `Config`).
+- If existing code includes emojis, remove them during edits in touched files.
+

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bokito Chat — Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+    }
+    .demo-page {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 40px 24px; gap: 32px;
+    }
+    .demo-header { text-align: center; }
+    .demo-header h1 { font-size: 28px; font-weight: 700; color: #1A1A2E; margin-bottom: 8px; }
+    .demo-header p  { font-size: 15px; color: #6B7280; }
+    .embed-box {
+      background: white; border: 1px solid #E5E7EB; border-radius: 16px;
+      padding: 28px 32px; max-width: 560px; width: 100%;
+      box-shadow: 0 4px 16px rgba(0,0,0,.06);
+    }
+    .embed-box h2 { font-size: 14px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+    .embed-box pre {
+      background: #F8FAFC; border: 1px solid #E5E7EB; border-radius: 10px;
+      padding: 14px 16px; font-size: 12px; line-height: 1.6; color: #374151;
+      overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    .demo-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;
+      border-radius: 100px; padding: 6px 14px; font-size: 13px; font-weight: 500;
+    }
+    .demo-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #22C55E; flex-shrink: 0; }
+    a.demo-back { font-size: 13px; color: #6B7280; text-decoration: none; }
+    a.demo-back:hover { color: #0F7CF5; }
+  </style>
+</head>
+<body>
+  <div class="demo-page">
+    <div class="demo-header">
+      <h1>Bokito Chat</h1>
+      <p>Klik op de chat-knop rechtsonder om te beginnen</p>
+      <p style="font-size:13px;color:#64748B;max-width:520px;margin-top:10px">
+        Als de API alleen één <code>done</code>-event stuurt (geen <code>t</code>-chunks), vloeiend tonen:
+        standaard aan (woorden in stappen). Uitzetten: <code>?bk_sse_smooth=0</code> op deze URL.
+      </p>
+    </div>
+
+    <div class="embed-box">
+      <h2>Embed snippet</h2>
+      <pre id="embedSnippet"></pre>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:16px">
+      <span class="demo-badge" id="agentLabel">Verbinden...</span>
+      <a class="demo-back" href="index.html">← Terug naar tests</a>
+    </div>
+  </div>
+
+  <script>
+    // Config: read from URL querystring, fallback to defaults
+    const _q = new URLSearchParams(window.location.search);
+    const _slug    = _q.get('agent_slug')     || 'demo';
+    const _apiUrl  = _q.get('api_url')        || 'https://xrex-nmji-j9ur.f2.xano.io';
+    const _idToken = _q.get('identity_token') || null;
+    const _authToken = _q.get('auth_token') || null;
+    const _authCookieName = _q.get('auth_cookie_name') || null;
+    const _authMode = _q.get('auth_mode') || null;
+
+    document.getElementById('agentLabel').textContent = _slug;
+
+    const _scriptUrl = _q.get('script_url') || (_apiUrl + '/api:livechat/script/main');
+    document.getElementById('embedSnippet').textContent =
+      `<script\n  src="${_scriptUrl}"\n  data-agent-slug="${_slug}"\n  data-api-url="${_apiUrl}"${_authCookieName ? `\n  data-auth-cookie-name="${_authCookieName}"` : ''}${_authMode ? `\n  data-auth-mode="${_authMode}"` : ''}\n  defer\n><\/script>`;
+
+    // Pass config to the widget before loading the script
+    window.BokitoConfig = {
+      agentSlug: _slug,
+      apiUrl: _apiUrl,
+      identityToken: _idToken || undefined,
+      authToken: _authToken || undefined,
+      authCookieName: _authCookieName || undefined,
+      authMode: _authMode || undefined,
+    };
+  </script>
+
+  <!--
+    The widget is loaded as an external script — exactly as any website would embed it.
+    Locally:  served from ./bokito-chat.js
+    On Xano:  served via /api:livechat/script/main (which redirects to the hosted file)
+  -->
+  <script src="./bokito-chat.js" defer></script>
+</body>
+</html>

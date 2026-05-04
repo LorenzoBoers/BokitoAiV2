@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mailbox Segments Preview</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --line: #e4e8f1;
+        --text: #1b2436;
+        --muted: #69758d;
+        --blue: #4f6df5;
+        --red: #ef5a6f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        height: 100vh;
+        gap: 14px;
+        padding: 14px;
+      }
+      .left, .main {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      .left { padding: 14px; }
+      .main { overflow: hidden; display: flex; flex-direction: column; }
+      .brand { font-weight: 700; margin-bottom: 14px; }
+      .mailbox {
+        background: #eef2ff;
+        border: 1px solid #d9e1ff;
+        color: #3344b5;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .search {
+        width: 340px;
+        background: #f8f9fd;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 9px 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .content {
+        padding: 14px;
+        overflow: auto;
+      }
+      .segment {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin-bottom: 14px;
+        background: #fff;
+      }
+      .segment-h {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .title {
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .badge {
+        font-size: 12px;
+        border-radius: 999px;
+        padding: 4px 9px;
+        font-weight: 600;
+        color: #fff;
+      }
+      .b-red { background: var(--red); }
+      .b-blue { background: var(--blue); }
+      .row {
+        display: grid;
+        grid-template-columns: 180px 1fr 90px;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid #edf0f6;
+      }
+      .row:last-child { border-bottom: none; }
+      .from {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .subject {
+        font-size: 13px;
+      }
+      .meta {
+        font-size: 12px;
+        color: var(--muted);
+        text-align: right;
+      }
+      .label {
+        display: inline-block;
+        font-size: 11px;
+        border-radius: 999px;
+        padding: 2px 8px;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+      .l-red { background: #ffe4e8; color: #ba2e45; }
+      .l-blue { background: #e7ecff; color: #3344b5; }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="left">
+        <div class="brand">Bokito Team</div>
+        <div class="mailbox">Klantmailbox</div>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div style="font-weight:700;">Mailbox • Accountancy Agency</div>
+          <div class="search">Zoeken in gemarkeerde berichten...</div>
+        </div>
+        <section class="content">
+          <article class="segment">
+            <header class="segment-h">
+              <div class="title">Urgent - BTW/Belasting</div>
+              <span class="badge b-red">3 berichten</span>
+            </header>
+            <div class="row">
+              <div class="from">Van Dijk Holding</div>
+              <div class="subject">BTW-aangifte Q2 mist bijlage <span class="label l-red">BTW</span></div>
+              <div class="meta">09:14</div>
+            </div>
+            <div class="row">
+              <div class="from">MKB Consult</div>
+              <div class="subject">Aanmaning Belastingdienst ontvangen <span class="label l-red">Belasting</span></div>
+              <div class="meta">Gisteren</div>
+            </div>
+            <div class="row">
+              <div class="from">De Boer Administraties</div>
+              <div class="subject">Suppletie graag vandaag verwerken <span class="label l-red">Spoed</span></div>
+              <div class="meta">Gisteren</div>
+            </div>
+          </article>
+
+          <article class="segment">
+            <header class="segment-h">
+              <div class="title">Actie nodig - Jaarrekening</div>
+              <span class="badge b-blue">3 berichten</span>
+            </header>
+            <div class="row">
+              <div class="from">Veenstra BV</div>
+              <div class="subject">Concept jaarrekening 2025 ter review <span class="label l-blue">Jaarrekening</span></div>
+              <div class="meta">08:42</div>
+            </div>
+            <div class="row">
+              <div class="from">Smit & Partners</div>
+              <div class="subject">Toelichting posten ontbreekt nog <span class="label l-blue">Review</span></div>
+              <div class="meta">Ma</div>
+            </div>
+            <div class="row">
+              <div class="from">Nova Finance</div>
+              <div class="subject">Klant akkoord nodig op definitieve versie <span class="label l-blue">Klantactie</span></div>
+              <div class="meta">Ma</div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --color-bg: 15 19 31;
+    --color-bg-sidebar: 18 23 37;
+    --color-bg-surface: 23 29 46;
+    --color-bg-elevated: 30 37 58;
+    --color-bg-hover: 38 47 72;
+    --color-bg-input: 22 27 42;
+    --color-border: 52 64 96;
+    --color-border-light: 72 87 124;
+    --color-border-focus: 99 91 255;
+    --color-text-primary: 228 233 245;
+    --color-text-secondary: 173 184 211;
+    --color-text-muted: 131 145 179;
+    --color-text-heading: 255 255 255;
+    --color-accent: 99 91 255;
+    --color-accent-hover: 85 77 239;
+    --color-accent-dark: 71 66 208;
+    --color-status-success: 47 190 135;
+    --color-status-warning: 232 158 39;
+    --color-status-error: 226 88 92;
+    --color-status-info: 88 142 255;
+    --body-bg: #0f1320;
+    --body-glow-top: rgba(99, 91, 255, 0.08);
+    --body-glow-bottom: rgba(99, 91, 255, 0.02);
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --color-bg: 246 248 252;
+    --color-bg-sidebar: 242 245 251;
+    --color-bg-surface: 255 255 255;
+    --color-bg-elevated: 249 250 255;
+    --color-bg-hover: 239 243 252;
+    --color-bg-input: 255 255 255;
+    --color-border: 220 226 238;
+    --color-border-light: 201 210 227;
+    --color-border-focus: 99 91 255;
+    --color-text-primary: 30 41 64;
+    --color-text-secondary: 93 106 136;
+    --color-text-muted: 123 137 167;
+    --color-text-heading: 17 24 39;
+    --color-accent: 99 91 255;
+    --color-accent-hover: 85 77 239;
+    --color-accent-dark: 71 66 208;
+    --color-status-success: 22 163 113;
+    --color-status-warning: 217 119 6;
+    --color-status-error: 220 38 38;
+    --color-status-info: 37 99 235;
+    --body-bg: #f6f8fc;
+    --body-glow-top: rgba(99, 91, 255, 0.08);
+    --body-glow-bottom: rgba(99, 91, 255, 0.03);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse at 50% 0%, var(--body-glow-top) 0%, transparent 52%),
+      radial-gradient(ellipse at 50% 100%, var(--body-glow-bottom) 0%, transparent 45%),
+      var(--body-bg);
+    color: rgb(var(--color-text-primary));
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 160ms ease, color 160ms ease;
+    line-height: 1.4;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-border-light));
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-bg-surface border border-border/85 rounded-lg;
+  }
+
+  .panel-header {
+    @apply px-4 py-2.5 border-b border-border flex items-center justify-between;
+  }
+
+  .badge-accent {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold rounded-full bg-accent-muted text-accent;
+  }
+
+  .badge-status {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold rounded-full;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] text-text-secondary cursor-pointer transition-colors duration-100 bg-transparent;
+  }
+
+  .sidebar-item:hover {
+    @apply bg-bg-hover/60 text-text-primary;
+  }
+
+  .sidebar-item.active {
+    @apply bg-accent/10 text-accent;
+  }
+
+  .sidebar-item.active:hover {
+    @apply bg-accent/15 text-accent;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-text-secondary cursor-pointer transition-colors duration-100 bg-transparent;
+  }
+
+  .nav-item:hover {
+    @apply bg-bg-hover/60 text-text-primary;
+  }
+
+  .nav-item.active {
+    @apply bg-accent/10 text-accent;
+  }
+
+  .nav-item.active:hover {
+    @apply bg-accent/15 text-accent;
+  }
+
+  .stat-card {
+    @apply panel p-4 flex flex-col gap-1.5;
+  }
+
+  .section-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted px-3 py-1.5;
+  }
+}

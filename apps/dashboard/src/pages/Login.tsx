@@ -1,0 +1,146 @@
+import { useState, FormEvent } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+
+export default function Login() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      navigate('/', { replace: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Inloggen mislukt';
+      setError(
+        message.includes('Invalid') ||
+        message.includes('401') ||
+        message.includes('password') ||
+        message.toLowerCase().includes('valid integer')
+        ? 'E-mailadres of wachtwoord is onjuist.'
+        : message
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg px-4">
+      {/* Background glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
+      </div>
+
+      <div className="relative w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <img
+            src="/bokito-logo-in-circel.svg"
+            alt="Bokito.ai"
+            className="w-12 h-12 mb-3"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+          <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
+          <span className="text-sm text-text-secondary mt-1">Inloggen op je dashboard</span>
+        </div>
+
+        {/* Card */}
+        <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1.5">
+                E-mailadres
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
+                placeholder="jouw@email.nl"
+              />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1.5">
+                Wachtwoord
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="px-4 py-3 rounded-md bg-status-error/10 border border-status-error/30 text-status-error text-sm">
+                {error}
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Bezig met inloggen...
+                </>
+              ) : (
+                'Inloggen'
+              )}
+            </button>
+          </form>
+
+          {/* Forgot Password */}
+          <div className="mt-4 text-center">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-accent hover:text-accent-hover transition-colors"
+            >
+              Wachtwoord vergeten?
+            </Link>
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-text-muted mt-6">
+          © {new Date().getFullYear()} Bokito.ai · Alle rechten voorbehouden
+        </p>
+      </div>
+    </div>
+  );
+}
