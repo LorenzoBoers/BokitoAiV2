@@ -1,0 +1,7 @@
+{
+  "loadingMailboxes": "Loading mailboxes...",
+  "missingOrganisation": "Your account does not have an organization context yet. Ask an admin to link your user to an organization, or sign in again if you just accepted an invite.",
+  "noActiveMailboxTitle": "No active mailbox",
+  "noActiveMailboxDescription": "Connect a mailbox to view your inbox here. You can do this under Settings, in Email.",
+  "openEmailSettings": "Open Email settings"
+}

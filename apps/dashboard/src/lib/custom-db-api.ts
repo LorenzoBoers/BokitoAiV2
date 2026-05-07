@@ -1,11 +1,12 @@
-import { XANO_BASE_URL, TOKEN_KEY } from './xano';
+import { APP_API_BASE } from './api.config';
+import { requireAccessToken } from './xano';
 import type {
   CustomTable, CustomField, CustomRecord, CustomView,
   FieldType, FieldConfig, ViewType, ViewConfig, PaginatedResponse,
   ActivityLogEntry, RecordComment, BulkAction,
 } from '../types/custom-db';
 
-const API_BASE = `${XANO_BASE_URL}/api:vLUpKLJh`;
+const API_BASE = APP_API_BASE;
 
 /** After a 404 on standard-tables routes, skip further HTTP calls for this tab (StrictMode + navigation). Clear via sessionStorage.removeItem(...) to retry after backend deploy. */
 const STANDARD_TABLES_UNAVAILABLE_KEY = 'bokito_standard_tables_api_unavailable';
@@ -36,24 +37,21 @@ function isMissingStandardTablesRouteError(err: unknown): boolean {
   );
 }
 
-function getToken(): string {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) throw new Error('Not authenticated');
-  return token;
-}
-
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${getToken()}`,
-  };
+  const token = requireAccessToken();
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   const init: RequestInit = { method, headers };
 
   if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    init.body = JSON.stringify(body);
+    if (body instanceof FormData) {
+      init.body = body;
+    } else {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
   }
 
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const res = await fetch(`${API_BASE}${path}`, { ...init, credentials: 'include' });
   if (!res.ok) {
     // Handle rate limiting specifically
     if (res.status === 429) {

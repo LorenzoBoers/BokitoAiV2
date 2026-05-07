@@ -1,6 +1,7 @@
-import { XANO_BASE_URL } from './xano'
+import { APP_API_BASE } from './api.config'
+import { requireAccessToken } from './xano'
 
-const BACKLOG_API_BASE = `${XANO_BASE_URL}/api:K4L0GFXy`
+const BACKLOG_API_BASE = APP_API_BASE
 
 export type BacklogType = 'feature' | 'alteration' | 'bug'
 export type BacklogPriority = 'critical' | 'high' | 'medium' | 'low'
@@ -47,10 +48,11 @@ export interface BacklogConfig {
   updated_at: string
 }
 
-function buildHeaders(token: string): Record<string, string> {
+function buildHeaders(token?: string): Record<string, string> {
+  const resolvedToken = requireAccessToken(token)
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${resolvedToken}`,
   }
 }
 
@@ -63,7 +65,7 @@ async function readResponse<T>(res: Response): Promise<T> {
 }
 
 export async function listBacklogItems(
-  token: string,
+  token?: string,
   filters: Partial<{ status: string; type: string; priority: string; sprint: string }> = {},
 ): Promise<{ items: BacklogItem[] }> {
   const params = new URLSearchParams()
@@ -73,6 +75,7 @@ export async function listBacklogItems(
 
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/items?${params.toString()}`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
 
@@ -87,7 +90,7 @@ export async function listBacklogItems(
 }
 
 export async function createBacklogItem(
-  token: string,
+  token: string | undefined,
   body: {
     title: string
     description: string
@@ -99,22 +102,24 @@ export async function createBacklogItem(
 ): Promise<BacklogItem> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/items`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(body),
   })
   return readResponse<BacklogItem>(res)
 }
 
-export async function getBacklogItem(token: string, id: number): Promise<{ item: BacklogItem; comments: BacklogComment[] }> {
+export async function getBacklogItem(token: string | undefined, id: number): Promise<{ item: BacklogItem; comments: BacklogComment[] }> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   return readResponse<{ item: BacklogItem; comments: BacklogComment[] }>(res)
 }
 
 export async function updateBacklogItem(
-  token: string,
+  token: string | undefined,
   id: number,
   body: Partial<{
     title: string
@@ -135,72 +140,80 @@ export async function updateBacklogItem(
 ): Promise<BacklogItem> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(body),
   })
   return readResponse<BacklogItem>(res)
 }
 
-export async function deleteBacklogItem(token: string, id: number): Promise<{ ok: boolean; id: number }> {
+export async function deleteBacklogItem(token: string | undefined, id: number): Promise<{ ok: boolean; id: number }> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}`, {
     method: 'DELETE',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   return readResponse<{ ok: boolean; id: number }>(res)
 }
 
-export async function listBacklogComments(token: string, id: number): Promise<BacklogComment[]> {
+export async function listBacklogComments(token: string | undefined, id: number): Promise<BacklogComment[]> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}/comments`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   const payload = await readResponse<unknown>(res)
   return Array.isArray(payload) ? (payload as BacklogComment[]) : []
 }
 
-export async function addBacklogComment(token: string, id: number, body: string): Promise<BacklogComment> {
+export async function addBacklogComment(token: string | undefined, id: number, body: string): Promise<BacklogComment> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}/comments`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify({ body }),
   })
   return readResponse<BacklogComment>(res)
 }
 
-export async function retriageBacklogItem(token: string, id: number): Promise<unknown> {
+export async function retriageBacklogItem(token: string | undefined, id: number): Promise<unknown> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/triage/${id}`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   return readResponse<unknown>(res)
 }
 
 export async function reorderRoadmap(
-  token: string,
+  token: string | undefined,
   items: Array<{ id: number; queue_position?: number; sprint_label?: string; status?: BacklogStatus }>,
 ): Promise<{ ok: boolean }> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/roadmap/reorder`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify({ items }),
   })
   return readResponse<{ ok: boolean }>(res)
 }
 
-export async function getBacklogConfig(token: string): Promise<BacklogConfig> {
+export async function getBacklogConfig(token: string | undefined): Promise<BacklogConfig> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/config`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   return readResponse<BacklogConfig>(res)
 }
 
 export async function updateBacklogConfig(
-  token: string,
+  token: string | undefined,
   body: Partial<{ auto_triage: boolean; prd_context: string; default_model: string; sprint_labels: string[] }>,
 ): Promise<BacklogConfig> {
   const res = await fetch(`${BACKLOG_API_BASE}/backlog/config`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(body),
   })

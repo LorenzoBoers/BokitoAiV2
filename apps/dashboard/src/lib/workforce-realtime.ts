@@ -1,4 +1,5 @@
 import { XANO_BASE_URL } from './xano'
+import { API_GROUP_WORKFORCE } from './api.config'
 import type { WorkforceGraphEvent } from './workforce-api'
 
 type EventHandler = (event: WorkforceGraphEvent) => void
@@ -29,7 +30,7 @@ function realtimeDisabledByEnv(): boolean {
 function realtimeCanonical(): string {
   const canonical = import.meta.env.VITE_WORKFORCE_REALTIME_CANONICAL
   if (typeof canonical === 'string' && canonical.trim()) return canonical.trim()
-  throw new Error('Missing VITE_WORKFORCE_REALTIME_CANONICAL')
+  return API_GROUP_WORKFORCE
 }
 
 export class WorkforceRealtimeClient {

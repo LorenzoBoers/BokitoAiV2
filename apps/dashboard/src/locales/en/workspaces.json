@@ -1,0 +1,79 @@
+{
+  "loading": "Loading workspaces...",
+  "title": "Workspaces",
+  "description": "Manage your workspaces and choose where you want to continue.",
+  "nav": {
+    "title": "Workspace hub",
+    "workspaces": "Workspaces",
+    "billing": "Billing",
+    "account": "Account",
+    "support": "Support"
+  },
+  "cards": {
+    "workspace": {
+      "current": "Current",
+      "openCta": "Open workspace",
+      "defaultSlug": "workspace"
+    },
+    "create": {
+      "title": "Create workspace",
+      "description": "Start a new workspace for a new organization.",
+      "inputPlaceholder": "Workspace name",
+      "button": "Create workspace",
+      "creating": "Creating...",
+      "error": "Creating workspace failed",
+      "openDialogCta": "Set up workspace"
+    }
+  },
+  "empty": {
+    "title": "No workspaces yet",
+    "description": "Create your first workspace to get started."
+  },
+  "help": {
+    "title": "Help and resources",
+    "items": {
+      "docs": "Check our documentation",
+      "community": "Join our community",
+      "videos": "Watch product videos",
+      "support": "Contact support"
+    }
+  },
+  "createDialog": {
+    "title": "Create workspace",
+    "description": "Enter a name to create your workspace.",
+    "cancel": "Cancel"
+  },
+  "billing": {
+    "title": "Billing",
+    "placeholder": "Billing overview will be added here."
+  },
+  "account": {
+    "title": "Account",
+    "sidebar": {
+      "fallbackName": "Account",
+      "fallbackEmail": "No email available"
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Your account details for this portal.",
+      "nameLabel": "Name",
+      "emailLabel": "Email",
+      "manageLink": "Open full profile settings"
+    },
+    "preferences": {
+      "title": "Preferences",
+      "description": "Quick appearance preferences for this session.",
+      "switchLight": "Switch to light mode",
+      "switchDark": "Switch to dark mode"
+    },
+    "session": {
+      "title": "Session",
+      "description": "Sign out from the current account session.",
+      "signOut": "Sign out"
+    }
+  },
+  "support": {
+    "title": "Support",
+    "placeholder": "Support options and help links will be added here."
+  }
+}

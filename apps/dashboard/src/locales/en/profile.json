@@ -1,0 +1,59 @@
+{
+  "personalInformation": {
+    "title": "Personal information",
+    "description": "Manage your personal profile information.",
+    "profilePicture": "Profile picture",
+    "uploadPhoto": "Upload photo",
+    "removePhoto": "Remove",
+    "photoHint": "JPG, PNG or GIF, max 2 MB",
+    "email": "Email address",
+    "fullName": "Full name",
+    "jobTitle": "Job title",
+    "jobTitlePlaceholder": "e.g. Product Manager",
+    "descriptionLabel": "Bio",
+    "descriptionPlaceholder": "A short bio or role",
+    "saveChanges": "Save changes",
+    "saving": "Saving...",
+    "savedSuccess": "Profile saved"
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose the language for your interface.",
+    "dutch": "Dutch",
+    "english": "English"
+  },
+  "theme": {
+    "title": "Appearance",
+    "description": "Select a theme to personalize your dashboard's appearance.",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "security": {
+    "title": "Security",
+    "description": "Manage your password and two-factor authentication.",
+    "passwordTitle": "Password",
+    "passwordDescription": "Change your account password.",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordMismatch": "Passwords do not match",
+    "passwordSuccess": "Password changed",
+    "cancel": "Cancel",
+    "twoFactorTitle": "Two-factor authentication",
+    "twoFactorDescription": "Add an extra layer of security. Currently not available.",
+    "twoFactorComingSoon": "Coming soon"
+  },
+  "account": {
+    "title": "Account",
+    "description": "Sign out or permanently delete your account.",
+    "signOutTitle": "Sign out",
+    "signOutDescription": "Log out of your current session on this device.",
+    "deleteTitle": "Delete account",
+    "deleteDescription": "Permanently delete your account and all associated data. This action cannot be undone."
+  },
+  "links": {
+    "openInboxSettings": "Open inbox settings"
+  }
+}

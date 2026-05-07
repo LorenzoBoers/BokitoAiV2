@@ -1,7 +1,7 @@
-import { XANO_BASE_URL } from './xano'
+import { WORKFORCE_API_BASE } from './api.config'
+import { requireAccessToken } from './xano'
 
-const WORKFORCE_API_BASE = `${XANO_BASE_URL}/api:BWK_e0qC`
-const AGENT_RUNTIME_API_BASE = `${XANO_BASE_URL}/api:_NUMR_yJ`
+const AGENT_RUNTIME_API_BASE = WORKFORCE_API_BASE
 
 /** Xano Realtime nested channel prefix — must match workspace setting `workforce/*`. */
 export const WORKFORCE_REALTIME_CHANNEL_PREFIX = 'workforce'
@@ -125,10 +125,11 @@ export interface CompleteActivityPayload {
   correlation_id?: string
 }
 
-function buildHeaders(token: string): Record<string, string> {
+function buildHeaders(token?: string): Record<string, string> {
+  const resolvedToken = requireAccessToken(token)
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${resolvedToken}`,
   }
 }
 
@@ -140,16 +141,17 @@ async function readResponse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export async function getWorkforceConfig(token: string): Promise<WorkforceConfig> {
+export async function getWorkforceConfig(token?: string): Promise<WorkforceConfig> {
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/config`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   return readResponse<WorkforceConfig>(res)
 }
 
 export async function updateWorkforceConfig(
-  token: string,
+  token: string | undefined,
   body: Partial<
     Pick<
       WorkforceConfig,
@@ -159,6 +161,7 @@ export async function updateWorkforceConfig(
 ): Promise<WorkforceConfig> {
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/config`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(body),
   })
@@ -166,20 +169,21 @@ export async function updateWorkforceConfig(
 }
 
 export async function getWorkforceStatus(
-  token: string,
+  token?: string,
   pipelineId?: number,
 ): Promise<WorkforceStatusPayload> {
   const params = new URLSearchParams()
   if (pipelineId) params.set('pipeline_id', String(pipelineId))
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/status?${params.toString()}`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   return readResponse<WorkforceStatusPayload>(res)
 }
 
 export async function forceWakeWorkforce(
-  token: string,
+  token: string | undefined,
   pipelineId?: number,
   wakeMessage?: string,
   agentId?: string,
@@ -196,22 +200,24 @@ export async function forceWakeWorkforce(
   if (wakeMessage && wakeMessage.trim()) body.wake_message = wakeMessage.trim()
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/force-wake`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(body),
   })
   return readResponse<Record<string, unknown>>(res)
 }
 
-export async function forceRescanWorkforce(token: string, pipelineId?: number): Promise<{ ok: boolean; trigger_id: number }> {
+export async function forceRescanWorkforce(token: string | undefined, pipelineId?: number): Promise<{ ok: boolean; trigger_id: number }> {
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/force-rescan`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(pipelineId ? { pipeline_id: pipelineId } : {}),
   })
   return readResponse<{ ok: boolean; trigger_id: number }>(res)
 }
 
-export async function pauseWorkforce(token: string): Promise<{ ok: boolean }> {
+export async function pauseWorkforce(token?: string): Promise<{ ok: boolean }> {
   const agents = await getAgents(token).catch(() => [])
   const manager = agents.find((agent) => agent.role_slug === 'manager')
   if (manager) {
@@ -220,6 +226,7 @@ export async function pauseWorkforce(token: string): Promise<{ ok: boolean }> {
   }
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/pause`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify({}),
   })
@@ -227,11 +234,12 @@ export async function pauseWorkforce(token: string): Promise<{ ok: boolean }> {
 }
 
 export async function triggerAgent(
-  token: string,
+  token: string | undefined,
   payload: TriggerAgentPayload,
 ): Promise<Record<string, unknown>> {
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/trigger-agent`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(payload),
   })
@@ -239,11 +247,12 @@ export async function triggerAgent(
 }
 
 export async function completeActivity(
-  token: string,
+  token: string | undefined,
   payload: CompleteActivityPayload,
 ): Promise<Record<string, unknown>> {
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/complete-activity`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(payload),
   })
@@ -251,29 +260,32 @@ export async function completeActivity(
 }
 
 export async function runWorkforceMaintenance(
-  token: string,
+  token: string | undefined,
   maxStaleMinutes = 15,
 ): Promise<Record<string, unknown>> {
   const res = await fetch(`${WORKFORCE_API_BASE}/workforce/maintenance-run`, {
     method: 'POST',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify({ max_stale_minutes: maxStaleMinutes }),
   })
   return readResponse<Record<string, unknown>>(res)
 }
 
-export async function getAgents(token: string): Promise<RuntimeAgent[]> {
+export async function getAgents(token?: string): Promise<RuntimeAgent[]> {
   const res = await fetch(`${AGENT_RUNTIME_API_BASE}/agents`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   const data = await readResponse<{ items?: RuntimeAgent[] }>(res)
   return data.items ?? []
 }
 
-export async function getTimeline(token: string): Promise<RuntimeActivity[]> {
+export async function getTimeline(token?: string): Promise<RuntimeActivity[]> {
   const res = await fetch(`${AGENT_RUNTIME_API_BASE}/timeline`, {
     method: 'GET',
+    credentials: 'include',
     headers: buildHeaders(token),
   })
   const data = await readResponse<{ items?: RuntimeActivity[] }>(res)
@@ -281,12 +293,13 @@ export async function getTimeline(token: string): Promise<RuntimeActivity[]> {
 }
 
 export async function updateAgentStatus(
-  token: string,
+  token: string | undefined,
   agentId: string,
   status: RuntimeAgent['status'],
 ): Promise<{ ok: boolean; agent: RuntimeAgent }> {
   const res = await fetch(`${AGENT_RUNTIME_API_BASE}/agents/${encodeURIComponent(agentId)}/status`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify({ status }),
   })

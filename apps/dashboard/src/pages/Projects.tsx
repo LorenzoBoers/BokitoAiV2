@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BookOpen, FileText, Link2, Loader2, Plus, RefreshCw } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { type DocItem, type DocPageItem, type DocSectionItem } from '../data/projects-data'
-import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
@@ -203,7 +202,7 @@ export default function Projects() {
   }
 
   return (
-    <div className="h-full py-4 flex flex-col gap-3">
+    <div className="h-full py-4 flex flex-col gap-3 overflow-y-auto">
       <Card>
         <CardHeader>
           <div className="flex items-start gap-3 min-w-0 flex-1 pr-2">
@@ -283,50 +282,6 @@ export default function Projects() {
 
           {error && <p className="mt-2 text-xs text-text-muted">Kon docs niet verversen: {error}</p>}
           <p className="text-xs text-text-muted mt-2">URL ingest is nu UI-only. De scraper-flow volgt later.</p>
-        </CardContent>
-      </Card>
-
-      <Card className="flex-1 min-h-0 flex flex-col">
-        <CardHeader>
-          <div>
-            <CardTitle>Overige databronnen</CardTitle>
-            <p className="text-xs text-text-secondary mt-0.5">
-              Koppel externe bronnen om data automatisch te synchroniseren.
-            </p>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 min-h-0">
-          <div className="grid grid-cols-3 gap-3">
-            {/* Outlook */}
-            <div className="group relative rounded-lg border border-border/60 bg-surface-secondary/40 p-4 flex flex-col items-center gap-3 transition-colors hover:border-border hover:bg-surface-secondary/70">
-              <img src="/logo-outlook.png" alt="Outlook" className="h-10 w-10 object-contain" />
-              <div className="text-center">
-                <p className="text-xs font-medium text-text-heading">Outlook</p>
-                <p className="text-2xs text-text-muted mt-0.5">E-mail en agenda synchronisatie via Microsoft Outlook.</p>
-              </div>
-              <Badge variant="neutral" className="mt-auto">Binnenkort</Badge>
-            </div>
-
-            {/* King Software */}
-            <div className="group relative rounded-lg border border-border/60 bg-surface-secondary/40 p-4 flex flex-col items-center gap-3 transition-colors hover:border-border hover:bg-surface-secondary/70">
-              <img src="/logo-king.png" alt="King Software" className="h-10 w-10 object-contain" />
-              <div className="text-center">
-                <p className="text-xs font-medium text-text-heading">King Software</p>
-                <p className="text-2xs text-text-muted mt-0.5">Boekhouding, facturatie en bedrijfsadministratie.</p>
-              </div>
-              <Badge variant="neutral" className="mt-auto">Binnenkort</Badge>
-            </div>
-
-            {/* Excel */}
-            <div className="group relative rounded-lg border border-border/60 bg-surface-secondary/40 p-4 flex flex-col items-center gap-3 transition-colors hover:border-border hover:bg-surface-secondary/70">
-              <img src="/logo-excel.png" alt="Excel" className="h-10 w-10 object-contain" />
-              <div className="text-center">
-                <p className="text-xs font-medium text-text-heading">Excel</p>
-                <p className="text-2xs text-text-muted mt-0.5">Importeer en synchroniseer data uit Excel-bestanden.</p>
-              </div>
-              <Badge variant="neutral" className="mt-auto">Binnenkort</Badge>
-            </div>
-          </div>
         </CardContent>
       </Card>
 

@@ -67,8 +67,8 @@ Initialize-EnvFromDotEnv -DotEnvPath ".\.env"
 
 $metaApiKey   = Get-EnvValue -Name "XANO_METADATA_API_KEY"
 $metaBaseUrl  = (Get-EnvValue -Name "XANO_META_BASE_URL").TrimEnd("/")
-$workspaceId  = Get-EnvValue -Name "XANO_WEBSITEWORKSPACE_ID"
-$staticHost   = Get-EnvValue -Name "XANO_DASHBOARD_STATIC_HOST_NAME"
+$workspaceId  = Get-EnvValue -Name "XANO_WIDGET_WORKSPACE_ID"
+$staticHost   = Get-EnvValue -Name "XANO_WIDGET_STATIC_HOST_NAME"
 
 $dashboardDir = Join-Path $PSScriptRoot "apps\dashboard"
 $distDir      = Join-Path $dashboardDir "dist"
@@ -92,13 +92,21 @@ if (-not (Test-Path -LiteralPath $distDir)) {
 $chatWidgetDir = Join-Path $PSScriptRoot "apps\chat-widget"
 $chatWidgetDest = Join-Path $distDir "chat-widget"
 
+$widgetProductionItems = @("bokito-chat.js", "assets", "css", "fonts", "sounds")
+
 if (Test-Path -LiteralPath $chatWidgetDir) {
-  Write-Host "Copying chat-widget files into dist/chat-widget/..."
+  Write-Host "Copying chat-widget production files into dist/chat-widget/..."
   if (Test-Path -LiteralPath $chatWidgetDest) {
     Remove-Item -LiteralPath $chatWidgetDest -Recurse -Force
   }
-  Copy-Item -Path $chatWidgetDir -Destination $chatWidgetDest -Recurse
-  Write-Host "Chat-widget files merged."
+  New-Item -ItemType Directory -Path $chatWidgetDest | Out-Null
+  foreach ($item in $widgetProductionItems) {
+    $src = Join-Path $chatWidgetDir $item
+    if (Test-Path -LiteralPath $src) {
+      Copy-Item -Path $src -Destination $chatWidgetDest -Recurse -Force
+    }
+  }
+  Write-Host "Chat-widget production files merged."
 } else {
   Write-Host "Warning: chat-widget directory not found at $chatWidgetDir — skipping merge."
 }
@@ -138,25 +146,31 @@ try {
   $buildId = ($body | ConvertFrom-Json).id
   Write-Host "Build uploaded successfully: $BuildName (ID: $buildId)"
 
-  $env = if ($Prod) { "prod" } else { "dev" }
-  Write-Host "Activating build on $env environment..."
-  $activateUri = "$metaBaseUrl/workspace/$workspaceId/static_host/$staticHost/env/$env"
-  $activateResponse = & curl.exe -s -w "`n%{http_code}" `
-    -X PUT $activateUri `
-    -H "Authorization: Bearer $metaApiKey" `
-    -H "Content-Type: application/json" `
-    --data "{`"build_id`":$buildId}"
+  $envName = if ($Prod) { "prod" } else { "dev" }
+  Write-Host "Activating build on $envName environment..."
+  $activateUri = "$metaBaseUrl/workspace/$workspaceId/static_host/$staticHost/env/$envName"
+  $tmpActivate = [System.IO.Path]::GetTempFileName()
+  try {
+    Set-Content -Path $tmpActivate -Value "{`"build_id`":$buildId}" -NoNewline
+    $activateResponse = & curl.exe -s -w "`n%{http_code}" `
+      -X PUT $activateUri `
+      -H "Authorization: Bearer $metaApiKey" `
+      -H "Content-Type: application/json" `
+      --data "@$tmpActivate"
+  } finally {
+    Remove-Item -LiteralPath $tmpActivate -Force -ErrorAction SilentlyContinue
+  }
 
   $activateLines = $activateResponse -split "`n"
   $activateStatus = $activateLines[-1].Trim()
   $activateBody = ($activateLines[0..($activateLines.Length - 2)] -join "`n").Trim()
 
   if ($activateStatus -ne "200") {
-    Write-Warning "$env activation returned HTTP $activateStatus : $activateBody"
+    Write-Warning "$envName activation returned HTTP $activateStatus : $activateBody"
   }
   else {
     $url = ($activateBody | ConvertFrom-Json).default_url
-    Write-Host "Build is now live on $env : $url"
+    Write-Host "Build is now live on $envName : $url"
   }
 }
 finally {

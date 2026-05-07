@@ -1,0 +1,14 @@
+{
+  "account": "Account",
+  "search": {
+    "placeholder": "Zoeken..."
+  },
+  "actions": {
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "delete": "Verwijderen",
+    "enable": "Inschakelen",
+    "disable": "Uitschakelen",
+    "signOut": "Uitloggen"
+  }
+}

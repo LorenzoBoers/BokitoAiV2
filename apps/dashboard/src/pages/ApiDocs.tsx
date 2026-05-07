@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
+import { PUBLIC_API_URL } from '../lib/api.config';
 
 interface TryItDialogProps {
   endpoint: {
@@ -28,7 +29,7 @@ function TryItDialog({ endpoint, apiKey }: TryItDialogProps) {
   const [loading, setLoading] = useState(false);
 
   const workspaceId = 'your-workspace-id';
-  const fullUrl = `https://api.bokito.nl/v1/${workspaceId}${endpoint.path}`;
+  const fullUrl = `${PUBLIC_API_URL}/${workspaceId}${endpoint.path}`;
 
   const getDefaultRequestBody = () => {
     if (endpoint.method === 'POST' && endpoint.path.includes('/records/')) {
@@ -294,7 +295,7 @@ export default function ApiDocs() {
     },
     servers: [
       {
-        url: 'https://api.bokito.nl/v1/{workspace}',
+        url: `${PUBLIC_API_URL}/{workspace}`,
         description: 'Production server',
         variables: {
           workspace: {

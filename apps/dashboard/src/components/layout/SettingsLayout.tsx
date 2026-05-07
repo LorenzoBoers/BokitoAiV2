@@ -28,7 +28,7 @@ export default function SettingsLayout() {
       <aside className="w-[212px] flex-shrink-0 border-r border-border/50 pr-3 pt-4">
         <h1 className="px-2.5 mb-4 text-[14px] font-semibold text-text-heading">Instellingen</h1>
         <SettingsSection title="Communicatie">
-          <NavLink to="/settings/email" className={settingsLinkClass}>
+          <NavLink to="/support/settings/general" className={settingsLinkClass}>
             Email
           </NavLink>
           <NavLink to="/settings/inbox" className={settingsLinkClass}>

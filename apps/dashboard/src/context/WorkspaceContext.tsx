@@ -3,6 +3,8 @@ import { useAuth } from './AuthContext';
 import type { Workspace, WorkspaceInvite } from '../types/custom-db';
 import { xanoGet, xanoPost } from '../lib/xano';
 
+const LAST_WORKSPACE_STORAGE_KEY = 'bokito_current_workspace';
+
 interface WorkspaceContextValue {
   currentWorkspace: Workspace | null;
   workspaces: Workspace[];
@@ -10,8 +12,8 @@ interface WorkspaceContextValue {
   invites: WorkspaceInvite[];
   
   createWorkspace: (data: { name: string; timezone: string; logo?: string }) => Promise<Workspace>;
-  updateWorkspace: (id: number, data: Partial<Workspace>) => Promise<void>;
-  switchWorkspace: (workspaceId: number) => Promise<void>;
+  updateWorkspace: (id: number | string, data: Partial<Workspace>) => Promise<void>;
+  switchWorkspace: (workspaceId: number | string) => Promise<void>;
   
   inviteUser: (email: string, role: 'admin' | 'member' | 'viewer') => Promise<void>;
   loadInvites: () => Promise<void>;
@@ -27,33 +29,127 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [invites, setInvites] = useState<WorkspaceInvite[]>([]);
+  const workspaceIdKey = useCallback((id: number | string | null | undefined) => String(id ?? ''), []);
+
+  const normalizeWorkspaceList = useCallback((raw: unknown): Workspace[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item) => {
+        const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : null;
+        if (!row) return null;
+        const rawId =
+          row.id ??
+          row.workspace_id ??
+          row.workspaceId ??
+          row.organisation_id ??
+          row.organization_id ??
+          row.account_id;
+        const parsedId =
+          typeof rawId === 'number'
+            ? rawId
+            : typeof rawId === 'string' && rawId.trim()
+              ? rawId.trim()
+              : null;
+        if (parsedId == null) return null;
+        const name =
+          typeof row.name === 'string' && row.name.trim()
+            ? row.name.trim()
+            : typeof row.workspace_name === 'string' && row.workspace_name.trim()
+              ? row.workspace_name.trim()
+              : null;
+        if (!name) return null;
+        return {
+          id: parsedId,
+          name,
+          slug: typeof row.slug === 'string' && row.slug.trim() ? row.slug.trim() : undefined,
+          timezone: typeof row.timezone === 'string' && row.timezone.trim() ? row.timezone.trim() : undefined,
+        } satisfies Workspace;
+      })
+      .filter((workspace): workspace is Workspace => workspace !== null);
+  }, []);
+
+  const getTenantFallbackWorkspaceList = useCallback((): Workspace[] => {
+    // user.organisationId is the UUID string from /auth/me's organisation_id field.
+    // user.tenant.id is always null for UUID-based orgs because toNumber() on a UUID returns null.
+    // So we use organisationId as the authoritative source.
+    const orgId: string | number | null = user?.organisationId ?? null;
+    if (!orgId) return [];
+    const tenantName = user?.tenant?.name?.trim();
+    if (!tenantName || tenantName.toLowerCase() === 'onbekend') return [];
+    return [
+      {
+        id: orgId,
+        name: tenantName,
+        slug: user?.tenant?.slug || undefined,
+      },
+    ];
+  }, [user?.organisationId, user?.tenant?.name, user?.tenant?.slug]);
+
+  const resolvePreferredWorkspace = useCallback(
+    (workspaceList: Workspace[]): Workspace | null => {
+      if (workspaceList.length === 0) return null;
+
+      const fromUser = (() => {
+        // Use organisationId (UUID string) as the primary identifier.
+        // user.tenant.id is null for UUID-based orgs because it failed number coercion in AuthContext.
+        const preferredId = user?.organisationId ?? null;
+        if (preferredId != null) {
+          return workspaceList.find((workspace) => workspaceIdKey(workspace.id) === workspaceIdKey(preferredId)) ?? null;
+        }
+        return null;
+      })();
+
+      const fromStorage = (() => {
+        try {
+          const raw = localStorage.getItem(LAST_WORKSPACE_STORAGE_KEY);
+          if (!raw) return null;
+          return workspaceList.find((workspace) => workspaceIdKey(workspace.id) === raw) ?? null;
+        } catch {
+          return null;
+        }
+      })();
+
+      return fromUser ?? fromStorage ?? workspaceList[0] ?? null;
+    },
+    [user?.organisationId, workspaceIdKey],
+  );
 
   const refreshWorkspaces = useCallback(async () => {
     if (!token) {
       setWorkspaceLoading(false);
+      setWorkspaces([]);
+      setCurrentWorkspace(null);
       return;
     }
 
     setWorkspaceLoading(true);
     try {
-      const workspaceList = await xanoGet<Workspace[]>('/workspaces', token);
-      setWorkspaces(Array.isArray(workspaceList) ? workspaceList : []);
-      
-      // Set current workspace from user workspace info or first workspace
-      if (workspaceList.length > 0) {
-        const current = user?.workspace.id 
-          ? workspaceList.find(w => w.id === user.workspace.id) || workspaceList[0]
-          : workspaceList[0];
-        setCurrentWorkspace(current);
+      const workspaceList = await xanoGet<unknown>('/workspaces', token);
+      const safeWorkspaceList = normalizeWorkspaceList(workspaceList);
+      const resolvedWorkspaceList = safeWorkspaceList.length > 0 ? safeWorkspaceList : getTenantFallbackWorkspaceList();
+      if (safeWorkspaceList.length === 0 && resolvedWorkspaceList.length > 0) {
+        console.info('WorkspaceContext: using tenant fallback workspace from auth context');
+      }
+      setWorkspaces(resolvedWorkspaceList);
+
+      const preferredWorkspace = resolvePreferredWorkspace(resolvedWorkspaceList);
+      setCurrentWorkspace(preferredWorkspace);
+      if (preferredWorkspace) {
+        try {
+          localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(preferredWorkspace.id));
+        } catch {
+          // Ignore storage failures.
+        }
       }
     } catch (error) {
       console.error('Failed to load workspaces:', error);
-      setWorkspaces([]);
-      setCurrentWorkspace(null);
+      const fallbackWorkspaceList = getTenantFallbackWorkspaceList();
+      setWorkspaces(fallbackWorkspaceList);
+      setCurrentWorkspace(resolvePreferredWorkspace(fallbackWorkspaceList));
     } finally {
       setWorkspaceLoading(false);
     }
-  }, [token, user?.workspace.id]);
+  }, [getTenantFallbackWorkspaceList, normalizeWorkspaceList, resolvePreferredWorkspace, token]);
 
   useEffect(() => {
     void refreshWorkspaces();
@@ -65,27 +161,32 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const workspace = await xanoPost<Workspace>('/workspaces', data, token);
     setWorkspaces(prev => [...prev, workspace]);
     setCurrentWorkspace(workspace);
+    try {
+      localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, String(workspace.id));
+    } catch {
+      // Ignore storage failures.
+    }
     return workspace;
   }, [token]);
 
-  const updateWorkspace = useCallback(async (id: number, data: Partial<Workspace>) => {
+  const updateWorkspace = useCallback(async (id: number | string, data: Partial<Workspace>) => {
     if (!token) throw new Error('Not authenticated');
     
     const updated = await xanoPost<Workspace>(`/workspaces/${id}`, data, token);
-    setWorkspaces(prev => prev.map(w => w.id === id ? { ...w, ...updated } : w));
-    if (currentWorkspace?.id === id) {
+    setWorkspaces(prev => prev.map(w => (workspaceIdKey(w.id) === workspaceIdKey(id) ? { ...w, ...updated } : w)));
+    if (workspaceIdKey(currentWorkspace?.id) === workspaceIdKey(id)) {
       setCurrentWorkspace(prev => prev ? { ...prev, ...updated } : null);
     }
-  }, [token, currentWorkspace?.id]);
+  }, [token, currentWorkspace?.id, workspaceIdKey]);
 
-  const switchWorkspace = useCallback(async (workspaceId: number) => {
-    const workspace = workspaces.find(w => w.id === workspaceId);
+  const switchWorkspace = useCallback(async (workspaceId: number | string) => {
+    const workspace = workspaces.find(w => workspaceIdKey(w.id) === workspaceIdKey(workspaceId));
     if (workspace) {
       setCurrentWorkspace(workspace);
       // Store preference in localStorage
-      localStorage.setItem('bokito_current_workspace', workspaceId.toString());
+      localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(workspaceId));
     }
-  }, [workspaces]);
+  }, [workspaces, workspaceIdKey]);
 
   const inviteUser = useCallback(async (email: string, role: 'admin' | 'member' | 'viewer') => {
     if (!token || !currentWorkspace) throw new Error('Not authenticated or no workspace');

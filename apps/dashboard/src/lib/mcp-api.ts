@@ -1,12 +1,10 @@
-import { XANO_BASE_URL, TOKEN_KEY } from './xano';
+import { XANO_BASE_URL, requireAccessToken } from './xano';
 import type { MCPServer, MCPTestResult, MCPConnectionConfig } from '../types/mcp';
 
-// const API_BASE = `${XANO_BASE_URL}/api:vLUpKLJh`; // Reserved for future API calls
+// const API_BASE = `${XANO_BASE_URL}/api:${import.meta.env.VITE_API_GROUP_APP || 'app'}`; // Reserved for future API calls
 
 function getToken(): string {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) throw new Error('Not authenticated');
-  return token;
+  return requireAccessToken();
 }
 
 // Note: request function reserved for future API calls

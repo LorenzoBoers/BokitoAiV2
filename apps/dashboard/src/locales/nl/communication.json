@@ -1,0 +1,7 @@
+{
+  "loadingMailboxes": "Mailboxen laden...",
+  "missingOrganisation": "Je account heeft nog geen organisatiecontext. Vraag een beheerder om je gebruiker aan een organisatie te koppelen, of log opnieuw in als je net een uitnodiging hebt geaccepteerd.",
+  "noActiveMailboxTitle": "Geen actieve mailbox",
+  "noActiveMailboxDescription": "Koppel een mailbox om je inbox hier te bekijken. Dat doe je onder Instellingen, bij E-mail.",
+  "openEmailSettings": "Open E-mail-instellingen"
+}

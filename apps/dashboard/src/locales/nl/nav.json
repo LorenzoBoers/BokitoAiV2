@@ -1,0 +1,144 @@
+{
+  "rail": {
+    "support": "Inbox",
+    "help": "Help",
+    "updates": "AI",
+    "data": "Data",
+    "workforce": "Workforce",
+    "users": "Gebruikers",
+    "settings": "Instellingen"
+  },
+  "sectionTitle": {
+    "users": "Gebruikers",
+    "settings": "Instellingen",
+    "inbox": "Inbox",
+    "ai": "AI",
+    "workforce": "Workforce",
+    "data": "Data"
+  },
+  "userMenu": {
+    "openAria": "Open gebruikersmenu",
+    "profile": "Mijn profiel",
+    "notificationPreferences": "Notificatievoorkeuren",
+    "lightMode": "Lichte modus",
+    "darkMode": "Donkere modus",
+    "organizations": "Mijn organisaties",
+    "workspaces": "Workspaces"
+  },
+  "workspace": {
+    "switch": "Workspace wisselen",
+    "current": "Huidig",
+    "none": "Geen workspaces beschikbaar",
+    "currentWorkspace": "Huidige workspace",
+    "switchTo": "Wissel naar",
+    "createFirst": "Maak je eerste workspace"
+  },
+  "support": {
+    "group": {
+      "inbox": "Inbox"
+    },
+    "links": {
+      "myInbox": "Mijn inbox",
+      "allMessages": "Alle berichten",
+      "createdByMe": "Door mij gemaakt",
+      "unassigned": "Niet toegewezen"
+    }
+  },
+  "users": {
+    "group": {
+      "customerData": "Klantdata",
+      "integrations": "Integraties"
+    },
+    "links": {
+      "attributes": "Attributen",
+      "tags": "Tags",
+      "segments": "Segmenten",
+      "leadQualification": "Leadkwalificatie",
+      "blocked": "Geblokkeerd",
+      "datasources": "Databronnen"
+    }
+  },
+  "ai": {
+    "group": {
+      "ai": "AI"
+    },
+    "links": {
+      "assistent": "Assistent",
+      "kennis": "Kennis",
+      "handelingen": "AI Tools"
+    }
+  },
+  "workforce": {
+    "group": {
+      "workforce": "Workforce"
+    },
+    "links": {
+      "overview": "Overzicht",
+      "agents": "AI Agenten",
+      "tasks": "Taken"
+    }
+  },
+  "settings": {
+    "groups": {
+      "personal": "Persoonlijk",
+      "products": "Producten",
+      "workspace": "Organisatie",
+      "data": "Data"
+    },
+    "links": {
+      "profile": "Profiel",
+      "notifications": "Notificaties",
+      "inbox": "Inbox",
+      "emailSettings": "E-mailinstellingen",
+      "messenger": "Assistent",
+      "helpCenters": "Helpcentra",
+      "general": "Algemeen",
+      "branding": "Branding",
+      "membersTeams": "Leden en teams",
+      "billing": "Facturatie",
+      "accessSecurity": "Toegang en beveiliging",
+      "users": "Gebruikers",
+      "companies": "Bedrijven",
+      "conversations": "Gesprekken",
+      "importsExports": "Importeren en exporteren"
+    }
+  },
+  "settingsPageMeta": {
+    "profile": { "title": "Profiel", "description": "Beheer je persoonlijke profielinformatie en accountvoorkeuren." },
+    "notifications": { "title": "Notificaties", "description": "Configureer persoonlijke en teamnotificaties." },
+    "support": { "title": "Inbox", "description": "Configureer inbox-gedrag en kanalen." },
+    "messenger": { "title": "Assistent", "description": "Configureer assistent-gedrag en voorbeeldinstellingen." },
+    "helpCenters": { "title": "Helpcentra", "description": "Beheer helpcentrumcontent en zichtbaarheid voor klanten." },
+    "general": { "title": "Algemeen", "description": "Stel workspace-brede standaardinstellingen en productgedrag in." },
+    "branding": { "title": "Branding", "description": "Lijn de portalervaring uit met je organisatiebranding." },
+    "members": { "title": "Leden en teams", "description": "Nodig medewerkers uit en beheer samenwerking." },
+    "teams": { "title": "Leden en teams", "description": "Nodig medewerkers uit en beheer samenwerking." },
+    "billing": { "title": "Facturatie", "description": "Bekijk gebruik en werk facturatie-instellingen bij." },
+    "accessSecurity": { "title": "Toegang en beveiliging", "description": "Versterk accountbeveiliging en standaardrechten." },
+    "company": { "title": "Bedrijf", "description": "Beheer branding en organisatiebrede configuratie." },
+    "inbox": { "title": "Inbox", "description": "Configureer mailbox-routing, handtekeningen en AI inbox-gedrag." },
+    "attributes": { "title": "Attributen", "description": "Beheer gebruikersgegevens en custom velden." },
+    "users": { "title": "Gebruikers", "description": "Beheer gebruikersdata-entiteiten voor supportworkflows." },
+    "companies": { "title": "Bedrijven", "description": "Beheer bedrijfsrecords en accountmetadata." },
+    "conversations": { "title": "Gesprekken", "description": "Bekijk en structureer gespreksdata." },
+    "importsExports": { "title": "Importeren en exporteren", "description": "Verplaats data veilig in en uit je workspace." }
+  },
+  "supportPageMeta": {
+    "my": { "title": "Mijn inbox", "description": "Toegewezen gesprekken en verzoeken." },
+    "all": { "title": "Alle berichten", "description": "Alle inkomende supportberichten." },
+    "created": { "title": "Door mij gemaakt", "description": "Tickets en threads die jij hebt gestart." },
+    "unassigned": { "title": "Niet toegewezen", "description": "Berichten die nog een eigenaar nodig hebben." }
+  },
+  "fallbackTitles": {
+    "supportInbox": "Support inbox",
+    "supportInboxSetup": "Support inbox configuratie",
+    "emailConnections": "E-mailverbindingen",
+    "users": "Gebruikers",
+    "database": "Database",
+    "workspaces": "Workspaces",
+    "documents": "Documenten",
+    "workforce": "Workforce",
+    "settings": "Instellingen",
+    "portal": "Portaal"
+  }
+}

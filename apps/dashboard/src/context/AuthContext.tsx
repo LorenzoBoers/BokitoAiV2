@@ -1,13 +1,24 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { TOKEN_KEY, xanoGet, xanoPost } from '../lib/xano';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import {
+  ACCESS_TOKEN_TTL_S,
+  authLogin,
+  authLogout,
+  authMe,
+  authRefresh,
+  requestPasswordReset,
+  resetPassword as resetPasswordRequest,
+  setAccessTokenProvider,
+  type AuthSessionResponse,
+} from '../lib/xano';
 import { UserRole, PermissionAction } from '../types/custom-db';
 
-const REFRESH_TOKEN_KEY = 'bokito_refresh_token';
+const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
 
 interface AuthTokens {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
   authToken?: string;
+  expires_in?: number;
   user_id?: number | string;
   id?: number | string;
   name?: string;
@@ -29,6 +40,8 @@ interface User {
   id: number;
   name: string;
   email: string;
+  jobTitle: string | null;
+  avatarUrl: string | null;
   accountId: number | null;
   /** Xano `user.organisation_id` (UUID); required for tenant-scoped APIs such as email. */
   organisationId: string | null;
@@ -41,9 +54,13 @@ interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
   hasPermission: (action: PermissionAction) => boolean;
-  setUserRole: (role: UserRole) => void; // Dev tool for testing
+  setUserRole: (role: UserRole) => void;
+  refreshUser: () => Promise<void>;
+  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl'>>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -109,10 +126,19 @@ function normalizeAuthUser(raw: unknown): User {
       ? (payload.tenant as Record<string, unknown>)
       : {};
 
+  const avatarRaw = payload.avatar && typeof payload.avatar === 'object'
+    ? (payload.avatar as Record<string, unknown>)
+    : null;
+  const avatarUrl = avatarRaw
+    ? toString(avatarRaw.url ?? avatarRaw.path ?? avatarRaw.src ?? '')
+    : typeof payload.avatar === 'string' ? toString(payload.avatar) : null;
+
   return {
     id: toNumber(payload.id) ?? 0,
     name: toString(payload.name, 'Onbekende gebruiker'),
     email: toString(payload.email),
+    jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,
+    avatarUrl: avatarUrl || null,
     accountId: toNumber(payload.account_id),
     organisationId: normalizeOrganisationId(payload),
     role: (toString(payload.role) as UserRole) || 'viewer',
@@ -158,98 +184,211 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshTimeoutRef = useRef<number | null>(null);
+  const refreshHandlerRef = useRef<() => Promise<void>>(async () => {});
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    setToken(null);
-    setUser(null);
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      window.clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
   }, []);
 
-  const refreshToken = useCallback(async () => {
-    const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refresh) {
-      logout();
-      return;
-    }
-
+  const clearSession = useCallback(() => {
+    clearRefreshTimer();
     try {
-      const data = await xanoPost<AuthTokens>('/auth/refresh', { refresh_token: refresh });
-      const nextToken = data.authToken ?? data.access_token;
-      if (!nextToken) throw new Error('Geen access token ontvangen');
-      localStorage.setItem(TOKEN_KEY, nextToken);
-      localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
-      setToken(nextToken);
+      sessionStorage.removeItem(ACCESS_TOKEN_FALLBACK_KEY);
     } catch {
-      logout();
+      // Ignore storage failures in private mode.
     }
-  }, [logout]);
+    setToken(null);
+    setUser(null);
+  }, [clearRefreshTimer]);
+
+  const scheduleRefresh = useCallback((expiresInSeconds?: number) => {
+    clearRefreshTimer();
+    const ttl = Number.isFinite(expiresInSeconds) && (expiresInSeconds as number) > 0
+      ? (expiresInSeconds as number)
+      : ACCESS_TOKEN_TTL_S;
+    const refreshInMs = Math.max((ttl - 300) * 1000, 30_000);
+    refreshTimeoutRef.current = window.setTimeout(() => {
+      void refreshHandlerRef.current();
+    }, refreshInMs);
+  }, [clearRefreshTimer]);
+
+  const applySession = useCallback((session: AuthSessionResponse) => {
+    const nextToken = session.authToken ?? session.access_token;
+    if (!nextToken) throw new Error('Geen access token ontvangen');
+    try {
+      sessionStorage.setItem(ACCESS_TOKEN_FALLBACK_KEY, nextToken);
+    } catch {
+      // Ignore storage failures in private mode.
+    }
+    setToken(nextToken);
+    scheduleRefresh(session.expires_in);
+    return nextToken;
+  }, [scheduleRefresh]);
+
+  const logout = useCallback(async () => {
+    try {
+      await authLogout(token ?? undefined);
+    } catch {
+      // Server-side logout is best effort; we still clear local auth state.
+    } finally {
+      clearSession();
+    }
+  }, [clearSession, token]);
+
+  const refreshToken = useCallback(async () => {
+    try {
+      const data = await authRefresh();
+      const nextToken = applySession(data);
+      const me = await authMe(nextToken);
+      setUser(normalizeAuthUser(me));
+    } catch (err) {
+      const message = err instanceof Error ? err.message.toLowerCase() : '';
+      const isMissingRefreshEndpoint = message.includes('http 404') || message.includes('unable to locate request');
+      if (isMissingRefreshEndpoint) {
+        // Keep active access token session when backend refresh endpoint is not available.
+        return;
+      }
+      clearSession();
+    }
+  }, [applySession, clearSession]);
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
+    refreshHandlerRef.current = refreshToken;
+  }, [refreshToken]);
 
-    xanoGet<unknown>('/auth/me', token)
-      .then((me) => setUser(normalizeAuthUser(me)))
-      .catch(async () => {
-        // Try to refresh token before logging out
-        try {
-          await refreshToken();
-        } catch {
-          logout();
+  useEffect(() => {
+    let cancelled = false;
+    async function hydrateSession() {
+      setIsLoading(true);
+      try {
+        const storedToken = (() => {
+          try {
+            return sessionStorage.getItem(ACCESS_TOKEN_FALLBACK_KEY);
+          } catch {
+            return null;
+          }
+        })();
+
+        if (storedToken) {
+          try {
+            const meWithStoredToken = await authMe(storedToken);
+            if (!cancelled) {
+              setToken(storedToken);
+              setUser(normalizeAuthUser(meWithStoredToken));
+            }
+            return;
+          } catch {
+            try {
+              sessionStorage.removeItem(ACCESS_TOKEN_FALLBACK_KEY);
+            } catch {
+              // Ignore storage failures in private mode.
+            }
+          }
         }
-      })
-      .finally(() => setIsLoading(false));
-  }, [token, logout, refreshToken]);
 
-  // Auto-refresh token every 14 minutes (access token expires in 15 minutes)
+        const me = await authMe();
+        if (!cancelled) {
+          setUser(normalizeAuthUser(me));
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message.toLowerCase() : '';
+        const isUnauthorized = message.includes('401') || message.includes('403') || message.includes('niet geauthenticeerd');
+        if (isUnauthorized) {
+          if (!cancelled) clearSession();
+        } else {
+          try {
+            const session = await authRefresh();
+            const nextToken = applySession(session);
+            const me = await authMe(nextToken);
+            if (!cancelled) setUser(normalizeAuthUser(me));
+          } catch {
+            if (!cancelled) clearSession();
+          }
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    void hydrateSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [applySession, clearSession]);
+
   useEffect(() => {
-    if (!token) return;
+    setAccessTokenProvider(() => token);
+    return () => setAccessTokenProvider(null);
+  }, [token]);
 
-    const interval = setInterval(() => {
-      refreshToken();
-    }, 14 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [token, refreshToken]);
+  useEffect(() => () => clearRefreshTimer(), [clearRefreshTimer]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const data = await xanoPost<AuthTokens>('/auth/login', { email, password });
-    // Xano standard auth returns `authToken`; OAuth-style returns `access_token`
-    const token = data.authToken ?? data.access_token;
-    if (!token) throw new Error('Geen token ontvangen van de server');
-    localStorage.setItem(TOKEN_KEY, token);
-    if (data.refresh_token) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
-    }
-    setToken(token);
+    const data = await authLogin(email, password) as AuthTokens;
+    const nextToken = applySession(data);
     try {
-      const me = await xanoGet<unknown>('/auth/me', token);
+      const me = await authMe(nextToken);
       setUser(normalizeAuthUser(me));
     } catch {
       // Fallback: keep users signed in when /auth/me is temporarily misconfigured.
       setUser(buildFallbackUserFromLogin(data, email));
     }
-  }, []);
+  }, [applySession]);
 
   const hasPermission = useCallback((action: PermissionAction): boolean => {
     if (!user) return false;
     return ROLE_PERMISSIONS[user.role]?.includes(action) ?? false;
   }, [user]);
 
-  // Dev tool for testing role changes
+  const sendPasswordReset = useCallback(async (email: string) => {
+    await requestPasswordReset(email);
+  }, []);
+
+  const resetPassword = useCallback(async (resetToken: string, password: string) => {
+    await resetPasswordRequest(resetToken, password, password);
+  }, []);
+
   const setUserRole = useCallback((role: UserRole) => {
-    if (user) {
-      setUser({ ...user, role });
-    }
+    if (user) setUser({ ...user, role });
   }, [user]);
 
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    try {
+      const me = await authMe(token);
+      setUser(normalizeAuthUser(me));
+    } catch {
+      // Silently ignore; stale user data is better than a broken session.
+    }
+  }, [token]);
+
+  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl'>>) => {
+    setUser((prev) => prev ? { ...prev, ...patch } : prev);
+  }, []);
+
+  // Re-check /me when token changes unexpectedly and user is empty.
+  useEffect(() => {
+    if (!token || user) return;
+    authMe(token)
+      .then((me) => setUser(normalizeAuthUser(me)))
+      .catch(async () => {
+        try {
+          await refreshToken();
+        } catch {
+          clearSession();
+        }
+      });
+  }, [clearSession, refreshToken, token, user]);
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, hasPermission, setUserRole }}>
+    <AuthContext.Provider
+      value={{ user, token, isLoading, login, logout, sendPasswordReset, resetPassword, hasPermission, setUserRole, refreshUser, patchLocalUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

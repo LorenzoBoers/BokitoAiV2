@@ -1,0 +1,14 @@
+{
+  "account": "Account",
+  "search": {
+    "placeholder": "Search..."
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "enable": "Enable",
+    "disable": "Disable",
+    "signOut": "Sign out"
+  }
+}

@@ -1,375 +1,537 @@
-import React, { useState } from 'react';
-import { UserPlus, Mail, Crown, Shield, Edit, Eye, Trash2, Clock } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { usePermission } from '../hooks/usePermission';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Card } from '../components/ui/card';
-import { Select } from '../components/ui/select';
-import { Badge } from '../components/ui/badge';
-import { WorkspaceMember, PendingInvite, UserRole } from '../types/custom-db';
+import { useEffect, useMemo, useState } from 'react'
+import { MailPlus, Plus, Search, Trash2, Users } from 'lucide-react'
+import { UserAvatar } from '../components/ui/UserAvatar'
+import { useAuth } from '../context/AuthContext'
+import { useWorkspace } from '../context/WorkspaceContext'
+import { xanoGet, xanoPost } from '../lib/xano'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Card } from '../components/ui/card'
+import { Badge } from '../components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 
-const ROLE_ICONS = {
-  owner: Crown,
-  admin: Shield,
-  editor: Edit,
-  viewer: Eye,
-};
+type MemberRole = 'owner' | 'admin' | 'editor' | 'viewer' | 'member'
 
-const ROLE_LABELS = {
-  owner: 'Eigenaar',
-  admin: 'Beheerder',
-  editor: 'Editor',
-  viewer: 'Kijker',
-};
+type Member = {
+  id: string
+  name: string
+  email: string
+  role: MemberRole
+  isCurrentUser: boolean
+}
 
-const ROLE_DESCRIPTIONS = {
-  owner: 'Volledige toegang tot alles, inclusief workspace verwijderen',
-  admin: 'Kan alles behalve workspace verwijderen',
-  editor: 'Kan records en schema bewerken',
-  viewer: 'Kan alleen data bekijken',
-};
+type Invite = {
+  id: string
+  email: string
+  role: MemberRole
+  invitedBy: string
+  invitedAt: string | null
+}
 
-// Mock data
-const mockMembers: WorkspaceMember[] = [
-  {
-    id: 1,
-    name: 'Sarah van der Berg',
-    email: 'sarah@bedrijf.nl',
-    role: 'owner',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face',
-    joinedAt: '2024-01-15T10:00:00Z',
-    status: 'active',
-  },
-  {
-    id: 2,
-    name: 'Mark Jansen',
-    email: 'mark@bedrijf.nl',
-    role: 'admin',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face',
-    joinedAt: '2024-01-20T14:30:00Z',
-    status: 'active',
-  },
-  {
-    id: 3,
-    name: 'Lisa de Wit',
-    email: 'lisa@bedrijf.nl',
-    role: 'editor',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face',
-    joinedAt: '2024-02-01T09:15:00Z',
-    status: 'active',
-  },
-  {
-    id: 4,
-    name: 'Tom Bakker',
-    email: 'tom@bedrijf.nl',
-    role: 'viewer',
-    joinedAt: '2024-02-10T16:45:00Z',
-    status: 'active',
-  },
-];
+type Team = {
+  id: string
+  name: string
+  description: string
+  memberIds: string[]
+}
 
-const mockPendingInvites: PendingInvite[] = [
-  {
-    id: 1,
-    email: 'nieuwe.collega@bedrijf.nl',
-    role: 'editor',
-    invitedBy: 'Sarah van der Berg',
-    invitedAt: '2024-03-01T10:00:00Z',
-    expiresAt: '2024-03-08T10:00:00Z',
-  },
-  {
-    id: 2,
-    email: 'consultant@extern.nl',
-    role: 'viewer',
-    invitedBy: 'Mark Jansen',
-    invitedAt: '2024-03-02T14:30:00Z',
-    expiresAt: '2024-03-09T14:30:00Z',
-  },
-];
+const ROLE_OPTIONS: Array<{ value: MemberRole; label: string }> = [
+  { value: 'owner', label: 'Owner' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'editor', label: 'Editor' },
+  { value: 'member', label: 'Member' },
+  { value: 'viewer', label: 'Viewer' },
+]
+
+function asRole(value: unknown): MemberRole {
+  const normalized = typeof value === 'string' ? value.toLowerCase() : ''
+  if (normalized === 'owner' || normalized === 'admin' || normalized === 'editor' || normalized === 'viewer' || normalized === 'member') {
+    return normalized
+  }
+  return 'viewer'
+}
+
+function toDateLabel(value: string | null): string {
+  if (!value) return 'Onbekend'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Onbekend'
+  return parsed.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 export default function MemberManagement() {
-  const { user } = useAuth();
-  const canInviteMembers = usePermission('invite_members');
-  
-  const [members, setMembers] = useState<WorkspaceMember[]>(mockMembers);
-  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>(mockPendingInvites);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<UserRole>('viewer');
-  const [showInviteForm, setShowInviteForm] = useState(false);
+  const { user, token, hasPermission } = useAuth()
+  const { currentWorkspace, workspaceLoading } = useWorkspace()
+  const canInviteMembers = hasPermission('invite_members')
+  const workspaceId = currentWorkspace?.id ?? null
 
-  const handleInviteMember = () => {
-    if (!inviteEmail) return;
+  const [members, setMembers] = useState<Member[]>([])
+  const [invites, setInvites] = useState<Invite[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-    const newInvite: PendingInvite = {
-      id: Date.now(),
-      email: inviteEmail,
-      role: inviteRole,
-      invitedBy: user?.name || 'Onbekend',
-      invitedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-    };
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<MemberRole>('member')
+  const [inviteLoading, setInviteLoading] = useState(false)
 
-    setPendingInvites(prev => [...prev, newInvite]);
-    setInviteEmail('');
-    setInviteRole('viewer');
-    setShowInviteForm(false);
-    
-    // In a real app, this would send an email
-    alert(`Uitnodiging verstuurd naar ${inviteEmail}`);
-  };
+  const [teamName, setTeamName] = useState('')
+  const [teamDescription, setTeamDescription] = useState('')
+  const [selectedTeamMemberIds, setSelectedTeamMemberIds] = useState<string[]>([])
 
-  const handleRevokeInvite = (inviteId: number) => {
-    setPendingInvites(prev => prev.filter(invite => invite.id !== inviteId));
-  };
-
-  const handleChangeRole = (memberId: number, newRole: UserRole) => {
-    setMembers(prev => 
-      prev.map(member => 
-        member.id === memberId ? { ...member, role: newRole } : member
-      )
-    );
-  };
-
-  const handleRemoveMember = (memberId: number) => {
-    if (confirm('Weet je zeker dat je dit lid wilt verwijderen?')) {
-      setMembers(prev => prev.filter(member => member.id !== memberId));
+  useEffect(() => {
+    if (!workspaceId && !user?.tenant.slug) return
+    const storageKey = `bokito_members_teams_${workspaceId ?? user?.tenant.slug ?? 'default'}`
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (!raw) {
+        setTeams([])
+        return
+      }
+      const parsed = JSON.parse(raw) as Team[]
+      setTeams(Array.isArray(parsed) ? parsed : [])
+    } catch {
+      setTeams([])
     }
-  };
+  }, [workspaceId, user?.tenant.slug])
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('nl-NL', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
+  useEffect(() => {
+    if (!workspaceId && !user?.tenant.slug) return
+    const storageKey = `bokito_members_teams_${workspaceId ?? user?.tenant.slug ?? 'default'}`
+    localStorage.setItem(storageKey, JSON.stringify(teams))
+  }, [teams, workspaceId, user?.tenant.slug])
+
+  useEffect(() => {
+    const load = async () => {
+      if (!token) {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const fallbackMember: Member[] = user
+          ? [
+              {
+                id: String(user.id),
+                name: user.name,
+                email: user.email,
+                role: asRole(user.role),
+                isCurrentUser: true,
+              },
+            ]
+          : []
+
+        if (!workspaceId) {
+          setMembers(fallbackMember)
+          setInvites([])
+          return
+        }
+
+        const [rawMembers, rawInvites] = await Promise.all([
+          xanoGet<unknown[]>(`/workspaces/${workspaceId}/members`, token).catch(() => []),
+          xanoGet<unknown[]>(`/workspaces/${workspaceId}/invites`, token).catch(() => []),
+        ])
+
+        const mappedMembers = Array.isArray(rawMembers)
+          ? rawMembers
+              .map((item) => {
+                const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : null
+                if (!row) return null
+                const id = row.id ?? row.user_id ?? row.member_id
+                const name = typeof row.name === 'string' ? row.name : typeof row.full_name === 'string' ? row.full_name : ''
+                const email = typeof row.email === 'string' ? row.email : ''
+                if (id == null || !name) return null
+                return {
+                  id: String(id),
+                  name,
+                  email,
+                  role: asRole(row.role),
+                  isCurrentUser: String(id) === String(user?.id),
+                } satisfies Member
+              })
+              .filter((row): row is Member => row !== null)
+          : []
+
+        const mergedMembers = mappedMembers.length > 0 ? mappedMembers : fallbackMember
+        if (user && !mergedMembers.some((member) => member.isCurrentUser)) {
+          mergedMembers.unshift({
+            id: String(user.id),
+            name: user.name,
+            email: user.email,
+            role: asRole(user.role),
+            isCurrentUser: true,
+          })
+        }
+        setMembers(mergedMembers)
+
+        const mappedInvites = Array.isArray(rawInvites)
+          ? rawInvites
+              .map((item) => {
+                const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : null
+                if (!row) return null
+                const id = row.id ?? row.invite_id ?? row.uuid
+                const email = typeof row.email === 'string' ? row.email : ''
+                if (id == null || !email) return null
+                return {
+                  id: String(id),
+                  email,
+                  role: asRole(row.role),
+                  invitedBy: typeof row.invited_by_name === 'string' ? row.invited_by_name : typeof row.invited_by === 'string' ? row.invited_by : 'Onbekend',
+                  invitedAt: typeof row.invited_at === 'string' ? row.invited_at : null,
+                } satisfies Invite
+              })
+              .filter((row): row is Invite => row !== null)
+          : []
+        setInvites(mappedInvites)
+      } catch (loadError) {
+        const message = loadError instanceof Error ? loadError.message : 'Kon members niet laden'
+        setError(message)
+        setMembers(
+          user
+            ? [
+                {
+                  id: String(user.id),
+                  name: user.name,
+                  email: user.email,
+                  role: asRole(user.role),
+                  isCurrentUser: true,
+                },
+              ]
+            : [],
+        )
+        setInvites([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void load()
+  }, [token, user, workspaceId, workspaceLoading])
+
+  const memberNameById = useMemo(() => {
+    return Object.fromEntries(members.map((member) => [member.id, member.name]))
+  }, [members])
+
+  const handleInvite = async () => {
+    if (!token || !workspaceId || !inviteEmail.trim()) return
+    setInviteLoading(true)
+    setError(null)
+    try {
+      await xanoPost(
+        '/workspace-invites',
+        {
+          workspace_id: workspaceId,
+          email: inviteEmail.trim(),
+          role: inviteRole,
+        },
+        token,
+      )
+      const inviteList = await xanoGet<unknown[]>(`/workspaces/${workspaceId}/invites`, token).catch(() => [])
+      const mappedInvites = Array.isArray(inviteList)
+        ? inviteList
+            .map((item) => {
+              const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : null
+              if (!row) return null
+              const id = row.id ?? row.invite_id ?? row.uuid
+              const email = typeof row.email === 'string' ? row.email : ''
+              if (id == null || !email) return null
+              return {
+                id: String(id),
+                email,
+                role: asRole(row.role),
+                invitedBy: typeof row.invited_by_name === 'string' ? row.invited_by_name : typeof row.invited_by === 'string' ? row.invited_by : 'Onbekend',
+                invitedAt: typeof row.invited_at === 'string' ? row.invited_at : null,
+              } satisfies Invite
+            })
+            .filter((row): row is Invite => row !== null)
+        : []
+      setInvites(mappedInvites)
+      setInviteEmail('')
+      setInviteRole('member')
+    } catch (inviteError) {
+      const message = inviteError instanceof Error ? inviteError.message : 'Uitnodiging versturen mislukt'
+      setError(message)
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const createTeam = () => {
+    if (!teamName.trim()) return
+    const next: Team = {
+      id: crypto.randomUUID(),
+      name: teamName.trim(),
+      description: teamDescription.trim(),
+      memberIds: selectedTeamMemberIds,
+    }
+    setTeams((current) => [next, ...current])
+    setTeamName('')
+    setTeamDescription('')
+    setSelectedTeamMemberIds([])
+  }
+
+  const toggleSelectedMember = (memberId: string) => {
+    setSelectedTeamMemberIds((current) =>
+      current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
+    )
+  }
+
+  const removeTeam = (teamId: string) => {
+    setTeams((current) => current.filter((team) => team.id !== teamId))
+  }
+
+  type FilterTab = 'all' | 'active' | 'pending' | 'deactivated'
+  const [filterTab, setFilterTab] = useState<FilterTab>('all')
+  const [search, setSearch] = useState('')
+
+  type UnifiedRow =
+    | { kind: 'member'; data: Member }
+    | { kind: 'invite'; data: Invite }
+
+  const allRows: UnifiedRow[] = useMemo(() => [
+    ...members.map((m): UnifiedRow => ({ kind: 'member', data: m })),
+    ...invites.map((i): UnifiedRow => ({ kind: 'invite', data: i })),
+  ], [members, invites])
+
+  const filteredRows = useMemo(() => {
+    const q = search.toLowerCase()
+    return allRows.filter((row) => {
+      if (filterTab === 'active' && row.kind !== 'member') return false
+      if (filterTab === 'pending' && row.kind !== 'invite') return false
+      if (filterTab === 'deactivated') return false
+      const text = row.kind === 'member'
+        ? `${row.data.name} ${row.data.email}`.toLowerCase()
+        : row.data.email.toLowerCase()
+      return !q || text.includes(q)
+    })
+  }, [allRows, filterTab, search])
+
+  const tabs: { id: FilterTab; label: string; count: number }[] = [
+    { id: 'all', label: 'Alle', count: members.length + invites.length },
+    { id: 'active', label: 'Actief', count: members.length },
+    { id: 'pending', label: 'Pending', count: invites.length },
+    { id: 'deactivated', label: 'Gedeactiveerd', count: 0 },
+  ]
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-heading mb-2">
-            Leden beheren
-          </h1>
-          <p className="text-text-muted">
-            Beheer wie toegang heeft tot je workspace
-          </p>
+    <div className="mx-auto w-full max-w-[1080px] space-y-5 px-2 py-1.5">
+      <section className="space-y-1">
+        <h2 className="text-[28px] font-semibold leading-tight text-text-heading">Leden en teams</h2>
+        <p className="text-sm text-text-secondary">
+          Beheer leden, uitnodigingen en teams binnen je workspace.
+        </p>
+      </section>
+
+      {error ? (
+        <div className="rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-sm text-status-error">
+          {error}
         </div>
-        
-        {canInviteMembers && (
-          <Button onClick={() => setShowInviteForm(true)}>
-            <UserPlus size={16} />
-            Lid uitnodigen
-          </Button>
-        )}
-      </div>
+      ) : null}
 
-      {/* Invite Form */}
-      {showInviteForm && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-text-heading mb-4">
-            Nieuw lid uitnodigen
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">
-                E-mailadres
-              </label>
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="naam@bedrijf.nl"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">
-                Rol
-              </label>
-              <Select value={inviteRole} onValueChange={(value) => setInviteRole(value as UserRole)}>
-                <option value="viewer">Kijker</option>
-                <option value="editor">Editor</option>
-                <option value="admin">Beheerder</option>
-              </Select>
-            </div>
-            
-            <div className="flex items-end gap-2">
-              <Button onClick={handleInviteMember} disabled={!inviteEmail}>
-                <Mail size={16} />
-                Uitnodigen
-              </Button>
-              <Button 
-                variant="secondary" 
-                onClick={() => {
-                  setShowInviteForm(false);
-                  setInviteEmail('');
-                  setInviteRole('viewer');
-                }}
-              >
-                Annuleren
-              </Button>
-            </div>
-          </div>
-          
-          <div className="text-sm text-text-muted">
-            <p className="font-medium mb-1">Rol uitleg:</p>
-            <ul className="space-y-1">
-              {Object.entries(ROLE_DESCRIPTIONS).map(([role, description]) => (
-                <li key={role}>
-                  <strong>{ROLE_LABELS[role as UserRole]}:</strong> {description}
-                </li>
+      {/* Invite bar */}
+      <Card className="space-y-4 p-5">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-text-heading">Lid uitnodigen</p>
+          <p className="text-sm text-text-secondary">Nodig een nieuw teamlid uit met de juiste rol.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto]">
+          <Input
+            type="email"
+            value={inviteEmail}
+            onChange={(event) => setInviteEmail(event.target.value)}
+            placeholder="naam@bedrijf.nl"
+            disabled={!canInviteMembers || !workspaceId || inviteLoading}
+          />
+          <Select value={inviteRole} onValueChange={(value) => setInviteRole(asRole(value))} disabled={!canInviteMembers}>
+            <SelectTrigger>
+              <SelectValue placeholder="Rol" />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((role) => (
+                <SelectItem key={role.value} value={role.value}>
+                  {role.label}
+                </SelectItem>
               ))}
-            </ul>
-          </div>
-        </Card>
-      )}
-
-      {/* Current Members */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-text-heading mb-4">
-          Huidige leden ({members.length})
-        </h2>
-        
-        <div className="space-y-4">
-          {members.map((member) => {
-            const RoleIcon = ROLE_ICONS[member.role];
-            const isCurrentUser = member.id === user?.id;
-            const canEditMember = canInviteMembers && !isCurrentUser;
-            
-            return (
-              <div
-                key={member.id}
-                className="flex items-center justify-between p-4 border border-border rounded-lg"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-bg-muted flex items-center justify-center overflow-hidden">
-                    {member.avatar ? (
-                      <img
-                        src={member.avatar}
-                        alt={member.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-sm font-medium text-text-primary">
-                        {member.name.split(' ').map(n => n[0]).join('')}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-text-heading">
-                        {member.name}
-                      </h3>
-                      {isCurrentUser && (
-                        <Badge variant="secondary" className="text-xs">
-                          Jij
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-text-muted">
-                      {member.email}
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      Lid sinds {formatDate(member.joinedAt)}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <RoleIcon size={16} className="text-text-muted" />
-                    {canEditMember ? (
-                      <Select
-                        value={member.role}
-                        onValueChange={(value) => handleChangeRole(member.id, value as UserRole)}
-                      >
-                        <option value="viewer">Kijker</option>
-                        <option value="editor">Editor</option>
-                        <option value="admin">Beheerder</option>
-                        {user?.role === 'owner' && (
-                          <option value="owner">Eigenaar</option>
-                        )}
-                      </Select>
-                    ) : (
-                      <span className="text-sm font-medium text-text-primary">
-                        {ROLE_LABELS[member.role]}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {canEditMember && member.role !== 'owner' && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveMember(member.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+            </SelectContent>
+          </Select>
+          <Button onClick={() => void handleInvite()} disabled={!canInviteMembers || !workspaceId || !inviteEmail.trim() || inviteLoading}>
+            <MailPlus size={14} />
+            {inviteLoading ? 'Versturen...' : 'Uitnodigen'}
+          </Button>
         </div>
       </Card>
 
-      {/* Pending Invites */}
-      {pendingInvites.length > 0 && (
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-text-heading mb-4">
-            Uitstaande uitnodigingen ({pendingInvites.length})
-          </h2>
-          
-          <div className="space-y-4">
-            {pendingInvites.map((invite) => (
-              <div
-                key={invite.id}
-                className="flex items-center justify-between p-4 border border-border rounded-lg bg-amber-50/50"
+      {/* Unified members table */}
+      <Card className="p-0 overflow-hidden">
+        {/* Header with tabs + search */}
+        <div className="flex items-center justify-between gap-4 border-b border-border/55 px-5 pt-4 pb-0">
+          <div className="flex items-center gap-0">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setFilterTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 pb-3 text-[13px] font-medium border-b-2 transition-colors ${
+                  filterTab === tab.id
+                    ? 'border-accent text-text-heading'
+                    : 'border-transparent text-text-muted hover:text-text-secondary'
+                }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                    <Clock size={20} className="text-amber-600" />
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium text-text-heading">
-                      {invite.email}
-                    </h3>
-                    <p className="text-sm text-text-muted">
-                      Uitgenodigd door {invite.invitedBy} op {formatDate(invite.invitedAt)}
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      Verloopt op {formatDate(invite.expiresAt)}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <Badge variant="secondary">
-                    {ROLE_LABELS[invite.role]}
-                  </Badge>
-                  
-                  {canInviteMembers && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRevokeInvite(invite.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Intrekken
-                    </Button>
-                  )}
-                </div>
-              </div>
+                {tab.label}
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${
+                  filterTab === tab.id ? 'bg-accent/15 text-accent' : 'bg-bg-hover text-text-muted'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
             ))}
           </div>
-        </Card>
-      )}
+          <div className="relative pb-3">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-[calc(50%+6px)] text-text-muted pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Zoeken..."
+              className="pl-8 pr-3 py-1.5 text-[13px] bg-bg-input/60 border border-border/55 rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/55 transition-colors w-48"
+            />
+          </div>
+        </div>
+
+        {/* Table */}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Naam</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Status</TableHead>
+              {(filterTab === 'all' || filterTab === 'pending') && <TableHead>Uitgenodigd door</TableHead>}
+              {(filterTab === 'all' || filterTab === 'pending') && <TableHead>Datum</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-sm text-text-muted">Laden...</TableCell>
+              </TableRow>
+            ) : filteredRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-sm text-text-muted">Geen resultaten.</TableCell>
+              </TableRow>
+            ) : (
+              filteredRows.map((row) => {
+                if (row.kind === 'member') {
+                  const m = row.data
+                  return (
+                    <TableRow key={`m-${m.id}`}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <UserAvatar name={m.name} email={m.email} size={26} />
+                        <span>{m.name}</span>
+                        {m.isCurrentUser ? <Badge variant="secondary">Jij</Badge> : null}
+                      </div>
+                    </TableCell>
+                      <TableCell className="text-text-secondary">{m.email || '-'}</TableCell>
+                      <TableCell><Badge variant="neutral">{m.role}</Badge></TableCell>
+                      <TableCell><Badge variant="success">Actief</Badge></TableCell>
+                      {(filterTab === 'all' || filterTab === 'pending') && <TableCell className="text-text-muted">-</TableCell>}
+                      {(filterTab === 'all' || filterTab === 'pending') && <TableCell className="text-text-muted">-</TableCell>}
+                    </TableRow>
+                  )
+                }
+                const inv = row.data
+                return (
+                  <TableRow key={`i-${inv.id}`}>
+                    <TableCell className="text-text-muted">-</TableCell>
+                    <TableCell>{inv.email}</TableCell>
+                    <TableCell><Badge variant="neutral">{inv.role}</Badge></TableCell>
+                    <TableCell><Badge variant="warning">Pending</Badge></TableCell>
+                    {(filterTab === 'all' || filterTab === 'pending') && <TableCell className="text-text-secondary">{inv.invitedBy}</TableCell>}
+                    {(filterTab === 'all' || filterTab === 'pending') && <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt)}</TableCell>}
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-text-heading">Teams</p>
+          <p className="text-sm text-text-secondary">Maak teams en wijs bestaande leden toe.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Input
+            value={teamName}
+            onChange={(event) => setTeamName(event.target.value)}
+            placeholder="Teamnaam"
+          />
+          <Input
+            value={teamDescription}
+            onChange={(event) => setTeamDescription(event.target.value)}
+            placeholder="Omschrijving (optioneel)"
+          />
+        </div>
+        <div className="rounded-lg border border-border/70 bg-bg-input/50 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-muted">Team members</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {members.map((member) => (
+              <label key={member.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover/40">
+                <input
+                  type="checkbox"
+                  checked={selectedTeamMemberIds.includes(member.id)}
+                  onChange={() => toggleSelectedMember(member.id)}
+                />
+                <span className="text-sm text-text-primary">{member.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={createTeam} disabled={!teamName.trim()}>
+            <Plus size={14} />
+            Team aanmaken
+          </Button>
+        </div>
+
+        <div className="space-y-2 border-t border-border/70 pt-4">
+          {teams.length === 0 ? (
+            <p className="text-sm text-text-muted">Nog geen teams aangemaakt.</p>
+          ) : (
+            teams.map((team) => (
+              <div key={team.id} className="rounded-lg border border-border/70 bg-bg-input/40 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Users size={14} className="text-text-muted" />
+                      <p className="text-sm font-medium text-text-heading">{team.name}</p>
+                    </div>
+                    {team.description ? <p className="mt-1 text-sm text-text-secondary">{team.description}</p> : null}
+                    <p className="mt-2 text-xs text-text-muted">
+                      {team.memberIds.length === 0
+                        ? 'Geen leden toegewezen'
+                        : team.memberIds.map((memberId) => memberNameById[memberId] ?? 'Onbekend lid').join(', ')}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => removeTeam(team.id)} aria-label="Verwijder team">
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
+
     </div>
-  );
+  )
 }

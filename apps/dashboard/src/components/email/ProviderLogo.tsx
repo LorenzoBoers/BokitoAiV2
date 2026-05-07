@@ -22,5 +22,13 @@ type ProviderLogoProps = {
 }
 
 export default function ProviderLogo({ provider, className }: ProviderLogoProps) {
-  return <img src={providerLogoSrc(provider)} alt={providerAltMap[provider]} className={className} loading="lazy" />
+  const invertClass = provider === 'smtp_imap' ? 'dark:invert' : ''
+  return (
+    <img
+      src={providerLogoSrc(provider)}
+      alt={providerAltMap[provider]}
+      className={[className, invertClass].filter(Boolean).join(' ')}
+      loading="lazy"
+    />
+  )
 }

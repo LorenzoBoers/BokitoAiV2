@@ -1,0 +1,144 @@
+{
+  "rail": {
+    "support": "Inbox",
+    "help": "Help",
+    "updates": "AI",
+    "data": "Data",
+    "workforce": "Workforce",
+    "users": "Users",
+    "settings": "Settings"
+  },
+  "sectionTitle": {
+    "users": "Users",
+    "settings": "Settings",
+    "inbox": "Inbox",
+    "ai": "AI",
+    "workforce": "Workforce",
+    "data": "Data"
+  },
+  "userMenu": {
+    "openAria": "Open user menu",
+    "profile": "My profile",
+    "notificationPreferences": "Notification preferences",
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode",
+    "organizations": "My organizations",
+    "workspaces": "Workspaces"
+  },
+  "workspace": {
+    "switch": "Switch workspace",
+    "current": "Current",
+    "none": "No workspaces available",
+    "currentWorkspace": "Current workspace",
+    "switchTo": "Switch to",
+    "createFirst": "Create your first workspace"
+  },
+  "support": {
+    "group": {
+      "inbox": "Inbox"
+    },
+    "links": {
+      "myInbox": "My inbox",
+      "allMessages": "All messages",
+      "createdByMe": "Created by me",
+      "unassigned": "Unassigned"
+    }
+  },
+  "users": {
+    "group": {
+      "customerData": "Customer data",
+      "integrations": "Integrations"
+    },
+    "links": {
+      "attributes": "Attributes",
+      "tags": "Tags",
+      "segments": "Segments",
+      "leadQualification": "Lead qualification",
+      "blocked": "Blocked",
+      "datasources": "Data sources"
+    }
+  },
+  "ai": {
+    "group": {
+      "ai": "AI"
+    },
+    "links": {
+      "assistent": "Assistant",
+      "kennis": "Knowledge",
+      "handelingen": "AI Tools"
+    }
+  },
+  "workforce": {
+    "group": {
+      "workforce": "Workforce"
+    },
+    "links": {
+      "overview": "Overview",
+      "agents": "AI Agents",
+      "tasks": "Tasks"
+    }
+  },
+  "settings": {
+    "groups": {
+      "personal": "Personal",
+      "products": "Products",
+      "workspace": "Workspace",
+      "data": "Data"
+    },
+    "links": {
+      "profile": "Profile",
+      "notifications": "Notifications",
+      "inbox": "Inbox",
+      "emailSettings": "Email settings",
+      "messenger": "Assistant",
+      "helpCenters": "Help centers",
+      "general": "General",
+      "branding": "Branding",
+      "membersTeams": "Members and teams",
+      "billing": "Billing",
+      "accessSecurity": "Access & Security",
+      "users": "Users",
+      "companies": "Companies",
+      "conversations": "Conversations",
+      "importsExports": "Imports & exports"
+    }
+  },
+  "settingsPageMeta": {
+    "profile": { "title": "Profile", "description": "Manage your personal profile information and account preferences." },
+    "notifications": { "title": "Notifications", "description": "Configure personal and team notification defaults." },
+    "support": { "title": "Inbox", "description": "Configure inbox behavior and channels." },
+    "messenger": { "title": "Assistant", "description": "Configure assistant behavior and preview settings." },
+    "helpCenters": { "title": "Help Centers", "description": "Manage customer help center content and visibility." },
+    "general": { "title": "General", "description": "Set workspace-level defaults and product behavior." },
+    "branding": { "title": "Branding", "description": "Align the portal experience with your organization branding." },
+    "members": { "title": "Members and teams", "description": "Invite, organize, and manage collaborators." },
+    "teams": { "title": "Members and teams", "description": "Invite, organize, and manage collaborators." },
+    "billing": { "title": "Billing", "description": "Review plan usage and update billing settings." },
+    "accessSecurity": { "title": "Access & Security", "description": "Strengthen account security and permission defaults." },
+    "company": { "title": "Company", "description": "Manage branding and organization-level configuration." },
+    "inbox": { "title": "Inbox", "description": "Configure mailbox routing, signatures, and AI inbox behavior." },
+    "attributes": { "title": "Attributes", "description": "Manage user record data and custom fields." },
+    "users": { "title": "Users", "description": "Manage user data entities for support workflows." },
+    "companies": { "title": "Companies", "description": "Manage company records and account metadata." },
+    "conversations": { "title": "Conversations", "description": "Review and structure conversation data." },
+    "importsExports": { "title": "Imports & exports", "description": "Move data into and out of your workspace safely." }
+  },
+  "supportPageMeta": {
+    "my": { "title": "My inbox", "description": "Assigned conversations and requests." },
+    "all": { "title": "All messages", "description": "All incoming support messages." },
+    "created": { "title": "Created by me", "description": "Tickets and threads started by you." },
+    "unassigned": { "title": "Unassigned", "description": "Messages that need first ownership." }
+  },
+  "fallbackTitles": {
+    "supportInbox": "Support Inbox",
+    "supportInboxSetup": "Support Inbox Setup",
+    "emailConnections": "Email Connections",
+    "users": "Users",
+    "database": "Database",
+    "workspaces": "Workspaces",
+    "documents": "Documents",
+    "workforce": "Workforce",
+    "settings": "Settings",
+    "portal": "Portal"
+  }
+}

@@ -10,6 +10,7 @@ export default {
           sidebar: 'rgb(var(--color-bg-sidebar) / <alpha-value>)',
           surface: 'rgb(var(--color-bg-surface) / <alpha-value>)',
           elevated: 'rgb(var(--color-bg-elevated) / <alpha-value>)',
+          muted: 'rgb(var(--color-bg-hover) / <alpha-value>)',
           hover: 'rgb(var(--color-bg-hover) / <alpha-value>)',
           input: 'rgb(var(--color-bg-input) / <alpha-value>)',
         },

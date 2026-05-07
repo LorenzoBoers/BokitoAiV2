@@ -14,6 +14,7 @@ import EndpointDocumentation from '../components/api/EndpointDocumentation';
 import WebhookConfiguration from '../components/api/WebhookConfiguration';
 import RateLimitDisplay from '../components/api/RateLimitDisplay';
 import UsageChart from '../components/api/UsageChart';
+import { PUBLIC_API_URL } from '../lib/api.config';
 
 function ApiSettingsContent() {
   const { apiKeys, rateLimits, usageStats } = useApi();
@@ -30,7 +31,7 @@ function ApiSettingsContent() {
       },
       servers: [
         {
-          url: 'https://api.bokito.nl/v1/{workspace}',
+          url: `${PUBLIC_API_URL}/{workspace}`,
           description: 'Production server',
           variables: {
             workspace: {

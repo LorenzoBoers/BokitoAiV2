@@ -1,0 +1,79 @@
+{
+  "loading": "Workspaces laden...",
+  "title": "Workspaces",
+  "description": "Beheer je workspaces en kies waar je wilt doorgaan.",
+  "nav": {
+    "title": "Workspace hub",
+    "workspaces": "Workspaces",
+    "billing": "Billing",
+    "account": "Account",
+    "support": "Support"
+  },
+  "cards": {
+    "workspace": {
+      "current": "Huidig",
+      "openCta": "Open workspace",
+      "defaultSlug": "workspace"
+    },
+    "create": {
+      "title": "Workspace aanmaken",
+      "description": "Start een nieuwe workspace voor een nieuwe organisatie.",
+      "inputPlaceholder": "Naam van je workspace",
+      "button": "Workspace aanmaken",
+      "creating": "Aanmaken...",
+      "error": "Workspace aanmaken mislukt",
+      "openDialogCta": "Start setup"
+    }
+  },
+  "empty": {
+    "title": "Nog geen workspaces",
+    "description": "Maak je eerste workspace aan om te starten."
+  },
+  "help": {
+    "title": "Hulp en resources",
+    "items": {
+      "docs": "Bekijk onze documentatie",
+      "community": "Ga naar de community",
+      "videos": "Bekijk productvideo's",
+      "support": "Neem contact op met support"
+    }
+  },
+  "createDialog": {
+    "title": "Workspace aanmaken",
+    "description": "Vul een naam in om je workspace te maken.",
+    "cancel": "Annuleren"
+  },
+  "billing": {
+    "title": "Billing",
+    "placeholder": "Billing-overzicht komt hier."
+  },
+  "account": {
+    "title": "Account",
+    "sidebar": {
+      "fallbackName": "Account",
+      "fallbackEmail": "Geen e-mail beschikbaar"
+    },
+    "profile": {
+      "title": "Profiel",
+      "description": "Je accountgegevens voor dit portaal.",
+      "nameLabel": "Naam",
+      "emailLabel": "E-mail",
+      "manageLink": "Open volledige profielinstellingen"
+    },
+    "preferences": {
+      "title": "Voorkeuren",
+      "description": "Snelle weergavevoorkeuren voor deze sessie.",
+      "switchLight": "Schakel naar lichte modus",
+      "switchDark": "Schakel naar donkere modus"
+    },
+    "session": {
+      "title": "Sessie",
+      "description": "Log uit van de huidige accountsessie.",
+      "signOut": "Uitloggen"
+    }
+  },
+  "support": {
+    "title": "Support",
+    "placeholder": "Supportopties en hulplinks komen hier."
+  }
+}

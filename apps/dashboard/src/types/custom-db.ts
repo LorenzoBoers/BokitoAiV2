@@ -266,6 +266,29 @@ export interface WorkspaceMember {
   status: 'active' | 'invited' | 'suspended';
 }
 
+export interface Workspace {
+  id: number | string;
+  slug?: string;
+  name: string;
+  timezone?: string;
+  logo?: string | null;
+  owner_user_id?: number | string | null;
+  role?: UserRole | 'member';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WorkspaceInvite {
+  id: number | string;
+  email: string;
+  role: UserRole | 'member';
+  invited_by_name?: string;
+  invited_by?: string;
+  invited_at?: string | null;
+  expires_at?: string | null;
+  status?: 'pending' | 'accepted' | 'revoked' | 'expired';
+}
+
 export interface PendingInvite {
   id: number;
   email: string;

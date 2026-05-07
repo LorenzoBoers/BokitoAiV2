@@ -1,0 +1,59 @@
+{
+  "personalInformation": {
+    "title": "Persoonlijke informatie",
+    "description": "Beheer je persoonlijke profielinformatie.",
+    "profilePicture": "Profielfoto",
+    "uploadPhoto": "Foto uploaden",
+    "removePhoto": "Verwijderen",
+    "photoHint": "JPG, PNG of GIF, max 2 MB",
+    "email": "E-mailadres",
+    "fullName": "Volledige naam",
+    "jobTitle": "Functietitel",
+    "jobTitlePlaceholder": "bijv. Product Manager",
+    "descriptionLabel": "Bio",
+    "descriptionPlaceholder": "Een korte bio of omschrijving",
+    "saveChanges": "Wijzigingen opslaan",
+    "saving": "Opslaan...",
+    "savedSuccess": "Profiel opgeslagen"
+  },
+  "language": {
+    "title": "Taal",
+    "description": "Kies de taal voor je interface.",
+    "dutch": "Nederlands",
+    "english": "Engels"
+  },
+  "theme": {
+    "title": "Weergave",
+    "description": "Selecteer een thema om het uiterlijk van je dashboard te personaliseren.",
+    "light": "Licht",
+    "dark": "Donker",
+    "system": "Systeem"
+  },
+  "security": {
+    "title": "Beveiliging",
+    "description": "Beheer je wachtwoord en tweefactorauthenticatie.",
+    "passwordTitle": "Wachtwoord",
+    "passwordDescription": "Wijzig het wachtwoord van je account.",
+    "changePassword": "Wachtwoord wijzigen",
+    "currentPassword": "Huidig wachtwoord",
+    "newPassword": "Nieuw wachtwoord",
+    "confirmPassword": "Bevestig nieuw wachtwoord",
+    "passwordMismatch": "Wachtwoorden komen niet overeen",
+    "passwordSuccess": "Wachtwoord gewijzigd",
+    "cancel": "Annuleren",
+    "twoFactorTitle": "Tweefactorauthenticatie",
+    "twoFactorDescription": "Voeg een extra beveiligingslaag toe. Momenteel niet beschikbaar.",
+    "twoFactorComingSoon": "Binnenkort beschikbaar"
+  },
+  "account": {
+    "title": "Account",
+    "description": "Log uit of verwijder je account permanent.",
+    "signOutTitle": "Uitloggen",
+    "signOutDescription": "Log uit van je huidige sessie op dit apparaat.",
+    "deleteTitle": "Account verwijderen",
+    "deleteDescription": "Verwijder je account en alle gekoppelde data permanent. Dit kan niet ongedaan worden gemaakt."
+  },
+  "links": {
+    "openInboxSettings": "Open inbox-instellingen"
+  }
+}

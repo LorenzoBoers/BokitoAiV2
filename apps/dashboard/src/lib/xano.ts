@@ -1,7 +1,42 @@
-export const XANO_BASE_URL = 'https://xrex-nmji-j9ur.f2.xano.io';
-export const XANO_AUTH_API = `${XANO_BASE_URL}/api:DavdZOps`;
+import { APP_API_BASE, XANO_BASE_URL, xanoApiBase } from './api.config';
 
-export const TOKEN_KEY = 'bokito_auth_token';
+const DEFAULT_ACCESS_TOKEN_TTL_S = 3600;
+const DEFAULT_REFRESH_TOKEN_TTL_S = 30 * 24 * 60 * 60;
+
+export { XANO_BASE_URL, xanoApiBase };
+export const XANO_AUTH_API = APP_API_BASE;
+/**
+ * Same-origin BFF/proxy contract for portal auth.
+ * Expected routes: POST /login, POST /refresh, GET /me, POST /logout.
+ */
+export const AUTH_PROXY_BASE = import.meta.env.VITE_AUTH_PROXY_BASE || '/api/auth';
+export const ACCESS_TOKEN_TTL_S = Number(import.meta.env.VITE_DEFAULT_ACCESS_TOKEN_TTL_S || DEFAULT_ACCESS_TOKEN_TTL_S);
+export const REFRESH_TOKEN_TTL_S = Number(import.meta.env.VITE_DEFAULT_REFRESH_TOKEN_TTL_S || DEFAULT_REFRESH_TOKEN_TTL_S);
+
+let accessTokenProvider: (() => string | null) | null = null;
+
+export function setAccessTokenProvider(provider: (() => string | null) | null): void {
+  accessTokenProvider = provider;
+}
+
+export function resolveAccessToken(explicitToken?: string): string | null {
+  if (explicitToken && explicitToken.trim()) return explicitToken;
+  return accessTokenProvider?.() ?? null;
+}
+
+export function requireAccessToken(explicitToken?: string): string {
+  const token = resolveAccessToken(explicitToken);
+  if (!token) throw new Error('Not authenticated');
+  return token;
+}
+
+export function buildAuthHeaders(token?: string, includeJson = true): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (includeJson) headers['Content-Type'] = 'application/json';
+  const resolvedToken = resolveAccessToken(token);
+  if (resolvedToken) headers['Authorization'] = `Bearer ${resolvedToken}`;
+  return headers;
+}
 
 function formatXanoHttpError(path: string, body: unknown): string {
   const o = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
@@ -12,42 +47,52 @@ function formatXanoHttpError(path: string, body: unknown): string {
   return `${msg}${hint} [${path}]`
 }
 
+async function readJsonResponse<T>(res: Response, path: string): Promise<T> {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
+    throw new Error(`HTTP ${res.status} ${formatXanoHttpError(path, err)}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function xanoPost<T>(path: string, body: object, token?: string): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const headers = buildAuthHeaders(token);
 
   const res = await fetch(`${XANO_AUTH_API}${path}`, {
     method: 'POST',
     headers,
+    credentials: 'include',
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
-    throw new Error(formatXanoHttpError(path, err));
-  }
-
-  return res.json();
+  return readJsonResponse<T>(res, path);
 }
 
-export async function xanoGet<T>(path: string, token: string): Promise<T> {
+export async function xanoGet<T>(path: string, token?: string): Promise<T> {
+  const headers = buildAuthHeaders(token, false);
+  if (!headers.Authorization) {
+    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+  }
+
   const res = await fetch(`${XANO_AUTH_API}${path}`, {
     method: 'GET',
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
+    credentials: 'include',
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
-    throw new Error(formatXanoHttpError(path, err));
-  }
-
-  return res.json();
+  return readJsonResponse<T>(res, path);
 }
 
-export async function xanoDelete<T = unknown>(path: string, token: string): Promise<T | void> {
+export async function xanoDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
+  const headers = buildAuthHeaders(token, false);
+  if (!headers.Authorization) {
+    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+  }
+
   const res = await fetch(`${XANO_AUTH_API}${path}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
+    credentials: 'include',
   });
 
   if (!res.ok) {
@@ -64,13 +109,16 @@ export async function xanoDelete<T = unknown>(path: string, token: string): Prom
   }
 }
 
-export async function xanoPatch<T>(path: string, body: object, token: string): Promise<T> {
+export async function xanoPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  const headers = buildAuthHeaders(token);
+  if (!headers.Authorization) {
+    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+  }
+
   const res = await fetch(`${XANO_AUTH_API}${path}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
+    credentials: 'include',
     body: JSON.stringify(body),
   })
 
@@ -82,13 +130,16 @@ export async function xanoPatch<T>(path: string, body: object, token: string): P
   return res.json()
 }
 
-export async function xanoPut<T>(path: string, body: object, token: string): Promise<T> {
+export async function xanoPut<T>(path: string, body: object, token?: string): Promise<T> {
+  const headers = buildAuthHeaders(token);
+  if (!headers.Authorization) {
+    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+  }
+
   const res = await fetch(`${XANO_AUTH_API}${path}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
+    credentials: 'include',
     body: JSON.stringify(body),
   })
 
@@ -127,4 +178,54 @@ export async function refreshToken(refreshToken: string): Promise<{ access_token
 
 export async function revokeToken(token: string): Promise<void> {
   await xanoPost('/auth/revoke', {}, token);
+}
+
+export interface AuthSessionResponse {
+  access_token?: string;
+  authToken?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  user?: unknown;
+}
+
+export async function authLogin(email: string, password: string): Promise<AuthSessionResponse> {
+  const res = await fetch(`${AUTH_PROXY_BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  });
+  return readJsonResponse<AuthSessionResponse>(res, '/auth/login');
+}
+
+export async function authRefresh(): Promise<AuthSessionResponse> {
+  const res = await fetch(`${AUTH_PROXY_BASE}/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  return readJsonResponse<AuthSessionResponse>(res, '/auth/refresh');
+}
+
+export async function authMe(token?: string): Promise<unknown> {
+  const headers = buildAuthHeaders(token, false);
+  const res = await fetch(`${AUTH_PROXY_BASE}/me`, {
+    method: 'GET',
+    credentials: 'include',
+    headers,
+  });
+  return readJsonResponse<unknown>(res, '/auth/me');
+}
+
+export async function authLogout(token?: string): Promise<void> {
+  const headers = buildAuthHeaders(token);
+  const res = await fetch(`${AUTH_PROXY_BASE}/logout`, {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
+    throw new Error(formatXanoHttpError('/auth/logout', err));
+  }
 }

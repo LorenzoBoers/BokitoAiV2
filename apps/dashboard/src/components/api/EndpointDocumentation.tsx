@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { ApiEndpoint, TableEndpoints } from '../../types/api';
 import type { CustomTable, CustomField } from '../../types/custom-db';
+import { PUBLIC_API_URL } from '../../lib/api.config';
 
 interface EndpointCardProps {
   endpoint: ApiEndpoint;
@@ -15,7 +16,7 @@ interface EndpointCardProps {
 function EndpointCard({ endpoint, tableName, workspaceId }: EndpointCardProps) {
   const [expanded, setExpanded] = useState(false);
   
-  const fullUrl = `https://api.bokito.nl/v1/${workspaceId}/records/${tableName}${endpoint.path === '/{id}' ? '/123' : endpoint.path === '/search' ? '/search' : ''}`;
+  const fullUrl = `${PUBLIC_API_URL}/${workspaceId}/records/${tableName}${endpoint.path === '/{id}' ? '/123' : endpoint.path === '/search' ? '/search' : ''}`;
   
   const copyUrl = async () => {
     try {
@@ -328,7 +329,7 @@ export default function EndpointDocumentation() {
         <h3 className="text-sm font-medium text-text-heading mb-2">Algemene Informatie</h3>
         <div className="space-y-2 text-sm text-text-secondary">
           <div>
-            <strong>Base URL:</strong> <code>https://api.bokito.nl/v1/{workspaceId}</code>
+            <strong>Base URL:</strong> <code>{`${PUBLIC_API_URL}/{workspaceId}`}</code>
           </div>
           <div>
             <strong>Authenticatie:</strong> Bearer token in Authorization header

@@ -1,11 +1,20 @@
 import { useState, FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+
+function sanitizeReturnUrl(rawReturnUrl: string | null): string {
+  if (!rawReturnUrl) return '/';
+  if (!rawReturnUrl.startsWith('/')) return '/';
+  if (rawReturnUrl.startsWith('//')) return '/';
+  if (rawReturnUrl.includes('://')) return '/';
+  return rawReturnUrl;
+}
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +28,7 @@ export default function Login() {
     setIsLoading(true);
     try {
       await login(email, password);
-      navigate('/', { replace: true });
+      navigate(sanitizeReturnUrl(searchParams.get('returnUrl')), { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Inloggen mislukt';
       setError(

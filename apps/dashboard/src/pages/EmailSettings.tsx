@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Mail, Plus, Trash2, X } from 'lucide-react'
+import { AtSign, Check, ClipboardCopy, Mail, Palette, Plus, Send, Signature, Trash2, X } from 'lucide-react'
 import ProviderLogo from '../components/email/ProviderLogo'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import { Textarea } from '../components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useAuth } from '../context/AuthContext'
 import { xanoDelete, xanoGet } from '../lib/xano'
 import {
@@ -123,6 +125,64 @@ export default function EmailSettings() {
     outlook: false,
     gmail: false,
   })
+  const [ignoredInput, setIgnoredInput] = useState('')
+  const [ignoredAddresses, setIgnoredAddresses] = useState<string[]>([])
+  const [brandSenderName, setBrandSenderName] = useState('Bokito Support')
+  const [brandReplyTo, setBrandReplyTo] = useState('')
+  const [brandColor, setBrandColor] = useState('#635bff')
+  const DEFAULT_SIGNATURE = `<table cellpadding="0" cellspacing="0" style="font-family:Arial,sans-serif;font-size:13px;color:#374151;border-collapse:collapse;">
+  <tr>
+    <td style="padding-right:14px;vertical-align:top;">
+      <img src="{{agent_avatar_url}}" width="48" height="48" style="border-radius:50%;display:block;" alt="{{agent_name}}" />
+    </td>
+    <td style="vertical-align:top;border-left:2px solid #4652f2;padding-left:14px;">
+      <p style="margin:0;font-weight:700;font-size:14px;color:#111827;">{{agent_name}}</p>
+      <p style="margin:2px 0 6px;font-size:12px;color:#6b7280;">{{agent_title}} &middot; {{company_name}}</p>
+      <p style="margin:0;font-size:12px;color:#6b7280;">
+        <a href="mailto:{{agent_email}}" style="color:#4652f2;text-decoration:none;">{{agent_email}}</a>
+        &nbsp;&bull;&nbsp;{{agent_phone}}
+      </p>
+      <p style="margin:6px 0 0;">
+        <a href="{{company_website}}" style="font-size:11px;color:#9ca3af;text-decoration:none;">{{company_website}}</a>
+      </p>
+    </td>
+  </tr>
+</table>`
+
+  const PLACEHOLDERS = [
+    { key: '{{agent_name}}',       label: 'Agent naam',            example: 'Lorenzo Boers' },
+    { key: '{{agent_title}}',      label: 'Agent functietitel',    example: 'Support Manager' },
+    { key: '{{agent_email}}',      label: 'Agent e-mailadres',     example: 'lorenzo@bokito.ai' },
+    { key: '{{agent_phone}}',      label: 'Agent telefoonnummer',  example: '+31 6 12345678' },
+    { key: '{{agent_avatar_url}}', label: 'Agent profielfoto URL', example: 'https://cdn.bokito.ai/avatar.jpg' },
+    { key: '{{company_name}}',     label: 'Bedrijfsnaam',          example: 'Bokito AI' },
+    { key: '{{company_website}}',  label: 'Bedrijfswebsite',       example: 'https://bokito.ai' },
+    { key: '{{company_logo_url}}', label: 'Bedrijfslogo URL',      example: 'https://cdn.bokito.ai/logo.png' },
+    { key: '{{company_phone}}',    label: 'Bedrijfstelefoon',      example: '+31 20 123 4567' },
+  ]
+
+  const PREVIEW_VALUES: Record<string, string> = {
+    '{{agent_name}}':       'Lorenzo Boers',
+    '{{agent_title}}':      'Support Manager',
+    '{{agent_email}}':      'lorenzo@bokito.ai',
+    '{{agent_phone}}':      '+31 6 12345678',
+    '{{agent_avatar_url}}': 'https://ui-avatars.com/api/?name=Lorenzo+Boers&background=4652f2&color=fff&size=96',
+    '{{company_name}}':     'Bokito AI',
+    '{{company_website}}':  'https://bokito.ai',
+    '{{company_logo_url}}': '/bokito-logo.svg',
+    '{{company_phone}}':    '+31 20 123 4567',
+  }
+
+  const [signatureHtml, setSignatureHtml] = useState(DEFAULT_SIGNATURE)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  const signaturePreview = useMemo(() => {
+    let html = signatureHtml
+    for (const [key, value] of Object.entries(PREVIEW_VALUES)) {
+      html = html.replaceAll(key, value)
+    }
+    return html
+  }, [signatureHtml])
 
   const tenantLine = useMemo(() => {
     const name = user?.tenant?.name?.trim()
@@ -277,157 +337,37 @@ export default function EmailSettings() {
   const isSmtp = modalProvider === 'smtp_imap'
   const modalOAuthLoading = modalProvider !== 'smtp_imap' ? oauthLoading[modalProvider] : false
 
+  function handleAddIgnoredAddress() {
+    const value = ignoredInput.trim().toLowerCase()
+    if (!value || ignoredAddresses.includes(value)) return
+    setIgnoredAddresses((prev) => [value, ...prev])
+    setIgnoredInput('')
+  }
+
+  function saveDraftUx(section: 'branding' | 'signatures') {
+    setBanner({
+      type: 'success',
+      text: section === 'branding' ? 'Branding instellingen opgeslagen (UX draft).' : 'Signature instellingen opgeslagen (UX draft).',
+    })
+  }
+
   return (
     <div className="h-full py-3">
-      <div className="max-w-5xl mx-auto h-full min-h-0 flex flex-col">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border/50">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-text-heading flex items-center gap-2">
-              <Mail size={16} className="text-accent" />
-              Email accounts
-            </h2>
-            <p className="text-sm text-text-secondary mt-0.5">
-              Koppel Outlook en Gmail via OAuth of voeg een SMTP / IMAP inbox toe.
-            </p>
-            {tenantLine ? <p className="text-2xs text-text-muted mt-1">{tenantLine}</p> : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Dialog.Root open={open} onOpenChange={setOpen}>
-              <Dialog.Trigger asChild>
-                <Button size="sm">
-                  <Plus size={13} />
-                  Account koppelen
-                </Button>
-              </Dialog.Trigger>
-              <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 bg-black/45 z-40" />
-                <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[760px] max-w-[92vw] max-h-[85vh] overflow-y-auto rounded-lg border border-border bg-bg-surface p-4 shadow-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <Dialog.Title className="text-sm font-semibold text-text-heading">Account koppelen</Dialog.Title>
-                    <Dialog.Close asChild>
-                      <button type="button" className="p-1 rounded text-text-muted hover:text-text-primary">
-                        <X size={14} />
-                      </button>
-                    </Dialog.Close>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-                    {providerOptions.map((providerOption) => (
-                      <button
-                        key={providerOption.id}
-                        type="button"
-                        onClick={() => setModalProvider(providerOption.id)}
-                        className={`rounded-md border px-3 py-2 text-left transition-colors ${
-                          modalProvider === providerOption.id
-                            ? 'border-accent bg-accent/10'
-                            : 'border-border/60 hover:border-border'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <ProviderLogo provider={providerOption.id} className="h-6 w-6 object-contain mt-0.5" />
-                          <div>
-                            <p className="text-xs font-medium text-text-heading">{PROVIDER_LABEL[providerOption.id]}</p>
-                            <p className="text-2xs text-text-muted mt-0.5">{providerOption.description}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {isSmtp ? (
-                    <>
-                      <p className="text-2xs text-text-muted mb-3">
-                        Deze SMTP/IMAP gegevens worden alleen in deze browsersessie bewaard tot er backend-opslag is.
-                      </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">Accountnaam</label>
-                          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Support inbox" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">Afzender e-mail</label>
-                          <Input
-                            value={fromEmail}
-                            onChange={(e) => setFromEmail(e.target.value)}
-                            placeholder="support@bedrijf.nl"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">Afzendernaam</label>
-                          <Input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Bokito Support" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 mt-3">
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">SMTP host</label>
-                          <Input
-                            value={smtpHost}
-                            onChange={(e) => setSmtpHost(e.target.value)}
-                            placeholder="smtp.voorbeeld.nl"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">SMTP poort</label>
-                          <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">IMAP host</label>
-                          <Input
-                            value={imapHost}
-                            onChange={(e) => setImapHost(e.target.value)}
-                            placeholder="imap.voorbeeld.nl"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">IMAP poort</label>
-                          <Input value={imapPort} onChange={(e) => setImapPort(e.target.value)} placeholder="993" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">Gebruikersnaam</label>
-                          <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="mailbox-user" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-text-muted mb-1">Wachtwoord</label>
-                          <Input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-xs text-text-secondary">
-                      Je gaat {PROVIDER_LABEL[modalProvider]} koppelen via OAuth. Na klikken word je doorgestuurd naar de provider login/consent.
-                    </div>
-                  )}
-
-                  {formError ? <p className="text-xs text-status-error mt-3">{formError}</p> : null}
-
-                  <div className="flex items-center justify-end gap-2 mt-4">
-                    <Button size="sm" variant="secondary" onClick={resetForm} disabled={modalOAuthLoading}>
-                      Reset
-                    </Button>
-                    <Button size="sm" onClick={() => void handleModalSubmit()} disabled={modalOAuthLoading || !token}>
-                      <Plus size={13} />
-                      {isSmtp
-                        ? 'Toevoegen'
-                        : modalOAuthLoading
-                          ? 'Bezig…'
-                          : `${PROVIDER_LABEL[modalProvider]} koppelen`}
-                    </Button>
-                  </div>
-                </Dialog.Content>
-              </Dialog.Portal>
-            </Dialog.Root>
-          </div>
+      <div className="mx-auto flex h-full min-h-0 max-w-5xl flex-col">
+        <div className="border-b border-border/50 pb-4">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-text-heading">
+            <Mail size={16} className="text-accent" />
+            Email
+          </h2>
+          <p className="mt-0.5 text-sm text-text-secondary">
+            Configure sending domains, addresses, OAuth accounts, branding, and signatures.
+          </p>
+          {tenantLine ? <p className="mt-1 text-2xs text-text-muted">{tenantLine}</p> : null}
         </div>
 
         {banner ? (
           <div
-            className={`mt-2 rounded-md border px-3 py-2 text-xs ${
+            className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
               banner.type === 'success'
                 ? 'border-status-success/40 bg-status-success/10 text-status-success'
                 : 'border-status-error/40 bg-status-error/10 text-status-error'
@@ -447,95 +387,384 @@ export default function EmailSettings() {
         {listError ? <p className="text-xs text-status-error mt-2">{listError}</p> : null}
         {listLoading ? <p className="text-xs text-text-muted mt-2">Laden…</p> : null}
 
-        <div className="mt-2 flex-1 min-h-0 overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Account</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Authenticatie</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actie</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {oauthConnections.map((connection) => (
-                <TableRow key={`oauth-${connection.id}`}>
-                  <TableCell>
-                    <div className="font-medium">{connection.displayName}</div>
-                    <div className="text-xs text-text-muted">{connection.mailboxEmail}</div>
-                    {connection.lastSyncAt ? (
-                      <div className="text-2xs text-text-muted mt-0.5">
-                        Laatste sync: {new Date(connection.lastSyncAt).toLocaleString()}
-                      </div>
-                    ) : null}
-                    {connection.status === 'error' && connection.lastError ? (
-                      <div className="text-2xs text-status-error mt-0.5">{connection.lastError}</div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell>
-                    <div className="inline-flex items-center gap-2">
-                      <ProviderLogo provider={connection.provider} className="h-4 w-4 object-contain" />
-                      <span>{PROVIDER_LABEL[connection.provider]}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>OAuth</TableCell>
-                  <TableCell>
-                    <Badge variant={statusBadgeVariant(connection.status)}>{statusLabel(connection.status)}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => void handleDeleteOAuth(connection.id)}>
-                      <Trash2 size={13} />
-                      Ontkoppelen
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+        <Tabs defaultValue="sending" className="mt-4 min-h-0 flex-1">
+          <TabsList>
+            <TabsTrigger value="sending">
+              <Send size={14} className="mr-1.5" />
+              Sending
+            </TabsTrigger>
+            <TabsTrigger value="ignored">
+              <AtSign size={14} className="mr-1.5" />
+              Ignored addresses
+            </TabsTrigger>
+            <TabsTrigger value="branding">
+              <Palette size={14} className="mr-1.5" />
+              Branding
+            </TabsTrigger>
+            <TabsTrigger value="signatures">
+              <Signature size={14} className="mr-1.5" />
+              Signatures
+            </TabsTrigger>
+          </TabsList>
 
-              {localSmtpAccounts.map((account) => (
-                <TableRow key={account.id}>
-                  <TableCell>
-                    <div className="font-medium">{account.label}</div>
-                    <div className="text-xs text-text-muted">{account.fromEmail}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="inline-flex items-center gap-2">
-                      <ProviderLogo provider={account.provider} className="h-4 w-4 object-contain" />
-                      <span>{PROVIDER_LABEL[account.provider]}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{account.authMethod}</TableCell>
-                  <TableCell>
-                    <Badge variant="warning">{account.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setLocalSmtpAccounts((prev) => prev.filter((item) => item.id !== account.id))}
-                    >
-                      <Trash2 size={13} />
-                      Verwijderen
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {!hasRows && !listLoading ? (
-            <div className="py-12 px-4 text-center border border-dashed border-border/60 rounded-lg">
-              <div className="flex items-center justify-center gap-3 mb-3">
-                <ProviderLogo provider="outlook" className="h-7 w-7 object-contain" />
-                <ProviderLogo provider="gmail" className="h-7 w-7 object-contain" />
-                <span className="text-text-muted">+</span>
-                <ProviderLogo provider="smtp_imap" className="h-7 w-7 object-contain" />
+          <TabsContent value="sending" className="min-h-0 space-y-5 pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-text-heading">Connected providers</p>
+                <p className="text-sm text-text-secondary">Koppel Outlook en Gmail via OAuth of voeg SMTP / IMAP toe.</p>
               </div>
-              <p className="text-sm font-medium text-text-heading">Nog geen e-mailaccounts gekoppeld</p>
-              <p className="text-xs text-text-secondary mt-1">Gebruik hierboven Account koppelen om te starten.</p>
+              <Dialog.Root open={open} onOpenChange={setOpen}>
+                <Dialog.Trigger asChild>
+                  <Button size="sm">
+                    <Plus size={13} />
+                    Add provider
+                  </Button>
+                </Dialog.Trigger>
+                <Dialog.Portal>
+                  <Dialog.Overlay className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" />
+                  <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[760px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border/70 bg-bg-surface p-4 shadow-[0_20px_60px_rgba(5,8,18,0.4)]">
+                    <div className="mb-3 flex items-center justify-between">
+                      <Dialog.Title className="text-sm font-semibold text-text-heading">Account koppelen</Dialog.Title>
+                      <Dialog.Close asChild>
+                        <button type="button" className="rounded p-1 text-text-muted hover:text-text-primary">
+                          <X size={14} />
+                        </button>
+                      </Dialog.Close>
+                    </div>
+
+                    <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {providerOptions.map((providerOption) => (
+                        <button
+                          key={providerOption.id}
+                          type="button"
+                          onClick={() => setModalProvider(providerOption.id)}
+                          className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                            modalProvider === providerOption.id ? 'border-accent bg-accent/10' : 'border-border/60 hover:border-border'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <ProviderLogo provider={providerOption.id} className="mt-0.5 h-6 w-6 object-contain" />
+                            <div>
+                              <p className="text-xs font-medium text-text-heading">{PROVIDER_LABEL[providerOption.id]}</p>
+                              <p className="mt-0.5 text-2xs text-text-muted">{providerOption.description}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {isSmtp ? (
+                      <>
+                        <p className="mb-3 text-2xs text-text-muted">
+                          Deze SMTP/IMAP gegevens worden alleen in deze browsersessie bewaard tot er backend-opslag is.
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">Accountnaam</label>
+                            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Support inbox" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">Afzender e-mail</label>
+                            <Input value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} placeholder="support@bedrijf.nl" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">Afzendernaam</label>
+                            <Input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Bokito Support" />
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">SMTP host</label>
+                            <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.voorbeeld.nl" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">SMTP poort</label>
+                            <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">IMAP host</label>
+                            <Input value={imapHost} onChange={(e) => setImapHost(e.target.value)} placeholder="imap.voorbeeld.nl" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">IMAP poort</label>
+                            <Input value={imapPort} onChange={(e) => setImapPort(e.target.value)} placeholder="993" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">Gebruikersnaam</label>
+                            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="mailbox-user" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[11px] text-text-muted">Wachtwoord</label>
+                            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-lg border border-border/60 bg-bg-input/70 px-3 py-2 text-xs text-text-secondary">
+                        Je gaat {PROVIDER_LABEL[modalProvider]} koppelen via OAuth. Na klikken word je doorgestuurd naar de provider login/consent.
+                      </div>
+                    )}
+
+                    {formError ? <p className="mt-3 text-xs text-status-error">{formError}</p> : null}
+
+                    <div className="mt-4 flex items-center justify-end gap-2">
+                      <Button size="sm" variant="secondary" onClick={resetForm} disabled={modalOAuthLoading}>
+                        Reset
+                      </Button>
+                      <Button size="sm" onClick={() => void handleModalSubmit()} disabled={modalOAuthLoading || !token}>
+                        <Plus size={13} />
+                        {isSmtp ? 'Toevoegen' : modalOAuthLoading ? 'Bezig…' : `${PROVIDER_LABEL[modalProvider]} koppelen`}
+                      </Button>
+                    </div>
+                  </Dialog.Content>
+                </Dialog.Portal>
+              </Dialog.Root>
             </div>
-          ) : null}
-        </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Account</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Authenticatie</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {oauthConnections.map((connection) => (
+                  <TableRow key={`oauth-${connection.id}`}>
+                    <TableCell>
+                      <div className="font-medium">{connection.displayName}</div>
+                      <div className="text-xs text-text-muted">{connection.mailboxEmail}</div>
+                      {connection.lastSyncAt ? (
+                        <div className="mt-0.5 text-2xs text-text-muted">Laatste sync: {new Date(connection.lastSyncAt).toLocaleString()}</div>
+                      ) : null}
+                      {connection.status === 'error' && connection.lastError ? (
+                        <div className="mt-0.5 text-2xs text-status-error">{connection.lastError}</div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <div className="inline-flex items-center gap-2">
+                        <ProviderLogo provider={connection.provider} className="h-4 w-4 object-contain" />
+                        <span>{PROVIDER_LABEL[connection.provider]}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>OAuth</TableCell>
+                    <TableCell>
+                      <Badge variant={statusBadgeVariant(connection.status)}>{statusLabel(connection.status)}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="ghost" onClick={() => void handleDeleteOAuth(connection.id)}>
+                        <Trash2 size={13} />
+                        Ontkoppelen
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {localSmtpAccounts.map((account) => (
+                  <TableRow key={account.id}>
+                    <TableCell>
+                      <div className="font-medium">{account.label}</div>
+                      <div className="text-xs text-text-muted">{account.fromEmail}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="inline-flex items-center gap-2">
+                        <ProviderLogo provider={account.provider} className="h-4 w-4 object-contain" />
+                        <span>{PROVIDER_LABEL[account.provider]}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{account.authMethod}</TableCell>
+                    <TableCell>
+                      <Badge variant="warning">{account.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="ghost" onClick={() => setLocalSmtpAccounts((prev) => prev.filter((item) => item.id !== account.id))}>
+                        <Trash2 size={13} />
+                        Verwijderen
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {!hasRows && !listLoading ? (
+              <div className="rounded-lg border border-dashed border-border/60 px-4 py-10 text-center">
+                <div className="mb-3 flex items-center justify-center gap-3">
+                  <ProviderLogo provider="outlook" className="h-7 w-7 object-contain" />
+                  <ProviderLogo provider="gmail" className="h-7 w-7 object-contain" />
+                  <span className="text-text-muted">+</span>
+                  <ProviderLogo provider="smtp_imap" className="h-7 w-7 object-contain" />
+                </div>
+                <p className="text-sm font-medium text-text-heading">Nog geen e-mailaccounts gekoppeld</p>
+                <p className="mt-1 text-xs text-text-secondary">Gebruik hierboven Add provider om te starten.</p>
+              </div>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="ignored" className="space-y-4 pt-2">
+            <div>
+              <p className="text-sm font-semibold text-text-heading">Ignored addresses</p>
+              <p className="text-sm text-text-secondary">Voorkom dat specifieke adressen in je inboxflow terechtkomen.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={ignoredInput}
+                onChange={(event) => setIgnoredInput(event.target.value)}
+                placeholder="email@voorbeeld.nl"
+              />
+              <Button size="sm" onClick={handleAddIgnoredAddress}>
+                <Plus size={13} />
+                Add
+              </Button>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-bg-input/50 p-3">
+              {ignoredAddresses.length === 0 ? (
+                <p className="text-sm text-text-muted">Nog geen adressen toegevoegd.</p>
+              ) : (
+                <div className="space-y-2">
+                  {ignoredAddresses.map((address) => (
+                    <div key={address} className="flex items-center justify-between rounded-md bg-bg-surface/80 px-3 py-2">
+                      <span className="text-sm text-text-primary">{address}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIgnoredAddresses((prev) => prev.filter((value) => value !== address))}
+                      >
+                        <Trash2 size={13} />
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="branding" className="space-y-4 pt-2">
+            <div>
+              <p className="text-sm font-semibold text-text-heading">Email branding</p>
+              <p className="text-sm text-text-secondary">Stel alvast branding defaults in voor uitgaande e-mails.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[11px] text-text-muted">Default sender name</label>
+                <Input value={brandSenderName} onChange={(event) => setBrandSenderName(event.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] text-text-muted">Reply-to address</label>
+                <Input value={brandReplyTo} onChange={(event) => setBrandReplyTo(event.target.value)} placeholder="reply@bedrijf.nl" />
+              </div>
+            </div>
+            <div className="max-w-[260px]">
+              <label className="mb-1 block text-[11px] text-text-muted">Accent color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={brandColor}
+                  onChange={(event) => setBrandColor(event.target.value)}
+                  className="h-10 w-12 cursor-pointer rounded border border-border/70 bg-transparent p-1"
+                />
+                <Input value={brandColor} onChange={(event) => setBrandColor(event.target.value)} />
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-bg-surface/80 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-text-muted">Preview</p>
+              <div className="mt-2 rounded-lg border border-border/60 bg-bg-input/70 p-3">
+                <p className="text-sm font-medium text-text-heading">{brandSenderName || 'Sender name'}</p>
+                <p className="text-xs text-text-secondary">{brandReplyTo || 'reply@example.com'}</p>
+                <div className="mt-3 h-2.5 w-24 rounded-full" style={{ backgroundColor: brandColor }} />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => saveDraftUx('branding')}>
+                Save branding
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="signatures" className="space-y-5 pt-2">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-text-heading">Handtekening</p>
+                <p className="text-sm text-text-secondary">Stel een standaard HTML-handtekening in voor uitgaande e-mails.</p>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setSignatureHtml(DEFAULT_SIGNATURE)}>
+                Standaard template
+              </Button>
+            </div>
+
+            {/* Editor + preview side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">HTML</label>
+                <Textarea
+                  value={signatureHtml}
+                  onChange={(event) => setSignatureHtml(event.target.value)}
+                  className="min-h-[260px] font-mono text-[12px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Voorbeeld (met testdata)</label>
+                <div className="min-h-[260px] rounded-lg border border-border/60 bg-white p-5 overflow-auto">
+                  {/* eslint-disable-next-line react/no-danger */}
+                  <div dangerouslySetInnerHTML={{ __html: signaturePreview }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Placeholder reference */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-2">Beschikbare placeholders</p>
+              <div className="rounded-xl border border-border/55 overflow-hidden">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border/55 bg-bg-elevated/40">
+                      <th className="px-4 py-2 text-left font-semibold text-text-muted">Placeholder</th>
+                      <th className="px-4 py-2 text-left font-semibold text-text-muted">Beschrijving</th>
+                      <th className="px-4 py-2 text-left font-semibold text-text-muted">Voorbeeld</th>
+                      <th className="px-4 py-2 w-10" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PLACEHOLDERS.map((ph) => (
+                      <tr key={ph.key} className="border-b border-border/40 last:border-0 hover:bg-bg-hover/30 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <code className="rounded bg-accent/10 px-1.5 py-0.5 text-accent font-mono">{ph.key}</code>
+                        </td>
+                        <td className="px-4 py-2.5 text-text-secondary">{ph.label}</td>
+                        <td className="px-4 py-2.5 text-text-muted font-mono">{ph.example}</td>
+                        <td className="px-2 py-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(ph.key)
+                              setCopiedKey(ph.key)
+                              setTimeout(() => setCopiedKey(null), 1500)
+                            }}
+                            className="flex h-6 w-6 items-center justify-center rounded text-text-muted hover:text-accent transition-colors"
+                            title="Kopieer"
+                          >
+                            {copiedKey === ph.key ? <Check size={12} className="text-accent" /> : <ClipboardCopy size={12} />}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => saveDraftUx('signatures')}>
+                Opslaan
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, Trash2, Globe, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { usePermission } from '../hooks/usePermission';
@@ -16,12 +17,13 @@ const TIMEZONES = [
 ];
 
 export default function WorkspaceSettings() {
+  const { t, i18n } = useTranslation(['workspace', 'common']);
   const { user } = useAuth();
   const canManageWorkspace = usePermission('delete_workspace') || usePermission('invite_members');
   
   const [workspaceName, setWorkspaceName] = useState(user?.tenant.name || '');
   const [timezone, setTimezone] = useState('Europe/Amsterdam');
-  const [language, setLanguage] = useState<'nl' | 'en'>('nl');
+  const language = (i18n.resolvedLanguage === 'nl' ? 'nl' : 'en') as 'nl' | 'en';
   const [require2FA, setRequire2FA] = useState(false);
   const [logo, setLogo] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
@@ -36,7 +38,7 @@ export default function WorkspaceSettings() {
       };
       reader.readAsDataURL(file);
     } else {
-      alert('Bestand moet kleiner zijn dan 1MB');
+      alert(t('fileSizeError'));
     }
   };
 
@@ -49,14 +51,14 @@ export default function WorkspaceSettings() {
       require2FA,
       logo
     });
-    alert('Instellingen opgeslagen!');
+    alert(t('saveSuccess'));
   };
 
   const handleDeleteWorkspace = () => {
     if (deleteConfirmation === workspaceName) {
       // In a real app, this would delete the workspace
       console.log('Deleting workspace:', workspaceName);
-      alert('Workspace zou nu worden verwijderd (demo)');
+      alert(t('deleteDemoNotice'));
       setShowDeleteDialog(false);
     }
   };
@@ -65,24 +67,24 @@ export default function WorkspaceSettings() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-text-heading mb-2">
-          Workspace instellingen
+          {t('title')}
         </h1>
         <p className="text-text-muted">
-          Beheer de algemene instellingen van je workspace
+          {t('description')}
         </p>
       </div>
 
       {/* General Settings */}
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-text-heading mb-4">
-          Algemene instellingen
+          {t('generalTitle')}
         </h2>
         
         <div className="space-y-6">
           {/* Workspace Name */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
-              Workspace naam
+              {t('workspaceName')}
             </label>
             <Input
               value={workspaceName}
@@ -95,7 +97,7 @@ export default function WorkspaceSettings() {
           {/* Logo Upload */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
-              Logo
+              {t('logo')}
             </label>
             <div className="flex items-center gap-4">
               {logo ? (
@@ -136,11 +138,11 @@ export default function WorkspaceSettings() {
                     asChild
                     disabled={!canManageWorkspace}
                   >
-                    <span>Upload logo</span>
+                    <span>{t('uploadLogo')}</span>
                   </Button>
                 </label>
                 <p className="text-xs text-text-muted mt-1">
-                  JPG of PNG, max 1MB
+                  {t('fileHint')}
                 </p>
               </div>
             </div>
@@ -150,7 +152,7 @@ export default function WorkspaceSettings() {
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
               <Clock size={16} className="inline mr-2" />
-              Tijdzone
+              {t('timezone')}
             </label>
             <Select
               value={timezone}
@@ -169,24 +171,24 @@ export default function WorkspaceSettings() {
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
               <Globe size={16} className="inline mr-2" />
-              Taal
+              {t('language')}
             </label>
             <div className="flex gap-2">
               <Button
                 variant={language === 'nl' ? 'default' : 'secondary'}
                 size="sm"
-                onClick={() => setLanguage('nl')}
+                onClick={() => i18n.changeLanguage('nl')}
                 disabled={!canManageWorkspace}
               >
-                Nederlands
+                {t('languageDutch')}
               </Button>
               <Button
                 variant={language === 'en' ? 'default' : 'secondary'}
                 size="sm"
-                onClick={() => setLanguage('en')}
+                onClick={() => i18n.changeLanguage('en')}
                 disabled={!canManageWorkspace}
               >
-                English
+                {t('languageEnglish')}
               </Button>
             </div>
           </div>
@@ -195,7 +197,7 @@ export default function WorkspaceSettings() {
         {canManageWorkspace && (
           <div className="flex justify-end mt-6 pt-6 border-t border-border">
             <Button onClick={handleSave}>
-              Instellingen opslaan
+              {t('saveSettings')}
             </Button>
           </div>
         )}
@@ -204,17 +206,17 @@ export default function WorkspaceSettings() {
       {/* Security Settings */}
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-text-heading mb-4">
-          Beveiliging
+          {t('securityTitle')}
         </h2>
         
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-medium text-text-primary">
-                Verplichte 2FA voor alle leden
+                {t('require2faTitle')}
               </h3>
               <p className="text-sm text-text-muted">
-                Alle workspace leden moeten 2FA inschakelen
+                {t('require2faDescription')}
               </p>
             </div>
             <Button
@@ -223,7 +225,7 @@ export default function WorkspaceSettings() {
               onClick={() => setRequire2FA(!require2FA)}
               disabled={!usePermission('delete_workspace')} // Only owners
             >
-              {require2FA ? 'Ingeschakeld' : 'Uitgeschakeld'}
+              {require2FA ? t('enabled') : t('disabled')}
             </Button>
           </div>
         </div>
@@ -233,23 +235,23 @@ export default function WorkspaceSettings() {
       {usePermission('delete_workspace') && (
         <Card className="p-6 border-red-200 bg-red-50/50">
           <h2 className="text-lg font-semibold text-red-800 mb-4">
-            Gevaarlijke acties
+            {t('dangerTitle')}
           </h2>
           
           <div className="space-y-4">
             <div>
               <h3 className="font-medium text-red-700 mb-2">
-                Workspace verwijderen
+                {t('deleteWorkspaceTitle')}
               </h3>
               <p className="text-sm text-red-600 mb-4">
-                Deze actie kan niet ongedaan worden gemaakt. Alle data wordt permanent verwijderd.
+                {t('deleteWorkspaceDescription')}
               </p>
               
               <Button
                 variant="destructive"
                 onClick={() => setShowDeleteDialog(true)}
               >
-                Workspace verwijderen
+                {t('deleteWorkspaceButton')}
               </Button>
             </div>
           </div>
@@ -261,17 +263,17 @@ export default function WorkspaceSettings() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-text-heading mb-4">
-              Workspace verwijderen
+              {t('deleteDialogTitle')}
             </h3>
             
             <p className="text-text-muted mb-4">
-              Type de naam van de workspace <strong>"{workspaceName}"</strong> om te bevestigen:
+              {t('deleteDialogPrompt', { name: workspaceName })}
             </p>
             
             <Input
               value={deleteConfirmation}
               onChange={(e) => setDeleteConfirmation(e.target.value)}
-              placeholder="Workspace naam"
+              placeholder={t('workspaceNamePlaceholder')}
               className="mb-4"
             />
             
@@ -283,14 +285,14 @@ export default function WorkspaceSettings() {
                   setDeleteConfirmation('');
                 }}
               >
-                Annuleren
+                {t('common:actions.cancel')}
               </Button>
               <Button
                 variant="destructive"
                 onClick={handleDeleteWorkspace}
                 disabled={deleteConfirmation !== workspaceName}
               >
-                Permanent verwijderen
+                {t('deleteConfirmButton')}
               </Button>
             </div>
           </Card>

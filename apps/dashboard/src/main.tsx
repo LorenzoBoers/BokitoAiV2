@@ -6,7 +6,9 @@ import { ThemeProvider } from './context/ThemeContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { ValidationProvider } from './context/ValidationContext'
 import { UndoRedoProvider } from './context/UndoRedoContext'
+import { WorkspaceProvider } from './context/WorkspaceContext'
 import App from './App'
+import './i18n'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -14,13 +16,15 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <NotificationProvider>
-            <ValidationProvider>
-              <UndoRedoProvider>
-                <App />
-              </UndoRedoProvider>
-            </ValidationProvider>
-          </NotificationProvider>
+          <WorkspaceProvider>
+            <NotificationProvider>
+              <ValidationProvider>
+                <UndoRedoProvider>
+                  <App />
+                </UndoRedoProvider>
+              </ValidationProvider>
+            </NotificationProvider>
+          </WorkspaceProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

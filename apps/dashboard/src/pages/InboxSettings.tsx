@@ -379,13 +379,13 @@ export default function InboxSettings() {
           <Card className="p-4 mb-4">
             <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
               <input
-                className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm"
+                className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
                 placeholder="Nieuwe collectie naam"
                 value={newCollectionName}
                 onChange={(event) => setNewCollectionName(event.target.value)}
               />
               <input
-                className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm"
+                className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
                 placeholder="Beschrijving (optioneel)"
                 value={newCollectionDescription}
                 onChange={(event) => setNewCollectionDescription(event.target.value)}
@@ -434,19 +434,19 @@ export default function InboxSettings() {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px_auto] gap-2 mb-3">
                     <input
-                      className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm"
+                      className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
                       placeholder="Bestandsnaam"
                       value={newDocName}
                       onChange={(event) => setNewDocName(event.target.value)}
                     />
                     <input
-                      className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm"
+                      className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
                       placeholder="Bestand URL"
                       value={newDocUrl}
                       onChange={(event) => setNewDocUrl(event.target.value)}
                     />
                     <select
-                      className="rounded-md border border-border bg-transparent px-2 py-1.5 text-sm"
+                      className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
                       value={newDocType}
                       onChange={(event) => setNewDocType(event.target.value as KbDocument['file_type'])}
                     >
@@ -478,7 +478,7 @@ export default function InboxSettings() {
 
                   <div className="space-y-2">
                     {kbDocuments.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                      <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/70 bg-bg-input/45 px-3 py-2">
                         <div className="min-w-0">
                           <div className="text-sm text-text-primary truncate">{doc.filename}</div>
                           <div className="text-2xs text-text-muted">

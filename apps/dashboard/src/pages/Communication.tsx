@@ -1,6 +1,7 @@
 import { Mail } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Link, useParams } from 'react-router-dom'
 import ChannelSidebar from '../components/communication/ChannelSidebar'
 import MessageArea from '../components/communication/MessageArea'
 import InfoPanel from '../components/communication/InfoPanel'
@@ -8,9 +9,13 @@ import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { useEmailMessages } from '../hooks/useEmailMessages'
 
 export default function Communication() {
+  const { t } = useTranslation('communication')
+  const { queue } = useParams<{ queue?: string }>()
   const [selectedConnectionId, setSelectedConnectionId] = useState<number | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>('all')
+  const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>(
+    queue === 'unassigned' ? 'unread' : queue === 'created' ? 'urgent' : 'all',
+  )
   const [search, setSearch] = useState('')
   const {
     activeConnections,
@@ -31,7 +36,7 @@ export default function Communication() {
   )
 
   if (connectionsLoading) {
-    return <div className="h-full py-6 text-sm text-text-muted">Mailboxen laden...</div>
+    return <div className="h-full py-6 text-sm text-text-muted">{t('loadingMailboxes')}</div>
   }
 
   if (connectionsError) {
@@ -41,8 +46,7 @@ export default function Communication() {
   if (needsOrganisation) {
     return (
       <div className="h-full py-6 text-sm text-text-muted max-w-md">
-        Je account heeft nog geen organisatiecontext. Vraag een beheerder om je gebruiker aan een organisatie te
-        koppelen, of log opnieuw in als je net een uitnodiging hebt geaccepteerd.
+        {t('missingOrganisation')}
       </div>
     )
   }
@@ -53,12 +57,12 @@ export default function Communication() {
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
           <Mail size={28} className="text-accent" />
         </div>
-        <h2 className="text-lg font-semibold text-text-heading">Geen actieve mailbox</h2>
+        <h2 className="text-lg font-semibold text-text-heading">{t('noActiveMailboxTitle')}</h2>
         <p className="text-sm text-text-secondary mt-2 max-w-sm">
-          Koppel een mailbox om je inbox hier te bekijken. Dat doe je onder Instellingen, bij E-mail.
+          {t('noActiveMailboxDescription')}
         </p>
-        <Link to="/settings/email" className="mt-5 text-sm font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-sm">
-          Open E-mail-instellingen
+        <Link to="/settings/support/general" className="mt-5 text-sm font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-sm">
+          {t('openEmailSettings')}
         </Link>
       </div>
     )

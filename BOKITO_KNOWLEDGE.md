@@ -33,12 +33,13 @@ Tech stack: React + TypeScript + Vite + Tailwind (dashboard), Expo + React Nativ
 
 ### 2.1 Login (`/login`)
 - E-mail + wachtwoord login via Xano `POST /auth/login`
-- JWT token opgeslagen in `localStorage` als `bokito_auth_token`
-- Bij laden: `GET /auth/me` om bestaande sessie te herstellen
+- Dashboard auth gebruikt een same-origin auth-contract op `/api/auth/*` (`login`, `refresh`, `me`, `logout`) met cookie-gebaseerde sessieflow
+- Refresh token hoort in een `HttpOnly` cookie; access token blijft alleen in runtime memory (niet in `localStorage`)
+- Bij laden probeert de portal eerst `POST /api/auth/refresh` en daarna `GET /api/auth/me` om de sessie te herstellen
 - `GET /auth/me` levert tenantcontext in een stabiel object: `tenant = { id, slug, name }` en kan optioneel een logo-URL bevatten (bijv. `logo`, `logo_url` of gelijkwaardig op `tenant`, `account` of `organisation`)
 - Frontend normaliseert auth-velden naar 1 intern model (`user.tenant`) zodat tenantdata herbruikbaar is in meerdere modules; `user.tenant.logo` is de eerste beschikbare logo-URL uit die objecten, anders `null`
 - De tenantkaart linksboven in de dashboard-sidebar gebruikt de ingelogde tenant uit `user.tenant` (logo, naam + slug); zonder logo-URL valt de UI terug op `/bokito-logo.svg`
-- `ProtectedRoute` bewaakt alle routes — redirect naar `/login` zonder token
+- `ProtectedRoute` bewaakt alle routes en stuurt ongeauthenticeerde gebruikers naar `/login?returnUrl=...`; na login gaat de gebruiker terug naar dezelfde interne URL (met open-redirect validatie)
 
 ---
 
@@ -185,28 +186,19 @@ Scrollbaar instellingenformulier met sticky opslaan-balk.
 ---
 
 ### 2.10 Sidebar Navigatiestructuur
-Inklapbare zijbalk (200px uitgevouwen / 52px ingeklapt), staat opgeslagen in `localStorage`.
+De portal gebruikt een Featurebase-achtige 2-laagse shell:
 
-```
-Dashboard
-Communicatie
-Agents
-  - Assistent (stub)
-  - Agent Canvas
-  - Cloud Agents
-  - Webchat
-Databronnen (`/datasources`)
-Automatisering — enkelvoudig top-level item (tijdelijk geen genest submenu)
-Integraties
-  - Verbonden tools
-  - API-sleutels (stub)
-  - Webhooks (stub)
-Mijn organisatie
-  - Team management (stub)
-  - Configuratie
-  - Kennisbank (stub)
-Analytics (`/analytics`) — enkelvoudig top-level item, placeholderpagina (geen submenu meer)
-```
+- **Primary rail (icon-only, links):**
+  - Support (`/support/inbox/all`)
+  - Users (`/users/attributes`)
+  - Settings (`/settings/profile`)
+- **Context sidebar (tekstnavigatie per sectie):**
+  - Support: inbox-queues + support setup
+  - Users: customer data-sectie (attributes/tags/segments/lead qualification/blocked)
+  - Settings: Featurebase-achtige groepen `Personal`, `Products`, `Workspace`, `Data`
+
+In de nieuwe shell zijn dode navigatie-items verwijderd (geen disabled/soon buttons in actieve navigatie).
+Support- en settingsroutes zijn gekoppeld aan werkende Bokito-modules (zoals `Communication`, `EmailSettings`, `InboxSettings` en `DatabasePage`) in plaats van blueprint-only pagina's.
 
 ---
 
@@ -218,13 +210,51 @@ Analytics (`/analytics`) — enkelvoudig top-level item, placeholderpagina (geen
 
 ---
 
-### 2.12 Dashboard Design System (Stripe-geinspireerd)
-- De dashboard UI gebruikt een compact, Stripe-geinspireerd design-systeem met neutrale surfaces, beperkte accentkleur en duidelijke typografische hierarchie
-- De shell blijft sidebar-first (geen routewijziging), met strakkere topbar en compactere navigatiestaten
-- De frontend bevat een herbruikbare `components/ui` laag met Radix + shadcn-stijl primitives (onder andere `button`, `input`, `card`, `tabs`, `table`, `select`, `badge`)
-- Integraties, Databronnen en Cloud Agents gebruiken consistente dense list/table patronen voor betere scanbaarheid
-- Home, Communicatie, Login, Company Config en Webchat volgen dezelfde token- en componentstijl voor visuele consistentie in light en dark mode
-- Voor settings- en marketplace-overzichten verschuift de UI naar een lijstgerichte opbouw zonder dominante achtergrondpanelen ("vlakken"), met subtiele scheidingslijnen voor hierarchie
+### 2.12 Dashboard Design System (Featurebase-achtige fase)
+- De dashboard UI gebruikt een Featurebase-achtige dark-first shell met compacte panelen, zachte borders en dense informatieblokken.
+- De huidige make-overfase focust op **Support**, **Users** en **Settings** met werkende routes en zonder mock-cijferdashboards in de hoofdnavigatie.
+- De profielpagina onder settings volgt nu een Featurebase-achtige opbouw met secties `Personal information`, `Theme`, `Security` en `Account`.
+- Legacy-routes blijven bereikbaar via redirects naar de nieuwe informatiearchitectuur zodat de shell consistent blijft.
+- De shell gebruikt nu een zachtere materialistische token-set (lagere contrastovergangen tussen app background, sidebar en surfaces) zodat dark en light mode dichter op de Featurebase visuele hiërarchie zitten.
+- De rail toont opnieuw het Bokito-logo (`/bokito-logo.svg`) met theme-aware rendering: visueel wit in dark mode en neutraal grijs in light mode.
+- De settings-shell is verder genormaliseerd op compactere maatvoering (smaller topbar, smallere context-sidebar, kleinere control-typografie) voor consistente sectiegroottes.
+- `/settings/members` bevat nu een functionele `Members and teams` pagina: members- en invite-overzicht (workspace-scoped via `/workspaces`, `/workspaces/{id}/members`, `/workspaces/{id}/invites`) plus invite-actie via `POST /workspace-invites`.
+- Teams op dezelfde pagina zijn workspace-scoped client-state en worden per workspace/tenant lokaal opgeslagen onder key `bokito_members_teams_{workspaceId|tenantSlug}`.
+- Shell-indelingsregel: de portal gebruikt geen hard gescheiden topbar/rail-vakken; rail- en contextnavigatie renderen als zwevende panel-items zonder interne scheidingslijnen, en de page-content staat in één afgerond hoofdvlak (Featurebase-achtig).
+- Layout-update op user feedback: de linker icon-rail heeft geen eigen paneelvlak meer; alleen rechts staat één gecombineerd shell-vlak met contextmenu (tussenmenu), header en inhoud.
+- Header-update op user feedback: niet-werkende headeracties (theme-toggle en notificatieknop) zijn verwijderd; de header bevat nu alleen titel + zoekveld.
+- Rail-update op user feedback: `Settings` staat onderaan in het menu direct boven de user-entry; user-initi alen krijgen een vaste achtergrondkleur wanneer er geen profielfoto is.
+- User-menu update op user feedback: de linksonder user-entry gebruikt geen hover-uitlogactie meer maar een click-dropdown met Featurebase-achtige opties (`My Profile`, `Notification preferences`, `Light/Dark mode`, `My Organizations`, `Sign out`).
+- Light-mode style-richtlijn: menu-items, cards en inputs gebruiken extra subtiele elevatie (inner + outer shadow), duidelijke maar zachte borders en rijkere active/hover states om een materialistischere Featurebase-feel te geven zonder harde contrasten.
+- Navigatie-richtlijn op user feedback: context-menu-items tonen iconen zoals Featurebase; `My inbox` toont een persoonlijke avatar-indicator met initials als fallback.
+- Header-richtlijn op user feedback: zoekbalk rechtsboven staat alleen op settings-routes en gebruikt een hogere control-height; shelltitels zijn compacter gemaakt.
+- Settings IA update: `Custom Domain` en `Multilingual` zijn verwijderd uit de actieve settings-navigatie en hebben geen route meer in de portal.
+- Settings IA update: `Emails` is verwijderd uit de actieve settings-navigatie en heeft geen eigen `/settings/email(s)` route meer; email-configuratie loopt via support (`/support/settings/general`).
+- Tooltip-richtlijn op user feedback: rail-tooltips gebruiken geen native browser `title` meer maar een custom Featurebase-achtige tooltipstijl (donkere elevated bubble met zachte border en shadow).
+- Email settings UX-richtlijn: `EmailSettings` is nu Featurebase-achtig ingedeeld met tabs `Sending`, `Ignored addresses`, `Branding` en `Signatures`; de bestaande OAuth/SMTP-koppelflow blijft onder `Sending`, terwijl `Branding` en `Signatures` als werkende UX-drafts zijn opgezet.
+- Notifications UX-richtlijn: `/settings/notifications` heeft nu een Featurebase-achtige matrix met per notificatietype drie kanalen (`Desktop`, `Email`, `Mobile`) via toggles; huidige opslag is lokale UX-draft in `localStorage` (`bokito_notification_settings_v1`).
+- Settings IA update: in `Products` zijn `Feedback & Roadmaps` en `Changelog` verwijderd; `Support` is vervangen door `Inbox` en aangevuld met `Email settings` en `Messenger`.
+- Settings IA update: `Developers`, `MCP` en `Integrations` zijn voor nu verwijderd uit de actieve settings-navigatie en bijbehorende settings-routes.
+- Messenger UX-richtlijn: er is een nieuwe `Messenger` settingspagina (`/settings/messenger` en support alias `/support/customization`) met een eenvoudige Featurebase-achtige opzet (customizationblokken + live previewkolom).
+- Workspace context is als globale provider opgenomen in de dashboard root (`WorkspaceProvider` binnen `AuthProvider`) zodat shell en pagina’s dezelfde actieve workspace gebruiken.
+- Workspace-selectie bewaart de laatst gekozen workspace in `localStorage` onder `bokito_current_workspace`; initialisatie kiest prioriteit: auth-tenant-id (indien match), daarna opgeslagen workspace-id, daarna de eerste beschikbare workspace.
+- De user dropdown in de rail bevat een ingebouwde workspace-switcher met de lijst uit `/workspaces` en markering van de huidige workspace.
+- `Members and teams` gebruikt nu de globale `currentWorkspace` uit `WorkspaceContext` in plaats van een lokale “eerste workspace” selectie; members/invites volgen daardoor direct de actieve workspace.
+- Er is een dedicated pagina `/workspaces` toegevoegd als centrale start- en beheerpagina voor workspaces (lijst + eenvoudige create-flow).
+- De rootroute `/` stuurt gebruikers zonder workspaces automatisch naar `/workspaces`; gebruikers met workspaces landen op `/support/inbox/all`.
+- De user dropdown is vereenvoudigd: één duidelijke `Workspaces` navigatie-entry plus een compact blok met `Huidige workspace` en (alleen bij meerdere) `Wissel naar` om dubbeling met `Mijn organisaties` te vermijden.
+- Workspace onboarding-flow is nu gesplitst in twee shells: een aparte `WorkspaceHubLayout` (bovenliggende omgeving) voor `/workspaces*` en de bestaande product-shell (`Layout`) voor support/settings/database/workforce.
+- De workspace-hub gebruikt een eigen linker navigatie met vier items: `Workspaces`, `Billing`, `Account`, `Support`; `Referrals` is geen onderdeel van deze navigatie.
+- De workspace-overview (`/workspaces`) toont Featurebase-achtige workspace cards plus een aparte create-card met plus-actie, en een hulpsectie met resources onder/naast de cards.
+- De hubnavigatie toont accountinformatie van de ingelogde gebruiker linksonder (naam + e-mail + initials) met een directe link naar de `Account` hubpagina, vergelijkbaar met Xano-achtige placement.
+- De `Account` hubpagina bevat nu werkende basisinstellingen (profieloverzicht, snelle thema-toggle en uitloggen) in plaats van een placeholder.
+- Workspace hub gedrag bij lege `/workspaces` response: frontend probeert een fallback-workspace op basis van `auth/me` tenantdata (`user.tenant`) zodat users met bestaande tenantcontext niet op een lege lijst stranden.
+- Workspace overzicht is nu visueel gecentreerd (verticaal + horizontaal) als startpunt, met hulpitems onder de cards i.p.v. rechts ernaast.
+- Workspace aanmaken in hub verloopt nu via een volledig klikbare create-card die een popup opent voor naaminvoer; na aanmaken opent de flow direct de setuproute binnen de workspace (`/settings/general`).
+- Workspace-id verwerking in frontend accepteert nu zowel numerieke als string/UUID ids voor `/workspaces` responses; matching en localStorage-resolutie gebruiken string-key vergelijking om lege lijsten door type-mismatch te voorkomen.
+- Meertaligheid: de dashboardshell ondersteunt nu runtime taalwisseling met `i18next` (`en`/`nl`) inclusief persistente taalkeuze via `localStorage` key `bokito-language`.
+- De navigatiestructuur (rail, context-sidebar, header fallbacktitels en support/settings metadata) is vertaald via locale namespaces onder `apps/dashboard/src/locales/{en,nl}/nav.json`.
+- De route `/settings/general` gebruikt de `WorkspaceSettings` pagina als algemene instellingenpagina en bevat de actieve taalwisselaar (`Nederlands`/`English`) die direct `i18n.changeLanguage(...)` aanroept.
 
 ---
 
@@ -488,7 +518,7 @@ Zichtbaar in navigatie maar nog niet gebouwd:
 - **Dashboard**: React + TypeScript + Vite + React Router + Tailwind CSS
 - **Mobiel**: React Native + Expo Router
 - **Widget**: Vanilla JS, geen dependencies, SSE-streaming
-- **Auth**: JWT Bearer tokens — `localStorage` (dashboard), `AsyncStorage` (mobiel); dashboard `GET /auth/me` bevat tenantobject `tenant.id`, `tenant.slug`, `tenant.name` en optioneel logo-URL (genormaliseerd naar `user.tenant.logo`)
+- **Auth**: Dashboard gebruikt cookie + memory sessie (`/api/auth/*`), mobiel gebruikt `AsyncStorage`; dashboard `GET /api/auth/me` bevat tenantobject `tenant.id`, `tenant.slug`, `tenant.name` en optioneel logo-URL (genormaliseerd naar `user.tenant.logo`)
 - **Tenant canonical key**: `account.slug` (unique) is de vaste tenant identifier voor frontend-logica en feature-scope
 - **Workspace 1 tenant-tabellen**: `account` (tabel-id `2`) en `organisation` (tabel-id `6`) bestaan elk één keer en zijn aparte modellen (niet dubbel); `account` bevat account/bedrijfsgegevens, `organisation` bevat tenantconfiguratie zoals livechat- en budgetinstellingen.
 - **Workspace 1 tenant-relaties**: het merendeel van domeintabellen verwijst naar `organisation_id` (UUID, tableref `6`), terwijl auth/e-mail nog `account_id` (int, tableref `2`) gebruikt, o.a. `user`, `event_log`, `email_oauth_connection` en `outlook_oauth_state`.
@@ -596,7 +626,7 @@ Bakermat is een partner-facing React app (`apps/bakermat/`) waarmee klanten van 
 - Voor Bakermat gebruikt `custom_table.organisation_id` de tenant/account-id `4` (`bakermat-design`) als scope voor de custom tabellen.
 - Doeltabel-slugs voor de operatie-UI: `bm_jobs`, `bm_job_phases`, `bm_products`, `bm_calendar_events`, `bm_customers`.
 - De operationspagina `apps/bakermat/operatie.html` gebruikt nu direct de generieke custom DB API (`/api:vLUpKLJh`) in plaats van de legacy Bakermat CRUD-routes (`/api:paVSDSqb/jobs|products|phases|calendar`).
-- De operatie-UI verwacht een geldige dashboard JWT in `localStorage` onder `bokito_auth_token` om custom DB-calls te autoriseren.
+- De operatie-UI verwacht een geldige dashboard access token in runtime memory; token-resolutie loopt via de centrale auth provider (geen `localStorage` dependency).
 - Migratiescript: `scripts/migrate-bakermat-bm-to-custom-db.mjs` ondersteunt idempotente upsert op `bm_legacy_id` plus `--dry-run`.
 - Legacy bron-tabellen met prefix `BM_` in workspace `1` zijn verwijderd na migratie; operationele data voor Bakermat staat nu uitsluitend in tenant-scoped custom tabellen (`organisation_id = 4`).
 
@@ -1106,4 +1136,27 @@ De orchestrator-pagina gebruikt een hiërarchische full-canvas visualisatie die 
 
 ---
 
-*Laatste update: 3 april 2026 — Timeline gebruikt interactieve dragbare viewport met duurbalken (planned/actual), runtime payload bevat extra timingvelden en MCP check-in/check-out flow actualiseert taak/sessie/agentstatus met realtime events op `workforce/{organisation_id}`*
+## 14. API Groepsstructuur (mei 2026)
+
+Xano workspace `Bokito AI app` gebruikt nu een geconsolideerde API-groepsindeling met semantische canonicals.
+
+- `api:app`: centrale applicatiegroep voor auth, members/accounts, custom-db en backlog endpoints.
+- `api:workforce`: centrale workforcegroep voor orchestra/workforce-control/agent-runtime endpoints.
+- `api:livechat`: livechat en widget-endpoints.
+- `api:logs`: event logs.
+- `api:bakermat`: Bakermat configurator en bijbehorende endpoints.
+
+Dashboard frontend-richtlijn:
+
+- API-routes worden dynamisch opgebouwd via `VITE_XANO_BASE_URL` + group canonical + endpoint path.
+- Group canonicals zijn env-gedreven via:
+  - `VITE_API_GROUP_APP`
+  - `VITE_API_GROUP_WORKFORCE`
+  - `VITE_API_GROUP_LIVECHAT`
+  - `VITE_API_GROUP_LOGS`
+  - `VITE_API_GROUP_BAKERMAT`
+- Publieke docs-URL gebruikt `VITE_PUBLIC_API_URL` i.p.v. hardcoded hoststrings.
+- Auth BFF-proxy (`/api/auth/*`) rewrite gebruikt `VITE_API_GROUP_APP` als canonical fallback.
+- Profielfoto-upload gebruikt de appgroep endpoint `POST /users/me/avatar` (met fallback naar legacy `POST /auth/avatar` voor backward compatibility).
+
+*Laatste update: 7 mei 2026 — API-groepen geconsolideerd naar `app/workforce/livechat/logs/bakermat` en dashboard API-referenties zijn env-gedreven gemaakt.*
