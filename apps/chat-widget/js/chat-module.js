@@ -69,6 +69,17 @@ function livechatPathSegment(raw, fallback) {
   return LIVECHAT_PATH_SEGMENT.test(s) ? s : fallback;
 }
 
+function resolveTenantSubdomainFromHost() {
+  if (typeof window === 'undefined') return null;
+  const hostname = String(window.location?.hostname || '').trim().toLowerCase();
+  if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost')) return null;
+  const parts = hostname.split('.').filter(Boolean);
+  if (parts.length < 3) return null;
+  const subdomain = parts[0] || '';
+  if (!subdomain || subdomain === 'www' || subdomain === 'app') return null;
+  return subdomain;
+}
+
 /* ══════════════════════════════════════════════════════════════
    API CLIENT
 ══════════════════════════════════════════════════════════════ */
@@ -103,8 +114,10 @@ class ApiClient {
     try {
       const customerId    = localStorage.getItem('bokito_customer_id');
       const identityToken = this.#identityTokenGetter?.();
+      const tenantSubdomain = resolveTenantSubdomainFromHost();
       const body          = { agent_slug: this.#agentSlug, customer_id: customerId };
       if (identityToken) body.identity_token = identityToken;
+      if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
 
       const res = await fetch(`${this.#baseUrl}/api:livechat/session/start`, {
         method: 'POST',
@@ -942,8 +955,10 @@ class BokitoChatWidget extends HTMLElement {
   async #initSession() {
     try {
       const customerId = localStorage.getItem('bokito_customer_id');
+      const tenantSubdomain = resolveTenantSubdomainFromHost();
       const body       = { agent_slug: this.#agentSlug, customer_id: customerId || undefined };
       if (this.#identityToken) body.identity_token = this.#identityToken;
+      if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
 
       const data = await this.#api.post('session/start', body);
 

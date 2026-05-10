@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { DatabaseProvider, useDatabase } from '../context/DatabaseContext'
 import { useWorkspaceInit } from '../hooks/useWorkspaceInit'
-import TableHeaderTabs from '../components/database/TableHeaderTabs'
 import FieldEditor from '../components/database/FieldEditor'
 import ViewTabs from '../components/database/ViewTabs'
 import GridView from '../components/database/GridView'
@@ -15,6 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import type { SemanticSearchResult } from '../types/custom-db'
 
 export default function DatabasePage() {
+  return <DatabaseInner />
+}
+
+export function DatabasePageWithProvider() {
   return (
     <DatabaseProvider>
       <DatabaseInner />
@@ -51,7 +54,6 @@ function DatabaseInner() {
 
   return (
     <div className="h-full flex flex-col">
-      <TableHeaderTabs />
       <div className="flex-1 flex flex-col min-w-0">
         {activeTable ? <TableContent /> : <EmptyState />}
       </div>
@@ -157,7 +159,7 @@ function EmptyState() {
         </div>
         <h3 className="text-sm font-semibold text-text-heading mb-1">Selecteer een tabel</h3>
         <p className="text-xs text-text-muted max-w-[240px]">
-          Kies een tabel in de bovenste header of maak een nieuwe aan om te beginnen met het beheren van je data.
+          Selecteer een tabel via de linker navigatie om te beginnen met het beheren van je data.
         </p>
       </div>
     </div>

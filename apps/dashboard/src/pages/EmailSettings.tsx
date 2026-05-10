@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import { AtSign, Check, ClipboardCopy, Mail, Palette, Plus, Send, Signature, Trash2, X } from 'lucide-react'
+import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import ProviderLogo from '../components/email/ProviderLogo'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -10,9 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Textarea } from '../components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useAuth } from '../context/AuthContext'
-import { xanoDelete, xanoGet } from '../lib/xano'
+import { buildEmailOAuthReturnUrl, ensureOutlookAuthorizeUrlHasClientId } from '../lib/email-api'
+import { xanoDeleteIntegrations, xanoGetIntegrations } from '../lib/xano'
 import {
   PROVIDER_LABEL,
+  describeOAuthCallbackSummary,
+  logOAuthRedirectDebugInDev,
   parseOAuthCallback,
   providerFriendlyName,
   toProvider,
@@ -29,6 +33,8 @@ type EmailConnection = {
   status: ConnectionStatus
   lastSyncAt: string | null
   lastError: string | null
+  isEnabled: boolean
+  isPrimary: boolean
 }
 
 type LocalSmtpAccount = {
@@ -76,6 +82,10 @@ function normalizeConnections(payload: unknown): EmailConnection[] {
       if (!provider) return null
       const mailboxEmail = toString(raw.mailbox_email ?? raw.mailboxEmail)
       const displayName = toString(raw.display_name ?? raw.displayName, mailboxEmail)
+      const rawEnabled = raw.is_enabled ?? raw.isEnabled
+      const isEnabled = rawEnabled === false ? false : true
+      const rawPrimary = raw.is_primary ?? raw.isPrimary
+      const isPrimary = rawPrimary === true
       return {
         id,
         provider,
@@ -84,6 +94,8 @@ function normalizeConnections(payload: unknown): EmailConnection[] {
         status: normalizeStatus(raw.status),
         lastSyncAt: toString(raw.last_sync_at ?? raw.lastSyncAt) || null,
         lastError: toString(raw.last_error ?? raw.lastError) || null,
+        isEnabled,
+        isPrimary,
       } satisfies EmailConnection
     })
     .filter((row): row is EmailConnection => row !== null)
@@ -100,6 +112,16 @@ function statusBadgeVariant(status: ConnectionStatus): 'success' | 'error' | 'ne
   if (status === 'error') return 'error'
   return 'neutral'
 }
+
+type EmailSettingsBanner =
+  | { mode: 'simple'; variant: 'success' | 'error'; text: string }
+  | {
+      mode: 'oauth_error'
+      title: string
+      summary: string
+      code: string
+      detail: string | null
+    }
 
 export default function EmailSettings() {
   const { token, user, isLoading: authLoading } = useAuth()
@@ -118,7 +140,7 @@ export default function EmailSettings() {
   const [oauthConnections, setOauthConnections] = useState<EmailConnection[]>([])
   const [localSmtpAccounts, setLocalSmtpAccounts] = useState<LocalSmtpAccount[]>([])
   const [formError, setFormError] = useState('')
-  const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [banner, setBanner] = useState<EmailSettingsBanner | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [listLoading, setListLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<Record<OAuthProvider, boolean>>({
@@ -201,7 +223,7 @@ export default function EmailSettings() {
     setListLoading(true)
     setListError(null)
     try {
-      const payload = await xanoGet<unknown>('/email/connections', token)
+      const payload = await xanoGetIntegrations<unknown>('/email/connections', token)
       setOauthConnections(normalizeConnections(payload))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Kon e-mailkoppelingen niet laden.'
@@ -218,16 +240,21 @@ export default function EmailSettings() {
 
   useEffect(() => {
     const callback = parseOAuthCallback(searchParams)
+    if (callback.handled) logOAuthRedirectDebugInDev(searchParams, callback)
     if (callback.handled && callback.provider && callback.status === 'connected') {
       setBanner({
-        type: 'success',
+        mode: 'simple',
+        variant: 'success',
         text: `${providerFriendlyName(callback.provider)} is succesvol gekoppeld.`,
       })
       void fetchConnections()
-    } else if (callback.handled && callback.provider && callback.error) {
+    } else if (callback.handled && callback.error) {
       setBanner({
-        type: 'error',
-        text: `${providerFriendlyName(callback.provider)} koppelen mislukt (${callback.error}).`,
+        mode: 'oauth_error',
+        title: `${providerFriendlyName(callback.provider ?? 'outlook')} koppelen mislukt`,
+        summary: describeOAuthCallbackSummary(callback),
+        code: callback.error,
+        detail: callback.detail,
       })
     }
 
@@ -238,6 +265,8 @@ export default function EmailSettings() {
       next.delete('oauth_error')
       next.delete('outlook')
       next.delete('outlook_error')
+      next.delete('aad_detail')
+      next.delete('oauth_detail')
       setSearchParams(next, { replace: true })
     }
   }, [searchParams, setSearchParams, fetchConnections])
@@ -262,14 +291,17 @@ export default function EmailSettings() {
     setOauthLoading((prev) => ({ ...prev, [provider]: true }))
 
     try {
-      const genericPath = `/email/oauth/start?provider=${provider}`
+      const returnUrl = buildEmailOAuthReturnUrl()
+      const encodedReturnUrl = encodeURIComponent(returnUrl)
+      const genericPath = `/email/oauth/start?provider=${provider}&return_url=${encodedReturnUrl}`
       let data: OAuthStartResponse
       try {
-        data = await xanoGet<OAuthStartResponse>(genericPath, token)
+        data = await xanoGetIntegrations<OAuthStartResponse>(genericPath, token)
       } catch (error) {
-        // Backward-compatible fallback for existing Outlook endpoint.
         if (provider === 'outlook') {
-          data = await xanoGet<OAuthStartResponse>('/email/outlook/oauth/start', token)
+          data = await xanoGetIntegrations<OAuthStartResponse>(`/email/outlook/oauth/start?return_url=${encodedReturnUrl}`, token)
+        } else if (provider === 'gmail') {
+          data = await xanoGetIntegrations<OAuthStartResponse>(`/email/google/oauth/start?return_url=${encodedReturnUrl}`, token)
         } else {
           throw error
         }
@@ -277,14 +309,11 @@ export default function EmailSettings() {
 
       const url = data.authorize_url ?? data.authorizeUrl
       if (!url) throw new Error('Geen authorize-URL ontvangen van de server.')
+      if (provider === 'outlook') ensureOutlookAuthorizeUrlHasClientId(url)
       window.location.assign(url)
     } catch (err) {
-      const rawMessage = err instanceof Error ? err.message : `${PROVIDER_LABEL[provider]} OAuth start mislukt.`
-      const message =
-        provider === 'gmail' && rawMessage.includes('/email/oauth/start?provider=gmail')
-          ? 'Gmail koppelen is nog niet beschikbaar op deze backend. Gebruik voorlopig Outlook of SMTP/IMAP.'
-          : rawMessage
-      setBanner({ type: 'error', text: message })
+      const message = err instanceof Error ? err.message : `${PROVIDER_LABEL[provider]} OAuth start mislukt.`
+      setBanner({ mode: 'simple', variant: 'error', text: message })
       setOauthLoading((prev) => ({ ...prev, [provider]: false }))
     }
   }
@@ -292,11 +321,11 @@ export default function EmailSettings() {
   async function handleDeleteOAuth(id: number) {
     if (!token) return
     try {
-      await xanoDelete(`/email/connections/${id}`, token)
+      await xanoDeleteIntegrations(`/email/connections/${id}`, token)
       setOauthConnections((prev) => prev.filter((c) => c.id !== id))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Verwijderen mislukt.'
-      setBanner({ type: 'error', text: message })
+      setBanner({ mode: 'simple', variant: 'error', text: message })
     }
   }
 
@@ -346,7 +375,8 @@ export default function EmailSettings() {
 
   function saveDraftUx(section: 'branding' | 'signatures') {
     setBanner({
-      type: 'success',
+      mode: 'simple',
+      variant: 'success',
       text: section === 'branding' ? 'Branding instellingen opgeslagen (UX draft).' : 'Signature instellingen opgeslagen (UX draft).',
     })
   }
@@ -365,22 +395,36 @@ export default function EmailSettings() {
           {tenantLine ? <p className="mt-1 text-2xs text-text-muted">{tenantLine}</p> : null}
         </div>
 
-        {banner ? (
+        {banner?.mode === 'oauth_error' ? (
+          <div className="mt-2">
+            <OauthRedirectAlert
+              variant="error"
+              title={banner.title}
+              errorCode={banner.code}
+              technicalDetail={banner.detail}
+              onDismiss={() => setBanner(null)}
+            >
+              {banner.summary}
+            </OauthRedirectAlert>
+          </div>
+        ) : banner?.mode === 'simple' ? (
           <div
             className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
-              banner.type === 'success'
+              banner.variant === 'success'
                 ? 'border-status-success/40 bg-status-success/10 text-status-success'
                 : 'border-status-error/40 bg-status-error/10 text-status-error'
             }`}
           >
-            {banner.text}
-            <button
-              type="button"
-              className="ml-2 underline opacity-80 hover:opacity-100"
-              onClick={() => setBanner(null)}
-            >
-              Sluiten
-            </button>
+            <div className="flex flex-wrap items-start gap-x-4 gap-y-2 sm:items-center">
+              <span className="min-w-0 flex-1 leading-snug">{banner.text}</span>
+              <button
+                type="button"
+                className="ml-auto shrink-0 underline opacity-90 hover:opacity-100 sm:ml-0"
+                onClick={() => setBanner(null)}
+              >
+                Sluiten
+              </button>
+            </div>
           </div>
         ) : null}
 

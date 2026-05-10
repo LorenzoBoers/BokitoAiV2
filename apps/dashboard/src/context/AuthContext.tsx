@@ -4,6 +4,7 @@ import {
   authLogin,
   authLogout,
   authMe,
+  authMeForTenant,
   authRefresh,
   requestPasswordReset,
   resetPassword as resetPasswordRequest,
@@ -11,8 +12,36 @@ import {
   type AuthSessionResponse,
 } from '../lib/xano';
 import { UserRole, PermissionAction } from '../types/custom-db';
+import {
+  clearLocationHashPreservePath,
+  consumeDevLocalhostAccessHashFromLocation,
+  resolveTenantSubdomainFromHost,
+} from '../lib/host-routing';
 
 const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
+/** When set, the Xano auth group returned 404 for POST /refresh; skip further refresh calls until logout. */
+const SKIP_SERVER_AUTH_REFRESH_KEY = 'bokito_skip_server_auth_refresh';
+
+function shouldSkipServerAuthRefresh(): boolean {
+  try {
+    return sessionStorage.getItem(SKIP_SERVER_AUTH_REFRESH_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function rememberSkipServerAuthRefresh(): void {
+  try {
+    sessionStorage.setItem(SKIP_SERVER_AUTH_REFRESH_KEY, '1');
+  } catch {
+    // Ignore storage failures in private mode.
+  }
+}
+
+function isMissingRefreshEndpointError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message.toLowerCase() : '';
+  return message.includes('http 404') || message.includes('unable to locate request');
+}
 
 interface AuthTokens {
   access_token: string;
@@ -36,6 +65,16 @@ interface Tenant {
   logo: string | null;
 }
 
+type TenantRole = 'owner' | 'admin' | 'user';
+
+interface TenantMembership {
+  tenantId: string;
+  slug: string;
+  name: string;
+  role: TenantRole;
+  status: 'active' | 'invited' | 'suspended';
+}
+
 interface User {
   id: number;
   name: string;
@@ -47,13 +86,14 @@ interface User {
   organisationId: string | null;
   role: UserRole;
   tenant: Tenant;
+  memberships: TenantMembership[];
 }
 
 interface AuthContextValue {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<string>;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
@@ -61,6 +101,8 @@ interface AuthContextValue {
   setUserRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
   patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl'>>) => void;
+  currentTenantRole: UserRole | null;
+  hasTenantAccess: (tenantSubdomain: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -119,12 +161,53 @@ function normalizeOrganisationId(payload: Record<string, unknown>): string | nul
   return null;
 }
 
+function normalizeTenantRole(value: unknown): TenantRole {
+  const role = toString(value).toLowerCase();
+  if (role === 'owner') return 'owner';
+  if (role === 'admin') return 'admin';
+  return 'user';
+}
+
+function mapTenantRoleToUserRole(role: unknown): UserRole {
+  const normalized = toString(role).toLowerCase();
+  if (normalized === 'owner') return 'owner';
+  if (normalized === 'admin') return 'admin';
+  if (normalized === 'editor') return 'editor';
+  return 'viewer';
+}
+
+function normalizeMemberships(payload: Record<string, unknown>): TenantMembership[] {
+  const rawMemberships = Array.isArray(payload.memberships) ? payload.memberships : [];
+  return rawMemberships
+    .map((entry) => {
+      const row = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : null;
+      if (!row) return null;
+      const tenantId = toString(row.tenant_id ?? row.tenantId ?? row.organisation_id ?? row.organization_id);
+      const slug = toString(row.tenant_slug ?? row.slug).toLowerCase();
+      if (!tenantId || !slug) return null;
+      return {
+        tenantId,
+        slug,
+        name: toString(row.tenant_name ?? row.name, slug),
+        role: normalizeTenantRole(row.role),
+        status: (toString(row.status, 'active').toLowerCase() as TenantMembership['status']),
+      } satisfies TenantMembership;
+    })
+    .filter((membership): membership is TenantMembership => membership !== null);
+}
+
 function normalizeAuthUser(raw: unknown): User {
   const payload = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const memberships = normalizeMemberships(payload);
+  const currentTenantRaw =
+    payload.current_tenant && typeof payload.current_tenant === 'object'
+      ? (payload.current_tenant as Record<string, unknown>)
+      : null;
   const tenantRaw =
-    payload.tenant && typeof payload.tenant === 'object'
+    currentTenantRaw ??
+    (payload.tenant && typeof payload.tenant === 'object'
       ? (payload.tenant as Record<string, unknown>)
-      : {};
+      : {});
 
   const avatarRaw = payload.avatar && typeof payload.avatar === 'object'
     ? (payload.avatar as Record<string, unknown>)
@@ -141,13 +224,14 @@ function normalizeAuthUser(raw: unknown): User {
     avatarUrl: avatarUrl || null,
     accountId: toNumber(payload.account_id),
     organisationId: normalizeOrganisationId(payload),
-    role: (toString(payload.role) as UserRole) || 'viewer',
+    role: mapTenantRoleToUserRole(payload.role),
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
       name: toString(tenantRaw.name, 'Onbekend'),
       logo: resolveTenantLogo(payload, tenantRaw),
     },
+    memberships,
   };
 }
 
@@ -158,7 +242,7 @@ function buildFallbackUserFromLogin(loginPayload: AuthTokens, loginEmail: string
     id: loginPayload.user_id ?? loginPayload.id ?? 0,
     name: loginPayload.name ?? guessedName,
     email: loginPayload.email ?? loginEmail,
-    role: loginPayload.role ?? 'viewer',
+    role: mapTenantRoleToUserRole(loginPayload.role),
     account_id: loginPayload.account_id ?? null,
     organisation_id: lp.organisation_id ?? lp.organization_id,
     tenant: loginPayload.tenant ?? {},
@@ -200,6 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearRefreshTimer();
     try {
       sessionStorage.removeItem(ACCESS_TOKEN_FALLBACK_KEY);
+      sessionStorage.removeItem(SKIP_SERVER_AUTH_REFRESH_KEY);
     } catch {
       // Ignore storage failures in private mode.
     }
@@ -242,15 +327,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession, token]);
 
   const refreshToken = useCallback(async () => {
+    if (shouldSkipServerAuthRefresh()) return;
     try {
       const data = await authRefresh();
       const nextToken = applySession(data);
       const me = await authMe(nextToken);
       setUser(normalizeAuthUser(me));
     } catch (err) {
-      const message = err instanceof Error ? err.message.toLowerCase() : '';
-      const isMissingRefreshEndpoint = message.includes('http 404') || message.includes('unable to locate request');
-      if (isMissingRefreshEndpoint) {
+      if (isMissingRefreshEndpointError(err)) {
+        rememberSkipServerAuthRefresh();
         // Keep active access token session when backend refresh endpoint is not available.
         return;
       }
@@ -267,6 +352,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function hydrateSession() {
       setIsLoading(true);
       try {
+        if (import.meta.env.DEV) {
+          const handoffToken = consumeDevLocalhostAccessHashFromLocation();
+          if (handoffToken) {
+            try {
+              sessionStorage.setItem(ACCESS_TOKEN_FALLBACK_KEY, handoffToken);
+            } catch {
+              // Ignore storage failures in private mode.
+            }
+            clearLocationHashPreservePath();
+          }
+        }
+
+        const tenantSubdomain = resolveTenantSubdomainFromHost();
+        if (tenantSubdomain && !shouldSkipServerAuthRefresh()) {
+          try {
+            const session = await authRefresh();
+            const nextToken = applySession(session);
+            const me = await authMeForTenant(nextToken, tenantSubdomain);
+            if (!cancelled) setUser(normalizeAuthUser(me));
+            return;
+          } catch (err) {
+            if (isMissingRefreshEndpointError(err)) rememberSkipServerAuthRefresh();
+            // Continue with fallback auth strategies below.
+          }
+        }
+
         const storedToken = (() => {
           try {
             return sessionStorage.getItem(ACCESS_TOKEN_FALLBACK_KEY);
@@ -277,7 +388,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (storedToken) {
           try {
-            const meWithStoredToken = await authMe(storedToken);
+            const meWithStoredToken = tenantSubdomain
+              ? await authMeForTenant(storedToken, tenantSubdomain)
+              : await authMe(storedToken);
             if (!cancelled) {
               setToken(storedToken);
               setUser(normalizeAuthUser(meWithStoredToken));
@@ -292,23 +405,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        const me = await authMe();
-        if (!cancelled) {
-          setUser(normalizeAuthUser(me));
+        if (!shouldSkipServerAuthRefresh()) {
+          try {
+            const session = await authRefresh();
+            const nextToken = applySession(session);
+            const me = tenantSubdomain ? await authMeForTenant(nextToken, tenantSubdomain) : await authMe(nextToken);
+            if (!cancelled) setUser(normalizeAuthUser(me));
+            return;
+          } catch (err) {
+            if (isMissingRefreshEndpointError(err)) rememberSkipServerAuthRefresh();
+            // No refresh cookie or profile fetch failed; remain logged out without calling unauthenticated GET /me.
+          }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message.toLowerCase() : '';
         const isUnauthorized = message.includes('401') || message.includes('403') || message.includes('niet geauthenticeerd');
         if (isUnauthorized) {
+          const tokenAfterRace = (() => {
+            try {
+              return sessionStorage.getItem(ACCESS_TOKEN_FALLBACK_KEY);
+            } catch {
+              return null;
+            }
+          })();
+          if (tokenAfterRace) {
+            try {
+              const meRetry = tenantSubdomain
+                ? await authMeForTenant(tokenAfterRace, tenantSubdomain)
+                : await authMe(tokenAfterRace);
+              if (!cancelled) {
+                setToken(tokenAfterRace);
+                setUser(normalizeAuthUser(meRetry));
+              }
+              return;
+            } catch {
+              try {
+                sessionStorage.removeItem(ACCESS_TOKEN_FALLBACK_KEY);
+              } catch {
+                // Ignore storage failures in private mode.
+              }
+            }
+          }
           if (!cancelled) clearSession();
         } else {
-          try {
-            const session = await authRefresh();
-            const nextToken = applySession(session);
-            const me = await authMe(nextToken);
-            if (!cancelled) setUser(normalizeAuthUser(me));
-          } catch {
-            if (!cancelled) clearSession();
+          if (!shouldSkipServerAuthRefresh()) {
+            try {
+              const session = await authRefresh();
+              const nextToken = applySession(session);
+              const me = tenantSubdomain ? await authMeForTenant(nextToken, tenantSubdomain) : await authMe(nextToken);
+              if (!cancelled) setUser(normalizeAuthUser(me));
+            } catch (err) {
+              if (isMissingRefreshEndpointError(err)) rememberSkipServerAuthRefresh();
+              if (!cancelled) clearSession();
+            }
           }
         }
       } finally {
@@ -328,7 +477,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => () => clearRefreshTimer(), [clearRefreshTimer]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<string> => {
     const data = await authLogin(email, password) as AuthTokens;
     const nextToken = applySession(data);
     try {
@@ -338,11 +487,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fallback: keep users signed in when /auth/me is temporarily misconfigured.
       setUser(buildFallbackUserFromLogin(data, email));
     }
+    return nextToken;
   }, [applySession]);
 
   const hasPermission = useCallback((action: PermissionAction): boolean => {
     if (!user) return false;
-    return ROLE_PERMISSIONS[user.role]?.includes(action) ?? false;
+    const tenantSubdomain = resolveTenantSubdomainFromHost();
+    const role = tenantSubdomain
+      ? mapTenantRoleToUserRole(user.memberships.find((membership) => membership.slug === tenantSubdomain)?.role ?? user.role)
+      : user.role;
+    return ROLE_PERMISSIONS[role]?.includes(action) ?? false;
+  }, [user]);
+
+  const currentTenantRole = (() => {
+    if (!user) return null;
+    const tenantSubdomain = resolveTenantSubdomainFromHost();
+    if (!tenantSubdomain) return user.role;
+    const membership = user.memberships.find((entry) => entry.slug === tenantSubdomain);
+    if (!membership) return null;
+    return mapTenantRoleToUserRole(membership.role);
+  })();
+
+  const hasTenantAccess = useCallback((tenantSubdomain: string): boolean => {
+    if (!user) return false;
+    const normalized = tenantSubdomain.trim().toLowerCase();
+    if (!normalized) return false;
+    return user.memberships.some((membership) => membership.slug === normalized);
   }, [user]);
 
   const sendPasswordReset = useCallback(async (email: string) => {
@@ -387,7 +557,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, login, logout, sendPasswordReset, resetPassword, hasPermission, setUserRole, refreshUser, patchLocalUser }}
+      value={{ user, token, isLoading, login, logout, sendPasswordReset, resetPassword, hasPermission, setUserRole, refreshUser, patchLocalUser, currentTenantRole, hasTenantAccess }}
     >
       {children}
     </AuthContext.Provider>

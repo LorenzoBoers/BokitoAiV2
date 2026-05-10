@@ -1,18 +1,22 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { appendDevLocalhostCrossHostAccessHash, needsDevLocalhostCrossHostHandoff, sanitizeCrossHostReturnTo } from '../lib/host-routing';
 
-function sanitizeReturnUrl(rawReturnUrl: string | null): string {
-  if (!rawReturnUrl) return '/';
-  if (!rawReturnUrl.startsWith('/')) return '/';
-  if (rawReturnUrl.startsWith('//')) return '/';
-  if (rawReturnUrl.includes('://')) return '/';
-  return rawReturnUrl;
+function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
+  if (!rawReturnTo) return '/';
+  if (!rawReturnTo.startsWith('/')) return '/';
+  if (rawReturnTo.startsWith('//')) return '/';
+  if (rawReturnTo.includes('://')) return '/';
+  const normalized = rawReturnTo.toLowerCase();
+  if (normalized === '/login' || normalized.startsWith('/login?')) return '/';
+  if (normalized.startsWith('/auth/handoff')) return '/';
+  return rawReturnTo;
 }
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user, token, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -21,14 +25,43 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const rawReturnTo = searchParams.get('return_to');
+  const absoluteReturnTo = sanitizeCrossHostReturnTo(rawReturnTo);
+
+  function resolvePostLoginTarget(): string {
+    if (absoluteReturnTo) return absoluteReturnTo;
+    return sanitizeRelativeReturnTo(rawReturnTo);
+  }
+
+  async function redirectToTarget(target: string, accessToken: string | null): Promise<void> {
+    if (target.startsWith('http://') || target.startsWith('https://')) {
+      const url = appendDevLocalhostCrossHostAccessHash(target, accessToken);
+      window.location.assign(url);
+    } else {
+      navigate(target, { replace: true });
+    }
+  }
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    const target = resolvePostLoginTarget();
+    if (needsDevLocalhostCrossHostHandoff(target) && !token?.trim()) return;
+
+    const schedule = window.setTimeout(() => {
+      void redirectToTarget(target, token);
+    }, 0);
+
+    return () => window.clearTimeout(schedule);
+  }, [authLoading, user, token, rawReturnTo]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     try {
-      await login(email, password);
-      navigate(sanitizeReturnUrl(searchParams.get('returnUrl')), { replace: true });
+      const accessToken = await login(email, password);
+      const target = resolvePostLoginTarget();
+      await redirectToTarget(target, accessToken);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Inloggen mislukt';
       setError(

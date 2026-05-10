@@ -13,6 +13,7 @@ Request body (new fields are optional):
   "agent_slug": "demo",
   "customer_id": "optional-existing-customer-id",
   "identity_token": "optional-jwt",
+  "tenant_subdomain": "optional-host-subdomain",
   "host_auth_token": "optional-host-cookie-token",
   "auth_mode": "anonymous|optional|required",
   "auth_cookie_name": "optional_cookie_name"

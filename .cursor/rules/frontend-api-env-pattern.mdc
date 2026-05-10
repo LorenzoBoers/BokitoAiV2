@@ -1,0 +1,37 @@
+---
+description: Enforce frontend API endpoint construction via env base and API groups
+alwaysApply: true
+---
+
+# Frontend API Env Pattern
+
+Use these rules for `apps/dashboard/**` frontend API integrations.
+
+## Required pattern
+
+- Always construct API endpoints from:
+  - `VITE_XANO_BASE_URL` (base)
+  - `VITE_API_GROUP_*` (group canonical)
+  - endpoint path (feature-level path such as `/members`, `/auth/login`)
+- Keep this logic centralized in `apps/dashboard/src/lib/api.config.ts`.
+- Reuse exported API base constants (for example `APP_API_BASE`, `AUTH_API_BASE`) in feature code.
+
+## Do
+
+- Add new API groups by:
+  - defining `VITE_API_GROUP_<NAME>` in `.env.example`
+  - adding matching constants/builders in `api.config.ts`
+  - consuming the new base in a shared API helper before using it in pages/components
+- Keep endpoint paths local to the feature or API helper where they belong.
+- Use `import.meta.env` only for non-secret frontend config values.
+
+## Do not
+
+- Do not hardcode full API origins (for example `https://...`) directly in pages, hooks, or components.
+- Do not bypass `api.config.ts` for Xano group-based routes.
+- Do not store secrets in `VITE_*` vars (frontend build values are public in the bundle).
+
+## Vite build behavior
+
+- Treat `VITE_*` values as build-time inputs: they are baked into the frontend build output.
+- If runtime switching is needed in the future, define an explicit runtime config mechanism instead of adding ad-hoc env reads across feature files.

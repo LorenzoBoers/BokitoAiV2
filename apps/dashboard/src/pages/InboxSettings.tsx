@@ -1,33 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AlertCircle, CheckCircle, Mail, Plus, RefreshCw, Settings as SettingsIcon, Trash2, Wifi, WifiOff } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Card } from '../components/ui/card'
+import { Switch } from '../components/ui/switch'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
+import ProviderLogo from '../components/email/ProviderLogo'
 import SignatureEditor from '../components/inbox/SignatureEditor'
 import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
 import { MAILBOX_STATUS_LABELS, MAILBOX_STATUS_VARIANTS } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
+import { describeOAuthCallbackSummary, logOAuthRedirectDebugInDev, parseOAuthCallback, providerFriendlyName } from '../lib/email-oauth'
 import {
-  createKbCollection,
   createRoutingRule,
-  deleteKbDocument,
   deleteRoutingRule,
-  getAiConfig,
   getConnectionSignature,
-  listKbCollections,
-  listKbDocuments,
   listRoutingRules,
-  saveAiConfig,
   saveConnectionSignature,
   startOAuthConnection,
-  uploadKbDocument,
+  updateMailboxSettings,
   updateRoutingRule,
-  type AiInboxConfig,
-  type KbCollection,
-  type KbDocument,
   type RoutingRuleApi,
 } from '../lib/email-api'
 
@@ -46,6 +43,8 @@ function toMailbox(connection: {
   lastSyncAt: string | null
   signatureHtml: string | null
   lastError: string | null
+  isEnabled: boolean
+  isPrimary: boolean
 }): MailboxConnection {
   return {
     id: connection.id,
@@ -57,6 +56,8 @@ function toMailbox(connection: {
     last_sync_at: connection.lastSyncAt,
     signature_html: connection.signatureHtml,
     sync_cursor: null,
+    sync_enabled: connection.isEnabled,
+    is_primary: connection.isPrimary,
     error_message: connection.lastError ?? undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -102,27 +103,99 @@ function formatLastSync(lastSyncAt: string | null): string {
   return new Date(lastSyncAt).toLocaleString()
 }
 
+type InboxSettingsAlert =
+  | { kind: 'oauth_success'; message: string }
+  | {
+      kind: 'oauth_error'
+      title: string
+      summary: string
+      code: string
+      detail: string | null
+    }
+  | { kind: 'simple_error'; message: string }
+
 export default function InboxSettings() {
   const { token } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { connections, loading, error, refresh, removeConnection } = useMailboxConnections()
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
   const [signatureEditorOpen, setSignatureEditorOpen] = useState(false)
   const [routingRulesOpen, setRoutingRulesOpen] = useState(false)
   const [selectedMailbox, setSelectedMailbox] = useState<MailboxConnection | null>(null)
   const [routingRules, setRoutingRules] = useState<Record<number, RoutingRule[]>>({})
-  const [aiConfig, setAiConfig] = useState<Record<number, AiInboxConfig>>({})
   const [connectProvider, setConnectProvider] = useState<MailboxProvider>('outlook')
   const [connectError, setConnectError] = useState<string | null>(null)
-  const [kbCollections, setKbCollections] = useState<KbCollection[]>([])
-  const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null)
-  const [kbDocuments, setKbDocuments] = useState<KbDocument[]>([])
-  const [newCollectionName, setNewCollectionName] = useState('')
-  const [newCollectionDescription, setNewCollectionDescription] = useState('')
-  const [newDocName, setNewDocName] = useState('')
-  const [newDocUrl, setNewDocUrl] = useState('')
-  const [newDocType, setNewDocType] = useState<KbDocument['file_type']>('pdf')
+  const [mailboxSavingId, setMailboxSavingId] = useState<number | null>(null)
+  const [pageAlert, setPageAlert] = useState<InboxSettingsAlert | null>(null)
 
   const mailboxes = useMemo(() => connections.map(toMailbox), [connections])
+
+  useEffect(() => {
+    const callback = parseOAuthCallback(searchParams)
+    if (!callback.handled) return
+
+    logOAuthRedirectDebugInDev(searchParams, callback)
+
+    if (callback.status === 'connected' && callback.provider) {
+      setPageAlert({
+        kind: 'oauth_success',
+        message: `${providerFriendlyName(callback.provider)} is succesvol gekoppeld.`,
+      })
+      void refresh()
+    } else if (callback.error) {
+      setPageAlert({
+        kind: 'oauth_error',
+        title: `${providerFriendlyName(callback.provider ?? 'outlook')} koppelen mislukt`,
+        summary: describeOAuthCallbackSummary(callback),
+        code: callback.error,
+        detail: callback.detail,
+      })
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('oauth_provider')
+    next.delete('oauth_status')
+    next.delete('oauth_error')
+    next.delete('outlook')
+    next.delete('outlook_error')
+    next.delete('aad_detail')
+    next.delete('oauth_detail')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, refresh])
+
+  const persistMailboxFlags = useCallback(
+    async (mailboxId: number, payload: { is_enabled: boolean; is_primary: boolean }) => {
+      if (!token) return
+      setMailboxSavingId(mailboxId)
+      try {
+        await updateMailboxSettings(token, mailboxId, payload)
+        await refresh()
+      } catch (err) {
+        setPageAlert({
+          kind: 'simple_error',
+          message: err instanceof Error ? err.message : 'Mailbox-instellingen opslaan mislukt.',
+        })
+      } finally {
+        setMailboxSavingId(null)
+      }
+    },
+    [token, refresh],
+  )
+
+  const handleToggleSyncEnabled = useCallback(
+    (mailbox: MailboxConnection, enabled: boolean) => {
+      const is_primary = enabled ? mailbox.is_primary : false
+      void persistMailboxFlags(mailbox.id, { is_enabled: enabled, is_primary })
+    },
+    [persistMailboxFlags],
+  )
+
+  const handleSetPrimaryMailbox = useCallback(
+    (mailbox: MailboxConnection) => {
+      if (!mailbox.sync_enabled) return
+      void persistMailboxFlags(mailbox.id, { is_enabled: true, is_primary: true })
+    },
+    [persistMailboxFlags],
+  )
 
   const handleConnect = useCallback(async () => {
     if (!token) return
@@ -202,51 +275,6 @@ export default function InboxSettings() {
     [token, selectedMailbox],
   )
 
-  useEffect(() => {
-    if (!token) return
-    void (async () => {
-      const entries = await Promise.all(
-        mailboxes.map(async (mailbox) => ({
-          id: mailbox.id,
-          config: await getAiConfig(token, mailbox.id),
-        })),
-      )
-      setAiConfig(Object.fromEntries(entries.map((entry) => [entry.id, entry.config])))
-    })()
-  }, [token, mailboxes])
-
-  const handleSaveAiConfig = useCallback(
-    async (mailboxId: number, config: AiInboxConfig) => {
-      if (!token) return
-      setAiConfig((prev) => ({ ...prev, [mailboxId]: config }))
-      await saveAiConfig(token, mailboxId, config)
-    },
-    [token],
-  )
-
-  const refreshKbCollections = useCallback(async () => {
-    if (!token) return
-    const rows = await listKbCollections(token)
-    setKbCollections(rows)
-    if (!selectedCollectionId && rows.length > 0) {
-      setSelectedCollectionId(rows[0].id)
-    }
-  }, [token, selectedCollectionId])
-
-  const refreshKbDocuments = useCallback(async () => {
-    if (!token || !selectedCollectionId) return
-    const rows = await listKbDocuments(token, selectedCollectionId)
-    setKbDocuments(rows)
-  }, [token, selectedCollectionId])
-
-  useEffect(() => {
-    void refreshKbCollections()
-  }, [refreshKbCollections])
-
-  useEffect(() => {
-    void refreshKbDocuments()
-  }, [refreshKbDocuments])
-
   return (
     <div className="h-full py-6">
       <div className="max-w-5xl mx-auto h-full min-h-0 flex flex-col">
@@ -254,9 +282,9 @@ export default function InboxSettings() {
           <div>
             <h1 className="text-xl font-semibold text-text-heading flex items-center gap-2">
               <Mail size={20} className="text-accent" />
-              Inbox instellingen
+              Inbox en e-mail instellingen
             </h1>
-            <p className="text-sm text-text-secondary mt-1">Beheer verbonden mailboxen, handtekeningen, routing en AI-instellingen.</p>
+            <p className="text-sm text-text-secondary mt-1">Beheer verbonden mailboxen, handtekeningen, routing en e-mailafhandeling.</p>
           </div>
           <Button onClick={() => setConnectDialogOpen(true)}>
             <Plus size={16} />
@@ -264,251 +292,150 @@ export default function InboxSettings() {
           </Button>
         </div>
 
+        {pageAlert?.kind === 'oauth_success' ? (
+          <div className="mb-4">
+            <OauthRedirectAlert variant="success" onDismiss={() => setPageAlert(null)}>
+              {pageAlert.message}
+            </OauthRedirectAlert>
+          </div>
+        ) : null}
+        {pageAlert?.kind === 'oauth_error' ? (
+          <div className="mb-4">
+            <OauthRedirectAlert
+              variant="error"
+              title={pageAlert.title}
+              errorCode={pageAlert.code}
+              technicalDetail={pageAlert.detail}
+              onDismiss={() => setPageAlert(null)}
+            >
+              {pageAlert.summary}
+            </OauthRedirectAlert>
+          </div>
+        ) : null}
+        {pageAlert?.kind === 'simple_error' ? (
+          <div className="mb-4 rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-xs text-status-error">
+            <div className="flex flex-wrap items-start justify-between gap-2 gap-x-4">
+              <span className="min-w-0 flex-1 leading-snug">{pageAlert.message}</span>
+              <button
+                type="button"
+                className="shrink-0 underline opacity-90 hover:opacity-100"
+                onClick={() => setPageAlert(null)}
+              >
+                Sluiten
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {loading ? <div className="text-sm text-text-muted">Mailboxen laden...</div> : null}
         {error ? <div className="text-sm text-status-error">{error}</div> : null}
 
-        <div className="space-y-4">
-          {mailboxes.map((mailbox) => {
-            const statusVariant = MAILBOX_STATUS_VARIANTS[mailbox.status]
-            const needsReconnect = mailbox.status === 'token_expired' || mailbox.status === 'error'
-            const cfg =
-              aiConfig[mailbox.id] ?? {
-                suggestions_enabled: true,
-                auto_reply_enabled: false,
-                auto_reply_threshold: 0.85,
-                auto_label_enabled: false,
-                tone: 'formeel' as const,
-                language: 'nl' as const,
-              }
-            return (
-              <Card key={mailbox.id} className="p-4">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-text-heading">{mailbox.display_name}</h3>
-                      <div className="flex items-center gap-1">
-                        {getStatusIcon(mailbox.status)}
-                        <Badge variant={statusVariant}>{MAILBOX_STATUS_LABELS[mailbox.status]}</Badge>
-                      </div>
-                    </div>
-                    <p className="text-sm text-text-secondary">{mailbox.email_address}</p>
-                    <p className="text-xs text-text-muted mt-1">Laatste sync: {formatLastSync(mailbox.last_sync_at)}</p>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    {needsReconnect ? (
-                      <Button size="sm" variant="secondary" onClick={() => setConnectDialogOpen(true)}>
-                        <Wifi size={13} />
-                        Herverbinden
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="ghost" onClick={() => void refresh()}>
-                        <RefreshCw size={13} />
-                        Sync nu
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => void handleEditSignature(mailbox)}>
-                      Handtekening
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void handleEditRouting(mailbox)}>
-                      <SettingsIcon size={13} />
-                      Routing
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void removeConnection(mailbox.id)}>
-                      <Trash2 size={13} />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={cfg.suggestions_enabled}
-                      onChange={(event) =>
-                        void handleSaveAiConfig(mailbox.id, { ...cfg, suggestions_enabled: event.target.checked })
-                      }
-                    />
-                    AI suggesties
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={cfg.auto_reply_enabled}
-                      onChange={(event) =>
-                        void handleSaveAiConfig(mailbox.id, { ...cfg, auto_reply_enabled: event.target.checked })
-                      }
-                    />
-                    Auto-reply
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={cfg.auto_label_enabled}
-                      onChange={(event) =>
-                        void handleSaveAiConfig(mailbox.id, { ...cfg, auto_label_enabled: event.target.checked })
-                      }
-                    />
-                    Auto-label
-                  </label>
-                  <label className="flex items-center gap-2">
-                    Drempel: {(cfg.auto_reply_threshold * 100).toFixed(0)}%
-                    <input
-                      type="range"
-                      min={50}
-                      max={95}
-                      value={Math.round(cfg.auto_reply_threshold * 100)}
-                      onChange={(event) =>
-                        void handleSaveAiConfig(mailbox.id, {
-                          ...cfg,
-                          auto_reply_threshold: Number(event.target.value) / 100,
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-              </Card>
-            )
-          })}
-        </div>
-
-        <div className="mt-8 border-t border-border pt-6">
-          <h2 className="text-lg font-semibold text-text-heading mb-2">Knowledge base</h2>
-          <p className="text-sm text-text-secondary mb-4">Beheer collectiebronnen voor AI-context en documentindexering.</p>
-
-          <Card className="p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
-              <input
-                className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
-                placeholder="Nieuwe collectie naam"
-                value={newCollectionName}
-                onChange={(event) => setNewCollectionName(event.target.value)}
-              />
-              <input
-                className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
-                placeholder="Beschrijving (optioneel)"
-                value={newCollectionDescription}
-                onChange={(event) => setNewCollectionDescription(event.target.value)}
-              />
-              <Button
-                onClick={() =>
-                  void (async () => {
-                    if (!token || !newCollectionName.trim()) return
-                    await createKbCollection(token, newCollectionName.trim(), newCollectionDescription.trim() || undefined)
-                    setNewCollectionName('')
-                    setNewCollectionDescription('')
-                    await refreshKbCollections()
-                  })()
-                }
-              >
-                Toevoegen
-              </Button>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
-            <Card className="p-3">
-              <div className="text-xs text-text-muted mb-2">Collecties</div>
-              <div className="space-y-1">
-                {kbCollections.map((collection) => (
-                  <button
-                    key={collection.id}
-                    type="button"
-                    onClick={() => setSelectedCollectionId(collection.id)}
-                    className={`w-full text-left rounded-md border px-2 py-2 text-sm ${
-                      selectedCollectionId === collection.id
-                        ? 'border-accent bg-accent/10 text-accent'
-                        : 'border-border text-text-secondary'
-                    }`}
-                  >
-                    <div>{collection.name}</div>
-                    <div className="text-2xs opacity-80">{collection.document_count} documenten</div>
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="p-3">
-              <div className="text-xs text-text-muted mb-2">Documenten</div>
-              {selectedCollectionId ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px_auto] gap-2 mb-3">
-                    <input
-                      className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
-                      placeholder="Bestandsnaam"
-                      value={newDocName}
-                      onChange={(event) => setNewDocName(event.target.value)}
-                    />
-                    <input
-                      className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
-                      placeholder="Bestand URL"
-                      value={newDocUrl}
-                      onChange={(event) => setNewDocUrl(event.target.value)}
-                    />
-                    <select
-                      className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
-                      value={newDocType}
-                      onChange={(event) => setNewDocType(event.target.value as KbDocument['file_type'])}
-                    >
-                      {['pdf', 'docx', 'txt', 'md', 'csv'].map((type) => (
-                        <option key={type} value={type}>
-                          {type.toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      onClick={() =>
-                        void (async () => {
-                          if (!token || !newDocName.trim() || !newDocUrl.trim()) return
-                          await uploadKbDocument(token, selectedCollectionId, {
-                            filename: newDocName.trim(),
-                            file_url: newDocUrl.trim(),
-                            file_type: newDocType,
-                          })
-                          setNewDocName('')
-                          setNewDocUrl('')
-                          await refreshKbDocuments()
-                          await refreshKbCollections()
-                        })()
-                      }
-                    >
-                      Upload
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {kbDocuments.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/70 bg-bg-input/45 px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="text-sm text-text-primary truncate">{doc.filename}</div>
-                          <div className="text-2xs text-text-muted">
-                            {doc.file_type.toUpperCase()} - status: {doc.index_status}
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            void (async () => {
-                              if (!token) return
-                              await deleteKbDocument(token, doc.id)
-                              await refreshKbDocuments()
-                              await refreshKbCollections()
-                            })()
-                          }
-                        >
-                          <Trash2 size={13} />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="text-sm text-text-muted">Selecteer eerst een collectie.</div>
-              )}
-            </Card>
+        <Card className="overflow-hidden p-0">
+          <div className="border-b border-border/55 px-4 py-3">
+            <p className="text-sm font-medium text-text-heading">Verbonden inboxen</p>
+            <p className="text-xs text-text-secondary">Beheer mailboxverbindingen, handtekeningen en routing per inbox.</p>
           </div>
-        </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Inbox</TableHead>
+                <TableHead>Provider</TableHead>
+                <TableHead>Inbox-sync</TableHead>
+                <TableHead>Primair</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Laatste sync</TableHead>
+                <TableHead className="text-right">Acties</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!loading && mailboxes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-text-muted">
+                    Nog geen inbox gekoppeld
+                  </TableCell>
+                </TableRow>
+              ) : (
+                mailboxes.map((mailbox) => {
+                  const statusVariant = MAILBOX_STATUS_VARIANTS[mailbox.status]
+                  const needsReconnect = mailbox.status === 'token_expired' || mailbox.status === 'error'
+
+                  return (
+                    <TableRow key={mailbox.id}>
+                      <TableCell>
+                        <div className="font-medium text-text-heading">{mailbox.display_name}</div>
+                        <div className="text-xs text-text-secondary">{mailbox.email_address}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="inline-flex items-center gap-2">
+                          <ProviderLogo provider={mailbox.provider} className="h-4 w-4 object-contain" />
+                          <span className="capitalize">{mailbox.provider}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={mailbox.sync_enabled}
+                            disabled={mailboxSavingId === mailbox.id}
+                            onCheckedChange={(checked) => handleToggleSyncEnabled(mailbox, checked)}
+                            aria-label="Inbox-synchronisatie aan of uit"
+                          />
+                          <span className="text-xs text-text-muted">{mailbox.sync_enabled ? 'Aan' : 'Uit'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col items-start gap-1">
+                          {mailbox.is_primary ? (
+                            <Badge variant="success">Primair</Badge>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={!mailbox.sync_enabled || mailboxSavingId === mailbox.id}
+                              onClick={() => handleSetPrimaryMailbox(mailbox)}
+                            >
+                              Maak primair
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="inline-flex items-center gap-1">
+                          {getStatusIcon(mailbox.status)}
+                          <Badge variant={statusVariant}>{MAILBOX_STATUS_LABELS[mailbox.status]}</Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-text-muted">{formatLastSync(mailbox.last_sync_at)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center gap-1">
+                          {needsReconnect ? (
+                            <Button size="sm" variant="secondary" onClick={() => setConnectDialogOpen(true)}>
+                              <Wifi size={13} />
+                              Herverbinden
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => void refresh()}>
+                              <RefreshCw size={13} />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => void handleEditSignature(mailbox)}>
+                            Handtekening
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => void handleEditRouting(mailbox)}>
+                            <SettingsIcon size={13} />
+                            Routing
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => void removeConnection(mailbox.id)}>
+                            <Trash2 size={13} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </Card>
 
         <Dialog.Root open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
           <Dialog.Portal>
@@ -528,7 +455,10 @@ export default function InboxSettings() {
                           : 'border-border text-text-secondary'
                       }`}
                     >
-                      {provider === 'outlook' ? 'Outlook' : 'Gmail'}
+                      <span className="inline-flex items-center gap-2">
+                        <ProviderLogo provider={provider} className="h-4 w-4 object-contain" />
+                        <span>{provider === 'outlook' ? 'Outlook' : 'Gmail'}</span>
+                      </span>
                     </button>
                   ))}
                 </div>

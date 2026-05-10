@@ -4,7 +4,7 @@
 
 ### Repo-scope (bokitoAiV2)
 
-Deze repository bevat alleen `apps/dashboard` (portal) en `apps/chat-widget`. Deploy naar Xano static hosting gebeurt met rootscript `deploy.ps1`: dashboard build, daarna volledige `apps/chat-widget` naar `dist/chat-widget/`, zip van `dist/`, upload naar de dashboard static host. Mobiele app, marketingwebsite en overige apps staan niet in deze map.
+Deze repository bevat alleen `apps/dashboard` (portal) en `apps/chat-widget`. Deploy naar Xano static hosting gebeurt met rootscript `deploy.ps1`: `npm run build:static` (Vite; zonder `tsc` zolang de repo geen schone typecheck heeft), merge van `apps/chat-widget` naar `dist/chat-widget/`, zip van `dist/`, upload via Metadata API `POST .../static_host/{host}/build`, activatie via `POST .../static_host/{host}/build/{build_id}/env` met JSON `{"env":"dev"|"prod"}` (geen UTF-8 BOM in de body). Omgevingvariabelen: o.a. `XANO_METADATA_API_KEY`, `XANO_META_BASE_URL`, en voor workspace/host bij voorkeur `XANO_WEBSITEWORKSPACE_ID` + `XANO_DASHBOARD_STATIC_HOST_NAME` (fallback: legacy `XANO_WIDGET_*`). Schakel `-BothEnvs` in om dezelfde build op dev en prod te activeren. Mobiele app, marketingwebsite en overige apps staan niet in deze map.
 
 ---
 
@@ -34,12 +34,15 @@ Tech stack: React + TypeScript + Vite + Tailwind (dashboard), Expo + React Nativ
 ### 2.1 Login (`/login`)
 - E-mail + wachtwoord login via Xano `POST /auth/login`
 - Dashboard auth gebruikt een same-origin auth-contract op `/api/auth/*` (`login`, `refresh`, `me`, `logout`) met cookie-gebaseerde sessieflow
+- Dashboard auth-client gebruikt een fallbackpad naar directe Xano auth-endpoints (`/api:auth/*`) wanneer de same-origin auth-proxy niet beschikbaar is (bijv. 404/502 of netwerkfout), zodat login niet blokkeert op proxy-availability.
 - Refresh token hoort in een `HttpOnly` cookie; access token blijft alleen in runtime memory (niet in `localStorage`)
 - Bij laden probeert de portal eerst `POST /api/auth/refresh` en daarna `GET /api/auth/me` om de sessie te herstellen
 - `GET /auth/me` levert tenantcontext in een stabiel object: `tenant = { id, slug, name }` en kan optioneel een logo-URL bevatten (bijv. `logo`, `logo_url` of gelijkwaardig op `tenant`, `account` of `organisation`)
 - Frontend normaliseert auth-velden naar 1 intern model (`user.tenant`) zodat tenantdata herbruikbaar is in meerdere modules; `user.tenant.logo` is de eerste beschikbare logo-URL uit die objecten, anders `null`
 - De tenantkaart linksboven in de dashboard-sidebar gebruikt de ingelogde tenant uit `user.tenant` (logo, naam + slug); zonder logo-URL valt de UI terug op `/bokito-logo.svg`
-- `ProtectedRoute` bewaakt alle routes en stuurt ongeauthenticeerde gebruikers naar `/login?returnUrl=...`; na login gaat de gebruiker terug naar dezelfde interne URL (met open-redirect validatie)
+- `ProtectedRoute` bewaakt alle routes en stuurt ongeauthenticeerde gebruikers naar `/login?return_to=...`; na login gaat de gebruiker terug naar dezelfde interne URL (met open-redirect validatie)
+- Cross-host login returns zijn alleen geldig voor bekende control-plane of tenant-hosts; bare `localhost` is geen tenant-host en wordt genegeerd als `return_to` om app.localhost/login-lussen te voorkomen
+- **Microsoft browser-login (OAuth) buiten deze repo:** de portal-login in `apps/dashboard` is alleen e-mail/wachtwoord. Zie je een Microsoft-fout `invalid_request` … `redirect_uri` is not valid, dan komt de `redirect_uri` in de authorize-URL **letterlijk** overeen met wat je in Entra onder **Web redirect URIs** zet (geen varianten). Voorbeeld: staat alleen `https://api.bokito.ai/api/auth/callback/microsoft` geregistreerd, maar de client stuurt `.../callback/azure-ad`, dan faalt de flow; voeg die tweede URI toe **of** pas de client aan naar de geregistreerde URI. Dit staat los van mailbox/Graph-OAuth op Xano (`MICROSOFT_REDIRECT_URI` → `api:integrations` OAuth-callback); elke app registration heeft een eigen client-id en redirect-lijst.
 
 ---
 
@@ -199,6 +202,12 @@ De portal gebruikt een Featurebase-achtige 2-laagse shell:
 
 In de nieuwe shell zijn dode navigatie-items verwijderd (geen disabled/soon buttons in actieve navigatie).
 Support- en settingsroutes zijn gekoppeld aan werkende Bokito-modules (zoals `Communication`, `EmailSettings`, `InboxSettings` en `DatabasePage`) in plaats van blueprint-only pagina's.
+- In settings heet **Helpcentra** nu **Kennisbank** en staat deze weer op `binnenkort` (gedimd en niet direct klikbaar).
+- **Inbox** en **E-mailinstellingen** zijn functioneel samengevoegd op dezelfde instellingenroute (`/settings/inbox`); legacy e-mailroutes redirecten naar deze gecombineerde pagina.
+- In de settings-subnavigatie staat hiervoor nog maar één product-item: **Inbox**; een losse menu-entry voor **E-mailinstellingen** is verwijderd.
+- De gecombineerde inbox-instellingen tonen mailboxen in een tabel met provider-logo’s en een lege tabelstatus: **“Nog geen inbox gekoppeld”** wanneer er geen verbindingen zijn.
+- De primaire rail verbergt de top-level **Gebruikers** tab tijdelijk; gebruikersbeheer blijft benaderbaar via de data- en settingsnavigatie.
+- **Databronnen** is verplaatst van de Data-zijbalk naar de AI-zijbalk en valt in de shell-context onder AI.
 
 ---
 
@@ -246,6 +255,28 @@ Support- en settingsroutes zijn gekoppeld aan werkende Bokito-modules (zoals `Co
 - Workspace onboarding-flow is nu gesplitst in twee shells: een aparte `WorkspaceHubLayout` (bovenliggende omgeving) voor `/workspaces*` en de bestaande product-shell (`Layout`) voor support/settings/database/workforce.
 - De workspace-hub gebruikt een eigen linker navigatie met vier items: `Workspaces`, `Billing`, `Account`, `Support`; `Referrals` is geen onderdeel van deze navigatie.
 - De workspace-overview (`/workspaces`) toont Featurebase-achtige workspace cards plus een aparte create-card met plus-actie, en een hulpsectie met resources onder/naast de cards.
+- Workspace-cards in `/workspaces` tonen naast slug ook de volledige tenant-URL (`https://<slug>.<domein>`) zodat gebruikers direct zien op welk subdomein de tenant draait.
+- Klikken op een workspace-card forceert host-based tenant-openen via subdomein-origin i.p.v. interne route-navigatie; lokaal gebruikt de app `http://<slug>.localhost:<port>/...` zodat tenant-routing ook in dev expliciet via subdomein verloopt.
+- Workspace-hub routes (`/workspaces*`) zijn control-plane only: op een tenanthost (`<slug>.bokito.ai` of `<slug>.localhost`) wordt altijd direct cross-host doorgestuurd naar de app-host (`app.bokito.ai` of `app.localhost`).
+- De control-plane startpagina is `/` (workspace hub); `/workspaces` is alleen nog een backward-compatible redirect naar `/`.
+- Workspace-hub secundaire routes zijn top-level: `/billing`, `/support`, `/account`; legacy paden `/workspaces/billing`, `/workspaces/support`, `/workspaces/account` redirecten naar deze korte routes.
+- Workspace zonder subdomein kan niet worden geopend vanuit `/workspaces`; de kaart toont een verplichte subdomeinmelding en leidt door naar `/settings/branding` om het subdomein eerst in te stellen.
+- Workspace-creatie in `/workspaces` vereist nu expliciet een subdomeinveld in de create-dialog; zonder geldig subdomein (3-63 chars, `a-z0-9-`) blijft aanmaken geblokkeerd.
+- `organisation.livechat_settings.subdomain` is een expliciete schema-child (text, lowercase/trim) en wordt gebruikt als bron voor tenant host-routing in de dashboard-workspaceflow.
+- Bestaande organisations in workspace `1` zijn gebackfilled met unieke subdomeinen: `bokito`, `chargecars`, `bakermat-design`, `bourgondienadvies`, `demo-organisation`.
+- Multi-tenant autorisatie gebruikt nu een expliciete junction-tabel `tenant_membership` (`user_id`, `tenant_id`, `role`, `status`) i.p.v. een impliciete single-tenant koppeling via alleen `user.organisation_id`.
+- `GET /api:auth/me` en legacy `GET /api:DavdZOps/auth/me` retourneren `memberships[]` en `current_tenant`, plus optionele input `tenant_subdomain` om tenant-context expliciet te selecteren. De stack loopt actieve `tenant_membership`-rijen en doet per rij een `organisation` lookup voor subdomein en naam; een `db.query` met join plus multiline `|map:`/backtick-filters veroorzaakte eerder een Xano runtime `fatal` (HTTP 500) en brak daarmee login/hydratie.
+- Login- en auth-exchange endpoints zetten nu `bokito_refresh_token` cookies met wildcard domein voor zowel productie (`.bokito.ai`) als lokale ontwikkeling (`.localhost`) zodat sessies over subdomeinen herbruikbaar zijn.
+- Redirectcontract blijft `return_to`; targets naar `/login` of `/auth/handoff` worden genegeerd en vallen terug op een veilige startroute om auth-loops te voorkomen.
+- Workspace openen vanuit `/workspaces` gaat direct naar de tenant URL (`/support/inbox/all`) zonder frontend handoff-route.
+- Frontend gebruikt `app.localhost` als lokale control-plane host en `*.localhost` als tenanthosts via env-config (`VITE_APP_CONTROL_PLANE_HOST_DEV`, `VITE_TENANT_ROOT_DOMAIN_DEV`, `VITE_APP_CONTROL_PLANE_URL`).
+- Lokaal is `sessionStorage` niet gedeeld tussen `app.localhost` en `tenant.localhost` (andere origins); een refresh-cookie op `http` + `.localhost` is vaak onbetrouwbaar. In **Vite dev** alleen: na login op de app-host wordt bij cross-host `return_to` een eenmalige URL-hash `__bokito_at__=` meegegeven; de tenant-host leest die bij hydrate, zet het access token in eigen `sessionStorage` en wist de hash met `replaceState` (fragment gaat niet naar de server).
+
+#### Tenant-auth runbook
+
+- `Geen tenanttoegang`: gebruiker is geauthenticeerd maar heeft geen actieve `tenant_membership` voor het subdomein; UI toont expliciet toegang geweigerd i.p.v. login-redirect.
+- `Nog steeds loginprompt op tenant`: verifieer dat `GET /auth/me` een membership met matching `tenant_slug` teruggeeft en dat de subdomeincookie (`bokito_refresh_token`) wordt meegestuurd.
+- `Lege workspace op tenant-host`: controleer `tenant_membership.status = active` en dat `organisation.livechat_settings.subdomain` exact overeenkomt met de host.
 - De hubnavigatie toont accountinformatie van de ingelogde gebruiker linksonder (naam + e-mail + initials) met een directe link naar de `Account` hubpagina, vergelijkbaar met Xano-achtige placement.
 - De `Account` hubpagina bevat nu werkende basisinstellingen (profieloverzicht, snelle thema-toggle en uitloggen) in plaats van een placeholder.
 - Workspace hub gedrag bij lege `/workspaces` response: frontend probeert een fallback-workspace op basis van `auth/me` tenantdata (`user.tenant`) zodat users met bestaande tenantcontext niet op een lege lijst stranden.
@@ -262,27 +293,35 @@ Support- en settingsroutes zijn gekoppeld aan werkende Bokito-modules (zoals `Co
 - Instellingen bevat een aparte sectie **Communicatie** met submenu-item **Email**
 - De pagina gebruikt een lijstgerichte layout; in de header staan **Outlook koppelen** (OAuth) en **SMTP / IMAP toevoegen** (modal)
 - **Outlook (productie)**: delegated OAuth via Microsoft Identity Platform en Microsoft Graph. Tokens en sync lopen per **Bokito-account** (`account`-rij); de ingelogde portalgebruiker start de OAuth-flow. De pagina toont de tenantnaam uit `auth/me` bij de koppeling
-- Na succesvolle OAuth redirect terug naar deze route met query `?outlook=connected`; fouten komen binnen als `?outlook_error=...`
+- Na succesvolle OAuth redirect terug naar deze route met query `?outlook=connected`; fouten komen binnen als `?outlook_error=...`; bekende foutcodes waaronder **`token_exchange`** (token-POST naar Microsoft mislukt: vaak redirect-URI-afwijking, onjuist secret, verlopen of hergebruikte code); optioneel `aad_detail=` (URL-encoded tekst van Microsoft/AAD voor support). De dashboard-OAuth-flow stuurt `return_url` mee naar de pagina waar de gebruiker de koppeling startte (pathname + origin). Bij start kan `prompt=consent` op de authorize-URL worden meegegeven om een refresh token te stimuleren.
 - **SMTP / IMAP**: alleen **concept** in de browser (geen Xano-opslag); duidelijke copy op de pagina. Geen Gmail-OAuth in deze release
 
 #### Xano API-groep `Authentication` (`api:DavdZOps`)
+- `GET /email/oauth/start` — auth **user**; generieke OAuth start voor `provider=outlook|gmail`, slaat state op en retourneert `{ authorize_url }`.
 - `GET /email/outlook/oauth/start` — auth **user**; legt een rij in `outlook_oauth_state` aan en retourneert `{ authorize_url }` voor redirect naar Microsoft. In de stack wordt `auth.id` eerst gecast met `to_int` voor `db.get user` op numerieke `id`, en `expires_at` gezet met `now|add_secs_to_timestamp:900` (15 minuten). Gebruik niet `timestamp_add_days` voor dit doel: die filter ontbreekt op veel Xano-instances en geeft `Unable to locate func entry: timestamp_add_days`. **Als `MICROSOFT_CLIENT_ID` of `MICROSOFT_REDIRECT_URI` in Xano env leeg zijn**, bevat de gegenereerde Microsoft-URL lege queryparams (`client_id=&redirect_uri=`); de endpoint valideert dit met een `precondition` en geeft een duidelijke `inputerror` i.p.v. door te redirecten.
-- `GET /email/outlook/oauth/callback` — **publiek** (geen Bearer); wisselt `code` om, haalt Graph `/me` op, schrijft of werkt `email_oauth_connection` bij voor `organisation_id` uit de state, en antwoordt met **HTML** meta-refresh naar `dashboard_outlook_return_url` met `?outlook=connected` of `?outlook_error=...`. Vóór de token-call: controle dat `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` en `MICROSOFT_REDIRECT_URI` (Xano env) niet leeg zijn; anders redirect `?outlook_error=missing_oauth_env`. Token-POST naar Microsoft gebruikt `api.request` met `Content-Type: application/x-www-form-urlencoded` en `params` als key-value (`client_id`, `client_secret`, `grant_type`, `code`, `redirect_uri`), waarden via `to_text`. Lege `MICROSOFT_CLIENT_ID` geeft bij Microsoft vaak **AADSTS900144** (*The request body must contain the following parameter: 'client_id'*).
+- `GET /email/outlook/oauth/start` — auth **user**; legt een rij in `outlook_oauth_state` aan en retourneert `{ authorize_url }` voor redirect naar Microsoft. In de stack wordt `auth.id` eerst gecast met `to_int` voor `db.get user` op numerieke `id`, en `expires_at` gezet met `now|add_secs_to_timestamp:900` (15 minuten). Gebruik niet `timestamp_add_days` voor dit doel: die filter ontbreekt op veel Xano-instances en geeft `Unable to locate func entry: timestamp_add_days`. **Als `MICROSOFT_CLIENT_ID` of `MICROSOFT_REDIRECT_URI` in Xano env leeg zijn**, bevat de gegenereerde Microsoft-URL lege queryparams (`client_id=&redirect_uri=`); de endpoint valideert dit met een `precondition` en geeft een duidelijke `inputerror` i.p.v. door te redirecten. De endpoint accepteert nu optioneel `return_url` en slaat die per state op (`outlook_oauth_state.return_url`); als `return_url` ontbreekt, gebruikt hij `dashboard_outlook_return_url` (met fallback naar `https://app.bokito.ai/settings/support/general`).
+- `GET /email/outlook/oauth/callback` — **publiek** (geen Bearer); wisselt `code` om, haalt Graph `/me` op, schrijft of werkt `email_oauth_connection` bij voor `organisation_id` uit de state, en antwoordt met **HTML** meta-refresh naar `dashboard_outlook_return_url` met `?outlook=connected` of `?outlook_error=...` (fallback: `https://app.bokito.ai/settings/support/general` als env leeg is). Vóór de token-call: controle dat `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` en `MICROSOFT_REDIRECT_URI` (Xano env) niet leeg zijn; anders redirect `?outlook_error=missing_oauth_env`. Token-POST naar Microsoft gebruikt `api.request` met `Content-Type: application/x-www-form-urlencoded` en `params` als key-value (`client_id`, `client_secret`, `grant_type`, `code`, `redirect_uri`), waarden via `to_text`. Lege `MICROSOFT_CLIENT_ID` geeft bij Microsoft vaak **AADSTS900144** (*The request body must contain the following parameter: 'client_id'*). Incident 2026-05-08: de callback kon crashen met `ERROR_CODE_INPUT_ERROR` (*1st operand must be one of these types...*) door een type-onveilige state-lookup (`nonce|to_text == state`) in de `db.query` where; fix is directe vergelijking op de uuid-kolom (`nonce == state`) plus timestamp-veilige `now`-afhandeling, waardoor de flow nu weer HTML-redirects teruggeeft (`invalid_state`, `expired_state`, `no_refresh_token`) in plaats van een 400 JSON crash. De callback gebruikte tijdelijk tenant-subdomain afleiding (`https://<subdomain>.bokito.ai/...`), wat in sommige tenants NXDOMAIN kon geven (bijv. `bokito.bokito.ai`); dit is vervangen door de env-gedreven return URL.
+- `GET /email/google/oauth/start` — auth **user**; Gmail OAuth start met `access_type=offline`, `prompt=consent`, state-opslag en optionele `return_url` (zelfde state-tabel als Outlook). De state-rij krijgt `feature = "gmail-email"` voor centrale callback-routing.
+- `GET /email/google/oauth/callback` — **publiek**; wisselt autorisatiecode om via `https://oauth2.googleapis.com/token`, leest profiel via `https://www.googleapis.com/oauth2/v3/userinfo`, upsert `email_oauth_connection` met `provider=gmail`, en redirect terug met `oauth_provider=gmail` + `oauth_status` of `oauth_error` + `oauth_detail`.
+- `GET /oauth/google/callback` — **publiek**; centrale Google callback-route (Pattern 2). Leest state uit `email_outlook_oauth_state`, inclusief `feature`, en handelt nu Gmail af via dezelfde token/profile flow als de eerdere email-specifieke callback.
+- `GET /oauth/microsoft/callback` — **publiek**; centrale Microsoft callback-route (Pattern 2). Leest state uit `email_outlook_oauth_state`, inclusief `feature`, en handelt Outlook email af via dezelfde token/Graph flow als de eerdere email-specifieke callback.
 - `GET /email/connections` — auth **user**; lijst koppelingen voor het account van de gebruiker (zonder `refresh_token`). In de function stack: `db.query` met `return = { type: "list" }` **zonder** paging levert de rijen als **array op de variabele zelf**; map die met `array.map ($raw_conn)`, niet `$raw_conn.items` (die sleutel bestaat pas bij paging). Rijen worden gemapt naar veilige velden met `connection_pk` i.p.v. `id` in de output.
 - `DELETE /email/connections/{connection_id}` — auth **user**; verwijdert gekoppelde `email_synced_message`-rijen en de OAuth-rij na tenant-check
 
 #### Xano tabellen (workspace Bokito AI app)
 - `email_oauth_connection` — per account: Microsoft user id, mailbox, encrypted refresh token veld (text sensitive), `delta_link`, `last_sync_at`, `status` (`active` / `error` / `revoked`)
-- `outlook_oauth_state` — korte OAuth state (`nonce`, `organisation_id`, `user_id`, `expires_at`)
+- `email_outlook_oauth_state` — korte OAuth state (`nonce`, `organisation_id`, `user_id`, `expires_at`, `return_url`, `feature`); `feature` ondersteunt centrale provider-callbacks voor meerdere Google/Microsoft integraties (zoals email, Drive, Calendar) zonder aparte provider redirect URI per feature.
 - `email_synced_message` — opgeslagen inbox-berichten per `connection_id` (Graph id, subject, from, preview, optioneel `graph_payload`)
 
 #### Xano scheduled task
-- `email/outlook_sync_inboxes` — elke **900** seconden (15 min): voor elke actieve connectie refresh token, Graph **delta** op inbox, paginering tot `deltaLink`, upsert berichten in `email_synced_message`, werkt `delta_link` en `last_sync_at` bij; bij fout zet `status` op `error` en vult `last_error`
+- `email/outlook_sync_inboxes` — elke **900** seconden (15 min): Outlook-rijden met `status` actief en `is_enabled` leeg of `true`; refresh token; Graph **delta** op inbox, paginering tot `deltaLink`, upserts in `email_synced_message`; werkt `delta_link` en `last_sync_at` bij; bij fout zet `status` op `error` en vult `last_error`
 
 #### Omgeving / Azure (handmatige setup)
-- In **Microsoft Entra ID**: app registration (vaak multi-tenant), delegated permissions: `offline_access`, OpenID profiel, `User.Read`, `Mail.Read`, `Mail.Send`; **Web** redirect URI exact gelijk aan de callback-URL op Xano, bv. `https://xrex-nmji-j9ur.f2.xano.io/api:DavdZOps/email/outlook/oauth/callback` (controleren tegen de live instance)
+- In **Microsoft Entra ID**: app registration (vaak multi-tenant), delegated permissions: `offline_access`, OpenID profiel, `User.Read`, `Mail.Read`, `Mail.Send`; **Web** redirect URI exact gelijk aan Xano env `MICROSOFT_REDIRECT_URI`. Dat kan de centrale route zijn (`GET /oauth/microsoft/callback` op `api:integrations`) of, als de stack die URL zo opbouwt, de app-groep callback `GET /email/outlook/oauth/callback` op `api:app` (bijv. canonical `https://api.bokito.ai/api:app/email/outlook/oauth/callback`). Verifieer altijd de authorize-URL die de browser krijgt; die `redirect_uri` moet letterlijk in Entra staan op **dezelfde** app registration als `MICROSOFT_CLIENT_ID`.
+- Pattern 2 (centrale provider callback): registreer in Google Cloud / Entra exact dezelfde redirect als in Xano env: `GOOGLE_REDIRECT_URI` voor `GET /oauth/google/callback` en `MICROSOFT_REDIRECT_URI` voor `GET /oauth/microsoft/callback` wanneer die centrale route wordt gebruikt (zelfde host + pad als in env). Als productie in plaats daarvan `api:app` + `/email/outlook/oauth/callback` gebruikt, hoort die URI in Entra — niet alleen de portal Azure AD login-URI (`/api/auth/callback/azure-ad`).
 - **Supported account types** (App registration → **Authentication** of **Overview**): als gebruikers **persoonlijke Microsoft-accounts** (@outlook.com, @live.com, @hotmail.com) moeten kunnen inloggen, kies een optie die **personal Microsoft accounts** expliciet toestaat (bijv. multitenant + personal). Alleen *Accounts in this organizational directory only* of alleen werk/school zonder consumers geeft na inloggen met een consumer-account de fout **`unauthorized_client` — *The client does not exist or is not enabled for consumers*** (vaak zichtbaar op `login.live.com`). Zakelijke mailboxen: gebruikers inloggen met **werk- of schoolaccount** van de tenant waar de app voor is ingericht.
-- Xano **environment variables** (Outlook / Microsoft): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (zelfde waarden als in Azure Entra app registration; redirect URI = exacte Xano callback-URL). Daarnaast `dashboard_outlook_return_url` (volledige URL naar de dashboardpagina na OAuth, bv. `http://localhost:5174/settings/email` voor Vite-dev of productie-URL).
+- Xano **environment variables** (Outlook / Microsoft): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (zelfde waarden als in Azure Entra app registration; redirect URI = exacte Xano callback-URL). Daarnaast `dashboard_outlook_return_url` (volledige URL naar de dashboardpagina na OAuth, bv. `http://localhost:5174/settings/email` voor Vite-dev of productie-URL). **Dashboard** roept `GET /email/oauth/start` en gerelateerde routes via **`api:integrations`** aan; als `MICROSOFT_CLIENT_ID` daar leeg is maar wél op een andere groep staat, kan Microsoft reageren met *The provided request must include a 'client_id' input parameter* (authorize-URL bevat dan `client_id=` zonder waarde).
+- Xano **environment variables** (Outlook / Microsoft): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (zelfde waarden als in Azure Entra app registration; redirect URI = exacte Xano callback-URL). Daarnaast `dashboard_outlook_return_url` (productie return URL) en optioneel `dashboard_outlook_return_url_local` (lokale return URL, bv. `http://localhost:5174/settings/support/general`).
 
 ---
 
@@ -526,9 +565,19 @@ Zichtbaar in navigatie maar nog niet gebouwd:
 - **Tenant-migratie fase**: de volledige `account`→`organisation` migratie gebeurt momenteel in pre-live; tijdelijke datainconsistentie in migratielogs is acceptabel zolang productie nog niet live staat.
 - **Real-time**: Server-Sent Events (SSE) voor streaming AI-antwoorden
 - **Xano API base**: `https://xrex-nmji-j9ur.f2.xano.io`
-  - Dashboard auth: `/api:DavdZOps`
+  - Dashboard auth: `/api:auth`
   - Widget/Mobiel livechat: `/api:livechat`
   - Bakermat design configurator: `/api:paVSDSqb`
+
+### Frontend API endpoint-opbouw (dashboard SOP)
+
+- De dashboard frontend bouwt Xano endpoints op via `VITE_XANO_BASE_URL` + `VITE_API_GROUP_*` + endpoint path.
+- De centrale opbouw staat in `apps/dashboard/src/lib/api.config.ts`; featurecode hergebruikt deze bases.
+- Integratie- en e-mailroutes lopen via canonical `api:integrations`; frontend gebruikt hiervoor `VITE_API_GROUP_INTEGRATIONS` en `INTEGRATIONS_API_BASE`.
+- API group variabelen zijn standaard aanwezig in `apps/dashboard/.env.example` en blijven leidend voor nieuwe API-integraties.
+- Endpoint paths blijven feature-specifiek en worden lokaal toegevoegd op een gedeelde base.
+- `VITE_*` variabelen bevatten geen secrets; Vite verwerkt deze waarden build-time in de frontend bundle.
+- Hardcoded volledige API origins in pagina’s/components gelden als afwijking van de standaard en worden bij refactors verwijderd.
 
 ### Bjorn Lunden MCP (BLA API)
 
@@ -680,12 +729,15 @@ Xano API-groep `custom_db` (id: 9, canonical: `vLUpKLJh`) met volledige CRUD end
 - Route: `/database` en `/database/:tableSlug`
 - Sidebar-item "Database" met `Database` icon
 - `DatabaseContext` provider voor state management
+- `/database/*` gebruikt een dedicated `DatabaseLayout` zodat de `DatabaseContext` zowel de linker section-sidebar als de inhoudspagina voedt.
 - Componenten: `TableListSidebar`, `CreateTableDialog`, `FieldEditor`, `FieldTypeSelector`, `FieldConfigPanel`, `ViewTabs`, `GridView`, `KanbanView`, `CalendarView`, `CellRenderer`, `CellEditor`
 - Dependencies: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` (kanban drag & drop)
 - Klikken op de `{x} velden` knop opent een dedicated modal voor field management in plaats van een inline paneel.
 - Field creation gebruikt backend slug-collision beveiliging om duplicate fouten bij meerdere velden te voorkomen.
-- Tabellen worden in de bovenste database-header als horizontale tabs getoond (SmartSuite-achtige UX), gecentreerd in de header.
-- Reorder van tabeltabs en view-tabs is strikt horizontaal; verticale drag-offset wordt genegeerd zodat tabs niet naar beneden kunnen verspringen tijdens slepen.
+- Tabellen worden voor `/database` in de linker section-sidebar getoond in 2 groepen: `System tables` (`is_standard = true`) en `Custom tables` (`is_standard != true`).
+- Nieuwe tabellen worden aangemaakt via een `+` knop in de group-header van `Custom tables` (niet meer via de bovenste tabel-header).
+- Tabelselectie loopt via de linker sidebar en navigeert naar `/database/:tableSlug`; de tabeldata wordt in het rechter inhoudspaneel geladen.
+- Reorder van view-tabs is strikt horizontaal; verticale drag-offset wordt genegeerd zodat tabs niet naar beneden kunnen verspringen tijdens slepen.
 - De pagina gebruikt een single-header layout (geen dubbele titelbalk onder de tabs).
 - Grid ondersteunt inline record-aanmaak via een vaste invoerregel onder de laatste rij, inclusief lege tabel-state direct onder de header.
 - Grid heeft multiselect met checkbox-kolom links naast `#`, inclusief "select all" in de tabelheader.
@@ -766,10 +818,10 @@ Uitbreiding van het platform met een volledige multichannel inbox, AI-communicat
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | ✅ aanwezig in Xano | Google Cloud Console OAuth Client ID |
 | `GOOGLE_CLIENT_SECRET` | ✅ aanwezig in Xano | Google Cloud Console OAuth Client Secret |
-| `GOOGLE_REDIRECT_URI` | ✅ aanwezig in Xano | `https://xrex-nmji-j9ur.f2.xano.io/api:_kH3DnKo/email/google/oauth/callback` |
+| `GOOGLE_REDIRECT_URI` | ✅ aanwezig in Xano | `https://xrex-nmji-j9ur.f2.xano.io/api:_kH3DnKo/oauth/google/callback` |
 | `MICROSOFT_CLIENT_ID` | ⏳ nog regelen | Azure AD App Registration Client ID (wacht op tenant) |
 | `MICROSOFT_CLIENT_SECRET` | ⏳ nog regelen | Azure AD App Registration Client Secret |
-| `MICROSOFT_REDIRECT_URI` | ⏳ nog regelen | `https://xrex-nmji-j9ur.f2.xano.io/api:_kH3DnKo/email/outlook/oauth/callback` |
+| `MICROSOFT_REDIRECT_URI` | ⏳ nog regelen | `https://xrex-nmji-j9ur.f2.xano.io/api:_kH3DnKo/oauth/microsoft/callback` |
 | `OPENAI_API_KEY` | ✅ reeds aanwezig | Embeddings + AI-suggesties (Batch 11 + 12) |
 
 Google OAuth is klaar voor Batch 9. Microsoft OAuth nog te regelen via Azure (wacht op M365 developer tenant of gratis Azure-account).
@@ -796,7 +848,7 @@ Google OAuth is klaar voor Batch 9. Microsoft OAuth nog te regelen via Azure (wa
   - `DELETE /kb/documents/{document_id}`
   - `GET /kb/search` (basis retrieval voor RAG context)
 - Xano tabellen zijn uitgebreid/aangemaakt:
-  - `email_oauth_connection`: provider ondersteunt `outlook` en `gmail`, plus `signature_html` en `ai_config`
+  - `email_oauth_connection`: provider ondersteunt `outlook` en `gmail`, plus `signature_html` en `ai_config`; kolommen `is_enabled` en `is_primary` sturen sync en primaire mailbox per organisatie
   - `email_synced_message`: velden voor threading/status/labels/AI (`thread_id`, `conversation_status`, `assigned_to_user_id`, `labels`, `ai_summary`, `sentiment`, enz.)
   - Nieuwe tabellen: `inbox_routing_rule`, `kb_collection`, `kb_document`
 - Dashboard `/communication` is gekoppeld aan live email data:
@@ -806,7 +858,8 @@ Google OAuth is klaar voor Batch 9. Microsoft OAuth nog te regelen via Azure (wa
   - composer met reply/forward/note tabs en verzenden via `/email/send`
   - AI blok met suggestie + samenvatting/sentiment/categorisering en bronverwijzingen uit `kb/search`
 - Dashboard `/settings/inbox` gebruikt nu live data:
-  - mailboxverbindingen uit `/email/connections`
+  - mailboxverbindingen uit `/email/connections` (inclusief `is_enabled` en `is_primary` in het antwoord van de API waar ondersteund)
+  - **`PUT /email/connections/{connection_id}/mailbox-settings`** (body `is_enabled`, `is_primary`): sync aan/uit; uitschakelen zet primair automatisch uit; nieuwe primaire mailbox wist primair bij andere verbindingen in dezelfde organisatie
   - signature editor gekoppeld aan `/email/connections/{id}/signature`
   - routing rules manager gekoppeld aan `/email/routing-rules`
   - AI mailboxconfig gekoppeld aan `/email/connections/{id}/ai-config`
@@ -1140,7 +1193,10 @@ De orchestrator-pagina gebruikt een hiërarchische full-canvas visualisatie die 
 
 Xano workspace `Bokito AI app` gebruikt nu een geconsolideerde API-groepsindeling met semantische canonicals.
 
-- `api:app`: centrale applicatiegroep voor auth, members/accounts, custom-db en backlog endpoints.
+- `api:app`: centrale applicatiegroep voor members/accounts, custom-db, backlog en workspace endpoints (geen auth-routes).
+- `api:integrations`: integratiegroep voor email/OAuth/inbox-integratie endpoints.
+- `api:auth`: dedicated authgroep voor alleen authenticatie- en profielgerelateerde endpoints.
+- `api:DavdZOps`: tijdelijke legacy compat-groep toegevoegd voor oudere portal bundles die nog hardcoded naar `https://xrex-nmji-j9ur.f2.xano.io/api:DavdZOps/...` wijzen.
 - `api:workforce`: centrale workforcegroep voor orchestra/workforce-control/agent-runtime endpoints.
 - `api:livechat`: livechat en widget-endpoints.
 - `api:logs`: event logs.
@@ -1151,12 +1207,74 @@ Dashboard frontend-richtlijn:
 - API-routes worden dynamisch opgebouwd via `VITE_XANO_BASE_URL` + group canonical + endpoint path.
 - Group canonicals zijn env-gedreven via:
   - `VITE_API_GROUP_APP`
+  - `VITE_API_GROUP_AUTH`
+  - `VITE_API_GROUP_INTEGRATIONS`
   - `VITE_API_GROUP_WORKFORCE`
   - `VITE_API_GROUP_LIVECHAT`
   - `VITE_API_GROUP_LOGS`
   - `VITE_API_GROUP_BAKERMAT`
 - Publieke docs-URL gebruikt `VITE_PUBLIC_API_URL` i.p.v. hardcoded hoststrings.
-- Auth BFF-proxy (`/api/auth/*`) rewrite gebruikt `VITE_API_GROUP_APP` als canonical fallback.
-- Profielfoto-upload gebruikt de appgroep endpoint `POST /users/me/avatar` (met fallback naar legacy `POST /auth/avatar` voor backward compatibility).
+- Auth BFF-proxy (`/api/auth/*`) rewrite gebruikt `VITE_API_GROUP_AUTH` als canonical fallback.
+- Legacy compat voor oude production bundle: `api:DavdZOps` bevat nu alias endpoints `POST /auth/login`, `GET /auth/me`, `POST /auth/handoff/create`, `POST /auth/handoff/exchange` zodat login blijft werken zolang de oude frontendbundle nog actief is.
+- Voor legacy email/inbox-compat in dezelfde oude bundle bevat `api:DavdZOps` nu ook `GET /email/connections`, `DELETE /email/connections/{connection_id}`, `GET /email/oauth/start`, `GET /email/outlook/oauth/start` en `GET /email/google/oauth/start` (met centrale `api:integrations` callbacks voor provider redirects).
+- `GET /email/oauth/start` (provider `outlook` of `gmail`) bouwt de provider authorize-URL met `redirect_uri` uit Xano env (`MICROSOFT_REDIRECT_URI` resp. `GOOGLE_REDIRECT_URI`), RFC 3986-encoded; state-rij bevat `feature` (`outlook-email` / `gmail-email`). Zelfde env-waarden moeten exact overeenkomen met de geregistreerde redirect URI in Entra / Google Cloud.
+- `GET email/outlook/oauth/start` en `GET email/google/oauth/start` gebruiken dezelfde env-redirects (plus preconditions dat de env gezet is); token exchange in `GET /oauth/microsoft/callback` en `GET /oauth/google/callback` gebruikt dezelfde env-waarde in de token-POST `redirect_uri` als bij de authorize-stap.
+- Profielfoto-upload gebruikt de authgroep endpoint `POST /users/me/avatar` (met fallback naar `POST /avatar` voor backward compatibility binnen `api:auth`).
+- Avatar upload-endpoints gebruiken `input file avatar` + `storage.create_image` en patchen daarna `user.avatar`; directe patch van ruwe input zonder opslag geeft in de praktijk lege avatar-objecten terug (`path: ""`, `size: 0`).
+- Workspace-branding gebruikt appgroep endpoints:
+  - `GET /workspaces` retourneert workspace `id`, `name`, `slug`, `logo`, `favicon`, `brand_color`.
+  - `POST /workspaces/{workspace_id}` voor naam/subdomein/kleur updates (`subdomain` is verplicht).
+  - `POST /workspaces/{workspace_id}/branding` voor gecombineerde branding update inclusief optionele `file logo` en `file favicon` (`subdomain` is verplicht).
+- De pagina `/settings/branding` doet nu een echte API-save naar `/workspaces/{workspace_id}/branding` (multipart) voor naam/subdomein/kleur/logo/favicon, en refresht daarna `workspaces` + `auth/me` context.
+- Tenant branding ondersteunt een aparte favicon uploadflow (los van logo) met preview en opslag in `organisation.livechat_settings.favicon`.
+- Praktijkbeperking: Xano `storage.create_image` accepteert niet alle image-extensies (o.a. ruwe SVG kan falen met `Invalid file extension`); dashboard branding upload ondersteunt nu SVG door deze client-side om te zetten naar PNG vóór upload, met behoud van PNG/JPG/JPEG/GIF/WebP ondersteuning.
+- Workspace media-URL's (`logo`, `favicon`) worden frontend-side genormaliseerd naar absolute URL's op basis van `XANO_BASE_URL` wanneer Xano alleen een relatief `path` terugstuurt, zodat previews consistent renderen in settings.
+- Subdomeinbeleid: `subdomain` is tenantbreed verplicht en uniek. Backend valideert formaat (`[a-z0-9-]`, 3-63 chars, niet starten/eindigen met `-`) en blokkeert duplicaten.
+- Hostmodel: dashboard draait tenant-first op `<subdomain>.bokito.ai` met centrale login op `app.bokito.ai`.
+- Unauthenticated requests op tenant-host worden via `ProtectedRoute` doorgestuurd naar `https://app.bokito.ai/login?return_to=<absolute-tenant-url>`.
+- Na succesvolle login op `app.bokito.ai` navigeert de portal terug naar `return_to` (zelfde root domein), zodat de sessie direct op tenant-host verdergaat.
+- WorkspaceContext lockt op tenant-host op de workspace waarvan `slug == host subdomain`; cross-tenant switch op een tenant-host wordt genegeerd.
+- Livechat `POST /api:livechat/session/start` ondersteunt `tenant_subdomain`; bij aanwezigheid valideert backend dat de agent echt bij die tenant-subdomein hoort, anders volgt `Tenant not found for this subdomain`.
 
-*Laatste update: 7 mei 2026 — API-groepen geconsolideerd naar `app/workforce/livechat/logs/bakermat` en dashboard API-referenties zijn env-gedreven gemaakt.*
+*Laatste update: 10 mei 2026 — OAuth centrale callbacks en unified `email/oauth/start` gebruiken `MICROSOFT_REDIRECT_URI` / `GOOGLE_REDIRECT_URI` voor authorize en token exchange; API-groepen geconsolideerd naar `app/auth/workforce/livechat/logs/bakermat`.*
+
+---
+
+## 15. Xano tabel-audit (8 mei 2026)
+
+Workspace `1` (`Bokito AI app`) bevat meerdere datadomeinen naast elkaar: portal/auth, livechat, workforce, custom database, backlog en integraties.
+
+### Waarschijnlijk actief en leidend
+
+- Auth/tenant: `user`, `organisation`, `auth_handoff`, `system_event_log`.
+- Livechat: `conversation`, `message`, `customer`, `attachment`, `bot_agent`, `bot_agent_tool`, `tool_registry`.
+- Workforce: `agent`, `agent_session`, `activity`, `st_task`, `agent_log`, `user_role`.
+- Custom DB builder: `custom_table`, `custom_field`, `custom_record`, `custom_view`.
+- Backlog: `backlog_item`, `backlog_comment`, `backlog_config`.
+- Scraped docs/KB pipeline: `doc`, `doc_page`, `doc_section`.
+
+### Gevonden overlap of legacy-kandidaten
+
+- `agent_conversation` + `agent_message` lijken legacy naast `conversation` + `message` (eerste set leeg, tweede set gevuld).
+- `tool` + `agent_tool` lijken legacy naast `tool_registry` + `bot_agent_tool` (eerste set leeg, tweede set gevuld).
+- `knowledge_base` lijkt legacy naast `doc/doc_page/doc_section` (knowledge_base leeg, docs-tabellen gevuld).
+- `kb_collection` + `kb_document` zijn aanwezig maar leeg; mogelijk oud upload-pad dat nu niet gebruikt wordt.
+
+### Leeg/laag-gebruik op auditmoment (niet direct verwijderen zonder dependency-check)
+
+- Leeg gezien: `collaboration`, `system_program_file`, `system_event`, `agent_conversation`, `agent_message`, `knowledge_base`, `kb_collection`, `kb_document`, `conversation_memory`, `bot_agent_identity_config`, `tool`, `agent_tool`, `email_oauth_connection`, `email_synced_message`, `user_session`.
+- Let op: leeg betekent niet automatisch overbodig (sommige tabellen zijn runtime/transient of feature-flagged).
+
+### Opschoonvolgorde (veilig)
+
+1. **Dependency scan** per kandidaattabel in APIs, functions, tasks, tools en triggers.
+2. **Soft-deprecate**: markeer legacy-tabellen intern en stop nieuwe writes.
+3. **Observatieperiode** (bijv. 14 dagen) met write-monitoring.
+4. Pas daarna pas **hard delete** van tabellen die aantoonbaar geen reads/writes meer hebben.
+
+### Uitgevoerd: overlap cleanup (8 mei 2026)
+
+- Hard verwijderd na dependency-check en lege datasets: `agent_conversation`, `agent_message`, `tool`, `agent_tool`, `knowledge_base`.
+- `search_knowledge_base` tool is gemigreerd van `knowledge_base` naar `doc_section` (tenant-scoped via `conversation.organisation_id`) en retourneert nog steeds top-3 relevante passages.
+- Canonieke modellen voor chat/tooling blijven: `conversation` + `message` en `tool_registry` + `bot_agent_tool`.
+- `system_event` is **niet** verwijderd; dit model blijft functioneel los van audit logging in `system_event_log`.

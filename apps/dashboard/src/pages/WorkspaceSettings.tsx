@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, Trash2, Globe, Clock } from 'lucide-react';
+import { Globe, Paintbrush, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePermission } from '../hooks/usePermission';
 import { Button } from '../components/ui/button';
@@ -8,13 +9,6 @@ import { Input } from '../components/ui/input';
 import { Card } from '../components/ui/card';
 import { Select } from '../components/ui/select';
 
-const TIMEZONES = [
-  { value: 'Europe/Amsterdam', label: 'Amsterdam (CET/CEST)' },
-  { value: 'Europe/London', label: 'London (GMT/BST)' },
-  { value: 'America/New_York', label: 'New York (EST/EDT)' },
-  { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-];
 
 export default function WorkspaceSettings() {
   const { t, i18n } = useTranslation(['workspace', 'common']);
@@ -22,34 +16,18 @@ export default function WorkspaceSettings() {
   const canManageWorkspace = usePermission('delete_workspace') || usePermission('invite_members');
   
   const [workspaceName, setWorkspaceName] = useState(user?.tenant.name || '');
-  const [timezone, setTimezone] = useState('Europe/Amsterdam');
   const language = (i18n.resolvedLanguage === 'nl' ? 'nl' : 'en') as 'nl' | 'en';
   const [require2FA, setRequire2FA] = useState(false);
-  const [logo, setLogo] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.size <= 1024 * 1024) { // 1MB limit
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setLogo(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      alert(t('fileSizeError'));
-    }
-  };
 
   const handleSave = () => {
     // In a real app, this would save to the backend
     console.log('Saving workspace settings:', {
       name: workspaceName,
-      timezone,
       language,
       require2FA,
-      logo
     });
     alert(t('saveSuccess'));
   };
@@ -94,77 +72,26 @@ export default function WorkspaceSettings() {
             />
           </div>
 
-          {/* Logo Upload */}
+          {/* Branding link */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
-              {t('logo')}
+              Branding
             </label>
-            <div className="flex items-center gap-4">
-              {logo ? (
-                <div className="relative">
-                  <img
-                    src={logo}
-                    alt="Workspace logo"
-                    className="w-16 h-16 rounded-lg object-cover border border-border"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -top-2 -right-2 w-6 h-6"
-                    onClick={() => setLogo(null)}
-                  >
-                    <Trash2 size={12} />
-                  </Button>
-                </div>
-              ) : (
-                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center">
-                  <Upload size={20} className="text-text-muted" />
-                </div>
-              )}
-              
-              <div>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                  id="logo-upload"
-                  disabled={!canManageWorkspace}
-                />
-                <label htmlFor="logo-upload">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    asChild
-                    disabled={!canManageWorkspace}
-                  >
-                    <span>{t('uploadLogo')}</span>
-                  </Button>
-                </label>
-                <p className="text-xs text-text-muted mt-1">
-                  {t('fileHint')}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Timezone */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              <Clock size={16} className="inline mr-2" />
-              {t('timezone')}
-            </label>
-            <Select
-              value={timezone}
-              onValueChange={setTimezone}
-              disabled={!canManageWorkspace}
+            <Link
+              to="/settings/branding"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-input/40 px-4 py-3 hover:bg-bg-hover/50 hover:border-border/80 transition-colors group"
             >
-              {TIMEZONES.map((tz) => (
-                <option key={tz.value} value={tz.value}>
-                  {tz.label}
-                </option>
-              ))}
-            </Select>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <Paintbrush size={15} className="text-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-text-heading">Organisatie branding</p>
+                  <p className="text-xs text-text-muted">Logo, kleuren en huisstijl beheren</p>
+                </div>
+              </div>
+              <ArrowRight size={15} className="text-text-muted group-hover:text-text-secondary transition-colors" />
+            </Link>
           </div>
 
           {/* Language */}

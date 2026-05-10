@@ -2,7 +2,9 @@ param(
   [string]$BuildName = "",
   [string]$BuildDescription = "",
   [switch]$SkipBuild,
-  [switch]$Prod
+  [switch]$Prod,
+  # Upload once, then activate the same build on both dev and prod (Metadata API).
+  [switch]$BothEnvs
 )
 
 Set-StrictMode -Version Latest
@@ -36,6 +38,17 @@ function Get-EnvValue {
   return $value
 }
 
+function Get-EnvValueFirst {
+  param([Parameter(Mandatory = $true)][string[]]$Names)
+  foreach ($name in $Names) {
+    $value = [Environment]::GetEnvironmentVariable($name)
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+      return $value
+    }
+  }
+  throw "Missing required env var (set one of): $($Names -join ', ')"
+}
+
 function New-CleanZip {
   param(
     [Parameter(Mandatory = $true)][string]$SourceDir,
@@ -67,17 +80,18 @@ Initialize-EnvFromDotEnv -DotEnvPath ".\.env"
 
 $metaApiKey   = Get-EnvValue -Name "XANO_METADATA_API_KEY"
 $metaBaseUrl  = (Get-EnvValue -Name "XANO_META_BASE_URL").TrimEnd("/")
-$workspaceId  = Get-EnvValue -Name "XANO_WIDGET_WORKSPACE_ID"
-$staticHost   = Get-EnvValue -Name "XANO_WIDGET_STATIC_HOST_NAME"
+# Prefer names from .env.example; fall back to legacy WIDGET_* keys.
+$workspaceId  = Get-EnvValueFirst -Names @("XANO_WEBSITEWORKSPACE_ID", "XANO_WIDGET_WORKSPACE_ID")
+$staticHost   = Get-EnvValueFirst -Names @("XANO_DASHBOARD_STATIC_HOST_NAME", "XANO_WEBSITE_STATIC_HOST_NAME", "XANO_WIDGET_STATIC_HOST_NAME")
 
 $dashboardDir = Join-Path $PSScriptRoot "apps\dashboard"
 $distDir      = Join-Path $dashboardDir "dist"
 
 if (-not $SkipBuild) {
-  Write-Host "Building dashboard (vite build)..."
+  Write-Host "Building dashboard (vite build, no tsc — use 'npm run build' locally for full typecheck)..."
   Push-Location $dashboardDir
   try {
-    npm run build
+    npm run build:static
     if ($LASTEXITCODE -ne 0) { throw "vite build failed with exit code $LASTEXITCODE" }
   } finally {
     Pop-Location
@@ -146,31 +160,36 @@ try {
   $buildId = ($body | ConvertFrom-Json).id
   Write-Host "Build uploaded successfully: $BuildName (ID: $buildId)"
 
-  $envName = if ($Prod) { "prod" } else { "dev" }
-  Write-Host "Activating build on $envName environment..."
-  $activateUri = "$metaBaseUrl/workspace/$workspaceId/static_host/$staticHost/env/$envName"
-  $tmpActivate = [System.IO.Path]::GetTempFileName()
-  try {
-    Set-Content -Path $tmpActivate -Value "{`"build_id`":$buildId}" -NoNewline
-    $activateResponse = & curl.exe -s -w "`n%{http_code}" `
-      -X PUT $activateUri `
-      -H "Authorization: Bearer $metaApiKey" `
-      -H "Content-Type: application/json" `
-      --data "@$tmpActivate"
-  } finally {
-    Remove-Item -LiteralPath $tmpActivate -Force -ErrorAction SilentlyContinue
-  }
+  # Xano Metadata API: POST .../static_host/{host}/build/{build_id}/env  body: {"env":"dev"|"prod"}
+  $envTargets = if ($BothEnvs) { @("dev", "prod") } elseif ($Prod) { @("prod") } else { @("dev") }
 
-  $activateLines = $activateResponse -split "`n"
-  $activateStatus = $activateLines[-1].Trim()
-  $activateBody = ($activateLines[0..($activateLines.Length - 2)] -join "`n").Trim()
+  foreach ($envName in $envTargets) {
+    Write-Host "Activating build $buildId on $envName environment..."
+    $activateUri = "$metaBaseUrl/workspace/$workspaceId/static_host/$staticHost/build/$buildId/env"
+    $tmpActivate = [System.IO.Path]::GetTempFileName()
+    try {
+      $payloadJson = "{`"env`":`"$envName`"}"
+      $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+      [System.IO.File]::WriteAllText($tmpActivate, $payloadJson, $utf8NoBom)
+      $activateResponse = & curl.exe -s -w "`n%{http_code}" `
+        -X POST $activateUri `
+        -H "Authorization: Bearer $metaApiKey" `
+        -H "Content-Type: application/json; charset=utf-8" `
+        --data-binary "@$tmpActivate"
+    } finally {
+      Remove-Item -LiteralPath $tmpActivate -Force -ErrorAction SilentlyContinue
+    }
 
-  if ($activateStatus -ne "200") {
-    Write-Warning "$envName activation returned HTTP $activateStatus : $activateBody"
-  }
-  else {
-    $url = ($activateBody | ConvertFrom-Json).default_url
-    Write-Host "Build is now live on $envName : $url"
+    $activateLines = $activateResponse -split "`n"
+    $activateStatus = $activateLines[-1].Trim()
+    $activateBody = ($activateLines[0..($activateLines.Length - 2)] -join "`n").Trim()
+
+    if ($activateStatus -ne "200") {
+      Write-Warning "$envName activation returned HTTP $activateStatus : $activateBody"
+    }
+    else {
+      Write-Host "Build $buildId is now active on $envName."
+    }
   }
 }
 finally {

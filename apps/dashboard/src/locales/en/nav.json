@@ -65,6 +65,7 @@
     "links": {
       "assistent": "Assistant",
       "kennis": "Knowledge",
+      "datasources": "Data sources",
       "handelingen": "AI Tools"
     }
   },
@@ -91,7 +92,7 @@
       "inbox": "Inbox",
       "emailSettings": "Email settings",
       "messenger": "Assistant",
-      "helpCenters": "Help centers",
+      "helpCenters": "Knowledge base",
       "general": "General",
       "branding": "Branding",
       "membersTeams": "Members and teams",
@@ -108,7 +109,7 @@
     "notifications": { "title": "Notifications", "description": "Configure personal and team notification defaults." },
     "support": { "title": "Inbox", "description": "Configure inbox behavior and channels." },
     "messenger": { "title": "Assistant", "description": "Configure assistant behavior and preview settings." },
-    "helpCenters": { "title": "Help Centers", "description": "Manage customer help center content and visibility." },
+    "helpCenters": { "title": "Knowledge base", "description": "Manage knowledge base content and visibility." },
     "general": { "title": "General", "description": "Set workspace-level defaults and product behavior." },
     "branding": { "title": "Branding", "description": "Align the portal experience with your organization branding." },
     "members": { "title": "Members and teams", "description": "Invite, organize, and manage collaborators." },

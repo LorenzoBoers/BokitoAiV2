@@ -58,6 +58,26 @@ export interface FieldConfig {
   outputType?: 'text' | 'number' | 'boolean' | 'date';
 }
 
+export interface StandardTableFieldDefinition {
+  name: string;
+  slug: string;
+  field_type: FieldType;
+  required: boolean;
+  config?: FieldConfig;
+  is_system: true;
+  position: number;
+}
+
+export interface StandardTableDefinition {
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  color: string;
+  table_type: 'customer' | 'message' | 'task';
+  fields: StandardTableFieldDefinition[];
+}
+
 export interface CustomTable {
   id: number;
   organisation_id: number;
@@ -272,6 +292,8 @@ export interface Workspace {
   name: string;
   timezone?: string;
   logo?: string | null;
+  favicon?: string | null;
+  brand_color?: string;
   owner_user_id?: number | string | null;
   role?: UserRole | 'member';
   created_at?: string;

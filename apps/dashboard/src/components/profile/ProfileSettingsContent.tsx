@@ -4,7 +4,7 @@ import { Check, LaptopMinimal, Lock, Moon, Pencil, ShieldCheck, Sun, Trash2, X }
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
-import { xanoPatch, xanoPost, XANO_AUTH_API, buildAuthHeaders } from '../../lib/xano'
+import { xanoPatchAuth, xanoPostAuth, XANO_AUTH_API, buildAuthHeaders } from '../../lib/xano'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 
@@ -259,7 +259,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
       let res = await sendAvatar('/users/me/avatar')
       if (res.status === 404) {
         // Backward compatibility while some environments still use legacy path.
-        res = await sendAvatar('/auth/avatar')
+        res = await sendAvatar('/avatar')
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json() as { avatar?: { url?: string; path?: string } }
@@ -285,19 +285,19 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
 
   const saveName = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatch('/auth/profile', { name: next }, token)
+    await xanoPatchAuth('/profile', { name: next }, token)
     patchLocalUser({ name: next })
   }, [token, patchLocalUser])
 
   const saveEmail = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatch('/auth/profile', { email: next }, token)
+    await xanoPatchAuth('/profile', { email: next }, token)
     patchLocalUser({ email: next })
   }, [token, patchLocalUser])
 
   const saveJobTitle = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatch('/auth/profile', { job_title: next }, token)
+    await xanoPatchAuth('/profile', { job_title: next }, token)
     patchLocalUser({ jobTitle: next || null })
   }, [token, patchLocalUser])
 
@@ -306,7 +306,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
     if (!token) return
     setPwSaving(true); setPwError(null)
     try {
-      await xanoPost('/auth/change-password', { current_password: currentPw, new_password: newPw }, token)
+      await xanoPostAuth('/change-password', { current_password: currentPw, new_password: newPw }, token)
       setPwSaved(true)
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
       setShowPasswordForm(false)

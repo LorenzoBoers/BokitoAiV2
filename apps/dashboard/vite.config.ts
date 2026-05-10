@@ -48,7 +48,7 @@ function chatWidgetDevPlugin() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const xanoBaseUrl = env.VITE_XANO_BASE_URL || 'https://xrex-nmji-j9ur.f2.xano.io'
-  const appCanonical = env.VITE_API_GROUP_APP || 'app'
+  const authCanonical = env.VITE_API_GROUP_AUTH || 'auth'
 
   return {
     plugins: [react(), chatWidgetDevPlugin()],
@@ -59,7 +59,7 @@ export default defineConfig(({ mode }) => {
         '/api/auth': {
           target: xanoBaseUrl,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/auth/, `/api:${appCanonical}/auth`),
+          rewrite: (path) => path.replace(/^\/api\/auth/, `/api:${authCanonical}`),
         },
         '/api': {
           target: xanoBaseUrl,

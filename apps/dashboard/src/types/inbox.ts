@@ -13,6 +13,10 @@ export interface MailboxConnection {
   signature_html: string | null;
   sync_cursor: string | null;
   error_message?: string;
+  /** When false, inbox sync skips this mailbox. */
+  sync_enabled: boolean;
+  /** Organisation primary mailbox (one active primary). */
+  is_primary: boolean;
   created_at: string;
   updated_at: string;
 }

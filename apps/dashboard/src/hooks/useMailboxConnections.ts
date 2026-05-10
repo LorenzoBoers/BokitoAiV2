@@ -45,7 +45,10 @@ export function useMailboxConnections() {
     void refresh()
   }, [refresh])
 
-  const activeConnections = useMemo(() => connections.filter((item) => item.status === 'active'), [connections])
+  const activeConnections = useMemo(
+    () => connections.filter((item) => item.status === 'active' && item.isEnabled !== false),
+    [connections],
+  )
   const loadingState = loading || (Boolean(token) && authLoading)
 
   const needsOrganisation =

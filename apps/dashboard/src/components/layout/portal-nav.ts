@@ -41,7 +41,6 @@ export const getRailItems = (t: TFunction<'nav'>): RailItem[] => [
   { label: t('rail.help'), to: '/docs', icon: BookOpen },
   { label: t('rail.updates'), to: '/projects', icon: Sparkles },
   { label: t('rail.data'), to: '/database', icon: Database },
-  { label: t('rail.users'), to: '/users/attributes', icon: Users },
   { label: t('rail.workforce'), to: '/workforce', icon: Bot, comingSoon: true },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
@@ -69,12 +68,6 @@ export const getUserSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
       { label: t('users.links.blocked'), to: '/users/blocked' },
     ],
   },
-  {
-    label: t('users.group.integrations'),
-    links: [
-      { label: t('users.links.datasources'), to: '/datasources' },
-    ],
-  },
 ]
 
 export const getAiSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
@@ -83,6 +76,7 @@ export const getAiSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
     links: [
       { label: t('ai.links.assistent'), to: '/ai/assistent' },
       { label: t('ai.links.kennis'), to: '/projects' },
+      { label: t('ai.links.datasources'), to: '/datasources' },
       { label: t('ai.links.handelingen'), to: '/ai/handelingen', comingSoon: true },
     ],
   },
@@ -111,7 +105,6 @@ export const getSettingsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] =>
     label: t('settings.groups.products'),
     links: [
       { label: t('settings.links.inbox'), to: '/settings/inbox' },
-      { label: t('settings.links.emailSettings'), to: '/settings/support/general' },
       { label: t('settings.links.messenger'), to: '/ai/assistent' },
       { label: t('settings.links.helpCenters'), to: '/settings/help-centers', comingSoon: true },
     ],

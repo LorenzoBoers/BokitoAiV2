@@ -5,6 +5,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { useTheme } from '../../context/ThemeContext'
+import { buildControlPlaneUrl } from '../../lib/host-routing'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,15 @@ export default function Sidebar() {
   const displayName = user?.name ?? t('common:account')
   const railItems = getRailItems(t)
   const mainRailItems = railItems.filter((item) => item.to !== '/settings/profile')
+
+  const goToWorkspacesHub = () => {
+    const controlPlaneUrl = buildControlPlaneUrl('/')
+    if (controlPlaneUrl && typeof window !== 'undefined') {
+      window.location.assign(controlPlaneUrl)
+      return
+    }
+    navigate('/')
+  }
 
   const isRailActive = (path: string): boolean => {
     if (path === '/support/inbox/all') {
@@ -150,7 +160,7 @@ export default function Sidebar() {
                 <SunMoon size={14} className="mr-2 text-text-muted" />
                 {isDark ? t('nav:userMenu.lightMode') : t('nav:userMenu.darkMode')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/workspaces')}>
+              <DropdownMenuItem onClick={goToWorkspacesHub}>
                 <Building2 size={14} className="mr-2 text-text-muted" />
                 {t('nav:userMenu.workspaces')}
               </DropdownMenuItem>
@@ -164,7 +174,7 @@ export default function Sidebar() {
                 <DropdownMenuLabel>{t('nav:workspace.switchTo')}</DropdownMenuLabel>
               ) : null}
               {workspaces.length === 0 ? (
-                <DropdownMenuItem onClick={() => navigate('/workspaces')}>
+                <DropdownMenuItem onClick={goToWorkspacesHub}>
                   <Plus size={14} className="mr-2 text-text-muted" />
                   {t('nav:workspace.createFirst')}
                 </DropdownMenuItem>

@@ -65,6 +65,7 @@
     "links": {
       "assistent": "Assistent",
       "kennis": "Kennis",
+      "datasources": "Databronnen",
       "handelingen": "AI Tools"
     }
   },
@@ -91,7 +92,7 @@
       "inbox": "Inbox",
       "emailSettings": "E-mailinstellingen",
       "messenger": "Assistent",
-      "helpCenters": "Helpcentra",
+      "helpCenters": "Kennisbank",
       "general": "Algemeen",
       "branding": "Branding",
       "membersTeams": "Leden en teams",
@@ -108,7 +109,7 @@
     "notifications": { "title": "Notificaties", "description": "Configureer persoonlijke en teamnotificaties." },
     "support": { "title": "Inbox", "description": "Configureer inbox-gedrag en kanalen." },
     "messenger": { "title": "Assistent", "description": "Configureer assistent-gedrag en voorbeeldinstellingen." },
-    "helpCenters": { "title": "Helpcentra", "description": "Beheer helpcentrumcontent en zichtbaarheid voor klanten." },
+    "helpCenters": { "title": "Kennisbank", "description": "Beheer kennisbankcontent en zichtbaarheid voor klanten." },
     "general": { "title": "Algemeen", "description": "Stel workspace-brede standaardinstellingen en productgedrag in." },
     "branding": { "title": "Branding", "description": "Lijn de portalervaring uit met je organisatiebranding." },
     "members": { "title": "Leden en teams", "description": "Nodig medewerkers uit en beheer samenwerking." },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MailPlus, Plus, Search, Trash2, Users } from 'lucide-react'
+import { MailPlus, Plus, Search, Trash2, Users, X } from 'lucide-react'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
@@ -84,6 +84,7 @@ export default function MemberManagement() {
   const [teamName, setTeamName] = useState('')
   const [teamDescription, setTeamDescription] = useState('')
   const [selectedTeamMemberIds, setSelectedTeamMemberIds] = useState<string[]>([])
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!workspaceId && !user?.tenant.slug) return
@@ -464,73 +465,109 @@ export default function MemberManagement() {
         </Table>
       </Card>
 
-      <Card className="space-y-4 p-5">
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-text-heading">Teams</p>
-          <p className="text-sm text-text-secondary">Maak teams en wijs bestaande leden toe.</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Input
-            value={teamName}
-            onChange={(event) => setTeamName(event.target.value)}
-            placeholder="Teamnaam"
-          />
-          <Input
-            value={teamDescription}
-            onChange={(event) => setTeamDescription(event.target.value)}
-            placeholder="Omschrijving (optioneel)"
-          />
-        </div>
-        <div className="rounded-lg border border-border/70 bg-bg-input/50 p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-muted">Team members</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {members.map((member) => (
-              <label key={member.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover/40">
-                <input
-                  type="checkbox"
-                  checked={selectedTeamMemberIds.includes(member.id)}
-                  onChange={() => toggleSelectedMember(member.id)}
-                />
-                <span className="text-sm text-text-primary">{member.name}</span>
-              </label>
-            ))}
+      {/* Teams */}
+      <Card className="p-0 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/55">
+          <div>
+            <p className="text-sm font-medium text-text-heading">Teams</p>
+            <p className="text-xs text-text-secondary mt-0.5">Groepeer leden in teams voor overzicht en toewijzing.</p>
           </div>
-        </div>
-        <div className="flex justify-end">
-          <Button onClick={createTeam} disabled={!teamName.trim()}>
-            <Plus size={14} />
+          <Button size="sm" onClick={() => { setTeamName(''); setTeamDescription(''); setSelectedTeamMemberIds([]); setTeamDialogOpen(true) }}>
+            <Plus size={13} />
             Team aanmaken
           </Button>
         </div>
 
-        <div className="space-y-2 border-t border-border/70 pt-4">
-          {teams.length === 0 ? (
-            <p className="text-sm text-text-muted">Nog geen teams aangemaakt.</p>
-          ) : (
-            teams.map((team) => (
-              <div key={team.id} className="rounded-lg border border-border/70 bg-bg-input/40 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Users size={14} className="text-text-muted" />
-                      <p className="text-sm font-medium text-text-heading">{team.name}</p>
-                    </div>
-                    {team.description ? <p className="mt-1 text-sm text-text-secondary">{team.description}</p> : null}
-                    <p className="mt-2 text-xs text-text-muted">
+        {teams.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+            <div className="w-10 h-10 rounded-xl bg-bg-hover flex items-center justify-center">
+              <Users size={18} className="text-text-muted" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-text-heading">Nog geen teams</p>
+              <p className="text-xs text-text-secondary mt-0.5">Maak een team aan om leden te groeperen.</p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={() => { setTeamName(''); setTeamDescription(''); setSelectedTeamMemberIds([]); setTeamDialogOpen(true) }}>
+              <Plus size={13} />
+              Maak er een aan
+            </Button>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {teams.map((team) => (
+              <div key={team.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                    <Users size={14} className="text-accent" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-heading">{team.name}</p>
+                    <p className="text-xs text-text-muted truncate">
                       {team.memberIds.length === 0
-                        ? 'Geen leden toegewezen'
-                        : team.memberIds.map((memberId) => memberNameById[memberId] ?? 'Onbekend lid').join(', ')}
+                        ? 'Geen leden'
+                        : team.memberIds.map((id) => memberNameById[id] ?? 'Onbekend').join(', ')}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeTeam(team.id)} aria-label="Verwijder team">
-                    <Trash2 size={14} />
-                  </Button>
                 </div>
+                <Button variant="ghost" size="icon" onClick={() => removeTeam(team.id)} aria-label="Verwijder team">
+                  <Trash2 size={13} />
+                </Button>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
+
+      {/* Team creation dialog */}
+      {teamDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border/60 bg-bg-surface shadow-[0_20px_60px_rgba(5,8,18,0.5)]">
+            <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
+              <p className="text-[15px] font-semibold text-text-heading">Team aanmaken</p>
+              <button type="button" onClick={() => setTeamDialogOpen(false)} className="text-text-muted hover:text-text-primary transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium text-text-muted">Teamnaam</label>
+                <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="bijv. Support, Sales…" autoFocus />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium text-text-muted">Omschrijving <span className="text-text-muted/60 font-normal">(optioneel)</span></label>
+                <Input value={teamDescription} onChange={(e) => setTeamDescription(e.target.value)} placeholder="Korte omschrijving van dit team" />
+              </div>
+              {members.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-[12px] font-medium text-text-muted">Leden toevoegen</label>
+                  <div className="rounded-lg border border-border/55 divide-y divide-border/40 max-h-48 overflow-y-auto">
+                    {members.map((member) => (
+                      <label key={member.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-bg-hover/40 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedTeamMemberIds.includes(member.id)}
+                          onChange={() => toggleSelectedMember(member.id)}
+                          className="accent-accent"
+                        />
+                        <UserAvatar name={member.name} email={member.email} size={24} />
+                        <span className="text-sm text-text-primary">{member.name}</span>
+                        {member.isCurrentUser && <span className="ml-auto text-[11px] text-text-muted">Jij</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border/50 px-5 py-3">
+              <Button variant="secondary" size="sm" onClick={() => setTeamDialogOpen(false)}>Annuleren</Button>
+              <Button size="sm" onClick={() => { createTeam(); setTeamDialogOpen(false) }} disabled={!teamName.trim()}>
+                <Plus size={13} />
+                Aanmaken
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

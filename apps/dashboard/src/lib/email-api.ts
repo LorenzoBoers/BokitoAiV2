@@ -1,5 +1,17 @@
-import { xanoDelete, xanoGet, xanoPatch, xanoPost, xanoPut } from './xano'
+import {
+  xanoDeleteIntegrations,
+  xanoGetIntegrations,
+  xanoPatchIntegrations,
+  xanoPostIntegrations,
+  xanoPutIntegrations,
+} from './xano'
 import type { ConnectionStatus, OAuthProvider } from './email-oauth'
+
+const xanoGet = xanoGetIntegrations
+const xanoPost = xanoPostIntegrations
+const xanoPatch = xanoPatchIntegrations
+const xanoPut = xanoPutIntegrations
+const xanoDelete = xanoDeleteIntegrations
 
 export type EmailConnection = {
   id: number
@@ -10,6 +22,10 @@ export type EmailConnection = {
   lastSyncAt: string | null
   lastError: string | null
   signatureHtml: string | null
+  /** When false, scheduled sync skips this mailbox. */
+  isEnabled: boolean
+  /** At most one per organisation should be primary. */
+  isPrimary: boolean
 }
 
 export type EmailMessage = {
@@ -107,6 +123,30 @@ function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
 
+/** Microsoft authorize URLs must include a non-empty client_id; empty env on Xano yields login.live.com invalid_request. */
+export function ensureOutlookAuthorizeUrlHasClientId(url: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error('Ongeldige authorize-URL ontvangen van de server.')
+  }
+  const host = parsed.hostname.toLowerCase()
+  const isMicrosoft =
+    host === 'login.microsoftonline.com' ||
+    host.endsWith('.login.microsoftonline.com') ||
+    host === 'login.live.com' ||
+    host.endsWith('.login.live.com')
+  if (!isMicrosoft) return
+
+  const clientId = parsed.searchParams.get('client_id')
+  if (!clientId?.trim()) {
+    throw new Error(
+      'Microsoft OAuth mist client_id in de authorize-URL. Zet MICROSOFT_CLIENT_ID (en het juiste secret) in de Xano-omgeving voor de API-groep die /email/oauth/start uitvoert (doorgaans `api:integrations`), niet alleen voor `api:app`.',
+    )
+  }
+}
+
 function asNullableString(value: unknown): string | null {
   const text = asString(value)
   return text.length > 0 ? text : null
@@ -128,6 +168,10 @@ function normalizeConnection(row: unknown): EmailConnection | null {
   const statusValue = asString(raw.status).toLowerCase()
   const status: ConnectionStatus =
     statusValue === 'error' ? 'error' : statusValue === 'revoked' ? 'revoked' : 'active'
+  const rawEnabled = raw.is_enabled ?? raw.isEnabled
+  const isEnabled = rawEnabled === false ? false : true
+  const rawPrimary = raw.is_primary ?? raw.isPrimary
+  const isPrimary = rawPrimary === true
   return {
     id,
     provider,
@@ -137,6 +181,8 @@ function normalizeConnection(row: unknown): EmailConnection | null {
     lastSyncAt: asNullableString(raw.last_sync_at ?? raw.lastSyncAt),
     lastError: asNullableString(raw.last_error ?? raw.lastError),
     signatureHtml: asNullableString(raw.signature_html ?? raw.signatureHtml),
+    isEnabled,
+    isPrimary,
   }
 }
 
@@ -186,30 +232,56 @@ export async function listEmailConnections(token: string): Promise<EmailConnecti
   return source.map(normalizeConnection).filter((item): item is EmailConnection => item !== null)
 }
 
+export function buildEmailOAuthReturnUrl(): string {
+  return `${window.location.origin}${window.location.pathname}`
+}
+
 export async function startOAuthConnection(token: string, provider: OAuthProvider): Promise<string> {
-  const genericPath = `/email/oauth/start?provider=${provider}`
+  const returnUrl = buildEmailOAuthReturnUrl()
+  const encodedReturnUrl = encodeURIComponent(returnUrl)
+  const genericPath = `/email/oauth/start?provider=${provider}&return_url=${encodedReturnUrl}`
   try {
     const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>(genericPath, token)
     const url = asString(payload.authorize_url ?? payload.authorizeUrl)
     if (!url.trim()) throw new Error('Geen authorize-URL ontvangen van de server.')
+    if (provider === 'outlook') ensureOutlookAuthorizeUrlHasClientId(url)
     return url
   } catch (error) {
     if (provider === 'outlook') {
-      const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>('/email/outlook/oauth/start', token)
+      const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>(
+        `/email/outlook/oauth/start?return_url=${encodedReturnUrl}`,
+        token,
+      )
+      const url = asString(payload.authorize_url ?? payload.authorizeUrl)
+      if (!url.trim()) throw new Error('Geen authorize-URL ontvangen van de server.')
+      ensureOutlookAuthorizeUrlHasClientId(url)
+      return url
+    }
+
+    if (provider === 'gmail') {
+      const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>(
+        `/email/google/oauth/start?return_url=${encodedReturnUrl}`,
+        token,
+      )
       const url = asString(payload.authorize_url ?? payload.authorizeUrl)
       if (!url.trim()) throw new Error('Geen authorize-URL ontvangen van de server.')
       return url
     }
-    const message = error instanceof Error ? error.message : ''
-    if (provider === 'gmail' && message.includes('/email/oauth/start?provider=gmail')) {
-      throw new Error('Gmail koppelen is nog niet beschikbaar op deze backend. Gebruik voorlopig Outlook of SMTP/IMAP.')
-    }
+
     throw error
   }
 }
 
 export async function disconnectEmailConnection(token: string, connectionId: number): Promise<void> {
   await xanoDelete(`/email/connections/${connectionId}`, token)
+}
+
+export async function updateMailboxSettings(
+  token: string,
+  connectionId: number,
+  payload: { is_enabled: boolean; is_primary: boolean },
+): Promise<void> {
+  await xanoPut(`/email/connections/${connectionId}/mailbox-settings`, payload, token)
 }
 
 export async function getConnectionSignature(token: string, connectionId: number): Promise<string> {

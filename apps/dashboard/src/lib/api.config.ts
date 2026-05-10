@@ -9,12 +9,16 @@ export function xanoApiBase(canonical: string): string {
 }
 
 export const API_GROUP_APP = import.meta.env.VITE_API_GROUP_APP || 'app'
+export const API_GROUP_AUTH = import.meta.env.VITE_API_GROUP_AUTH || 'auth'
+export const API_GROUP_INTEGRATIONS = import.meta.env.VITE_API_GROUP_INTEGRATIONS || 'integrations'
 export const API_GROUP_WORKFORCE = import.meta.env.VITE_API_GROUP_WORKFORCE || 'workforce'
 export const API_GROUP_LIVECHAT = import.meta.env.VITE_API_GROUP_LIVECHAT || 'livechat'
 export const API_GROUP_LOGS = import.meta.env.VITE_API_GROUP_LOGS || 'logs'
 export const API_GROUP_BAKERMAT = import.meta.env.VITE_API_GROUP_BAKERMAT || 'bakermat'
 
 export const APP_API_BASE = xanoApiBase(API_GROUP_APP)
+export const AUTH_API_BASE = xanoApiBase(API_GROUP_AUTH)
+export const INTEGRATIONS_API_BASE = xanoApiBase(API_GROUP_INTEGRATIONS)
 export const WORKFORCE_API_BASE = xanoApiBase(API_GROUP_WORKFORCE)
 export const LIVECHAT_API_BASE = xanoApiBase(API_GROUP_LIVECHAT)
 export const LOGS_API_BASE = xanoApiBase(API_GROUP_LOGS)

@@ -30,22 +30,22 @@ export default function WorkspaceHubNav() {
         <span className="text-[15px] font-semibold text-text-heading">Bokito portal</span>
       </div>
       <nav className="space-y-1">
-        <NavLink to="/workspaces" end className={({ isActive }) => navItemClass(isActive)}>
+        <NavLink to="/" end className={({ isActive }) => navItemClass(isActive)}>
           <LayoutGrid size={15} className="text-text-muted" />
           <span>{t('nav.workspaces')}</span>
         </NavLink>
-        <NavLink to="/workspaces/billing" className={({ isActive }) => navItemClass(isActive)}>
+        <NavLink to="/billing" className={({ isActive }) => navItemClass(isActive)}>
           <CreditCard size={15} className="text-text-muted" />
           <span>{t('nav.billing')}</span>
         </NavLink>
-        <NavLink to="/workspaces/support" className={({ isActive }) => navItemClass(isActive)}>
+        <NavLink to="/support" className={({ isActive }) => navItemClass(isActive)}>
           <CircleHelp size={15} className="text-text-muted" />
           <span>{t('nav.support')}</span>
         </NavLink>
       </nav>
 
       <div className="mt-auto border-t border-border/55 pt-3">
-        <NavLink to="/workspaces/account" className={({ isActive }) => navItemClass(isActive)}>
+        <NavLink to="/account" className={({ isActive }) => navItemClass(isActive)}>
           <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-bg-hover/70 text-[11px] font-semibold text-text-primary">
             {initials}
           </span>

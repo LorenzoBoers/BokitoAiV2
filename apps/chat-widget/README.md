@@ -39,6 +39,7 @@ Optional `agent_config.transcribe_path` overrides the default `POST /api:livecha
 `bokito-chat.js` now supports tenant/user-aware auth bootstrapping:
 
 - **Host auth cookie:** set `data-auth-cookie-name="host_auth_cookie"` and the widget reads `document.cookie` to forward `host_auth_token` in `POST /api:livechat/session/start`.
+- **Host subdomain routing:** on tenant hosts like `foo.bokito.ai`, the widget forwards `tenant_subdomain: "foo"` in `POST /api:livechat/session/start` so backend tenant resolution can stay host-driven.
 - **Direct token handoff:** set `data-auth-token` or `window.BokitoConfig.authToken`.
 - **Dynamic token handoff:** set `window.BokitoConfig.getAuthToken = async () => token`.
 - **Auth mode override:** set `data-auth-mode="anonymous|optional|required"` (fallback to backend `agent_config.auth_mode`).

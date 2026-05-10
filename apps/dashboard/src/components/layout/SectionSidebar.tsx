@@ -109,16 +109,16 @@ function SidebarGroupBlock({ group, user }: { group: SidebarGroup; user: { name:
 
 function resolveGroups(pathname: string, t: (key: string) => string): SidebarGroup[] {
   if (pathname.startsWith('/settings') || pathname.startsWith('/integrations')) return getSettingsSidebarGroups(t)
-  if (pathname.startsWith('/users') || pathname.startsWith('/database') || pathname.startsWith('/datasources')) return getUserSidebarGroups(t)
-  if (pathname.startsWith('/projects') || pathname.startsWith('/ai')) return getAiSidebarGroups(t)
+  if (pathname.startsWith('/users') || pathname.startsWith('/database')) return getUserSidebarGroups(t)
+  if (pathname.startsWith('/projects') || pathname.startsWith('/ai') || pathname.startsWith('/datasources')) return getAiSidebarGroups(t)
   if (pathname.startsWith('/workforce')) return getWorkforceSidebarGroups(t)
   return getSupportSidebarGroups(t)
 }
 
 function resolveTitle(pathname: string, t: (key: string) => string): string {
-  if (pathname.startsWith('/users') || pathname.startsWith('/database') || pathname.startsWith('/datasources')) return t('nav:sectionTitle.data')
+  if (pathname.startsWith('/users') || pathname.startsWith('/database')) return t('nav:sectionTitle.data')
   if (pathname.startsWith('/settings') || pathname.startsWith('/integrations')) return t('nav:sectionTitle.settings')
-  if (pathname.startsWith('/projects') || pathname.startsWith('/ai')) return t('nav:sectionTitle.ai')
+  if (pathname.startsWith('/projects') || pathname.startsWith('/ai') || pathname.startsWith('/datasources')) return t('nav:sectionTitle.ai')
   if (pathname.startsWith('/workforce')) return t('nav:sectionTitle.workforce')
   return t('nav:sectionTitle.inbox')
 }
@@ -146,9 +146,9 @@ export default function SectionSidebar() {
             <MessageSquare size={14} className="text-text-muted" />
             <span>{t('nav:settings.links.messenger')}</span>
           </NavLink>
-          <NavLink to="/settings/support/general" className={({ isActive }) => sectionClass(isActive)}>
+          <NavLink to="/settings/inbox" className={({ isActive }) => sectionClass(isActive)}>
             <Mail size={14} className="text-text-muted" />
-            <span>{t('nav:settings.links.emailSettings')}</span>
+            <span>{t('nav:settings.links.inbox')}</span>
           </NavLink>
         </div>
       )}

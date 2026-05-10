@@ -2,8 +2,29 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { useAuth } from './AuthContext';
 import type { Workspace, WorkspaceInvite } from '../types/custom-db';
 import { xanoGet, xanoPost } from '../lib/xano';
+import { XANO_BASE_URL } from '../lib/api.config';
+import { resolveTenantSubdomainFromHost } from '../lib/host-routing';
 
 const LAST_WORKSPACE_STORAGE_KEY = 'bokito_current_workspace';
+
+function normalizeAssetUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${XANO_BASE_URL}${encodeURI(path)}`;
+}
+
+function normalizeSubdomainCandidate(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 interface WorkspaceContextValue {
   currentWorkspace: Workspace | null;
@@ -11,7 +32,7 @@ interface WorkspaceContextValue {
   workspaceLoading: boolean;
   invites: WorkspaceInvite[];
   
-  createWorkspace: (data: { name: string; timezone: string; logo?: string }) => Promise<Workspace>;
+  createWorkspace: (data: { name: string; timezone: string; logo?: string; subdomain?: string }) => Promise<Workspace>;
   updateWorkspace: (id: number | string, data: Partial<Workspace>) => Promise<void>;
   switchWorkspace: (workspaceId: number | string) => Promise<void>;
   
@@ -58,17 +79,62 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
               ? row.workspace_name.trim()
               : null;
         if (!name) return null;
+        const livechatSettings =
+          row.livechat_settings && typeof row.livechat_settings === 'object'
+            ? (row.livechat_settings as Record<string, unknown>)
+            : null;
+        const logoFromObject =
+          livechatSettings?.logo && typeof livechatSettings.logo === 'object'
+            ? (livechatSettings.logo as Record<string, unknown>)
+            : null;
+        const faviconFromObject =
+          livechatSettings?.favicon && typeof livechatSettings.favicon === 'object'
+            ? (livechatSettings.favicon as Record<string, unknown>)
+            : null;
+        const resolvedLogo =
+          normalizeAssetUrl(row.logo) ??
+          normalizeAssetUrl(logoFromObject?.url) ??
+          normalizeAssetUrl(logoFromObject?.path);
+        const resolvedFavicon =
+          normalizeAssetUrl(row.favicon) ??
+          normalizeAssetUrl(faviconFromObject?.url) ??
+          normalizeAssetUrl(faviconFromObject?.path);
+        const resolvedBrandColor =
+          typeof row.brand_color === 'string' && row.brand_color.trim()
+            ? row.brand_color.trim()
+            : typeof livechatSettings?.main_color === 'string' && livechatSettings.main_color.trim()
+              ? livechatSettings.main_color.trim()
+              : undefined;
+        const resolvedSlug =
+          typeof row.slug === 'string' && row.slug.trim()
+            ? row.slug.trim()
+            : typeof livechatSettings?.subdomain === 'string' && livechatSettings.subdomain.trim()
+              ? livechatSettings.subdomain.trim()
+              : undefined;
         return {
           id: parsedId,
           name,
-          slug: typeof row.slug === 'string' && row.slug.trim() ? row.slug.trim() : undefined,
+          slug: resolvedSlug,
           timezone: typeof row.timezone === 'string' && row.timezone.trim() ? row.timezone.trim() : undefined,
+          logo: resolvedLogo ?? undefined,
+          favicon: resolvedFavicon ?? undefined,
+          brand_color: resolvedBrandColor,
         } satisfies Workspace;
       })
       .filter((workspace): workspace is Workspace => workspace !== null);
   }, []);
 
   const getTenantFallbackWorkspaceList = useCallback((): Workspace[] => {
+    const membershipWorkspaces = (user?.memberships ?? [])
+      .filter((membership) => membership.status === 'active')
+      .map((membership) => ({
+        id: membership.tenantId,
+        name: membership.name || membership.slug,
+        slug: membership.slug,
+        role: membership.role === 'user' ? 'member' : membership.role,
+      } satisfies Workspace));
+    if (membershipWorkspaces.length > 0) return membershipWorkspaces;
+
     // user.organisationId is the UUID string from /auth/me's organisation_id field.
     // user.tenant.id is always null for UUID-based orgs because toNumber() on a UUID returns null.
     // So we use organisationId as the authoritative source.
@@ -83,7 +149,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         slug: user?.tenant?.slug || undefined,
       },
     ];
-  }, [user?.organisationId, user?.tenant?.name, user?.tenant?.slug]);
+  }, [user?.memberships, user?.organisationId, user?.tenant?.name, user?.tenant?.slug]);
 
   const resolvePreferredWorkspace = useCallback(
     (workspaceList: Workspace[]): Workspace | null => {
@@ -124,15 +190,58 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
     setWorkspaceLoading(true);
     try {
+      const hostTenantSubdomain = resolveTenantSubdomainFromHost();
+      const membershipWorkspaceList = getTenantFallbackWorkspaceList();
+
+      if (hostTenantSubdomain) {
+        const tenantWorkspace = membershipWorkspaceList.find(
+          (workspace) => normalizeSubdomainCandidate(workspace.slug || '') === hostTenantSubdomain,
+        ) ?? null;
+        setWorkspaces(tenantWorkspace ? [tenantWorkspace] : []);
+        setCurrentWorkspace(tenantWorkspace);
+        if (tenantWorkspace) {
+          try {
+            localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(tenantWorkspace.id));
+          } catch {
+            // Ignore storage failures.
+          }
+        }
+        return;
+      }
+
+      if (membershipWorkspaceList.length > 0) {
+        setWorkspaces(membershipWorkspaceList);
+        const preferredWorkspace = resolvePreferredWorkspace(membershipWorkspaceList);
+        setCurrentWorkspace(preferredWorkspace);
+        if (preferredWorkspace) {
+          try {
+            localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(preferredWorkspace.id));
+          } catch {
+            // Ignore storage failures.
+          }
+        }
+        return;
+      }
+
       const workspaceList = await xanoGet<unknown>('/workspaces', token);
       const safeWorkspaceList = normalizeWorkspaceList(workspaceList);
       const resolvedWorkspaceList = safeWorkspaceList.length > 0 ? safeWorkspaceList : getTenantFallbackWorkspaceList();
       if (safeWorkspaceList.length === 0 && resolvedWorkspaceList.length > 0) {
         console.info('WorkspaceContext: using tenant fallback workspace from auth context');
       }
-      setWorkspaces(resolvedWorkspaceList);
+      const hostLockedWorkspace = hostTenantSubdomain
+        ? resolvedWorkspaceList.find((workspace) => normalizeSubdomainCandidate(workspace.slug || '') === hostTenantSubdomain) ?? null
+        : null;
 
-      const preferredWorkspace = resolvePreferredWorkspace(resolvedWorkspaceList);
+      const effectiveWorkspaceList = hostTenantSubdomain
+        ? (hostLockedWorkspace ? [hostLockedWorkspace] : [])
+        : resolvedWorkspaceList;
+
+      setWorkspaces(effectiveWorkspaceList);
+
+      const preferredWorkspace = hostTenantSubdomain
+        ? hostLockedWorkspace
+        : resolvePreferredWorkspace(effectiveWorkspaceList);
       setCurrentWorkspace(preferredWorkspace);
       if (preferredWorkspace) {
         try {
@@ -155,10 +264,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     void refreshWorkspaces();
   }, [refreshWorkspaces]);
 
-  const createWorkspace = useCallback(async (data: { name: string; timezone: string; logo?: string }) => {
+  const createWorkspace = useCallback(async (data: { name: string; timezone: string; logo?: string; subdomain?: string }) => {
     if (!token) throw new Error('Not authenticated');
-    
-    const workspace = await xanoPost<Workspace>('/workspaces', data, token);
+
+    const fallbackSubdomain = normalizeSubdomainCandidate(data.name || 'workspace');
+    const normalizedSubdomain = normalizeSubdomainCandidate(data.subdomain || fallbackSubdomain).slice(0, 63);
+    const workspace = await xanoPost<Workspace>('/workspaces', { ...data, subdomain: normalizedSubdomain }, token);
     setWorkspaces(prev => [...prev, workspace]);
     setCurrentWorkspace(workspace);
     try {
@@ -180,6 +291,18 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [token, currentWorkspace?.id, workspaceIdKey]);
 
   const switchWorkspace = useCallback(async (workspaceId: number | string) => {
+    const hostTenantSubdomain = resolveTenantSubdomainFromHost();
+    if (hostTenantSubdomain) {
+      const hostLockedWorkspace = workspaces.find(
+        (workspace) => normalizeSubdomainCandidate(workspace.slug || '') === hostTenantSubdomain,
+      );
+      if (hostLockedWorkspace) {
+        setCurrentWorkspace(hostLockedWorkspace);
+        localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(hostLockedWorkspace.id));
+      }
+      return;
+    }
+
     const workspace = workspaces.find(w => workspaceIdKey(w.id) === workspaceIdKey(workspaceId));
     if (workspace) {
       setCurrentWorkspace(workspace);
