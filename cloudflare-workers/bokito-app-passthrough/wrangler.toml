@@ -1,0 +1,8 @@
+name = "bokito-app-passthrough"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+# More specific than *.bokito.ai/* on bokito-tenant-router; Cloudflare picks this for app host.
+routes = [
+  { pattern = "app.bokito.ai/*", zone_name = "bokito.ai" }
+]

@@ -67,9 +67,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\live-portal-smoke.ps1 `
   -ApiBase "https://xrex-nmji-j9ur.f2.xano.io/api:integrations"
 ```
 
-If the script reports that `app.bokito.ai` matches `widget-prod-*` instead of `bokitoapp-prod-*`, check both:
-- DNS record `app` target
-- Cloudflare Worker route `*.bokito.ai/*` (`bokito-tenant-router`) and its fetch upstream
+If the script reports that `app.bokito.ai` matches `widget-prod-*` instead of `bokitoapp-prod-*` while DNS `app` already points at `bokitoapp-prod-*`, the wildcard Worker route is likely overriding the origin. Deploy the passthrough worker in `cloudflare-workers/bokito-app-passthrough` (`npx wrangler deploy` or `scripts/deploy-cloudflare-app-passthrough.ps1`) so `app.bokito.ai/*` uses zone DNS. Alternatively, fix `bokito-tenant-router` upstreams. See `BOKITO_KNOWLEDGE.md` (Cloudflare Worker route).
 
 ### Visible build marker in UI
 
