@@ -23,9 +23,8 @@ function Initialize-EnvFromDotEnv {
     $key   = $parts[0].Trim()
     $value = $parts[1].Trim()
     if ([string]::IsNullOrWhiteSpace($key)) { continue }
-    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key))) {
-      [Environment]::SetEnvironmentVariable($key, $value, "Process")
-    }
+    # Always apply .env so file edits win over inherited Process vars (e.g. stale static host name).
+    [Environment]::SetEnvironmentVariable($key, $value, "Process")
   }
 }
 
@@ -81,7 +80,7 @@ Initialize-EnvFromDotEnv -DotEnvPath ".\.env"
 $metaApiKey   = Get-EnvValue -Name "XANO_METADATA_API_KEY"
 $metaBaseUrl  = (Get-EnvValue -Name "XANO_META_BASE_URL").TrimEnd("/")
 # Prefer names from .env.example; fall back to legacy WIDGET_* keys.
-$workspaceId  = Get-EnvValueFirst -Names @("XANO_WEBSITEWORKSPACE_ID", "XANO_WIDGET_WORKSPACE_ID")
+$workspaceId  = Get-EnvValueFirst -Names @("XANO_DASHBOARD_WORKSPACE_ID", "XANO_WEBSITEWORKSPACE_ID", "XANO_WIDGET_WORKSPACE_ID")
 $staticHost   = Get-EnvValueFirst -Names @("XANO_DASHBOARD_STATIC_HOST_NAME", "XANO_WEBSITE_STATIC_HOST_NAME", "XANO_WIDGET_STATIC_HOST_NAME")
 
 $dashboardDir = Join-Path $PSScriptRoot "apps\dashboard"
