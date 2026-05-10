@@ -28,7 +28,7 @@ npm run dev
 
 ## Deploy to Xano
 
-1. Copy `.env.example` to `.env` and fill in Metadata API and static host values (same variables as before: `XANO_METADATA_API_KEY`, `XANO_META_BASE_URL`, `XANO_WEBSITEWORKSPACE_ID`, `XANO_DASHBOARD_STATIC_HOST_NAME`).
+1. Copy `.env.example` to `.env` and fill in Metadata API and static host values (`XANO_METADATA_API_KEY`, `XANO_META_BASE_URL`, `XANO_WEBSITEWORKSPACE_ID`, `XANO_DASHBOARD_STATIC_HOST_NAME`). **Important:** `XANO_DASHBOARD_STATIC_HOST_NAME` must be the exact static host slug shown in Xano for the site that serves `app.bokito.ai` (e.g. `bokitoapp`). If it points at another host (e.g. `dashboard`), uploads succeed but you will not see new builds under `bokitoapp`.
 2. From repo root:
 
 ```powershell
