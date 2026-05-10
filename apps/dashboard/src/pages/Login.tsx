@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { appendDevLocalhostCrossHostAccessHash, needsDevLocalhostCrossHostHandoff, sanitizeCrossHostReturnTo } from '../lib/host-routing';
+import { APP_VERSION } from '../lib/app-version';
 
 function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
   if (!rawReturnTo) return '/';
@@ -181,6 +182,9 @@ export default function Login() {
 
         <p className="text-center text-xs text-text-muted mt-6">
           © {new Date().getFullYear()} Bokito.ai · Alle rechten voorbehouden
+        </p>
+        <p className="text-center text-[10px] text-text-muted/80 mt-1">
+          build: {APP_VERSION}
         </p>
       </div>
     </div>

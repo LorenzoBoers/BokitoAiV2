@@ -57,6 +57,26 @@ Skip rebuild (only merge widget + zip + upload):
 
 Xano kan meerdere `*.f2.xano.io` hostnames tonen. Als prod in de UI op `widget-prod-…` staat maar je deploy naar static host **`bokitoapp`**, dan is de inhoud die bij **`bokitoapp-prod-…`** hoort vaak de juiste. Controleer met `curl -sI` of `app.bokito.ai` dezelfde `Last-Modified` / `ETag` heeft als `bokitoapp-prod-…`. Zo niet: pas in **Cloudflare DNS** (of Workers origin) het doel aan naar **`bokitoapp-prod-<jouw-instance>.f2.xano.io`**, niet een legacy `widget-prod-*` host.
 
+### Smoke check script (live portal)
+
+Use this script to validate origin parity, `/api/auth` reachability, optional tenant host reachability, and optional CORS preflight:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\live-portal-smoke.ps1 `
+  -TenantHost "https://acme.bokito.ai" `
+  -ApiBase "https://xrex-nmji-j9ur.f2.xano.io/api:integrations"
+```
+
+If the script reports that `app.bokito.ai` matches `widget-prod-*` instead of `bokitoapp-prod-*`, check both:
+- DNS record `app` target
+- Cloudflare Worker route `*.bokito.ai/*` (`bokito-tenant-router`) and its fetch upstream
+
+### Visible build marker in UI
+
+- Login page footer shows `build: <version>`.
+- User menu (under `Sign out`) shows the same build marker.
+- `deploy.ps1` sets `VITE_APP_VERSION` automatically to the current build name so each deploy is traceable from the UI.
+
 De dashboard frontend gebruikt een vaste endpoint-opbouw:
 
 - Base URL: `VITE_XANO_BASE_URL`

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { useTheme } from '../../context/ThemeContext'
 import { buildControlPlaneUrl } from '../../lib/host-routing'
+import { APP_VERSION } from '../../lib/app-version'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -201,6 +202,9 @@ export default function Sidebar() {
                 <LogOut size={14} className="mr-2 text-text-muted" />
                 {t('common:actions.signOut')}
               </DropdownMenuItem>
+              <DropdownMenuLabel className="pt-1 text-[10px] text-text-muted">
+                build: {APP_VERSION}
+              </DropdownMenuLabel>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

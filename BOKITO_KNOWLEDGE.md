@@ -8,6 +8,10 @@ Deze repository bevat alleen `apps/dashboard` (portal) en `apps/chat-widget`. De
 
 **Custom domain (Cloudflare) en Xano prod-URL:** Het actieve portal-build op static host `bokitoapp` wordt op Xano uitgeserveerd onder hostnamen als `bokitoapp-prod-{instance}.f2.xano.io` (prod) en `bokitoapp-dev-{instance}.f2.xano.io` (dev). Een oudere hostname `widget-prod-{instance}.f2.xano.io` kan nog steeds het **vorige** portal-artifact (bijv. `Last-Modified` van een eerdere deploy) serveren en komt **byte-voor-byte** overeen met `https://app.bokito.ai` als die custom domain in Cloudflare nog naar `widget-prod-*` wijst i.p.v. naar `bokitoapp-prod-*`. Controle: vergelijk `curl -sI https://app.bokito.ai` met `curl -sI https://bokitoapp-prod-….f2.xano.io` (zelfde `ETag` / `Last-Modified` = zelfde origin). Na DNS/CNAME-correctie eventueel Cloudflare cache purge voor `app.bokito.ai` en `/*`.
 
+**Cloudflare Worker route (live):** in zone `bokito.ai` staat een Workers Route `*.bokito.ai/*` gekoppeld aan worker `bokito-tenant-router`. Dit vangt ook `app.bokito.ai`; als die worker intern nog naar een legacy origin (`widget-prod-*`) fetch’t, blijft de portal oud zelfs wanneer `bokitoapp` nieuwe builds heeft. Controleer dus zowel DNS-record `app` als Worker-code/upstream.
+
+**Zichtbare build-versie in UI:** Login toont onderaan `build: <versie>` en het user-menu toont onder `Sign out` dezelfde regel. `deploy.ps1` zet tijdens build automatisch `VITE_APP_VERSION` op de huidige buildnaam (bijv. `portal-version-tag-...`) zodat je direct kunt zien welke deploy actief is.
+
 ---
 
 ## 1. Platform Overzicht

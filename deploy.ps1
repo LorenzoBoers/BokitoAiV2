@@ -48,6 +48,34 @@ function Get-EnvValueFirst {
   throw "Missing required env var (set one of): $($Names -join ', ')"
 }
 
+function Get-EnvOptional {
+  param([Parameter(Mandatory = $true)][string]$Name)
+  return [Environment]::GetEnvironmentVariable($Name)
+}
+
+function Test-ViteProductionEnvSanity {
+  $viteBase = (Get-EnvOptional -Name "VITE_XANO_BASE_URL")
+  $viteControlPlaneHost = (Get-EnvOptional -Name "VITE_APP_CONTROL_PLANE_HOST")
+  $viteTenantRootDomain = (Get-EnvOptional -Name "VITE_TENANT_ROOT_DOMAIN")
+  $viteControlPlaneUrl = (Get-EnvOptional -Name "VITE_APP_CONTROL_PLANE_URL")
+
+  if (-not [string]::IsNullOrWhiteSpace($viteBase) -and $viteBase.ToLower().Contains("localhost")) {
+    throw "Invalid VITE_XANO_BASE_URL for live deploy: '$viteBase' (localhost not allowed)."
+  }
+  if (-not [string]::IsNullOrWhiteSpace($viteControlPlaneUrl) -and $viteControlPlaneUrl.ToLower().Contains("localhost")) {
+    throw "Invalid VITE_APP_CONTROL_PLANE_URL for live deploy: '$viteControlPlaneUrl'. Keep this empty in production."
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($viteControlPlaneHost) -and $viteControlPlaneHost.Trim().ToLower() -ne "app.bokito.ai") {
+    Write-Warning "VITE_APP_CONTROL_PLANE_HOST is '$viteControlPlaneHost' (expected app.bokito.ai)."
+  }
+  if (-not [string]::IsNullOrWhiteSpace($viteTenantRootDomain) -and $viteTenantRootDomain.Trim().ToLower() -ne ".bokito.ai") {
+    Write-Warning "VITE_TENANT_ROOT_DOMAIN is '$viteTenantRootDomain' (expected .bokito.ai)."
+  }
+
+  Write-Host "Vite env sanity: OK (no localhost production overrides detected)."
+}
+
 function New-CleanZip {
   param(
     [Parameter(Mandatory = $true)][string]$SourceDir,
@@ -82,6 +110,11 @@ $metaBaseUrl  = (Get-EnvValue -Name "XANO_META_BASE_URL").TrimEnd("/")
 # Prefer names from .env.example; fall back to legacy WIDGET_* keys.
 $workspaceId  = Get-EnvValueFirst -Names @("XANO_DASHBOARD_WORKSPACE_ID", "XANO_WEBSITEWORKSPACE_ID", "XANO_WIDGET_WORKSPACE_ID")
 $staticHost   = Get-EnvValueFirst -Names @("XANO_DASHBOARD_STATIC_HOST_NAME", "XANO_WEBSITE_STATIC_HOST_NAME", "XANO_WIDGET_STATIC_HOST_NAME")
+Test-ViteProductionEnvSanity
+
+if ([string]::IsNullOrWhiteSpace($BuildName)) {
+  $BuildName = "portal-{0}" -f (Get-Date -Format "yyyyMMdd-HHmmss")
+}
 
 $dashboardDir = Join-Path $PSScriptRoot "apps\dashboard"
 $distDir      = Join-Path $dashboardDir "dist"
@@ -90,6 +123,8 @@ if (-not $SkipBuild) {
   Write-Host "Building dashboard (vite build, no tsc — use 'npm run build' locally for full typecheck)..."
   Push-Location $dashboardDir
   try {
+    # Expose current build name in UI for quick live/debug verification.
+    [Environment]::SetEnvironmentVariable("VITE_APP_VERSION", $BuildName, "Process")
     npm run build:static
     if ($LASTEXITCODE -ne 0) { throw "vite build failed with exit code $LASTEXITCODE" }
   } finally {
@@ -122,10 +157,6 @@ if (Test-Path -LiteralPath $chatWidgetDir) {
   Write-Host "Chat-widget production files merged."
 } else {
   Write-Host "Warning: chat-widget directory not found at $chatWidgetDir — skipping merge."
-}
-
-if ([string]::IsNullOrWhiteSpace($BuildName)) {
-  $BuildName = "portal-{0}" -f (Get-Date -Format "yyyyMMdd-HHmmss")
 }
 
 $tempZip = Join-Path ([System.IO.Path]::GetTempPath()) ("xano-portal-{0}.zip" -f [guid]::NewGuid().ToString("N"))
