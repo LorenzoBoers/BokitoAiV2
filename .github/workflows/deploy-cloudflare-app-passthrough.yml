@@ -1,0 +1,19 @@
+# Deploy worker bokito-app-passthrough (app.bokito.ai/*) so production is not Cloudflare Hello World.
+# Requires repository secret: CLOUDFLARE_API_TOKEN (Workers Scripts Edit, Workers read, Zone read for bokito.ai).
+name: Deploy Cloudflare app passthrough
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: cloudflare-workers/bokito-app-passthrough
+          wranglerVersion: "3.114.17"
