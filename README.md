@@ -53,7 +53,9 @@ Skip rebuild (only merge widget + zip + upload):
 .\deploy.ps1 -SkipBuild
 ```
 
-## Frontend API configuratie (dashboard)
+### Troubleshooting: nieuwe build in Xano, maar `app.bokito.ai` toont oude portal
+
+Xano kan meerdere `*.f2.xano.io` hostnames tonen. Als prod in de UI op `widget-prod-…` staat maar je deploy naar static host **`bokitoapp`**, dan is de inhoud die bij **`bokitoapp-prod-…`** hoort vaak de juiste. Controleer met `curl -sI` of `app.bokito.ai` dezelfde `Last-Modified` / `ETag` heeft als `bokitoapp-prod-…`. Zo niet: pas in **Cloudflare DNS** (of Workers origin) het doel aan naar **`bokitoapp-prod-<jouw-instance>.f2.xano.io`**, niet een legacy `widget-prod-*` host.
 
 De dashboard frontend gebruikt een vaste endpoint-opbouw:
 
