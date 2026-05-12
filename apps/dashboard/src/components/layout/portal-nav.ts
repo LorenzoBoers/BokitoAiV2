@@ -49,10 +49,11 @@ export const getSupportSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => 
   {
     label: t('support.group.inbox'),
     links: [
-      { label: t('support.links.myInbox'), to: '/support/inbox/my' },
       { label: t('support.links.allMessages'), to: '/support/inbox/all' },
-      { label: t('support.links.createdByMe'), to: '/support/inbox/created' },
+      { label: t('support.links.myInbox'), to: '/support/inbox/my' },
       { label: t('support.links.unassigned'), to: '/support/inbox/unassigned' },
+      { label: t('support.links.pending'), to: '/support/inbox/pending' },
+      { label: t('support.links.closed'), to: '/support/inbox/closed' },
     ],
   },
 ]

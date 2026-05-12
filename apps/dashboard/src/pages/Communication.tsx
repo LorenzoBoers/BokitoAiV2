@@ -1,39 +1,61 @@
 import { Mail } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
-import ChannelSidebar from '../components/communication/ChannelSidebar'
-import MessageArea from '../components/communication/MessageArea'
-import InfoPanel from '../components/communication/InfoPanel'
+import ThreadList from '../components/inbox/ThreadList'
+import ThreadDetail from '../components/inbox/ThreadDetail'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
-import { useEmailMessages } from '../hooks/useEmailMessages'
+import { useThreads } from '../hooks/useThreads'
+import { useThreadDetail } from '../hooks/useThreadDetail'
+import type { ThreadFilters } from '../lib/inbox-api'
+
+type View = NonNullable<ThreadFilters['view']>
+
+const QUEUE_TO_VIEW: Record<string, View> = {
+  all: 'all_open',
+  all_open: 'all_open',
+  my: 'mine',
+  mine: 'mine',
+  unassigned: 'unassigned',
+  pending: 'pending',
+  closed: 'closed',
+  spam: 'spam',
+  out: 'outbound',
+  outbound: 'outbound',
+  created: 'mine',
+}
+
 
 export default function Communication() {
   const { t } = useTranslation('communication')
-  const { queue } = useParams<{ queue?: string }>()
-  const [selectedConnectionId, setSelectedConnectionId] = useState<number | null>(null)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>(
-    queue === 'unassigned' ? 'unread' : queue === 'created' ? 'urgent' : 'all',
-  )
+  const { queue, channelId } = useParams<{ queue: string; channelId?: string }>()
+
+  // URL is the single source of truth for the current view
+  const view: View = (queue ? QUEUE_TO_VIEW[queue] : undefined) ?? 'all_open'
+  const connectionId = channelId ? Number(channelId) : undefined
+
   const [search, setSearch] = useState('')
+  const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null)
+
   const {
-    activeConnections,
+    connections,
     loading: connectionsLoading,
     error: connectionsError,
     needsOrganisation,
   } = useMailboxConnections()
-  const effectiveConnectionId = selectedConnectionId ?? activeConnections[0]?.id ?? null
-  const { messages, loading, error, refresh } = useEmailMessages({
-    connectionId: effectiveConnectionId,
-    filter,
-    search,
-  })
 
-  const selectedMessage = useMemo(
-    () => messages.find((message) => message.id === selectedId) ?? messages[0] ?? null,
-    [messages, selectedId],
+  // Show inbox if there's at least one enabled connection (active or error — not revoked)
+  const enabledConnections = connections.filter(
+    (c) => c.status !== 'revoked' && c.isEnabled !== false,
   )
+
+  const { threads, loading: threadsLoading, error: threadsError, refresh: refreshThreads } = useThreads({ view, search, connectionId })
+
+  const { detail, loading: detailLoading, saving, refresh: refreshDetail, patch, reply, addNote } = useThreadDetail(selectedThreadId)
+
+  const handleReply = async (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => {
+    await reply({ bodyText, action })
+  }
 
   if (connectionsLoading) {
     return <div className="h-full py-6 text-sm text-text-muted">{t('loadingMailboxes')}</div>
@@ -51,7 +73,7 @@ export default function Communication() {
     )
   }
 
-  if (activeConnections.length === 0) {
+  if (enabledConnections.length === 0) {
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
@@ -61,7 +83,10 @@ export default function Communication() {
         <p className="text-sm text-text-secondary mt-2 max-w-sm">
           {t('noActiveMailboxDescription')}
         </p>
-        <Link to="/settings/support/general" className="mt-5 text-sm font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-sm">
+        <Link
+          to="/settings/inbox"
+          className="mt-5 text-sm font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-sm"
+        >
           {t('openEmailSettings')}
         </Link>
       </div>
@@ -69,27 +94,28 @@ export default function Communication() {
   }
 
   return (
-    <div className="flex h-full py-3 overflow-hidden rounded-md">
-      <ChannelSidebar
-        connections={activeConnections}
-        selectedConnectionId={effectiveConnectionId}
-        onSelectConnectionId={(id) => {
-          setSelectedConnectionId(id)
-          setSelectedId(null)
+    <div className="flex h-full overflow-hidden rounded-md">
+      <ThreadList
+        threads={threads}
+        loading={threadsLoading}
+        error={threadsError}
+        selectedId={selectedThreadId}
+        search={search}
+        onSelectThread={(id) => {
+          setSelectedThreadId(id)
+          void refreshThreads()
         }}
-      />
-      <MessageArea
-        messages={messages}
-        selectedId={selectedId}
-        onSelectId={setSelectedId}
-        loading={loading}
-        error={error}
-        connectionId={effectiveConnectionId}
-        onRefresh={refresh}
-        onFilterChange={setFilter}
         onSearchChange={setSearch}
       />
-      <InfoPanel selectedMessage={selectedMessage} messages={messages} />
+      <ThreadDetail
+        detail={detail}
+        loading={detailLoading}
+        saving={saving}
+        onPatch={patch}
+        onReply={handleReply}
+        onNote={addNote}
+        onRefresh={refreshDetail}
+      />
     </div>
   )
 }

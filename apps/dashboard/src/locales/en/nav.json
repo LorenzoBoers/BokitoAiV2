@@ -39,9 +39,11 @@
     },
     "links": {
       "myInbox": "My inbox",
-      "allMessages": "All messages",
-      "createdByMe": "Created by me",
-      "unassigned": "Unassigned"
+      "allMessages": "Open",
+      "unassigned": "Unassigned",
+      "pending": "Pending",
+      "closed": "Closed",
+      "createdByMe": "Created by me"
     }
   },
   "users": {

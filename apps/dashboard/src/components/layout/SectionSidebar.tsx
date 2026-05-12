@@ -24,11 +24,11 @@ import { useAuth } from '../../context/AuthContext'
 import {
   getAiSidebarGroups,
   getSettingsSidebarGroups,
-  getSupportSidebarGroups,
   getUserSidebarGroups,
   getWorkforceSidebarGroups,
   type SidebarGroup,
 } from './portal-nav'
+import InboxSidebarNav from '../inbox/InboxSidebarNav'
 
 function sectionClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-all ${
@@ -112,7 +112,7 @@ function resolveGroups(pathname: string, t: (key: string) => string): SidebarGro
   if (pathname.startsWith('/users') || pathname.startsWith('/database')) return getUserSidebarGroups(t)
   if (pathname.startsWith('/projects') || pathname.startsWith('/ai') || pathname.startsWith('/datasources')) return getAiSidebarGroups(t)
   if (pathname.startsWith('/workforce')) return getWorkforceSidebarGroups(t)
-  return getSupportSidebarGroups(t)
+  return []
 }
 
 function resolveTitle(pathname: string, t: (key: string) => string): string {
@@ -135,10 +135,16 @@ export default function SectionSidebar() {
   return (
     <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-border/55 px-3 py-3">
       <h2 className="px-3 pb-3 text-[22px] font-semibold leading-none text-text-heading">{title}</h2>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        {groups.map((group) => (
-          <SidebarGroupBlock key={group.label} group={group} user={user ?? null} />
-        ))}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {isInbox ? (
+          <InboxSidebarNav />
+        ) : (
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <SidebarGroupBlock key={group.label} group={group} user={user ?? null} />
+            ))}
+          </div>
+        )}
       </div>
       {isInbox && (
         <div className="mt-2 space-y-0.5 border-t border-border/40 pt-2">

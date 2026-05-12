@@ -39,9 +39,11 @@
     },
     "links": {
       "myInbox": "Mijn inbox",
-      "allMessages": "Alle berichten",
-      "createdByMe": "Door mij gemaakt",
-      "unassigned": "Niet toegewezen"
+      "allMessages": "Open",
+      "unassigned": "Niet toegewezen",
+      "pending": "In behandeling",
+      "closed": "Gesloten",
+      "createdByMe": "Door mij gemaakt"
     }
   },
   "users": {

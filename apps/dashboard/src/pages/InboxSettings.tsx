@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertCircle, CheckCircle, Mail, Plus, RefreshCw, Settings as SettingsIcon, Trash2, Wifi, WifiOff } from 'lucide-react'
+import { AlertCircle, CheckCircle, Folder, Mail, Plus, RefreshCw, Settings as SettingsIcon, Trash2, Wifi, WifiOff } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
@@ -11,6 +11,7 @@ import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import ProviderLogo from '../components/email/ProviderLogo'
 import SignatureEditor from '../components/inbox/SignatureEditor'
 import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
+import SyncStatusPanel from '../components/inbox/SyncStatusPanel'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
 import { MAILBOX_STATUS_LABELS, MAILBOX_STATUS_VARIANTS } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
@@ -27,6 +28,7 @@ import {
   updateRoutingRule,
   type RoutingRuleApi,
 } from '../lib/email-api'
+import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
 
 function toMailboxStatus(value: 'active' | 'error' | 'revoked'): MailboxStatus {
   if (value === 'error') return 'error'
@@ -127,6 +129,12 @@ export default function InboxSettings() {
   const [connectError, setConnectError] = useState<string | null>(null)
   const [mailboxSavingId, setMailboxSavingId] = useState<number | null>(null)
   const [pageAlert, setPageAlert] = useState<InboxSettingsAlert | null>(null)
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false)
+  const [folderMailbox, setFolderMailbox] = useState<MailboxConnection | null>(null)
+  const [folders, setFolders] = useState<MailboxFolder[]>([])
+  const [foldersLoading, setFoldersLoading] = useState(false)
+  const [foldersSaving, setFoldersSaving] = useState(false)
+  const [foldersError, setFoldersError] = useState<string | null>(null)
 
   const mailboxes = useMemo(() => connections.map(toMailbox), [connections])
 
@@ -275,6 +283,48 @@ export default function InboxSettings() {
     [token, selectedMailbox],
   )
 
+  const handleEditFolders = useCallback(
+    async (mailbox: MailboxConnection) => {
+      if (!token) return
+      setFolderMailbox(mailbox)
+      setFoldersError(null)
+      setFolders([])
+      setFolderDialogOpen(true)
+      setFoldersLoading(true)
+      try {
+        const result = await listMailboxFolders(token, mailbox.id)
+        setFolders(result)
+      } catch (err) {
+        setFoldersError(err instanceof Error ? err.message : 'Mappen laden mislukt.')
+      } finally {
+        setFoldersLoading(false)
+      }
+    },
+    [token],
+  )
+
+  const handleToggleFolder = useCallback((folderId: string) => {
+    setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, isSelected: !f.isSelected } : f)))
+  }, [])
+
+  const handleSaveFolders = useCallback(async () => {
+    if (!token || !folderMailbox) return
+    setFoldersSaving(true)
+    setFoldersError(null)
+    try {
+      await saveMailboxFolders(
+        token,
+        folderMailbox.id,
+        folders.map((f) => ({ id: f.id, display_name: f.displayName, is_selected: f.isSelected })),
+      )
+      setFolderDialogOpen(false)
+    } catch (err) {
+      setFoldersError(err instanceof Error ? err.message : 'Mappen opslaan mislukt.')
+    } finally {
+      setFoldersSaving(false)
+    }
+  }, [token, folderMailbox, folders])
+
   return (
     <div className="h-full py-6">
       <div className="max-w-5xl mx-auto h-full min-h-0 flex flex-col">
@@ -417,6 +467,12 @@ export default function InboxSettings() {
                               <RefreshCw size={13} />
                             </Button>
                           )}
+                          {mailbox.provider === 'outlook' ? (
+                            <Button size="sm" variant="ghost" onClick={() => void handleEditFolders(mailbox)}>
+                              <Folder size={13} />
+                              Mappen
+                            </Button>
+                          ) : null}
                           <Button size="sm" variant="ghost" onClick={() => void handleEditSignature(mailbox)}>
                             Handtekening
                           </Button>
@@ -436,6 +492,8 @@ export default function InboxSettings() {
             </TableBody>
           </Table>
         </Card>
+
+        <SyncStatusPanel className="mt-4" />
 
         <Dialog.Root open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
           <Dialog.Portal>
@@ -476,6 +534,75 @@ export default function InboxSettings() {
                   </Button>
                   <Button onClick={() => void handleConnect()}>Verbinden</Button>
                 </div>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
+        <Dialog.Root open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
+            <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[480px] max-w-[92vw] bg-bg-surface border border-border rounded-lg p-5 shadow-xl flex flex-col max-h-[80vh]">
+              <Dialog.Title className="text-base font-semibold text-text-heading mb-1">
+                Mappen voor synchronisatie selecteren
+              </Dialog.Title>
+              <p className="text-xs text-text-secondary mb-4">
+                Kies welke mappen van {folderMailbox?.email_address ?? 'deze mailbox'} gesynchroniseerd worden naar de inbox.
+              </p>
+
+              {foldersError ? (
+                <p className="text-xs text-status-error mb-3">{foldersError}</p>
+              ) : null}
+
+              {foldersLoading ? (
+                <div className="flex items-center gap-2 text-sm text-text-muted py-4">
+                  <RefreshCw size={14} className="animate-spin" />
+                  Mappen laden...
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-1 min-h-0 mb-4">
+                  {folders.length === 0 ? (
+                    <p className="text-xs text-text-muted py-4 text-center">Geen mappen gevonden.</p>
+                  ) : (
+                    folders.map((folder) => (
+                      <label
+                        key={folder.id}
+                        className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-bg-surface-hover cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={folder.isSelected}
+                            onChange={() => handleToggleFolder(folder.id)}
+                            className="accent-accent"
+                          />
+                          <span className="text-sm text-text-heading truncate">{folder.displayName}</span>
+                          {folder.totalItems > 0 ? (
+                            <span className="text-xs text-text-muted shrink-0">{folder.totalItems}</span>
+                          ) : null}
+                        </div>
+                        {folder.lastSyncAt ? (
+                          <span className="text-xs text-text-muted shrink-0 ml-2">
+                            {new Date(folder.lastSyncAt).toLocaleDateString()}
+                          </span>
+                        ) : null}
+                      </label>
+                    ))
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                <Button
+                  variant="secondary"
+                  onClick={() => setFolderDialogOpen(false)}
+                  disabled={foldersSaving}
+                >
+                  Annuleren
+                </Button>
+                <Button onClick={() => void handleSaveFolders()} disabled={foldersLoading || foldersSaving}>
+                  {foldersSaving ? 'Opslaan...' : 'Opslaan'}
+                </Button>
               </div>
             </Dialog.Content>
           </Dialog.Portal>
