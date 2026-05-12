@@ -95,7 +95,7 @@ export default function DatabaseSectionSidebar() {
 
   return (
     <>
-      <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-border/55 px-3 py-3">
+      <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-border/55 bg-bg-sidebar px-3 py-3">
         <h2 className="px-3 pb-3 text-[22px] font-semibold leading-none text-text-heading">Data</h2>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">

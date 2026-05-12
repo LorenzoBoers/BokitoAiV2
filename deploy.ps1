@@ -123,9 +123,18 @@ if (-not $SkipBuild) {
   Write-Host "Building dashboard (vite build, no tsc — use 'npm run build' locally for full typecheck)..."
   Push-Location $dashboardDir
   try {
-    # Expose current build name in UI for quick live/debug verification.
     [Environment]::SetEnvironmentVariable("VITE_APP_VERSION", $BuildName, "Process")
-    npm run build:static
+    # Vite emits warnings to stderr (chunk-size advisories, mixed-import notes). Under
+    # `Set-StrictMode` + `$ErrorActionPreference = Stop`, stderr from a native command
+    # is auto-elevated to a terminating error even when exit code is 0. Redirect stderr
+    # to stdout for the npm invocation, then rely solely on $LASTEXITCODE.
+    $prevErrAction = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+      cmd /c "npm run build:static 2>&1"
+    } finally {
+      $ErrorActionPreference = $prevErrAction
+    }
     if ($LASTEXITCODE -ne 0) { throw "vite build failed with exit code $LASTEXITCODE" }
   } finally {
     Pop-Location

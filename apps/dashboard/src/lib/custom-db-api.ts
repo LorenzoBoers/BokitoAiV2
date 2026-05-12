@@ -219,6 +219,10 @@ export function updateView(viewId: number, data: {
   return request('PATCH', `/custom-views/${viewId}`, data);
 }
 
+export function deleteView(viewId: number): Promise<{ success: boolean }> {
+  return request('DELETE', `/custom-views/${viewId}`);
+}
+
 // ── Standard Tables ─────────────────────────────────────────
 
 let listStandardTablesInFlight: Promise<CustomTable[]> | null = null;

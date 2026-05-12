@@ -5,19 +5,29 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --color-bg: 14 18 29;
-    --color-bg-sidebar: 16 21 34;
-    --color-bg-surface: 22 28 43;
-    --color-bg-elevated: 27 33 50;
-    --color-bg-hover: 33 40 59;
-    --color-bg-input: 30 37 56;
-    --color-border: 50 60 86;
-    --color-border-light: 67 78 107;
+    /*
+     * Dark mode shade hierarchy (cool blue, ~hue 225, sat ~22%):
+     *   bg          rail + body        #101319 (16,19,25)
+     *   bg-sidebar  section sidebar    #14171F (20,23,31)
+     *   bg-canvas   content area panel #161A22 (22,26,34)  [used by .featurebase-shell-panel]
+     *   bg-surface  cards / panels     #1D202B (29,32,43)
+     *   bg-input    inputs             #242835 (36,40,53)
+     * Each value nudged by 1 channel vs Featurebase reference tones.
+     */
+    --color-bg: 16 19 25;
+    --color-bg-sidebar: 20 23 31;
+    --color-bg-canvas: 22 26 34;
+    --color-bg-surface: 29 32 43;
+    --color-bg-elevated: 36 40 53;
+    --color-bg-hover: 45 49 63;
+    --color-bg-input: 36 40 53;
+    --color-border: 50 56 71;
+    --color-border-light: 70 76 92;
     --color-border-focus: 99 91 255;
-    --color-text-primary: 224 230 246;
-    --color-text-secondary: 174 184 209;
-    --color-text-muted: 131 143 172;
-    --color-text-heading: 246 248 255;
+    --color-text-primary: 224 228 235;
+    --color-text-secondary: 175 181 198;
+    --color-text-muted: 130 135 150;
+    --color-text-heading: 244 247 251;
     --color-accent: 110 102 255;
     --color-accent-hover: 98 90 243;
     --color-accent-dark: 83 75 214;
@@ -25,7 +35,7 @@
     --color-status-warning: 232 158 39;
     --color-status-error: 226 88 92;
     --color-status-info: 88 142 255;
-    --body-bg: #0e1320;
+    --body-bg: #101319;
     --body-glow-top: rgba(110, 102, 255, 0.025);
     --body-glow-bottom: rgba(110, 102, 255, 0.01);
   }
@@ -34,6 +44,7 @@
     color-scheme: light;
     --color-bg: 242 246 252;
     --color-bg-sidebar: 238 243 250;
+    --color-bg-canvas: 248 250 254;
     --color-bg-surface: 255 255 255;
     --color-bg-elevated: 246 249 254;
     --color-bg-hover: 233 240 250;
@@ -164,8 +175,8 @@
   }
 
   .featurebase-shell-panel {
-    @apply rounded-2xl border border-border/70 shadow-[0_22px_56px_-34px_rgba(4,8,20,0.75)];
-    background-color: rgb(var(--color-bg-surface) / 0.92);
+    @apply rounded-2xl border border-border/55 shadow-[0_22px_56px_-34px_rgba(4,8,20,0.6)];
+    background-color: rgb(var(--color-bg-canvas));
   }
 
   :root[data-theme='light'] .featurebase-shell-panel {

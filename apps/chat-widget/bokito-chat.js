@@ -75,6 +75,9 @@ const LS_CUSTOMER_ID_KEY = 'bokito_customer_id';
 const LS_HIDDEN_CONVERSATIONS_KEY = 'bokito_hidden_conversations';
 const LS_AUTH_TOKEN_KEY = 'bokito_auth_token';
 const LS_PREFERENCES_CACHE_KEY = 'bokito_user_preferences_cache';
+const LS_WIDGET_POSITION_KEY = 'bokito_widget_pos';
+const WIDGET_BASE_MARGIN = 20;
+const WIDGET_DRAG_THRESHOLD = 6;
 
 function readCookieValue(cookieName = '') {
   const name = String(cookieName || '').trim();
@@ -426,9 +429,11 @@ const WIDGET_CSS = `
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-msg-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .bk-msg{animation:bk-msg-in .25s ease both;}
-.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid rgba(0,255,153,.3);cursor:pointer;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;}
+.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid rgba(0,255,153,.3);cursor:grab;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
 .bk-launcher:hover{transform:scale(1.06);box-shadow:var(--bk-launcher-shadow-hover);}
-.bk-launcher:active{transform:scale(1.01);}
+.bk-launcher:active{transform:scale(1.01);cursor:grabbing;}
+.bk-launcher.is-dragging{transition:none;cursor:grabbing;transform:scale(1.04);}
+.bk-launcher.is-dragging:hover{transform:scale(1.04);}
 .bk-launcher-icon{width:28px;height:28px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);}
 .bk-launcher-icon--close{color:#fff;}
 .bk-launcher-icon--monkey{width:34px;height:34px;transform:translateY(.5px);}
@@ -464,6 +469,10 @@ const WIDGET_CSS = `
 .bk-icon-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;transition:background var(--bk-transition);}
 .bk-icon-btn:hover{background:rgba(255,255,255,.25);}
 .bk-icon-btn svg{width:16px;height:16px;}
+.bk-header-user{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font:600 12px var(--bk-font);color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);user-select:none;}
+.bk-header-user img{width:100%;height:100%;object-fit:cover;display:block;}
+.bk-header-user svg{width:18px;height:18px;color:#fff;opacity:.9;}
+.bk-header-user--initials{letter-spacing:.02em;}
 .bk-chat-actions{position:relative;}
 .bk-chat-actions-menu{position:absolute;top:40px;right:0;min-width:170px;padding:6px;background:rgba(14,18,30,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;box-shadow:0 14px 32px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.04) inset;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:3;animation:bk-slide-down .16s ease both;}
 .bk-chat-actions-item{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;color:var(--bk-text);font:500 13px var(--bk-font);cursor:pointer;text-align:left;}
@@ -636,7 +645,7 @@ const WIDGET_CSS = `
 .bk-home::-webkit-scrollbar{width:4px;}
 .bk-home::-webkit-scrollbar-track{background:transparent;}
 .bk-home::-webkit-scrollbar-thumb{background:var(--bk-border);border-radius:4px;}
-@media (max-width:480px){:host{--bk-window-w:100vw;--bk-window-h:100dvh;}.bk-window{bottom:0;right:0;border-radius:0;border:none;}.bk-launcher{bottom:16px;right:16px;}.bk-launcher.is-open{display:none;}}
+@media (max-width:480px){:host{--bk-window-w:100vw;--bk-window-h:100dvh;}.bk-window{bottom:0!important;right:0!important;left:0!important;top:0!important;border-radius:0;border:none;transform-origin:bottom center!important;}.bk-launcher.is-open{display:none;}}
 `;
 
 /* ── Widget component ───────────────────────────────────────── */
@@ -656,7 +665,7 @@ class BokitoChatWidget extends HTMLElement {
   #textarea; #sendBtn; #suggChips; #headerName; #thinkingSteps; #thinkingLabel;
   #toolboxWrap; #toolboxToggle; #toolboxMenu; #toolboxPills; #historyBtn;
   #chatActionsWrap; #chatActionsBtn; #chatActionsMenu; #settingsBtn;
-  #backBtn; #settingsView;
+  #backBtn; #settingsView; #headerUser;
   #soundEffectsEnabled = true; #soundNotificationsEnabled = true;
   #badge; #unreadTotal = 0;
   #attachBtn; #fileInput; #previewStrip;
@@ -700,6 +709,10 @@ class BokitoChatWidget extends HTMLElement {
   #idleWatcher = null; #proactiveBubbles = null; #proactiveDismissTimer = null;
   #proactivePending = null; #shownProactiveSuggestions = [];
   #debugPanel = null;
+  #launcherPosition = { edge: 'bottom', offset: 0 };
+  #dragState = null;
+  #suppressNextLauncherClick = false;
+  #onWindowResizeBound = null;
 
   setIdentityToken(token) { this.#identityToken = token; }
 
@@ -787,6 +800,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#api?.setToken(null);
     localStorage.removeItem(LS_AUTH_TOKEN_KEY);
     this.#hostAuthToken = null;
+    this.#renderHeaderUser();
     this.#sm.transition('idle');
   }
 
@@ -885,9 +899,9 @@ class BokitoChatWidget extends HTMLElement {
             <button class="bk-icon-btn bk-btn-settings" title="Instellingen" aria-label="Instellingen" hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-.4-1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6c.38 0 .74-.14 1-.4.26-.26.4-.62.4-1V3a2 2 0 1 1 4 0v.1c0 .38.14.74.4 1 .26.26.62.4 1 .4.7 0 1.37-.28 1.87-.78l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1 .26.26.62.4 1 .4h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1 .4c-.26.26-.4.62-.4 1z"/></svg>
             </button>
-            <button class="bk-icon-btn bk-btn-close" title="Sluiten" aria-label="Sluiten">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <div class="bk-header-user" title="Niet ingelogd" aria-label="Niet ingelogd">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
           </div>
         </div>
         <div class="bk-login-required" style="display:none">
@@ -1059,6 +1073,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#settingsBtn       = this.#root.querySelector('.bk-btn-settings');
     this.#backBtn           = this.#root.querySelector('.bk-btn-back');
     this.#settingsView      = this.#root.querySelector('.bk-settings');
+    this.#headerUser        = this.#root.querySelector('.bk-header-user');
     this.#attachBtn         = this.#root.querySelector('.bk-attach-btn');
     this.#fileInput         = this.#root.querySelector('.bk-file-input');
     this.#previewStrip      = this.#root.querySelector('.bk-preview-strip');
@@ -1096,11 +1111,16 @@ class BokitoChatWidget extends HTMLElement {
       }
     });
 
-    this.#launcher.addEventListener('click', () => {
+    this.#launcher.addEventListener('click', (e) => {
+      if (this.#suppressNextLauncherClick) {
+        this.#suppressNextLauncherClick = false;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (this.#sm.state === 'idle') this.#openWidget();
       else this.#closeWindow();
     });
-    this.#root.querySelector('.bk-btn-close').addEventListener('click', () => this.#closeWindow());
     this.#historyBtn?.addEventListener('click', () => {
       this.#closeChatActionsMenu();
       this.#showHome();
@@ -1186,6 +1206,13 @@ class BokitoChatWidget extends HTMLElement {
     this.#recordStartBtn?.addEventListener('click', () => this.#startRecording());
     this.#recordCancelBtn?.addEventListener('click', () => this.#cancelRecording());
     this.#recordConfirmBtn?.addEventListener('click', () => this.#confirmRecording());
+
+    this.#initLauncherDrag();
+    this.#launcherPosition = this.#readSavedPosition();
+    this.#applyLauncherPosition(this.#launcherPosition);
+    this.#onWindowResizeBound = () => this.#onWindowResize();
+    window.addEventListener('resize', this.#onWindowResizeBound, { passive: true });
+    this.#renderHeaderUser();
   }
 
   #setupStateMachine() {
@@ -1457,10 +1484,376 @@ class BokitoChatWidget extends HTMLElement {
     this.#sm.transition('home');
   }
 
+  #getLauncherSize() {
+    return this.#launcher?.offsetWidth || 64;
+  }
+
+  #computeUserInitials(name = '') {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    const first = parts[0][0] || '';
+    const last = parts[parts.length - 1][0] || '';
+    return (first + last).toUpperCase();
+  }
+
+  #computeUserAvatarColor(seed = '') {
+    const palette = [
+      { bg: '#4652f2', text: '#ffffff' },
+      { bg: '#7c3aed', text: '#ffffff' },
+      { bg: '#0891b2', text: '#ffffff' },
+      { bg: '#0d9488', text: '#ffffff' },
+      { bg: '#059669', text: '#ffffff' },
+      { bg: '#d97706', text: '#ffffff' },
+      { bg: '#dc2626', text: '#ffffff' },
+      { bg: '#db2777', text: '#ffffff' },
+      { bg: '#9333ea', text: '#ffffff' },
+      { bg: '#2563eb', text: '#ffffff' },
+      { bg: '#16a34a', text: '#ffffff' },
+      { bg: '#ea580c', text: '#ffffff' },
+    ];
+    const str = String(seed || '');
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    return palette[hash % palette.length];
+  }
+
+  #extractUserAvatarUrl(user) {
+    if (!user) return '';
+    const avatar = user.avatar;
+    if (avatar && typeof avatar === 'object') {
+      return String(avatar.url || avatar.path || avatar.src || '').trim();
+    }
+    if (typeof avatar === 'string') return avatar.trim();
+    if (typeof user.avatar_url === 'string') return user.avatar_url.trim();
+    if (typeof user.profile_picture === 'string') return user.profile_picture.trim();
+    return '';
+  }
+
+  #renderHeaderUser() {
+    const el = this.#headerUser;
+    if (!el) return;
+    const user = this.#sessionUser;
+    const isLoggedIn = !!(user && (user.id || user.email || user.name));
+
+    el.classList.remove('bk-header-user--initials');
+    el.style.removeProperty('background');
+    el.style.removeProperty('color');
+    el.innerHTML = '';
+
+    if (!isLoggedIn) {
+      el.title = 'Niet ingelogd';
+      el.setAttribute('aria-label', 'Niet ingelogd');
+      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      return;
+    }
+
+    const displayName = String(user.name || user.email || '').trim();
+    el.title = displayName || 'Ingelogd';
+    el.setAttribute('aria-label', displayName || 'Ingelogd');
+
+    const avatarUrl = this.#extractUserAvatarUrl(user);
+    if (avatarUrl) {
+      const img = document.createElement('img');
+      img.src = avatarUrl;
+      img.alt = displayName;
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = () => {
+        img.remove();
+        this.#renderHeaderUserInitials(user, displayName);
+      };
+      el.appendChild(img);
+      return;
+    }
+
+    this.#renderHeaderUserInitials(user, displayName);
+  }
+
+  #renderHeaderUserInitials(user, displayName) {
+    const el = this.#headerUser;
+    if (!el) return;
+    const initials = this.#computeUserInitials(displayName || user?.email || '');
+    const seed = String(user?.email || displayName || user?.id || '');
+    const { bg, text } = this.#computeUserAvatarColor(seed);
+    el.classList.add('bk-header-user--initials');
+    el.style.background = bg;
+    el.style.color = text;
+    el.textContent = initials;
+  }
+
+  #clampPosition(pos) {
+    const margin = WIDGET_BASE_MARGIN;
+    const size = this.#getLauncherSize();
+    const safeOffset = (axis) => {
+      const span = (axis === 'x' ? window.innerWidth : window.innerHeight) - 2 * margin - size;
+      return Math.max(0, Math.min(Number.isFinite(pos.offset) ? pos.offset : 0, Math.max(0, span)));
+    };
+    if (pos?.edge === 'right') return { edge: 'right', offset: safeOffset('y') };
+    return { edge: 'bottom', offset: safeOffset('x') };
+  }
+
+  #readSavedPosition() {
+    try {
+      const raw = localStorage.getItem(LS_WIDGET_POSITION_KEY);
+      if (!raw) return { edge: 'bottom', offset: 0 };
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return { edge: 'bottom', offset: 0 };
+      const edge = parsed.edge === 'right' ? 'right' : 'bottom';
+      const offset = Number(parsed.offset);
+      return this.#clampPosition({ edge, offset: Number.isFinite(offset) ? offset : 0 });
+    } catch {
+      return { edge: 'bottom', offset: 0 };
+    }
+  }
+
+  #savePosition(pos) {
+    try {
+      const clean = this.#clampPosition(pos);
+      localStorage.setItem(LS_WIDGET_POSITION_KEY, JSON.stringify({
+        edge: clean.edge,
+        offset: clean.offset,
+        savedAt: Date.now(),
+      }));
+    } catch {}
+  }
+
+  #applyLauncherPosition(pos) {
+    if (!this.#launcher) return;
+    const clean = this.#clampPosition(pos || this.#launcherPosition);
+    this.#launcherPosition = clean;
+    const margin = WIDGET_BASE_MARGIN;
+    const size = this.#getLauncherSize();
+
+    const launcherStyle = this.#launcher.style;
+    launcherStyle.removeProperty('top');
+    launcherStyle.removeProperty('left');
+    if (clean.edge === 'bottom') {
+      launcherStyle.bottom = `${margin}px`;
+      launcherStyle.right = `${margin + clean.offset}px`;
+    } else {
+      launcherStyle.right = `${margin}px`;
+      launcherStyle.bottom = `${margin + clean.offset}px`;
+    }
+
+    if (this.#proactiveBubbles) {
+      const bubbles = this.#proactiveBubbles.style;
+      bubbles.removeProperty('top');
+      bubbles.removeProperty('left');
+      if (clean.edge === 'bottom') {
+        const launcherCenterX = window.innerWidth - margin - clean.offset - size / 2;
+        const onLeftHalf = launcherCenterX < window.innerWidth / 2;
+        bubbles.bottom = `${margin + (size - 50) / 2}px`;
+        if (onLeftHalf) {
+          bubbles.removeProperty('right');
+          bubbles.left = `${margin + clean.offset + size + 10}px`;
+        } else {
+          bubbles.removeProperty('left');
+          bubbles.right = `${margin + clean.offset + size + 10}px`;
+        }
+      } else {
+        const launcherCenterY = window.innerHeight - margin - clean.offset - size / 2;
+        const onTopHalf = launcherCenterY < window.innerHeight / 2;
+        bubbles.right = `${margin + (size - 50) / 2}px`;
+        bubbles.removeProperty('left');
+        if (onTopHalf) {
+          bubbles.removeProperty('bottom');
+          bubbles.top = `${window.innerHeight - margin - clean.offset - size - 10 - 50}px`;
+        } else {
+          bubbles.removeProperty('top');
+          bubbles.bottom = `${margin + clean.offset + size + 10}px`;
+        }
+      }
+    }
+  }
+
+  #cursorToPosition(clientX, clientY) {
+    const margin = WIDGET_BASE_MARGIN;
+    const size = this.#getLauncherSize();
+    const distFromBottom = window.innerHeight - clientY;
+    const distFromRight = window.innerWidth - clientX;
+    const useBottomEdge = distFromBottom <= distFromRight;
+    if (useBottomEdge) {
+      const offset = window.innerWidth - clientX - margin - size / 2;
+      return this.#clampPosition({ edge: 'bottom', offset });
+    }
+    const offset = window.innerHeight - clientY - margin - size / 2;
+    return this.#clampPosition({ edge: 'right', offset });
+  }
+
+  #initLauncherDrag() {
+    if (!this.#launcher) return;
+    const launcher = this.#launcher;
+    launcher.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      if (this.#sm.state !== 'idle') return;
+      this.#dragState = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+      };
+      try { launcher.setPointerCapture(e.pointerId); } catch {}
+    });
+
+    launcher.addEventListener('pointermove', (e) => {
+      const drag = this.#dragState;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dx, dy) < WIDGET_DRAG_THRESHOLD) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        launcher.classList.add('is-dragging');
+        if (this.#proactiveBubbles && !this.#proactiveBubbles.hidden) {
+          this.#dismissProactiveBubbles({ resumeWatcher: true });
+        }
+      }
+      const next = this.#cursorToPosition(e.clientX, e.clientY);
+      this.#applyLauncherPosition(next);
+    });
+
+    const endDrag = (e) => {
+      const drag = this.#dragState;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      this.#dragState = null;
+      try { launcher.releasePointerCapture(e.pointerId); } catch {}
+      if (drag.moved) {
+        launcher.classList.remove('is-dragging');
+        this.#suppressNextLauncherClick = true;
+        this.#savePosition(this.#launcherPosition);
+        setTimeout(() => { this.#suppressNextLauncherClick = false; }, 0);
+      }
+    };
+    launcher.addEventListener('pointerup', endDrag);
+    launcher.addEventListener('pointercancel', endDrag);
+  }
+
+  #onWindowResize() {
+    if (!this.#launcher) return;
+    const before = this.#launcherPosition;
+    const after = this.#clampPosition(before);
+    this.#applyLauncherPosition(after);
+    if (after.edge !== before.edge || Math.abs(after.offset - before.offset) > 0.5) {
+      this.#savePosition(after);
+    }
+  }
+
+  #computeWindowAnchor() {
+    if (!this.#window || !this.#launcher) return;
+    if (window.innerWidth <= 480) {
+      const ws = this.#window.style;
+      ws.removeProperty('top');
+      ws.removeProperty('left');
+      ws.removeProperty('right');
+      ws.removeProperty('bottom');
+      ws.removeProperty('transform-origin');
+      return;
+    }
+    const rect = this.#launcher.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap = 12;
+    const safeMargin = 12;
+
+    const winRect = this.#window.getBoundingClientRect();
+    let winW = winRect.width;
+    let winH = winRect.height;
+    if (!winW || !winH) {
+      winW = Math.min(400, vw - 32);
+      winH = Math.min(640, vh - 80);
+    }
+
+    const launcherCenterX = rect.left + rect.width / 2;
+    const launcherCenterY = rect.top + rect.height / 2;
+
+    const horizontalSide = launcherCenterX > vw / 2 ? 'right' : 'left';
+    const verticalSide = launcherCenterY > vh / 2 ? 'bottom' : 'top';
+
+    const ws = this.#window.style;
+    ws.removeProperty('top');
+    ws.removeProperty('left');
+    ws.removeProperty('right');
+    ws.removeProperty('bottom');
+
+    let verticalClamped = false;
+    if (verticalSide === 'bottom') {
+      const desired = vh - rect.top + gap;
+      const maxBottom = vh - winH - safeMargin;
+      const bottom = Math.max(safeMargin, Math.min(desired, maxBottom));
+      verticalClamped = bottom < desired - 0.5;
+      ws.bottom = `${bottom}px`;
+      ws.top = 'auto';
+    } else {
+      const desired = rect.bottom + gap;
+      const maxTop = vh - winH - safeMargin;
+      const top = Math.max(safeMargin, Math.min(desired, maxTop));
+      verticalClamped = top < desired - 0.5;
+      ws.top = `${top}px`;
+      ws.bottom = 'auto';
+    }
+
+    let horizontalSideEffective = horizontalSide;
+    let horizontalAnchor;
+    if (horizontalSide === 'right') {
+      horizontalAnchor = vw - rect.right;
+    } else {
+      horizontalAnchor = rect.left;
+    }
+
+    if (verticalClamped) {
+      if (horizontalSide === 'right') {
+        const besideAnchor = vw - rect.left + gap;
+        const maxRight = vw - winW - safeMargin;
+        if (besideAnchor <= maxRight) {
+          horizontalAnchor = besideAnchor;
+        } else {
+          const altLeft = rect.right + gap;
+          const maxLeft = vw - winW - safeMargin;
+          if (altLeft <= maxLeft) {
+            horizontalSideEffective = 'left';
+            horizontalAnchor = altLeft;
+          }
+        }
+      } else {
+        const besideAnchor = rect.right + gap;
+        const maxLeft = vw - winW - safeMargin;
+        if (besideAnchor <= maxLeft) {
+          horizontalAnchor = besideAnchor;
+        } else {
+          const altRight = vw - rect.left + gap;
+          const maxRight = vw - winW - safeMargin;
+          if (altRight <= maxRight) {
+            horizontalSideEffective = 'right';
+            horizontalAnchor = altRight;
+          }
+        }
+      }
+    }
+
+    if (horizontalSideEffective === 'right') {
+      const maxRight = vw - winW - safeMargin;
+      const right = Math.max(safeMargin, Math.min(horizontalAnchor, maxRight));
+      ws.right = `${right}px`;
+      ws.left = 'auto';
+    } else {
+      const maxLeft = vw - winW - safeMargin;
+      const left = Math.max(safeMargin, Math.min(horizontalAnchor, maxLeft));
+      ws.left = `${left}px`;
+      ws.right = 'auto';
+    }
+
+    ws.transformOrigin = `${verticalSide} ${horizontalSideEffective}`;
+  }
+
   #animateWindowOpen() {
     clearTimeout(this.#windowCloseTimer);
     this.#window.style.display = '';
     this.#window.classList.remove('is-closing');
+    this.#computeWindowAnchor();
     void this.#window.offsetWidth;
     this.#window.classList.add('is-opening');
   }
@@ -1522,6 +1915,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#applyAgentTheme(this.#agentConfig?.theme);
     this.#applyUserThemeOverride();
     this.#syncLoginLinks();
+    this.#renderHeaderUser();
     this.#scheduleSessionRefresh(data);
 
     if (data.preferences) this.#hydrateUserPreferences(data.preferences);

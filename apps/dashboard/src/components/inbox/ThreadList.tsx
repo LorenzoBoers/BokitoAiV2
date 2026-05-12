@@ -10,6 +10,9 @@ type Props = {
   search: string
   onSelectThread: (id: number) => void
   onSearchChange: (search: string) => void
+  onMarkRead: (id: number) => void
+  onMarkUnread: (id: number) => void
+  onTogglePin: (id: number, currentPinned: boolean) => void
 }
 
 export default function ThreadList({
@@ -20,6 +23,9 @@ export default function ThreadList({
   search,
   onSelectThread,
   onSearchChange,
+  onMarkRead,
+  onMarkUnread,
+  onTogglePin,
 }: Props) {
   return (
     <div className="flex flex-col h-full min-h-0 w-72 shrink-0 border-r border-border/50 bg-bg-surface">
@@ -37,12 +43,14 @@ export default function ThreadList({
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
-        {loading ? (
-          <div className="py-8 text-center text-xs text-text-muted">Laden...</div>
-        ) : error ? (
-          <div className="py-4 px-3 text-xs text-status-error">{error}</div>
-        ) : threads.length === 0 ? (
-          <div className="py-8 text-center text-xs text-text-muted">Geen threads gevonden.</div>
+        {threads.length === 0 ? (
+          loading ? (
+            <div className="py-8 text-center text-xs text-text-muted">Laden...</div>
+          ) : error ? (
+            <div className="py-4 px-3 text-xs text-status-error">{error}</div>
+          ) : (
+            <div className="py-8 text-center text-xs text-text-muted">Geen threads gevonden.</div>
+          )
         ) : (
           threads.map((thread) => (
             <ThreadListItem
@@ -50,6 +58,9 @@ export default function ThreadList({
               thread={thread}
               isSelected={thread.id === selectedId}
               onSelect={onSelectThread}
+              onMarkRead={onMarkRead}
+              onMarkUnread={onMarkUnread}
+              onTogglePin={onTogglePin}
             />
           ))
         )}

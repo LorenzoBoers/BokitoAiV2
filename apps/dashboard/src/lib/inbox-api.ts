@@ -3,12 +3,14 @@ import {
   xanoPostIntegrations,
   xanoPatchIntegrations,
   xanoPutIntegrations,
+  xanoDeleteIntegrations,
 } from './xano'
 
 const xanoGet = xanoGetIntegrations
 const xanoPost = xanoPostIntegrations
 const xanoPatch = xanoPatchIntegrations
 const xanoPut = xanoPutIntegrations
+const xanoDelete = xanoDeleteIntegrations
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,12 +29,14 @@ export type InboxThread = {
   emailSubject: string
   contactEmail: string
   contactName: string
+  contactPhone: string
   status: ThreadStatus
   priority: ThreadPriority
   assignedToUserId: number | null
   tags: string[]
   lastMessageAt: string | null
   hasUnread: boolean
+  isPinned: boolean
   createdAt: string
 }
 
@@ -68,6 +72,8 @@ export type InboxEvent = {
 export type InboxMember = {
   id: number
   name: string
+  email: string
+  avatarUrl: string | null
 }
 
 export type MailboxFolder = {
@@ -93,7 +99,7 @@ export type ThreadDetail = {
 }
 
 export type ThreadFilters = {
-  view?: 'all_open' | 'unassigned' | 'mine' | 'pending' | 'closed' | 'spam' | 'outbound'
+  view?: 'all_open' | 'unassigned' | 'mine' | 'pending' | 'closed' | 'spam' | 'outbound' | 'pinned'
   tag?: string
   assigneeId?: number
   search?: string
@@ -163,6 +169,27 @@ function asNullableString(value: unknown): string | null {
   return text.length > 0 ? text : null
 }
 
+/**
+ * Normalize a Xano timestamp (returned as Unix milliseconds number, ISO string,
+ * or seconds number) into an ISO 8601 string. Returns empty string when the
+ * value cannot be parsed.
+ */
+function asTimestampString(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    // Xano returns timestamps in ms. Treat smaller values as seconds.
+    const ms = value > 1e12 ? value : value * 1000
+    const date = new Date(ms)
+    if (!Number.isNaN(date.getTime())) return date.toISOString()
+  }
+  return ''
+}
+
+function asNullableTimestampString(value: unknown): string | null {
+  const iso = asTimestampString(value)
+  return iso.length > 0 ? iso : null
+}
+
 function normalizeThread(row: unknown): InboxThread | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
@@ -181,14 +208,16 @@ function normalizeThread(row: unknown): InboxThread | null {
     emailSubject: asString(raw.email_subject, '(Geen onderwerp)'),
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
+    contactPhone: asString(raw.contact_phone),
     status,
     priority,
     assignedToUserId:
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0 ? null : asNumber(raw.assigned_to_user_id),
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
-    lastMessageAt: asNullableString(raw.last_message_at),
+    lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
-    createdAt: asString(raw.created_at),
+    isPinned: Boolean(raw.is_pinned),
+    createdAt: asTimestampString(raw.created_at),
   }
 }
 
@@ -225,8 +254,8 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     isRead: Boolean(raw.is_read),
     sendStatus,
     attachments: Array.isArray(raw.attachments) ? raw.attachments : null,
-    receivedAt: asNullableString(raw.received_at),
-    createdAt: asString(raw.created_at),
+    receivedAt: asNullableTimestampString(raw.received_at),
+    createdAt: asTimestampString(raw.created_at),
   }
 }
 
@@ -241,7 +270,7 @@ function normalizeEvent(row: unknown): InboxEvent | null {
     eventType: asString(raw.event_type),
     actorUserId: raw.actor_user_id == null || raw.actor_user_id === 0 ? null : asNumber(raw.actor_user_id),
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
-    createdAt: asString(raw.created_at),
+    createdAt: asTimestampString(raw.created_at),
   }
 }
 
@@ -255,7 +284,7 @@ function normalizeFolder(row: unknown): MailboxFolder | null {
     displayName: asString(raw.display_name ?? raw.displayName, id),
     totalItems: asNumber(raw.total_items ?? raw.totalItemCount),
     isSelected: Boolean(raw.is_selected),
-    lastSyncAt: asNullableString(raw.last_sync_at),
+    lastSyncAt: asNullableTimestampString(raw.last_sync_at),
   }
 }
 
@@ -277,7 +306,7 @@ export async function listMailboxFolders(token: string, connectionId: number): P
           folderId: asString(raw.folder_id),
           folderName: asString(raw.folder_name),
           isSelected: Boolean(raw.is_selected),
-          lastSyncAt: asNullableString(raw.last_sync_at),
+          lastSyncAt: asNullableTimestampString(raw.last_sync_at),
         } satisfies FolderSyncState
       })
     : []
@@ -348,6 +377,50 @@ export async function patchThread(token: string, threadId: number, patch: PatchT
   return normalizeThread(payload)
 }
 
+// ---------------------------------------------------------------------------
+// Read / unread state
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark a thread as read for the team. Called silently from the dashboard when
+ * a user opens a thread; the UI updates optimistically before this resolves.
+ */
+export async function markThreadRead(token: string, threadId: number): Promise<InboxThread | null> {
+  const payload = await xanoPatch<unknown>(`/inbox/threads/${threadId}/mark-read`, {}, token)
+  return normalizeThread(payload)
+}
+
+/**
+ * Manually flip a thread back to unread (e.g. via the "Markeer als ongelezen"
+ * button in the thread detail header).
+ */
+export async function markThreadUnread(token: string, threadId: number): Promise<InboxThread | null> {
+  const payload = await xanoPatch<unknown>(`/inbox/threads/${threadId}/mark-unread`, {}, token)
+  return normalizeThread(payload)
+}
+
+// ---------------------------------------------------------------------------
+// Pin state (per-user)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pin a thread for the current user. Idempotent on the backend.
+ * Pinned threads always appear at the top of any list view they match, plus
+ * are listed in the dedicated "Gepind" view.
+ */
+export async function pinThread(token: string, threadId: number): Promise<InboxThread | null> {
+  const payload = await xanoPost<unknown>(`/inbox/threads/${threadId}/pin`, {}, token)
+  return normalizeThread(payload)
+}
+
+/**
+ * Unpin a thread for the current user. Idempotent on the backend.
+ */
+export async function unpinThread(token: string, threadId: number): Promise<InboxThread | null> {
+  const payload = (await xanoDelete<unknown>(`/inbox/threads/${threadId}/pin`, token)) ?? null
+  return normalizeThread(payload)
+}
+
 export async function replyToThread(token: string, threadId: number, input: ReplyInput): Promise<InboxMessage | null> {
   const body: Record<string, unknown> = {
     body_text: input.bodyText,
@@ -380,7 +453,12 @@ export async function listInboxMembers(token: string): Promise<InboxMember[]> {
       const raw = row as Record<string, unknown>
       const id = asNumber(raw.id, NaN)
       if (!Number.isFinite(id)) return null
-      return { id, name: asString(raw.name, `User ${id}`) } satisfies InboxMember
+      return {
+        id,
+        name: asString(raw.name, `User ${id}`),
+        email: asString(raw.email),
+        avatarUrl: asNullableString(raw.avatar_url),
+      } satisfies InboxMember
     })
     .filter((m): m is InboxMember => m !== null)
 }
@@ -406,7 +484,7 @@ export async function getSyncStatus(token: string): Promise<SyncConnectionStatus
             folderId: asString(fr.folder_id),
             folderName: asString(fr.folder_name),
             isSelected: Boolean(fr.is_selected),
-            lastSyncAt: asNullableString(fr.last_sync_at),
+            lastSyncAt: asNullableTimestampString(fr.last_sync_at),
             messagesSynced: asNumber(fr.messages_synced),
             lastError: asString(fr.last_error),
           } satisfies SyncFolderStatus
@@ -419,7 +497,7 @@ export async function getSyncStatus(token: string): Promise<SyncConnectionStatus
         provider: asString(raw.provider),
         status: asString(raw.status),
         isEnabled: Boolean(raw.is_enabled),
-        lastSyncAt: asNullableString(raw.last_sync_at),
+        lastSyncAt: asNullableTimestampString(raw.last_sync_at),
         lastError: asString(raw.last_error),
         folders,
       } satisfies SyncConnectionStatus

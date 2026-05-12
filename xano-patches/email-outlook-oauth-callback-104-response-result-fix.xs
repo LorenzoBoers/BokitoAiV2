@@ -1,18 +1,20 @@
-// Xano endpoint: api:integrations/oauth/microsoft/callback (id 209)
+// Xano endpoint: api:app/email/outlook/oauth/callback (id 104)
 //
 // FIX: The original implementation read `$tok_res.response` as if it were the
-// parsed JSON body, but Xano's `api.request` wraps the actual body inside
-// `$tok_res.response.result` (alongside `headers` and `status`). As a result
-// `$tr.access_token` was always empty even when Microsoft returned a valid
-// token, and every OAuth attempt fell through to `outlook_error=token_exchange`.
+// parsed JSON body, but Xano's `api.request` returns a wrapper object with
+// `headers`, `result`, and `status`. The actual parsed JSON body is at
+// `$tok_res.response.result`. As a result `$tr.access_token` was always empty
+// even when Microsoft returned a valid token, and every OAuth attempt fell
+// through to `outlook_error=token_exchange` regardless of whether the token
+// exchange actually succeeded with Microsoft.
 //
-// This file mirrors the active Xanoscript for the legacy callback at
-// api:app/email/outlook/oauth/callback (id 104) which is the URL registered as
-// `MICROSOFT_REDIRECT_URI` and in the Azure AD app. Both endpoints now use the
-// correct response shape (`$tok_res.response.result`, `$me_res.response.result`)
-// so that any future migration to this group continues to work.
-query "oauth/microsoft/callback" verb=GET {
-  api_group = "integrations"
+// This endpoint is the URL registered as `MICROSOFT_REDIRECT_URI`:
+//   https://api.bokito.ai/api:app/email/outlook/oauth/callback
+//
+// The matching `api:integrations/oauth/microsoft/callback` (id 209) has the
+// same fix applied so a future migration to that path keeps working.
+query "email/outlook/oauth/callback" verb=GET {
+  api_group = "app"
 
   input {
     text code? filters=trim
@@ -92,8 +94,12 @@ query "oauth/microsoft/callback" verb=GET {
               value = $base ~ "?outlook_error=unknown"
             }
 
+            var $now_ts {
+              value = now
+            }
+
             conditional {
-              if ($st.expires_at < now) {
+              if ($st.expires_at < $now_ts) {
                 db.del email_outlook_oauth_state {
                   field_name = "id"
                   field_value = $st.id
@@ -202,11 +208,15 @@ query "oauth/microsoft/callback" verb=GET {
                           }
 
                           else {
+                            var $at {
+                              value = $at0
+                            }
+
                             api.request {
                               url = "https://graph.microsoft.com/v1.0/me"
                               method = "GET"
                               headers = []
-                                |push:"Authorization: Bearer " ~ $at0
+                                |push:"Authorization: Bearer " ~ $at
                               timeout = 30
                             } as $me_res
 

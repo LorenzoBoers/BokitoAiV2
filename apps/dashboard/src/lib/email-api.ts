@@ -158,6 +158,20 @@ function asNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+/**
+ * Normalize a Xano timestamp (returned as Unix ms number, seconds number, or
+ * ISO string) into an ISO 8601 string. Returns null when it cannot be parsed.
+ */
+function asNullableTimestampString(value: unknown): string | null {
+  if (typeof value === 'string') return value.length > 0 ? value : null
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const ms = value > 1e12 ? value : value * 1000
+    const date = new Date(ms)
+    if (!Number.isNaN(date.getTime())) return date.toISOString()
+  }
+  return null
+}
+
 function normalizeConnection(row: unknown): EmailConnection | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
@@ -178,7 +192,7 @@ function normalizeConnection(row: unknown): EmailConnection | null {
     mailboxEmail: asString(raw.mailbox_email ?? raw.mailboxEmail),
     displayName: asString(raw.display_name ?? raw.displayName, asString(raw.mailbox_email ?? raw.mailboxEmail)),
     status,
-    lastSyncAt: asNullableString(raw.last_sync_at ?? raw.lastSyncAt),
+    lastSyncAt: asNullableTimestampString(raw.last_sync_at ?? raw.lastSyncAt),
     lastError: asNullableString(raw.last_error ?? raw.lastError),
     signatureHtml: asNullableString(raw.signature_html ?? raw.signatureHtml),
     isEnabled,

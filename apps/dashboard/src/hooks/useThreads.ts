@@ -40,5 +40,26 @@ export function useThreads(filters: ThreadFilters = {}, pollMs = 30000) {
     return () => window.clearInterval(timer)
   }, [token, pollMs, fetchThreads])
 
-  return { threads, loading, error, total, refresh: fetchThreads }
+  // Optimistic read/unread state update for the in-memory list. Lets the UI
+  // toggle the unread dot instantly when a user opens a thread or manually
+  // flips it back to unread, without waiting for the next poll.
+  const setThreadReadState = useCallback((threadId: number, hasUnread: boolean) => {
+    setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, hasUnread } : t)))
+  }, [])
+
+  // Optimistic pin state update. Re-sorts the list so pinned threads bubble to
+  // the top within the current queue, mirroring the server-side sort order.
+  // This keeps the UI snappy when a user toggles the pin from the dropdown.
+  const setThreadPinState = useCallback((threadId: number, isPinned: boolean) => {
+    setThreads((prev) => {
+      const updated = prev.map((t) => (t.id === threadId ? { ...t, isPinned } : t))
+      const toMillis = (iso: string | null) => (iso ? new Date(iso).getTime() : 0)
+      return [...updated].sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+        return toMillis(b.lastMessageAt) - toMillis(a.lastMessageAt)
+      })
+    })
+  }, [])
+
+  return { threads, loading, error, total, refresh: fetchThreads, setThreadReadState, setThreadPinState }
 }

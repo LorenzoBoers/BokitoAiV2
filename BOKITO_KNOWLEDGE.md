@@ -8,6 +8,12 @@ Deze repository bevat alleen `apps/dashboard` (portal) en `apps/chat-widget`. De
 
 **Custom domain (Cloudflare) en Xano prod-URL:** Het actieve portal-build op static host `bokitoapp` wordt op Xano uitgeserveerd onder hostnamen als `bokitoapp-prod-{instance}.f2.xano.io` (prod) en `bokitoapp-dev-{instance}.f2.xano.io` (dev). Een oudere hostname `widget-prod-{instance}.f2.xano.io` kan nog steeds het **vorige** portal-artifact (bijv. `Last-Modified` van een eerdere deploy) serveren en komt **byte-voor-byte** overeen met `https://app.bokito.ai` als die custom domain in Cloudflare nog naar `widget-prod-*` wijst i.p.v. naar `bokitoapp-prod-*`. Controle: vergelijk `curl -sI https://app.bokito.ai` met `curl -sI https://bokitoapp-prod-….f2.xano.io` (zelfde `ETag` / `Last-Modified` = zelfde origin). Na DNS/CNAME-correctie eventueel Cloudflare cache purge voor `app.bokito.ai` en `/*`. Snelle UI-check: het productie-JS-bundle (`/assets/index-*.js` vanaf `/login`) bevat `build:` en `APP_VERSION` zodra de nieuwe portal actief is; ontbreken die literal strings, dan draait de browser nog op een oud artifact (vaak verkeerde CNAME/Worker-upstream). API-gestuurde CNAME-wijziging: `scripts/update-cloudflare-app-cname.ps1` met `CLOUDFLARE_API_TOKEN` (Zone.DNS Edit).
 
+**Wildcard DNS voor tenants:** Cloudflare-zone `bokito.ai` heeft een proxied wildcard A-record `* -> 192.0.2.1` (placeholder TEST-NET-1; upstream is irrelevant want de Workers Route `*.bokito.ai/*` op `bokito-tenant-router` onderschept). Zonder dit record geeft een tenant-subdomein als `bokito.bokito.ai` een browser-`DNS_PROBE_FINISHED_NXDOMAIN`, want auth-DNS geeft geen synthetisch antwoord voor onbekende namen; de Worker route activeert pas zodra DNS naar Cloudflare wijst. Verificatie: `curl -sI --resolve bokito.bokito.ai:443:188.114.97.0 https://bokito.bokito.ai/` retourneert HTTP 200 met `X-Tenant-Slug: bokito`.
+
+**Tenant-host API routing in `bokito-tenant-router`:** zelfde model als `bokito-app-passthrough` — `/api/{group}/...` op de tenant-host wordt geproxied naar `BOKITO_API_ORIGIN` (default `https://xrex-nmji-j9ur.f2.xano.io`) als `/api:{group}/...`, alle andere paden naar `BOKITO_STATIC_ORIGIN` met `Host` gepreserveerd. Zonder API-routing antwoordt de static (GCS) op POSTs met XML 400 `InvalidArgument: POST object expects Content-Type multipart/form-data` en blijft `authRefresh` op de tenant-host kapot. Browser-cookies met `Domain=.bokito.ai` (waaronder `bokito_refresh_token`) gaan automatisch mee naar `<slug>.bokito.ai/api/...` en worden door de worker met de overige headers doorgestuurd naar Xano. Source: `cloudflare-workers/bokito-tenant-router/src/index.js`; deploy via `wrangler@3 deploy`.
+
+**Cross-host session-handoff voor productie:** Xano `api:auth` heeft géén `/refresh` endpoint (`isMissingRefreshEndpointError` in `AuthContext` triggert `bokito_skip_server_auth_refresh`). Sessions worden daarom tussen control plane (`app.bokito.ai`) en tenant-hosts (`<slug>.bokito.ai`) overgedragen via een one-time URL-fragment `__bokito_at__=<accessToken>` (zie `appendDevLocalhostCrossHostAccessHash` / `consumeDevLocalhostAccessHashFromLocation` in `lib/host-routing.ts`). De DEV-restrictie is opgeheven: ook in productie wordt de hash toegevoegd zodra source en target binnen dezelfde root-domain (`*.bokito.ai` of `*.localhost`) liggen en de origins verschillen. Tenant-origin leest de hash bij hydrate, schrijft het token in eigen `sessionStorage` en wist het fragment met `history.replaceState`. Aanroepen vanuit de Workspaces-card (`pages/Workspaces.tsx`) en de Login-redirect (`pages/Login.tsx`) gebruiken dezelfde helper.
+
 **Cloudflare Worker route (live):** in zone `bokito.ai` staat een Workers Route `*.bokito.ai/*` gekoppeld aan worker `bokito-tenant-router`. Dit vangt ook `app.bokito.ai`. Als DNS-record `app` al naar `bokitoapp-prod-*` wijst maar `https://app.bokito.ai` nog dezelfde `Last-Modified` / `x-goog-generation` heeft als `widget-prod-*`, dan overschrijft deze worker het DNS-origin nog (hardcoded upstream of verkeerde fetch-URL). **Scheidingstest:** HEAD naar `https://bokitoapp-prod-<instance>.f2.xano.io/` met request header `Host: app.bokito.ai` moet het **nieuwe** artifact tonen (zelfde fingerprints als rechtstreeks `bokitoapp-prod`); wijkt `https://app.bokito.ai` daarvan af, dan is de oorzaak de Worker (of een tweede route), niet de Xano custom-domain mapping. **Oplossingen:** (1) In `bokito-tenant-router` alle `widget-prod-*` upstreams voor het control-plane naar `bokitoapp-prod-*` zetten en deployen. (2) Of een **specifiekere** route `app.bokito.ai/*` met worker `bokito-app-passthrough` (pattern is specifieker dan `*.bokito.ai/*`, dus die wint). In deze repo staat de bedoelde workercode in `cloudflare-workers/bokito-app-passthrough/src/index.js`: proxy naar `BOKITO_STATIC_ORIGIN` (of default `bokitoapp-prod-…`) met `Host` gelijk aan de inkomende hostname (`app.bokito.ai`). **Na het aanmaken van de route:** als `curl -sI https://app.bokito.ai/` `Content-Type: text/plain` geeft en geen `ETag`/`x-goog-generation` van de static host, draait `bokito-app-passthrough` nog de Cloudflare default-template (Hello World, body is o.a. de 12 tekens `Hello World!`); in de browser oogt dat als een bijna lege pagina. Deploy dan de worker uit `cloudflare-workers/bokito-app-passthrough` (Dashboard → Edit code → Deploy, of `scripts/deploy-cloudflare-app-passthrough.ps1` met `CLOUDFLARE_API_TOKEN` in `.env`). Blijft het mis na deploy, gebruik `npx wrangler deploy --var BOKITO_STATIC_ORIGIN:https://bokitoapp-prod-….f2.xano.io` (zie worker-README). Daarna moet HEAD op `/` weer overeenkomen met `bokitoapp-prod-*`.
 
 **Zichtbare build-versie in UI:** Login toont onderaan `build: <versie>` en het user-menu toont onder `Sign out` dezelfde regel. `deploy.ps1` zet tijdens build automatisch `VITE_APP_VERSION` op de huidige buildnaam (bijv. `portal-version-tag-...`) zodat je direct kunt zien welke deploy actief is.
@@ -411,6 +417,8 @@ Of via `<iframe>` wijzend naar `/chat/embed?agent=...`
 
 ### 4.2 Features
 - **Launcher**: zwevende knop met "Happy Bokito" monkey-face SVG + knipperanimatie, optionele labeltekst
+- **Sleepbare launcher**: bezoeker kan de launcher verslepen langs de onderkant en rechterrand (L-vormig rail incl. hoek). Positie wordt opgeslagen in `localStorage` onder key `bokito_widget_pos` (`{edge:'bottom'|'right', offset:number, savedAt}`). Drempel van 6px onderscheidt klik van drag. Werkt ook op mobiel; window opent op mobiel altijd fullscreen.
+- **Slimme open-positie van het chat-window**: `#computeWindowAnchor` kiest horizontale (`left`/`right`) en verticale (`top`/`bottom`) ankerkant op basis van launcher-centrum t.o.v. viewport-midden, en zet bijpassende `transform-origin` zodat de spring-in animatie vanuit de launcher-hoek komt.
 - **SSE-streaming**: AI-antwoorden real-time karakter voor karakter gestreamd
 - **Bijlagen**: bestanden en afbeeldingen uploaden
 - **Voiceinput**: spraakherkenning (benoemd in README)
@@ -799,6 +807,48 @@ Uitbreiding van het platform met een volledige multichannel inbox, AI-communicat
 - Klant-sidebar: contactgegevens, eerdere conversaties, gekoppelde records
 - Interne notities (gele achtergrond, alleen zichtbaar voor team)
 - Zoeken + bulk acties + volledige keyboard navigatie
+- Thread detail venster heeft één vaste fade overlay aan de bovenzijde (gradient naar `--color-bg`, light/dark aware) zodat berichten visueel vervagen wanneer ze naar boven uit beeld scrollen; dag- en tijdpillen blijven crisp bovenop de fade via z-index
+- Bij hover op de afzender-favicon in de conversatie verschijnt een popover (Radix Tooltip stijl) met naam, e-mail en telefoonnummer (alleen rijen die gevuld zijn); telefoonnummer komt uit `contact_phone` op de thread record (optioneel, leeg als niet beschikbaar)
+- Inbox URL-routing is deelbaar en deep-link bestendig (Linear/Front patroon):
+  - Globale view: `/support/inbox/:queue` of `/support/inbox/:queue/t/:threadId`
+  - Channel view: `/support/inbox/ch/:channelId/:queue` of `/support/inbox/ch/:channelId/:queue/t/:threadId`
+  - `:queue` is een van `all`, `my`, `unassigned`, `pending`, `closed`, `spam`, `out`
+  - Geselecteerde thread is afgeleid van de URL (geen React state), dus klikken op een andere folder/mailbox in de sidebar maakt het detail-pane automatisch leeg
+  - Bij een stale URL (bv. een gedeelde link naar een thread die intussen `gesloten` is terwijl de URL `/all` zegt) doet de app **eenmalig** een stille `navigate(..., { replace: true })` naar de canonieke queue van de huidige thread state. Deze one-shot redirect is gekoppeld aan de `threadId` uit de URL: zodra die geëvalueerd is wordt dezelfde thread in deze sessie niet opnieuw geredirect, zelfs niet als de status verandert via een patch in het thread-scherm. Geen banner of toast. Mapping:
+    - status `closed` → `/closed`
+    - status `spam` → `/spam`
+    - status `pending` → `/pending`
+    - status `open` → `/all`
+  - Bij channel-mismatch (URL `/ch/1` maar thread hoort bij connection 2) wordt het channel-segment gedropt en valt de URL terug op de globale queue.
+  - Patch / reply / interne notitie vanuit het thread-scherm laat de URL ongemoeid; in plaats daarvan wordt de threads-lijst direct ververst zodat de thread uit de huidige queue verdwijnt als hij niet meer matcht. Detail-pane blijft de thread gewoon tonen totdat de gebruiker zelf wegklikt.
+- Contact context panel (rechterzijde van thread detail, modern tools-stijl):
+  - Toggle via `PanelRight` icoonknop in de thread-detail header (rechts naast refresh); voorkeur (open/dicht) wordt persistent opgeslagen in `localStorage` onder `inbox.contactPanel.open`
+  - Component: `apps/dashboard/src/components/inbox/ContactPanel.tsx`, gerenderd als derde kolom in `Communication.tsx` naast `ThreadList` en `ThreadDetail`
+  - Vaste breedte `w-72`, `border-l border-border/50 bg-bg-surface`, scrollable body
+  - Bovenin: contact-card met avatar (initials + deterministische kleur uit `getAvatarColor`, plus domain-favicon badge rechtsonder via `getDomainFaviconUrl`), naam, e-mailadres, en quick-action knoppen "Mail" (mailto:) en "Bellen" (tel:)
+  - Sectie "Contactgegevens": e-mail en telefoon met klikbare links
+  - Sectie "Thread": status (gekleurde dot + label), prioriteit, mailbox (display name uit `useMailboxConnections`), aanmaakdatum (lange notatie nl-NL), laatste bericht (relatieve tijd), toegewezen aan (uit `listInboxMembers`)
+  - Placeholder secties "Eerdere threads" en "Taken" met label "Binnenkort" — voorbereid op toekomstige `contact` entiteit (uniek per tenant op e-mail of secundair telefoonnummer) waarin oudere threads, taken en andere context aan een contact gekoppeld worden
+  - Geen emoji's; uitsluitend Lucide icons (`Mail`, `Phone`, `Calendar`, `Clock`, `Hash`, `Inbox`, `PanelRight`, `X`, `ChevronRight`)
+- Read/unread tracking op thread-niveau (Linear/Intercom/HelpScout patroon):
+  - Thread record heeft `has_unread` boolean (team-wide). De inbox lijst toont een accentdot links van de afzender wanneer `has_unread = true`.
+  - Bij klikken op een thread in de lijst gaat de dot meteen weg (optimistic via `setThreadReadState(id, false)` in `useThreads`); de detail hook (`useThreadDetail`) doet vervolgens silent een `PATCH /inbox/threads/{id}/mark-read` en zet `detail.thread.hasUnread = false` lokaal. Falen wordt opgeruimd door de 30s poll.
+  - Endpoints zijn auth-required en organisatie-scoped:
+    - `PATCH /api:integrations/inbox/threads/{thread_id}/mark-read` (id 232)
+    - `PATCH /api:integrations/inbox/threads/{thread_id}/mark-unread` (id 233)
+- Pin systeem op thread-niveau (per-user, Slack/Notion patroon):
+  - Aparte tabel `inbox_thread_pin` (id 79) met unique index op `(user_id, thread_id)`. Pin state is per-user; collega's zien hun eigen pins.
+  - Endpoints zijn idempotent en auth-required:
+    - `POST /api:integrations/inbox/threads/{thread_id}/pin` (id 234)
+    - `DELETE /api:integrations/inbox/threads/{thread_id}/pin` (id 235)
+  - `GET /inbox/threads` decoreert elk item met `is_pinned` via een join op `inbox_thread_pin` voor de huidige user en plaatst gepinde items bovenaan de page (binnen de queue-filter; gepinde gesloten thread verschijnt dus alleen in `pinned` of `closed`, niet in `open`). Een nieuwe `view=pinned` toont alle gepinde threads ongeacht status.
+  - `GET /inbox/threads/{thread_id}` voegt `is_pinned` toe aan het thread-object zodat het detail-scherm de pin-status kent.
+  - Sidebar heeft onder "Alle kanalen" een nieuwe entry "Gepind" (Lucide `Pin` icon).
+- Thread indicator dropdown menu (links van afzendernaam):
+  - Geïmplementeerd in [`apps/dashboard/src/components/inbox/ThreadIndicatorMenu.tsx`](apps/dashboard/src/components/inbox/ThreadIndicatorMenu.tsx) op basis van Radix `DropdownMenu`.
+  - Visueel: gepind = roterende `Pin` icon (accent), ongelezen = gevulde accent dot, anders transparante placeholder.
+  - Hover op de thread-rij toont een subtiele ring rond de indicator (`group-hover/thread:ring-1`) zodat duidelijk is dat de indicator klikbaar is. Klik opent dropdown met contextuele items: "Markeer als gelezen / ongelezen" + "Pinnen / Losmaken".
+  - Klik op de indicator selecteert NIET de thread (`stopPropagation`); klik elders op de rij doet dat wel. Optimistic updates met rollback worden afgehandeld in `Communication.tsx` (`handleListMarkRead`, `handleListMarkUnread`, `handleListTogglePin`).
 
 ### 10.3 AI Communicatie Assistent (PRD sectie 12)
 - Semi-autonome modus: confidence > drempel (0.85 default) = auto-reply, anders suggestie

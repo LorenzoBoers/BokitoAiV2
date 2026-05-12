@@ -104,33 +104,58 @@ export function sanitizeCrossHostReturnTo(raw: string | null): string | null {
 }
 
 /**
- * Dev-only: access tokens live in sessionStorage, which is not shared between `app.localhost`
- * and `tenant.localhost`. Refresh cookies on plain HTTP `.localhost` are often unreliable.
- * After login on the app host, append a one-time fragment so the tenant origin can copy the
- * token into its own sessionStorage (fragment is not sent to the server).
+ * Cross-host access token handoff via URL hash.
+ *
+ * Backend `/api:auth/refresh` is not exposed, so the tenant origin cannot derive an access
+ * token from the wildcard refresh cookie alone. Instead, the control plane (app host) appends
+ * the active access token as a one-time URL fragment when redirecting to a sibling origin
+ * inside the same root domain (`*.bokito.ai` in prod or `*.localhost` in dev). The fragment is
+ * never sent to the server; the tenant origin consumes it on hydrate, persists it in its own
+ * `sessionStorage`, and clears the hash via `history.replaceState`.
+ *
+ * Constraints:
+ * - Source and target must both be inside the same allowed root (bokito.ai or localhost).
+ * - Cross-origin only (same-origin already shares sessionStorage; no handoff needed).
  */
 export const DEV_LOCALHOST_ACCESS_HASH_PREFIX = '__bokito_at__='
+
+function isProdBokitoHostname(hostname: string): boolean {
+  const lower = String(hostname || '').trim().toLowerCase()
+  if (!lower) return false
+  if (lower === PROD_APP_HOSTNAME) return true
+  if (lower.endsWith(PROD_TENANT_ROOT_DOMAIN)) return true
+  return false
+}
+
+function sameAllowedRoot(targetHostname: string, sourceHostname: string): boolean {
+  const targetLocal = isLocalHostname(targetHostname)
+  const sourceLocal = isLocalHostname(sourceHostname)
+  if (targetLocal && sourceLocal) return true
+  const targetProd = isProdBokitoHostname(targetHostname)
+  const sourceProd = isProdBokitoHostname(sourceHostname)
+  return targetProd && sourceProd
+}
 
 export function appendDevLocalhostCrossHostAccessHash(
   targetUrl: string,
   accessToken: string | null | undefined,
 ): string {
   const token = typeof accessToken === 'string' ? accessToken.trim() : ''
-  if (!import.meta.env.DEV || !token || typeof window === 'undefined') return targetUrl
+  if (!token || typeof window === 'undefined') return targetUrl
   let target: URL
   try {
     target = new URL(targetUrl)
   } catch {
     return targetUrl
   }
-  if (!isLocalHostname(target.hostname) || !isLocalHostname(window.location.hostname)) return targetUrl
+  if (!sameAllowedRoot(target.hostname, window.location.hostname)) return targetUrl
   if (target.origin === window.location.origin) return targetUrl
   target.hash = `${DEV_LOCALHOST_ACCESS_HASH_PREFIX}${encodeURIComponent(token)}`
   return target.toString()
 }
 
 export function consumeDevLocalhostAccessHashFromLocation(): string | null {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return null
+  if (typeof window === 'undefined') return null
   const rawHash = window.location.hash.replace(/^#/, '')
   if (!rawHash.startsWith(DEV_LOCALHOST_ACCESS_HASH_PREFIX)) return null
   const encoded = rawHash.slice(DEV_LOCALHOST_ACCESS_HASH_PREFIX.length)
@@ -152,9 +177,9 @@ export function clearLocationHashPreservePath(): void {
   }
 }
 
-/** True when target is another *.localhost origin in dev (needs token handoff in URL hash). */
+/** True when target is a sibling origin inside the same allowed root (needs URL-hash token handoff). */
 export function needsDevLocalhostCrossHostHandoff(targetUrl: string): boolean {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return false
+  if (typeof window === 'undefined') return false
   let target: URL
   try {
     target = new URL(targetUrl)
@@ -162,7 +187,7 @@ export function needsDevLocalhostCrossHostHandoff(targetUrl: string): boolean {
     return false
   }
   if (!target.protocol.startsWith('http')) return false
-  if (!isLocalHostname(target.hostname) || !isLocalHostname(window.location.hostname)) return false
+  if (!sameAllowedRoot(target.hostname, window.location.hostname)) return false
   return target.origin !== window.location.origin
 }
 

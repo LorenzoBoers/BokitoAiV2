@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Inbox, Mail } from 'lucide-react'
+import { ChevronDown, ChevronRight, Inbox, Mail, Pin } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -15,7 +15,8 @@ function navLinkClass(isActive: boolean) {
 
 const GLOBAL_VIEWS = [
   { label: 'Open', queue: 'all' },
-  { label: 'Mijn inbox', queue: 'my' },
+  { label: 'Toegewezen aan mij', queue: 'my' },
+  { label: 'Gepind', queue: 'pinned' },
   { label: 'Niet toegewezen', queue: 'unassigned' },
   { label: 'In behandeling', queue: 'pending' },
   { label: 'Gesloten', queue: 'closed' },
@@ -137,8 +138,10 @@ export default function InboxSidebarNav() {
                   name={user?.name ?? '?'}
                   email={user?.email ?? ''}
                   avatarUrl={user?.avatarUrl}
-                  size={20}
+                  size={14}
                 />
+              ) : v.queue === 'pinned' ? (
+                <Pin size={14} className="text-text-muted" />
               ) : (
                 <Inbox size={14} className="text-text-muted" />
               )}

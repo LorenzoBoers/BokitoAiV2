@@ -74,7 +74,9 @@ export default function App() {
 
         <Route element={<Layout />}>
           <Route path="/support/inbox/:queue" element={<Communication />} />
+          <Route path="/support/inbox/:queue/t/:threadId" element={<Communication />} />
           <Route path="/support/inbox/ch/:channelId/:queue" element={<Communication />} />
+          <Route path="/support/inbox/ch/:channelId/:queue/t/:threadId" element={<Communication />} />
           <Route path="/support/customization" element={<MessengerSettings />} />
           <Route path="/support/settings/general" element={<Navigate to="/settings/inbox" replace />} />
 

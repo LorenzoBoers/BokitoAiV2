@@ -5,6 +5,10 @@ import {
   patchThread,
   replyToThread,
   addNoteToThread,
+  markThreadRead,
+  markThreadUnread,
+  pinThread,
+  unpinThread,
   type ThreadDetail,
   type PatchThreadInput,
   type ReplyInput,
@@ -26,7 +30,16 @@ export function useThreadDetail(threadId: number | null) {
     setError(null)
     try {
       const result = await getThread(token, threadId)
-      setDetail(result)
+      // Auto-mark as read when a thread is opened. The server call is
+      // fire-and-forget so the UI never blocks on it; the local state already
+      // reflects the read status. If the request fails the next list poll
+      // (every 30s) will reconcile.
+      if (result && result.thread.hasUnread) {
+        setDetail({ ...result, thread: { ...result.thread, hasUnread: false } })
+        void markThreadRead(token, threadId).catch(() => {})
+      } else {
+        setDetail(result)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Thread kon niet worden geladen.')
     } finally {
@@ -98,5 +111,36 @@ export function useThreadDetail(threadId: number | null) {
     [token, threadId],
   )
 
-  return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote }
+  // Manually mark the open thread as unread (mirrors HelpScout / Intercom).
+  // Updates local state immediately, then persists to the server.
+  const markUnread = useCallback(async () => {
+    if (!token || !threadId) return
+    setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: true } } : prev))
+    try {
+      await markThreadUnread(token, threadId)
+    } catch {
+      setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: false } } : prev))
+      throw new Error('Kon thread niet als ongelezen markeren.')
+    }
+  }, [token, threadId])
+
+  // Toggle pin state with optimistic update + rollback on failure.
+  const togglePin = useCallback(async () => {
+    if (!token || !threadId) return
+    const current = detail?.thread.isPinned ?? false
+    const next = !current
+    setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, isPinned: next } } : prev))
+    try {
+      if (next) {
+        await pinThread(token, threadId)
+      } else {
+        await unpinThread(token, threadId)
+      }
+    } catch {
+      setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, isPinned: current } } : prev))
+      throw new Error(next ? 'Kon thread niet pinnen.' : 'Kon pin niet verwijderen.')
+    }
+  }, [token, threadId, detail])
+
+  return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote, markUnread, togglePin }
 }

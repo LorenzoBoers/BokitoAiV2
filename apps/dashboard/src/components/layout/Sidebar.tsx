@@ -64,12 +64,12 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex h-full w-[62px] flex-col p-2">
-      <div className="flex h-12 items-center justify-center">
+    <aside className="flex h-full w-[54px] flex-col p-1.5">
+      <div className="flex h-11 items-center justify-center">
         <img
           src="/bokito-logo.svg"
           alt="Bokito AI"
-          className="h-8 w-8 object-contain"
+          className="h-7 w-7 object-contain"
           style={{
             filter: isDark
               ? 'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
@@ -89,10 +89,10 @@ export default function Sidebar() {
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-transparent text-text-muted/40 opacity-50 cursor-not-allowed"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-text-muted/40 opacity-50 cursor-not-allowed"
                       tabIndex={-1}
                     >
-                      <Icon size={18} />
+                      <Icon size={17} />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="flex flex-col items-start gap-0.5">
@@ -107,13 +107,13 @@ export default function Sidebar() {
                 <TooltipTrigger asChild>
                   <NavLink
                     to={item.to}
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
                       isActive
                         ? 'border-accent/35 bg-accent/20 text-accent shadow-[0_0_0_1px_rgba(110,102,255,0.28),0_10px_20px_-16px_rgba(63,81,181,0.6)]'
                         : 'border-transparent text-text-muted hover:border-border/65 hover:bg-bg-hover/70 hover:text-text-primary'
                     }`}
                   >
-                    <Icon size={18} />
+                    <Icon size={17} />
                   </NavLink>
                 </TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
@@ -122,18 +122,18 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="space-y-2 px-1 py-2">
+        <div className="space-y-2 px-0.5 py-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <NavLink
                 to="/settings/profile"
-                className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
+                className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
                   isRailActive('/settings/profile')
                     ? 'border-accent/35 bg-accent/20 text-accent shadow-[0_0_0_1px_rgba(110,102,255,0.28),0_10px_20px_-16px_rgba(63,81,181,0.6)]'
                     : 'border-transparent text-text-muted hover:border-border/65 hover:bg-bg-hover/70 hover:text-text-primary'
                 }`}
               >
-                <SlidersHorizontal size={18} />
+                <SlidersHorizontal size={17} />
               </NavLink>
             </TooltipTrigger>
             <TooltipContent side="right">{t('nav:rail.settings')}</TooltipContent>
@@ -142,10 +142,10 @@ export default function Sidebar() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden transition-opacity hover:opacity-80"
+                className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden transition-opacity hover:opacity-80"
                 aria-label={t('nav:userMenu.openAria')}
               >
-                <UserAvatar name={user?.name ?? displayName} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={40} />
+                <UserAvatar name={user?.name ?? displayName} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={36} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="right" align="end" className="w-56">

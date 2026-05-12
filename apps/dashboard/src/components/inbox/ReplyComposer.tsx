@@ -32,8 +32,10 @@ export default function ReplyComposer({ onReply, onNote, saving, disabled }: Pro
         <button
           type="button"
           onClick={() => setMode('reply')}
-          className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
-            mode === 'reply' ? 'bg-accent/10 text-accent font-medium' : 'text-text-secondary hover:text-text-primary'
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+            mode === 'reply'
+              ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
+              : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
           }`}
         >
           <Send size={11} />
@@ -42,8 +44,10 @@ export default function ReplyComposer({ onReply, onNote, saving, disabled }: Pro
         <button
           type="button"
           onClick={() => setMode('note')}
-          className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
-            mode === 'note' ? 'bg-yellow-100 text-yellow-700 font-medium dark:bg-yellow-900/20 dark:text-yellow-400' : 'text-text-secondary hover:text-text-primary'
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+            mode === 'note'
+              ? 'bg-yellow-100 text-yellow-800 font-semibold ring-1 ring-yellow-300/60 dark:bg-yellow-900/30 dark:text-yellow-200 dark:ring-yellow-700/40'
+              : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
           }`}
         >
           <StickyNote size={11} />
@@ -85,7 +89,7 @@ export default function ReplyComposer({ onReply, onNote, saving, disabled }: Pro
             size="sm"
             disabled={!body.trim() || saving || disabled}
             onClick={() => void handleSubmit('send')}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+            className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300/70 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/40 dark:border-yellow-700/40"
           >
             <StickyNote size={13} />
             {saving ? 'Opslaan...' : 'Notitie toevoegen'}

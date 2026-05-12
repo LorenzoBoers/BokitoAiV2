@@ -38,7 +38,7 @@
       "inbox": "Inbox"
     },
     "links": {
-      "myInbox": "Mijn inbox",
+      "myInbox": "Toegewezen aan mij",
       "allMessages": "Open",
       "unassigned": "Niet toegewezen",
       "pending": "In behandeling",
@@ -91,7 +91,7 @@
     "links": {
       "profile": "Profiel",
       "notifications": "Notificaties",
-      "inbox": "Inbox",
+      "inbox": "Inbox-instellingen",
       "emailSettings": "E-mailinstellingen",
       "messenger": "Assistent",
       "helpCenters": "Kennisbank",
@@ -127,7 +127,7 @@
     "importsExports": { "title": "Importeren en exporteren", "description": "Verplaats data veilig in en uit je workspace." }
   },
   "supportPageMeta": {
-    "my": { "title": "Mijn inbox", "description": "Toegewezen gesprekken en verzoeken." },
+    "my": { "title": "Toegewezen aan mij", "description": "Toegewezen gesprekken en verzoeken." },
     "all": { "title": "Alle berichten", "description": "Alle inkomende supportberichten." },
     "created": { "title": "Door mij gemaakt", "description": "Tickets en threads die jij hebt gestart." },
     "unassigned": { "title": "Niet toegewezen", "description": "Berichten die nog een eigenaar nodig hebben." }

@@ -352,16 +352,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function hydrateSession() {
       setIsLoading(true);
       try {
-        if (import.meta.env.DEV) {
-          const handoffToken = consumeDevLocalhostAccessHashFromLocation();
-          if (handoffToken) {
-            try {
-              sessionStorage.setItem(ACCESS_TOKEN_FALLBACK_KEY, handoffToken);
-            } catch {
-              // Ignore storage failures in private mode.
-            }
-            clearLocationHashPreservePath();
+        const handoffToken = consumeDevLocalhostAccessHashFromLocation();
+        if (handoffToken) {
+          try {
+            sessionStorage.setItem(ACCESS_TOKEN_FALLBACK_KEY, handoffToken);
+          } catch {
+            // Ignore storage failures in private mode.
           }
+          clearLocationHashPreservePath();
         }
 
         const tenantSubdomain = resolveTenantSubdomainFromHost();

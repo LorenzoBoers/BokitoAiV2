@@ -1,10 +1,14 @@
 import { cn } from '../../lib/utils'
 import type { InboxThread } from '../../lib/inbox-api'
+import ThreadIndicatorMenu from './ThreadIndicatorMenu'
 
 type Props = {
   thread: InboxThread
   isSelected: boolean
   onSelect: (id: number) => void
+  onMarkRead: (id: number) => void
+  onMarkUnread: (id: number) => void
+  onTogglePin: (id: number, currentPinned: boolean) => void
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -29,24 +33,40 @@ const PRIORITY_DOT: Record<string, string> = {
   normal: '',
 }
 
-export default function ThreadListItem({ thread, isSelected, onSelect }: Props) {
+export default function ThreadListItem({
+  thread,
+  isSelected,
+  onSelect,
+  onMarkRead,
+  onMarkUnread,
+  onTogglePin,
+}: Props) {
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(thread.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect(thread.id)
+        }
+      }}
       className={cn(
-        'w-full text-left px-3 py-2.5 rounded-md transition-colors group',
+        'w-full cursor-pointer text-left px-3 py-2.5 rounded-md transition-colors group/thread',
         isSelected ? 'bg-accent/10 border border-accent/20' : 'hover:bg-bg-surface-hover border border-transparent',
       )}
     >
       <div className="flex items-start gap-2 min-w-0">
-        {thread.hasUnread ? (
-          <span className="mt-1.5 shrink-0 h-2 w-2 rounded-full bg-accent" aria-label="Ongelezen" />
-        ) : (
-          <span className="mt-1.5 shrink-0 h-2 w-2 rounded-full bg-transparent" />
-        )}
+        <ThreadIndicatorMenu
+          hasUnread={thread.hasUnread}
+          isPinned={thread.isPinned}
+          onMarkRead={() => onMarkRead(thread.id)}
+          onMarkUnread={() => onMarkUnread(thread.id)}
+          onTogglePin={() => onTogglePin(thread.id, thread.isPinned)}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1 mb-0.5">
             <span className={cn('text-sm font-medium truncate', thread.hasUnread ? 'text-text-heading' : 'text-text-primary')}>
@@ -74,6 +94,6 @@ export default function ThreadListItem({ thread, isSelected, onSelect }: Props) 
           ) : null}
         </div>
       </div>
-    </button>
+    </div>
   )
 }

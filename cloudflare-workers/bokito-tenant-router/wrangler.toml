@@ -1,15 +1,15 @@
-name = "bokito-app-passthrough"
+name = "bokito-tenant-router"
 main = "src/index.js"
 compatibility_date = "2024-12-01"
 # From Cloudflare dashboard URL /c552958ca40fe9d6b4f45ec7bbba737f/... (required for API token / CI deploy).
 account_id = "c552958ca40fe9d6b4f45ec7bbba737f"
 
-# More specific than *.bokito.ai/* on bokito-tenant-router; Cloudflare picks this for app host.
+# Wildcard route catches all tenant subdomains. The more-specific `app.bokito.ai/*` route
+# is owned by `bokito-app-passthrough` and pre-empts this worker for the control plane.
 routes = [
-  { pattern = "app.bokito.ai/*", zone_name = "bokito.ai" }
+  { pattern = "*.bokito.ai/*", zone_name = "bokito.ai" }
 ]
 
-# Explicit Xano static host so subrequests always reach portal HTML (avoids flaky fetch(request) to same hostname).
 [vars]
 BOKITO_STATIC_ORIGIN = "https://bokitoapp-prod-7443ed-xrex-nmji-j9ur.f2.xano.io"
 BOKITO_API_ORIGIN = "https://xrex-nmji-j9ur.f2.xano.io"

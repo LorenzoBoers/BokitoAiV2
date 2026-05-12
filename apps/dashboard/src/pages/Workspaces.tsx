@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
-import { buildTenantOrigin, buildTenantWorkspaceUrl } from '../lib/host-routing'
+import { appendDevLocalhostCrossHostAccessHash, buildTenantOrigin, buildTenantWorkspaceUrl } from '../lib/host-routing'
+import { useAuth } from '../context/AuthContext'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export default function Workspaces() {
   const { t } = useTranslation('workspaces')
   const navigate = useNavigate()
   const { currentWorkspace, workspaces, workspaceLoading, createWorkspace, switchWorkspace } = useWorkspace()
+  const { token } = useAuth()
 
   const [workspaceName, setWorkspaceName] = useState('')
   const [workspaceSubdomain, setWorkspaceSubdomain] = useState('')
@@ -123,7 +125,8 @@ export default function Workspaces() {
                     }
                     try {
                       if (typeof window !== 'undefined') {
-                        window.location.assign(tenantUrl)
+                        const handoffUrl = appendDevLocalhostCrossHostAccessHash(tenantUrl, token)
+                        window.location.assign(handoffUrl)
                       }
                     } catch (openError) {
                       const message = openError instanceof Error ? openError.message : 'Tenant openen mislukt'

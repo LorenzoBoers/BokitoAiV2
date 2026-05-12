@@ -3,9 +3,20 @@ const DEFAULT_PUBLIC_API_URL = 'https://api.bokito.nl/v1'
 
 export const XANO_BASE_URL = import.meta.env.VITE_XANO_BASE_URL || DEFAULT_XANO_BASE_URL
 
+/**
+ * Always resolve to a same-origin proxy path. Cross-origin direct Xano calls fail in
+ * production because CORS preflight cannot wildcard `Authorization` (per spec, the
+ * Authorization header must be listed explicitly in `Access-Control-Allow-Headers` for
+ * credentialed requests; Xano returns `*` which the browser rejects).
+ *
+ * - DEV: vite middleware proxies `/api/{group}/...` to `${XANO_BASE_URL}/api:{group}/...`.
+ * - PROD: Cloudflare workers `bokito-app-passthrough` (`app.bokito.ai/*`) and
+ *   `bokito-tenant-router` (`*.bokito.ai/*`) translate `/api/{group}/...` to
+ *   `${BOKITO_API_ORIGIN}/api:{group}/...` with the request body and headers (including
+ *   browser cookies on `.bokito.ai`) forwarded verbatim.
+ */
 export function xanoApiBase(canonical: string): string {
-  if (import.meta.env.DEV) return `/api/${canonical}`
-  return `${XANO_BASE_URL}/api:${canonical}`
+  return `/api/${canonical}`
 }
 
 export const API_GROUP_APP = import.meta.env.VITE_API_GROUP_APP || 'app'

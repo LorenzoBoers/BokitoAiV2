@@ -45,7 +45,7 @@ export function OauthRedirectAlert({
           ) : null}
           <div className={cn(!isSuccess && title ? 'text-text-secondary' : undefined)}>{children}</div>
           {!isSuccess && technicalDetail ? (
-            <details className="text-text-secondary" open={import.meta.env.DEV}>
+            <details className="text-text-secondary" open>
               <summary className="cursor-pointer select-none text-2xs underline underline-offset-2 hover:opacity-90">
                 Technische details (van provider)
               </summary>

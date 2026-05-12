@@ -11,7 +11,6 @@ import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import ProviderLogo from '../components/email/ProviderLogo'
 import SignatureEditor from '../components/inbox/SignatureEditor'
 import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
-import SyncStatusPanel from '../components/inbox/SyncStatusPanel'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
 import { MAILBOX_STATUS_LABELS, MAILBOX_STATUS_VARIANTS } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
@@ -102,7 +101,14 @@ function getStatusIcon(status: MailboxStatus) {
 
 function formatLastSync(lastSyncAt: string | null): string {
   if (!lastSyncAt) return 'Nooit gesynchroniseerd'
-  return new Date(lastSyncAt).toLocaleString()
+  const date = new Date(lastSyncAt)
+  if (Number.isNaN(date.getTime())) return 'Nooit gesynchroniseerd'
+  return date.toLocaleString('nl-NL', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 type InboxSettingsAlert =
@@ -492,8 +498,6 @@ export default function InboxSettings() {
             </TableBody>
           </Table>
         </Card>
-
-        <SyncStatusPanel className="mt-4" />
 
         <Dialog.Root open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
           <Dialog.Portal>
