@@ -5,8 +5,8 @@ Minimal repo: Bokito portal (React dashboard) and the embeddable chat widget, de
 ## Layout
 
 - `apps/dashboard` — portal (Vite + React). Build output: `apps/dashboard/dist/`.
-- `apps/chat-widget` — public embed script and static assets (`bokito-chat.js`, demos). No production bundle step; files are copied into the dashboard build before upload.
-- `deploy.ps1` — `npm run build:static` in dashboard (Vite only; run `npm run build` locally when you want full `tsc` + Vite), merge `chat-widget` into `dist/chat-widget/`, zip `dist/`, upload and activate on Xano (Metadata API).
+- `apps/chat-widget` — embeddable livechat widget (TypeScript + Vite). Source under `src/`; run `npm run build` to produce `dist/bokito-chat.js` (IIFE) plus copied `public/` assets. Root `deploy.ps1` merges that `dist/` output into `apps/dashboard/dist/chat-widget/` before zipping.
+- `deploy.ps1` — `npm run build:static` in dashboard (Vite only; run `npm run build` locally when you want full `tsc` + Vite), `npm run build` in `apps/chat-widget`, merge `apps/chat-widget/dist/` into `dist/chat-widget/`, zip `dist/`, upload and activate on Xano (Metadata API).
 
 ## Local development
 
@@ -23,6 +23,7 @@ npm run dev
 ```powershell
 cd apps\chat-widget
 npm install
+npm run build
 npm run dev
 ```
 

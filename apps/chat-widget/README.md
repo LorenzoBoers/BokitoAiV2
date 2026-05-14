@@ -2,12 +2,13 @@
 
 ## Deploy artifact (source of truth)
 
-- **Production script:** [`bokito-chat.js`](./bokito-chat.js) — full-featured embed (stream-chat SSE, attachments, voice, settings, Happy Bokito launcher, etc.). This is what Xano static hosting and `api:livechat/script/main` should serve.
-- **Legacy / alternate:** [`js/chat-module.js`](./js/chat-module.js) — smaller, older build. Do **not** use for new integrations unless you explicitly maintain that path. Prefer `bokito-chat.js` for parity with the mobile app and current backend.
+- **Production script:** run `npm run build` in this folder; Vite emits **`dist/bokito-chat.js`** (IIFE: stream-chat SSE, attachments, voice, settings, Happy Bokito launcher, etc.). Static files from **`public/`** (for example `css/`, `assets/`) are copied into `dist/`. This bundle is what Xano static hosting and `api:livechat/script/main` should serve (merged into the portal zip by root `deploy.ps1`).
+- **Source:** [`src/widget-main.ts`](./src/widget-main.ts) (bootstrap in [`src/index.ts`](./src/index.ts)); livechat URL helpers live under [`src/api/`](./src/api/).
+- **Legacy / alternate:** [`js/chat-module.js`](./js/chat-module.js) — smaller, older build. Do **not** use for new integrations unless you explicitly maintain that path. Prefer the Vite bundle for parity with the mobile app and current backend.
 
 ## Shared branding
 
-Launcher and header avatar art (with blink animation) are kept in sync with [`../shared_components/Happy bokito.svg`](../shared_components/Happy%20bokito.svg). After editing that file, copy the SVG fragment into the `#render()` template in `bokito-chat.js` (launcher + `.bk-avatar-logo`).
+Launcher and header avatar art (with blink animation) are kept in sync with [`../shared_components/Happy bokito.svg`](../shared_components/Happy%20bokito.svg). After editing that file, copy the SVG fragment into the `#render()` template in `src/widget-main.ts` (launcher + `.bk-avatar-logo`).
 
 ## Local preview (widget files local, chat API on Xano)
 
@@ -16,17 +17,20 @@ Recommended:
 ```bash
 cd apps/chat-widget
 npm install
+npm run build   # required at least once so dist/bokito-chat.js exists
 npm run dev
 ```
 
-This runs **Vite** on `http://127.0.0.1:8787` and opens your **system default browser**. Edit `bokito-chat.js` or HTML here; save and refresh. The widget still talks to your **Xano** instance (`api_url` / `data-api-url`), so you need network access to Xano, not an offline mock. If the port is busy (for example an old `serve` on 8787), stop that process or change `server.port` in [`vite.config.mjs`](./vite.config.mjs).
+This runs **Vite** on `http://127.0.0.1:8787` and opens your **system default browser**. [`chat-standalone.html`](./chat-standalone.html) loads **`/bokito-chat.js`** from the last `npm run build` output (served by a small dev plugin). Edit `src/widget-main.ts` or HTML; after TS changes run **`npm run build`** again and refresh. The widget still talks to your **Xano** instance (`api_url` / `data-api-url`), so you need network access to Xano, not an offline mock. If the port is busy (for example an old `serve` on 8787), stop that process or change `server.port` in [`vite.config.ts`](./vite.config.ts).
 
 **Cursor / VS Code Simple Browser:** opening `http://localhost:8787` in the built-in Simple Browser tab often shows a **blank white page** even when the server is fine (webview / localhost quirks). Use the browser window that `npm run dev` opens, or open the same URL manually in Chrome or Edge.
 
-**Alternative:** any static server works (for example `npx serve -l 8787`), then open the root URL in an external browser.
+**Dashboard dev:** the portal Vite server serves `/chat-widget/*` from **`apps/chat-widget/dist/`** only. Build the widget (`npm run build` here) before loading `/chat-widget/bokito-chat.js` from the dashboard.
+
+**Alternative:** any static server works (for example `npx serve -l 8787` pointed at `dist/`), then open the URL in an external browser.
 
 - [`index.html`](./index.html) — hub with links to all local demos.
-- [`chat-standalone.html`](./chat-standalone.html) loads `./bokito-chat.js` like a real embed.
+- [`chat-standalone.html`](./chat-standalone.html) loads `/bokito-chat.js` like a real embed (after a local build).
 
 ## Livechat stream endpoints (optional)
 
@@ -36,7 +40,7 @@ Optional `agent_config.transcribe_path` overrides the default `POST /api:livecha
 
 ## Multi-tenant auth flow
 
-`bokito-chat.js` now supports tenant/user-aware auth bootstrapping:
+The widget supports tenant/user-aware auth bootstrapping:
 
 - **Host auth cookie:** set `data-auth-cookie-name="host_auth_cookie"` and the widget reads `document.cookie` to forward `host_auth_token` in `POST /api:livechat/session/start`.
 - **Host subdomain routing:** on tenant hosts like `foo.bokito.ai`, the widget forwards `tenant_subdomain: "foo"` in `POST /api:livechat/session/start` so backend tenant resolution can stay host-driven.

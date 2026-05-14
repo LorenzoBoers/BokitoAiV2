@@ -1,6 +1,6 @@
 # Multi-Tenant Livechat Backend Contract
 
-This file defines the backend contract expected by `apps/chat-widget/bokito-chat.js` for tenant-aware auth and user-scoped chat data.
+This file defines the backend contract expected by the Bokito chat widget (`apps/chat-widget/src/widget-main.ts`, built to `dist/bokito-chat.js`) for tenant-aware auth and user-scoped chat data.
 
 ## Session start
 

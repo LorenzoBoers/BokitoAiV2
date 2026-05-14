@@ -4,7 +4,7 @@
 
 ### Repo-scope (bokitoAiV2)
 
-Deze repository bevat alleen `apps/dashboard` (portal) en `apps/chat-widget`. Deploy naar Xano static hosting gebeurt met rootscript `deploy.ps1`: `npm run build:static` (Vite; zonder `tsc` zolang de repo geen schone typecheck heeft), merge van `apps/chat-widget` naar `dist/chat-widget/`, zip van `dist/`, upload via Metadata API `POST .../static_host/{host}/build`, activatie via `POST .../static_host/{host}/build/{build_id}/env` met JSON `{"env":"dev"|"prod"}` (geen UTF-8 BOM in de body). Omgevingvariabelen: o.a. `XANO_METADATA_API_KEY`, `XANO_META_BASE_URL`, `XANO_DASHBOARD_STATIC_HOST_NAME` (host-slug zoals in de Xano-UI, bijv. `bokitoapp`), en `XANO_WEBSITEWORKSPACE_ID` tenzij de portal-host in een andere workspace staat — dan `XANO_DASHBOARD_WORKSPACE_ID` zetten. Fallback workspace: `XANO_WIDGET_WORKSPACE_ID`. Regels in `.env` overschrijven altijd eerder gezete Process-variabelen zodat een gewijzigde host-naam direct wordt opgepikt. Schakel `-BothEnvs` in om dezelfde build op dev en prod te activeren. Mobiele app, marketingwebsite en overige apps staan niet in deze map.
+Deze repository bevat alleen `apps/dashboard` (portal) en `apps/chat-widget`. Deploy naar Xano static hosting gebeurt met rootscript `deploy.ps1`: `npm run build:static` (Vite dashboard; zonder `tsc` zolang de repo geen schone typecheck heeft), daarna `npm run build` in `apps/chat-widget` (IIFE `dist/bokito-chat.js` plus `public/` assets), merge van de inhoud van `apps/chat-widget/dist/` naar `apps/dashboard/dist/chat-widget/`, zip van `dist/`, upload via Metadata API `POST .../static_host/{host}/build`, activatie via `POST .../static_host/{host}/build/{build_id}/env` met JSON `{"env":"dev"|"prod"}` (geen UTF-8 BOM in de body). Omgevingvariabelen: o.a. `XANO_METADATA_API_KEY`, `XANO_META_BASE_URL`, `XANO_DASHBOARD_STATIC_HOST_NAME` (host-slug zoals in de Xano-UI, bijv. `bokitoapp`), en `XANO_WEBSITEWORKSPACE_ID` tenzij de portal-host in een andere workspace staat — dan `XANO_DASHBOARD_WORKSPACE_ID` zetten. Fallback workspace: `XANO_WIDGET_WORKSPACE_ID`. Regels in `.env` overschrijven altijd eerder gezete Process-variabelen zodat een gewijzigde host-naam direct wordt opgepikt. Schakel `-BothEnvs` in om dezelfde build op dev en prod te activeren. Mobiele app, marketingwebsite en overige apps staan niet in deze map.
 
 **Custom domain (Cloudflare) en Xano prod-URL:** Het actieve portal-build op static host `bokitoapp` wordt op Xano uitgeserveerd onder hostnamen als `bokitoapp-prod-{instance}.f2.xano.io` (prod) en `bokitoapp-dev-{instance}.f2.xano.io` (dev). Een oudere hostname `widget-prod-{instance}.f2.xano.io` kan nog steeds het **vorige** portal-artifact (bijv. `Last-Modified` van een eerdere deploy) serveren en komt **byte-voor-byte** overeen met `https://app.bokito.ai` als die custom domain in Cloudflare nog naar `widget-prod-*` wijst i.p.v. naar `bokitoapp-prod-*`. Controle: vergelijk `curl -sI https://app.bokito.ai` met `curl -sI https://bokitoapp-prod-….f2.xano.io` (zelfde `ETag` / `Last-Modified` = zelfde origin). Na DNS/CNAME-correctie eventueel Cloudflare cache purge voor `app.bokito.ai` en `/*`. Snelle UI-check: het productie-JS-bundle (`/assets/index-*.js` vanaf `/login`) bevat `build:` en `APP_VERSION` zodra de nieuwe portal actief is; ontbreken die literal strings, dan draait de browser nog op een oud artifact (vaak verkeerde CNAME/Worker-upstream). API-gestuurde CNAME-wijziging: `scripts/update-cloudflare-app-cname.ps1` met `CLOUDFLARE_API_TOKEN` (Zone.DNS Edit).
 
@@ -28,20 +28,25 @@ Bokito is een AI-platform waarmee bedrijven (voornamelijk SMBs) AI-agents kunnen
 |---|---|---|
 | **Dashboard (portal)** | React webapp | Admin / operations manager |
 | **Mobiele app** | Expo (React Native) | Eindgebruiker / medewerker |
-| **Chat widget** | Vanilla JS embed | Websitebezoeker / klant |
+| **Chat widget** | TypeScript + Vite IIFE embed | Websitebezoeker / klant |
 | **Website** | Statische marketing site | Potentiële klant |
 
 Op de marketing website (`apps/website`) tonen de hoofdnavigatie (Navbar) tijdelijk geen links naar `/pricing` en `/kennisbank`; die pagina’s blijven bereikbaar via directe URL.
 
-Tech stack: React + TypeScript + Vite + Tailwind (dashboard), Expo + React Native (mobile), Vanilla JS (widget). Backend: Xano (API, database, agents, MCP server).
+Tech stack: React + TypeScript + Vite + Tailwind (dashboard), Expo + React Native (mobile), TypeScript + Vite IIFE (widget). Backend: Xano (API, database, agents, MCP server).
 
-**Chat-widget lokaal:** In `apps/chat-widget` draai `npm install` en `npm run dev` (Vite op `http://127.0.0.1:8787`, opent de systeembrowser). Widgetcode is lokaal; livechat-requests gaan naar Xano (`api_url` / query op [`chat-standalone.html`](apps/chat-widget/chat-standalone.html)). De ingebouwde **Simple Browser**-tab in Cursor/VS Code toont bij localhost vaak een wit scherm; gebruik Chrome/Edge of het venster dat Vite opent. Zie [`apps/chat-widget/README.md`](apps/chat-widget/README.md).
+**Chat-widget lokaal:** Bron staat onder `apps/chat-widget/src/` (ingang `index.ts`, hoofdlogica `widget-main.ts`); productiebundle is `apps/chat-widget/dist/bokito-chat.js` na `npm run build`. In `apps/chat-widget` draai `npm install`, daarna `npm run build` (minstens eenmalig vóór standalone test) en `npm run dev` (Vite op `http://127.0.0.1:8787`, opent de systeembrowser). [`chat-standalone.html`](apps/chat-widget/chat-standalone.html) laadt `/bokito-chat.js` (uit `dist/` wanneer aanwezig). Voor **dashboard dev** (`apps/dashboard`) met `/chat-widget/bokito-chat.js`: bouw eerst de widget zodat `apps/chat-widget/dist/bokito-chat.js` bestaat; de Vite-middleware serveert alleen uit die `dist/`. Livechat-requests gaan naar Xano (`api_url` / `data-api-url`). De ingebouwde **Simple Browser**-tab in Cursor/VS Code toont bij localhost vaak een wit scherm; gebruik Chrome/Edge of het venster dat Vite opent. Zie [`apps/chat-widget/README.md`](apps/chat-widget/README.md). Livechat- en gerelateerde paden worden centraal gebouwd in `apps/chat-widget/src/api/livechat-url.ts` en `livechat.routes.ts` (zie `.cursor/rules/chat-widget-api-routes.mdc`).
 
 **Broncode (GitHub):** monorepo onder [github.com/BokitoAI/Bokito-AI](https://github.com/BokitoAI/Bokito-AI) (`origin`).
 
 ---
 
 ## 2. Dashboard – Pagina's & Features
+
+### Frontend API-laag (portal)
+- Build-time omgeving en Xano API-groep-bases staan in `apps/dashboard/src/lib/api.config.ts` (`VITE_XANO_BASE_URL`, `VITE_API_GROUP_*`, same-origin paden `/api/{canonical}/...` via de Vite-proxy of productie-workers).
+- Relatieve paden per groep (bijv. `/workspaces`, `/inbox/threads`, `/auth/refresh` op de auth-base) staan centraal in `apps/dashboard/src/api/routes/` (`auth.routes.ts`, `app.routes.ts`, `integrations.routes.ts`, `workforce.routes.ts`) en in `apps/dashboard/src/api/url.ts` voor query-strings. Featurecode en `lib/*-api.ts` importeren daaruit; `lib/xano.ts` blijft transport (fetch, headers, cookies).
+- Richtlijn voor agents: `.cursor/rules/frontend-api-env-pattern.mdc` en `apps/dashboard/docs/API.md`.
 
 ### 2.1 Login (`/login`)
 - E-mail + wachtwoord login via Xano `POST /auth/login`
@@ -416,7 +421,9 @@ Of via `<iframe>` wijzend naar `/chat/embed?agent=...`
 - De widget gebruikt de API-host van `data-api-url` of leidt die af uit de script-URL (stuk voor `/api:livechat`), en normaliseert trailing slashes. Dit voorkomt dat berichten naar een verkeerde host of dubbele URL gaan bij inject-embeds.
 
 ### 4.2 Features
-- **Launcher**: zwevende knop met "Happy Bokito" monkey-face SVG + knipperanimatie, optionele labeltekst
+- **Widget chrome (Featurebase/Intercom-achtig)**: geen buitenrand op het venster; **24px** hoekradius en diepe schaduw. De **atmosfeerlaag** (`.bk-window::before`) is configureerbaar en mengt standaard het **accent** (`--bk-primary`) met de **achtergrond** (`--bk-bg`) via `color-mix` (geen donkere bovenkap in light mode). Hoogte via `--bk-atmosphere-height` / `--bk-atmosphere-min-height`; optioneel tenant-override, zie **`agent_config.theme`** hieronder. **Header-avatar** (logo-links): in **light mode** witte cirkel (`--bk-bg-surface`), dunne rand en minimale schaduw; in **dark mode** blijft de groene gloed/inset. **Home**: ruimere welkomstypografie; **Nieuw gesprek** als glazen kaart. **Open launcher**: header en home met `bk-header-in`; `prefers-reduced-motion` schakelt animaties uit.
+- **`agent_config.theme` (accent + atmosfeer + launcher)**: na `session/start` zet `#applyAgentTheme` o.a. `main_color` / `primary_color` op `--bk-primary` en leidt **`--bk-primary-dark`** (gedimd) en **`--bk-primary-light`** (`rgba` uit het accent) af. Optionele velden (alleen gezet als geldig / veilig): `atmosphere_height` en `atmosphere_min_height` (CSS-lengte-strings), samen `atmosphere_height_pct` (1–100) en `atmosphere_max_px` (80–900) voor `min(pct%, px)`, `atmosphere_intensity` (0–1) met `atmosphere_linear_fade_end_pct` (JS bouwt dan `--bk-window-atmosphere-bg` na gebruikersthema zodat `--bk-bg` klopt), `atmosphere_background` (volledige CSS `background`; overschrijft gegenereerde atmosfeer; geen `url()`/`@import`/script), `text_color` (`--bk-text-inverse`), `dark_light_mode` (`light`|`dark` forceert `data-theme` op de host). De **launcher** gebruikt **`--bk-launcher-ring`**, lichte launcher-skin in light mode en `--bk-launcher-close-color` voor het sluit-icoon.
+- **Launcher**: zwevende knop (standaard **58px** diameter via `--bk-bubble-size`; chat- en sluit-iconen iets kleiner t.o.v. de knop) met "Happy Bokito" monkey-face SVG + knipperanimatie, optionele labeltekst
 - **Sleepbare launcher**: bezoeker kan de launcher verslepen langs de onderkant en rechterrand (L-vormig rail incl. hoek). Positie wordt opgeslagen in `localStorage` onder key `bokito_widget_pos` (`{edge:'bottom'|'right', offset:number, savedAt}`). Drempel van 6px onderscheidt klik van drag. Werkt ook op mobiel; window opent op mobiel altijd fullscreen.
 - **Slimme open-positie van het chat-window**: `#computeWindowAnchor` kiest horizontale (`left`/`right`) en verticale (`top`/`bottom`) ankerkant op basis van launcher-centrum t.o.v. viewport-midden, en zet bijpassende `transform-origin` zodat de spring-in animatie vanuit de launcher-hoek komt.
 - **SSE-streaming**: AI-antwoorden real-time karakter voor karakter gestreamd
@@ -424,7 +431,7 @@ Of via `<iframe>` wijzend naar `/chat/embed?agent=...`
 - **Voiceinput**: spraakherkenning (benoemd in README)
 - **Startervragen / suggestiechips**
 - **Chatgeschiedenispersistentie**: via `localStorage`
-- **Dark/light mode**: adapteert aan browser `prefers-color-scheme`
+- **Dark/light mode**: adapteert aan browser `prefers-color-scheme`; gebruikers kiezen **licht / donker / systeem** via instellingen (`bokito_theme`). In het **account-popover** staat een **knop** met zon-/maan-icoon en tekst **Donkere modus** of **Lichte modus** (naar de tegenovergestelde modus); die zet `bokito_theme` op `dark` of `light`. De **header** heeft een hogere `z-index` dan het home-paneel zodat het popover boven o.a. de CTA blijft. Scrollketen: `.bk-home-content` vult het paneel zonder zelf te scrollen; het **Home**-tabblad scrollt in `.bk-home-tab[data-tab="home"]`; op **Berichten** scrollt alleen `.bk-conv-list` zodat de tabnav vast blijft. **Powered by**-rij onderaan krijgt `padding-bottom` met `env(safe-area-inset-bottom)` zodat iOS-home-indicator geen dubbele inset samen met de tabbalk veroorzaakt.
 - **PII-filter**: verwijdert e-mailadressen, creditcardnummers, 9-cijferige IDs, telefoonnummers uit berichten voor verzending
 - **MarkdownRenderer**: verwerkt bold, italic, code, links, lijsten in AI-antwoorden
 - **Identiteitstoken (SSO)**: `identityTokenGetter` callback voor ingelogde gebruikers
@@ -432,6 +439,12 @@ Of via `<iframe>` wijzend naar `/chat/embed?agent=...`
 - **Configuratie via `data-*` attributen**: `data-agent-slug`, `data-bot-name`, `data-primary-color`, `data-position`
 - **Multi-tenant auth bootstrap**: widget kan host-auth overnemen via `data-auth-cookie-name`, `data-auth-token` of `window.BokitoConfig.getAuthToken()`, en stuurt dan `host_auth_token` mee naar `session/start`.
 - **Auth modes**: `anonymous`, `optional`, `required` worden ondersteund via backend `agent_config.auth_mode` of `data-auth-mode`.
+- **Home vs chat**: Op het startscherm staan tabknoppen onderaan; in actieve chat neemt de invoerbalk die plek in. **Terug naar menu** staat als pijlknop links in de header (zichtbaar zodra het chat-paneel open is, los van state-machine edge cases zoals `error`). Bij open instellingen: eerst instellingen sluiten, anders terug naar het hoofdmenu via state `home`. De regel **Powered by Bokito AI** staat onderaan het venster (niet alleen onder de home-tabs), verborgen op het inlogscherm en wanneer instellingen open zijn; de regel is een link naar `https://bokito.ai` (nieuw tabblad).
+- **Host-user resolutie voor avatar/popover**: omdat `POST /api:livechat/session/start` geen `data.user` retourneert, haalt de widget de logged-in user apart op:
+  - Eerst inline via `window.BokitoConfig.user` of `getUser()` (preferred, zonder extra request).
+  - Anders via `GET /api:DavdZOps/auth/me` met `Authorization: Bearer <host_auth_token>`. URL is overrideable via `data-host-me-url` of `BokitoConfig.hostMeUrl`.
+  - Het resultaat wordt gemerged in `#sessionUser` zodat avatar, initialen en popover de echte naam/email/avatar tonen.
+- **Dashboard \u2192 widget bridge** (`apps/dashboard/src/lib/widget-bridge.ts`): `AuthProvider` publiceert de huidige user naar `window.__bokito_dashboard_user__`; `main.tsx` zet `BokitoConfig.getUser()` als reader. Embedded widget mount krijgt `data-auth-mode="optional"`.
 - **Login fallback in widget**: bij verplichte auth zonder geldig token toont de widget een ingebouwd e-mail/wachtwoord formulier (`POST /api:livechat/auth/login`).
 - **User preferences sync**: bij beschikbare API gebruikt de widget `GET/PATCH /api:livechat/user/preferences` met localStorage als cache/fallback.
 - **Authenticated history first**: de widget probeert eerst `GET /api:livechat/user/conversations` en valt terug naar `customer/conversations`.
@@ -560,7 +573,7 @@ Zichtbaar in navigatie maar nog niet gebouwd:
 - Buckets zijn altijd gekoppeld aan één organisatie; cross-organisatie toegang is niet standaard mogelijk
 - OCR-verwerking vindt asynchroon plaats na upload
 - Agents kunnen alleen data ophalen uit buckets waarvoor ze expliciet toegang hebben
-- Dashboard-data is momenteel grotendeels mock; live API-calls zijn alleen auth (`/auth/login`, `/auth/me`)
+- Dashboard-data combineert live Xano-calls (o.a. auth, workspaces, integrations/inbox/e-mail, workforce, custom DB waar geimplementeerd) met mock of UI-only waar nog geen backend is
 - Mobiele app en widget communiceren volledig live via Xano livechat API (`/api:livechat/`)
 
 ---
@@ -624,7 +637,7 @@ Livechat ondersteunt **twee server-side pipelines** naast elkaar. Clients blijve
 
 **Incrementele UI-streaming:** Widget en mobiel **renderen elke `t`-chunk live** (widget: `textContent` tijdens de stream, daarna markdown bij `done`; mobiel: `parseSseStream` `onDelta` + tijdelijk AI-bericht met status `processing`, daarna `sent`). Voor zichtbare woord-voor-woord streaming moet de backend **meerdere** `t`-events emitten (Xano agent streaming forwarden of response in segmenten knippen). **Client-side smoothing:** als er géén `t`-events waren en alleen `done` met `content`, knipt de widget de tekst in stukjes en toont die met korte delays (`#sseMaybeSimulateClientChunks`); uitschakelbaar met `data-client-simulate-stream="false"` of query `bk_sse_smooth=0` bij auto-mount. Mobiel: zelfde idee na `parseSseStream` wanneer `hadTokenEvents` false (`splitTextForClientSim` + `onDelta`).
 
-**Repo-clients:** [`apps/chat-widget/bokito-chat.js`](apps/chat-widget/bokito-chat.js) en de mobiele app ([`apps/mobile/src/context/ChatContext.tsx`](apps/mobile/src/context/ChatContext.tsx) + [`parseSseStream` / `livechatStreamPaths`](apps/mobile/src/api/streamChat.ts)) gebruiken `stream_chat_path` / `stream_chat_continue_path` wanneer Xano die zet.
+**Repo-clients:** de gebouwde widget (`npm run build` in `apps/chat-widget`, uitvoer `dist/bokito-chat.js`; bron [`apps/chat-widget/src/widget-main.ts`](apps/chat-widget/src/widget-main.ts)) en de mobiele app ([`apps/mobile/src/context/ChatContext.tsx`](apps/mobile/src/context/ChatContext.tsx) + [`parseSseStream` / `livechatStreamPaths`](apps/mobile/src/api/streamChat.ts)) gebruiken `stream_chat_path` / `stream_chat_continue_path` wanneer Xano die zet.
 
 **Xano-implementatiechecklist (handmatig in workspace):**
 
@@ -632,7 +645,7 @@ Livechat ondersteunt **twee server-side pipelines** naast elkaar. Clients blijve
 2. **`session/start`:** merge deze waarden in `agent_config`.
 3. **`stream-chat`:** `if chat_pipeline == xano_native` → laad conversatie + berichten, append user message, **Run AI Agent** met history, sla assistent-bericht op, stream SSE met **incrementele** `t`-chunks zodra het model tekst produceert, afsluiten met `done`; `else` → bestaande stack.
 4. **`stream-chat-continue`:** alleen relevant voor legacy `page_context_needed`; native tak kan dezelfde handler laten of een no-op die direct `done` stuurt als je ooit per ongeluk continue aanroept.
-5. **Realtime / tool-stappen (pariteit, optioneel):** de widget luistert naar `tool_started`, `tool_completed`, `tool_error` op het conversation-kanaal ([`#handleRealtimeEvent`](apps/chat-widget/bokito-chat.js)). Als de native agent tools uitvoert, emitteer dezelfde `event_type` + `object` als legacy zodat “thinking steps” zichtbaar blijven; anders blijft alleen de denk-indicator zonder substappen.
+5. **Realtime / tool-stappen (pariteit, optioneel):** de widget luistert naar `tool_started`, `tool_completed`, `tool_error` op het conversation-kanaal ([`#handleRealtimeEvent`](apps/chat-widget/src/widget-main.ts)). Als de native agent tools uitvoert, emitteer dezelfde `event_type` + `object` als legacy zodat “thinking steps” zichtbaar blijven; anders blijft alleen de denk-indicator zonder substappen.
 
 **Testen:** gebruik een **aparte `agent_slug`** (bijv. `demo-native`) met `chat_pipeline: "xano_native"` zodat productie-slugs op legacy blijven. Vergelijk gedrag met [`apps/chat-widget/chat-standalone.html`](apps/chat-widget/chat-standalone.html) en de mobiele app.
 
@@ -642,7 +655,7 @@ Livechat ondersteunt **twee server-side pipelines** naast elkaar. Clients blijve
 
 **faster-whisper draait niet in de Xano-runtime.** De repo bevat een aparte **ASR-worker**: [`apps/asr-service/`](apps/asr-service/) (FastAPI + [faster-whisper](https://github.com/SYSTRAN/faster-whisper)). Xano exposeert `POST /api:livechat/transcribe` (of een override via `agent_config.transcribe_path`) en proxy’t de audio naar die worker met een gedeeld geheim.
 
-**Widget:** [`apps/chat-widget/bokito-chat.js`](apps/chat-widget/bokito-chat.js) en [`apps/chat-widget/js/chat-module.js`](apps/chat-widget/js/chat-module.js) uploaden na bevestigen van de opname een **webm**-blob als multipart (`audio`), met form fields `session_token` en `language` (`nl`), en header `Authorization: Bearer <session_token>`. Als de server geen bruikbare `text` teruggeeft, valt de client terug op de **Web Speech API**-tekst (indien beschikbaar).
+**Widget:** [`apps/chat-widget/src/widget-main.ts`](apps/chat-widget/src/widget-main.ts) en [`apps/chat-widget/js/chat-module.js`](apps/chat-widget/js/chat-module.js) uploaden na bevestigen van de opname een **webm**-blob als multipart (`audio`), met form fields `session_token` en `language` (`nl`), en header `Authorization: Bearer <session_token>`. Als de server geen bruikbare `text` teruggeeft, valt de client terug op de **Web Speech API**-tekst (indien beschikbaar).
 
 **Workspace environment variables (Xano):**
 
@@ -841,14 +854,30 @@ Uitbreiding van het platform met een volledige multichannel inbox, AI-communicat
   - Endpoints zijn idempotent en auth-required:
     - `POST /api:integrations/inbox/threads/{thread_id}/pin` (id 234)
     - `DELETE /api:integrations/inbox/threads/{thread_id}/pin` (id 235)
-  - `GET /inbox/threads` decoreert elk item met `is_pinned` via een join op `inbox_thread_pin` voor de huidige user en plaatst gepinde items bovenaan de page (binnen de queue-filter; gepinde gesloten thread verschijnt dus alleen in `pinned` of `closed`, niet in `open`). Een nieuwe `view=pinned` toont alle gepinde threads ongeacht status.
-  - `GET /inbox/threads/{thread_id}` voegt `is_pinned` toe aan het thread-object zodat het detail-scherm de pin-status kent.
+    - `GET /api:integrations/inbox/pins` (id 236) - returnt `{ thread_ids: number[] }` voor de huidige user (organisatie-scoped). Dashboard gebruikt deze lijst voor client-side decoratie.
+  - **Architectuur**: pin-decoratie en sortering gebeuren CLIENT-SIDE in de dashboard (hook `usePinnedIds` + `useThreads` + `useThreadDetail`). De Xano endpoints `GET /inbox/threads` (id 223) en `GET /inbox/threads/{id}` (id 224) bevatten GEEN `is_pinned` veld in hun response - dat field wordt op de frontend toegevoegd door de set van pinned thread ids te joinen met de fetched threads.
+    - Reden: een eerdere implementatie deed de decoratie server-side via inline `|map:|set:|in:` filter-expressies, maar dat trigger Xano runtime errors ("1st operand must be one of these types: text, bool") wanneer `$pinned_ids` leeg was. Coercion met `|to_bool` of refactor naar `array.map`/`array.filter` statements loste het niet betrouwbaar op. Client-side join is robuuster, simpler en performant op moderate listsizes.
+  - `view=pinned` blijft wel server-side: `GET /inbox/threads?view=pinned` (id 223) haalt eerst de pinned thread ids op uit `inbox_thread_pin` voor de huidige user, walks daarna elke id af met `db.get inbox_thread` in een `foreach`-lus en pusht gevonden rijen in een items-array (gefilterd op `organisation_id`). De response volgt dezelfde paged shape als de andere views (`{items, itemsTotal, curPage, ...}`). Joins en array-IN where-clausules zijn beide vermeden — zie Xano-valkuilen 3 en 4.
+  - **Xano-valkuil 1**: alle endpoints die `inbox_thread_pin` queryen (223 view=pinned, 234, 235, 236) zetten `$auth.id|to_int` eerst in een `$user_id` variabele. Dezelfde piped-expressie inline in een `db.query` `where` clausule (`$db.inbox_thread_pin.user_id == ($auth.id|to_int)`) triggert een runtime error `"1st operand must be one of these types: text, bool"` ondanks dat `$auth.id|to_int` perfect werkt in `db.get user`'s `field_value`. Vermoedelijke bug in deze specifieke combo van filter-expressie + tableref-veld.
+  - **Xano-valkuil 2**: de `|map:$$.field` filter-vorm returnt `null` per element op deze workspace, ook als de bron-array gevulde rijen bevat. Workaround: gebruik de `array.map` statement (met `$this`) i.p.v. de `|map:` filter:
+    ```xs
+    array.map ($rows) {
+      by = $this.thread_id
+    } as $thread_ids
+    ```
+    Toegepast op endpoint 236 en de `view=pinned` branch in endpoint 223.
+  - **Xano-valkuil 3**: joins met `inbox_thread_pin` (`$db.inbox_thread_pin.X` referenties in een `join.where`) gaven `"Unsupported parameter reference - inbox_thread_pin.thread_id"`. Workaround: vermijd joins voor deze tabel; doe een aparte `db.query` voor de pin-rijen en koppel daarna in een tweede stap.
+  - **Xano-valkuil 4**: `where = $arr|in:$db.X.id` (filter-syntax in een db.query where-clausule) wordt door Xano niet als IN-conditie geparsed maar als single-param vergelijking met de array zelf, met als gevolg `"ParseError: Invalid value for param:[2,35]"`. Het IN-patroon is op deze workspace niet betrouwbaar via xanoscript filter-expressies. Workaround: gebruik een `foreach ($ids) { each as $id { db.get ... } }` lus en push gevonden rijen in een result array — werkt prima voor kleine sets (zoals de typische pinned-set per user).
+  - Sortering: pinned items worden in `useThreads` naar de top gesorteerd (binnen de huidige page), daarna op `lastMessageAt DESC`.
   - Sidebar heeft onder "Alle kanalen" een nieuwe entry "Gepind" (Lucide `Pin` icon).
+  - ThreadDetail header heeft een eigen pin/unpin button (`Pin`/`PinOff` icon, accent kleur wanneer gepind). Toggle delegeert naar dezelfde optimistic flow als de list dropdown via `addPin`/`removePin` op de gedeelde `usePinnedIds` state.
 - Thread indicator dropdown menu (links van afzendernaam):
   - Geïmplementeerd in [`apps/dashboard/src/components/inbox/ThreadIndicatorMenu.tsx`](apps/dashboard/src/components/inbox/ThreadIndicatorMenu.tsx) op basis van Radix `DropdownMenu`.
   - Visueel: gepind = roterende `Pin` icon (accent), ongelezen = gevulde accent dot, anders transparante placeholder.
   - Hover op de thread-rij toont een subtiele ring rond de indicator (`group-hover/thread:ring-1`) zodat duidelijk is dat de indicator klikbaar is. Klik opent dropdown met contextuele items: "Markeer als gelezen / ongelezen" + "Pinnen / Losmaken".
   - Klik op de indicator selecteert NIET de thread (`stopPropagation`); klik elders op de rij doet dat wel. Optimistic updates met rollback worden afgehandeld in `Communication.tsx` (`handleListMarkRead`, `handleListMarkUnread`, `handleListTogglePin`).
+- Thread detail error feedback:
+  - Wanneer `GET /inbox/threads/{id}` faalt (bijv. backend 4xx/5xx), toont `ThreadDetail` een expliciet error state met `AlertCircle` icoon, het thread id, de error message en een "Opnieuw proberen" button die `refresh` (refetch) triggert. Dit voorkomt het oude gedrag waarbij een failure stilletjes terugviel naar de "Selecteer een thread" placeholder waardoor backend issues onzichtbaar bleven.
 
 ### 10.3 AI Communicatie Assistent (PRD sectie 12)
 - Semi-autonome modus: confidence > drempel (0.85 default) = auto-reply, anders suggestie

@@ -6,7 +6,9 @@
  *           data-api-url="https://xrex-nmji-j9ur.f2.xano.io"
  *           defer></script>
  */
-'use strict';
+// @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
+import { livechatHttpUrl, normalizeLivechatApiBase, realtimeWebSocketUrl, xanoApiGroupUrl } from './api/livechat-url'
+import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatRoutes } from './api/livechat.routes'
 
 /* ── Markdown renderer ──────────────────────────────────────── */
 class MarkdownRenderer {
@@ -98,7 +100,7 @@ class ApiClient {
   #hostAuthTokenGetter; #authModeGetter; #authCookieNameGetter;
 
   constructor({ baseUrl, agentSlug, stateMachine, onSessionExpired, identityTokenGetter, hostAuthTokenGetter, authModeGetter, authCookieNameGetter }) {
-    this.#baseUrl = baseUrl.replace(/\/$/, '');
+    this.#baseUrl = normalizeLivechatApiBase(baseUrl);
     this.#agentSlug = agentSlug;
     this.#stateMachine = stateMachine;
     this.#onSessionExpired = onSessionExpired;
@@ -132,7 +134,7 @@ class ApiClient {
       if (authMode) body.auth_mode = authMode;
       if (authCookieName) body.auth_cookie_name = authCookieName;
       if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
-      const r = await fetch(`${this.#baseUrl}/api:livechat/session/start`, {
+      const r = await fetch(livechatHttpUrl(this.#baseUrl, livechatRoutes.session.start), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -146,7 +148,7 @@ class ApiClient {
   }
 
   async request(path, opts = {}) {
-    const url = `${this.#baseUrl}/api:livechat/${path}`;
+    const url = livechatHttpUrl(this.#baseUrl, path);
     const o = { ...opts, headers: this.#authHeaders(opts.headers) };
     let r = await fetch(url, o);
     if (r.status === 401) {
@@ -165,7 +167,7 @@ class ApiClient {
       `%c[Bokito API] ${method} /${path} → ${r.status}`,
       'color:#EF4444;font-weight:bold',
       '\nResponse body:', body,
-      '\nURL:', `${this.#baseUrl}/api:livechat/${path}`,
+      '\nURL:', livechatHttpUrl(this.#baseUrl, path),
     );
     return body;
   }
@@ -385,16 +387,16 @@ const WIDGET_CSS = `
   --bk-bg-hover:      #F0F7F4;
   --bk-border:        #DDEAE4;
   --bk-border-light:  #EAF2EE;
-  --bk-header-bg:     linear-gradient(125deg,#161022 0%,#12261E 100%);
+  --bk-header-bg:     linear-gradient(180deg,#161922 0%,#151A20 34%,#13251C 72%,#102218 100%);
   --bk-header-text:   #FFFFFF;
   --bk-shadow-sm:     0 1px 3px rgba(17,24,39,.08),0 1px 2px rgba(17,24,39,.06);
   --bk-shadow:        0 8px 20px rgba(12,18,32,.12),0 2px 8px rgba(12,18,32,.06);
   --bk-shadow-lg:     0 24px 64px rgba(12,18,32,.18),0 8px 20px rgba(12,18,32,.08);
   --bk-glow:          0 0 28px rgba(0,255,153,.32);
-  --bk-launcher-bg:   #123427;
-  --bk-launcher-icon: #00FF99;
-  --bk-launcher-shadow: 0 8px 24px rgba(0,255,153,.28),inset 0 -10px 20px rgba(0,134,80,.42);
-  --bk-launcher-shadow-hover: 0 14px 34px rgba(0,255,153,.42),inset 0 -12px 24px rgba(0,134,80,.52),0 0 44px rgba(0,255,153,.38);
+  --bk-launcher-bg:   color-mix(in srgb, var(--bk-bg-surface) 88%, var(--bk-primary) 12%);
+  --bk-launcher-icon: var(--bk-primary);
+  --bk-launcher-shadow: 0 8px 28px color-mix(in srgb, var(--bk-primary) 22%, rgba(2,6,23,.1)), 0 2px 8px rgba(2,6,23,.06);
+  --bk-launcher-shadow-hover: 0 14px 38px color-mix(in srgb, var(--bk-primary) 32%, rgba(2,6,23,.12)), 0 4px 12px rgba(2,6,23,.08);
   --bk-radius:        16px;
   --bk-radius-sm:     8px;
   --bk-radius-full:   100px;
@@ -405,15 +407,17 @@ const WIDGET_CSS = `
   --bk-spring:        0.4s cubic-bezier(0.175,0.885,0.32,1.275);
   --bk-launcher-transition: 0.28s cubic-bezier(0.22,1,0.36,1);
   --bk-z-widget:      2147483647;
-  --bk-bubble-size:   64px;
+  --bk-bubble-size:   58px;
   --bk-window-w:      min(400px,calc(100vw - 32px));
   --bk-window-h:      min(640px,calc(100vh - 80px));
+  --bk-atmosphere-height: min(56%, 380px);
+  --bk-atmosphere-min-height: 260px;
+  --bk-launcher-ring: color-mix(in srgb, var(--bk-primary) 34%, transparent);
+  --bk-launcher-close-color: #fff;
 }
-@media (prefers-color-scheme:dark){:host{--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#FFFFFF;--bk-text-muted:rgba(255,255,255,.68);--bk-bg:#161022;--bk-bg-surface:rgba(255,255,255,.05);--bk-bg-hover:rgba(255,255,255,.08);--bk-border:rgba(255,255,255,.12);--bk-border-light:rgba(255,255,255,.08);--bk-header-bg:linear-gradient(125deg,#161022 0%,#12261E 100%);--bk-header-text:#FFFFFF;--bk-shadow:0 8px 20px rgba(0,0,0,.35),0 2px 8px rgba(0,0,0,.2);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.52),0 8px 20px rgba(0,0,0,.3);--bk-launcher-bg:#0F2A20;--bk-launcher-icon:#00FF99;--bk-launcher-shadow:0 8px 24px rgba(0,255,153,.28),inset 0 -10px 20px rgba(0,134,80,.42);--bk-launcher-shadow-hover:0 14px 34px rgba(0,255,153,.42),inset 0 -12px 24px rgba(0,134,80,.52),0 0 44px rgba(0,255,153,.38);}:host .bk-toolbox-toggle,:host .bk-toolbox-menu{background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.06);}:host .bk-toolbox-toggle:hover{background:rgba(255,255,255,.06);}:host .bk-record-cancel{background:rgba(255,255,255,.18);color:#fff;}:host .bk-record-cancel:hover{background:rgba(255,255,255,.25);}}
-:host([data-theme="light"]){--bk-primary:#00D986;--bk-primary-dark:#00B16D;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7FBF9;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F0F7F4;--bk-border:#DDEAE4;--bk-border-light:#EAF2EE;--bk-header-bg:linear-gradient(125deg,#161022 0%,#12261E 100%);--bk-header-text:#FFFFFF;--bk-launcher-bg:#123427;--bk-launcher-icon:#00FF99;}
-:host([data-theme="dark"]){--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#FFFFFF;--bk-text-muted:rgba(255,255,255,.68);--bk-bg:#161022;--bk-bg-surface:rgba(255,255,255,.05);--bk-bg-hover:rgba(255,255,255,.08);--bk-border:rgba(255,255,255,.12);--bk-border-light:rgba(255,255,255,.08);--bk-header-bg:linear-gradient(125deg,#161022 0%,#12261E 100%);--bk-header-text:#FFFFFF;--bk-launcher-bg:#0F2A20;--bk-launcher-icon:#00FF99;}
-:host([data-theme="dark"]) .bk-toolbox-toggle,:host([data-theme="dark"]) .bk-toolbox-menu{background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.06);}
-:host([data-theme="dark"]) .bk-toolbox-toggle:hover{background:rgba(255,255,255,.06);}
+@media (prefers-color-scheme:dark){:host{--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,rgba(0,255,153,.085) 0%,rgba(0,255,153,.032) 44%,rgba(0,255,153,0) 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:#0F2A20;--bk-launcher-icon:#00FF99;--bk-launcher-shadow:0 8px 24px rgba(0,255,153,.28),inset 0 -10px 20px rgba(0,134,80,.42);--bk-launcher-shadow-hover:0 14px 34px rgba(0,255,153,.42),inset 0 -12px 24px rgba(0,134,80,.52),0 0 44px rgba(0,255,153,.38);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
+:host([data-theme="light"]){--bk-primary:#00D986;--bk-primary-dark:#00B16D;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7FBF9;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F0F7F4;--bk-border:#DDEAE4;--bk-border-light:#EAF2EE;--bk-popover:#FFFFFF;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:none;--bk-launcher-bg:color-mix(in srgb,var(--bk-bg-surface) 90%,var(--bk-primary) 10%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 45%,var(--bk-border));--bk-launcher-shadow:0 8px 28px color-mix(in srgb,var(--bk-primary) 22%,rgba(2,6,23,.1)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 38px color-mix(in srgb,var(--bk-primary) 32%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-text);}
+:host([data-theme="dark"]){--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,rgba(0,255,153,.085) 0%,rgba(0,255,153,.032) 44%,rgba(0,255,153,0) 72%);--bk-launcher-bg:#0F2A20;--bk-launcher-icon:#00FF99;--bk-launcher-shadow:0 8px 24px rgba(0,255,153,.28),inset 0 -10px 20px rgba(0,134,80,.42);--bk-launcher-shadow-hover:0 14px 34px rgba(0,255,153,.42),inset 0 -12px 24px rgba(0,134,80,.52),0 0 44px rgba(0,255,153,.38);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 @keyframes bk-spring-in{0%{transform:scale(.6) translateY(20px);opacity:0}60%{transform:scale(1.04) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
 @keyframes bk-slide-up{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -427,20 +431,19 @@ const WIDGET_CSS = `
 @keyframes bk-spin{to{transform:rotate(360deg)}}
 @keyframes bk-scale-in{from{transform:scale(0)}to{transform:scale(1)}}
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
-@keyframes bk-msg-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.bk-msg{animation:bk-msg-in .25s ease both;}
-.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid rgba(0,255,153,.3);cursor:grab;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
+@keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking{animation:none!important;}}
+.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
 .bk-launcher:hover{transform:scale(1.06);box-shadow:var(--bk-launcher-shadow-hover);}
 .bk-launcher:active{transform:scale(1.01);cursor:grabbing;}
 .bk-launcher.is-dragging{transition:none;cursor:grabbing;transform:scale(1.04);}
 .bk-launcher.is-dragging:hover{transform:scale(1.04);}
-.bk-launcher-icon{width:28px;height:28px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);}
-.bk-launcher-icon--close{color:#fff;}
-.bk-launcher-icon--monkey{width:34px;height:34px;transform:translateY(.5px);}
-.bk-launcher-icon--close{position:absolute;transform:scale(0) rotate(-90deg);opacity:0;}
+.bk-launcher-icon{width:30px;height:30px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);}
+.bk-launcher-icon--monkey{width:34px;height:34px;transform:translateY(0.5px);}
+.bk-launcher-icon--close{color:var(--bk-launcher-close-color,#fff);position:absolute;transform:scale(0) rotate(-90deg);opacity:0;}
 .bk-launcher.is-open .bk-launcher-icon--chat{transform:scale(0) rotate(90deg);opacity:0;}
 .bk-launcher.is-open .bk-launcher-icon--close{transform:scale(1) rotate(0);opacity:1;}
-.bk-proactive-bubbles{position:fixed;bottom:14px;right:94px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;z-index:var(--bk-z-widget);pointer-events:none;}
+.bk-proactive-bubbles{position:fixed;bottom:14px;right:calc(20px + var(--bk-bubble-size) + 10px);display:flex;flex-direction:column;align-items:flex-end;gap:8px;z-index:var(--bk-z-widget);pointer-events:none;}
 .bk-proactive-bubble{pointer-events:auto;max-width:260px;padding:10px 16px;background:var(--bk-bg-surface);border:1px solid var(--bk-border);border-radius:16px 16px 4px 16px;box-shadow:var(--bk-shadow);font-family:var(--bk-font);font-size:13.5px;line-height:1.4;color:var(--bk-text);cursor:pointer;transition:background .15s,color .15s,transform .15s;animation:bk-bubble-pop .35s cubic-bezier(.2,.8,.2,1) both;-webkit-appearance:none;appearance:none;text-align:left;}
 .bk-proactive-bubble:nth-child(2){animation-delay:.1s;}
 .bk-proactive-bubble:nth-child(3){animation-delay:.2s;}
@@ -451,50 +454,126 @@ const WIDGET_CSS = `
 .bk-proactive-bubbles.is-dismissing .bk-proactive-bubble:nth-child(3){animation-delay:.1s;}
 @keyframes bk-bubble-pop{from{opacity:0;transform:translateY(12px) scale(.92);}to{opacity:1;transform:translateY(0) scale(1);}}
 @keyframes bk-bubble-out{from{opacity:1;transform:translateY(0) scale(1);}to{opacity:0;transform:translateY(6px) scale(.95);}}
-@media (max-width:480px){.bk-proactive-bubbles{right:86px;bottom:10px;max-width:calc(100vw - 110px);}}
+@media (max-width:480px){.bk-proactive-bubbles{right:calc(20px + var(--bk-bubble-size) + 8px);bottom:10px;max-width:calc(100vw - var(--bk-bubble-size) - 46px);}.bk-window{border-radius:0;}.bk-window::before{border-radius:0;}}
 .bk-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 4px;border-radius:var(--bk-radius-full);background:#EF4444;color:white;font-size:11px;font-weight:700;font-family:var(--bk-font);display:flex;align-items:center;justify-content:center;animation:bk-scale-in .2s var(--bk-spring);box-sizing:border-box;}
-.bk-window{position:fixed;bottom:88px;right:20px;width:var(--bk-window-w);height:var(--bk-window-h);background:var(--bk-bg);border-radius:var(--bk-radius);box-shadow:var(--bk-shadow-lg);display:flex;flex-direction:column;overflow:hidden;z-index:calc(var(--bk-z-widget) - 1);border:1px solid var(--bk-border);font-family:var(--bk-font);transform-origin:bottom right;will-change:transform,opacity;}
+.bk-window{position:fixed;bottom:calc(var(--bk-bubble-size) + 24px);right:20px;width:var(--bk-window-w);height:var(--bk-window-h);background:var(--bk-bg);border-radius:24px;box-shadow:0 28px 90px rgba(0,0,0,.58),0 14px 44px rgba(0,0,0,.32),0 0 1px rgba(255,255,255,.04);display:flex;flex-direction:column;overflow:hidden;z-index:calc(var(--bk-z-widget) - 1);border:none;font-family:var(--bk-font);transform-origin:bottom right;will-change:transform,opacity;isolation:isolate;}
+.bk-window::before{content:'';position:absolute;left:0;right:0;top:0;height:var(--bk-atmosphere-height,min(56%,380px));min-height:var(--bk-atmosphere-min-height,260px);pointer-events:none;z-index:0;border-radius:24px 24px 0 0;background:var(--bk-window-atmosphere-bg,radial-gradient(118% 95% at 50% -12%,color-mix(in srgb,var(--bk-primary) 18%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 6%,transparent) 42%,transparent 68%),linear-gradient(180deg,color-mix(in srgb,var(--bk-primary) 14%,var(--bk-bg)) 0%,color-mix(in srgb,var(--bk-primary) 5%,var(--bk-bg)) 46%,transparent 88%));}
 .bk-window.is-opening{animation:bk-window-in .22s cubic-bezier(.2,.8,.2,1) both;}
 .bk-window.is-closing{animation:bk-window-out .18s cubic-bezier(.4,0,1,1) both;pointer-events:none;}
 .bk-window[hidden]{display:none;}
 [hidden]{display:none!important;}
-.bk-header{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--bk-header-bg);color:var(--bk-header-text);flex-shrink:0;}
-.bk-header-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:rgba(0,255,153,.08);border:1px solid rgba(0,255,153,.22);box-shadow:0 4px 12px rgba(0,255,153,.22),inset 0 -8px 20px rgba(0,134,80,.32);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
+.bk-header{display:flex;align-items:center;gap:12px;padding:18px 20px 20px;background:transparent;color:var(--bk-header-text);flex-shrink:0;position:relative;z-index:25;}
+.bk-launcher.is-open~.bk-window .bk-header>*{animation:bk-header-in .52s cubic-bezier(.22,1,.36,1) both;}
+.bk-launcher.is-open~.bk-window .bk-header>.bk-btn-back{animation-delay:.04s;}
+.bk-launcher.is-open~.bk-window .bk-header>.bk-header-avatar{animation-delay:.09s;}
+.bk-launcher.is-open~.bk-window .bk-header>.bk-header-info{animation-delay:.14s;}
+.bk-launcher.is-open~.bk-window .bk-header>.bk-header-actions{animation-delay:.19s;}
+.bk-header>.bk-btn-back{flex-shrink:0;}
+.bk-header-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
+@media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-header-avatar{background:rgba(0,255,153,.08);border:1px solid rgba(0,255,153,.22);box-shadow:0 4px 12px rgba(0,255,153,.22),inset 0 -8px 20px rgba(0,134,80,.32);}}
+:host([data-theme="dark"]) .bk-header-avatar{background:rgba(0,255,153,.08);border:1px solid rgba(0,255,153,.22);box-shadow:0 4px 12px rgba(0,255,153,.22),inset 0 -8px 20px rgba(0,134,80,.32);}
+:host([data-theme="light"]) .bk-header-avatar{background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);}
 .bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-primary);}
 .bk-header-info{flex:1;min-width:0;}
-.bk-header-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bk-header-status{font-size:12px;opacity:.85;display:flex;align-items:center;gap:5px;}
+.bk-header-name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bk-header-status{font-size:12px;opacity:.88;display:flex;align-items:center;gap:6px;margin-top:2px;}
 .bk-header-status::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
 .bk-icon-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;transition:background var(--bk-transition);}
 .bk-icon-btn:hover{background:rgba(255,255,255,.25);}
 .bk-icon-btn svg{width:16px;height:16px;}
-.bk-header-user{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font:600 12px var(--bk-font);color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);user-select:none;}
+.bk-user-wrap{position:relative;display:inline-flex;}
+.bk-header-user{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font:600 12px var(--bk-font);color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);user-select:none;cursor:pointer;padding:0;transition:transform var(--bk-transition),background var(--bk-transition);}
+.bk-header-user:hover{transform:scale(1.05);background:rgba(255,255,255,.25);}
+.bk-header-user:active{transform:scale(.96);}
 .bk-header-user img{width:100%;height:100%;object-fit:cover;display:block;}
 .bk-header-user svg{width:18px;height:18px;color:#fff;opacity:.9;}
 .bk-header-user--initials{letter-spacing:.02em;}
+.bk-user-popover{position:absolute;top:42px;right:0;min-width:240px;padding:14px;background:var(--bk-popover,#161A26);border:1px solid var(--bk-border);border-radius:14px;box-shadow:0 14px 32px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.02) inset;z-index:50;animation:bk-slide-down .16s ease both;color:var(--bk-text);}
+.bk-user-popover[hidden]{display:none;}
+.bk-user-popover-header{display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08);}
+.bk-user-popover-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font:600 14px var(--bk-font);color:#fff;background:rgba(255,255,255,.12);}
+.bk-user-popover-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+.bk-user-popover-avatar svg{width:20px;height:20px;color:#fff;opacity:.85;}
+.bk-user-popover-info{min-width:0;flex:1;}
+.bk-user-popover-label{font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:2px;}
+.bk-user-popover-name{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bk-user-popover-email{font-size:12px;color:rgba(255,255,255,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bk-user-popover-actions{display:flex;flex-direction:column;gap:4px;margin-top:10px;}
+.bk-user-popover-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:none;border-radius:8px;background:transparent;color:#fff;font:500 13px var(--bk-font);cursor:pointer;text-align:left;transition:background var(--bk-transition);}
+.bk-user-popover-btn:hover{background:rgba(255,255,255,.08);}
+.bk-user-popover-btn svg{width:14px;height:14px;flex-shrink:0;}
+.bk-user-popover-btn--danger{color:#FCA5A5;}
+.bk-user-popover-btn--primary{color:var(--bk-primary);}
+.bk-user-popover-empty{padding:6px 4px 0;font-size:12.5px;color:rgba(255,255,255,.7);line-height:1.45;}
+.bk-user-popover-theme{padding:0 0 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px;}
+.bk-user-popover-theme-btn{width:100%;justify-content:flex-start;}
+.bk-user-popover-theme-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.bk-user-popover-theme-icon svg{width:16px;height:16px;display:block;}
+:host([data-theme="light"]) .bk-user-popover{background:rgba(255,255,255,.98);border-color:rgba(15,23,42,.14);box-shadow:0 12px 28px rgba(2,6,23,.18),0 0 0 1px rgba(255,255,255,.5) inset;color:var(--bk-text);}
+:host([data-theme="light"]) .bk-user-popover-name{color:var(--bk-text);}
+:host([data-theme="light"]) .bk-user-popover-label{color:var(--bk-text-muted);}
+:host([data-theme="light"]) .bk-user-popover-email{color:var(--bk-text-muted);}
+:host([data-theme="light"]) .bk-user-popover-btn{color:var(--bk-text);}
+:host([data-theme="light"]) .bk-user-popover-btn:hover{background:var(--bk-bg-hover);}
+:host([data-theme="light"]) .bk-user-popover-header{border-color:var(--bk-border-light);}
+:host([data-theme="light"]) .bk-user-popover-theme{border-bottom-color:var(--bk-border-light);}
+:host([data-theme="light"]) .bk-user-popover-btn--danger{color:#dc2626;}
 .bk-chat-actions{position:relative;}
-.bk-chat-actions-menu{position:absolute;top:40px;right:0;min-width:170px;padding:6px;background:rgba(14,18,30,.96);border:1px solid rgba(255,255,255,.14);border-radius:12px;box-shadow:0 14px 32px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.04) inset;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:3;animation:bk-slide-down .16s ease both;}
+.bk-chat-actions-menu{position:absolute;top:40px;right:0;min-width:170px;padding:6px;background:var(--bk-popover,#161A26);border:1px solid var(--bk-border);border-radius:12px;box-shadow:0 14px 32px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.02) inset;z-index:3;animation:bk-slide-down .16s ease both;}
 .bk-chat-actions-item{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;color:var(--bk-text);font:500 13px var(--bk-font);cursor:pointer;text-align:left;}
 .bk-chat-actions-item:hover{background:var(--bk-bg-hover);}
 :host([data-theme="light"]) .bk-chat-actions-menu{background:rgba(255,255,255,.98);border-color:rgba(15,23,42,.14);box-shadow:0 12px 28px rgba(2,6,23,.18),0 0 0 1px rgba(255,255,255,.5) inset;}
-.bk-home{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
-.bk-home-hero{background:var(--bk-header-bg);padding:20px 16px 28px;color:var(--bk-header-text);}
-.bk-home-hero-title{font-size:22px;font-weight:700;line-height:1.3;margin-bottom:6px;}
-.bk-home-hero-sub{font-size:14px;opacity:.85;}
-.bk-home-new-btn{display:flex;align-items:center;gap:12px;width:calc(100% - 32px);margin:-16px auto 0;padding:14px 16px;background:var(--bk-bg);border-radius:var(--bk-radius);box-shadow:var(--bk-shadow);border:none;cursor:pointer;color:var(--bk-text);font-size:14px;font-weight:600;font-family:var(--bk-font);transition:transform var(--bk-transition),box-shadow var(--bk-transition);text-align:left;}
-.bk-home-new-btn:hover{transform:translateY(-1px);box-shadow:var(--bk-shadow-lg);}
-.bk-home-new-btn-icon{width:36px;height:36px;border-radius:var(--bk-radius-sm);background:var(--bk-primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+:host([data-theme="light"]) .bk-header{color:var(--bk-text);}
+:host([data-theme="light"]) .bk-icon-btn{color:var(--bk-text);background:rgba(15,23,42,.07);}
+:host([data-theme="light"]) .bk-icon-btn:hover{background:rgba(15,23,42,.11);}
+:host([data-theme="light"]) .bk-header-user{color:var(--bk-text);background:rgba(15,23,42,.08);border-color:rgba(15,23,42,.12);}
+:host([data-theme="light"]) .bk-header-user svg{color:var(--bk-text);}
+:host([data-theme="light"]) .bk-home-hero{color:var(--bk-text);}
+:host([data-theme="light"]) .bk-home-new-btn{color:#0b1220;background:rgba(255,255,255,.97);border-color:rgba(15,23,42,.22);box-shadow:0 12px 42px rgba(2,6,23,.16),0 0 0 1px rgba(255,255,255,.92) inset,0 0 1px rgba(0,217,134,.35);}
+:host([data-theme="light"]) .bk-home-new-btn:hover{border-color:rgba(0,183,115,.42);box-shadow:0 14px 48px rgba(2,6,23,.2),0 0 0 1px rgba(255,255,255,.98) inset,0 0 22px rgba(0,217,134,.14);}
+:host([data-theme="light"]) .bk-home-new-btn-icon{background:rgba(0,217,134,.14);border:1px solid rgba(0,183,115,.32);box-shadow:inset 0 1px 0 rgba(255,255,255,.65);}
+.bk-home{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1;}
+.bk-home-content{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;}
+.bk-home-tab{display:flex;flex-direction:column;flex:1;min-height:0;}
+.bk-home-tab[hidden]{display:none;}
+.bk-home-tab[data-tab="home"]{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.bk-home-tab[data-tab="messages"],.bk-home-tab[data-tab="tools"]{overflow:hidden;min-height:0;}
+.bk-home-footer{flex-shrink:0;background:var(--bk-bg);position:relative;z-index:2;display:flex;flex-direction:column;}
+.bk-tab-nav{display:flex;flex-direction:row;justify-content:space-between;align-items:stretch;min-height:64px;padding:2px 0 6px;}
+.bk-tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0;background:transparent;border:none;color:var(--bk-text-muted);font:600 12px var(--bk-font);cursor:pointer;transition:color .2s,opacity .2s;position:relative;opacity:.72;}
+.bk-tab-btn svg{width:24px;height:24px;display:block;stroke-width:1.5;}
+.bk-tab-btn .bk-tab-label{margin-top:6px;line-height:1.1;letter-spacing:.005em;}
+.bk-tab-btn .bk-icon-body{opacity:.4;transition:opacity .2s,fill .2s;}
+.bk-tab-btn .bk-icon-detail{opacity:.9;transition:opacity .2s,fill .2s,stroke .2s;}
+.bk-tab-btn:hover{color:var(--bk-primary);}
+.bk-tab-btn:hover .bk-icon-body{opacity:.6;}
+.bk-tab-btn.is-active{color:var(--bk-primary);opacity:1;}
+.bk-tab-btn.is-active .bk-icon-body{opacity:1;}
+.bk-tab-btn.is-active .bk-icon-detail{fill:var(--bk-bg);stroke:var(--bk-bg);opacity:1;}
+.bk-tab-badge{position:absolute;top:14px;left:50%;transform:translateX(8px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bk-primary);color:#10281F;font:700 10px var(--bk-font);display:flex;align-items:center;justify-content:center;}
+.bk-window-powered{display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 12px max(8px, env(safe-area-inset-bottom, 0px));font-size:10.5px;color:var(--bk-text-muted);font-weight:500;flex-shrink:0;background:var(--bk-bg);text-decoration:none;cursor:pointer;box-sizing:border-box;width:100%;position:relative;z-index:1;}
+.bk-window-powered:hover{color:var(--bk-text);}
+.bk-window-powered:focus-visible{outline:2px solid var(--bk-primary);outline-offset:-2px;border-radius:6px;}
+.bk-window-powered strong{color:var(--bk-text);font-weight:600;}
+.bk-home-hero{background:transparent;padding:28px 24px 24px;color:var(--bk-header-text);position:relative;z-index:1;}
+.bk-home-hero-title{font-size:28px;font-weight:700;line-height:1.18;letter-spacing:-.03em;margin-bottom:12px;}
+.bk-home-hero-sub{font-size:15.5px;line-height:1.6;opacity:.9;max-width:22em;font-weight:500;}
+.bk-home-new-btn{display:flex;align-items:center;gap:14px;width:calc(100% - 48px);max-width:100%;box-sizing:border-box;margin:20px 24px 22px;padding:18px 21px;background:rgba(46,54,74,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:16px;border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 38px rgba(0,0,0,.42),0 0 28px rgba(0,255,153,.1),0 0 0 1px rgba(255,255,255,.1) inset;cursor:pointer;color:#fff;font-size:15px;font-weight:600;font-family:var(--bk-font);transition:transform var(--bk-transition),box-shadow var(--bk-transition),border-color var(--bk-transition);text-align:left;}
+.bk-home-new-btn:hover{transform:translateY(-2px);box-shadow:0 16px 46px rgba(0,0,0,.48),0 0 38px rgba(0,255,153,.16),0 0 0 1px rgba(0,255,153,.2) inset;border-color:rgba(0,255,153,.4);}
+.bk-home-new-btn-icon{width:40px;height:40px;border-radius:12px;background:rgba(0,255,153,.2);border:1px solid rgba(0,255,153,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title{animation-delay:.24s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
 .bk-home-new-btn-icon svg{width:18px;height:18px;color:var(--bk-primary);}
-.bk-home-tools{width:calc(100% - 32px);margin:10px auto 0;}
-.bk-toolbox-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--bk-border);background:var(--bk-bg-surface);color:var(--bk-text);font:600 13px var(--bk-font);cursor:pointer;transition:border-color var(--bk-transition),background var(--bk-transition);}
-.bk-toolbox-toggle:hover{border-color:var(--bk-primary);background:var(--bk-primary-light);}
-.bk-toolbox-toggle svg{width:16px;height:16px;transition:transform var(--bk-transition);}
-.bk-toolbox-toggle[aria-expanded="true"] svg{transform:rotate(180deg);}
-.bk-toolbox-menu{margin-top:8px;padding:10px;border-radius:12px;border:1px solid var(--bk-border-light);background:var(--bk-bg-surface);animation:bk-slide-down .2s ease both;}
+.bk-tools-intro{font-size:12px;font-weight:600;color:var(--bk-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
 .bk-toolbox-pills{display:flex;flex-wrap:wrap;gap:6px;}
-.bk-tool-pill{padding:5px 10px;border-radius:999px;font:500 12px var(--bk-font);color:var(--bk-text);background:var(--bk-bg);border:1px solid var(--bk-border);}
-.bk-home-section{padding:20px 16px 8px;}
+.bk-tool-pill{padding:6px 12px;border-radius:999px;font:500 12px var(--bk-font);color:var(--bk-text);background:var(--bk-bg-surface);border:1px solid var(--bk-border);}
+.bk-tools-empty{padding:14px 0;font-size:13px;color:var(--bk-text-muted);text-align:center;}
+.bk-home-section{padding:20px 16px 12px;flex:1;min-height:0;display:flex;flex-direction:column;}
+.bk-conv-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.bk-home-tab[data-tab="tools"] .bk-home-section{overflow-y:auto;}
 .bk-home-section-title{font-size:12px;font-weight:600;color:var(--bk-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
 .bk-conv-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;margin:2px 8px 2px 0;cursor:pointer;border:none;border-radius:var(--bk-radius-sm);width:100%;background:transparent;transition:background var(--bk-transition);text-align:left;color:var(--bk-text);animation:bk-slide-up .25s ease both;}
 .bk-conv-item:hover{background:var(--bk-bg-hover);}
@@ -505,7 +584,7 @@ const WIDGET_CSS = `
 .bk-conv-item-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
 .bk-conv-item-time{font-size:11px;color:var(--bk-text-muted);flex-shrink:0;}
 .bk-conv-unread{width:18px;height:18px;border-radius:var(--bk-radius-full);background:var(--bk-primary);color:#10281F;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;}
-.bk-settings{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+.bk-settings{flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative;z-index:1;}
 .bk-settings-inner{padding:20px 16px 24px;}
 .bk-settings-title{font-size:20px;font-weight:700;color:var(--bk-text);margin-bottom:20px;letter-spacing:-.02em;position:relative;padding-bottom:12px;}
 .bk-settings-title::after{content:'';position:absolute;left:0;bottom:0;width:32px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--bk-primary),transparent);opacity:.8;}
@@ -525,12 +604,12 @@ const WIDGET_CSS = `
 .bk-settings-toggle-slider::after{content:'';position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:transform .25s cubic-bezier(.34,1.2,.64,1);}
 .bk-settings-toggle input:checked+.bk-settings-toggle-slider{background:var(--bk-primary);box-shadow:inset 0 1px 2px rgba(0,0,0,.1),0 0 0 1px rgba(0,217,134,.2);}
 .bk-settings-toggle input:checked+.bk-settings-toggle-slider::after{transform:translateX(22px);box-shadow:0 2px 8px rgba(0,0,0,.15);}
-.bk-chat-view{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.bk-chat-view{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;z-index:1;}
 .bk-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth;}
 .bk-messages::-webkit-scrollbar{width:4px;}
 .bk-messages::-webkit-scrollbar-track{background:transparent;}
 .bk-messages::-webkit-scrollbar-thumb{background:var(--bk-border);border-radius:4px;}
-.bk-msg{display:flex;flex-direction:column;max-width:82%;animation:bk-pop-in .22s var(--bk-spring) both;}
+.bk-msg{display:flex;flex-direction:column;max-width:82%;animation:bk-header-in .42s cubic-bezier(.22,1,.36,1) both;}
 .bk-msg--ai{align-self:flex-start;}
 .bk-msg--user{align-self:flex-end;}
 .bk-msg-bubble{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
@@ -551,7 +630,7 @@ const WIDGET_CSS = `
 .bk-msg-bubble li{margin-bottom:3px;}
 .bk-msg-bubble a{color:var(--bk-primary);}
 .bk-msg--user .bk-msg-bubble a{color:rgba(255,255,255,.9);}
-.bk-thinking{margin:4px 0;align-self:flex-start;max-width:90%;animation:bk-slide-up .25s ease both;}
+.bk-thinking{margin:4px 0;align-self:flex-start;max-width:90%;animation:bk-header-in .4s cubic-bezier(.22,1,.36,1) both;}
 .bk-thinking-dots{display:flex;align-items:center;gap:5px;padding:12px 14px;background:var(--bk-bg-surface);border-radius:18px;border-bottom-left-radius:4px;border:1px solid var(--bk-border-light);}
 .bk-thinking-dot{width:7px;height:7px;border-radius:50%;background:var(--bk-text-muted);animation:bk-thinking-pulse 1.2s ease-in-out infinite;}
 .bk-thinking-dot:nth-child(2){animation-delay:.2s;}
@@ -624,7 +703,7 @@ const WIDGET_CSS = `
 .bk-chip:hover{background:var(--bk-primary-light);border-color:var(--bk-primary);color:var(--bk-primary);transform:translateY(-1px);}
 .bk-error-msg{display:flex;align-items:center;gap:8px;padding:10px 14px;margin:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--bk-radius-sm);font-size:13px;color:#DC2626;animation:bk-slide-down .25s ease both;}
 .bk-error-msg svg{width:16px;height:16px;flex-shrink:0;}
-.bk-login-required{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:12px;text-align:center;}
+.bk-login-required{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:12px;text-align:center;position:relative;z-index:1;}
 .bk-login-icon svg{width:48px;height:48px;color:var(--bk-text-muted);}
 .bk-login-title{font-size:17px;font-weight:700;color:var(--bk-text);}
 .bk-login-sub{font-size:14px;color:var(--bk-text-muted);line-height:1.5;}
@@ -642,9 +721,9 @@ const WIDGET_CSS = `
 .bk-login-links a:hover{text-decoration:underline;}
 .bk-agent-banner{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#FFF7ED;border-bottom:1px solid #FED7AA;font-size:13px;color:#C2410C;font-weight:500;}
 .bk-agent-banner svg{width:16px;height:16px;flex-shrink:0;}
-.bk-home::-webkit-scrollbar{width:4px;}
-.bk-home::-webkit-scrollbar-track{background:transparent;}
-.bk-home::-webkit-scrollbar-thumb{background:var(--bk-border);border-radius:4px;}
+.bk-home-tab[data-tab="home"]::-webkit-scrollbar,.bk-conv-list::-webkit-scrollbar{width:4px;}
+.bk-home-tab[data-tab="home"]::-webkit-scrollbar-track,.bk-conv-list::-webkit-scrollbar-track{background:transparent;}
+.bk-home-tab[data-tab="home"]::-webkit-scrollbar-thumb,.bk-conv-list::-webkit-scrollbar-thumb{background:var(--bk-border);border-radius:4px;}
 @media (max-width:480px){:host{--bk-window-w:100vw;--bk-window-h:100dvh;}.bk-window{bottom:0!important;right:0!important;left:0!important;top:0!important;border-radius:0;border:none;transform-origin:bottom center!important;}.bk-launcher.is-open{display:none;}}
 `;
 
@@ -663,10 +742,11 @@ class BokitoChatWidget extends HTMLElement {
   #sm = new StateMachine(); #api = null; #realtime = null; #pageCtx = null; #root;
   #launcher; #window; #homeView; #chatView; #loginRequiredView; #messageList; #thinkingEl;
   #textarea; #sendBtn; #suggChips; #headerName; #thinkingSteps; #thinkingLabel;
-  #toolboxWrap; #toolboxToggle; #toolboxMenu; #toolboxPills; #historyBtn;
+  #toolboxWrap; #toolboxToggle; #toolboxMenu; #toolboxPills;
   #chatActionsWrap; #chatActionsBtn; #chatActionsMenu; #settingsBtn;
-  #backBtn; #settingsView; #headerUser;
+  #backBtn; #settingsView; #headerUser; #userPopover; #preSettingsView = null; #activeHomeTab = 'home';
   #soundEffectsEnabled = true; #soundNotificationsEnabled = true;
+  #themeSchemeMedia = null; #themeSchemeListenerBound = false;
   #badge; #unreadTotal = 0;
   #attachBtn; #fileInput; #previewStrip;
   #imageViewer; #imageViewerImg; #imageViewerClose;
@@ -747,6 +827,59 @@ class BokitoChatWidget extends HTMLElement {
     return this.#hostAuthToken;
   }
 
+  #normalizeHostUser(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const avatar = raw.avatar ?? raw.avatar_url ?? raw.profile_picture ?? null;
+    const id = raw.id ?? raw.user_id ?? null;
+    const name = String(raw.name || raw.full_name || raw.display_name || '').trim();
+    const email = String(raw.email || '').trim();
+    if (!id && !email && !name) return null;
+    return { id, name, email, avatar };
+  }
+
+  async #fetchHostUserInfo() {
+    if (this.#sessionUser && this.#sessionUser.id) return;
+    const cfg = window.BokitoConfig || {};
+
+    let inlineUser = null;
+    try {
+      if (cfg.user && typeof cfg.user === 'object') {
+        inlineUser = cfg.user;
+      } else if (typeof cfg.getUser === 'function') {
+        const maybe = cfg.getUser();
+        if (maybe && typeof maybe === 'object' && typeof maybe.then !== 'function') {
+          inlineUser = maybe;
+        }
+      }
+    } catch {}
+    const normalizedInline = this.#normalizeHostUser(inlineUser);
+    if (normalizedInline) {
+      this.#sessionUser = normalizedInline;
+      this.#renderHeaderUser();
+      return;
+    }
+
+    if (!this.#hostAuthToken) return;
+    const defaultMeUrl = xanoApiGroupUrl(this.#apiUrl, LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatRoutes.hostAuth.me);
+    const url = (this.dataset.hostMeUrl && String(this.dataset.hostMeUrl).trim())
+      || (cfg.hostMeUrl && String(cfg.hostMeUrl).trim())
+      || defaultMeUrl;
+
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${this.#hostAuthToken}` },
+        credentials: 'omit',
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const normalized = this.#normalizeHostUser(data);
+      if (!normalized) return;
+      this.#sessionUser = normalized;
+      this.#renderHeaderUser();
+    } catch {}
+  }
+
   #resolveAuthMode(config = null) {
     const mode = (config?.auth_mode || this.#authMode || 'anonymous').toString().toLowerCase();
     return ['anonymous', 'optional', 'required'].includes(mode) ? mode : 'anonymous';
@@ -780,7 +913,7 @@ class BokitoChatWidget extends HTMLElement {
   async logout() {
     try {
       if (this.#sessionToken) {
-        await fetch(`${this.#apiUrl}/api:livechat/auth/logout`, {
+        await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.logout), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -806,10 +939,7 @@ class BokitoChatWidget extends HTMLElement {
 
   connectedCallback() {
     this.#agentSlug     = this.dataset.agentSlug     || '';
-    this.#apiUrl        = (this.dataset.apiUrl || '')
-      .trim()
-      .replace(/\/+$/, '')
-      .replace(/\/api:livechat$/, '');
+    this.#apiUrl        = normalizeLivechatApiBase(this.dataset.apiUrl || '');
     this.#identityToken = this.dataset.identityToken || null;
     this.#authCookieName = (this.dataset.authCookieName || '').trim();
     this.#authMode = (this.dataset.authMode || 'anonymous').trim().toLowerCase();
@@ -864,6 +994,9 @@ class BokitoChatWidget extends HTMLElement {
       <div class="bk-proactive-bubbles" hidden></div>
       <div class="bk-window" style="display:none">
         <div class="bk-header">
+          <button class="bk-icon-btn bk-btn-back" title="Terug naar menu" aria-label="Terug naar menu" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
           <div class="bk-header-avatar">
             <svg class="bk-avatar-logo" viewBox="-22 -24 361 403" fill="none" xmlns="http://www.w3.org/2000/svg">
               <style>
@@ -879,9 +1012,6 @@ class BokitoChatWidget extends HTMLElement {
             <div class="bk-header-status">Online</div>
           </div>
           <div class="bk-header-actions">
-            <button class="bk-icon-btn bk-btn-history" title="Gesprekken" aria-label="Gesprekken" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h12M3 18h9"/></svg>
-            </button>
             <div class="bk-chat-actions">
               <button class="bk-icon-btn bk-btn-more" title="Chat acties" aria-label="Chat acties" aria-expanded="false">
                 <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
@@ -893,14 +1023,11 @@ class BokitoChatWidget extends HTMLElement {
                 <button class="bk-chat-actions-item" type="button" data-action="export">Exporteren</button>
               </div>
             </div>
-            <button class="bk-icon-btn bk-btn-back" title="Terug" aria-label="Terug" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            </button>
-            <button class="bk-icon-btn bk-btn-settings" title="Instellingen" aria-label="Instellingen" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-.4-1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6c.38 0 .74-.14 1-.4.26-.26.4-.62.4-1V3a2 2 0 1 1 4 0v.1c0 .38.14.74.4 1 .26.26.62.4 1 .4.7 0 1.37-.28 1.87-.78l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1 .26.26.62.4 1 .4h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1 .4c-.26.26-.4.62-.4 1z"/></svg>
-            </button>
-            <div class="bk-header-user" title="Niet ingelogd" aria-label="Niet ingelogd">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div class="bk-user-wrap">
+              <button type="button" class="bk-header-user" title="Account" aria-label="Account" aria-expanded="false" aria-haspopup="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </button>
+              <div class="bk-user-popover" hidden></div>
             </div>
           </div>
         </div>
@@ -928,28 +1055,48 @@ class BokitoChatWidget extends HTMLElement {
           </form>
         </div>
         <div class="bk-home" style="display:none">
-          <div class="bk-home-hero">
-            <div class="bk-home-hero-title">Hallo!</div>
-            <div class="bk-home-hero-sub">Hoe kunnen we je helpen?</div>
-          </div>
-          <button class="bk-home-new-btn">
-            <div class="bk-home-new-btn-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <div class="bk-home-content">
+            <div class="bk-home-tab" data-tab="home">
+              <div class="bk-home-hero">
+                <div class="bk-home-hero-title">Hallo!</div>
+                <div class="bk-home-hero-sub">Hoe kunnen we je helpen?</div>
+              </div>
+              <button class="bk-home-new-btn">
+                <div class="bk-home-new-btn-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <span>Nieuw gesprek starten</span>
+              </button>
             </div>
-            <span>Nieuw gesprek starten</span>
-          </button>
-          <div class="bk-home-tools" style="display:none">
-            <button class="bk-toolbox-toggle" type="button" aria-expanded="false">
-              <span>Toolbox</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="bk-toolbox-menu" hidden>
-              <div class="bk-toolbox-pills"></div>
+            <div class="bk-home-tab" data-tab="messages" hidden>
+              <div class="bk-home-section">
+                <div class="bk-conv-list"></div>
+              </div>
+            </div>
+            <div class="bk-home-tab" data-tab="tools" hidden>
+              <div class="bk-home-section">
+                <div class="bk-tools-intro">Beschikbare tools voor deze assistent</div>
+                <div class="bk-toolbox-pills"></div>
+                <div class="bk-tools-empty" hidden>Nog geen tools beschikbaar.</div>
+              </div>
             </div>
           </div>
-          <div class="bk-home-section">
-            <div class="bk-home-section-title">Eerdere gesprekken</div>
-            <div class="bk-conv-list"></div>
+          <div class="bk-home-footer">
+            <nav class="bk-tab-nav" role="tablist">
+              <button type="button" class="bk-tab-btn is-active" data-tab="home" role="tab" aria-selected="true" aria-label="Home">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M2.35157 13.2135C1.99855 10.9162 1.82204 9.76763 2.25635 8.74938C2.69065 7.73112 3.65421 7.03443 5.58132 5.64106L7.02117 4.6C9.41847 2.86667 10.6171 2 12.0002 2C13.3832 2 14.5819 2.86667 16.9792 4.6L18.419 5.64106C20.3462 7.03443 21.3097 7.73112 21.744 8.74938C22.1783 9.76763 22.0018 10.9162 21.6488 13.2135L21.3478 15.1724C20.8473 18.4289 20.5971 20.0572 19.4292 21.0286C18.2613 22 16.5538 22 13.139 22H10.8614C7.44652 22 5.73909 22 4.57118 21.0286C3.40327 20.0572 3.15305 18.4289 2.65261 15.1724L2.35157 13.2135Z" fill="currentColor"/><path class="bk-icon-detail" d="M15.0002 17C14.2007 17.6224 13.1504 18 12.0002 18C10.8499 18 9.79971 17.6224 9.00018 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+                <span class="bk-tab-label">Home</span>
+              </button>
+              <button type="button" class="bk-tab-btn" data-tab="messages" role="tab" aria-selected="false" aria-label="Berichten">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M14.1706 20.8905C18.3536 20.6125 21.6856 17.2332 21.9598 12.9909C22.0134 12.1607 22.0134 11.3009 21.9598 10.4707C21.6856 6.22838 18.3536 2.84913 14.1706 2.57107C12.7435 2.47621 11.2536 2.47641 9.8294 2.57107C5.64639 2.84913 2.31441 6.22838 2.04024 10.4707C1.98659 11.3009 1.98659 12.1607 2.04024 12.9909C2.1401 14.536 2.82343 15.9666 3.62791 17.1746C4.09501 18.0203 3.78674 19.0758 3.30021 19.9978C2.94941 20.6626 2.77401 20.995 2.91484 21.2351C3.05568 21.4752 3.37026 21.4829 3.99943 21.4982C5.24367 21.5285 6.08268 21.1757 6.74868 20.6846C7.1264 20.4061 7.31527 20.2668 7.44544 20.2508C7.5756 20.2348 7.83177 20.3403 8.34401 20.5513C8.8044 20.7409 9.33896 20.8579 9.8294 20.8905C11.2536 20.9852 12.7435 20.9854 14.1706 20.8905Z" fill="currentColor"/><circle class="bk-icon-detail" cx="8" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="12" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="16" cy="12" r="1" fill="currentColor"/></svg>
+                <span class="bk-tab-label">Berichten</span>
+                <span class="bk-tab-badge" hidden>0</span>
+              </button>
+              <button type="button" class="bk-tab-btn" data-tab="tools" role="tab" aria-selected="false" aria-label="Tools">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.121 2.121 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" fill="currentColor"/><circle class="bk-icon-detail" cx="5.5" cy="18.5" r="1" fill="currentColor"/></svg>
+                <span class="bk-tab-label">Tools</span>
+              </button>
+            </nav>
           </div>
         </div>
         <div class="bk-chat-view" style="display:none">
@@ -1039,6 +1186,10 @@ class BokitoChatWidget extends HTMLElement {
           </button>
           <img alt="Vergrote afbeelding" />
         </div>
+        <a class="bk-window-powered" href="https://bokito.ai" target="_blank" rel="noopener noreferrer" hidden aria-label="Website Bokito AI openen">
+          <span>Powered by</span>
+          <strong>Bokito AI</strong>
+        </a>
       </div>
     `;
     while (div.firstChild) this.#root.appendChild(div.firstChild);
@@ -1062,18 +1213,18 @@ class BokitoChatWidget extends HTMLElement {
     this.#recordConfirmBtn  = this.#root.querySelector('.bk-record-confirm');
     this.#suggChips         = this.#root.querySelector('.bk-suggestions');
     this.#headerName        = this.#root.querySelector('.bk-header-name');
-    this.#toolboxWrap       = this.#root.querySelector('.bk-home-tools');
-    this.#toolboxToggle     = this.#root.querySelector('.bk-toolbox-toggle');
-    this.#toolboxMenu       = this.#root.querySelector('.bk-toolbox-menu');
+    this.#toolboxWrap       = null;
+    this.#toolboxToggle     = null;
+    this.#toolboxMenu       = null;
     this.#toolboxPills      = this.#root.querySelector('.bk-toolbox-pills');
-    this.#historyBtn        = this.#root.querySelector('.bk-btn-history');
     this.#chatActionsWrap   = this.#root.querySelector('.bk-chat-actions');
     this.#chatActionsBtn    = this.#root.querySelector('.bk-btn-more');
     this.#chatActionsMenu   = this.#root.querySelector('.bk-chat-actions-menu');
-    this.#settingsBtn       = this.#root.querySelector('.bk-btn-settings');
+    this.#settingsBtn       = null;
     this.#backBtn           = this.#root.querySelector('.bk-btn-back');
     this.#settingsView      = this.#root.querySelector('.bk-settings');
     this.#headerUser        = this.#root.querySelector('.bk-header-user');
+    this.#userPopover       = this.#root.querySelector('.bk-user-popover');
     this.#attachBtn         = this.#root.querySelector('.bk-attach-btn');
     this.#fileInput         = this.#root.querySelector('.bk-file-input');
     this.#previewStrip      = this.#root.querySelector('.bk-preview-strip');
@@ -1121,10 +1272,6 @@ class BokitoChatWidget extends HTMLElement {
       if (this.#sm.state === 'idle') this.#openWidget();
       else this.#closeWindow();
     });
-    this.#historyBtn?.addEventListener('click', () => {
-      this.#closeChatActionsMenu();
-      this.#showHome();
-    });
     this.#chatActionsBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       const willOpen = this.#chatActionsMenu?.hidden;
@@ -1141,8 +1288,27 @@ class BokitoChatWidget extends HTMLElement {
       if (action === 'delete') await this.#deleteCurrentConversation();
       if (action === 'export') this.#exportCurrentConversation();
     });
-    this.#settingsBtn?.addEventListener('click', () => this.#showSettings());
-    this.#backBtn?.addEventListener('click', () => this.#hideSettings());
+    this.#backBtn?.addEventListener('click', () => {
+      if (this.#settingsView && this.#settingsView.style.display !== 'none') {
+        this.#hideSettings();
+        return;
+      }
+      this.#showHome();
+    });
+    this.#headerUser?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const popover = this.#userPopover;
+      if (!popover) return;
+      const willOpen = popover.hidden;
+      if (willOpen) {
+        this.#renderUserPopoverContent();
+        popover.hidden = false;
+      } else {
+        popover.hidden = true;
+      }
+      this.#headerUser?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+    this.#userPopover?.addEventListener('click', (e) => e.stopPropagation());
     this.#settingsView?.querySelectorAll('input[name="bk-theme"]').forEach((radio) => {
       radio.addEventListener('change', (e) => this.#setUserTheme(e.target.value));
     });
@@ -1153,19 +1319,15 @@ class BokitoChatWidget extends HTMLElement {
       this.#setUserSoundNotifications(e.target.checked);
     });
     this.#root.querySelector('.bk-home-new-btn').addEventListener('click', () => this.#startNewConversation());
-    this.#toolboxToggle?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = this.#toolboxMenu.hidden;
-      this.#toolboxMenu.hidden = !open;
-      this.#toolboxToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    this.#root.querySelectorAll('.bk-tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        if (tab) this.#switchHomeTab(tab);
+      });
     });
-    this.#toolboxMenu?.addEventListener('click', (e) => e.stopPropagation());
     this.#root.addEventListener('click', () => {
-      if (this.#toolboxMenu && !this.#toolboxMenu.hidden) {
-        this.#toolboxMenu.hidden = true;
-        this.#toolboxToggle?.setAttribute('aria-expanded', 'false');
-      }
       this.#closeChatActionsMenu();
+      this.#closeUserPopover();
     });
 
     const loginForm = this.#root.querySelector('.bk-login-form');
@@ -1222,6 +1384,17 @@ class BokitoChatWidget extends HTMLElement {
   #showView(viewName) {
     const views = { home: this.#homeView, chat: this.#chatView, login: this.#loginRequiredView };
     Object.entries(views).forEach(([k, el]) => { if (el) el.style.display = k === viewName ? '' : 'none'; });
+    this.#syncWindowPowered();
+    this.#updateHeaderActionButtons(this.#sm?.state ?? 'home');
+  }
+
+  #syncWindowPowered() {
+    const el = this.#root.querySelector('.bk-window-powered');
+    if (!el) return;
+    const settingsOpen = this.#settingsView && this.#settingsView.style.display !== 'none';
+    const homeVisible = this.#homeView && this.#homeView.style.display !== 'none';
+    const chatVisible = this.#chatView && this.#chatView.style.display !== 'none';
+    el.hidden = settingsOpen || (!homeVisible && !chatVisible);
   }
 
   #onStateChange(state) {
@@ -1342,7 +1515,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#setLoginError('');
     this.#setLoginBusy(true);
     try {
-      const res = await fetch(`${this.#apiUrl}/api:livechat/auth/login`, {
+      const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.login), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1421,7 +1594,7 @@ class BokitoChatWidget extends HTMLElement {
       return;
     }
     try {
-      const res = await fetch(`${this.#apiUrl}/api:livechat/auth/forgot-password`, {
+      const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.forgotPassword), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, agent_slug: this.#agentSlug }),
@@ -1446,7 +1619,7 @@ class BokitoChatWidget extends HTMLElement {
       return;
     }
     try {
-      const res = await fetch(`${this.#apiUrl}/api:livechat/auth/register`, {
+      const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.register), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1468,6 +1641,8 @@ class BokitoChatWidget extends HTMLElement {
     await this.#refreshHostAuthToken();
     if (!this.#sessionToken) {
       await this.#initSession();
+    } else {
+      this.#fetchHostUserInfo().catch(() => {});
     }
     if (this.#sm.state === 'login_required') {
       this.dispatchEvent(new CustomEvent('bokito:login-required', {
@@ -1485,7 +1660,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #getLauncherSize() {
-    return this.#launcher?.offsetWidth || 64;
+    return this.#launcher?.offsetWidth || 58;
   }
 
   #computeUserInitials(name = '') {
@@ -1547,6 +1722,7 @@ class BokitoChatWidget extends HTMLElement {
       el.title = 'Niet ingelogd';
       el.setAttribute('aria-label', 'Niet ingelogd');
       el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      this.#refreshUserPopoverIfOpen();
       return;
     }
 
@@ -1565,10 +1741,12 @@ class BokitoChatWidget extends HTMLElement {
         this.#renderHeaderUserInitials(user, displayName);
       };
       el.appendChild(img);
+      this.#refreshUserPopoverIfOpen();
       return;
     }
 
     this.#renderHeaderUserInitials(user, displayName);
+    this.#refreshUserPopoverIfOpen();
   }
 
   #renderHeaderUserInitials(user, displayName) {
@@ -1581,6 +1759,137 @@ class BokitoChatWidget extends HTMLElement {
     el.style.background = bg;
     el.style.color = text;
     el.textContent = initials;
+  }
+
+  #refreshUserPopoverIfOpen() {
+    if (this.#userPopover && !this.#userPopover.hidden) {
+      this.#renderUserPopoverContent();
+    }
+  }
+
+  #closeUserPopover() {
+    if (!this.#userPopover || this.#userPopover.hidden) return;
+    this.#userPopover.hidden = true;
+    this.#headerUser?.setAttribute('aria-expanded', 'false');
+  }
+
+  #renderUserPopoverContent() {
+    const el = this.#userPopover;
+    if (!el) return;
+    el.innerHTML = '';
+    const user = this.#sessionUser;
+    const isLoggedIn = !!(user && (user.id || user.email || user.name));
+
+    const header = document.createElement('div');
+    header.className = 'bk-user-popover-header';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'bk-user-popover-avatar';
+    if (isLoggedIn) {
+      const url = this.#extractUserAvatarUrl(user);
+      const displayName = String(user.name || user.email || '').trim();
+      if (url) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = displayName;
+        img.referrerPolicy = 'no-referrer';
+        img.onerror = () => { img.remove(); this.#fillPopoverAvatarInitials(avatar, user, displayName); };
+        avatar.appendChild(img);
+      } else {
+        this.#fillPopoverAvatarInitials(avatar, user, displayName);
+      }
+    } else {
+      avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    }
+
+    const info = document.createElement('div');
+    info.className = 'bk-user-popover-info';
+    if (isLoggedIn) {
+      const labelEl = document.createElement('div');
+      labelEl.className = 'bk-user-popover-label';
+      labelEl.textContent = 'Ingelogd als';
+      info.appendChild(labelEl);
+    }
+    const nameEl = document.createElement('div');
+    nameEl.className = 'bk-user-popover-name';
+    nameEl.textContent = isLoggedIn
+      ? String(user.name || user.email || 'Ingelogd')
+      : 'Niet ingelogd';
+    info.appendChild(nameEl);
+    if (isLoggedIn && user.email && user.email !== user.name) {
+      const emailEl = document.createElement('div');
+      emailEl.className = 'bk-user-popover-email';
+      emailEl.textContent = String(user.email);
+      info.appendChild(emailEl);
+    }
+
+    header.appendChild(avatar);
+    header.appendChild(info);
+    el.appendChild(header);
+
+    const themeRow = document.createElement('div');
+    themeRow.className = 'bk-user-popover-theme';
+    const themeBtn = document.createElement('button');
+    themeBtn.type = 'button';
+    themeBtn.className = 'bk-user-popover-btn bk-user-popover-theme-btn';
+    const themeIcon = document.createElement('span');
+    themeIcon.className = 'bk-user-popover-theme-icon';
+    themeIcon.setAttribute('aria-hidden', 'true');
+    const themeCaption = document.createElement('span');
+    themeCaption.className = 'bk-user-popover-theme-caption';
+    themeBtn.appendChild(themeIcon);
+    themeBtn.appendChild(themeCaption);
+    themeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dark = this.#effectiveUserThemeIsDark();
+      this.#setUserTheme(dark ? 'light' : 'dark');
+    });
+    themeRow.appendChild(themeBtn);
+    el.appendChild(themeRow);
+
+    const actions = document.createElement('div');
+    actions.className = 'bk-user-popover-actions';
+
+    if (!isLoggedIn) {
+      const empty = document.createElement('div');
+      empty.className = 'bk-user-popover-empty';
+      empty.textContent = 'Log in om je account te zien.';
+      actions.appendChild(empty);
+    }
+
+    const settingsBtn = document.createElement('button');
+    settingsBtn.type = 'button';
+    settingsBtn.className = 'bk-user-popover-btn';
+    settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-.4-1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6c.38 0 .74-.14 1-.4.26-.26.4-.62.4-1V3a2 2 0 1 1 4 0v.1c0 .38.14.74.4 1 .26.26.62.4 1 .4.7 0 1.37-.28 1.87-.78l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1 .26.26.62.4 1 .4h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1 .4c-.26.26-.4.62-.4 1z"/></svg><span>Instellingen</span>';
+    settingsBtn.addEventListener('click', () => {
+      this.#closeUserPopover();
+      this.#showSettings();
+    });
+    actions.appendChild(settingsBtn);
+
+    if (isLoggedIn) {
+      const logoutBtn = document.createElement('button');
+      logoutBtn.type = 'button';
+      logoutBtn.className = 'bk-user-popover-btn bk-user-popover-btn--danger';
+      logoutBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Uitloggen</span>';
+      logoutBtn.addEventListener('click', async () => {
+        this.#closeUserPopover();
+        try { await this.logout(); } catch {}
+      });
+      actions.appendChild(logoutBtn);
+    }
+
+    el.appendChild(actions);
+    this.#syncUserPopoverThemeToggle();
+  }
+
+  #fillPopoverAvatarInitials(avatar, user, displayName) {
+    const initials = this.#computeUserInitials(displayName || user?.email || '');
+    const seed = String(user?.email || displayName || user?.id || '');
+    const { bg, text } = this.#computeUserAvatarColor(seed);
+    avatar.style.background = bg;
+    avatar.style.color = text;
+    avatar.textContent = initials;
   }
 
   #clampPosition(pos) {
@@ -1870,25 +2179,23 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #renderToolbox() {
-    if (!this.#toolboxWrap || !this.#toolboxPills || !this.#toolboxMenu) return;
+    const pills = this.#toolboxPills;
+    if (!pills) return;
+    const emptyEl = this.#root.querySelector('.bk-tools-empty');
     const labels = Object.values(this._toolDisplayNames || {}).filter(Boolean);
+    pills.innerHTML = '';
     if (!labels.length) {
-      this.#toolboxWrap.style.display = 'none';
-      this.#toolboxMenu.hidden = true;
-      this.#toolboxToggle?.setAttribute('aria-expanded', 'false');
+      if (emptyEl) emptyEl.hidden = false;
       return;
     }
-    this.#toolboxWrap.style.display = '';
-    this.#toolboxPills.innerHTML = '';
+    if (emptyEl) emptyEl.hidden = true;
     labels.sort((a, b) => String(a).localeCompare(String(b), 'nl', { sensitivity: 'base' }));
     labels.forEach((label) => {
       const el = document.createElement('span');
       el.className = 'bk-tool-pill';
       el.textContent = String(label);
-      this.#toolboxPills.appendChild(el);
+      pills.appendChild(el);
     });
-    this.#toolboxMenu.hidden = true;
-    this.#toolboxToggle?.setAttribute('aria-expanded', 'false');
   }
 
   #applySessionPayload(data = {}) {
@@ -1914,6 +2221,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#headerName.textContent = this.#agentConfig?.theme?.chatbot_name || 'Bokito AI';
     this.#applyAgentTheme(this.#agentConfig?.theme);
     this.#applyUserThemeOverride();
+    this.#syncAgentWindowAtmosphere();
     this.#syncLoginLinks();
     this.#renderHeaderUser();
     this.#scheduleSessionRefresh(data);
@@ -1966,6 +2274,7 @@ class BokitoChatWidget extends HTMLElement {
       const data = await this.#api.post('session/start', body);
       this.#applySessionPayload(data);
       this.#emitTenantMcpTelemetry('session_start');
+      this.#fetchHostUserInfo().catch(() => {});
       if (!data?.preferences) this.#fetchRemotePreferences();
       const requiresAuth = this.#isAuthRequired(this.#agentConfig);
       const isAnonymous = this.#identityType === 'anonymous' && !this.#sessionUser?.id;
@@ -1984,6 +2293,79 @@ class BokitoChatWidget extends HTMLElement {
     return typeof value === 'string' && value.trim() !== '' && CSS.supports('color', value.trim());
   }
 
+  #parseColorToRgbTriplet(cssColor) {
+    if (!cssColor || typeof cssColor !== 'string') return null;
+    const probe = document.createElement('span');
+    probe.style.color = '';
+    probe.style.color = cssColor.trim();
+    if (!probe.style.color) return null;
+    document.documentElement.appendChild(probe);
+    const rgbStr = getComputedStyle(probe).color;
+    probe.remove();
+    const m = rgbStr.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (!m) return null;
+    return { r: +m[1], g: +m[2], b: +m[3] };
+  }
+
+  #rgbTripletToCssRgb(rgb) {
+    if (!rgb) return '';
+    const c = (n) => Math.max(0, Math.min(255, Math.round(n)));
+    return `rgb(${c(rgb.r)},${c(rgb.g)},${c(rgb.b)})`;
+  }
+
+  #darkenRgbTriplet(rgb, factor = 0.14) {
+    if (!rgb) return null;
+    const f = Math.max(0, Math.min(0.5, factor));
+    return {
+      r: rgb.r * (1 - f),
+      g: rgb.g * (1 - f),
+      b: rgb.b * (1 - f),
+    };
+  }
+
+  #isSafeAtmosphereLengthValue(val) {
+    if (typeof val !== 'string') return false;
+    const t = val.trim();
+    if (t.length < 1 || t.length > 56) return false;
+    if (/[;{}]|url\s*\(|expression\s*\(|@import|javascript:/i.test(t)) return false;
+    return /^[\d.\s%,px()-]+$|^min\s*\(|^max\s*\(|^clamp\s*\(/i.test(t);
+  }
+
+  #isSafeAtmosphereBackgroundCss(val) {
+    if (typeof val !== 'string') return false;
+    const t = val.trim();
+    if (t.length < 8 || t.length > 1400) return false;
+    const lower = t.toLowerCase();
+    if (/url\s*\(|expression\s*\(|@import|javascript:/i.test(lower)) return false;
+    return true;
+  }
+
+  #buildWindowAtmosphereBackground(intensity, linearFadeEndPct = 88) {
+    const int = Math.min(1, Math.max(0, Number(intensity) || 1));
+    const end = Math.min(96, Math.max(52, Number(linearFadeEndPct) || 88));
+    const cs = getComputedStyle(this);
+    const primary = (cs.getPropertyValue('--bk-primary').trim() || '#00D986');
+    const bg = (cs.getPropertyValue('--bk-bg').trim() || '#F7FBF9');
+    const a1 = Math.round(100 * 0.18 * int);
+    const a2 = Math.round(100 * 0.06 * int);
+    const l1 = Math.round(100 * 0.14 * int);
+    const l2 = Math.round(100 * 0.05 * int);
+    return `radial-gradient(118% 95% at 50% -12%,color-mix(in srgb,${primary} ${a1}%,transparent) 0%,color-mix(in srgb,${primary} ${a2}%,transparent) 42%,transparent 68%),linear-gradient(180deg,color-mix(in srgb,${primary} ${l1}%,${bg}) 0%,color-mix(in srgb,${primary} ${l2}%,${bg}) 46%,transparent ${end}%)`;
+  }
+
+  #syncAgentWindowAtmosphere() {
+    const theme = this.#agentConfig?.theme;
+    if (!theme || typeof theme !== 'object') return;
+    if (typeof theme.atmosphere_background === 'string' && theme.atmosphere_background.trim()) return;
+    const raw = theme.atmosphere_intensity;
+    if (Number.isFinite(Number(raw))) {
+      const fade = theme.atmosphere_linear_fade_end_pct;
+      this.style.setProperty('--bk-window-atmosphere-bg', this.#buildWindowAtmosphereBackground(Number(raw), Number(fade)));
+      return;
+    }
+    this.style.removeProperty('--bk-window-atmosphere-bg');
+  }
+
   #applyAgentTheme(theme) {
     const host = this;
     if (!theme || typeof theme !== 'object') {
@@ -1991,15 +2373,44 @@ class BokitoChatWidget extends HTMLElement {
       return;
     }
 
+    host.style.removeProperty('--bk-window-atmosphere-bg');
+    host.style.removeProperty('--bk-atmosphere-height');
+    host.style.removeProperty('--bk-atmosphere-min-height');
+
+    const heightStr = theme.atmosphere_height;
+    if (typeof heightStr === 'string' && this.#isSafeAtmosphereLengthValue(heightStr)) {
+      host.style.setProperty('--bk-atmosphere-height', heightStr.trim());
+    }
+    const minH = theme.atmosphere_min_height;
+    if (typeof minH === 'string' && this.#isSafeAtmosphereLengthValue(minH)) {
+      host.style.setProperty('--bk-atmosphere-min-height', minH.trim());
+    }
+    const pct = Number(theme.atmosphere_height_pct);
+    const maxPx = Number(theme.atmosphere_max_px);
+    if (Number.isFinite(pct) && pct > 0 && pct <= 100 && Number.isFinite(maxPx) && maxPx >= 80 && maxPx <= 900) {
+      host.style.setProperty('--bk-atmosphere-height', `min(${Math.round(pct)}%, ${Math.round(maxPx)}px)`);
+    }
+
     const mainColor = theme.main_color || theme.primary_color;
     if (this.#isValidCssColor(mainColor)) {
-      host.style.setProperty('--bk-primary', mainColor.trim());
-      host.style.setProperty('--bk-primary-dark', mainColor.trim());
-      host.style.setProperty('--bk-primary-light', 'rgba(0,255,153,.14)');
+      const trimmed = mainColor.trim();
+      host.style.setProperty('--bk-primary', trimmed);
+      const rgb = this.#parseColorToRgbTriplet(trimmed);
+      if (rgb) {
+        host.style.setProperty('--bk-primary-dark', this.#rgbTripletToCssRgb(this.#darkenRgbTriplet(rgb, 0.14)));
+        host.style.setProperty('--bk-primary-light', `rgba(${rgb.r},${rgb.g},${rgb.b},0.14)`);
+      } else {
+        host.style.setProperty('--bk-primary-dark', trimmed);
+      }
     }
 
     if (this.#isValidCssColor(theme.text_color)) {
       host.style.setProperty('--bk-text-inverse', theme.text_color.trim());
+    }
+
+    const abg = theme.atmosphere_background;
+    if (typeof abg === 'string' && abg.trim() && this.#isSafeAtmosphereBackgroundCss(abg)) {
+      host.style.setProperty('--bk-window-atmosphere-bg', abg.trim());
     }
 
     if (theme.dark_light_mode === 'dark' || theme.dark_light_mode === 'light') {
@@ -2131,14 +2542,14 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #updateHeaderActionButtons(state) {
-    const isHome = state === 'home';
-    const isChat = state === 'connecting' || state === 'active' || state === 'processing' || state === 'agent_mode';
     const isSettingsOpen = this.#settingsView && this.#settingsView.style.display !== 'none';
-    if (this.#historyBtn) this.#historyBtn.hidden = !isChat;
-    if (this.#chatActionsWrap) this.#chatActionsWrap.hidden = !isChat;
-    if (this.#settingsBtn) this.#settingsBtn.hidden = !isHome || isSettingsOpen;
-    if (this.#backBtn) this.#backBtn.hidden = !isSettingsOpen;
-    if (!isChat) this.#closeChatActionsMenu();
+    const loginVisible = this.#loginRequiredView && this.#loginRequiredView.style.display !== 'none';
+    const chatPanelVisible = this.#chatView && this.#chatView.style.display !== 'none' && !loginVisible;
+    const isChatState = state === 'connecting' || state === 'active' || state === 'processing' || state === 'agent_mode' || state === 'error';
+    const showChatHeaderTools = chatPanelVisible && !isSettingsOpen;
+    if (this.#chatActionsWrap) this.#chatActionsWrap.hidden = !showChatHeaderTools;
+    if (this.#backBtn) this.#backBtn.hidden = !(isSettingsOpen || chatPanelVisible);
+    if (!showChatHeaderTools || !isChatState) this.#closeChatActionsMenu();
   }
 
   #getHiddenConversationIds() {
@@ -2874,7 +3285,7 @@ class BokitoChatWidget extends HTMLElement {
   async #streamChat(text, attachments = [], sendMeta = null) {
     let response;
     try {
-      response = await fetch(`${this.#apiUrl}/api:livechat/${this.#streamChatPath()}`, {
+      response = await fetch(livechatHttpUrl(this.#apiUrl, this.#streamChatPath()), {
         method: 'POST',
         signal: sendMeta?.abortController?.signal,
         headers: {
@@ -3006,7 +3417,7 @@ class BokitoChatWidget extends HTMLElement {
 
     let response;
     try {
-      response = await fetch(`${this.#apiUrl}/api:livechat/${this.#streamChatContinuePath()}`, {
+      response = await fetch(livechatHttpUrl(this.#apiUrl, this.#streamChatContinuePath()), {
         method: 'POST',
         signal: sendMeta?.abortController?.signal,
         headers: { 'Content-Type': 'application/json' },
@@ -3101,7 +3512,7 @@ class BokitoChatWidget extends HTMLElement {
   #connectRealtime() {
     if (!this.#conversationId) return;
     this.#realtime = new RealtimeClient({
-      url: this.#apiUrl.replace(/^http/, 'ws') + '/realtime',
+      url: realtimeWebSocketUrl(this.#apiUrl),
       channelName: `conversation/${this.#conversationId}`,
       token: null,
       onEvent: (data) => this.#handleRealtimeEvent(data),
@@ -3646,7 +4057,7 @@ class BokitoChatWidget extends HTMLElement {
         const fd = new FormData();
         fd.append('session_token', this.#sessionToken);
         fd.append('file', file);
-        const res = await fetch(`${this.#apiUrl}/api:livechat/attachment`, { method: 'POST', body: fd });
+        const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.attachment), { method: 'POST', body: fd });
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
         entry.id = data.id;
@@ -3714,7 +4125,25 @@ class BokitoChatWidget extends HTMLElement {
 
   // ── End attachment helpers ─────────────────────────────────────────────────
 
-  #showHome() { this.#sm.transition('home'); }
+  #showHome() {
+    this.#sm.transition('home');
+    if (!this.#activeHomeTab) this.#switchHomeTab('home');
+  }
+
+  #switchHomeTab(tab) {
+    if (tab !== 'home' && tab !== 'messages' && tab !== 'tools') tab = 'home';
+    this.#activeHomeTab = tab;
+    this.#root.querySelectorAll('.bk-home-tab').forEach((el) => {
+      el.hidden = el.dataset.tab !== tab;
+    });
+    this.#root.querySelectorAll('.bk-tab-btn').forEach((btn) => {
+      const isActive = btn.dataset.tab === tab;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    if (tab === 'messages') this.#loadConversationHistory();
+    if (tab === 'tools') this.#renderToolbox();
+  }
   #closeWindow() {
     if (this.#settingsView && this.#settingsView.style.display !== 'none') this.#hideSettings();
     this.#closeImageViewer();
@@ -3723,18 +4152,29 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #showSettings() {
+    this.#preSettingsView = this.#computeActiveViewName();
     if (this.#homeView) this.#homeView.style.display = 'none';
+    if (this.#chatView) this.#chatView.style.display = 'none';
+    if (this.#loginRequiredView) this.#loginRequiredView.style.display = 'none';
     if (this.#settingsView) this.#settingsView.style.display = '';
-    if (this.#settingsBtn) this.#settingsBtn.hidden = true;
     if (this.#backBtn) this.#backBtn.hidden = false;
+    this.#updateHeaderActionButtons(this.#sm?.state ?? 'home');
+    this.#syncWindowPowered();
     this.#syncSettingsForm();
   }
 
   #hideSettings() {
     if (this.#settingsView) this.#settingsView.style.display = 'none';
-    if (this.#homeView) this.#homeView.style.display = '';
-    if (this.#backBtn) this.#backBtn.hidden = true;
-    if (this.#settingsBtn) this.#settingsBtn.hidden = false;
+    const restore = this.#preSettingsView || 'home';
+    this.#preSettingsView = null;
+    this.#showView(restore);
+    this.#updateHeaderActionButtons(this.#sm?.state ?? 'home');
+  }
+
+  #computeActiveViewName() {
+    if (this.#chatView && this.#chatView.style.display !== 'none') return 'chat';
+    if (this.#loginRequiredView && this.#loginRequiredView.style.display !== 'none') return 'login';
+    return 'home';
   }
 
   #syncSettingsForm() {
@@ -3809,17 +4249,58 @@ class BokitoChatWidget extends HTMLElement {
     this.#applyUserThemeOverride();
     this.#syncSettingsForm();
     if (this.#sessionToken) this.#fetchRemotePreferences();
+    this.#ensureThemeSchemeListener();
+  }
+
+  #ensureThemeSchemeListener() {
+    if (this.#themeSchemeListenerBound) return;
+    this.#themeSchemeListenerBound = true;
+    this.#themeSchemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    this.#themeSchemeMedia.addEventListener('change', () => {
+      const stored = localStorage.getItem(LS_THEME_KEY) || 'system';
+      if (stored === 'light' || stored === 'dark') return;
+      this.#syncUserPopoverThemeToggle();
+      this.#syncAgentWindowAtmosphere();
+    });
+  }
+
+  #effectiveUserThemeIsDark() {
+    const stored = localStorage.getItem(LS_THEME_KEY) || 'system';
+    if (stored === 'dark') return true;
+    if (stored === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  #syncUserPopoverThemeToggle() {
+    const btn = this.#root?.querySelector?.('.bk-user-popover-theme-btn');
+    if (!btn) return;
+    const icon = btn.querySelector('.bk-user-popover-theme-icon');
+    const cap = btn.querySelector('.bk-user-popover-theme-caption');
+    if (!icon || !cap) return;
+    const dark = this.#effectiveUserThemeIsDark();
+    if (dark) {
+      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>';
+      cap.textContent = 'Lichte modus';
+      btn.setAttribute('aria-label', 'Schakel naar lichte weergave');
+    } else {
+      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+      cap.textContent = 'Donkere modus';
+      btn.setAttribute('aria-label', 'Schakel naar donkere weergave');
+    }
   }
 
   #applyUserThemeOverride() {
     const theme = localStorage.getItem(LS_THEME_KEY) || 'system';
     if (theme === 'light' || theme === 'dark') this.setAttribute('data-theme', theme);
     else this.removeAttribute('data-theme');
+    this.#syncUserPopoverThemeToggle();
+    this.#syncAgentWindowAtmosphere();
   }
 
   #setUserTheme(value) {
     localStorage.setItem(LS_THEME_KEY, value);
     this.#applyUserThemeOverride();
+    this.#syncSettingsForm();
     this.#persistPreferencePatch({ theme: value });
   }
 
@@ -3926,9 +4407,8 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   async #postTranscribe(blob) {
-    const base = this.#apiUrl.replace(/\/$/, '');
     const path = this.#transcribePath();
-    const url = `${base}/api:livechat/${path}`;
+    const url = livechatHttpUrl(this.#apiUrl, path);
     const buildFd = () => {
       const fd = new FormData();
       if (this.#sessionToken) fd.append('session_token', this.#sessionToken);
@@ -4059,10 +4539,7 @@ if (!customElements.get('bokito-chat')) {
     return idx > 0 ? scriptSrc.slice(0, idx) : '';
   })();
   const slug    = scriptEl?.dataset?.agentSlug || cfg.agentSlug || '';
-  const apiUrl  = (scriptEl?.dataset?.apiUrl || cfg.apiUrl || apiFromSrc || '')
-    .trim()
-    .replace(/\/+$/, '')
-    .replace(/\/api:livechat$/, '');
+  const apiUrl  = normalizeLivechatApiBase(scriptEl?.dataset?.apiUrl || cfg.apiUrl || apiFromSrc || '');
   const idToken = scriptEl?.dataset?.identityToken || cfg.identityToken || null;
   const authToken = scriptEl?.dataset?.authToken || cfg.authToken || null;
   const authCookieName = scriptEl?.dataset?.authCookieName || cfg.authCookieName || '';

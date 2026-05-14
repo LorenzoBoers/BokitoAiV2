@@ -90,9 +90,9 @@
 
   <!--
     The widget is loaded as an external script — exactly as any website would embed it.
-    Locally:  served from ./bokito-chat.js
+    Locally:  after `npm run build`, served from /bokito-chat.js (Vite dev) or dist/bokito-chat.js
     On Xano:  served via /api:livechat/script/main (which redirects to the hosted file)
   -->
-  <script src="./bokito-chat.js" defer></script>
+  <script src="/bokito-chat.js" defer></script>
 </body>
 </html>

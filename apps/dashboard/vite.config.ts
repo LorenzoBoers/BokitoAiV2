@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const chatWidgetRoot = path.resolve(__dirname, '../chat-widget')
+const chatWidgetServeRoot = path.join(chatWidgetRoot, 'dist')
 const chatWidgetMimeTypes: Record<string, string> = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -25,8 +26,8 @@ function chatWidgetDevPlugin() {
         }
 
         const relativePath = requestPath.slice('/chat-widget/'.length)
-        const absolutePath = path.resolve(chatWidgetRoot, relativePath)
-        if (!absolutePath.startsWith(chatWidgetRoot)) {
+        const absolutePath = path.resolve(chatWidgetServeRoot, relativePath)
+        if (!absolutePath.startsWith(chatWidgetServeRoot)) {
           next()
           return
         }

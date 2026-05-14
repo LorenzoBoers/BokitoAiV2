@@ -149,21 +149,37 @@ if (-not (Test-Path -LiteralPath $distDir)) {
 $chatWidgetDir = Join-Path $PSScriptRoot "apps\chat-widget"
 $chatWidgetDest = Join-Path $distDir "chat-widget"
 
-$widgetProductionItems = @("bokito-chat.js", "assets", "css", "fonts", "sounds")
-
 if (Test-Path -LiteralPath $chatWidgetDir) {
-  Write-Host "Copying chat-widget production files into dist/chat-widget/..."
+  if (-not $SkipBuild) {
+    Write-Host "Building chat-widget (Vite IIFE to dist/, public assets)..."
+    Push-Location $chatWidgetDir
+    try {
+      $prevErrAction = $ErrorActionPreference
+      $ErrorActionPreference = "Continue"
+      try {
+        cmd /c "npm run build 2>&1"
+      } finally {
+        $ErrorActionPreference = $prevErrAction
+      }
+      if ($LASTEXITCODE -ne 0) { throw "chat-widget vite build failed with exit code $LASTEXITCODE" }
+    } finally {
+      Pop-Location
+    }
+  }
+
+  $widgetDist = Join-Path $chatWidgetDir "dist"
+  $widgetBundle = Join-Path $widgetDist "bokito-chat.js"
+  if (-not (Test-Path -LiteralPath $widgetBundle)) {
+    throw "Chat-widget bundle not found: $widgetBundle — run without -SkipBuild or run 'npm run build' in apps/chat-widget first."
+  }
+
+  Write-Host "Merging chat-widget dist into dist/chat-widget/..."
   if (Test-Path -LiteralPath $chatWidgetDest) {
     Remove-Item -LiteralPath $chatWidgetDest -Recurse -Force
   }
   New-Item -ItemType Directory -Path $chatWidgetDest | Out-Null
-  foreach ($item in $widgetProductionItems) {
-    $src = Join-Path $chatWidgetDir $item
-    if (Test-Path -LiteralPath $src) {
-      Copy-Item -Path $src -Destination $chatWidgetDest -Recurse -Force
-    }
-  }
-  Write-Host "Chat-widget production files merged."
+  Copy-Item -Path (Join-Path $widgetDist "*") -Destination $chatWidgetDest -Recurse -Force
+  Write-Host "Chat-widget dist merged."
 } else {
   Write-Host "Warning: chat-widget directory not found at $chatWidgetDir — skipping merge."
 }
