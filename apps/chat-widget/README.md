@@ -25,7 +25,7 @@ This runs **Vite** on `http://127.0.0.1:8787` and opens your **system default br
 
 **Cursor / VS Code Simple Browser:** opening `http://localhost:8787` in the built-in Simple Browser tab often shows a **blank white page** even when the server is fine (webview / localhost quirks). Use the browser window that `npm run dev` opens, or open the same URL manually in Chrome or Edge.
 
-**Dashboard dev:** the portal Vite server serves `/chat-widget/*` from **`apps/chat-widget/dist/`** only. Build the widget (`npm run build` here) before loading `/chat-widget/bokito-chat.js` from the dashboard.
+**Dashboard dev:** the portal Vite server serves `/chat-widget/*` from **`apps/chat-widget/dist/`** only, mapping both `/chat-widget/internal/*` and `/chat-widget/external/*` onto the same files. Build the widget (`npm run build` here) before loading `/chat-widget/internal/bokito-chat.js` or `/chat-widget/external/bokito-chat.js` from the dashboard.
 
 **Alternative:** any static server works (for example `npx serve -l 8787` pointed at `dist/`), then open the URL in an external browser.
 

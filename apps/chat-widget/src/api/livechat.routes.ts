@@ -1,24 +1,29 @@
 /**
- * Path segments after `/api:livechat/` (no leading slash).
- * Central registry: build URLs with `livechatHttpUrl` from `./livechat-url`.
+ * Relative paths on the livechat API group (`/api:livechat`).
+ * Used by widget-main.ts; keep in sync with MULTI_TENANT_BACKEND_CONTRACT.md.
  */
-
-/** Default portal auth API group slug for `/auth/me` when embedder does not override `hostMeUrl`. */
-export const LIVECHAT_DEFAULT_HOST_AUTH_GROUP = 'DavdZOps' as const
-
 export const livechatRoutes = {
   session: {
-    start: 'session/start',
-    identify: 'session/identify',
+    start: '/session/start',
   },
   auth: {
-    logout: 'auth/logout',
-    login: 'auth/login',
-    forgotPassword: 'auth/forgot-password',
-    register: 'auth/register',
+    login: '/auth/login',
+    logout: '/auth/logout',
+    forgotPassword: '/auth/forgot-password',
+    register: '/auth/register',
   },
   hostAuth: {
-    me: 'auth/me',
+    me: '/me',
   },
-  attachment: 'attachment',
+  attachment: '/attachment',
+  streamChat: '/stream-chat',
+  streamChatContinue: '/stream-chat-continue',
+  transcribe: '/transcribe',
+  user: {
+    conversations: '/user/conversations',
+    preferences: '/user/preferences',
+  },
+  customer: {
+    conversations: '/customer/conversations',
+  },
 } as const

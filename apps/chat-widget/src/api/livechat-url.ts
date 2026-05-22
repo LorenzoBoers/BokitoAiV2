@@ -1,40 +1,41 @@
 /**
- * Normalise Xano origin used as widget `data-api-url`: trim, strip trailing slashes,
- * and remove a trailing `/api:livechat` segment so callers can append `/api:livechat/...` once.
+ * URL helpers for the livechat API group and related Xano groups.
  */
+
+export const LIVECHAT_DEFAULT_HOST_AUTH_GROUP = 'auth' as const
+
+const LIVECHAT_GROUP_MARKER = '/api:livechat'
+
 export function normalizeLivechatApiBase(raw: string): string {
-  return String(raw || '')
-    .trim()
-    .replace(/\/+$/, '')
-    .replace(/\/api:livechat$/, '')
+  const trimmed = String(raw ?? '').trim().replace(/\/+$/, '')
+  if (!trimmed) return ''
+  if (trimmed.includes(LIVECHAT_GROUP_MARKER)) {
+    const idx = trimmed.indexOf(LIVECHAT_GROUP_MARKER)
+    return trimmed.slice(0, idx + LIVECHAT_GROUP_MARKER.length)
+  }
+  return trimmed.endsWith('/api:livechat') ? trimmed : `${trimmed}/api:livechat`
 }
 
-/**
- * Full HTTP URL for a path under `api:livechat`.
- * `segment` is the path after `api:livechat/` without a leading slash (may include query string).
- */
-export function livechatHttpUrl(apiBase: string, segment: string): string {
-  const base = normalizeLivechatApiBase(apiBase)
-  const path = segment.replace(/^\//, '')
-  return `${base}/api:livechat/${path}`
+export function livechatHttpUrl(baseUrl: string, path: string): string {
+  const base = normalizeLivechatApiBase(baseUrl)
+  const segment = path.startsWith('/') ? path : `/${path}`
+  return `${base}${segment}`
 }
 
-/**
- * Generic Xano API group URL: `{origin}/api:{groupName}/{path}`.
- * `groupName` is the short group id (e.g. `DavdZOps`), not including `api:`.
- */
-export function xanoApiGroupUrl(apiBase: string, groupName: string, path: string): string {
-  const base = normalizeLivechatApiBase(apiBase)
-  const g = String(groupName || '')
-    .trim()
-    .replace(/^:+/, '')
-    .replace(/^api:?/i, '')
-  const p = path.replace(/^\//, '')
-  return `${base}/api:${g}/${p}`
+export function xanoApiGroupUrl(
+  xanoBase: string,
+  groupCanonical: string,
+  path: string
+): string {
+  const root = String(xanoBase ?? '').trim().replace(/\/+$/, '')
+  const group = groupCanonical.replace(/^\/+|\/+$/g, '')
+  const segment = path.startsWith('/') ? path : `/${path}`
+  return `${root}/api:${group}${segment}`
 }
 
-/** WebSocket URL for Xano realtime (not under `api:livechat`). */
-export function realtimeWebSocketUrl(apiBase: string): string {
-  const base = normalizeLivechatApiBase(apiBase)
-  return `${base.replace(/^http/, 'ws')}/realtime`
+export function realtimeWebSocketUrl(xanoBase: string, channel: string): string {
+  const http = String(xanoBase ?? '').trim().replace(/\/+$/, '')
+  const wsBase = http.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:')
+  const ch = channel.replace(/^\/+/, '')
+  return `${wsBase}/rt/${ch}`
 }

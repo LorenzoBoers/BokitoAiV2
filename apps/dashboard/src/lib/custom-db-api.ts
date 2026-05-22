@@ -1,9 +1,11 @@
+import { appRoutes } from '../api/routes/app.routes';
+import { withQuery } from '../api/url';
 import { APP_API_BASE } from './api.config';
 import { requireAccessToken } from './xano';
 import type {
   CustomTable, CustomField, CustomRecord, CustomView,
   FieldType, FieldConfig, ViewType, ViewConfig, PaginatedResponse,
-  ActivityLogEntry, RecordComment, BulkAction,
+  ActivityLogEntry, RecordComment, BulkAction, DefaultValue,
 } from '../types/custom-db';
 
 const API_BASE = APP_API_BASE;
@@ -73,45 +75,45 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 // ── Tables ──────────────────────────────────────────────
 
 export function listTables(): Promise<CustomTable[]> {
-  return request('GET', '/custom-tables');
+  return request('GET', appRoutes.customTables.list);
 }
 
 export function createTable(data: {
   name: string; description?: string; icon?: string; color?: string;
 }): Promise<CustomTable> {
-  return request('POST', '/custom-tables', data);
+  return request('POST', appRoutes.customTables.list, data);
 }
 
 export function updateTable(id: number, data: {
   name?: string; description?: string; icon?: string; color?: string;
 }): Promise<CustomTable> {
-  return request('PATCH', `/custom-tables/${id}`, data);
+  return request('PATCH', appRoutes.customTables.byId(id), data);
 }
 
 export function deleteTable(id: number): Promise<{ success: boolean }> {
-  return request('DELETE', `/custom-tables/${id}`);
+  return request('DELETE', appRoutes.customTables.byId(id));
 }
 
 // ── Fields ──────────────────────────────────────────────
 
 export function listFields(tableId: number): Promise<CustomField[]> {
-  return request('GET', `/custom-tables/${tableId}/fields`);
+  return request('GET', appRoutes.customTables.fields(tableId));
 }
 
 export function createField(tableId: number, data: {
   name: string; field_type: FieldType; config?: FieldConfig; required?: boolean; default_value?: DefaultValue;
 }): Promise<CustomField> {
-  return request('POST', `/custom-tables/${tableId}/fields`, data);
+  return request('POST', appRoutes.customTables.fields(tableId), data);
 }
 
 export function updateField(fieldId: number, data: {
   name?: string; config?: FieldConfig; required?: boolean; position?: number; default_value?: DefaultValue;
 }): Promise<CustomField> {
-  return request('PATCH', `/custom-fields/${fieldId}`, data);
+  return request('PATCH', appRoutes.customFields.byId(fieldId), data);
 }
 
 export function deleteField(fieldId: number): Promise<{ success: boolean }> {
-  return request('DELETE', `/custom-fields/${fieldId}`);
+  return request('DELETE', appRoutes.customFields.byId(fieldId));
 }
 
 // ── Records ─────────────────────────────────────────────
@@ -124,57 +126,57 @@ export function listRecords(
     per_page: perPage.toString(),
     include_deleted: includeDeleted.toString(),
   });
-  return request('GET', `/custom-tables/${tableId}/records?${params}`);
+  return request('GET', withQuery(appRoutes.customTables.records(tableId), params));
 }
 
 export function getRecord(recordId: number): Promise<CustomRecord> {
-  return request('GET', `/custom-records/${recordId}`);
+  return request('GET', appRoutes.customRecords.byId(recordId));
 }
 
 export function createRecord(
   tableId: number, data: Record<string, unknown>,
 ): Promise<CustomRecord> {
-  return request('POST', `/custom-tables/${tableId}/records`, { data });
+  return request('POST', appRoutes.customTables.records(tableId), { data });
 }
 
 export function updateRecord(
   recordId: number, data: Record<string, unknown>,
 ): Promise<CustomRecord> {
-  return request('PATCH', `/custom-records/${recordId}`, { data });
+  return request('PATCH', appRoutes.customRecords.byId(recordId), { data });
 }
 
 export function deleteRecord(recordId: number): Promise<{ success: boolean }> {
-  return request('DELETE', `/custom-records/${recordId}`);
+  return request('DELETE', appRoutes.customRecords.byId(recordId));
 }
 
 export function softDeleteRecord(recordId: number): Promise<CustomRecord> {
-  return request('PATCH', `/custom-records/${recordId}/soft-delete`);
+  return request('PATCH', appRoutes.customRecords.softDelete(recordId));
 }
 
 export function restoreRecord(recordId: number): Promise<CustomRecord> {
-  return request('PATCH', `/custom-records/${recordId}/restore`);
+  return request('PATCH', appRoutes.customRecords.restore(recordId));
 }
 
 export function duplicateRecord(
   recordId: number, 
   options: { includeRelations?: string[] } = {}
 ): Promise<CustomRecord> {
-  return request('POST', `/custom-records/${recordId}/duplicate`, options);
+  return request('POST', appRoutes.customRecords.duplicate(recordId), options);
 }
 
 export function bulkUpdateRecords(
   recordIds: number[], 
   data: Record<string, unknown>
 ): Promise<{ success: boolean; updated: number }> {
-  return request('PATCH', `/custom-records/bulk`, { record_ids: recordIds, data });
+  return request('PATCH', appRoutes.customRecords.bulk, { record_ids: recordIds, data });
 }
 
 export function bulkSoftDeleteRecords(recordIds: number[]): Promise<{ success: boolean; deleted: number }> {
-  return request('PATCH', `/custom-records/bulk-soft-delete`, { record_ids: recordIds });
+  return request('PATCH', appRoutes.customRecords.bulkSoftDelete, { record_ids: recordIds });
 }
 
 export function bulkRestoreRecords(recordIds: number[]): Promise<{ success: boolean; restored: number }> {
-  return request('PATCH', `/custom-records/bulk-restore`, { record_ids: recordIds });
+  return request('PATCH', appRoutes.customRecords.bulkRestore, { record_ids: recordIds });
 }
 
 export function searchRecords(
@@ -188,39 +190,39 @@ export function searchRecords(
     page: page.toString(),
     per_page: perPage.toString(),
   });
-  return request('GET', `/custom-tables/${tableId}/search?${params}`);
+  return request('GET', withQuery(appRoutes.customTables.search(tableId), params));
 }
 
 // ── Activity & Comments ─────────────────────────────────
 
 export function getRecordActivity(recordId: number): Promise<ActivityLogEntry[]> {
-  return request('GET', `/custom-records/${recordId}/activity`);
+  return request('GET', appRoutes.customRecords.activity(recordId));
 }
 
 export function getRecordComments(recordId: number): Promise<RecordComment[]> {
-  return request('GET', `/custom-records/${recordId}/comments`);
+  return request('GET', appRoutes.customRecords.comments(recordId));
 }
 
 // ── Views ───────────────────────────────────────────────
 
 export function listViews(tableId: number): Promise<CustomView[]> {
-  return request('GET', `/custom-tables/${tableId}/views`);
+  return request('GET', appRoutes.customTables.views(tableId));
 }
 
 export function createView(tableId: number, data: {
   name: string; view_type: ViewType; config?: ViewConfig;
 }): Promise<CustomView> {
-  return request('POST', `/custom-tables/${tableId}/views`, data);
+  return request('POST', appRoutes.customTables.views(tableId), data);
 }
 
 export function updateView(viewId: number, data: {
   name?: string; config?: ViewConfig;
 }): Promise<CustomView> {
-  return request('PATCH', `/custom-views/${viewId}`, data);
+  return request('PATCH', appRoutes.customViews.byId(viewId), data);
 }
 
 export function deleteView(viewId: number): Promise<{ success: boolean }> {
-  return request('DELETE', `/custom-views/${viewId}`);
+  return request('DELETE', appRoutes.customViews.byId(viewId));
 }
 
 // ── Standard Tables ─────────────────────────────────────────
@@ -233,7 +235,7 @@ export function createStandardTables(): Promise<CustomTable[]> {
     return Promise.resolve([]);
   }
   if (createStandardTablesInFlight) return createStandardTablesInFlight;
-  createStandardTablesInFlight = request<CustomTable[]>('POST', '/standard-tables/create')
+  createStandardTablesInFlight = request<CustomTable[]>('POST', appRoutes.standardTables.create)
     .catch((err) => {
       if (isMissingStandardTablesRouteError(err)) {
         markStandardTablesApiUnavailable();
@@ -252,7 +254,7 @@ export function listStandardTables(): Promise<CustomTable[]> {
     return Promise.resolve([]);
   }
   if (listStandardTablesInFlight) return listStandardTablesInFlight;
-  listStandardTablesInFlight = request<CustomTable[]>('GET', '/standard-tables')
+  listStandardTablesInFlight = request<CustomTable[]>('GET', appRoutes.standardTables.list)
     .catch((err) => {
       if (isMissingStandardTablesRouteError(err)) {
         markStandardTablesApiUnavailable();
@@ -269,11 +271,11 @@ export function listStandardTables(): Promise<CustomTable[]> {
 // ── Activity Log ────────────────────────────────────────────
 
 export function listRecordActivity(recordId: number): Promise<any[]> {
-  return request('GET', `/custom-records/${recordId}/activity`);
+  return request('GET', appRoutes.customRecords.activity(recordId));
 }
 
 export function addRecordNote(recordId: number, note: string): Promise<any> {
-  return request('POST', `/custom-records/${recordId}/activity`, { 
+  return request('POST', appRoutes.customRecords.activity(recordId), { 
     action: 'note', 
     note 
   });
@@ -282,27 +284,27 @@ export function addRecordNote(recordId: number, note: string): Promise<any> {
 // ── Comments ────────────────────────────────────────────────
 
 export function listRecordComments(recordId: number): Promise<any[]> {
-  return request('GET', `/custom-records/${recordId}/comments`);
+  return request('GET', appRoutes.customRecords.comments(recordId));
 }
 
 export function addRecordComment(recordId: number, data: {
   content: string; parent_id?: number; mentions?: number[];
 }): Promise<any> {
-  return request('POST', `/custom-records/${recordId}/comments`, data);
+  return request('POST', appRoutes.customRecords.comments(recordId), data);
 }
 
 export function updateRecordComment(commentId: number, content: string): Promise<any> {
-  return request('PATCH', `/record-comments/${commentId}`, { content });
+  return request('PATCH', appRoutes.recordComments.byId(commentId), { content });
 }
 
 export function deleteRecordComment(commentId: number): Promise<{ success: boolean }> {
-  return request('DELETE', `/record-comments/${commentId}`);
+  return request('DELETE', appRoutes.recordComments.byId(commentId));
 }
 
 // ── Users ───────────────────────────────────────────────────
 
 export function listWorkspaceUsers(): Promise<any[]> {
-  return request('GET', '/workspace-users');
+  return request('GET', appRoutes.workspaceUsers.list);
 }
 
 // ── CSV Import ───────────────────────────────────────────
@@ -311,7 +313,7 @@ export function importCSV(tableId: number, file: File, mapping: Record<string, s
   const formData = new FormData();
   formData.append('file', file);
   formData.append('mapping', JSON.stringify(mapping));
-  return request('POST', `/custom-tables/${tableId}/import/csv`, formData as unknown as object);
+  return request('POST', appRoutes.customTables.importCsv(tableId), formData as unknown as object);
 }
 
 // ── Data Export ──────────────────────────────────────────
@@ -319,5 +321,5 @@ export function importCSV(tableId: number, file: File, mapping: Record<string, s
 export function exportData(tableId: number, format: 'csv' | 'json' | 'xlsx', fields?: string[]): Promise<Blob> {
   const params = new URLSearchParams({ format });
   if (fields?.length) params.set('fields', fields.join(','));
-  return request('GET', `/custom-tables/${tableId}/export?${params}`);
+  return request('GET', withQuery(appRoutes.customTables.export(tableId), params));
 }

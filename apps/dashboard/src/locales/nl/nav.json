@@ -1,7 +1,6 @@
 {
   "rail": {
     "support": "Inbox",
-    "help": "Help",
     "updates": "AI",
     "data": "Data",
     "workforce": "Workforce",
@@ -57,7 +56,7 @@
       "segments": "Segmenten",
       "leadQualification": "Leadkwalificatie",
       "blocked": "Geblokkeerd",
-      "datasources": "Databronnen"
+      "datasources": "Koppelingen"
     }
   },
   "ai": {
@@ -65,10 +64,10 @@
       "ai": "AI"
     },
     "links": {
-      "assistent": "Assistent",
-      "kennis": "Kennis",
-      "datasources": "Databronnen",
-      "handelingen": "AI Tools"
+      "assistent": "Assistents",
+      "kennis": "Bronnen",
+      "datasources": "Koppelingen",
+      "handelingen": "MCP servers"
     }
   },
   "workforce": {
@@ -110,7 +109,7 @@
     "profile": { "title": "Profiel", "description": "Beheer je persoonlijke profielinformatie en accountvoorkeuren." },
     "notifications": { "title": "Notificaties", "description": "Configureer persoonlijke en teamnotificaties." },
     "support": { "title": "Inbox", "description": "Configureer inbox-gedrag en kanalen." },
-    "messenger": { "title": "Assistent", "description": "Configureer assistent-gedrag en voorbeeldinstellingen." },
+    "messenger": { "title": "Assistent", "description": "Configureer het gedrag van de assistent-widget en voorbeeldinstellingen." },
     "helpCenters": { "title": "Kennisbank", "description": "Beheer kennisbankcontent en zichtbaarheid voor klanten." },
     "general": { "title": "Algemeen", "description": "Stel workspace-brede standaardinstellingen en productgedrag in." },
     "branding": { "title": "Branding", "description": "Lijn de portalervaring uit met je organisatiebranding." },

@@ -286,6 +286,8 @@ export interface WorkspaceMember {
   status: 'active' | 'invited' | 'suspended';
 }
 
+import type { MessengerAppearance } from '../lib/messenger-appearance';
+
 export interface Workspace {
   id: number | string;
   slug?: string;
@@ -294,6 +296,8 @@ export interface Workspace {
   logo?: string | null;
   favicon?: string | null;
   brand_color?: string;
+  /** Parsed from livechat_settings.appearance (+ legacy keys). */
+  messengerAppearance?: MessengerAppearance;
   owner_user_id?: number | string | null;
   role?: UserRole | 'member';
   created_at?: string;

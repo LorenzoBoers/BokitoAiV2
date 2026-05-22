@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { useThreads } from '../hooks/useThreads'
 import { useThreadDetail } from '../hooks/useThreadDetail'
+import { usePinnedIds } from '../hooks/usePinnedIds'
 import {
   markThreadRead as apiMarkThreadRead,
   markThreadUnread as apiMarkThreadUnread,
@@ -133,25 +134,27 @@ export default function Communication() {
     (c) => c.status !== 'revoked' && c.isEnabled !== false,
   )
 
+  const { pinnedIds, addPin, removePin } = usePinnedIds()
+
   const {
     threads,
     loading: threadsLoading,
     error: threadsError,
     refresh: refreshThreads,
     setThreadReadState,
-    setThreadPinState,
-  } = useThreads({ view, search, connectionId })
+  } = useThreads({ view, search, connectionId }, pinnedIds)
 
   const {
     detail,
     loading: detailLoading,
+    error: detailError,
     saving,
     refresh: refreshDetail,
     patch,
     reply,
     addNote,
-    markUnread,
-  } = useThreadDetail(selectedThreadId)
+    togglePin,
+  } = useThreadDetail(selectedThreadId, pinnedIds)
 
   const handleSelectThread = useCallback(
     (id: number) => {
@@ -166,17 +169,6 @@ export default function Communication() {
     },
     [channelId, queue, navigate, setThreadReadState],
   )
-
-  const handleMarkUnread = useCallback(async () => {
-    if (selectedThreadId == null) return
-    setThreadReadState(selectedThreadId, true)
-    try {
-      await markUnread()
-    } catch {
-      // Roll back optimistic list update if the server rejected the change.
-      setThreadReadState(selectedThreadId, false)
-    }
-  }, [selectedThreadId, markUnread, setThreadReadState])
 
   // Handlers triggered from the indicator dropdown on a list row. They keep
   // the list state in sync without forcing a full reload, mirroring the modern
@@ -211,7 +203,10 @@ export default function Communication() {
     async (id: number, currentPinned: boolean) => {
       if (!token) return
       const next = !currentPinned
-      setThreadPinState(id, next)
+      // Optimistic update of the shared pin set (used by both the list and
+      // the open detail view to derive isPinned).
+      if (next) addPin(id)
+      else removePin(id)
       try {
         if (next) {
           await apiPinThread(token, id)
@@ -219,11 +214,28 @@ export default function Communication() {
           await apiUnpinThread(token, id)
         }
       } catch {
-        setThreadPinState(id, currentPinned)
+        if (next) removePin(id)
+        else addPin(id)
       }
     },
-    [token, setThreadPinState],
+    [token, addPin, removePin],
   )
+
+  // Pin/unpin from the detail header. Mirrors handleListTogglePin so both
+  // entry points share the optimistic flow.
+  const handleDetailTogglePin = useCallback(async () => {
+    if (selectedThreadId == null || !detail) return
+    const current = detail.thread.isPinned
+    const next = !current
+    if (next) addPin(selectedThreadId)
+    else removePin(selectedThreadId)
+    try {
+      await togglePin(current)
+    } catch {
+      if (next) removePin(selectedThreadId)
+      else addPin(selectedThreadId)
+    }
+  }, [selectedThreadId, detail, togglePin, addPin, removePin])
 
   // Canonical URL redirect: if the loaded thread no longer fits the queue or
   // channel context in the URL (e.g. it has been closed since the URL was
@@ -342,12 +354,14 @@ export default function Communication() {
       <ThreadDetail
         detail={detail}
         loading={detailLoading}
+        error={detailError}
         saving={saving}
+        threadId={selectedThreadId}
         onPatch={handlePatch}
         onReply={handleReply}
         onNote={handleNote}
         onRefresh={refreshDetail}
-        onMarkUnread={handleMarkUnread}
+        onTogglePin={handleDetailTogglePin}
         onToggleContact={detail ? toggleContactPanel : undefined}
         contactOpen={showContactPanel}
       />

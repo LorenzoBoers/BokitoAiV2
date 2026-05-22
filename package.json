@@ -1,0 +1,14 @@
+{
+  "name": "bokito-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:widget": "npm run build -w bokito-chat-widget",
+    "build:dashboard": "npm run build -w dashboard",
+    "build:runtime": "npm run build -w @bokito/runtime",
+    "build:shared": "npm run build -w @bokito/shared"
+  }
+}

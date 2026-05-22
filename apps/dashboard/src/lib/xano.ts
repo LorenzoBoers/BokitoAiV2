@@ -1,4 +1,5 @@
-import { APP_API_BASE, AUTH_API_BASE, INTEGRATIONS_API_BASE, XANO_BASE_URL, xanoApiBase } from './api.config';
+import { authRoutes } from '../api/routes/auth.routes';
+import { APP_API_BASE, AUTH_API_BASE, INTEGRATIONS_API_BASE, WORKFORCE_API_BASE, XANO_BASE_URL, xanoApiBase } from './api.config';
 
 const DEFAULT_ACCESS_TOKEN_TTL_S = 3600;
 const DEFAULT_REFRESH_TOKEN_TTL_S = 30 * 24 * 60 * 60;
@@ -274,11 +275,11 @@ export async function xanoPut<T>(path: string, body: object, token?: string): Pr
 
 // Enhanced auth functions
 export async function requestPasswordReset(email: string): Promise<{ message: string }> {
-  return xanoPostAuth('/auth/password-reset-request', { email });
+  return xanoPostAuth(authRoutes.session.passwordResetRequest, { email });
 }
 
 export async function resetPassword(token: string, password: string, passwordConfirmation: string): Promise<{ message: string }> {
-  return xanoPostAuth('/auth/password-reset', {
+  return xanoPostAuth(authRoutes.session.passwordReset, {
     token, 
     password, 
     password_confirmation: passwordConfirmation 
@@ -286,19 +287,19 @@ export async function resetPassword(token: string, password: string, passwordCon
 }
 
 export async function verifyEmail(token: string): Promise<{ message: string }> {
-  return xanoPostAuth('/auth/verify-email', { token });
+  return xanoPostAuth(authRoutes.session.verifyEmail, { token });
 }
 
 export async function resendVerificationEmail(email: string): Promise<{ message: string }> {
-  return xanoPostAuth('/auth/resend-verification', { email });
+  return xanoPostAuth(authRoutes.session.resendVerification, { email });
 }
 
 export async function refreshToken(refreshToken: string): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
-  return xanoPostAuth('/auth/refresh', { refresh_token: refreshToken });
+  return xanoPostAuth(authRoutes.session.refreshToken, { refresh_token: refreshToken });
 }
 
 export async function revokeToken(token: string): Promise<void> {
-  await xanoPostAuth('/auth/revoke', {}, token);
+  await xanoPostAuth(authRoutes.session.revoke, {}, token);
 }
 
 export interface AuthSessionResponse {
@@ -311,51 +312,49 @@ export interface AuthSessionResponse {
 }
 
 export async function authLogin(email: string, password: string): Promise<AuthSessionResponse> {
-  const res = await fetchAuthWithFallback('/login', '/login', {
+  const res = await fetchAuthWithFallback(authRoutes.proxy.login, authRoutes.proxy.login, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ email, password }),
   });
-  return readJsonResponse<AuthSessionResponse>(res, '/auth/login');
+  return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.login);
 }
 
 export async function authRefresh(): Promise<AuthSessionResponse> {
-  const res = await fetchAuthWithFallback('/refresh', '/refresh', {
+  const res = await fetchAuthWithFallback(authRoutes.proxy.refresh, authRoutes.proxy.refresh, {
     method: 'POST',
     credentials: 'include',
   });
-  return readJsonResponse<AuthSessionResponse>(res, '/auth/refresh');
+  return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.refresh);
 }
 
 export async function authMe(token?: string): Promise<unknown> {
   const headers = buildAuthHeaders(token, false);
-  const res = await fetchAuthWithFallback('/me', '/me', {
+  const res = await fetchAuthWithFallback(authRoutes.proxy.me, authRoutes.proxy.me, {
     method: 'GET',
     credentials: 'include',
     headers,
   });
-  return readJsonResponse<unknown>(res, '/auth/me');
+  return readJsonResponse<unknown>(res, authRoutes.errorContext.me);
 }
 
 export async function authMeForTenant(token: string | undefined, tenantSubdomain: string): Promise<unknown> {
   const sanitizedSubdomain = tenantSubdomain.trim().toLowerCase();
   if (!sanitizedSubdomain) return authMe(token);
-  const query = `tenant_subdomain=${encodeURIComponent(sanitizedSubdomain)}`;
-  const proxyPath = `/me?${query}`;
-  const directPath = `/me?${query}`;
+  const path = authRoutes.meWithTenantQuery(sanitizedSubdomain);
   const headers = buildAuthHeaders(token, false);
-  const res = await fetchAuthWithFallback(proxyPath, directPath, {
+  const res = await fetchAuthWithFallback(path, path, {
     method: 'GET',
     credentials: 'include',
     headers,
   });
-  return readJsonResponse<unknown>(res, '/auth/me');
+  return readJsonResponse<unknown>(res, authRoutes.errorContext.me);
 }
 
 export async function authLogout(token?: string): Promise<void> {
   const headers = buildAuthHeaders(token);
-  const res = await fetchAuthWithFallback('/logout', '/logout', {
+  const res = await fetchAuthWithFallback(authRoutes.proxy.logout, authRoutes.proxy.logout, {
     method: 'POST',
     credentials: 'include',
     headers,
@@ -363,6 +362,41 @@ export async function authLogout(token?: string): Promise<void> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
-    throw new Error(formatXanoHttpError('/auth/logout', err));
+    throw new Error(formatXanoHttpError(authRoutes.errorContext.logout, err));
   }
+}
+
+export async function xanoGetWorkforce<T>(path: string, token?: string): Promise<T> {
+  const headers = buildAuthHeaders(token, false);
+  if (!headers.Authorization) {
+    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+  }
+  const res = await fetch(`${WORKFORCE_API_BASE}${path}`, {
+    method: 'GET',
+    headers,
+    credentials: 'include',
+  });
+  return readJsonResponse<T>(res, path);
+}
+
+export async function xanoPostWorkforce<T>(path: string, body: object, token?: string): Promise<T> {
+  const headers = buildAuthHeaders(token);
+  const res = await fetch(`${WORKFORCE_API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  return readJsonResponse<T>(res, path);
+}
+
+export async function xanoPatchWorkforce<T>(path: string, body: object, token?: string): Promise<T> {
+  const headers = buildAuthHeaders(token);
+  const res = await fetch(`${WORKFORCE_API_BASE}${path}`, {
+    method: 'PATCH',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  return readJsonResponse<T>(res, path);
 }

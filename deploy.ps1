@@ -179,7 +179,13 @@ if (Test-Path -LiteralPath $chatWidgetDir) {
   }
   New-Item -ItemType Directory -Path $chatWidgetDest | Out-Null
   Copy-Item -Path (Join-Path $widgetDist "*") -Destination $chatWidgetDest -Recurse -Force
-  Write-Host "Chat-widget dist merged."
+  $internalDest = Join-Path $chatWidgetDest "internal"
+  $externalDest = Join-Path $chatWidgetDest "external"
+  New-Item -ItemType Directory -Path $internalDest -Force | Out-Null
+  New-Item -ItemType Directory -Path $externalDest -Force | Out-Null
+  Copy-Item -Path (Join-Path $widgetDist "*") -Destination $internalDest -Recurse -Force
+  Copy-Item -Path (Join-Path $widgetDist "*") -Destination $externalDest -Recurse -Force
+  Write-Host "Chat-widget dist merged (includes chat-widget/internal and chat-widget/external mirrors)."
 } else {
   Write-Host "Warning: chat-widget directory not found at $chatWidgetDir — skipping merge."
 }

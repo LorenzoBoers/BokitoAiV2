@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import {
   getThread,
@@ -14,16 +14,17 @@ import {
   type ReplyInput,
 } from '../lib/inbox-api'
 
-export function useThreadDetail(threadId: number | null) {
+export function useThreadDetail(threadId: number | null, pinnedIds: number[] = []) {
   const { token } = useAuth()
-  const [detail, setDetail] = useState<ThreadDetail | null>(null)
+  const [rawDetail, setRawDetail] = useState<ThreadDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const fetchDetail = useCallback(async () => {
     if (!token || !threadId) {
-      setDetail(null)
+      setRawDetail(null)
+      setError(null)
       return
     }
     setLoading(true)
@@ -35,13 +36,14 @@ export function useThreadDetail(threadId: number | null) {
       // reflects the read status. If the request fails the next list poll
       // (every 30s) will reconcile.
       if (result && result.thread.hasUnread) {
-        setDetail({ ...result, thread: { ...result.thread, hasUnread: false } })
+        setRawDetail({ ...result, thread: { ...result.thread, hasUnread: false } })
         void markThreadRead(token, threadId).catch(() => {})
       } else {
-        setDetail(result)
+        setRawDetail(result)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Thread kon niet worden geladen.')
+      setRawDetail(null)
     } finally {
       setLoading(false)
     }
@@ -51,6 +53,16 @@ export function useThreadDetail(threadId: number | null) {
     void fetchDetail()
   }, [fetchDetail])
 
+  // Derive isPinned client-side from the shared pinnedIds list. The detail
+  // endpoint deliberately does NOT include is_pinned to keep its payload
+  // simple; the dashboard joins state here.
+  const detail = useMemo<ThreadDetail | null>(() => {
+    if (!rawDetail) return null
+    const isPinned = pinnedIds.includes(rawDetail.thread.id)
+    if (rawDetail.thread.isPinned === isPinned) return rawDetail
+    return { ...rawDetail, thread: { ...rawDetail.thread, isPinned } }
+  }, [rawDetail, pinnedIds])
+
   const patch = useCallback(
     async (input: PatchThreadInput) => {
       if (!token || !threadId) return
@@ -58,7 +70,7 @@ export function useThreadDetail(threadId: number | null) {
       try {
         const updated = await patchThread(token, threadId, input)
         if (updated) {
-          setDetail((prev) => (prev ? { ...prev, thread: updated } : prev))
+          setRawDetail((prev) => (prev ? { ...prev, thread: updated } : prev))
         }
       } finally {
         setSaving(false)
@@ -74,7 +86,7 @@ export function useThreadDetail(threadId: number | null) {
       try {
         const msg = await replyToThread(token, threadId, input)
         if (msg) {
-          setDetail((prev) =>
+          setRawDetail((prev) =>
             prev
               ? {
                   ...prev,
@@ -102,7 +114,7 @@ export function useThreadDetail(threadId: number | null) {
       try {
         const msg = await addNoteToThread(token, threadId, bodyText)
         if (msg) {
-          setDetail((prev) => (prev ? { ...prev, messages: [...prev.messages, msg] } : prev))
+          setRawDetail((prev) => (prev ? { ...prev, messages: [...prev.messages, msg] } : prev))
         }
       } finally {
         setSaving(false)
@@ -115,32 +127,36 @@ export function useThreadDetail(threadId: number | null) {
   // Updates local state immediately, then persists to the server.
   const markUnread = useCallback(async () => {
     if (!token || !threadId) return
-    setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: true } } : prev))
+    setRawDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: true } } : prev))
     try {
       await markThreadUnread(token, threadId)
     } catch {
-      setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: false } } : prev))
+      setRawDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: false } } : prev))
       throw new Error('Kon thread niet als ongelezen markeren.')
     }
   }, [token, threadId])
 
-  // Toggle pin state with optimistic update + rollback on failure.
-  const togglePin = useCallback(async () => {
-    if (!token || !threadId) return
-    const current = detail?.thread.isPinned ?? false
-    const next = !current
-    setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, isPinned: next } } : prev))
-    try {
-      if (next) {
-        await pinThread(token, threadId)
-      } else {
-        await unpinThread(token, threadId)
+  // Server-side toggle of the pin state. The caller is responsible for
+  // updating the shared `pinnedIds` list (via usePinnedIds) so that the
+  // thread list and the detail view stay in sync. We return the next state
+  // so the caller can do an optimistic addPin/removePin before awaiting.
+  const togglePin = useCallback(
+    async (currentPinned: boolean): Promise<boolean> => {
+      if (!token || !threadId) return currentPinned
+      const next = !currentPinned
+      try {
+        if (next) {
+          await pinThread(token, threadId)
+        } else {
+          await unpinThread(token, threadId)
+        }
+        return next
+      } catch {
+        throw new Error(next ? 'Kon thread niet pinnen.' : 'Kon pin niet verwijderen.')
       }
-    } catch {
-      setDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, isPinned: current } } : prev))
-      throw new Error(next ? 'Kon thread niet pinnen.' : 'Kon pin niet verwijderen.')
-    }
-  }, [token, threadId, detail])
+    },
+    [token, threadId],
+  )
 
   return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote, markUnread, togglePin }
 }

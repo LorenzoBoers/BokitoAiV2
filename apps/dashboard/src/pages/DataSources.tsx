@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { Badge } from '../components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 
 export default function DataSources() {
+  const { t } = useTranslation()
   return (
     <div className="h-full py-4 flex flex-col gap-3">
       <Card className="flex-1 min-h-0 flex flex-col">
         <CardHeader>
           <div>
-            <CardTitle>Databronnen</CardTitle>
+            <CardTitle>{t('nav:ai.links.datasources')}</CardTitle>
             <p className="text-xs text-text-secondary mt-0.5">
               Koppel externe bronnen om data automatisch te synchroniseren.
             </p>

@@ -1,28 +1,32 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { listThreads, type InboxThread, type ThreadFilters } from '../lib/inbox-api'
 
-export function useThreads(filters: ThreadFilters = {}, pollMs = 30000) {
+export function useThreads(
+  filters: ThreadFilters = {},
+  pinnedIds: number[] = [],
+  pollMs = 30000,
+) {
   const { token } = useAuth()
-  const [threads, setThreads] = useState<InboxThread[]>([])
+  const [rawThreads, setRawThreads] = useState<InboxThread[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [total, setTotal] = useState<number | null>(null)
 
   const fetchThreads = useCallback(async () => {
     if (!token) {
-      setThreads([])
+      setRawThreads([])
       return
     }
     setLoading(true)
     setError(null)
     try {
       const result = await listThreads(token, filters)
-      setThreads(result.items)
+      setRawThreads(result.items)
       setTotal(result.itemsTotal)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kon threads niet laden.')
-      setThreads([])
+      setRawThreads([])
     } finally {
       setLoading(false)
     }
@@ -40,26 +44,26 @@ export function useThreads(filters: ThreadFilters = {}, pollMs = 30000) {
     return () => window.clearInterval(timer)
   }, [token, pollMs, fetchThreads])
 
+  // Decorate every fetched thread with isPinned (client-side join with the
+  // user's pinned thread IDs) and sort pinned threads to the top of the
+  // current page. Within each group the list keeps the server-side order
+  // (last_message_at DESC).
+  const threads = useMemo<InboxThread[]>(() => {
+    const pinSet = new Set(pinnedIds)
+    const decorated = rawThreads.map((t) => ({ ...t, isPinned: pinSet.has(t.id) }))
+    const toMillis = (iso: string | null) => (iso ? new Date(iso).getTime() : 0)
+    return [...decorated].sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+      return toMillis(b.lastMessageAt) - toMillis(a.lastMessageAt)
+    })
+  }, [rawThreads, pinnedIds])
+
   // Optimistic read/unread state update for the in-memory list. Lets the UI
   // toggle the unread dot instantly when a user opens a thread or manually
   // flips it back to unread, without waiting for the next poll.
   const setThreadReadState = useCallback((threadId: number, hasUnread: boolean) => {
-    setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, hasUnread } : t)))
+    setRawThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, hasUnread } : t)))
   }, [])
 
-  // Optimistic pin state update. Re-sorts the list so pinned threads bubble to
-  // the top within the current queue, mirroring the server-side sort order.
-  // This keeps the UI snappy when a user toggles the pin from the dropdown.
-  const setThreadPinState = useCallback((threadId: number, isPinned: boolean) => {
-    setThreads((prev) => {
-      const updated = prev.map((t) => (t.id === threadId ? { ...t, isPinned } : t))
-      const toMillis = (iso: string | null) => (iso ? new Date(iso).getTime() : 0)
-      return [...updated].sort((a, b) => {
-        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
-        return toMillis(b.lastMessageAt) - toMillis(a.lastMessageAt)
-      })
-    })
-  }, [])
-
-  return { threads, loading, error, total, refresh: fetchThreads, setThreadReadState, setThreadPinState }
+  return { threads, loading, error, total, refresh: fetchThreads, setThreadReadState }
 }

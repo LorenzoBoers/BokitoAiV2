@@ -1,3 +1,4 @@
+import { workforceRoutes } from '../api/routes/workforce.routes'
 import { WORKFORCE_API_BASE } from './api.config'
 import { requireAccessToken } from './xano'
 
@@ -142,7 +143,7 @@ async function readResponse<T>(res: Response): Promise<T> {
 }
 
 export async function getWorkforceConfig(token?: string): Promise<WorkforceConfig> {
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/config`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.config}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -159,7 +160,7 @@ export async function updateWorkforceConfig(
     >
   >,
 ): Promise<WorkforceConfig> {
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/config`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.config}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -174,7 +175,7 @@ export async function getWorkforceStatus(
 ): Promise<WorkforceStatusPayload> {
   const params = new URLSearchParams()
   if (pipelineId) params.set('pipeline_id', String(pipelineId))
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/status?${params.toString()}`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.statusQuery(params)}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -198,7 +199,7 @@ export async function forceWakeWorkforce(
   const body: Record<string, unknown> = {}
   if (pipelineId) body.pipeline_id = pipelineId
   if (wakeMessage && wakeMessage.trim()) body.wake_message = wakeMessage.trim()
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/force-wake`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.forceWake}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -208,7 +209,7 @@ export async function forceWakeWorkforce(
 }
 
 export async function forceRescanWorkforce(token: string | undefined, pipelineId?: number): Promise<{ ok: boolean; trigger_id: number }> {
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/force-rescan`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.forceRescan}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -224,7 +225,7 @@ export async function pauseWorkforce(token?: string): Promise<{ ok: boolean }> {
     const updated = await updateAgentStatus(token, manager.id, 'standby')
     return { ok: updated.ok }
   }
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/pause`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.pause}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -237,7 +238,7 @@ export async function triggerAgent(
   token: string | undefined,
   payload: TriggerAgentPayload,
 ): Promise<Record<string, unknown>> {
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/trigger-agent`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.triggerAgent}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -250,7 +251,7 @@ export async function completeActivity(
   token: string | undefined,
   payload: CompleteActivityPayload,
 ): Promise<Record<string, unknown>> {
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/complete-activity`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.completeActivity}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -263,7 +264,7 @@ export async function runWorkforceMaintenance(
   token: string | undefined,
   maxStaleMinutes = 15,
 ): Promise<Record<string, unknown>> {
-  const res = await fetch(`${WORKFORCE_API_BASE}/workforce/maintenance-run`, {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.maintenanceRun}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -273,7 +274,7 @@ export async function runWorkforceMaintenance(
 }
 
 export async function getAgents(token?: string): Promise<RuntimeAgent[]> {
-  const res = await fetch(`${AGENT_RUNTIME_API_BASE}/agents`, {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.list}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -283,7 +284,7 @@ export async function getAgents(token?: string): Promise<RuntimeAgent[]> {
 }
 
 export async function getTimeline(token?: string): Promise<RuntimeActivity[]> {
-  const res = await fetch(`${AGENT_RUNTIME_API_BASE}/timeline`, {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.timeline}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -297,7 +298,7 @@ export async function updateAgentStatus(
   agentId: string,
   status: RuntimeAgent['status'],
 ): Promise<{ ok: boolean; agent: RuntimeAgent }> {
-  const res = await fetch(`${AGENT_RUNTIME_API_BASE}/agents/${encodeURIComponent(agentId)}/status`, {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.status(agentId)}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: buildHeaders(token),

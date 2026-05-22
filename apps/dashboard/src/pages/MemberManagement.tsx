@@ -3,6 +3,7 @@ import { MailPlus, Plus, Search, Trash2, Users, X } from 'lucide-react'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
+import { appRoutes } from '../api/routes/app.routes'
 import { xanoGet, xanoPost } from '../lib/xano'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -136,8 +137,8 @@ export default function MemberManagement() {
         }
 
         const [rawMembers, rawInvites] = await Promise.all([
-          xanoGet<unknown[]>(`/workspaces/${workspaceId}/members`, token).catch(() => []),
-          xanoGet<unknown[]>(`/workspaces/${workspaceId}/invites`, token).catch(() => []),
+          xanoGet<unknown[]>(appRoutes.workspaces.members(workspaceId), token).catch(() => []),
+          xanoGet<unknown[]>(appRoutes.workspaces.invites(workspaceId), token).catch(() => []),
         ])
 
         const mappedMembers = Array.isArray(rawMembers)
@@ -226,7 +227,7 @@ export default function MemberManagement() {
     setError(null)
     try {
       await xanoPost(
-        '/workspace-invites',
+        appRoutes.workspaceInvites.create,
         {
           workspace_id: workspaceId,
           email: inviteEmail.trim(),
@@ -234,7 +235,7 @@ export default function MemberManagement() {
         },
         token,
       )
-      const inviteList = await xanoGet<unknown[]>(`/workspaces/${workspaceId}/invites`, token).catch(() => [])
+      const inviteList = await xanoGet<unknown[]>(appRoutes.workspaces.invites(workspaceId), token).catch(() => [])
       const mappedInvites = Array.isArray(inviteList)
         ? inviteList
             .map((item) => {

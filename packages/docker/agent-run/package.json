@@ -1,0 +1,6 @@
+{
+  "name": "bokito-agent-run",
+  "private": true,
+  "type": "module",
+  "main": "agent-loop.js"
+}

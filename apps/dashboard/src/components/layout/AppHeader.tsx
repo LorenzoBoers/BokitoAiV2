@@ -19,7 +19,7 @@ export default function AppHeader() {
   const title = pathname.startsWith('/support/inbox/')
     ? supportPageMeta[supportQueue ?? 'all']?.title ?? t('nav:fallbackTitles.supportInbox')
     : pathname.startsWith('/support/customization')
-      ? t('nav:fallbackTitles.supportInboxSetup')
+      ? t('nav:settingsPageMeta.messenger.title')
       : pathname.startsWith('/support/settings')
         ? t('nav:fallbackTitles.emailConnections')
         : pathname.startsWith('/users')

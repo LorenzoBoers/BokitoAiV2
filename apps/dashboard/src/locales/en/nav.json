@@ -1,7 +1,6 @@
 {
   "rail": {
     "support": "Inbox",
-    "help": "Help",
     "updates": "AI",
     "data": "Data",
     "workforce": "Workforce",
@@ -57,7 +56,7 @@
       "segments": "Segments",
       "leadQualification": "Lead qualification",
       "blocked": "Blocked",
-      "datasources": "Data sources"
+      "datasources": "Connections"
     }
   },
   "ai": {
@@ -65,10 +64,10 @@
       "ai": "AI"
     },
     "links": {
-      "assistent": "Assistant",
-      "kennis": "Knowledge",
-      "datasources": "Data sources",
-      "handelingen": "AI Tools"
+      "assistent": "Assistants",
+      "kennis": "Sources",
+      "datasources": "Connections",
+      "handelingen": "MCP servers"
     }
   },
   "workforce": {
@@ -110,7 +109,7 @@
     "profile": { "title": "Profile", "description": "Manage your personal profile information and account preferences." },
     "notifications": { "title": "Notifications", "description": "Configure personal and team notification defaults." },
     "support": { "title": "Inbox", "description": "Configure inbox behavior and channels." },
-    "messenger": { "title": "Assistant", "description": "Configure assistant behavior and preview settings." },
+    "messenger": { "title": "Assistant", "description": "Configure assistant widget behavior and preview settings." },
     "helpCenters": { "title": "Knowledge base", "description": "Manage knowledge base content and visibility." },
     "general": { "title": "General", "description": "Set workspace-level defaults and product behavior." },
     "branding": { "title": "Branding", "description": "Align the portal experience with your organization branding." },

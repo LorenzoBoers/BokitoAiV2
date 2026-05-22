@@ -29,6 +29,7 @@ import {
   type SidebarGroup,
 } from './portal-nav'
 import InboxSidebarNav from '../inbox/InboxSidebarNav'
+import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
 
 function sectionClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-all ${
@@ -70,7 +71,15 @@ function iconForLink(to: string) {
   return Inbox
 }
 
-function SidebarGroupBlock({ group, user }: { group: SidebarGroup; user: { name: string; email: string; avatarUrl?: string | null } | null }) {
+function SidebarGroupBlock({
+  group,
+  user,
+  pathname,
+}: {
+  group: SidebarGroup
+  user: { name: string; email: string; avatarUrl?: string | null } | null
+  pathname: string
+}) {
   return (
     <section className="space-y-1">
       <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">{group.label}</p>
@@ -89,7 +98,16 @@ function SidebarGroupBlock({ group, user }: { group: SidebarGroup; user: { name:
             )
           }
           return (
-            <NavLink key={item.to} to={item.to} className={({ isActive }) => sectionClass(isActive)}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                sectionClass(
+                  isActive ||
+                    (item.to === ASSISTENT_DEFAULT_PATH && pathname.startsWith('/ai/assistent/')),
+                )
+              }
+            >
               {item.to === '/support/inbox/my' ? (
                 <UserAvatar name={user?.name ?? '?'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={20} />
               ) : (
@@ -141,14 +159,19 @@ export default function SectionSidebar() {
         ) : (
           <div className="space-y-4">
             {groups.map((group) => (
-              <SidebarGroupBlock key={group.label} group={group} user={user ?? null} />
+              <SidebarGroupBlock key={group.label} group={group} user={user ?? null} pathname={pathname} />
             ))}
           </div>
         )}
       </div>
       {isInbox && (
         <div className="mt-2 space-y-0.5 border-t border-border/40 pt-2">
-          <NavLink to="/settings/messenger" className={({ isActive }) => sectionClass(isActive)}>
+          <NavLink
+            to={ASSISTENT_DEFAULT_PATH}
+            className={({ isActive }) =>
+              sectionClass(isActive || pathname.startsWith('/ai/assistent/'))
+            }
+          >
             <MessageSquare size={14} className="text-text-muted" />
             <span>{t('nav:settings.links.messenger')}</span>
           </NavLink>

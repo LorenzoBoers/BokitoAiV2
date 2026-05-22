@@ -18,10 +18,14 @@ import NotificationSettings from './pages/NotificationSettings'
 import CompanyConfig from './pages/CompanyConfig'
 import MemberManagement from './pages/MemberManagement'
 import MessengerSettings from './pages/MessengerSettings'
+import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
 import HelpCentersSettings from './pages/HelpCentersSettings'
-import ApiDocs from './pages/ApiDocs'
 import CloudAgent from './pages/CloudAgent'
 import Projects from './pages/Projects'
+import CreateProject from './pages/CreateProject'
+import Pkb from './pages/Pkb'
+import ChangeRequest from './pages/ChangeRequest'
+import AdminRuns from './pages/AdminRuns'
 import DataSources from './pages/DataSources'
 import WorkforceControl from './pages/OrchestratorControl'
 import WorkspaceSettings from './pages/WorkspaceSettings'
@@ -77,14 +81,14 @@ export default function App() {
           <Route path="/support/inbox/:queue/t/:threadId" element={<Communication />} />
           <Route path="/support/inbox/ch/:channelId/:queue" element={<Communication />} />
           <Route path="/support/inbox/ch/:channelId/:queue/t/:threadId" element={<Communication />} />
-          <Route path="/support/customization" element={<MessengerSettings />} />
+          <Route path="/support/customization" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/support/settings/general" element={<Navigate to="/settings/inbox" replace />} />
 
           <Route path="/users/:tab" element={<DatabasePageWithProvider />} />
 
           <Route path="/settings/profile" element={<ProfileSettings />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
-          <Route path="/settings/messenger" element={<Navigate to="/ai/assistent" replace />} />
+          <Route path="/settings/messenger" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/settings/support/general" element={<Navigate to="/settings/inbox" replace />} />
           <Route path="/settings/help-centers" element={<HelpCentersSettings />} />
           <Route path="/settings/general" element={<WorkspaceSettings />} />
@@ -102,14 +106,20 @@ export default function App() {
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
 
           <Route path="/communication" element={<Communication />} />
+          <Route path="/messages" element={<Communication />} />
+          <Route path="/projects/new" element={<CreateProject />} />
+          <Route path="/project/:projectId/pkb" element={<Pkb />} />
+          <Route path="/project/:projectId/request" element={<ChangeRequest />} />
+          <Route path="/admin/runs/:workLogId" element={<AdminRuns />} />
+          <Route path="/admin/runs" element={<AdminRuns />} />
           <Route path="/cloud-agent" element={<CloudAgent />} />
           <Route path="/integrations" element={<Navigate to="/settings/profile" replace />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/datasources" element={<DataSources />} />
-          <Route path="/ai/assistent" element={<MessengerSettings />} />
-          <Route path="/ai" element={<Navigate to="/projects" replace />} />
+          <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
+          <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
+          <Route path="/ai" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/company-config" element={<Navigate to="/settings/company" replace />} />
-          <Route path="/docs" element={<ApiDocs />} />
           <Route path="/workforce" element={<Navigate to="/" replace />} />
           <Route path="/workforce/*" element={<Navigate to="/" replace />} />
           <Route path="/analytics" element={<Navigate to="/database" replace />} />

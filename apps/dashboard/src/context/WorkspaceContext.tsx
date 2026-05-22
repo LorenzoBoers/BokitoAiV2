@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import type { Workspace, WorkspaceInvite } from '../types/custom-db';
+import { appRoutes } from '../api/routes/app.routes';
 import { xanoGet, xanoPost } from '../lib/xano';
 import { XANO_BASE_URL } from '../lib/api.config';
 import { resolveTenantSubdomainFromHost } from '../lib/host-routing';
+import { normalizeMessengerAppearance } from '../lib/messenger-appearance';
 
 const LAST_WORKSPACE_STORAGE_KEY = 'bokito_current_workspace';
 
@@ -111,6 +113,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             : typeof livechatSettings?.subdomain === 'string' && livechatSettings.subdomain.trim()
               ? livechatSettings.subdomain.trim()
               : undefined;
+        const messengerAppearance = normalizeMessengerAppearance(livechatSettings, {
+          brandColorFallback: resolvedBrandColor,
+          normalizeAssetUrl,
+        });
         return {
           id: parsedId,
           name,
@@ -119,7 +125,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           logo: resolvedLogo ?? undefined,
           favicon: resolvedFavicon ?? undefined,
           brand_color: resolvedBrandColor,
-        } satisfies Workspace;
+          messengerAppearance,
+        } as Workspace;
       })
       .filter((workspace): workspace is Workspace => workspace !== null);
   }, []);
@@ -223,7 +230,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const workspaceList = await xanoGet<unknown>('/workspaces', token);
+      const workspaceList = await xanoGet<unknown>(appRoutes.workspaces.list, token);
       const safeWorkspaceList = normalizeWorkspaceList(workspaceList);
       const resolvedWorkspaceList = safeWorkspaceList.length > 0 ? safeWorkspaceList : getTenantFallbackWorkspaceList();
       if (safeWorkspaceList.length === 0 && resolvedWorkspaceList.length > 0) {
@@ -269,7 +276,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
     const fallbackSubdomain = normalizeSubdomainCandidate(data.name || 'workspace');
     const normalizedSubdomain = normalizeSubdomainCandidate(data.subdomain || fallbackSubdomain).slice(0, 63);
-    const workspace = await xanoPost<Workspace>('/workspaces', { ...data, subdomain: normalizedSubdomain }, token);
+    const workspace = await xanoPost<Workspace>(appRoutes.workspaces.list, { ...data, subdomain: normalizedSubdomain }, token);
     setWorkspaces(prev => [...prev, workspace]);
     setCurrentWorkspace(workspace);
     try {
@@ -283,7 +290,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const updateWorkspace = useCallback(async (id: number | string, data: Partial<Workspace>) => {
     if (!token) throw new Error('Not authenticated');
     
-    const updated = await xanoPost<Workspace>(`/workspaces/${id}`, data, token);
+    const updated = await xanoPost<Workspace>(appRoutes.workspaces.byId(id), data, token);
     setWorkspaces(prev => prev.map(w => (workspaceIdKey(w.id) === workspaceIdKey(id) ? { ...w, ...updated } : w)));
     if (workspaceIdKey(currentWorkspace?.id) === workspaceIdKey(id)) {
       setCurrentWorkspace(prev => prev ? { ...prev, ...updated } : null);
@@ -314,7 +321,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const inviteUser = useCallback(async (email: string, role: 'admin' | 'member' | 'viewer') => {
     if (!token || !currentWorkspace) throw new Error('Not authenticated or no workspace');
     
-    await xanoPost('/workspace-invites', {
+    await xanoPost(appRoutes.workspaceInvites.create, {
       workspace_id: currentWorkspace.id,
       email,
       role,
@@ -328,7 +335,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (!token || !currentWorkspace) return;
     
     try {
-      const inviteList = await xanoGet<WorkspaceInvite[]>(`/workspaces/${currentWorkspace.id}/invites`, token);
+      const inviteList = await xanoGet<WorkspaceInvite[]>(appRoutes.workspaces.invites(currentWorkspace.id), token);
       setInvites(Array.isArray(inviteList) ? inviteList : []);
     } catch (error) {
       console.error('Failed to load invites:', error);

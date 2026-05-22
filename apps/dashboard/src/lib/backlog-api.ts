@@ -1,3 +1,5 @@
+import { appRoutes } from '../api/routes/app.routes'
+import { withQuery } from '../api/url'
 import { APP_API_BASE } from './api.config'
 import { requireAccessToken } from './xano'
 
@@ -73,7 +75,7 @@ export async function listBacklogItems(
     if (value) params.set(key, value)
   })
 
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/items?${params.toString()}`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${withQuery(appRoutes.backlog.items, params)}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -100,7 +102,7 @@ export async function createBacklogItem(
     tags?: string[]
   },
 ): Promise<BacklogItem> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/items`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.items}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -110,7 +112,7 @@ export async function createBacklogItem(
 }
 
 export async function getBacklogItem(token: string | undefined, id: number): Promise<{ item: BacklogItem; comments: BacklogComment[] }> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.item(id)}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -138,7 +140,7 @@ export async function updateBacklogItem(
     dependencies: number[]
   }>,
 ): Promise<BacklogItem> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.item(id)}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -148,7 +150,7 @@ export async function updateBacklogItem(
 }
 
 export async function deleteBacklogItem(token: string | undefined, id: number): Promise<{ ok: boolean; id: number }> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.item(id)}`, {
     method: 'DELETE',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -157,7 +159,7 @@ export async function deleteBacklogItem(token: string | undefined, id: number): 
 }
 
 export async function listBacklogComments(token: string | undefined, id: number): Promise<BacklogComment[]> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}/comments`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.itemComments(id)}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -167,7 +169,7 @@ export async function listBacklogComments(token: string | undefined, id: number)
 }
 
 export async function addBacklogComment(token: string | undefined, id: number, body: string): Promise<BacklogComment> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/items/${id}/comments`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.itemComments(id)}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -177,7 +179,7 @@ export async function addBacklogComment(token: string | undefined, id: number, b
 }
 
 export async function retriageBacklogItem(token: string | undefined, id: number): Promise<unknown> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/triage/${id}`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.triage(id)}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -189,7 +191,7 @@ export async function reorderRoadmap(
   token: string | undefined,
   items: Array<{ id: number; queue_position?: number; sprint_label?: string; status?: BacklogStatus }>,
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/roadmap/reorder`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.roadmapReorder}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -199,7 +201,7 @@ export async function reorderRoadmap(
 }
 
 export async function getBacklogConfig(token: string | undefined): Promise<BacklogConfig> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/config`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.config}`, {
     method: 'GET',
     credentials: 'include',
     headers: buildHeaders(token),
@@ -211,7 +213,7 @@ export async function updateBacklogConfig(
   token: string | undefined,
   body: Partial<{ auto_triage: boolean; prd_context: string; default_model: string; sprint_labels: string[] }>,
 ): Promise<BacklogConfig> {
-  const res = await fetch(`${BACKLOG_API_BASE}/backlog/config`, {
+  const res = await fetch(`${BACKLOG_API_BASE}${appRoutes.backlog.config}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: buildHeaders(token),

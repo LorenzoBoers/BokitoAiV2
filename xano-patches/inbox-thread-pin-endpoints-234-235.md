@@ -9,8 +9,24 @@
 
 ## Endpoints updated
 
-- `GET /inbox/threads` (id 223): added `view=pinned`, joins `inbox_thread_pin` for current user, decorates each item with `is_pinned`, sorts pinned threads to top of every page.
-- `GET /inbox/threads/{thread_id}` (id 224): adds `is_pinned` to the thread payload.
+- `GET /inbox/threads` (id 223): adds `view=pinned`. The branch fetches
+  pinned thread ids from `inbox_thread_pin` for the current user first,
+  then filters `inbox_thread` by that id list (no join). Other views are
+  unchanged. No `is_pinned` decoration here — the dashboard fetches the
+  pinned id list separately via `GET /inbox/pins` (id 236) and decorates
+  client-side.
+- `GET /inbox/threads/{thread_id}` (id 224): unchanged shape — no
+  `is_pinned` decoration. The dashboard derives `isPinned` client-side.
+
+## Xanoscript caveat
+
+Both pin endpoints (234 / 235) and the pinned-list endpoint (236) and
+the `view=pinned` branch in 223 store `$auth.id|to_int` in a `$user_id`
+variable up front. Using `($auth.id|to_int)` inline inside a
+`db.query` `where` clause triggers a runtime type-resolution error
+("1st operand must be one of these types: text, bool") on this
+workspace, even though the same expression works fine inside
+`db.get user`'s `field_value`.
 
 ## Tables
 

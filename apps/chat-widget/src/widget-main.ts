@@ -7,8 +7,8 @@
  *           defer></script>
  */
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
-import { livechatHttpUrl, normalizeLivechatApiBase, realtimeWebSocketUrl, xanoApiGroupUrl } from './api/livechat-url'
-import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatRoutes } from './api/livechat.routes'
+import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatHttpUrl, normalizeLivechatApiBase, realtimeWebSocketUrl, xanoApiGroupUrl } from './api/livechat-url'
+import { livechatRoutes } from './api/livechat.routes'
 
 /* ── Markdown renderer ──────────────────────────────────────── */
 class MarkdownRenderer {
@@ -97,9 +97,19 @@ function readCookieValue(cookieName = '') {
 /* ── API client ─────────────────────────────────────────────── */
 class ApiClient {
   #baseUrl; #token = null; #agentSlug; #onSessionExpired; #stateMachine; #identityTokenGetter;
-  #hostAuthTokenGetter; #authModeGetter; #authCookieNameGetter;
+  #hostAuthTokenGetter; #authModeGetter; #authCookieNameGetter; #customerIdGetter;
 
-  constructor({ baseUrl, agentSlug, stateMachine, onSessionExpired, identityTokenGetter, hostAuthTokenGetter, authModeGetter, authCookieNameGetter }) {
+  constructor({
+    baseUrl,
+    agentSlug,
+    stateMachine,
+    onSessionExpired,
+    identityTokenGetter,
+    hostAuthTokenGetter,
+    authModeGetter,
+    authCookieNameGetter,
+    customerIdGetter,
+  }) {
     this.#baseUrl = normalizeLivechatApiBase(baseUrl);
     this.#agentSlug = agentSlug;
     this.#stateMachine = stateMachine;
@@ -108,6 +118,8 @@ class ApiClient {
     this.#hostAuthTokenGetter = hostAuthTokenGetter;
     this.#authModeGetter = authModeGetter;
     this.#authCookieNameGetter = authCookieNameGetter;
+    this.#customerIdGetter =
+      typeof customerIdGetter === 'function' ? customerIdGetter : () => localStorage.getItem(LS_CUSTOMER_ID_KEY);
   }
 
   setToken(t) { this.#token = t; }
@@ -122,7 +134,7 @@ class ApiClient {
 
   async #refreshSession() {
     try {
-      const cid = localStorage.getItem(LS_CUSTOMER_ID_KEY);
+      const cid = this.#customerIdGetter();
       const identityToken = this.#identityTokenGetter?.();
       const hostAuthToken = this.#hostAuthTokenGetter?.();
       const authMode = this.#authModeGetter?.();
@@ -378,7 +390,8 @@ const WIDGET_CSS = `
 :host {
   --bk-primary:       #00D986;
   --bk-primary-dark:  #00B16D;
-  --bk-primary-light: rgba(0,255,153,.14);
+  --bk-primary-light: color-mix(in srgb, var(--bk-primary) 14%, transparent);
+  --bk-on-primary:    #0f172a;
   --bk-text:          #161022;
   --bk-text-muted:    #5B5870;
   --bk-text-inverse:  #FFFFFF;
@@ -392,7 +405,7 @@ const WIDGET_CSS = `
   --bk-shadow-sm:     0 1px 3px rgba(17,24,39,.08),0 1px 2px rgba(17,24,39,.06);
   --bk-shadow:        0 8px 20px rgba(12,18,32,.12),0 2px 8px rgba(12,18,32,.06);
   --bk-shadow-lg:     0 24px 64px rgba(12,18,32,.18),0 8px 20px rgba(12,18,32,.08);
-  --bk-glow:          0 0 28px rgba(0,255,153,.32);
+  --bk-glow:          0 0 28px color-mix(in srgb, var(--bk-primary) 32%, transparent);
   --bk-launcher-bg:   color-mix(in srgb, var(--bk-bg-surface) 88%, var(--bk-primary) 12%);
   --bk-launcher-icon: var(--bk-primary);
   --bk-launcher-shadow: 0 8px 28px color-mix(in srgb, var(--bk-primary) 22%, rgba(2,6,23,.1)), 0 2px 8px rgba(2,6,23,.06);
@@ -415,9 +428,9 @@ const WIDGET_CSS = `
   --bk-launcher-ring: color-mix(in srgb, var(--bk-primary) 34%, transparent);
   --bk-launcher-close-color: #fff;
 }
-@media (prefers-color-scheme:dark){:host{--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,rgba(0,255,153,.085) 0%,rgba(0,255,153,.032) 44%,rgba(0,255,153,0) 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:#0F2A20;--bk-launcher-icon:#00FF99;--bk-launcher-shadow:0 8px 24px rgba(0,255,153,.28),inset 0 -10px 20px rgba(0,134,80,.42);--bk-launcher-shadow-hover:0 14px 34px rgba(0,255,153,.42),inset 0 -12px 24px rgba(0,134,80,.52),0 0 44px rgba(0,255,153,.38);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
-:host([data-theme="light"]){--bk-primary:#00D986;--bk-primary-dark:#00B16D;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7FBF9;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F0F7F4;--bk-border:#DDEAE4;--bk-border-light:#EAF2EE;--bk-popover:#FFFFFF;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:none;--bk-launcher-bg:color-mix(in srgb,var(--bk-bg-surface) 90%,var(--bk-primary) 10%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 45%,var(--bk-border));--bk-launcher-shadow:0 8px 28px color-mix(in srgb,var(--bk-primary) 22%,rgba(2,6,23,.1)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 38px color-mix(in srgb,var(--bk-primary) 32%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-text);}
-:host([data-theme="dark"]){--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:rgba(0,255,153,.14);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,rgba(0,255,153,.085) 0%,rgba(0,255,153,.032) 44%,rgba(0,255,153,0) 72%);--bk-launcher-bg:#0F2A20;--bk-launcher-icon:#00FF99;--bk-launcher-shadow:0 8px 24px rgba(0,255,153,.28),inset 0 -10px 20px rgba(0,134,80,.42);--bk-launcher-shadow-hover:0 14px 34px rgba(0,255,153,.42),inset 0 -12px 24px rgba(0,134,80,.52),0 0 44px rgba(0,255,153,.38);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}
+@media (prefers-color-scheme:dark){:host{--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:color-mix(in srgb,var(--bk-primary) 14%,transparent);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
+:host([data-theme="light"]){--bk-primary:#00D986;--bk-primary-dark:#00B16D;--bk-primary-light:color-mix(in srgb,var(--bk-primary) 14%,transparent);--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7FBF9;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F0F7F4;--bk-border:#DDEAE4;--bk-border-light:#EAF2EE;--bk-popover:#FFFFFF;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:none;--bk-launcher-bg:color-mix(in srgb,var(--bk-bg-surface) 90%,var(--bk-primary) 10%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 45%,var(--bk-border));--bk-launcher-shadow:0 8px 28px color-mix(in srgb,var(--bk-primary) 22%,rgba(2,6,23,.1)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 38px color-mix(in srgb,var(--bk-primary) 32%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-text);}
+:host([data-theme="dark"]){--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:color-mix(in srgb,var(--bk-primary) 14%,transparent);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 @keyframes bk-spring-in{0%{transform:scale(.6) translateY(20px);opacity:0}60%{transform:scale(1.04) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
 @keyframes bk-slide-up{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -432,7 +445,7 @@ const WIDGET_CSS = `
 @keyframes bk-scale-in{from{transform:scale(0)}to{transform:scale(1)}}
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking{animation:none!important;}}
+@media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking{animation:none!important;}}
 .bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
 .bk-launcher:hover{transform:scale(1.06);box-shadow:var(--bk-launcher-shadow-hover);}
 .bk-launcher:active{transform:scale(1.01);cursor:grabbing;}
@@ -456,7 +469,7 @@ const WIDGET_CSS = `
 @keyframes bk-bubble-out{from{opacity:1;transform:translateY(0) scale(1);}to{opacity:0;transform:translateY(6px) scale(.95);}}
 @media (max-width:480px){.bk-proactive-bubbles{right:calc(20px + var(--bk-bubble-size) + 8px);bottom:10px;max-width:calc(100vw - var(--bk-bubble-size) - 46px);}.bk-window{border-radius:0;}.bk-window::before{border-radius:0;}}
 .bk-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 4px;border-radius:var(--bk-radius-full);background:#EF4444;color:white;font-size:11px;font-weight:700;font-family:var(--bk-font);display:flex;align-items:center;justify-content:center;animation:bk-scale-in .2s var(--bk-spring);box-sizing:border-box;}
-.bk-window{position:fixed;bottom:calc(var(--bk-bubble-size) + 24px);right:20px;width:var(--bk-window-w);height:var(--bk-window-h);background:var(--bk-bg);border-radius:24px;box-shadow:0 28px 90px rgba(0,0,0,.58),0 14px 44px rgba(0,0,0,.32),0 0 1px rgba(255,255,255,.04);display:flex;flex-direction:column;overflow:hidden;z-index:calc(var(--bk-z-widget) - 1);border:none;font-family:var(--bk-font);transform-origin:bottom right;will-change:transform,opacity;isolation:isolate;}
+.bk-window{position:fixed;bottom:calc(var(--bk-bubble-size) + 24px);right:20px;width:var(--bk-window-w);height:var(--bk-window-h);background:var(--bk-bg);border-radius:24px;box-shadow:0 16px 48px rgba(0,0,0,.34),0 6px 20px rgba(0,0,0,.2),0 0 1px rgba(255,255,255,.04);display:flex;flex-direction:column;overflow:hidden;z-index:calc(var(--bk-z-widget) - 1);border:none;font-family:var(--bk-font);transform-origin:bottom right;will-change:transform,opacity;isolation:isolate;}
 .bk-window::before{content:'';position:absolute;left:0;right:0;top:0;height:var(--bk-atmosphere-height,min(56%,380px));min-height:var(--bk-atmosphere-min-height,260px);pointer-events:none;z-index:0;border-radius:24px 24px 0 0;background:var(--bk-window-atmosphere-bg,radial-gradient(118% 95% at 50% -12%,color-mix(in srgb,var(--bk-primary) 18%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 6%,transparent) 42%,transparent 68%),linear-gradient(180deg,color-mix(in srgb,var(--bk-primary) 14%,var(--bk-bg)) 0%,color-mix(in srgb,var(--bk-primary) 5%,var(--bk-bg)) 46%,transparent 88%));}
 .bk-window.is-opening{animation:bk-window-in .22s cubic-bezier(.2,.8,.2,1) both;}
 .bk-window.is-closing{animation:bk-window-out .18s cubic-bezier(.4,0,1,1) both;pointer-events:none;}
@@ -470,10 +483,25 @@ const WIDGET_CSS = `
 .bk-launcher.is-open~.bk-window .bk-header>.bk-header-actions{animation-delay:.19s;}
 .bk-header>.bk-btn-back{flex-shrink:0;}
 .bk-header-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
-@media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-header-avatar{background:rgba(0,255,153,.08);border:1px solid rgba(0,255,153,.22);box-shadow:0 4px 12px rgba(0,255,153,.22),inset 0 -8px 20px rgba(0,134,80,.32);}}
-:host([data-theme="dark"]) .bk-header-avatar{background:rgba(0,255,153,.08);border:1px solid rgba(0,255,153,.22);box-shadow:0 4px 12px rgba(0,255,153,.22),inset 0 -8px 20px rgba(0,134,80,.32);}
+@media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}}
+:host([data-theme="dark"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}
 :host([data-theme="light"]) .bk-header-avatar{background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);}
 .bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-primary);}
+.bk-header-avatar-img{width:22px;height:22px;object-fit:contain;display:block;border-radius:4px;}
+:host([data-preview-mode="true"]){position:relative;display:block;width:100%;height:100%;min-height:0;min-width:0;max-width:none;margin:0;--bk-z-widget:50;--bk-window-w:100%;--bk-window-h:100%;}
+:host([data-preview-mode="true"]) .bk-launcher{display:none!important;}
+:host([data-preview-mode="true"]) .bk-proactive-bubbles{display:none!important;}
+:host([data-preview-mode="true"]) .bk-window{position:relative!important;inset:auto!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;width:100%!important;height:100%!important;max-width:100%;max-height:100%;flex-shrink:0;border-radius:24px;z-index:51;transform-origin:center center;box-shadow:0 12px 36px rgba(0,0,0,.26),0 4px 14px rgba(0,0,0,.16),0 0 1px rgba(255,255,255,.05)!important;}
+:host([data-preview-mode="true"]) .bk-window::before{border-radius:24px 24px 0 0;}
+:host([data-preview-mode="true"]) .bk-window .bk-header>*{animation:bk-header-in .52s cubic-bezier(.22,1,.36,1) both;}
+:host([data-preview-mode="true"]) .bk-window .bk-header>.bk-btn-back{animation-delay:.04s;}
+:host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-avatar{animation-delay:.09s;}
+:host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-info{animation-delay:.14s;}
+:host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-actions{animation-delay:.19s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title{animation-delay:.24s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
 .bk-header-info{flex:1;min-width:0;}
 .bk-header-name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bk-header-status{font-size:12px;opacity:.88;display:flex;align-items:center;gap:6px;margin-top:2px;}
@@ -530,9 +558,9 @@ const WIDGET_CSS = `
 :host([data-theme="light"]) .bk-header-user{color:var(--bk-text);background:rgba(15,23,42,.08);border-color:rgba(15,23,42,.12);}
 :host([data-theme="light"]) .bk-header-user svg{color:var(--bk-text);}
 :host([data-theme="light"]) .bk-home-hero{color:var(--bk-text);}
-:host([data-theme="light"]) .bk-home-new-btn{color:#0b1220;background:rgba(255,255,255,.97);border-color:rgba(15,23,42,.22);box-shadow:0 12px 42px rgba(2,6,23,.16),0 0 0 1px rgba(255,255,255,.92) inset,0 0 1px rgba(0,217,134,.35);}
-:host([data-theme="light"]) .bk-home-new-btn:hover{border-color:rgba(0,183,115,.42);box-shadow:0 14px 48px rgba(2,6,23,.2),0 0 0 1px rgba(255,255,255,.98) inset,0 0 22px rgba(0,217,134,.14);}
-:host([data-theme="light"]) .bk-home-new-btn-icon{background:rgba(0,217,134,.14);border:1px solid rgba(0,183,115,.32);box-shadow:inset 0 1px 0 rgba(255,255,255,.65);}
+:host([data-theme="light"]) .bk-home-new-btn{color:#0b1220;background:rgba(255,255,255,.97);border-color:rgba(15,23,42,.22);box-shadow:0 12px 42px rgba(2,6,23,.16),0 0 0 1px rgba(255,255,255,.92) inset,0 0 1px color-mix(in srgb,var(--bk-primary) 35%,transparent);}
+:host([data-theme="light"]) .bk-home-new-btn:hover{border-color:color-mix(in srgb,var(--bk-primary) 42%,var(--bk-border));box-shadow:0 14px 48px rgba(2,6,23,.2),0 0 0 1px rgba(255,255,255,.98) inset,0 0 22px color-mix(in srgb,var(--bk-primary) 14%,transparent);}
+:host([data-theme="light"]) .bk-home-new-btn-icon{background:color-mix(in srgb,var(--bk-primary) 14%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 32%,var(--bk-border));box-shadow:inset 0 1px 0 rgba(255,255,255,.65);}
 .bk-home{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1;}
 .bk-home-content{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;}
 .bk-home-tab{display:flex;flex-direction:column;flex:1;min-height:0;}
@@ -551,7 +579,7 @@ const WIDGET_CSS = `
 .bk-tab-btn.is-active{color:var(--bk-primary);opacity:1;}
 .bk-tab-btn.is-active .bk-icon-body{opacity:1;}
 .bk-tab-btn.is-active .bk-icon-detail{fill:var(--bk-bg);stroke:var(--bk-bg);opacity:1;}
-.bk-tab-badge{position:absolute;top:14px;left:50%;transform:translateX(8px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bk-primary);color:#10281F;font:700 10px var(--bk-font);display:flex;align-items:center;justify-content:center;}
+.bk-tab-badge{position:absolute;top:14px;left:50%;transform:translateX(8px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bk-primary);color:var(--bk-on-primary);font:700 10px var(--bk-font);display:flex;align-items:center;justify-content:center;}
 .bk-window-powered{display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 12px max(8px, env(safe-area-inset-bottom, 0px));font-size:10.5px;color:var(--bk-text-muted);font-weight:500;flex-shrink:0;background:var(--bk-bg);text-decoration:none;cursor:pointer;box-sizing:border-box;width:100%;position:relative;z-index:1;}
 .bk-window-powered:hover{color:var(--bk-text);}
 .bk-window-powered:focus-visible{outline:2px solid var(--bk-primary);outline-offset:-2px;border-radius:6px;}
@@ -559,9 +587,9 @@ const WIDGET_CSS = `
 .bk-home-hero{background:transparent;padding:28px 24px 24px;color:var(--bk-header-text);position:relative;z-index:1;}
 .bk-home-hero-title{font-size:28px;font-weight:700;line-height:1.18;letter-spacing:-.03em;margin-bottom:12px;}
 .bk-home-hero-sub{font-size:15.5px;line-height:1.6;opacity:.9;max-width:22em;font-weight:500;}
-.bk-home-new-btn{display:flex;align-items:center;gap:14px;width:calc(100% - 48px);max-width:100%;box-sizing:border-box;margin:20px 24px 22px;padding:18px 21px;background:rgba(46,54,74,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:16px;border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 38px rgba(0,0,0,.42),0 0 28px rgba(0,255,153,.1),0 0 0 1px rgba(255,255,255,.1) inset;cursor:pointer;color:#fff;font-size:15px;font-weight:600;font-family:var(--bk-font);transition:transform var(--bk-transition),box-shadow var(--bk-transition),border-color var(--bk-transition);text-align:left;}
-.bk-home-new-btn:hover{transform:translateY(-2px);box-shadow:0 16px 46px rgba(0,0,0,.48),0 0 38px rgba(0,255,153,.16),0 0 0 1px rgba(0,255,153,.2) inset;border-color:rgba(0,255,153,.4);}
-.bk-home-new-btn-icon{width:40px;height:40px;border-radius:12px;background:rgba(0,255,153,.2);border:1px solid rgba(0,255,153,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.bk-home-new-btn{display:flex;align-items:center;gap:14px;width:calc(100% - 48px);max-width:100%;box-sizing:border-box;margin:20px 24px 22px;padding:18px 21px;background:rgba(46,54,74,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:16px;border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 38px rgba(0,0,0,.42),0 0 28px color-mix(in srgb,var(--bk-primary) 10%,transparent),0 0 0 1px rgba(255,255,255,.1) inset;cursor:pointer;color:#fff;font-size:15px;font-weight:600;font-family:var(--bk-font);transition:transform var(--bk-transition),box-shadow var(--bk-transition),border-color var(--bk-transition);text-align:left;}
+.bk-home-new-btn:hover{transform:translateY(-2px);box-shadow:0 16px 46px rgba(0,0,0,.48),0 0 38px color-mix(in srgb,var(--bk-primary) 16%,transparent),0 0 0 1px color-mix(in srgb,var(--bk-primary) 20%,transparent) inset;border-color:color-mix(in srgb,var(--bk-primary) 40%,rgba(255,255,255,.22));}
+.bk-home-new-btn-icon{width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--bk-primary) 20%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 35%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title{animation-delay:.24s;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
@@ -577,13 +605,13 @@ const WIDGET_CSS = `
 .bk-home-section-title{font-size:12px;font-weight:600;color:var(--bk-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
 .bk-conv-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;margin:2px 8px 2px 0;cursor:pointer;border:none;border-radius:var(--bk-radius-sm);width:100%;background:transparent;transition:background var(--bk-transition);text-align:left;color:var(--bk-text);animation:bk-slide-up .25s ease both;}
 .bk-conv-item:hover{background:var(--bk-bg-hover);}
-.bk-conv-item-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:rgba(0,255,153,.08);border:1px solid rgba(0,255,153,.22);box-shadow:0 4px 12px rgba(0,255,153,.22),inset 0 -8px 20px rgba(0,134,80,.32);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--bk-primary);flex-shrink:0;}
+.bk-conv-item-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--bk-primary);flex-shrink:0;}
 .bk-conv-item-avatar svg{width:18px;height:18px;}
 .bk-conv-item-body{flex:1;min-width:0;}
 .bk-conv-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px;}
 .bk-conv-item-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
 .bk-conv-item-time{font-size:11px;color:var(--bk-text-muted);flex-shrink:0;}
-.bk-conv-unread{width:18px;height:18px;border-radius:var(--bk-radius-full);background:var(--bk-primary);color:#10281F;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;}
+.bk-conv-unread{width:18px;height:18px;border-radius:var(--bk-radius-full);background:var(--bk-primary);color:var(--bk-on-primary);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:3px;}
 .bk-settings{flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative;z-index:1;}
 .bk-settings-inner{padding:20px 16px 24px;}
 .bk-settings-title{font-size:20px;font-weight:700;color:var(--bk-text);margin-bottom:20px;letter-spacing:-.02em;position:relative;padding-bottom:12px;}
@@ -602,7 +630,7 @@ const WIDGET_CSS = `
 .bk-settings-toggle input{position:absolute;width:1px;height:1px;opacity:0;}
 .bk-settings-toggle-slider{position:relative;width:48px;height:26px;border-radius:var(--bk-radius-full);background:var(--bk-border);box-shadow:inset 0 1px 3px rgba(0,0,0,.08);transition:background .25s cubic-bezier(.34,1.2,.64,1),box-shadow .25s ease;flex-shrink:0;}
 .bk-settings-toggle-slider::after{content:'';position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:transform .25s cubic-bezier(.34,1.2,.64,1);}
-.bk-settings-toggle input:checked+.bk-settings-toggle-slider{background:var(--bk-primary);box-shadow:inset 0 1px 2px rgba(0,0,0,.1),0 0 0 1px rgba(0,217,134,.2);}
+.bk-settings-toggle input:checked+.bk-settings-toggle-slider{background:var(--bk-primary);box-shadow:inset 0 1px 2px rgba(0,0,0,.1),0 0 0 1px color-mix(in srgb,var(--bk-primary) 20%,transparent);}
 .bk-settings-toggle input:checked+.bk-settings-toggle-slider::after{transform:translateX(22px);box-shadow:0 2px 8px rgba(0,0,0,.15);}
 .bk-chat-view{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;z-index:1;}
 .bk-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth;}
@@ -614,7 +642,7 @@ const WIDGET_CSS = `
 .bk-msg--user{align-self:flex-end;}
 .bk-msg-bubble{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
 .bk-msg--ai .bk-msg-bubble{background:var(--bk-bg-surface);color:var(--bk-text);border-bottom-left-radius:4px;border:1px solid var(--bk-border-light);}
-.bk-msg--user .bk-msg-bubble{background:var(--bk-primary);color:#10281F;border-bottom-right-radius:4px;}
+.bk-msg--user .bk-msg-bubble{background:var(--bk-primary);color:var(--bk-on-primary);border-bottom-right-radius:4px;}
 .bk-msg-time{font-size:11px;color:var(--bk-text-muted);margin-top:4px;padding:0 4px;}
 .bk-msg--user .bk-msg-time{text-align:right;}
 .bk-msg-time--hidden{display:none;}
@@ -647,10 +675,10 @@ const WIDGET_CSS = `
 .bk-step-time{font-size:11px;color:var(--bk-text-muted);font-variant-numeric:tabular-nums;}
 .bk-inputbar{padding:10px 12px;border-top:1px solid var(--bk-border-light);background:var(--bk-bg);flex-shrink:0;}
 .bk-inputbar-inner{display:flex;align-items:center;gap:8px;background:var(--bk-bg-surface);border-radius:var(--bk-radius);border:1.5px solid var(--bk-border);padding:8px 10px 8px 14px;transition:border-color var(--bk-transition);}
-.bk-inputbar-inner:focus-within{border-color:var(--bk-primary);box-shadow:0 0 0 3px rgba(0,255,153,.16);}
+.bk-inputbar-inner:focus-within{border-color:var(--bk-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--bk-primary) 16%,transparent);}
 .bk-textarea{flex:1;background:transparent;border:none;outline:none;resize:none;font-family:var(--bk-font);font-size:14px;color:var(--bk-text);line-height:1.5;max-height:120px;min-height:20px;overflow-y:auto;}
 .bk-textarea::placeholder{color:var(--bk-text-muted);}
-.bk-send-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:var(--bk-primary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#10281F;flex-shrink:0;transition:background var(--bk-transition),transform var(--bk-transition);}
+.bk-send-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:var(--bk-primary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--bk-on-primary);flex-shrink:0;transition:background var(--bk-transition),transform var(--bk-transition);}
 .bk-send-btn:hover{background:var(--bk-primary-dark);}
 .bk-send-btn:active{transform:scale(.92);}
 .bk-send-btn:disabled{opacity:.4;cursor:not-allowed;}
@@ -662,7 +690,7 @@ const WIDGET_CSS = `
 .bk-record-start:hover{color:var(--bk-primary);border-color:var(--bk-primary);}
 .bk-record-cancel{background:rgba(0,0,0,.12);color:#1a1a1a;}
 .bk-record-cancel:hover{background:rgba(0,0,0,.2);}
-.bk-record-confirm{background:var(--bk-primary);color:#10281F;}
+.bk-record-confirm{background:var(--bk-primary);color:var(--bk-on-primary);}
 .bk-record-confirm:hover{background:var(--bk-primary-dark);}
 .bk-record-confirm--recording{animation:bk-record-pulse 1.6s ease-in-out infinite;}
 .bk-record-confirm--recording:hover{animation:bk-record-pulse 1.6s ease-in-out infinite;}
@@ -674,7 +702,7 @@ const WIDGET_CSS = `
 .bk-wave-bar:nth-child(4){animation-delay:.15s;}
 .bk-wave-bar:nth-child(5){animation-delay:.05s;}
 @keyframes bk-wave-bar{0%,100%{transform:scaleY(0.4);opacity:.8;}50%{transform:scaleY(1);opacity:1;}}
-@keyframes bk-record-pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,217,134,.35);}25%{transform:scale(1.06);box-shadow:0 0 0 6px rgba(0,217,134,.15);}50%{transform:scale(.98);box-shadow:0 0 0 2px rgba(0,217,134,.25);}75%{transform:scale(1.04);box-shadow:0 0 0 8px rgba(0,217,134,.08);}}
+@keyframes bk-record-pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 color-mix(in srgb,var(--bk-primary) 35%,transparent);}25%{transform:scale(1.06);box-shadow:0 0 0 6px color-mix(in srgb,var(--bk-primary) 15%,transparent);}50%{transform:scale(.98);box-shadow:0 0 0 2px color-mix(in srgb,var(--bk-primary) 25%,transparent);}75%{transform:scale(1.04);box-shadow:0 0 0 8px color-mix(in srgb,var(--bk-primary) 8%,transparent);}}
 .bk-record-btn:active{transform:scale(.92);}
 .bk-record-confirm--recording:active{animation:none;transform:scale(.92);}
 .bk-attach-btn{width:30px;height:30px;border-radius:var(--bk-radius-sm);background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--bk-text-muted);flex-shrink:0;transition:color var(--bk-transition),background var(--bk-transition);}
@@ -793,6 +821,121 @@ class BokitoChatWidget extends HTMLElement {
   #dragState = null;
   #suppressNextLauncherClick = false;
   #onWindowResizeBound = null;
+  /** Non-empty when data-preview-mode: isolate localStorage from other widget instances */
+  #storNs = '';
+  #headerAvatarImg = null;
+  /** Parsed JSON from data-preview-overrides (dashboard draft). */
+  #previewParsedOverrides = null;
+
+  static get observedAttributes() {
+    return ['data-preview-overrides'];
+  }
+
+  attributeChangedCallback(name) {
+    if (name === 'data-preview-overrides') {
+      this.#parsePreviewOverridesAttribute();
+      this.#refreshChromeFromThemeAndPreview();
+    }
+  }
+
+  #storKey(key) {
+    return this.#storNs ? `${this.#storNs}${key}` : key;
+  }
+
+  #storGet(key) {
+    return localStorage.getItem(this.#storKey(key));
+  }
+
+  #storSet(key, value) {
+    localStorage.setItem(this.#storKey(key), value);
+  }
+
+  #storRemove(key) {
+    localStorage.removeItem(this.#storKey(key));
+  }
+
+  #isPreviewEmbedded() {
+    return this.dataset.previewMode === 'true';
+  }
+
+  #parsePreviewOverridesAttribute() {
+    this.#previewParsedOverrides = null;
+    const raw = this.dataset.previewOverrides;
+    if (!raw || typeof raw !== 'string') return;
+    const t = raw.trim();
+    if (!t) return;
+    try {
+      const obj = JSON.parse(t);
+      this.#previewParsedOverrides = obj && typeof obj === 'object' ? obj : null;
+    } catch {
+      this.#previewParsedOverrides = null;
+    }
+  }
+
+  #mergedThemeForChrome() {
+    const base = this.#agentConfig?.theme && typeof this.#agentConfig.theme === 'object' ? { ...this.#agentConfig.theme } : {};
+    const pv = this.#previewParsedOverrides && typeof this.#previewParsedOverrides === 'object' ? this.#previewParsedOverrides : {};
+    const out = { ...base };
+    const pick = (key) => {
+      const v = pv[key];
+      if (typeof v === 'string' && v.trim()) out[key] = v.trim();
+    };
+    pick('main_color');
+    pick('primary_color');
+    pick('welcome_title');
+    pick('welcome_subtitle');
+    pick('chatbot_name');
+    pick('widget_favicon_url');
+    return out;
+  }
+
+  #refreshChromeFromThemeAndPreview() {
+    const eff = this.#mergedThemeForChrome();
+    this.#applyAgentTheme(eff);
+    this.#applyUserThemeOverride();
+    this.#syncAgentWindowAtmosphere();
+    const name = typeof eff.chatbot_name === 'string' && eff.chatbot_name.trim() ? eff.chatbot_name.trim() : 'Bokito AI';
+    if (this.#headerName) this.#headerName.textContent = name;
+    this.#syncHomeHeroFromTheme(eff);
+    this.#syncHeaderAvatarFromTheme(eff);
+  }
+
+  #syncHomeHeroFromTheme(theme) {
+    const t = theme && typeof theme === 'object' ? theme : {};
+    const name = typeof t.chatbot_name === 'string' && t.chatbot_name.trim() ? t.chatbot_name.trim() : 'Bokito AI';
+    const titleEl = this.#root?.querySelector('.bk-home-hero-title');
+    const subEl = this.#root?.querySelector('.bk-home-hero-sub');
+    if (titleEl) {
+      titleEl.textContent =
+        typeof t.welcome_title === 'string' && t.welcome_title.trim() ? t.welcome_title.trim() : 'Hallo!';
+    }
+    if (subEl) {
+      subEl.textContent =
+        typeof t.welcome_subtitle === 'string' && t.welcome_subtitle.trim()
+          ? t.welcome_subtitle.trim()
+          : `Stel je vraag aan ${name}`;
+    }
+  }
+
+  #syncHeaderAvatarFromTheme(theme) {
+    const t = theme && typeof theme === 'object' ? theme : {};
+    const url =
+      typeof t.widget_favicon_url === 'string' && t.widget_favicon_url.trim()
+        ? t.widget_favicon_url.trim()
+        : null;
+    const img = this.#headerAvatarImg || this.#root?.querySelector('.bk-header-avatar-img');
+    const svg = this.#root?.querySelector('.bk-avatar-logo');
+    if (!img) return;
+    if (url) {
+      img.src = url;
+      img.hidden = false;
+      if (svg) svg.hidden = true;
+    } else {
+      img.removeAttribute('src');
+      img.hidden = true;
+      if (svg) svg.hidden = false;
+    }
+  }
 
   setIdentityToken(token) { this.#identityToken = token; }
 
@@ -818,12 +961,12 @@ class BokitoChatWidget extends HTMLElement {
         const token = await cfg.getAuthToken();
         if (typeof token === 'string' && token.trim()) {
           this.#hostAuthToken = token.trim();
-          localStorage.setItem(LS_AUTH_TOKEN_KEY, this.#hostAuthToken);
+          this.#storSet(LS_AUTH_TOKEN_KEY, this.#hostAuthToken);
           return this.#hostAuthToken;
         }
       } catch {}
     }
-    this.#hostAuthToken = this.#resolveHostAuthToken() || localStorage.getItem(LS_AUTH_TOKEN_KEY) || null;
+    this.#hostAuthToken = this.#resolveHostAuthToken() || this.#storGet(LS_AUTH_TOKEN_KEY) || null;
     return this.#hostAuthToken;
   }
 
@@ -900,7 +1043,7 @@ class BokitoChatWidget extends HTMLElement {
         const result = await this.#api.post('session/identify', { identity_token: identityToken });
         if (result) {
           this.#applySessionPayload(result);
-          if (result.customer_id) localStorage.setItem(LS_CUSTOMER_ID_KEY, result.customer_id);
+          if (result.customer_id) this.#storSet(LS_CUSTOMER_ID_KEY, result.customer_id);
           if (this.#sm.state === 'login_required') this.#sm.transition('home');
         }
       } catch (e) { console.warn('[Bokito] Identity elevation failed:', e.message); }
@@ -931,13 +1074,23 @@ class BokitoChatWidget extends HTMLElement {
     this.#identityType = 'anonymous';
     this.#conversationId = null;
     this.#api?.setToken(null);
-    localStorage.removeItem(LS_AUTH_TOKEN_KEY);
+    this.#storRemove(LS_AUTH_TOKEN_KEY);
     this.#hostAuthToken = null;
     this.#renderHeaderUser();
     this.#sm.transition('idle');
   }
 
   connectedCallback() {
+    const isPreview = this.dataset.previewMode === 'true';
+    this.#storNs = isPreview
+      ? `bkpw_${
+          typeof crypto !== 'undefined' && crypto.getRandomValues
+            ? [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, '0')).join('')
+            : String(Date.now())
+        }_`
+      : '';
+    if (isPreview) this.setAttribute('data-preview-mode', 'true');
+
     this.#agentSlug     = this.dataset.agentSlug     || '';
     this.#apiUrl        = normalizeLivechatApiBase(this.dataset.apiUrl || '');
     this.#identityToken = this.dataset.identityToken || null;
@@ -966,7 +1119,15 @@ class BokitoChatWidget extends HTMLElement {
     this.#syncLoginLinks();
     this.#idleWatcher = new IdleWatcher(() => this.#onUserIdle(), { idleMs: 3000, maxTriggers: 3 });
     this.#idleWatcher.start();
-    if (this.dataset.debug === 'true') this.#setupDebugPanel();
+    if (import.meta.env.MODE !== 'production' && this.dataset.debug === 'true') {
+      this.#setupDebugPanel();
+    }
+    this.#parsePreviewOverridesAttribute();
+    if (this.dataset.previewMode === 'true') {
+      queueMicrotask(() => {
+        void this.#openWidget();
+      });
+    }
   }
 
   #render() {
@@ -998,6 +1159,7 @@ class BokitoChatWidget extends HTMLElement {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
           <div class="bk-header-avatar">
+            <img class="bk-header-avatar-img" alt="" hidden />
             <svg class="bk-avatar-logo" viewBox="-22 -24 361 403" fill="none" xmlns="http://www.w3.org/2000/svg">
               <style>
                 .bk-av-wink-g{transform-origin:158.5px 177.5px;animation:bkHeadWink 45s ease-in-out infinite}
@@ -1213,6 +1375,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#recordConfirmBtn  = this.#root.querySelector('.bk-record-confirm');
     this.#suggChips         = this.#root.querySelector('.bk-suggestions');
     this.#headerName        = this.#root.querySelector('.bk-header-name');
+    this.#headerAvatarImg   = this.#root.querySelector('.bk-header-avatar-img');
     this.#toolboxWrap       = null;
     this.#toolboxToggle     = null;
     this.#toolboxMenu       = null;
@@ -1246,6 +1409,7 @@ class BokitoChatWidget extends HTMLElement {
       hostAuthTokenGetter: () => this.#hostAuthToken,
       authModeGetter: () => this.#authMode,
       authCookieNameGetter: () => this.#authCookieName,
+      customerIdGetter: () => this.#storGet(LS_CUSTOMER_ID_KEY),
       onSessionExpired: (data) => {
         this.#applySessionPayload(data);
         this.#emitTenantMcpTelemetry('session_refresh');
@@ -1258,11 +1422,16 @@ class BokitoChatWidget extends HTMLElement {
       if (e.animationName === 'bk-window-in') this.#window.classList.remove('is-opening');
       if (e.animationName === 'bk-window-out') {
         this.#window.classList.remove('is-closing');
-        this.#window.style.display = 'none';
+        if (!this.#isPreviewEmbedded()) this.#window.style.display = 'none';
       }
     });
 
     this.#launcher.addEventListener('click', (e) => {
+      if (this.#isPreviewEmbedded()) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (this.#suppressNextLauncherClick) {
         this.#suppressNextLauncherClick = false;
         e.preventDefault();
@@ -1369,9 +1538,11 @@ class BokitoChatWidget extends HTMLElement {
     this.#recordCancelBtn?.addEventListener('click', () => this.#cancelRecording());
     this.#recordConfirmBtn?.addEventListener('click', () => this.#confirmRecording());
 
-    this.#initLauncherDrag();
-    this.#launcherPosition = this.#readSavedPosition();
-    this.#applyLauncherPosition(this.#launcherPosition);
+    if (!this.#isPreviewEmbedded()) {
+      this.#initLauncherDrag();
+      this.#launcherPosition = this.#readSavedPosition();
+      this.#applyLauncherPosition(this.#launcherPosition);
+    }
     this.#onWindowResizeBound = () => this.#onWindowResize();
     window.addEventListener('resize', this.#onWindowResizeBound, { passive: true });
     this.#renderHeaderUser();
@@ -1411,7 +1582,7 @@ class BokitoChatWidget extends HTMLElement {
         clearTimeout(this.#typingDebounceTimer);
         this.#typingDebounceTimer = null;
         this.#isUserTyping = false;
-        launcher.classList.remove('is-open');
+        if (!this.#isPreviewEmbedded()) launcher.classList.remove('is-open');
         clearTimeout(this.#bundleTimer);
         this.#bundleTimer = null;
         this.#pendingBundleTextParts = [];
@@ -1421,7 +1592,7 @@ class BokitoChatWidget extends HTMLElement {
         this.#isResponding = false;
         this.#sendQueue = [];
         this.#updateQueueTelemetry();
-        this.#animateWindowClose();
+        if (!this.#isPreviewEmbedded()) this.#animateWindowClose();
         this.#realtime?.disconnect();
         this.#stopPolling();
         this.#idleWatcher?.resume();
@@ -1536,7 +1707,7 @@ class BokitoChatWidget extends HTMLElement {
       const authToken = payload?.auth_token || payload?.host_auth_token || null;
       if (authToken) {
         this.#hostAuthToken = String(authToken);
-        localStorage.setItem(LS_AUTH_TOKEN_KEY, this.#hostAuthToken);
+        this.#storSet(LS_AUTH_TOKEN_KEY, this.#hostAuthToken);
       }
       this.#applySessionPayload(payload);
       this.#setLoginError('');
@@ -1637,7 +1808,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   async #openWidget() {
-    this.#playSound('open');
+    if (!this.#isPreviewEmbedded()) this.#playSound('open');
     await this.#refreshHostAuthToken();
     if (!this.#sessionToken) {
       await this.#initSession();
@@ -1905,7 +2076,7 @@ class BokitoChatWidget extends HTMLElement {
 
   #readSavedPosition() {
     try {
-      const raw = localStorage.getItem(LS_WIDGET_POSITION_KEY);
+      const raw = this.#storGet(LS_WIDGET_POSITION_KEY);
       if (!raw) return { edge: 'bottom', offset: 0 };
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return { edge: 'bottom', offset: 0 };
@@ -1920,7 +2091,7 @@ class BokitoChatWidget extends HTMLElement {
   #savePosition(pos) {
     try {
       const clean = this.#clampPosition(pos);
-      localStorage.setItem(LS_WIDGET_POSITION_KEY, JSON.stringify({
+      this.#storSet(LS_WIDGET_POSITION_KEY, JSON.stringify({
         edge: clean.edge,
         offset: clean.offset,
         savedAt: Date.now(),
@@ -2040,6 +2211,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #onWindowResize() {
+    if (this.#isPreviewEmbedded()) return;
     if (!this.#launcher) return;
     const before = this.#launcherPosition;
     const after = this.#clampPosition(before);
@@ -2050,6 +2222,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #computeWindowAnchor() {
+    if (this.#isPreviewEmbedded()) return;
     if (!this.#window || !this.#launcher) return;
     if (window.innerWidth <= 480) {
       const ws = this.#window.style;
@@ -2168,6 +2341,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #animateWindowClose() {
+    if (this.#isPreviewEmbedded()) return;
     clearTimeout(this.#windowCloseTimer);
     if (this.#window.style.display === 'none') return;
     this.#window.classList.remove('is-opening');
@@ -2211,17 +2385,14 @@ class BokitoChatWidget extends HTMLElement {
     if (Array.isArray(data.mcp_servers)) this.#tenantMcpServers = data.mcp_servers;
     if (Array.isArray(this.#agentConfig?.mcp_servers)) this.#tenantMcpServers = this.#agentConfig.mcp_servers;
     if (Array.isArray(this.#agentConfig?.tenant_mcp_servers)) this.#tenantMcpServers = this.#agentConfig.tenant_mcp_servers;
-    if (data.customer_id) localStorage.setItem(LS_CUSTOMER_ID_KEY, data.customer_id);
+    if (data.customer_id) this.#storSet(LS_CUSTOMER_ID_KEY, data.customer_id);
     this.#authMode = this.#resolveAuthMode(this.#agentConfig);
     this.#authCookieName = this.#agentConfig?.auth_cookie_name || this.#authCookieName;
     this.#authTokenValidationUrl = this.#agentConfig?.auth_token_validation_url || null;
 
     this._toolDisplayNames = this.#agentConfig?.tool_display_names || this._toolDisplayNames || {};
     this.#renderToolbox();
-    this.#headerName.textContent = this.#agentConfig?.theme?.chatbot_name || 'Bokito AI';
-    this.#applyAgentTheme(this.#agentConfig?.theme);
-    this.#applyUserThemeOverride();
-    this.#syncAgentWindowAtmosphere();
+    this.#refreshChromeFromThemeAndPreview();
     this.#syncLoginLinks();
     this.#renderHeaderUser();
     this.#scheduleSessionRefresh(data);
@@ -2263,7 +2434,7 @@ class BokitoChatWidget extends HTMLElement {
   async #initSession() {
     try {
       await this.#refreshHostAuthToken();
-      const customerId = localStorage.getItem(LS_CUSTOMER_ID_KEY);
+      const customerId = this.#storGet(LS_CUSTOMER_ID_KEY);
       const tenantSubdomain = resolveTenantSubdomainFromHost();
       const body = { agent_slug: this.#agentSlug, customer_id: customerId || undefined };
       if (this.#identityToken) body.identity_token = this.#identityToken;
@@ -2369,7 +2540,7 @@ class BokitoChatWidget extends HTMLElement {
   #applyAgentTheme(theme) {
     const host = this;
     if (!theme || typeof theme !== 'object') {
-      host.removeAttribute('data-theme');
+      if (!this.#isPreviewEmbedded()) host.removeAttribute('data-theme');
       return;
     }
 
@@ -2413,10 +2584,12 @@ class BokitoChatWidget extends HTMLElement {
       host.style.setProperty('--bk-window-atmosphere-bg', abg.trim());
     }
 
-    if (theme.dark_light_mode === 'dark' || theme.dark_light_mode === 'light') {
-      host.setAttribute('data-theme', theme.dark_light_mode);
-    } else {
-      host.removeAttribute('data-theme');
+    if (!this.#isPreviewEmbedded()) {
+      if (theme.dark_light_mode === 'dark' || theme.dark_light_mode === 'light') {
+        host.setAttribute('data-theme', theme.dark_light_mode);
+      } else {
+        host.removeAttribute('data-theme');
+      }
     }
   }
 
@@ -2441,7 +2614,7 @@ class BokitoChatWidget extends HTMLElement {
     try {
       const data = await this.#api.post('conversation', {});
       this.#conversationId = data.conversation.id;
-      if (data.customer_id) localStorage.setItem(LS_CUSTOMER_ID_KEY, data.customer_id);
+      if (data.customer_id) this.#storSet(LS_CUSTOMER_ID_KEY, data.customer_id);
       this.#pageCtx?.setConversationId(this.#conversationId);
       this.#connectRealtime();
       if (data.greeting_message) this.#appendMessage(data.greeting_message);
@@ -2554,7 +2727,7 @@ class BokitoChatWidget extends HTMLElement {
 
   #getHiddenConversationIds() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(LS_HIDDEN_CONVERSATIONS_KEY) || '[]');
+      const parsed = JSON.parse(this.#storGet(LS_HIDDEN_CONVERSATIONS_KEY) || '[]');
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -2566,7 +2739,7 @@ class BokitoChatWidget extends HTMLElement {
     const hidden = new Set(this.#getHiddenConversationIds());
     hidden.add(conversationId);
     const list = [...hidden];
-    localStorage.setItem(LS_HIDDEN_CONVERSATIONS_KEY, JSON.stringify(list));
+    this.#storSet(LS_HIDDEN_CONVERSATIONS_KEY, JSON.stringify(list));
     this.#persistPreferencePatch({ hidden_conversations: list });
   }
 
@@ -3902,9 +4075,10 @@ class BokitoChatWidget extends HTMLElement {
     }
   }
 
-  // ── Debug panel (only when data-debug="true") ─────────────────────────────
+  // ── Debug panel (dev builds only, when data-debug="true") ─────────────────
 
   #setupDebugPanel() {
+    if (import.meta.env.MODE === 'production') return;
     const panel = document.createElement('div');
     panel.id = 'bk-debug-panel';
     panel.innerHTML = `
@@ -3923,11 +4097,11 @@ class BokitoChatWidget extends HTMLElement {
           display:flex;align-items:center;gap:5px;
           padding:6px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);
           background:rgba(15,30,25,.82);backdrop-filter:blur(10px);
-          color:#00FF99;font-size:12px;font-weight:600;cursor:pointer;
+          color:var(--bk-primary);font-size:12px;font-weight:600;cursor:pointer;
           box-shadow:0 2px 8px rgba(0,0,0,.35);transition:background .15s,transform .1s;
           white-space:nowrap;
         }
-        #bk-debug-panel button:hover{background:rgba(0,255,153,.18);transform:translateY(-1px);}
+        #bk-debug-panel button:hover{background:color-mix(in srgb,var(--bk-primary) 18%,transparent);transform:translateY(-1px);}
         #bk-debug-panel button:active{transform:scale(.96);}
         #bk-debug-panel .bk-dbg-reset{color:rgba(255,200,100,.9);}
         #bk-debug-panel .bk-dbg-status{
@@ -4147,6 +4321,7 @@ class BokitoChatWidget extends HTMLElement {
   #closeWindow() {
     if (this.#settingsView && this.#settingsView.style.display !== 'none') this.#hideSettings();
     this.#closeImageViewer();
+    if (this.#isPreviewEmbedded()) return;
     this.#playSound('close');
     this.#sm.transition('idle');
   }
@@ -4178,7 +4353,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #syncSettingsForm() {
-    const theme = localStorage.getItem(LS_THEME_KEY) || 'system';
+    const theme = this.#storGet(LS_THEME_KEY) || 'system';
     this.#settingsView?.querySelectorAll('input[name="bk-theme"]').forEach((radio) => {
       radio.checked = radio.value === theme;
     });
@@ -4192,21 +4367,21 @@ class BokitoChatWidget extends HTMLElement {
     if (!preferences || typeof preferences !== 'object') return;
     const theme = preferences.theme;
     if (theme === 'light' || theme === 'dark' || theme === 'system') {
-      localStorage.setItem(LS_THEME_KEY, theme);
+      this.#storSet(LS_THEME_KEY, theme);
     }
     if (typeof preferences.sound_effects === 'boolean') {
-      localStorage.setItem(LS_SOUND_EFFECTS_KEY, preferences.sound_effects ? 'on' : 'off');
+      this.#storSet(LS_SOUND_EFFECTS_KEY, preferences.sound_effects ? 'on' : 'off');
     }
     if (typeof preferences.sound_notifications === 'boolean') {
-      localStorage.setItem(LS_SOUND_NOTIFICATIONS_KEY, preferences.sound_notifications ? 'on' : 'off');
+      this.#storSet(LS_SOUND_NOTIFICATIONS_KEY, preferences.sound_notifications ? 'on' : 'off');
     }
     if (Array.isArray(preferences.hidden_conversations)) {
-      localStorage.setItem(LS_HIDDEN_CONVERSATIONS_KEY, JSON.stringify(preferences.hidden_conversations));
+      this.#storSet(LS_HIDDEN_CONVERSATIONS_KEY, JSON.stringify(preferences.hidden_conversations));
     }
-    localStorage.setItem(LS_PREFERENCES_CACHE_KEY, JSON.stringify(preferences));
+    this.#storSet(LS_PREFERENCES_CACHE_KEY, JSON.stringify(preferences));
     this.#isPreferencesHydrated = true;
-    this.#soundEffectsEnabled = localStorage.getItem(LS_SOUND_EFFECTS_KEY) !== 'off';
-    this.#soundNotificationsEnabled = localStorage.getItem(LS_SOUND_NOTIFICATIONS_KEY) !== 'off';
+    this.#soundEffectsEnabled = this.#storGet(LS_SOUND_EFFECTS_KEY) !== 'off';
+    this.#soundNotificationsEnabled = this.#storGet(LS_SOUND_NOTIFICATIONS_KEY) !== 'off';
     this.#applyUserThemeOverride();
     this.#syncSettingsForm();
   }
@@ -4226,13 +4401,13 @@ class BokitoChatWidget extends HTMLElement {
 
   async #persistPreferencePatch(patch = {}) {
     if (!patch || typeof patch !== 'object') return;
-    const cachedRaw = localStorage.getItem(LS_PREFERENCES_CACHE_KEY);
+    const cachedRaw = this.#storGet(LS_PREFERENCES_CACHE_KEY);
     let cached = {};
     if (cachedRaw) {
       try { cached = JSON.parse(cachedRaw); } catch {}
     }
     const next = { ...cached, ...patch };
-    localStorage.setItem(LS_PREFERENCES_CACHE_KEY, JSON.stringify(next));
+    this.#storSet(LS_PREFERENCES_CACHE_KEY, JSON.stringify(next));
     if (!this.#sessionToken) return;
     try {
       await this.#api.patch('user/preferences', { preferences: patch });
@@ -4240,12 +4415,12 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #loadUserPreferences() {
-    const cachedRaw = localStorage.getItem(LS_PREFERENCES_CACHE_KEY);
+    const cachedRaw = this.#storGet(LS_PREFERENCES_CACHE_KEY);
     if (cachedRaw) {
       try { this.#hydrateUserPreferences(JSON.parse(cachedRaw)); } catch {}
     }
-    this.#soundEffectsEnabled = localStorage.getItem(LS_SOUND_EFFECTS_KEY) !== 'off';
-    this.#soundNotificationsEnabled = localStorage.getItem(LS_SOUND_NOTIFICATIONS_KEY) !== 'off';
+    this.#soundEffectsEnabled = this.#storGet(LS_SOUND_EFFECTS_KEY) !== 'off';
+    this.#soundNotificationsEnabled = this.#storGet(LS_SOUND_NOTIFICATIONS_KEY) !== 'off';
     this.#applyUserThemeOverride();
     this.#syncSettingsForm();
     if (this.#sessionToken) this.#fetchRemotePreferences();
@@ -4257,7 +4432,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#themeSchemeListenerBound = true;
     this.#themeSchemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
     this.#themeSchemeMedia.addEventListener('change', () => {
-      const stored = localStorage.getItem(LS_THEME_KEY) || 'system';
+      const stored = this.#storGet(LS_THEME_KEY) || 'system';
       if (stored === 'light' || stored === 'dark') return;
       this.#syncUserPopoverThemeToggle();
       this.#syncAgentWindowAtmosphere();
@@ -4265,7 +4440,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #effectiveUserThemeIsDark() {
-    const stored = localStorage.getItem(LS_THEME_KEY) || 'system';
+    const stored = this.#storGet(LS_THEME_KEY) || 'system';
     if (stored === 'dark') return true;
     if (stored === 'light') return false;
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -4290,15 +4465,17 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #applyUserThemeOverride() {
-    const theme = localStorage.getItem(LS_THEME_KEY) || 'system';
-    if (theme === 'light' || theme === 'dark') this.setAttribute('data-theme', theme);
-    else this.removeAttribute('data-theme');
+    if (!this.#isPreviewEmbedded()) {
+      const theme = this.#storGet(LS_THEME_KEY) || 'system';
+      if (theme === 'light' || theme === 'dark') this.setAttribute('data-theme', theme);
+      else this.removeAttribute('data-theme');
+    }
     this.#syncUserPopoverThemeToggle();
     this.#syncAgentWindowAtmosphere();
   }
 
   #setUserTheme(value) {
-    localStorage.setItem(LS_THEME_KEY, value);
+    this.#storSet(LS_THEME_KEY, value);
     this.#applyUserThemeOverride();
     this.#syncSettingsForm();
     this.#persistPreferencePatch({ theme: value });
@@ -4306,13 +4483,13 @@ class BokitoChatWidget extends HTMLElement {
 
   #setUserSoundEffects(checked) {
     this.#soundEffectsEnabled = checked;
-    localStorage.setItem(LS_SOUND_EFFECTS_KEY, checked ? 'on' : 'off');
+    this.#storSet(LS_SOUND_EFFECTS_KEY, checked ? 'on' : 'off');
     this.#persistPreferencePatch({ sound_effects: !!checked });
   }
 
   #setUserSoundNotifications(checked) {
     this.#soundNotificationsEnabled = checked;
-    localStorage.setItem(LS_SOUND_NOTIFICATIONS_KEY, checked ? 'on' : 'off');
+    this.#storSet(LS_SOUND_NOTIFICATIONS_KEY, checked ? 'on' : 'off');
     this.#persistPreferencePatch({ sound_notifications: !!checked });
   }
 

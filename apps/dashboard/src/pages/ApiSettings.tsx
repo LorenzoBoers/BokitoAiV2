@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Plus, Trash2, Eye, EyeOff, Download, ExternalLink } from 'lucide-react';
+import { Copy, Plus, Trash2, Eye, EyeOff, Download } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useDatabase } from '../context/DatabaseContext';
 import { DatabaseProvider } from '../context/DatabaseContext';
@@ -410,16 +410,6 @@ function ApiSettingsContent() {
             >
               <Download size={16} />
               OpenAPI Spec
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-            >
-              <a href="/docs" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-                <ExternalLink size={16} />
-                Interactieve Docs
-              </a>
             </Button>
           </div>
         </div>

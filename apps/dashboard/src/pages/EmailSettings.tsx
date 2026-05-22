@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Textarea } from '../components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useAuth } from '../context/AuthContext'
+import { integrationsRoutes } from '../api/routes/integrations.routes'
 import { buildEmailOAuthReturnUrl, ensureOutlookAuthorizeUrlHasClientId } from '../lib/email-api'
 import { xanoDeleteIntegrations, xanoGetIntegrations } from '../lib/xano'
 import {
@@ -223,7 +224,7 @@ export default function EmailSettings() {
     setListLoading(true)
     setListError(null)
     try {
-      const payload = await xanoGetIntegrations<unknown>('/email/connections', token)
+      const payload = await xanoGetIntegrations<unknown>(integrationsRoutes.email.connections.list, token)
       setOauthConnections(normalizeConnections(payload))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Kon e-mailkoppelingen niet laden.'
@@ -293,15 +294,15 @@ export default function EmailSettings() {
     try {
       const returnUrl = buildEmailOAuthReturnUrl()
       const encodedReturnUrl = encodeURIComponent(returnUrl)
-      const genericPath = `/email/oauth/start?provider=${provider}&return_url=${encodedReturnUrl}`
+      const genericPath = integrationsRoutes.email.oauth.start(provider, encodedReturnUrl)
       let data: OAuthStartResponse
       try {
         data = await xanoGetIntegrations<OAuthStartResponse>(genericPath, token)
       } catch (error) {
         if (provider === 'outlook') {
-          data = await xanoGetIntegrations<OAuthStartResponse>(`/email/outlook/oauth/start?return_url=${encodedReturnUrl}`, token)
+          data = await xanoGetIntegrations<OAuthStartResponse>(integrationsRoutes.email.oauth.outlookStart(encodedReturnUrl), token)
         } else if (provider === 'gmail') {
-          data = await xanoGetIntegrations<OAuthStartResponse>(`/email/google/oauth/start?return_url=${encodedReturnUrl}`, token)
+          data = await xanoGetIntegrations<OAuthStartResponse>(integrationsRoutes.email.oauth.googleStart(encodedReturnUrl), token)
         } else {
           throw error
         }
@@ -321,7 +322,7 @@ export default function EmailSettings() {
   async function handleDeleteOAuth(id: number) {
     if (!token) return
     try {
-      await xanoDeleteIntegrations(`/email/connections/${id}`, token)
+      await xanoDeleteIntegrations(integrationsRoutes.email.connections.byId(id), token)
       setOauthConnections((prev) => prev.filter((c) => c.id !== id))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Verwijderen mislukt.'

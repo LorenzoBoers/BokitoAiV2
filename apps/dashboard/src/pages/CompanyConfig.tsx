@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Globe, Image, Loader2, MessageSquare, Sparkles, Upload, X } from 'lucide-react'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
+import { authRoutes } from '../api/routes/auth.routes'
 import { XANO_AUTH_API } from '../lib/xano'
+import { ASSISTENT_DEFAULT_PATH } from '../lib/assistent-settings-path'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -387,7 +389,7 @@ export default function CompanyConfig() {
         form.append('favicon', faviconFile)
       }
 
-      const res = await fetch(`${XANO_AUTH_API}/workspaces/${currentWorkspace.id}/branding`, {
+      const res = await fetch(`${XANO_AUTH_API}${authRoutes.workspaceBranding(currentWorkspace.id)}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -537,7 +539,7 @@ export default function CompanyConfig() {
           {/* ── Chat assistent stijl link ─────────────────────────────────── */}
           <button
             type="button"
-            onClick={() => navigate('/ai/assistent')}
+            onClick={() => navigate(ASSISTENT_DEFAULT_PATH)}
             className="w-full flex items-center gap-4 rounded-xl border border-border/55 bg-bg-elevated/30 px-5 py-4 hover:border-accent/35 hover:bg-bg-hover/40 transition-all group text-left"
           >
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">

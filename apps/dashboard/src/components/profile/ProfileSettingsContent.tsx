@@ -4,6 +4,7 @@ import { Check, LaptopMinimal, Lock, Moon, Pencil, ShieldCheck, Sun, Trash2, X }
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
+import { authRoutes } from '../../api/routes/auth.routes'
 import { xanoPatchAuth, xanoPostAuth, XANO_AUTH_API, buildAuthHeaders } from '../../lib/xano'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -256,10 +257,10 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
         credentials: 'include',
         body: form,
       })
-      let res = await sendAvatar('/users/me/avatar')
+      let res = await sendAvatar(authRoutes.users.meAvatar)
       if (res.status === 404) {
         // Backward compatibility while some environments still use legacy path.
-        res = await sendAvatar('/avatar')
+        res = await sendAvatar(authRoutes.users.avatarLegacy)
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json() as { avatar?: { url?: string; path?: string } }
@@ -285,19 +286,19 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
 
   const saveName = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatchAuth('/profile', { name: next }, token)
+    await xanoPatchAuth(authRoutes.profile.patch, { name: next }, token)
     patchLocalUser({ name: next })
   }, [token, patchLocalUser])
 
   const saveEmail = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatchAuth('/profile', { email: next }, token)
+    await xanoPatchAuth(authRoutes.profile.patch, { email: next }, token)
     patchLocalUser({ email: next })
   }, [token, patchLocalUser])
 
   const saveJobTitle = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatchAuth('/profile', { job_title: next }, token)
+    await xanoPatchAuth(authRoutes.profile.patch, { job_title: next }, token)
     patchLocalUser({ jobTitle: next || null })
   }, [token, patchLocalUser])
 
@@ -306,7 +307,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
     if (!token) return
     setPwSaving(true); setPwError(null)
     try {
-      await xanoPostAuth('/change-password', { current_password: currentPw, new_password: newPw }, token)
+      await xanoPostAuth(authRoutes.profile.changePassword, { current_password: currentPw, new_password: newPw }, token)
       setPwSaved(true)
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
       setShowPasswordForm(false)

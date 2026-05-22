@@ -1,5 +1,5 @@
 ---
-description: Enforce frontend API endpoint construction via env base and API groups
+description: Enforce frontend API endpoint construction via env base, API groups, and central route registry
 alwaysApply: true
 ---
 
@@ -10,26 +10,31 @@ Use these rules for `apps/dashboard/**` frontend API integrations.
 ## Required pattern
 
 - Always construct API endpoints from:
-  - `VITE_XANO_BASE_URL` (base)
+  - `VITE_XANO_BASE_URL` (base; used by tooling/proxy, not for direct browser calls to Xano for authenticated APIs)
   - `VITE_API_GROUP_*` (group canonical)
-  - endpoint path (feature-level path such as `/members`, `/auth/login`)
-- Keep this logic centralized in `apps/dashboard/src/lib/api.config.ts`.
-- Reuse exported API base constants (for example `APP_API_BASE`, `AUTH_API_BASE`) in feature code.
+  - **Relative path strings** taken only from `apps/dashboard/src/api/routes/` (or `apps/dashboard/src/api/url.ts` for query helpers)
+- Keep **env and group bases** centralized in `apps/dashboard/src/lib/api.config.ts`.
+- Reuse exported API base constants (for example `APP_API_BASE`, `AUTH_API_BASE`) in transport code (`lib/xano.ts`) and in modules that build full URLs when they must compose base + path.
 
 ## Do
 
 - Add new API groups by:
-  - defining `VITE_API_GROUP_<NAME>` in `.env.example`
+  - defining `VITE_API_GROUP_<NAME>` in `apps/dashboard/.env.example`
   - adding matching constants/builders in `api.config.ts`
-  - consuming the new base in a shared API helper before using it in pages/components
-- Keep endpoint paths local to the feature or API helper where they belong.
-- Use `import.meta.env` only for non-secret frontend config values.
+  - adding a `*.routes.ts` file (or section) under `apps/dashboard/src/api/routes/` and exporting from `apps/dashboard/src/api/routes/index.ts`
+- Add every new Xano-relative path (for example `/inbox/threads`) as a named constant or small function in the appropriate routes file; call sites import `appRoutes`, `authRoutes`, `integrationsRoutes`, or `workforceRoutes`.
+- Use `import.meta.env` only for non-secret frontend config values, and prefer only inside `api.config.ts` (and existing narrowly-scoped exceptions such as auth proxy base in `xano.ts`).
 
 ## Do not
 
-- Do not hardcode full API origins (for example `https://...`) directly in pages, hooks, or components.
-- Do not bypass `api.config.ts` for Xano group-based routes.
+- Do not hardcode full API origins (for example `https://...xano.io`) in pages, hooks, or components.
+- Do not bypass `api.config.ts` for Xano group-based route bases.
+- Do not introduce new ad-hoc `'/segment/...'` path string literals for Xano/proxy `fetch` or `xano*` calls outside `src/api/routes/`.
 - Do not store secrets in `VITE_*` vars (frontend build values are public in the bundle).
+
+## Documentation
+
+- Human and agent onboarding: `apps/dashboard/docs/API.md`.
 
 ## Vite build behavior
 

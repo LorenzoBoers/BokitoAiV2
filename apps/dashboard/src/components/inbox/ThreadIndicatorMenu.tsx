@@ -24,8 +24,10 @@ type Props = {
  *   - else       -> transparent placeholder
  *
  * Hovering the parent thread row reveals a subtle ring around the indicator
- * (group-hover) so users discover the click target. Clicking opens a Radix
- * dropdown with contextual actions (mark read/unread + pin/unpin).
+ * (group-hover) so users discover the click target. Hovering the indicator
+ * itself lightens the dot / background so the hit area reads as interactive.
+ * Clicking opens a Radix dropdown with contextual actions (mark read/unread +
+ * pin/unpin).
  */
 export default function ThreadIndicatorMenu({
   hasUnread,
@@ -56,19 +58,30 @@ export default function ThreadIndicatorMenu({
                 : 'Thread acties'
           }
           className={cn(
-            'mt-1.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full',
-            'transition-shadow ring-0',
+            'group/indicator mt-1.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full',
+            'transition-[background-color,box-shadow] duration-150 ring-0',
+            'hover:bg-text-muted/15 dark:hover:bg-text-muted/25',
             'group-hover/thread:ring-1 group-hover/thread:ring-border/70',
             'data-[state=open]:ring-1 data-[state=open]:ring-accent/60',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60',
           )}
         >
           {isPinned ? (
-            <Pin size={11} className="text-accent fill-accent rotate-45" aria-hidden />
+            <Pin
+              size={11}
+              className="text-accent fill-accent rotate-45 transition-opacity group-hover/indicator:opacity-90"
+              aria-hidden
+            />
           ) : hasUnread ? (
-            <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
+            <span
+              className="h-2 w-2 rounded-full bg-accent transition-[filter,transform] duration-150 group-hover/indicator:scale-110 group-hover/indicator:brightness-110"
+              aria-hidden
+            />
           ) : (
-            <span className="h-2 w-2 rounded-full bg-transparent" aria-hidden />
+            <span
+              className="h-2 w-2 rounded-full bg-text-muted/25 transition-colors duration-150 group-hover/indicator:bg-text-muted/55 dark:group-hover/indicator:bg-text-muted/50"
+              aria-hidden
+            />
           )}
         </button>
       </DropdownMenuTrigger>

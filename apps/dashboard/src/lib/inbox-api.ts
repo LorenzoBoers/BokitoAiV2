@@ -1,3 +1,4 @@
+import { integrationsRoutes } from '../api/routes/integrations.routes'
 import {
   xanoGetIntegrations,
   xanoPostIntegrations,
@@ -294,7 +295,7 @@ function normalizeFolder(row: unknown): MailboxFolder | null {
 
 export async function listMailboxFolders(token: string, connectionId: number): Promise<MailboxFolder[]> {
   const payload = await xanoGet<{ folders?: unknown[]; sync_state?: unknown[] }>(
-    `/email/connections/${connectionId}/folders`,
+    integrationsRoutes.email.connections.folders(connectionId),
     token,
   )
   const rawFolders = Array.isArray(payload.folders) ? payload.folders : Array.isArray(payload) ? (payload as unknown[]) : []
@@ -326,7 +327,7 @@ export async function saveMailboxFolders(
   connectionId: number,
   folders: Array<{ id: string; display_name: string; is_selected: boolean }>,
 ): Promise<void> {
-  await xanoPut(`/email/connections/${connectionId}/folders`, { folders }, token)
+  await xanoPut(integrationsRoutes.email.connections.folders(connectionId), { folders }, token)
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +343,7 @@ export async function listThreads(token: string, filters: ThreadFilters = {}): P
   params.set('page', String(filters.page ?? 1))
   params.set('per_page', String(filters.perPage ?? 30))
   if (filters.connectionId && filters.connectionId > 0) params.set('connection_id', String(filters.connectionId))
-  const payload = await xanoGet<unknown>(`/inbox/threads?${params.toString()}`, token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.inbox.threadsQuery(params), token)
   const data = payload as Record<string, unknown>
   const itemsSource = Array.isArray(payload) ? payload : Array.isArray(data.items) ? data.items : []
   return {
@@ -355,7 +356,7 @@ export async function listThreads(token: string, filters: ThreadFilters = {}): P
 
 export async function getThread(token: string, threadId: number): Promise<ThreadDetail | null> {
   const payload = await xanoGet<{ thread?: unknown; messages?: unknown[]; events?: unknown[] }>(
-    `/inbox/threads/${threadId}`,
+    integrationsRoutes.inbox.thread(threadId),
     token,
   )
   const thread = normalizeThread(payload.thread)
@@ -373,7 +374,7 @@ export async function patchThread(token: string, threadId: number, patch: PatchT
   if (patch.assignedToUserId !== undefined) body.assigned_to_user_id = patch.assignedToUserId
   if (patch.tags !== undefined) body.tags = patch.tags
   if (patch.priority !== undefined) body.priority = patch.priority
-  const payload = await xanoPatch<unknown>(`/inbox/threads/${threadId}`, body, token)
+  const payload = await xanoPatch<unknown>(integrationsRoutes.inbox.thread(threadId), body, token)
   return normalizeThread(payload)
 }
 
@@ -386,7 +387,7 @@ export async function patchThread(token: string, threadId: number, patch: PatchT
  * a user opens a thread; the UI updates optimistically before this resolves.
  */
 export async function markThreadRead(token: string, threadId: number): Promise<InboxThread | null> {
-  const payload = await xanoPatch<unknown>(`/inbox/threads/${threadId}/mark-read`, {}, token)
+  const payload = await xanoPatch<unknown>(integrationsRoutes.inbox.threadMarkRead(threadId), {}, token)
   return normalizeThread(payload)
 }
 
@@ -395,30 +396,48 @@ export async function markThreadRead(token: string, threadId: number): Promise<I
  * button in the thread detail header).
  */
 export async function markThreadUnread(token: string, threadId: number): Promise<InboxThread | null> {
-  const payload = await xanoPatch<unknown>(`/inbox/threads/${threadId}/mark-unread`, {}, token)
+  const payload = await xanoPatch<unknown>(integrationsRoutes.inbox.threadMarkUnread(threadId), {}, token)
   return normalizeThread(payload)
 }
 
 // ---------------------------------------------------------------------------
 // Pin state (per-user)
+//
+// Pin state is tracked in a separate inbox_thread_pin table on the backend.
+// To keep the thread-list and thread-detail endpoints simple and free of
+// type-fragile decoration logic, the dashboard fetches the user's pinned
+// thread IDs separately via GET /inbox/pins, and joins client-side.
 // ---------------------------------------------------------------------------
+
+/**
+ * Returns the set of thread IDs the current user has pinned. The dashboard
+ * uses this to decorate thread items with `isPinned` and to sort pinned
+ * threads to the top of every list view.
+ */
+export async function listPinnedThreadIds(token: string): Promise<number[]> {
+  const payload = await xanoGet<{ thread_ids?: unknown[] } | unknown[]>(integrationsRoutes.inbox.pins, token)
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { thread_ids?: unknown[] }).thread_ids)
+      ? ((payload as { thread_ids: unknown[] }).thread_ids)
+      : []
+  return source.map((v) => asNumber(v, NaN)).filter((n) => Number.isFinite(n) && n > 0)
+}
 
 /**
  * Pin a thread for the current user. Idempotent on the backend.
  * Pinned threads always appear at the top of any list view they match, plus
  * are listed in the dedicated "Gepind" view.
  */
-export async function pinThread(token: string, threadId: number): Promise<InboxThread | null> {
-  const payload = await xanoPost<unknown>(`/inbox/threads/${threadId}/pin`, {}, token)
-  return normalizeThread(payload)
+export async function pinThread(token: string, threadId: number): Promise<void> {
+  await xanoPost<unknown>(integrationsRoutes.inbox.threadPin(threadId), {}, token)
 }
 
 /**
  * Unpin a thread for the current user. Idempotent on the backend.
  */
-export async function unpinThread(token: string, threadId: number): Promise<InboxThread | null> {
-  const payload = (await xanoDelete<unknown>(`/inbox/threads/${threadId}/pin`, token)) ?? null
-  return normalizeThread(payload)
+export async function unpinThread(token: string, threadId: number): Promise<void> {
+  await xanoDelete<unknown>(integrationsRoutes.inbox.threadPin(threadId), token)
 }
 
 export async function replyToThread(token: string, threadId: number, input: ReplyInput): Promise<InboxMessage | null> {
@@ -427,12 +446,12 @@ export async function replyToThread(token: string, threadId: number, input: Repl
     action: input.action ?? 'send',
   }
   if (input.bodyHtml) body.body_html = input.bodyHtml
-  const payload = await xanoPost<unknown>(`/inbox/threads/${threadId}/reply`, body, token)
+  const payload = await xanoPost<unknown>(integrationsRoutes.inbox.threadReply(threadId), body, token)
   return normalizeMessage(payload)
 }
 
 export async function addNoteToThread(token: string, threadId: number, bodyText: string): Promise<InboxMessage | null> {
-  const payload = await xanoPost<unknown>(`/inbox/threads/${threadId}/notes`, { body_text: bodyText }, token)
+  const payload = await xanoPost<unknown>(integrationsRoutes.inbox.threadNotes(threadId), { body_text: bodyText }, token)
   return normalizeMessage(payload)
 }
 
@@ -441,7 +460,7 @@ export async function addNoteToThread(token: string, threadId: number, bodyText:
 // ---------------------------------------------------------------------------
 
 export async function listInboxMembers(token: string): Promise<InboxMember[]> {
-  const payload = await xanoGet<unknown>('/inbox/members', token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.inbox.members, token)
   const source = Array.isArray(payload)
     ? payload
     : payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
@@ -468,7 +487,7 @@ export async function listInboxMembers(token: string): Promise<InboxMember[]> {
 // ---------------------------------------------------------------------------
 
 export async function getSyncStatus(token: string): Promise<SyncConnectionStatus[]> {
-  const payload = await xanoGet<unknown>('/inbox/sync-status', token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.inbox.syncStatus, token)
   const source = Array.isArray(payload) ? payload : []
   return source
     .map((row) => {

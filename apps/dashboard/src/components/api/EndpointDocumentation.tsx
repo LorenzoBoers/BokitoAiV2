@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, ChevronDown, ChevronRight, Code, ExternalLink } from 'lucide-react';
+import { Copy, ChevronDown, ChevronRight, Code } from 'lucide-react';
 import { useDatabase } from '../../context/DatabaseContext';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
@@ -284,19 +284,11 @@ export default function EndpointDocumentation() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-text-heading">API Endpoints</h2>
-          <p className="text-sm text-text-secondary">
-            Automatisch gegenereerde endpoints voor elke tabel
-          </p>
-        </div>
-        <Button variant="outline" asChild>
-          <a href="/docs" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-            <ExternalLink size={16} />
-            Interactieve Docs
-          </a>
-        </Button>
+      <div>
+        <h2 className="text-lg font-semibold text-text-heading">API Endpoints</h2>
+        <p className="text-sm text-text-secondary">
+          Automatisch gegenereerde endpoints voor elke tabel
+        </p>
       </div>
 
       {tables.length === 0 ? (

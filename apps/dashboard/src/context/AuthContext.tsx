@@ -17,6 +17,7 @@ import {
   consumeDevLocalhostAccessHashFromLocation,
   resolveTenantSubdomainFromHost,
 } from '../lib/host-routing';
+import { publishDashboardUserToWidget } from '../lib/widget-bridge';
 
 const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
 /** When set, the Xano auth group returned 404 for POST /refresh; skip further refresh calls until logout. */
@@ -538,6 +539,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl'>>) => {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      publishDashboardUserToWidget(null);
+      return;
+    }
+    publishDashboardUserToWidget({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+    });
+  }, [user]);
 
   // Re-check /me when token changes unexpectedly and user is empty.
   useEffect(() => {

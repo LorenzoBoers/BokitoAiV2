@@ -102,8 +102,11 @@ Let op: `VITE_*` variabelen zijn build-time waarden en worden in de frontend bun
 
 ## Public embed URL
 
-After deploy, the widget is served from the same origin as the portal, for example:
+After deploy, the widget bundles are served from the same origin as the portal, for example:
 
-`/chat-widget/bokito-chat.js`
+- `/chat-widget/internal/bokito-chat.js` (team: logged-in users with permissions; `data-auth-mode` typically `optional` or `required`)
+- `/chat-widget/external/bokito-chat.js` (public: anonymous visitors; `data-auth-mode` typically `anonymous`)
+
+The legacy root file `/chat-widget/bokito-chat.js` is no longer the primary entry; the portal loads the team bundle from the internal path (`apps/dashboard/src/main.tsx`).
 
 See `apps/chat-widget/README.md` for embed attributes and API contract.

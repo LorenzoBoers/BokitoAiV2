@@ -36,3 +36,26 @@ export const LOGS_API_BASE = xanoApiBase(API_GROUP_LOGS)
 export const BAKERMAT_API_BASE = xanoApiBase(API_GROUP_BAKERMAT)
 
 export const PUBLIC_API_URL = import.meta.env.VITE_PUBLIC_API_URL || DEFAULT_PUBLIC_API_URL
+
+/** Absolute Xano origin for `bokito-chat` `data-api-url` (widget composes `/api:livechat/...` itself). */
+export function livechatWidgetHttpOrigin(): string {
+  return XANO_BASE_URL.replace(/\/+$/, '').replace(/\/api:livechat$/i, '')
+}
+
+/** Same-origin path to the team widget bundle (ingelogde gebruikers met rechten). */
+export const CHAT_WIDGET_SCRIPT_PATH_INTERNAL = '/chat-widget/internal/bokito-chat.js'
+
+/** Same-origin path to the public visitor widget bundle (anonieme websitebezoekers). */
+export const CHAT_WIDGET_SCRIPT_PATH_EXTERNAL = '/chat-widget/external/bokito-chat.js'
+
+/**
+ * Xano-hosted widget entrypoints (parallel aan portal-paden). Backend moet `script/internal`
+ * en `script/external` serveren (of proxien naar de juiste bundle).
+ */
+export function livechatWidgetHostedScriptUrl(kind: 'internal' | 'external'): string {
+  const base = livechatWidgetHttpOrigin()
+  return `${base}/api:livechat/script/${kind}`
+}
+
+/** Agent slug for the chat widget embedded in the dashboard portal. */
+export const DASHBOARD_CHAT_AGENT_SLUG = import.meta.env.VITE_DASHBOARD_CHAT_AGENT_SLUG || 'bokito-dashboard'

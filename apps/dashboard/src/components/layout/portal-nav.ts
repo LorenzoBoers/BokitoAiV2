@@ -15,8 +15,11 @@ import {
   Building,
   Bot,
   Upload,
+  FileText,
+  PenLine,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
+import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
 
 export type RailItem = {
   label: string
@@ -36,14 +39,28 @@ export type SidebarGroup = {
   links: SidebarLink[]
 }
 
-export const getRailItems = (t: TFunction<'nav'>): RailItem[] => [
+/** End-user navigation: PKB, change request, messages, settings only (Phase 3.1). */
+export const getEndUserRailItems = (t: TFunction<'nav'>, projectId?: string): RailItem[] => {
+  const base = projectId ? `/project/${projectId}` : '/projects'
+  return [
+    { label: t('rail.pkb', { defaultValue: 'Project' }), to: `${base}/pkb`, icon: FileText },
+    { label: t('rail.changeRequest', { defaultValue: 'Request' }), to: `${base}/request`, icon: PenLine },
+    { label: t('rail.messages', { defaultValue: 'Messages' }), to: '/messages', icon: MessagesSquare },
+    { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
+  ]
+}
+
+/** Admin / staff navigation (full portal surfaces). */
+export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
   { label: t('rail.support'), to: '/support/inbox/all', icon: MessageSquare },
-  { label: t('rail.help'), to: '/docs', icon: BookOpen },
-  { label: t('rail.updates'), to: '/projects', icon: Sparkles },
+  { label: t('rail.updates'), to: ASSISTENT_DEFAULT_PATH, icon: Sparkles },
   { label: t('rail.data'), to: '/database', icon: Database },
-  { label: t('rail.workforce'), to: '/workforce', icon: Bot, comingSoon: true },
+  { label: t('rail.workforce'), to: '/admin/runs', icon: Bot },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
+
+export const getRailItems = (t: TFunction<'nav'>, isAdmin = true, projectId?: string): RailItem[] =>
+  isAdmin ? getAdminRailItems(t) : getEndUserRailItems(t, projectId)
 
 export const getSupportSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
   {
@@ -75,7 +92,7 @@ export const getAiSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
   {
     label: t('ai.group.ai'),
     links: [
-      { label: t('ai.links.assistent'), to: '/ai/assistent' },
+      { label: t('ai.links.assistent'), to: ASSISTENT_DEFAULT_PATH },
       { label: t('ai.links.kennis'), to: '/projects' },
       { label: t('ai.links.datasources'), to: '/datasources' },
       { label: t('ai.links.handelingen'), to: '/ai/handelingen', comingSoon: true },
@@ -106,7 +123,7 @@ export const getSettingsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] =>
     label: t('settings.groups.products'),
     links: [
       { label: t('settings.links.inbox'), to: '/settings/inbox' },
-      { label: t('settings.links.messenger'), to: '/ai/assistent' },
+      { label: t('settings.links.messenger'), to: ASSISTENT_DEFAULT_PATH },
       { label: t('settings.links.helpCenters'), to: '/settings/help-centers', comingSoon: true },
     ],
   },

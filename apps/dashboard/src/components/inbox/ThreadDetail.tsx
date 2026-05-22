@@ -1,4 +1,4 @@
-import { Archive, ChevronDown, MailOpen, PanelRight, RefreshCw, X } from 'lucide-react'
+import { AlertCircle, Archive, ChevronDown, PanelRight, Pin, PinOff, RefreshCw, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../context/AuthContext'
@@ -27,12 +27,25 @@ type DayGroup = {
 type Props = {
   detail: ThreadDetailType | null
   loading: boolean
+  /**
+   * Non-null when the most recent fetch of the selected thread failed. Used
+   * to show explicit feedback in the empty area instead of silently falling
+   * back to the "Selecteer een thread" placeholder, which made it look like
+   * nothing happened.
+   */
+  error: string | null
+  /**
+   * The thread the user has selected via the URL. Used (together with
+   * `error`) to show the failure message including the threadId so users
+   * can identify which thread failed to load.
+   */
+  threadId: number | null
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
   onReply: (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => Promise<void>
   onNote: (bodyText: string) => Promise<void>
   onRefresh: () => void
-  onMarkUnread: () => void | Promise<void>
+  onTogglePin?: () => void | Promise<void>
   onToggleContact?: () => void
   contactOpen?: boolean
 }
@@ -92,7 +105,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, saving, onPatch, onReply, onNote, onRefresh, onMarkUnread, onToggleContact, contactOpen }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onToggleContact, contactOpen }: Props) {
   const { token } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -152,7 +165,7 @@ export default function ThreadDetail({ detail, loading, saving, onPatch, onReply
     node.scrollIntoView({ block: 'end', behavior })
   }, [])
 
-  const threadId = detail?.thread.id ?? null
+  const loadedThreadId = detail?.thread.id ?? null
   const messageCount = detail?.messages.length ?? 0
 
   // Scroll to bottom whenever a new thread is opened. We engage the anchor
@@ -160,7 +173,7 @@ export default function ThreadDetail({ detail, loading, saving, onPatch, onReply
   // iframes finish measuring their height (often a few hundred ms after the
   // initial render).
   useEffect(() => {
-    if (threadId == null) {
+    if (loadedThreadId == null) {
       anchorToBottomRef.current = false
       return
     }
@@ -170,7 +183,7 @@ export default function ThreadDetail({ detail, loading, saving, onPatch, onReply
     return () => window.cancelAnimationFrame(raf)
     // Re-run only when switching threads, not on every message update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId])
+  }, [loadedThreadId])
 
   // Re-pin to the bottom on any content height growth (iframes loading,
   // images decoding, etc.) for as long as the anchor is engaged.
@@ -203,7 +216,7 @@ export default function ThreadDetail({ detail, loading, saving, onPatch, onReply
 
   // Scroll on message-count growth, but only when the user is already near the bottom.
   useEffect(() => {
-    if (threadId == null) return
+    if (loadedThreadId == null) return
     const prev = previousMessageCountRef.current
     previousMessageCountRef.current = messageCount
     if (messageCount <= prev) return
@@ -219,7 +232,7 @@ export default function ThreadDetail({ detail, loading, saving, onPatch, onReply
       anchorToBottomRef.current = true
       scrollToBottom('smooth')
     }
-  }, [messageCount, threadId, scrollToBottom])
+  }, [messageCount, loadedThreadId, scrollToBottom])
 
   // Track which day group is currently visible at the top of the scroll
   // container so a single fixed bar above the scroll area can show the active
@@ -291,6 +304,28 @@ export default function ThreadDetail({ detail, loading, saving, onPatch, onReply
     )
   }
 
+  // The detail fetch failed. Surface the actual error to the user instead
+  // of silently showing the "Selecteer een thread" placeholder, which hides
+  // backend issues (e.g. the Xano runtime errors that previously slipped
+  // through unnoticed).
+  if (error && threadId != null) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <AlertCircle size={28} className="text-status-error" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-text-heading">
+            Thread #{threadId} kon niet worden geladen.
+          </p>
+          <p className="text-xs text-text-muted max-w-md break-words">{error}</p>
+        </div>
+        <Button size="sm" variant="secondary" onClick={onRefresh} className="gap-1.5">
+          <RefreshCw size={13} />
+          Opnieuw proberen
+        </Button>
+      </div>
+    )
+  }
+
   if (!detail) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -358,19 +393,20 @@ export default function ThreadDetail({ detail, loading, saving, onPatch, onReply
               <X size={14} />
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void onMarkUnread()}
-            disabled={saving || loading}
-            title="Markeer als ongelezen"
-            aria-label="Markeer als ongelezen"
-          >
-            <MailOpen size={13} />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onRefresh} disabled={loading}>
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </Button>
+          {onTogglePin ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void onTogglePin()}
+              disabled={saving || loading}
+              title={thread.isPinned ? 'Pin verwijderen' : 'Thread pinnen'}
+              aria-label={thread.isPinned ? 'Pin verwijderen' : 'Thread pinnen'}
+              aria-pressed={thread.isPinned}
+              className={thread.isPinned ? 'text-accent' : ''}
+            >
+              {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+            </Button>
+          ) : null}
           {onToggleContact ? (
             <Button
               size="sm"

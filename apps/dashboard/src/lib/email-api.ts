@@ -1,3 +1,4 @@
+import { integrationsRoutes } from '../api/routes/integrations.routes'
 import {
   xanoDeleteIntegrations,
   xanoGetIntegrations,
@@ -237,7 +238,7 @@ function normalizeMessage(row: unknown): EmailMessage | null {
 }
 
 export async function listEmailConnections(token: string): Promise<EmailConnection[]> {
-  const payload = await xanoGet<unknown>('/email/connections', token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.email.connections.list, token)
   const source = Array.isArray(payload)
     ? payload
     : payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
@@ -253,7 +254,7 @@ export function buildEmailOAuthReturnUrl(): string {
 export async function startOAuthConnection(token: string, provider: OAuthProvider): Promise<string> {
   const returnUrl = buildEmailOAuthReturnUrl()
   const encodedReturnUrl = encodeURIComponent(returnUrl)
-  const genericPath = `/email/oauth/start?provider=${provider}&return_url=${encodedReturnUrl}`
+  const genericPath = integrationsRoutes.email.oauth.start(provider, encodedReturnUrl)
   try {
     const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>(genericPath, token)
     const url = asString(payload.authorize_url ?? payload.authorizeUrl)
@@ -263,7 +264,7 @@ export async function startOAuthConnection(token: string, provider: OAuthProvide
   } catch (error) {
     if (provider === 'outlook') {
       const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>(
-        `/email/outlook/oauth/start?return_url=${encodedReturnUrl}`,
+        integrationsRoutes.email.oauth.outlookStart(encodedReturnUrl),
         token,
       )
       const url = asString(payload.authorize_url ?? payload.authorizeUrl)
@@ -274,7 +275,7 @@ export async function startOAuthConnection(token: string, provider: OAuthProvide
 
     if (provider === 'gmail') {
       const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>(
-        `/email/google/oauth/start?return_url=${encodedReturnUrl}`,
+        integrationsRoutes.email.oauth.googleStart(encodedReturnUrl),
         token,
       )
       const url = asString(payload.authorize_url ?? payload.authorizeUrl)
@@ -287,7 +288,7 @@ export async function startOAuthConnection(token: string, provider: OAuthProvide
 }
 
 export async function disconnectEmailConnection(token: string, connectionId: number): Promise<void> {
-  await xanoDelete(`/email/connections/${connectionId}`, token)
+  await xanoDelete(integrationsRoutes.email.connections.byId(connectionId), token)
 }
 
 export async function updateMailboxSettings(
@@ -295,19 +296,19 @@ export async function updateMailboxSettings(
   connectionId: number,
   payload: { is_enabled: boolean; is_primary: boolean },
 ): Promise<void> {
-  await xanoPut(`/email/connections/${connectionId}/mailbox-settings`, payload, token)
+  await xanoPut(integrationsRoutes.email.connections.mailboxSettings(connectionId), payload, token)
 }
 
 export async function getConnectionSignature(token: string, connectionId: number): Promise<string> {
   const payload = await xanoGet<{ signature_html?: string; signatureHtml?: string }>(
-    `/email/connections/${connectionId}/signature`,
+    integrationsRoutes.email.connections.signature(connectionId),
     token,
   )
   return asString(payload.signature_html ?? payload.signatureHtml)
 }
 
 export async function saveConnectionSignature(token: string, connectionId: number, signatureHtml: string): Promise<void> {
-  await xanoPut(`/email/connections/${connectionId}/signature`, { signature_html: signatureHtml }, token)
+  await xanoPut(integrationsRoutes.email.connections.signature(connectionId), { signature_html: signatureHtml }, token)
 }
 
 export async function listEmailMessages(token: string, filters: MessageFilters): Promise<PagedResult<EmailMessage>> {
@@ -320,7 +321,7 @@ export async function listEmailMessages(token: string, filters: MessageFilters):
   params.set('page', String(filters.page ?? 1))
   params.set('per_page', String(filters.perPage ?? 50))
   if (filters.search) params.set('search', filters.search)
-  const payload = await xanoGet<unknown>(`/email/messages?${params.toString()}`, token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.email.messages.listQuery(params), token)
 
   const data = payload as Record<string, unknown>
   const itemsSource = Array.isArray(payload)
@@ -338,7 +339,7 @@ export async function listEmailMessages(token: string, filters: MessageFilters):
 }
 
 export async function getEmailMessage(token: string, messageId: number): Promise<EmailMessage | null> {
-  const payload = await xanoGet<unknown>(`/email/messages/${messageId}`, token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.email.messages.byId(messageId), token)
   return normalizeMessage(payload)
 }
 
@@ -354,18 +355,18 @@ export async function patchEmailMessage(
     sentiment: 'positive' | 'neutral' | 'negative' | 'urgent'
   }>,
 ): Promise<EmailMessage | null> {
-  const payload = await xanoPatch<unknown>(`/email/messages/${messageId}`, patch, token)
+  const payload = await xanoPatch<unknown>(integrationsRoutes.email.messages.byId(messageId), patch, token)
   return normalizeMessage(payload)
 }
 
 export async function snoozeEmailMessage(token: string, messageId: number, snoozedUntil: string): Promise<EmailMessage | null> {
-  const payload = await xanoPatch<unknown>(`/email/messages/${messageId}/snooze`, { snoozed_until: snoozedUntil }, token)
+  const payload = await xanoPatch<unknown>(integrationsRoutes.email.messages.snooze(messageId), { snoozed_until: snoozedUntil }, token)
   return normalizeMessage(payload)
 }
 
 export async function sendEmailMessage(token: string, input: SendEmailInput): Promise<{ ok: boolean; messageId: number | null }> {
   const payload = await xanoPost<{ ok?: boolean; message_id?: number }>(
-    '/email/send',
+    integrationsRoutes.email.send,
     {
       connection_id: input.connectionId,
       to_addresses: input.toAddresses,
@@ -384,7 +385,7 @@ export async function sendEmailMessage(token: string, input: SendEmailInput): Pr
 }
 
 export async function listRoutingRules(token: string, mailboxId: number): Promise<RoutingRuleApi[]> {
-  const payload = await xanoGet<unknown>(`/email/routing-rules?mailbox_id=${mailboxId}`, token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.email.routingRules.withMailbox(mailboxId), token)
   const source = Array.isArray(payload)
     ? payload
     : payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
@@ -414,7 +415,7 @@ export async function createRoutingRule(
   token: string,
   payload: Omit<RoutingRuleApi, 'id' | 'created_at' | 'updated_at'>,
 ): Promise<void> {
-  await xanoPost('/email/routing-rules', payload, token)
+  await xanoPost(integrationsRoutes.email.routingRules.base, payload, token)
 }
 
 export async function updateRoutingRule(
@@ -422,11 +423,11 @@ export async function updateRoutingRule(
   ruleId: number,
   payload: Partial<Omit<RoutingRuleApi, 'id' | 'mailbox_id' | 'created_at' | 'updated_at'>>,
 ): Promise<void> {
-  await xanoPatch(`/email/routing-rules/${ruleId}`, payload, token)
+  await xanoPatch(integrationsRoutes.email.routingRules.byId(ruleId), payload, token)
 }
 
 export async function deleteRoutingRule(token: string, ruleId: number): Promise<void> {
-  await xanoDelete(`/email/routing-rules/${ruleId}`, token)
+  await xanoDelete(integrationsRoutes.email.routingRules.byId(ruleId), token)
 }
 
 const DEFAULT_AI_CONFIG: AiInboxConfig = {
@@ -439,7 +440,7 @@ const DEFAULT_AI_CONFIG: AiInboxConfig = {
 }
 
 export async function getAiConfig(token: string, connectionId: number): Promise<AiInboxConfig> {
-  const payload = await xanoGet<{ ai_config?: Partial<AiInboxConfig> }>(`/email/connections/${connectionId}/ai-config`, token)
+  const payload = await xanoGet<{ ai_config?: Partial<AiInboxConfig> }>(integrationsRoutes.email.connections.aiConfig(connectionId), token)
   return {
     ...DEFAULT_AI_CONFIG,
     ...(payload.ai_config ?? {}),
@@ -447,12 +448,12 @@ export async function getAiConfig(token: string, connectionId: number): Promise<
 }
 
 export async function saveAiConfig(token: string, connectionId: number, config: AiInboxConfig): Promise<void> {
-  await xanoPut(`/email/connections/${connectionId}/ai-config`, { ai_config: config }, token)
+  await xanoPut(integrationsRoutes.email.connections.aiConfig(connectionId), { ai_config: config }, token)
 }
 
 export async function aiSuggestReply(token: string, messageId: number): Promise<{ suggestion: string; confidence: number }> {
   const payload = await xanoPost<{ suggestion?: string; confidence?: number }>(
-    `/email/messages/${messageId}/ai-suggest`,
+    integrationsRoutes.email.messages.aiSuggest(messageId),
     {},
     token,
   )
@@ -463,22 +464,22 @@ export async function aiSuggestReply(token: string, messageId: number): Promise<
 }
 
 export async function aiSummarizeMessage(token: string, messageId: number): Promise<string> {
-  const payload = await xanoPost<{ ai_summary?: string }>(`/email/messages/${messageId}/ai-summarize`, {}, token)
+  const payload = await xanoPost<{ ai_summary?: string }>(integrationsRoutes.email.messages.aiSummarize(messageId), {}, token)
   return asString(payload.ai_summary)
 }
 
 export async function aiAnalyzeSentiment(token: string, messageId: number): Promise<string> {
-  const payload = await xanoPost<{ sentiment?: string }>(`/email/messages/${messageId}/ai-sentiment`, {}, token)
+  const payload = await xanoPost<{ sentiment?: string }>(integrationsRoutes.email.messages.aiSentiment(messageId), {}, token)
   return asString(payload.sentiment)
 }
 
 export async function aiCategorizeMessage(token: string, messageId: number): Promise<string[]> {
-  const payload = await xanoPost<{ labels?: unknown[] }>(`/email/messages/${messageId}/ai-categorize`, {}, token)
+  const payload = await xanoPost<{ labels?: unknown[] }>(integrationsRoutes.email.messages.aiCategorize(messageId), {}, token)
   return Array.isArray(payload.labels) ? payload.labels.filter((label): label is string => typeof label === 'string') : []
 }
 
 export async function listKbCollections(token: string): Promise<KbCollection[]> {
-  const payload = await xanoGet<unknown>('/kb/collections', token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.kb.collections.list, token)
   const source = Array.isArray(payload)
     ? payload
     : payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
@@ -500,11 +501,11 @@ export async function listKbCollections(token: string): Promise<KbCollection[]> 
 }
 
 export async function createKbCollection(token: string, name: string, description?: string): Promise<void> {
-  await xanoPost('/kb/collections', { name, description }, token)
+  await xanoPost(integrationsRoutes.kb.collections.create, { name, description }, token)
 }
 
 export async function listKbDocuments(token: string, collectionId: number): Promise<KbDocument[]> {
-  const payload = await xanoGet<unknown>(`/kb/collections/${collectionId}/documents`, token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.kb.collections.documents(collectionId), token)
   const source = Array.isArray(payload)
     ? payload
     : payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
@@ -532,11 +533,11 @@ export async function uploadKbDocument(
   collectionId: number,
   payload: { filename: string; file_url: string; file_type: KbDocument['file_type']; file_size_bytes?: number },
 ): Promise<void> {
-  await xanoPost(`/kb/collections/${collectionId}/documents`, payload, token)
+  await xanoPost(integrationsRoutes.kb.collections.documents(collectionId), payload, token)
 }
 
 export async function deleteKbDocument(token: string, documentId: number): Promise<void> {
-  await xanoDelete(`/kb/documents/${documentId}`, token)
+  await xanoDelete(integrationsRoutes.kb.documents.byId(documentId), token)
 }
 
 export async function searchKbContext(
@@ -545,7 +546,7 @@ export async function searchKbContext(
   limit = 5,
 ): Promise<Array<{ id: number; filename: string; file_url: string }>> {
   const params = new URLSearchParams({ query, limit: String(limit) })
-  const payload = await xanoGet<unknown>(`/kb/search?${params.toString()}`, token)
+  const payload = await xanoGet<unknown>(integrationsRoutes.kb.searchQuery(params), token)
   const source = Array.isArray(payload)
     ? payload
     : payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)

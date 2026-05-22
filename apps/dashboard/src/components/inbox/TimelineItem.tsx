@@ -241,7 +241,7 @@ export function MessageTimelineItem({ message, contactName, contactEmail, contac
         <ContactAvatar email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
         <div
           className={cn(
-            'min-w-[240px] max-w-[75%] rounded-2xl rounded-bl-sm border px-3 py-2',
+            'w-full max-w-3xl min-w-0 rounded-2xl rounded-bl-sm border px-3 py-2',
             'bg-bg-surface border-border/50',
           )}
         >
@@ -262,7 +262,7 @@ export function MessageTimelineItem({ message, contactName, contactEmail, contac
     <div className="flex items-end gap-2 justify-end">
       <div
         className={cn(
-          'min-w-[240px] max-w-[75%] rounded-2xl rounded-br-sm border px-3 py-2',
+          'w-full max-w-3xl min-w-0 rounded-2xl rounded-br-sm border px-3 py-2',
           isInternal
             ? 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30'
             : 'bg-accent/10 border-accent/30',

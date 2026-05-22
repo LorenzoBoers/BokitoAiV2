@@ -17,6 +17,7 @@ import {
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { getRailItems } from './portal-nav'
+import { useIsAdmin } from '../../hooks/useIsAdmin'
 
 export default function Sidebar() {
   const { t } = useTranslation(['nav', 'common'])
@@ -26,7 +27,10 @@ export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const displayName = user?.name ?? t('common:account')
-  const railItems = getRailItems(t)
+  const isAdmin = useIsAdmin()
+  const projectMatch = location.pathname.match(/^\/project\/([^/]+)/)
+  const projectId = projectMatch?.[1]
+  const railItems = getRailItems(t, isAdmin, projectId)
   const mainRailItems = railItems.filter((item) => item.to !== '/settings/profile')
 
   const goToWorkspacesHub = () => {
@@ -42,10 +46,7 @@ export default function Sidebar() {
     if (path === '/support/inbox/all') {
       return location.pathname.startsWith('/support') || location.pathname.startsWith('/communication')
     }
-    if (path === '/docs') {
-      return location.pathname.startsWith('/docs')
-    }
-    if (path === '/projects') {
+    if (path.startsWith('/ai/assistent')) {
       return location.pathname.startsWith('/projects') || location.pathname.startsWith('/datasources') || location.pathname.startsWith('/ai')
     }
     if (path === '/database') {
