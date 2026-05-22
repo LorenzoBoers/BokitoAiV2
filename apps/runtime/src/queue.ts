@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { Redis } from 'ioredis'
 import { config } from './config.js'
+import { processIndexJob, type IndexJobData } from './indexing.js'
 import { processAgentJob, type AgentJobData } from './runner.js'
 
 const connection = new Redis(config.redisUrl, { maxRetriesPerRequest: null })
@@ -20,13 +21,14 @@ export function startAgentWorker(): Worker<AgentJobData> {
   )
 }
 
-export const indexQueue = new Queue('bokito-index', { connection })
+export const indexQueue = new Queue<IndexJobData>('bokito-index', { connection })
 
-export function startIndexWorker(): Worker {
-  return new Worker(
+export function startIndexWorker(): Worker<IndexJobData> {
+  return new Worker<IndexJobData>(
     'bokito-index',
     async (job) => {
-      console.log('[index]', job.id, job.data)
+      const result = await processIndexJob(job.data)
+      console.log('[index]', job.id, job.data.file_path, `${result.chunks} chunks`)
     },
     { connection, concurrency: 2 }
   )

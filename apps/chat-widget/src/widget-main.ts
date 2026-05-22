@@ -9,6 +9,13 @@
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
 import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatHttpUrl, normalizeLivechatApiBase, realtimeWebSocketUrl, xanoApiGroupUrl } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
+import {
+  appendWorkLogEvent,
+  collapseWorkLogStack,
+  createWorkLogStackElement,
+  isCustomerSafeLogEvent,
+  parseWorkLogRealtimePayload,
+} from './work-log-display'
 
 /* ── Markdown renderer ──────────────────────────────────────── */
 class MarkdownRenderer {
@@ -749,6 +756,11 @@ const WIDGET_CSS = `
 .bk-login-links a:hover{text-decoration:underline;}
 .bk-agent-banner{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#FFF7ED;border-bottom:1px solid #FED7AA;font-size:13px;color:#C2410C;font-weight:500;}
 .bk-agent-banner svg{width:16px;height:16px;flex-shrink:0;}
+.bk-worklog-stack{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:var(--bk-surface-muted,#f3f4f6);font-size:13px;color:var(--bk-text-secondary,#4b5563);}
+.bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#00D986);}
+.bk-worklog-title{font-weight:500;margin-bottom:6px;}
+.bk-worklog-list{margin:0;padding-left:18px;}
+.bk-worklog-list li{margin:2px 0;}
 .bk-home-tab[data-tab="home"]::-webkit-scrollbar,.bk-conv-list::-webkit-scrollbar{width:4px;}
 .bk-home-tab[data-tab="home"]::-webkit-scrollbar-track,.bk-conv-list::-webkit-scrollbar-track{background:transparent;}
 .bk-home-tab[data-tab="home"]::-webkit-scrollbar-thumb,.bk-conv-list::-webkit-scrollbar-thumb{background:var(--bk-border);border-radius:4px;}
@@ -767,7 +779,8 @@ class BokitoChatWidget extends HTMLElement {
   #isSubmittingLogin = false; #isPreferencesHydrated = false;
   #messageRateWindowMs = 12000; #messageRateMax = 12; #messageRateTimestamps = [];
   #sessionRefreshTimer = null;
-  #sm = new StateMachine(); #api = null; #realtime = null; #pageCtx = null; #root;
+  #sm = new StateMachine(); #api = null; #realtime = null; #workLogRealtime = null; #workLogStackEl = null;
+  #workLogFinished = false; #pageCtx = null; #root;
   #launcher; #window; #homeView; #chatView; #loginRequiredView; #messageList; #thinkingEl;
   #textarea; #sendBtn; #suggChips; #headerName; #thinkingSteps; #thinkingLabel;
   #toolboxWrap; #toolboxToggle; #toolboxMenu; #toolboxPills;
@@ -1122,6 +1135,10 @@ class BokitoChatWidget extends HTMLElement {
     if (import.meta.env.MODE !== 'production' && this.dataset.debug === 'true') {
       this.#setupDebugPanel();
     }
+    this.addEventListener('bokito:agent-invoked', (e) => {
+      const workLogId = e?.detail?.workLogId || e?.detail?.work_log_id;
+      if (workLogId) this.#subscribeWorkLog(String(workLogId));
+    });
     this.#parsePreviewOverridesAttribute();
     if (this.dataset.previewMode === 'true') {
       queueMicrotask(() => {
@@ -3898,6 +3915,19 @@ class BokitoChatWidget extends HTMLElement {
           if (this.#sm.state === 'processing') this.#sm.transition('active');
         }
         break;
+      case 'agent_invoked':
+      case 'work_log_started':
+        if (obj.work_log_id || obj.workLogId) {
+          this.#subscribeWorkLog(String(obj.work_log_id || obj.workLogId));
+          this.dispatchEvent(new CustomEvent('bokito:agent-invoked', {
+            detail: { workLogId: String(obj.work_log_id || obj.workLogId) },
+            bubbles: true,
+          }));
+        }
+        break;
+      case 'work_log_event':
+        this.#handleWorkLogRealtimeEvent(data);
+        break;
       case 'transfer_to_agent':
         if (this.#sm.state === 'processing') this.#sm.transition('agent_mode');
         break;
@@ -3918,6 +3948,47 @@ class BokitoChatWidget extends HTMLElement {
         if (titleEl) titleEl.textContent = title.slice(0, 60);
       }
     });
+  }
+
+  #ensureWorkLogStack() {
+    if (this.#workLogStackEl?.isConnected) return this.#workLogStackEl;
+    this.#workLogStackEl = createWorkLogStackElement();
+    if (this.#messageList && this.#thinkingEl) {
+      this.#messageList.insertBefore(this.#workLogStackEl, this.#thinkingEl);
+    } else if (this.#messageList) {
+      this.#messageList.appendChild(this.#workLogStackEl);
+    }
+    return this.#workLogStackEl;
+  }
+
+  #handleWorkLogRealtimeEvent(data) {
+    const ev = parseWorkLogRealtimePayload(data);
+    if (!ev) return;
+    if (ev.type === 'log' && /run finished/i.test(String(ev.title ?? ''))) {
+      this.#workLogFinished = true;
+      if (this.#workLogStackEl) collapseWorkLogStack(this.#workLogStackEl);
+      this.#workLogRealtime?.disconnect?.();
+      this.#workLogRealtime = null;
+      return;
+    }
+    if (!isCustomerSafeLogEvent(ev)) return;
+    appendWorkLogEvent(this.#ensureWorkLogStack(), ev);
+    this.#scrollToBottom();
+  }
+
+  #subscribeWorkLog(workLogId) {
+    if (!workLogId || !this.#apiUrl) return;
+    this.#workLogFinished = false;
+    this.#workLogRealtime?.disconnect?.();
+    this.#ensureWorkLogStack();
+    this.#workLogRealtime = new RealtimeClient({
+      url: realtimeWebSocketUrl(this.#apiUrl),
+      channelName: `work_log/${workLogId}`,
+      token: this.#hostAuthToken || this.#sessionToken || null,
+      onEvent: (data) => this.#handleWorkLogRealtimeEvent(data),
+      onReconnect: () => {},
+    });
+    this.#workLogRealtime.connect();
   }
 
   #showThinking() {

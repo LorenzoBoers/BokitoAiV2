@@ -11,6 +11,8 @@ export const config = {
   redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
   workerInboundSecret: process.env.WORKER_INBOUND_SECRET || '',
   dockerImageTag: process.env.DOCKER_IMAGE_TAG || 'bokito-agent-run:latest',
+  dockerImageTagPlaywright:
+    process.env.DOCKER_IMAGE_TAG_PLAYWRIGHT || process.env.DOCKER_IMAGE_TAG || 'bokito-agent-run-playwright:latest',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
   ollamaEmbeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text-v2-moe',

@@ -71,6 +71,8 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
   }
 
   await new Promise<void>((resolve, reject) => {
+    const imageTag =
+      data.role === 'testing' ? config.dockerImageTagPlaywright : config.dockerImageTag
     const child = spawn(
       'docker',
       [
@@ -85,7 +87,7 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
         `ANTHROPIC_API_KEY=${env.ANTHROPIC_API_KEY || ''}`,
         '-e',
         `XANO_RUN_TOKEN=${env.XANO_RUN_TOKEN || ''}`,
-        config.dockerImageTag,
+        imageTag,
       ],
       { stdio: 'inherit' }
     )

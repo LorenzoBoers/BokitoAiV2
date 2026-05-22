@@ -1,10 +1,11 @@
 import { Mail } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import ContactPanel from '../components/inbox/ContactPanel'
+import { DecisionsPanel } from '../components/inbox/DecisionsPanel'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { useThreads } from '../hooks/useThreads'
@@ -88,6 +89,14 @@ function getCanonicalView(thread: InboxThread): View {
 
 
 export default function Communication() {
+  const location = useLocation()
+  const isV1Messages =
+    location.pathname === '/messages' || location.pathname === '/communication'
+  if (isV1Messages) return <DecisionsPanel />
+  return <InboxCommunication />
+}
+
+function InboxCommunication() {
   const { t } = useTranslation('communication')
   const { queue, channelId, threadId: threadIdParam } = useParams<{
     queue: string

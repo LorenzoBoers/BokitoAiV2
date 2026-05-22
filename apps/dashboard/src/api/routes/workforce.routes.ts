@@ -10,6 +10,7 @@ export const workforceRoutes = {
   },
   index: {
     search: '/index/search',
+    chunks: '/index/chunks',
   },
   pkb: {
     patch: (sectionId: string) => `/pkb/${encodeURIComponent(sectionId)}`,
