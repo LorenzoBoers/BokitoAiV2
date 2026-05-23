@@ -6,6 +6,7 @@ function required(name: string): string {
 
 export const config = {
   port: Number(process.env.WORKER_PORT || 3300),
+  bindHost: process.env.WORKER_BIND_HOST || '127.0.0.1',
   xanoBaseUrl: process.env.XANO_BASE_URL?.replace(/\/+$/, '') || '',
   xanoWorkerApiKey: process.env.XANO_WORKER_API_KEY || '',
   redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
@@ -17,6 +18,7 @@ export const config = {
   ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
   ollamaEmbeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text-v2-moe',
   maxParallelPerTenant: Number(process.env.MAX_PARALLEL_PER_TENANT || 3),
+  bullBoardBasicAuth: process.env.BULL_BOARD_BASIC_AUTH || '',
 }
 
 export function assertRuntimeConfig(): void {

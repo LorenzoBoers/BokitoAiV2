@@ -68,13 +68,18 @@ function authHeaders() {
   }
 }
 
+function authBody(extra = {}) {
+  const token = process.env.XANO_RUN_TOKEN || ''
+  return { auth_token: token, ...extra }
+}
+
 async function postEvent(cfg, event) {
   const url = cfg.xano?.work_log_url
   if (!url) return
   await fetch(url, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ events: [event] }),
+    body: JSON.stringify(authBody({ events: [event] })),
   }).catch((e) => console.error('[agent-loop] postEvent', e.message))
 }
 
@@ -84,27 +89,29 @@ async function postTaskResult(cfg, body, tokenUsage) {
   await fetch(url, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({
-      project_id: cfg.project_id,
-      tenant_id: cfg.tenant_id,
-      thread_id: cfg.task.thread_id,
-      parent_message_id: cfg.task.trigger_message_id || null,
-      from_type: 'agent',
-      from_id: cfg.agent.id,
-      to_type: cfg.report_to?.type || 'user',
-      to_id: cfg.report_to?.id || null,
-      channel: 'internal',
-      message_type: 'task_result',
-      subject: cfg.task.subject,
-      body,
-      status: 'done',
-      payload: {
-        work_log_id: cfg.work_log_id,
-        run_id: cfg.run_id,
-        token_input: tokenUsage.input,
-        token_output: tokenUsage.output,
-      },
-    }),
+    body: JSON.stringify(
+      authBody({
+        project_id: cfg.project_id,
+        tenant_id: cfg.tenant_id,
+        thread_id: cfg.task.thread_id,
+        parent_message_id: cfg.task.trigger_message_id || null,
+        from_type: 'agent',
+        from_id: cfg.agent.id,
+        to_type: cfg.report_to?.type || 'user',
+        to_id: cfg.report_to?.id || null,
+        channel: 'internal',
+        message_type: 'task_result',
+        subject: cfg.task.subject,
+        body,
+        status: 'done',
+        payload: {
+          work_log_id: cfg.work_log_id,
+          run_id: cfg.run_id,
+          token_input: tokenUsage.input,
+          token_output: tokenUsage.output,
+        },
+      })
+    ),
   }).catch((e) => console.error('[agent-loop] postTaskResult', e.message))
 }
 
@@ -139,23 +146,47 @@ async function runShell(cfg, { command, cwd }) {
   }
 }
 
+async function embedQuery(query) {
+  const base = process.env.OLLAMA_BASE_URL || 'http://host.docker.internal:11434'
+  const model = process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text-v2-moe'
+  const res = await fetch(`${base}/api/embeddings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt: `search_query: ${query}` }),
+  })
+  if (!res.ok) {
+    throw new Error(`Ollama embed failed: ${res.status}`)
+  }
+  const data = await res.json()
+  if (!data.embedding?.length) throw new Error('Empty embedding from Ollama')
+  return data.embedding
+}
+
 async function searchIndex(cfg, { query, top_k = 8 }) {
   const url = cfg.xano?.search_index_url
   if (!url) return { results: [], error: 'search_index_url not configured' }
+  let embedding
+  try {
+    embedding = await embedQuery(query)
+  } catch (e) {
+    return { results: [], error: e.message }
+  }
   const res = await fetch(url, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({
-      project_id: cfg.project_id,
-      query,
-      top_k,
-    }),
+    body: JSON.stringify(
+      authBody({
+        project_id: cfg.project_id,
+        embedding,
+        top_k,
+      })
+    ),
   }).catch((e) => ({ ok: false, status: 0, message: e.message }))
   if (!res.ok) {
     return { results: [], error: `search failed (${res.status || 'network'})` }
   }
   const data = await res.json()
-  return data.results ? data : { results: data.items ?? [] }
+  return data.results ? data : { results: data.chunks ?? data.items ?? [] }
 }
 
 async function executeTool(cfg, name, input) {
