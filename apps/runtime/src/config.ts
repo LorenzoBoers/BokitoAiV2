@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 function loadEnvFile(): void {
-  const envPath = join(dirname(fileURLToPath(import.meta.url)), '../../.env')
+  const envPath = join(dirname(fileURLToPath(import.meta.url)), '../../../.env')
   if (!existsSync(envPath)) return
   for (const line of readFileSync(envPath, 'utf8').split('\n')) {
     const trimmed = line.trim()
