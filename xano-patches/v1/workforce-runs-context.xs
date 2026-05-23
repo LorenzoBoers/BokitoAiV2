@@ -56,8 +56,8 @@ query "runs/context" verb=POST {
         max_loops    : $agent.max_loops
         tools        : $agent.tools
         report_to_id : $project.report_to_user_id
-        subject      : $first_queue != null ? $first_queue.title : "Agent run"
-        body         : $first_queue != null ? $first_queue.content : ""
+        subject      : $first_queue != null ? ($first_queue.title != null ? $first_queue.title : "Agent run") : "Agent run"
+        body         : $first_queue != null ? ($first_queue.content != null ? $first_queue.content : "") : ""
         thread_id    : $input.work_log_id
       }
     }

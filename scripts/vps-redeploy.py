@@ -6,6 +6,7 @@ import paramiko
 
 HOST = os.environ.get("VPS_HOST", "31.97.45.44")
 PASSWORD = os.environ.get("VPS_ROOT_PASSWORD", "")
+KEY_PATH = os.environ.get("VPS_SSH_KEY", os.path.expanduser("~/.ssh/bokito_vps_deploy"))
 ROOT = "/root/bokito-runtime"
 REPO = os.environ.get("BOKITO_REPO", "https://github.com/LorenzoBoers/BokitoAiV2.git")
 
@@ -23,14 +24,22 @@ def run(client, cmd, timeout=3600):
     return code, out, err
 
 
-def main():
+def connect(client: paramiko.SSHClient) -> None:
+    if os.path.isfile(KEY_PATH):
+        try:
+            client.connect(HOST, username="root", key_filename=KEY_PATH, timeout=30)
+            return
+        except Exception:
+            pass
     if not PASSWORD:
-        print("Set VPS_ROOT_PASSWORD", file=sys.stderr)
-        return 1
+        raise RuntimeError("Configure VPS_SSH_KEY or VPS_ROOT_PASSWORD")
+    client.connect(HOST, username="root", password=PASSWORD, timeout=30)
 
+
+def main():
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(HOST, username="root", password=PASSWORD, timeout=30)
+    connect(client)
 
     _, out, _ = run(client, f"test -d {ROOT}/.git && echo HASGIT || echo NOGIT", 30)
     if "HASGIT" not in out:
@@ -48,9 +57,9 @@ def main():
             client.close()
             return code
 
-    run(client, f"test -f {ROOT}/.env && echo env_ok || echo env_missing", 30)
+    _, env_out, _ = run(client, f"test -f {ROOT}/.env && echo env_ok || echo env_missing", 30)
 
-    if "env_missing" in out:
+    if "env_missing" in env_out:
         env_body = """XANO_BASE_URL=https://xrex-nmji-j9ur.f2.xano.io
 XANO_WORKER_API_KEY=SBP1e-dbWgRcgchFVME6pGKy2VCigp6yR4tkPGsj51I
 REDIS_URL=redis://127.0.0.1:6379
