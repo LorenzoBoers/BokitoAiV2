@@ -39,19 +39,31 @@ query "projects/{project_id}/budget" verb=GET {
       value = $project.token_used_this_hour != null ? $project.token_used_this_hour : 0
     }
 
-    var $remaining_today {
+    var $remaining_today_raw {
       value = $budget_daily - $used_today
     }
 
-    var $remaining_hour {
+    var $remaining_hour_raw {
       value = 50000 - $used_hour
+    }
+
+    var $remaining_today {
+      value = $remaining_today_raw > 0 ? $remaining_today_raw : 0
+    }
+
+    var $remaining_hour {
+      value = $remaining_hour_raw > 0 ? $remaining_hour_raw : 0
+    }
+
+    var $blocked {
+      value = $remaining_today_raw <= 0 || $remaining_hour_raw <= 0
     }
 
     var $result {
       value = {
-        remaining_today: $remaining_today > 0 ? $remaining_today : 0
-        remaining_hour : $remaining_hour > 0 ? $remaining_hour : 0
-        blocked          : $remaining_today <= 0 || $remaining_hour <= 0
+        remaining_today: $remaining_today
+        remaining_hour : $remaining_hour
+        blocked        : $blocked
       }
     }
   }

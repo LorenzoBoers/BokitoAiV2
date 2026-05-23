@@ -21,6 +21,7 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
   const budget = await checkTokenBudget(data.project_id)
   if (!budget.allowed) {
     console.warn(`[runner] budget blocked project=${data.project_id}`)
+    await completeRun(data.work_log_id, { status: 'failed' }, data.run_token)
     return
   }
 

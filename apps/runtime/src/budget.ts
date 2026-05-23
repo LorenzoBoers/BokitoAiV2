@@ -18,10 +18,11 @@ export async function checkTokenBudget(projectId: string): Promise<{
     remaining_hour?: number
     blocked?: boolean
   }
-  const remainingToday = data.remaining_today ?? 0
-  const remainingHour = data.remaining_hour ?? 0
+  const remainingToday = Number(data.remaining_today ?? 0)
+  const remainingHour = Number(data.remaining_hour ?? 0)
+  const blocked = Boolean(data.blocked)
   return {
-    allowed: !data.blocked && remainingToday > 0 && remainingHour > 0,
+    allowed: !blocked && remainingToday > 0 && remainingHour > 0,
     remainingToday,
     remainingHour,
   }
