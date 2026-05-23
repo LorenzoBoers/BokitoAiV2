@@ -29,17 +29,19 @@
 
 ## Phase 9 - E2E
 
-- [ ] Create project -> agents -> PO run -> work_log events -> task_result message
+- [x] Create project -> agents -> PO run -> work_log events -> task_result message (2026-05-23: run `83da966f-cca3-4c82-94c8-829d93a21a7b`, message `d79fc698-c71c-453a-808f-8d3a8c10680f`)
 - [ ] Decision approve/defer/reject on unified `messages`
 - [ ] Chat widget still works after messages unification
 - [ ] Legacy orchestra endpoints removed (Phase 7)
 
 ## Known gaps (2026-05-23)
 
-- `projects` table insert may fail with `INVALID TEXT REPRESENTATION` until optional UUID columns (e.g. `report_to_user_id`) allow null in Xano UI; use dashboard **Create project** or fix schema before worker seed
+- ~~`projects` table insert may fail with `INVALID TEXT REPRESENTATION`~~ fixed: optional UUID columns nullable; bootstrap via `POST /projects/worker` (API 269)
 - Worker APIs use body auth (`worker_api_key`, `auth_token`); `$header` is unavailable when `auth = false`
+- `POST /messages/worker`: do not declare optional UUID inputs as `uuid?` (empty string breaks inserts); use required `text project_id` + conditional `db.edit`
 - VPS deploy: use `bash scripts/deploy-runtime-vps.sh` after `git clone` (builds `@bokito/shared` first, sources `.env`, reloads Caddy)
-- VPS SSH: password auth enabled for bootstrap; rotate root password and prefer SSH key-only after setup
+- VPS SSH: key-only auth enabled (`PasswordAuthentication no`); root password rotated via Hostinger
+- `work_logs.tokens_used` may stay 0 while token counts appear in `messages.payload` from agent container
 - Messages unification (Phase 6) not executed - requires maintenance window
 - Orchestra removal (Phase 7) not executed - pending E2E on V1 paths
 - `index/search` vector similarity sort may need ivfflat index configured in Xano UI

@@ -86,32 +86,34 @@ async function postEvent(cfg, event) {
 async function postTaskResult(cfg, body, tokenUsage) {
   const url = cfg.xano?.messages_url
   if (!url) return
+  const payload = {
+    project_id: cfg.project_id,
+    tenant_id: cfg.tenant_id,
+    thread_id: cfg.task.thread_id,
+    from_id: cfg.agent.id,
+    body,
+    status: 'done',
+    payload: JSON.stringify({
+      work_log_id: cfg.work_log_id,
+      run_id: cfg.run_id,
+      token_input: tokenUsage.input,
+      token_output: tokenUsage.output,
+    }),
+  }
+  if (cfg.task.trigger_message_id) {
+    payload.parent_message_id = cfg.task.trigger_message_id
+  }
+  if (cfg.task.subject) {
+    payload.subject = cfg.task.subject
+  }
+  if (cfg.report_to?.type && cfg.report_to?.id) {
+    payload.to_type = cfg.report_to.type
+    payload.to_id = cfg.report_to.id
+  }
   await fetch(url, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify(
-      authBody({
-        project_id: cfg.project_id,
-        tenant_id: cfg.tenant_id,
-        thread_id: cfg.task.thread_id,
-        parent_message_id: cfg.task.trigger_message_id || null,
-        from_type: 'agent',
-        from_id: cfg.agent.id,
-        to_type: cfg.report_to?.type || 'user',
-        to_id: cfg.report_to?.id || null,
-        channel: 'internal',
-        message_type: 'task_result',
-        subject: cfg.task.subject,
-        body,
-        status: 'done',
-        payload: {
-          work_log_id: cfg.work_log_id,
-          run_id: cfg.run_id,
-          token_input: tokenUsage.input,
-          token_output: tokenUsage.output,
-        },
-      })
-    ),
+    body: JSON.stringify(authBody(payload)),
   }).catch((e) => console.error('[agent-loop] postTaskResult', e.message))
 }
 

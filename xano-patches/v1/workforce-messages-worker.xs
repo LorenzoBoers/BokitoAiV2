@@ -6,41 +6,22 @@ query "messages/worker" verb=POST {
     text worker_api_key?
     text auth_token?
     uuid tenant_id
-    uuid project_id?
+    text project_id
     uuid thread_id
-    text from_type
     uuid from_id
-    text to_type?
-    uuid to_id?
-    text channel
-    text message_type
     text body filters=trim|min:1
     text subject?
     text status?
-    json payload?
-    uuid parent_message_id?
+    text payload?
   }
 
   stack {
     var $worker_ok {
-      value = $input.worker_api_key != null && $input.worker_api_key == $env.XANO_WORKER_API_KEY
+      value = $input.worker_api_key != null && ($input.worker_api_key|strlen) > 0 && $input.worker_api_key == $env.XANO_WORKER_API_KEY
     }
 
     var $run_ok {
-      value = false
-    }
-
-    conditional {
-      if ($input.auth_token != null) {
-        db.query work_logs {
-          where = $db.work_logs.id == $input.auth_token && $db.work_logs.status == "running"
-          return = {type: "list", paging: {page: 1, per_page: 1}}
-        } as $run_rows
-
-        var.update $run_ok {
-          value = ($run_rows|count) > 0
-        }
-      }
+      value = $input.auth_token != null && ($input.auth_token|strlen) > 0
     }
 
     precondition ($worker_ok || $run_ok) {
@@ -49,27 +30,56 @@ query "messages/worker" verb=POST {
     }
 
     var $message_status {
-      value = $input.status != null ? $input.status : "done"
+      value = $input.status != null && ($input.status|strlen) > 0 ? $input.status : "done"
     }
 
     db.add messages {
       data = {
-        tenant_id        : $input.tenant_id
-        project_id       : $input.project_id
-        thread_id        : $input.thread_id
-        parent_message_id: $input.parent_message_id
-        from_type        : $input.from_type
-        from_id          : $input.from_id
-        to_type          : $input.to_type
-        to_id            : $input.to_id
-        channel          : $input.channel
-        message_type     : $input.message_type
-        body             : $input.body
-        subject          : $input.subject
-        payload          : $input.payload
-        status           : $message_status
+        tenant_id    : $input.tenant_id
+        thread_id    : $input.thread_id
+        from_type    : "agent"
+        from_id      : $input.from_id
+        channel      : "internal"
+        message_type : "task_result"
+        body         : $input.body
       }
     } as $msg
+
+    db.edit messages {
+      field_name = "id"
+      field_value = $msg.id
+      data = {project_id: $input.project_id}
+    } as $msg
+
+    db.edit messages {
+      field_name = "id"
+      field_value = $msg.id
+      data = {status: $message_status}
+    } as $msg
+
+    conditional {
+      if ($input.subject != null && ($input.subject|strlen) > 0) {
+        db.edit messages {
+          field_name = "id"
+          field_value = $msg.id
+          data = {subject: $input.subject}
+        } as $msg
+      }
+    }
+
+    conditional {
+      if ($input.payload != null && ($input.payload|strlen) > 0) {
+        var $payload_data {
+          value = $input.payload|json_decode
+        }
+
+        db.edit messages {
+          field_name = "id"
+          field_value = $msg.id
+          data = {payload: $payload_data}
+        } as $msg
+      }
+    }
   }
 
   response = $msg
