@@ -80,21 +80,44 @@ export async function completeRun(
   input: { status: 'completed' | 'failed'; token_input?: number; token_output?: number },
   runToken?: string
 ): Promise<void> {
+  const body: Record<string, unknown> = {
+    work_log_id: workLogId,
+    status: input.status,
+  }
+  if (input.token_input != null) body.token_input = input.token_input
+  if (input.token_output != null) body.token_output = input.token_output
+
   const res = await xanoWorkerFetch(
     '/runs/complete',
     {
       method: 'POST',
-      body: JSON.stringify({
-        work_log_id: workLogId,
-        status: input.status,
-        token_input: input.token_input ?? 0,
-        token_output: input.token_output ?? 0,
-      }),
+      body: JSON.stringify(body),
     },
     runToken
   )
   if (!res.ok) {
     console.warn(`[xano] completeRun failed: ${res.status}`)
+  }
+}
+
+export async function postWorkLogEvent(
+  workLogId: string,
+  event: { type: string; title?: string; body?: string; payload?: Record<string, unknown> },
+  runToken?: string
+): Promise<void> {
+  const res = await xanoWorkerFetch(
+    `/work_logs/${encodeURIComponent(workLogId)}/events`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        work_log_id: workLogId,
+        events: [event],
+      }),
+    },
+    runToken
+  )
+  if (!res.ok) {
+    console.warn(`[xano] postWorkLogEvent failed: ${res.status}`)
   }
 }
 

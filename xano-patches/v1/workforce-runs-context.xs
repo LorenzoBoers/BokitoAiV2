@@ -1,4 +1,7 @@
-// POST /api:workforce/runs/context - worker body auth
+// POST /api:workforce/runs/context - worker body auth.
+// Returns the agent config + project context the runner needs to assemble
+// RUN_CONFIG_JSON. Includes project_name and project_autonomous_scope so the
+// PO can substitute them into its system prompt and reason about the project.
 query "runs/context" verb=POST {
   api_group = "workforce"
 
@@ -50,15 +53,21 @@ query "runs/context" verb=POST {
 
     var $result {
       value = {
-        agent_name   : $agent.name
-        model        : $agent.model
-        system_prompt: $agent.system_prompt
-        max_loops    : $agent.max_loops
-        tools        : $agent.tools
-        report_to_id : $project.report_to_user_id
-        subject      : $first_queue != null ? ($first_queue.title != null ? $first_queue.title : "Agent run") : "Agent run"
-        body         : $first_queue != null ? ($first_queue.content != null ? $first_queue.content : "") : ""
-        thread_id    : $input.work_log_id
+        agent_id                : $input.agent_id
+        agent_name              : $agent.name
+        model                   : $agent.model
+        system_prompt           : $agent.system_prompt
+        max_loops               : $agent.max_loops
+        tools                   : $agent.tools
+        report_to_id            : $project.report_to_user_id
+        project_id              : $input.project_id
+        project_name            : $project != null ? $project.name : ""
+        project_autonomous_scope: $project != null ? $project.autonomous_scope : ""
+        tenant_id               : $project != null ? $project.tenant_id : null
+        subject                 : $first_queue != null ? ($first_queue.title != null ? $first_queue.title : "Agent run") : "Agent run"
+        body                    : $first_queue != null ? ($first_queue.content != null ? $first_queue.content : "") : ""
+        change_queue_section_id : $first_queue != null ? $first_queue.id : null
+        thread_id               : $input.work_log_id
       }
     }
   }

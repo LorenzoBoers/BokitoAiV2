@@ -92,6 +92,10 @@ export interface RunConfigJson {
   project_id: string
   tenant_id: string
   work_log_id: string
+  project: {
+    name: string
+    autonomous_scope: string
+  }
   agent: RunConfigAgent
   task: {
     thread_id: string
@@ -99,6 +103,7 @@ export interface RunConfigJson {
     subject: string
     body: string
     payload: Record<string, unknown>
+    change_queue_section_id?: string | null
   }
   report_to: { type: 'agent' | 'user' | 'team'; id: string }
   budget: { remaining_today: number; remaining_hour: number }
@@ -108,5 +113,7 @@ export interface RunConfigJson {
     messages_url: string
     search_index_url: string
     pkb_url: string
+    pkb_list_url: string
+    pkb_update_url: string
   }
 }

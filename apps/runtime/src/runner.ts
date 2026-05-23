@@ -3,7 +3,14 @@ import { randomUUID } from 'node:crypto'
 import type { RunConfigJson } from '@bokito/shared'
 import { config } from './config.js'
 import { checkTokenBudget } from './budget.js'
-import { completeRun, fetchRunContext } from './xano-client.js'
+import { completeRun, fetchRunContext, postWorkLogEvent } from './xano-client.js'
+
+const STDERR_TAIL_BYTES = 2048
+
+function tail(buf: string, max: number): string {
+  if (buf.length <= max) return buf
+  return buf.slice(buf.length - max)
+}
 
 export interface AgentJobData {
   project_id: string
@@ -30,36 +37,43 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
   const runToken = data.run_token
 
   let exitCode = 0
-  let tokenInput = 0
-  let tokenOutput = 0
 
   try {
     const ctx = await fetchRunContext(data.project_id, data.agent_id, workLogId).catch(() => ({}))
 
+    const ctxRecord = ctx as Record<string, unknown>
     const runConfig: RunConfigJson = {
       run_id: runId,
       project_id: data.project_id,
       tenant_id: data.tenant_id,
       work_log_id: workLogId,
+      project: {
+        name: String(ctxRecord.project_name || ''),
+        autonomous_scope: String(ctxRecord.project_autonomous_scope || ''),
+      },
       agent: {
         id: data.agent_id,
-        name: String((ctx as { agent_name?: string }).agent_name || data.role),
+        name: String(ctxRecord.agent_name || data.role),
         role: data.role as RunConfigJson['agent']['role'],
-        model: String((ctx as { model?: string }).model || 'claude-sonnet-4'),
-        system_prompt: String((ctx as { system_prompt?: string }).system_prompt || ''),
-        max_loops: Number((ctx as { max_loops?: number }).max_loops || 25),
-        tools: ((ctx as { tools?: RunConfigJson['agent']['tools'] }).tools) || [],
+        model: String(ctxRecord.model || 'claude-sonnet-4'),
+        system_prompt: String(ctxRecord.system_prompt || ''),
+        max_loops: Number(ctxRecord.max_loops || 25),
+        tools: (ctxRecord.tools as RunConfigJson['agent']['tools']) || [],
       },
       task: {
-        thread_id: String((ctx as { thread_id?: string }).thread_id || randomUUID()),
+        thread_id: String(ctxRecord.thread_id || randomUUID()),
         trigger_message_id: data.trigger_message_id || '',
-        subject: String((ctx as { subject?: string }).subject || 'Agent run'),
-        body: String((ctx as { body?: string }).body || ''),
-        payload: ((ctx as { payload?: Record<string, unknown> }).payload) || {},
+        subject: String(ctxRecord.subject || 'Agent run'),
+        body: String(ctxRecord.body || ''),
+        payload: (ctxRecord.payload as Record<string, unknown>) || {},
+        change_queue_section_id:
+          typeof ctxRecord.change_queue_section_id === 'string'
+            ? ctxRecord.change_queue_section_id
+            : null,
       },
       report_to: {
         type: 'user',
-        id: String((ctx as { report_to_id?: string }).report_to_id || ''),
+        id: String(ctxRecord.report_to_id || ''),
       },
       budget: {
         remaining_today: budget.remainingToday,
@@ -71,11 +85,14 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
         messages_url: `${config.xanoBaseUrl}/api:workforce/messages/worker`,
         search_index_url: `${config.xanoBaseUrl}/api:workforce/index/search`,
         pkb_url: `${config.xanoBaseUrl}/api:workforce/pkb`,
+        pkb_list_url: `${config.xanoBaseUrl}/api:workforce/pkb/worker/list`,
+        pkb_update_url: `${config.xanoBaseUrl}/api:workforce/pkb/worker/update`,
       },
     }
 
     const runConfigJson = JSON.stringify(runConfig)
 
+    let stderrBuf = ''
     exitCode = await new Promise<number>((resolve, reject) => {
       const imageTag =
         data.role === 'testing' ? config.dockerImageTagPlaywright : config.dockerImageTag
@@ -100,25 +117,49 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
           `OLLAMA_EMBEDDING_MODEL=${config.ollamaEmbeddingModel}`,
           imageTag,
         ],
-        { stdio: 'inherit' }
+        { stdio: ['ignore', 'pipe', 'pipe'] }
       )
+      child.stdout?.on('data', (chunk: Buffer) => {
+        process.stdout.write(chunk)
+      })
+      child.stderr?.on('data', (chunk: Buffer) => {
+        process.stderr.write(chunk)
+        stderrBuf = tail(stderrBuf + chunk.toString('utf8'), STDERR_TAIL_BYTES)
+      })
       child.on('error', reject)
       child.on('close', (code) => resolve(code ?? 1))
     })
 
-    const usage = (ctx as { last_token_usage?: { input?: number; output?: number } }).last_token_usage
-    tokenInput = usage?.input ?? 0
-    tokenOutput = usage?.output ?? 0
+    if (exitCode !== 0) {
+      await postWorkLogEvent(
+        workLogId,
+        {
+          type: 'error',
+          title: 'startup_failed',
+          body: `Container exited with code ${exitCode}.`,
+          payload: { exit_code: exitCode, stderr: stderrBuf || '<no stderr captured>' },
+        },
+        runToken
+      ).catch((e) => console.warn('[runner] postWorkLogEvent failed', (e as Error).message))
+    }
   } catch (err) {
     exitCode = 1
     console.error('[runner] job failed', err)
+    await postWorkLogEvent(
+      workLogId,
+      {
+        type: 'error',
+        title: 'startup_failed',
+        body: `Runner threw before docker exit: ${(err as Error).message}`,
+        payload: { error: (err as Error).message },
+      },
+      runToken
+    ).catch((e) => console.warn('[runner] postWorkLogEvent failed', (e as Error).message))
   } finally {
     await completeRun(
       workLogId,
       {
         status: exitCode === 0 ? 'completed' : 'failed',
-        token_input: tokenInput,
-        token_output: tokenOutput,
       },
       runToken
     )

@@ -39,15 +39,27 @@ export type SidebarGroup = {
   links: SidebarLink[]
 }
 
-/** End-user navigation: PKB, change request, messages, settings only (Phase 3.1). */
+/** End-user navigation: PKB, change request, messages, settings only (Phase 3.1).
+ * When no project is active in the URL, the Project link falls back to the
+ * project list (/projects) and the Change Request link is hidden.
+ */
 export const getEndUserRailItems = (t: TFunction<'nav'>, projectId?: string): RailItem[] => {
-  const base = projectId ? `/project/${projectId}` : '/projects'
-  return [
-    { label: t('rail.pkb', { defaultValue: 'Project' }), to: `${base}/pkb`, icon: FileText },
-    { label: t('rail.changeRequest', { defaultValue: 'Request' }), to: `${base}/request`, icon: PenLine },
+  const projectTo = projectId ? `/project/${projectId}/pkb` : '/projects'
+  const items: RailItem[] = [
+    { label: t('rail.pkb', { defaultValue: 'Project' }), to: projectTo, icon: FileText },
+  ]
+  if (projectId) {
+    items.push({
+      label: t('rail.changeRequest', { defaultValue: 'Request' }),
+      to: `/project/${projectId}/request`,
+      icon: PenLine,
+    })
+  }
+  items.push(
     { label: t('rail.messages', { defaultValue: 'Messages' }), to: '/messages', icon: MessagesSquare },
     { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
-  ]
+  )
+  return items
 }
 
 /** Admin / staff navigation (full portal surfaces). */

@@ -9,10 +9,10 @@ const ALLOWED_SHELL = {
   testing: new Set(['npm test', 'npx vitest run', 'npx jest --ci', 'npx playwright test']),
 }
 
-const TOOLS = [
+const TOOLS_COMMON = [
   {
     name: 'log',
-    description: 'Post a plain-language status update visible to the user.',
+    description: 'Post a plain-language internal log line. Visible to staff in the run detail page, NOT to the end user. Use this to summarise what you did this run.',
     input_schema: {
       type: 'object',
       properties: {
@@ -22,6 +22,77 @@ const TOOLS = [
       required: ['title'],
     },
   },
+]
+
+const TOOLS_PO = [
+  {
+    name: 'read_pkb',
+    description:
+      'Read PKB sections for the current project. Returns up to 50 rows. Filter by layer to focus: "current_state" (what the project is today), "intended_state" (where it is going), or "change_queue" (open user requests). If layer is omitted, returns all layers.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        layer: {
+          type: 'string',
+          enum: ['current_state', 'intended_state', 'change_queue'],
+          description: 'Optional layer filter',
+        },
+      },
+    },
+  },
+  {
+    name: 'update_pkb_section',
+    description:
+      'Update an existing PKB section. Use this to mark a change_queue request as in_progress / pending_implementation / implemented after you have acknowledged or acted on it. Use change_status="in_progress" when you wrote a status_update acknowledging the request.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        section_id: { type: 'string', description: 'UUID of the pkb_sections row' },
+        content: { type: 'string' },
+        title: { type: 'string' },
+        change_status: {
+          type: 'string',
+          enum: ['pending', 'in_progress', 'implemented', 'blocked', 'pending_implementation', 'rejected'],
+        },
+        priority: { type: 'number' },
+      },
+      required: ['section_id'],
+    },
+  },
+  {
+    name: 'write_decision_request',
+    description:
+      'Send a decision_request message to the user when you need them to choose between options or answer a clarifying question. Subject must be one short sentence. Body must be plain language under 100 words. Provide 2-3 concrete options.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        subject: { type: 'string' },
+        body: { type: 'string' },
+        options: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Short labels of the choices the user can pick',
+        },
+      },
+      required: ['subject', 'body'],
+    },
+  },
+  {
+    name: 'write_status_update',
+    description:
+      'Send a status_update message to the user. Use this to acknowledge a change request you understood, describe what you noticed, or summarise progress. Plain language, under 100 words. No code, no jargon, no file paths.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        subject: { type: 'string' },
+        body: { type: 'string' },
+      },
+      required: ['subject', 'body'],
+    },
+  },
+]
+
+const TOOLS_CODING = [
   {
     name: 'run_shell',
     description: 'Run an allowlisted shell command in the project workspace.',
@@ -47,6 +118,12 @@ const TOOLS = [
     },
   },
 ]
+
+function toolsForRole(role) {
+  if (role === 'po') return [...TOOLS_COMMON, ...TOOLS_PO]
+  if (role === 'coding' || role === 'testing') return [...TOOLS_COMMON, ...TOOLS_CODING]
+  return [...TOOLS_COMMON, ...TOOLS_PO, ...TOOLS_CODING]
+}
 
 function truncate(s, max) {
   const t = String(s ?? '')
@@ -81,6 +158,24 @@ async function postEvent(cfg, event) {
     headers: authHeaders(),
     body: JSON.stringify(authBody({ events: [event] })),
   }).catch((e) => console.error('[agent-loop] postEvent', e.message))
+}
+
+async function postRunComplete(cfg, status, tokenUsage) {
+  const base = cfg.xano?.base_url
+  if (!base) return
+  const url = `${String(base).replace(/\/$/, '')}/api:workforce/runs/complete`
+  await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(
+      authBody({
+        work_log_id: cfg.work_log_id,
+        status,
+        token_input: tokenUsage.input,
+        token_output: tokenUsage.output,
+      })
+    ),
+  }).catch((e) => console.error('[agent-loop] postRunComplete', e.message))
 }
 
 async function postTaskResult(cfg, body, tokenUsage) {
@@ -191,6 +286,106 @@ async function searchIndex(cfg, { query, top_k = 8 }) {
   return data.results ? data : { results: data.chunks ?? data.items ?? [] }
 }
 
+async function readPkb(cfg, { layer } = {}) {
+  const url = cfg.xano?.pkb_list_url
+  if (!url) return { error: 'pkb_list_url not configured', sections: [] }
+  const body = { project_id: cfg.project_id }
+  if (layer) body.layer = layer
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(authBody(body)),
+  }).catch((e) => ({ ok: false, status: 0, message: e.message }))
+  if (!res.ok) {
+    return { error: `read_pkb failed (${res.status || 'network'})`, sections: [] }
+  }
+  const data = await res.json()
+  const items = Array.isArray(data) ? data : data.items ?? []
+  const compact = items.map((row) => ({
+    id: row.id,
+    layer: row.layer,
+    domain: row.domain,
+    title: row.title,
+    content: row.content,
+    change_status: row.change_status,
+    priority: row.priority,
+  }))
+  return { sections: compact, count: compact.length }
+}
+
+async function updatePkbSection(cfg, { section_id, content, title, change_status, priority } = {}) {
+  const url = cfg.xano?.pkb_update_url
+  if (!url) return { error: 'pkb_update_url not configured' }
+  if (!section_id) return { error: 'section_id required' }
+  const body = { section_id }
+  if (content != null) body.content = content
+  if (title != null) body.title = title
+  if (change_status != null) body.change_status = change_status
+  if (priority != null) body.priority = priority
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(authBody(body)),
+  }).catch((e) => ({ ok: false, status: 0, message: e.message }))
+  if (!res.ok) {
+    return { error: `update_pkb_section failed (${res.status || 'network'})` }
+  }
+  const data = await res.json()
+  return { ok: true, section: { id: data.id, change_status: data.change_status } }
+}
+
+async function postUserMessage(cfg, { message_type, status, subject, body, payload }) {
+  const url = cfg.xano?.messages_url
+  if (!url) return { error: 'messages_url not configured' }
+  if (!body || !String(body).trim()) return { error: 'body required' }
+  const out = {
+    project_id: cfg.project_id,
+    tenant_id: cfg.tenant_id,
+    thread_id: cfg.task.thread_id,
+    from_id: cfg.agent.id,
+    body: String(body),
+    message_type,
+    status,
+    channel: 'internal',
+  }
+  if (subject) out.subject = String(subject)
+  if (cfg.report_to?.type && cfg.report_to?.id) {
+    out.to_type = cfg.report_to.type
+    out.to_id = cfg.report_to.id
+  }
+  if (payload) out.payload = JSON.stringify(payload)
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(authBody(out)),
+  }).catch((e) => ({ ok: false, status: 0, message: e.message }))
+  if (!res.ok) {
+    const text = await (res.text ? res.text() : Promise.resolve('')).catch(() => '')
+    return { error: `${message_type} failed (${res.status || 'network'})`, detail: truncate(text, 300) }
+  }
+  const data = await res.json()
+  return { ok: true, message_id: data.id, message_type }
+}
+
+async function writeDecisionRequest(cfg, { subject, body, options } = {}) {
+  return postUserMessage(cfg, {
+    message_type: 'decision_request',
+    status: 'awaiting_human',
+    subject,
+    body,
+    payload: Array.isArray(options) && options.length ? { options } : undefined,
+  })
+}
+
+async function writeStatusUpdate(cfg, { subject, body } = {}) {
+  return postUserMessage(cfg, {
+    message_type: 'status_update',
+    status: 'done',
+    subject,
+    body,
+  })
+}
+
 async function executeTool(cfg, name, input) {
   switch (name) {
     case 'log':
@@ -200,6 +395,14 @@ async function executeTool(cfg, name, input) {
       return runShell(cfg, input)
     case 'search_index':
       return searchIndex(cfg, input)
+    case 'read_pkb':
+      return readPkb(cfg, input || {})
+    case 'update_pkb_section':
+      return updatePkbSection(cfg, input || {})
+    case 'write_decision_request':
+      return writeDecisionRequest(cfg, input || {})
+    case 'write_status_update':
+      return writeStatusUpdate(cfg, input || {})
     default:
       return { error: `unknown_tool:${name}` }
   }
@@ -212,6 +415,19 @@ function resolveModel(model) {
   if (m === 'claude-opus-4') return 'claude-opus-4-20250514'
   if (m === 'claude-haiku-4') return 'claude-haiku-4-20250514'
   return m
+}
+
+function renderTemplate(template, vars) {
+  if (!template) return ''
+  return String(template).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
+    const parts = key.split('.')
+    let cur = vars
+    for (const p of parts) {
+      if (cur == null) return ''
+      cur = cur[p]
+    }
+    return cur == null ? '' : String(cur)
+  })
 }
 
 async function main() {
@@ -234,10 +450,23 @@ async function main() {
     body: `${cfg.agent.name} (${cfg.agent.role})`,
   })
 
+  const tools = toolsForRole(cfg.agent.role)
+  const renderedSystem = renderTemplate(
+    cfg.agent.system_prompt || 'You are a helpful agent. Use tools when needed.',
+    {
+      project: cfg.project || { name: '', autonomous_scope: '' },
+      agent: cfg.agent,
+    }
+  )
+
+  const initialUser = cfg.task.body && String(cfg.task.body).trim()
+    ? `subject: ${cfg.task.subject}\n\nbody:\n${cfg.task.body}`
+    : `subject: ${cfg.task.subject}\n\nbody: (empty — this is a scheduled check)`
+
   const messages = [
     {
       role: 'user',
-      content: `Task: ${cfg.task.subject}\n\n${cfg.task.body || ''}`.trim(),
+      content: initialUser,
     },
   ]
 
@@ -251,8 +480,8 @@ async function main() {
       response = await anthropic.messages.create({
         model: resolveModel(cfg.agent.model),
         max_tokens: 8192,
-        system: cfg.agent.system_prompt || 'You are a helpful agent. Use tools when needed.',
-        tools: TOOLS,
+        system: renderedSystem,
+        tools,
         messages,
       })
     } catch (err) {
@@ -316,6 +545,10 @@ async function main() {
   })
 
   await postTaskResult(cfg, summary, { input: tokenInput, output: tokenOutput })
+  await postRunComplete(cfg, unrecoverable ? 'failed' : 'completed', {
+    input: tokenInput,
+    output: tokenOutput,
+  })
   process.exit(unrecoverable ? 2 : 0)
 }
 

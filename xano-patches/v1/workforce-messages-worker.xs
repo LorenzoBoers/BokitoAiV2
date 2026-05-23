@@ -1,4 +1,7 @@
-// POST /api:workforce/messages/worker - agent container run token body auth
+// POST /api:workforce/messages/worker - agent container run token body auth.
+// Accepts an arbitrary message_type (defaults to task_result for backwards
+// compat with postTaskResult). Used by the PO agent to write
+// status_update and decision_request messages back to the user.
 query "messages/worker" verb=POST {
   api_group = "workforce"
 
@@ -12,6 +15,10 @@ query "messages/worker" verb=POST {
     text body filters=trim|min:1
     text subject?
     text status?
+    text message_type?
+    text channel?
+    text to_type?
+    uuid to_id?
     text payload?
   }
 
@@ -29,8 +36,16 @@ query "messages/worker" verb=POST {
       error = "Unauthorized."
     }
 
+    var $message_type {
+      value = $input.message_type != null && ($input.message_type|strlen) > 0 ? $input.message_type : "task_result"
+    }
+
     var $message_status {
       value = $input.status != null && ($input.status|strlen) > 0 ? $input.status : "done"
+    }
+
+    var $channel {
+      value = $input.channel != null && ($input.channel|strlen) > 0 ? $input.channel : "internal"
     }
 
     db.add messages {
@@ -39,8 +54,8 @@ query "messages/worker" verb=POST {
         thread_id    : $input.thread_id
         from_type    : "agent"
         from_id      : $input.from_id
-        channel      : "internal"
-        message_type : "task_result"
+        channel      : $channel
+        message_type : $message_type
         body         : $input.body
       }
     } as $msg
@@ -63,6 +78,26 @@ query "messages/worker" verb=POST {
           field_name = "id"
           field_value = $msg.id
           data = {subject: $input.subject}
+        } as $msg
+      }
+    }
+
+    conditional {
+      if ($input.to_type != null && ($input.to_type|strlen) > 0) {
+        db.edit messages {
+          field_name = "id"
+          field_value = $msg.id
+          data = {to_type: $input.to_type}
+        } as $msg
+      }
+    }
+
+    conditional {
+      if ($input.to_id != null) {
+        db.edit messages {
+          field_name = "id"
+          field_value = $msg.id
+          data = {to_id: $input.to_id}
         } as $msg
       }
     }

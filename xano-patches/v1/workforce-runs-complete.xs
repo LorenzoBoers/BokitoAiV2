@@ -37,6 +37,10 @@ query "runs/complete" verb=POST {
       error = "Run not found."
     }
 
+    var $row {
+      value = $rows|first
+    }
+
     var $token_in {
       value = $input.token_input != null ? $input.token_input : 0
     }
@@ -45,8 +49,16 @@ query "runs/complete" verb=POST {
       value = $input.token_output != null ? $input.token_output : 0
     }
 
-    var $total_tokens {
+    var $new_total {
       value = $token_in + $token_out
+    }
+
+    var $existing_total {
+      value = $row.tokens_used != null ? $row.tokens_used : 0
+    }
+
+    var $tokens_used {
+      value = $new_total > 0 ? $new_total : $existing_total
     }
 
     db.edit work_logs {
@@ -55,11 +67,11 @@ query "runs/complete" verb=POST {
       data = {
         status     : $input.status
         finished_at: now
-        tokens_used: $total_tokens
+        tokens_used: $tokens_used
         updated_at : now
       }
     } as $updated
   }
 
-  response = {ok: true, work_log_id: $input.work_log_id, status: $input.status}
+  response = {ok: true, work_log_id: $input.work_log_id, status: $input.status, tokens_used: $tokens_used}
 }

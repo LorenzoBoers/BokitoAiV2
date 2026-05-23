@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import DatabaseLayout from './components/layout/DatabaseLayout'
@@ -6,6 +7,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import ControlPlaneRoute from './components/auth/ControlPlaneRoute'
 import { useWorkspace } from './context/WorkspaceContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
+import { listProjects } from './lib/projects-api'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -34,6 +36,74 @@ import WorkspaceBilling from './pages/WorkspaceBilling'
 import WorkspaceAccount from './pages/WorkspaceAccount'
 import WorkspaceSupport from './pages/WorkspaceSupport'
 
+type ProjectRedirect =
+  | { state: 'loading' }
+  | { state: 'none' }
+  | { state: 'one'; id: string }
+  | { state: 'many' }
+  | { state: 'error' }
+
+const PROJECT_REDIRECT_CACHE_KEY = 'bokito_home_redirect_v1'
+
+function readCachedRedirect(): ProjectRedirect | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(PROJECT_REDIRECT_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as ProjectRedirect
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeCachedRedirect(redirect: ProjectRedirect): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.setItem(PROJECT_REDIRECT_CACHE_KEY, JSON.stringify(redirect))
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function TenantHomeRedirect() {
+  const cached = readCachedRedirect()
+  const [redirect, setRedirect] = useState<ProjectRedirect>(cached ?? { state: 'loading' })
+
+  useEffect(() => {
+    if (cached && cached.state !== 'loading') return
+    let cancelled = false
+    listProjects()
+      .then((rows) => {
+        if (cancelled) return
+        let next: ProjectRedirect
+        if (rows.length === 0) next = { state: 'none' }
+        else if (rows.length === 1) next = { state: 'one', id: rows[0].id }
+        else next = { state: 'many' }
+        writeCachedRedirect(next)
+        setRedirect(next)
+      })
+      .catch(() => {
+        if (cancelled) return
+        const next: ProjectRedirect = { state: 'error' }
+        writeCachedRedirect(next)
+        setRedirect(next)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [cached])
+
+  if (redirect.state === 'loading') {
+    return <div className="py-6 text-sm text-text-muted">Loading your projects...</div>
+  }
+  if (redirect.state === 'none') return <Navigate to="/projects/new" replace />
+  if (redirect.state === 'one') return <Navigate to={`/project/${redirect.id}/pkb`} replace />
+  if (redirect.state === 'many') return <Navigate to="/projects" replace />
+  return <Navigate to="/projects" replace />
+}
+
 function HomeRoute() {
   const { workspaceLoading } = useWorkspace()
   const tenantSubdomain = resolveTenantSubdomainFromHost()
@@ -43,7 +113,7 @@ function HomeRoute() {
   }
 
   if (tenantSubdomain) {
-    return <Navigate to="/support/inbox/all" replace />
+    return <TenantHomeRedirect />
   }
 
   return (

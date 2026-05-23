@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { AutonomousProposalCard } from './AutonomousProposalCard'
 import { RunStatusIndicator } from './RunStatusIndicator'
@@ -31,21 +32,25 @@ function StandardDecisionCard({ message }: { message: MessageRow }) {
 export function DecisionsPanel() {
   const [decisions, setDecisions] = useState<MessageRow[]>([])
   const [updates, setUpdates] = useState<MessageRow[]>([])
+  const [results, setResults] = useState<MessageRow[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('decisions')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [decisionRows, updateRows] = await Promise.all([
+      const [decisionRows, updateRows, resultRows] = await Promise.all([
         listMessages({ message_type: 'decision_request', status: 'awaiting_human' }),
         listMessages({ message_type: 'status_update' }),
+        listMessages({ message_type: 'task_result' }),
       ])
       setDecisions(decisionRows)
       setUpdates(updateRows.slice(0, 50))
+      setResults(resultRows.slice(0, 50))
     } catch {
       setDecisions([])
       setUpdates([])
+      setResults([])
     } finally {
       setLoading(false)
     }
@@ -65,6 +70,7 @@ export function DecisionsPanel() {
         <TabsList className="mx-4 mt-3">
           <TabsTrigger value="decisions">Decisions</TabsTrigger>
           <TabsTrigger value="updates">Updates</TabsTrigger>
+          <TabsTrigger value="results">Results</TabsTrigger>
         </TabsList>
         <TabsContent value="decisions" className="flex-1 overflow-y-auto px-4 pb-6">
           {loading ? (
@@ -105,6 +111,36 @@ export function DecisionsPanel() {
                   <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{message.body}</p>
                 </li>
               ))}
+            </ul>
+          )}
+        </TabsContent>
+        <TabsContent value="results" className="flex-1 overflow-y-auto px-4 pb-6">
+          {loading ? (
+            <p className="text-sm text-text-muted">Loading...</p>
+          ) : results.length === 0 ? (
+            <p className="text-sm text-text-muted">No task results yet.</p>
+          ) : (
+            <ul className="space-y-3 pt-2">
+              {results.map((message) => {
+                const workLogId = workLogIdFromMessage(message)
+                return (
+                  <li
+                    key={message.id}
+                    className="rounded-lg border border-border-subtle bg-surface-raised p-4"
+                  >
+                    <h3 className="font-medium text-text-primary">{message.subject || 'Task result'}</h3>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{message.body}</p>
+                    {workLogId ? (
+                      <Link
+                        to={`/admin/runs/${workLogId}`}
+                        className="mt-2 inline-block text-sm text-accent hover:underline"
+                      >
+                        View run
+                      </Link>
+                    ) : null}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </TabsContent>

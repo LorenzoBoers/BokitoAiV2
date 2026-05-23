@@ -16,6 +16,10 @@ export async function listProjects(): Promise<ProjectRow[]> {
   return Array.isArray(data) ? data : data.items ?? []
 }
 
+export async function getProject(projectId: string): Promise<ProjectRow> {
+  return xanoGetWorkforce<ProjectRow>(projectsRoutes.byId(projectId))
+}
+
 export async function createProject(input: {
   name: string
   slug: string

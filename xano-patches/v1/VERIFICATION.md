@@ -30,6 +30,11 @@
 ## Phase 9 - E2E
 
 - [x] Create project -> agents -> PO run -> work_log events -> task_result message (2026-05-23: run `83da966f-cca3-4c82-94c8-829d93a21a7b`, message `d79fc698-c71c-453a-808f-8d3a8c10680f`)
+- [x] `GET /work_logs` + `GET /work_logs/{id}/events` deployed (API 270/271); dashboard `/admin/runs` lists runs and polls events
+- [x] `GET /messages` list supports `message_type=task_result`; dashboard Messages tab **Results** links to `/admin/runs/{work_log_id}`
+- [x] `GET /projects` + `PATCH /projects/{id}` (API 238/273)
+- [x] `po_heartbeat_dispatcher` calls worker with `Authorization: Bearer` + `po_agent_id` (hourly)
+- [x] `curl https://worker.bokito.ai/health` -> 200 (2026-05-23)
 - [ ] Decision approve/defer/reject on unified `messages`
 - [ ] Chat widget still works after messages unification
 - [ ] Legacy orchestra endpoints removed (Phase 7)
@@ -41,7 +46,7 @@
 - `POST /messages/worker`: do not declare optional UUID inputs as `uuid?` (empty string breaks inserts); use required `text project_id` + conditional `db.edit`
 - VPS deploy: use `bash scripts/deploy-runtime-vps.sh` after `git clone` (builds `@bokito/shared` first, sources `.env`, reloads Caddy)
 - VPS SSH: key-only auth enabled (`PasswordAuthentication no`); root password rotated via Hostinger
-- `work_logs.tokens_used` may stay 0 while token counts appear in `messages.payload` from agent container
+- ~~`work_logs.tokens_used` may stay 0 while token counts appear in `messages.payload` from agent container~~ fixed: agent-loop posts `/runs/complete` with token totals; runner omits zero token overwrite
 - Messages unification (Phase 6) not executed - requires maintenance window
 - Orchestra removal (Phase 7) not executed - pending E2E on V1 paths
 - `index/search` vector similarity sort may need ivfflat index configured in Xano UI
