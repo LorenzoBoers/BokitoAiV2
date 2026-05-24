@@ -6,8 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import { usePermission } from '../hooks/usePermission';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Card } from '../components/ui/card';
-import { Select } from '../components/ui/select';
+import { Card, CardContent } from '../components/ui/card';
+import { PageContent } from '../components/layout/PageContent';
+import { SettingsSection } from '../components/layout/SettingsSection';
 
 
 export default function WorkspaceSettings() {
@@ -42,22 +43,21 @@ export default function WorkspaceSettings() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text-heading mb-2">
-          {t('title')}
-        </h1>
-        <p className="text-text-muted">
-          {t('description')}
-        </p>
-      </div>
+    <PageContent width="lg" className="space-y-6">
+      <p className="text-sm text-text-secondary">
+        {t('description')}
+      </p>
 
-      {/* General Settings */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-text-heading mb-4">
-          {t('generalTitle')}
-        </h2>
-        
+      <SettingsSection
+        title={t('generalTitle')}
+        actions={
+          canManageWorkspace ? (
+            <Button onClick={handleSave} size="sm">
+              {t('saveSettings')}
+            </Button>
+          ) : null
+        }
+      >
         <div className="space-y-6">
           {/* Workspace Name */}
           <div>
@@ -120,22 +120,9 @@ export default function WorkspaceSettings() {
             </div>
           </div>
         </div>
+      </SettingsSection>
 
-        {canManageWorkspace && (
-          <div className="flex justify-end mt-6 pt-6 border-t border-border">
-            <Button onClick={handleSave}>
-              {t('saveSettings')}
-            </Button>
-          </div>
-        )}
-      </Card>
-
-      {/* Security Settings */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-text-heading mb-4">
-          {t('securityTitle')}
-        </h2>
-        
+      <SettingsSection title={t('securityTitle')}>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -150,38 +137,37 @@ export default function WorkspaceSettings() {
               variant={require2FA ? 'default' : 'secondary'}
               size="sm"
               onClick={() => setRequire2FA(!require2FA)}
-              disabled={!usePermission('delete_workspace')} // Only owners
+              disabled={!usePermission('delete_workspace')}
             >
               {require2FA ? t('enabled') : t('disabled')}
             </Button>
           </div>
         </div>
-      </Card>
+      </SettingsSection>
 
-      {/* Danger Zone */}
       {usePermission('delete_workspace') && (
-        <Card className="p-6 border-red-200 bg-red-50/50">
-          <h2 className="text-lg font-semibold text-red-800 mb-4">
-            {t('dangerTitle')}
-          </h2>
-          
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-medium text-red-700 mb-2">
-                {t('deleteWorkspaceTitle')}
-              </h3>
-              <p className="text-sm text-red-600 mb-4">
-                {t('deleteWorkspaceDescription')}
-              </p>
-              
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                {t('deleteWorkspaceButton')}
-              </Button>
+        <Card className="border-status-error/40 bg-status-error/5">
+          <CardContent>
+            <h2 className="mb-3 text-base font-semibold text-status-error">
+              {t('dangerTitle')}
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <h3 className="mb-2 font-medium text-text-heading">
+                  {t('deleteWorkspaceTitle')}
+                </h3>
+                <p className="mb-4 text-sm text-text-secondary">
+                  {t('deleteWorkspaceDescription')}
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  {t('deleteWorkspaceButton')}
+                </Button>
+              </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
       )}
 
@@ -225,6 +211,6 @@ export default function WorkspaceSettings() {
           </Card>
         </div>
       )}
-    </div>
+    </PageContent>
   );
 }

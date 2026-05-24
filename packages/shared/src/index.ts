@@ -112,8 +112,17 @@ export interface RunConfigJson {
     work_log_url: string
     messages_url: string
     search_index_url: string
-    pkb_url: string
-    pkb_list_url: string
-    pkb_update_url: string
+    /** @deprecated Replaced by doc_* endpoints. Kept for legacy agent loop compat. */
+    pkb_url?: string
+    /** @deprecated */
+    pkb_list_url?: string
+    /** @deprecated */
+    pkb_update_url?: string
+    /** Worker batch endpoint: agents POST block ops here with change notes. */
+    doc_blocks_worker_url: string
+    /** Worker reindex endpoint for a single page. */
+    doc_reindex_page_url: string
+    /** Doc map (compact list of pages + headings) injected into agent prompts. */
+    doc_map?: string
   }
 }

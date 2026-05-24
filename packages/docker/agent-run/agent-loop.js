@@ -26,37 +26,36 @@ const TOOLS_COMMON = [
 
 const TOOLS_PO = [
   {
-    name: 'read_pkb',
+    name: 'write_doc',
     description:
-      'Read PKB sections for the current project. Returns up to 50 rows. Filter by layer to focus: "current_state" (what the project is today), "intended_state" (where it is going), or "change_queue" (open user requests). If layer is omitted, returns all layers.',
+      "Apply a batch of block ops to a project doc page. The doc map is in your system context (page_id + slug per page). Every op is recorded in the audit trail with your agent role as actor and the change_note you provide. Use this to update the project's documentation directly when you have new information, instead of asking the user. Required: page_id, change_note explaining why. Op shapes: {op:'create', type, text:[{text:'…'}], position}, {op:'update', id, text}, {op:'move', id, position}, {op:'delete', id}.",
     input_schema: {
       type: 'object',
       properties: {
-        layer: {
+        page_id: { type: 'string', description: 'Target doc_pages.id (from doc_map)' },
+        change_note: {
           type: 'string',
-          enum: ['current_state', 'intended_state', 'change_queue'],
-          description: 'Optional layer filter',
+          description: 'One-sentence rationale; appears in the page revision history',
+        },
+        ops: {
+          type: 'array',
+          items: { type: 'object' },
+          description: "Array of block ops. See description for shapes.",
         },
       },
+      required: ['page_id', 'change_note', 'ops'],
     },
   },
   {
-    name: 'update_pkb_section',
+    name: 'read_doc_page',
     description:
-      'Update an existing PKB section. Use this to mark a change_queue request as in_progress / pending_implementation / implemented after you have acknowledged or acted on it. Use change_status="in_progress" when you wrote a status_update acknowledging the request.',
+      'Read the current ordered block list of a project doc page so you can decide what to update. Use this when a doc map heading is not enough.',
     input_schema: {
       type: 'object',
       properties: {
-        section_id: { type: 'string', description: 'UUID of the pkb_sections row' },
-        content: { type: 'string' },
-        title: { type: 'string' },
-        change_status: {
-          type: 'string',
-          enum: ['pending', 'in_progress', 'implemented', 'blocked', 'pending_implementation', 'rejected'],
-        },
-        priority: { type: 'number' },
+        page_id: { type: 'string' },
       },
-      required: ['section_id'],
+      required: ['page_id'],
     },
   },
   {
@@ -286,52 +285,61 @@ async function searchIndex(cfg, { query, top_k = 8 }) {
   return data.results ? data : { results: data.chunks ?? data.items ?? [] }
 }
 
-async function readPkb(cfg, { layer } = {}) {
-  const url = cfg.xano?.pkb_list_url
-  if (!url) return { error: 'pkb_list_url not configured', sections: [] }
-  const body = { project_id: cfg.project_id }
-  if (layer) body.layer = layer
+async function writeDoc(cfg, { page_id, change_note, ops } = {}) {
+  const url = cfg.xano?.doc_blocks_worker_url
+  if (!url) return { error: 'doc_blocks_worker_url not configured' }
+  if (!page_id) return { error: 'page_id required' }
+  if (!change_note) return { error: 'change_note required' }
+  if (!Array.isArray(ops) || ops.length === 0) return { error: 'ops required' }
+  const body = {
+    token: process.env.XANO_RUN_TOKEN || '',
+    tenant_id: cfg.tenant_id,
+    project_id: cfg.project_id,
+    page_id,
+    agent_id: cfg.agent.id,
+    actor_label: cfg.agent.name || cfg.agent.role,
+    change_note,
+    ops,
+  }
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(authBody(body)),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   }).catch((e) => ({ ok: false, status: 0, message: e.message }))
   if (!res.ok) {
-    return { error: `read_pkb failed (${res.status || 'network'})`, sections: [] }
+    const text = await (res.text ? res.text() : Promise.resolve('')).catch(() => '')
+    return { error: `write_doc failed (${res.status || 'network'})`, detail: truncate(text, 300) }
   }
   const data = await res.json()
-  const items = Array.isArray(data) ? data : data.items ?? []
-  const compact = items.map((row) => ({
-    id: row.id,
-    layer: row.layer,
-    domain: row.domain,
-    title: row.title,
-    content: row.content,
-    change_status: row.change_status,
-    priority: row.priority,
-  }))
-  return { sections: compact, count: compact.length }
+  return { ok: true, applied: (data.applied ?? []).length, page_id: data.page_id }
 }
 
-async function updatePkbSection(cfg, { section_id, content, title, change_status, priority } = {}) {
-  const url = cfg.xano?.pkb_update_url
-  if (!url) return { error: 'pkb_update_url not configured' }
-  if (!section_id) return { error: 'section_id required' }
-  const body = { section_id }
-  if (content != null) body.content = content
-  if (title != null) body.title = title
-  if (change_status != null) body.change_status = change_status
-  if (priority != null) body.priority = priority
+async function readDocPage(cfg, { page_id } = {}) {
+  const url = cfg.xano?.doc_reindex_page_url
+  if (!url) return { error: 'doc_reindex_page_url not configured' }
+  if (!page_id) return { error: 'page_id required' }
   const res = await fetch(url, {
     method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(authBody(body)),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: process.env.XANO_RUN_TOKEN || '',
+      tenant_id: cfg.tenant_id,
+      project_id: cfg.project_id,
+      page_id,
+    }),
   }).catch((e) => ({ ok: false, status: 0, message: e.message }))
   if (!res.ok) {
-    return { error: `update_pkb_section failed (${res.status || 'network'})` }
+    return { error: `read_doc_page failed (${res.status || 'network'})` }
   }
   const data = await res.json()
-  return { ok: true, section: { id: data.id, change_status: data.change_status } }
+  const blocks = (data.blocks ?? []).map((b) => ({
+    id: b.id,
+    type: b.type,
+    parent_block_id: b.parent_block_id,
+    position: b.position,
+    text: Array.isArray(b.text) ? b.text.map((r) => r?.text ?? '').join('') : '',
+  }))
+  return { page: data.page, blocks }
 }
 
 async function postUserMessage(cfg, { message_type, status, subject, body, payload }) {
@@ -395,10 +403,10 @@ async function executeTool(cfg, name, input) {
       return runShell(cfg, input)
     case 'search_index':
       return searchIndex(cfg, input)
-    case 'read_pkb':
-      return readPkb(cfg, input || {})
-    case 'update_pkb_section':
-      return updatePkbSection(cfg, input || {})
+    case 'write_doc':
+      return writeDoc(cfg, input || {})
+    case 'read_doc_page':
+      return readDocPage(cfg, input || {})
     case 'write_decision_request':
       return writeDecisionRequest(cfg, input || {})
     case 'write_status_update':
@@ -451,13 +459,15 @@ async function main() {
   })
 
   const tools = toolsForRole(cfg.agent.role)
-  const renderedSystem = renderTemplate(
+  const baseSystem = renderTemplate(
     cfg.agent.system_prompt || 'You are a helpful agent. Use tools when needed.',
     {
       project: cfg.project || { name: '', autonomous_scope: '' },
       agent: cfg.agent,
     }
   )
+  const docMap = cfg.xano?.doc_map ? `\n\n${cfg.xano.doc_map}\n\nWhen you write to the doc, pass the page_id from the doc map and a one-sentence change_note explaining why.` : ''
+  const renderedSystem = `${baseSystem}${docMap}`
 
   const initialUser = cfg.task.body && String(cfg.task.body).trim()
     ? `subject: ${cfg.task.subject}\n\nbody:\n${cfg.task.body}`

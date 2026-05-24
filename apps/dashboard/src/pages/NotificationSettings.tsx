@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Bell, Mail, Monitor, Smartphone } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
+import { Card } from '../components/ui/card'
+import { PageContent } from '../components/layout/PageContent'
 
 type ChannelKey = 'desktop' | 'email' | 'mobile'
 
@@ -86,15 +88,12 @@ export default function NotificationSettings() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[980px] space-y-4 px-1 py-1">
-      <section className="space-y-1">
-        <h2 className="text-[26px] font-semibold leading-tight text-text-heading">Notifications</h2>
-        <p className="text-sm text-text-secondary">
-          Change what notifications you receive from Bokito.
-        </p>
-      </section>
+    <PageContent width="lg" className="space-y-5 py-1">
+      <p className="text-sm text-text-secondary">
+        Change what notifications you receive from Bokito.
+      </p>
 
-      <section className="overflow-hidden rounded-2xl border border-border/70 bg-bg-surface/92">
+      <Card className="overflow-hidden">
         <div className="grid grid-cols-[1fr_96px_88px_88px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
           <span>Notify me about</span>
           <span className="text-center">Desktop</span>
@@ -131,9 +130,9 @@ export default function NotificationSettings() {
             </div>
           </div>
         ))}
-      </section>
+      </Card>
 
-      <section className="grid grid-cols-1 gap-3 rounded-2xl border border-border/70 bg-bg-surface/92 p-4 sm:grid-cols-3">
+      <Card className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
         <div className="space-y-1">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
             <Monitor size={14} className="text-text-muted" />
@@ -158,12 +157,12 @@ export default function NotificationSettings() {
           <p className="text-xs text-text-secondary">Push notifications on your phone.</p>
           <p className="text-xs font-medium text-text-muted">{summary.mobile} enabled</p>
         </div>
-      </section>
+      </Card>
 
-      <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-input/55 px-3 py-2 text-xs text-text-secondary">
+      <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
         <Bell size={13} className="text-text-muted" />
         Notification preferences are saved locally as UX draft.
       </div>
-    </div>
+    </PageContent>
   )
 }

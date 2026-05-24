@@ -2,18 +2,26 @@
   "rail": {
     "support": "Inbox",
     "updates": "AI",
+    "integrations": "Integraties",
     "data": "Data",
     "workforce": "Workforce",
     "users": "Gebruikers",
-    "settings": "Instellingen"
+    "settings": "Instellingen",
+    "projects": "Projecten",
+    "pkb": "Project",
+    "changeRequest": "Verzoek",
+    "messages": "Berichten"
   },
   "sectionTitle": {
     "users": "Gebruikers",
     "settings": "Instellingen",
     "inbox": "Inbox",
     "ai": "AI",
+    "integrations": "Integraties",
     "workforce": "Workforce",
-    "data": "Data"
+    "data": "Data",
+    "project": "Project",
+    "projects": "Projecten"
   },
   "userMenu": {
     "openAria": "Open gebruikersmenu",
@@ -65,9 +73,237 @@
     },
     "links": {
       "assistent": "Assistents",
-      "kennis": "Bronnen",
-      "datasources": "Koppelingen",
-      "handelingen": "MCP servers"
+      "kennis": "AI bronnen",
+      "communication": "AI communicatie instellingen"
+    },
+    "pageMeta": {
+      "communication": {
+        "title": "AI communicatie instellingen",
+        "description": "Configureer AI-suggesties, automatische labels en antwoordgedrag per gekoppelde mailbox."
+      }
+    },
+    "communication": {
+      "loadingMailboxes": "Mailboxen laden…",
+      "loadingConfig": "Instellingen laden…",
+      "loadError": "Kon AI-instellingen niet laden.",
+      "save": "Opslaan",
+      "saving": "Opslaan…",
+      "saved": "Opgeslagen.",
+      "saveError": "Opslaan mislukt.",
+      "noMailboxTitle": "Geen actieve mailbox",
+      "noMailboxDescription": "Koppel eerst een mailbox onder Instellingen om AI-communicatie per inbox te configureren.",
+      "goToMailboxes": "Naar mailboxen",
+      "mailboxLabel": "Mailbox",
+      "mailboxPlaceholder": "Kies een mailbox",
+      "suggestionsEnabled": "AI-suggesties in inbox",
+      "suggestionsEnabledHint": "Toon concept-suggesties en acties bij het lezen van berichten.",
+      "autoLabelEnabled": "Automatisch labelen",
+      "autoLabelEnabledHint": "Laat AI labels toekennen op basis van berichtinhoud.",
+      "autoReplyEnabled": "Automatisch antwoorden",
+      "autoReplyEnabledHint": "Verstuur antwoorden alleen bij hoge betrouwbaarheid.",
+      "autoReplyThreshold": "Minimale betrouwbaarheid",
+      "tone": "Toon",
+      "language": "Taal",
+      "toneOptions": {
+        "formeel": "Formeel",
+        "informeel": "Informeel",
+        "match": "Aansluiten op afzender"
+      },
+      "languageOptions": {
+        "nl": "Nederlands",
+        "en": "Engels",
+        "auto": "Automatisch"
+      }
+    },
+    "cloudAgent": {
+      "title": "Cloud agents",
+      "description": "Compact beheer van deployment status, model en prestaties.",
+      "newAgent": "Nieuwe agent",
+      "viewCards": "Kaarten",
+      "viewList": "Lijst",
+      "empty": "Geen cloud agents geconfigureerd."
+    }
+  },
+  "integrations": {
+    "group": {
+      "nav": "Integraties"
+    },
+    "links": {
+      "connected": "Verbonden",
+      "marketplace": "Marketplace",
+      "sources": "Bronnen",
+      "connections": "Verbonden",
+      "mcp": "MCP",
+      "api": "API-sleutels"
+    },
+    "kindNav": {
+      "label": "Integratietype"
+    },
+    "kind": {
+      "inbox": "Communication",
+      "repository": "Repository",
+      "mcp": "MCP"
+    },
+    "actions": {
+      "setupConnection": "Koppelen",
+      "setupInMcp": "Instellen in MCP",
+      "manage": "Beheren",
+      "manageInMcp": "Beheren in MCP",
+      "viewInConnected": "Bekijk bij Verbonden",
+      "addAccount": "Account toevoegen",
+      "comingSoon": "Binnenkort",
+      "disconnect": "Ontkoppelen"
+    },
+    "filters": {
+      "all": "Alle integraties",
+      "inbox": "Communication",
+      "repository": "Repository",
+      "mcp": "MCP",
+      "connected": "Verbonden",
+      "available": "Beschikbaar",
+      "statusAll": "Alle statussen"
+    },
+    "connections": {
+      "noGithub": "Geen GitHub-accounts gekoppeld.",
+      "goToCatalog": "Naar Marketplace",
+      "goToMarketplace": "Naar Marketplace",
+      "manageInbox": "Mailboxen beheren",
+      "notConnected": "Niet verbonden",
+      "mailboxCount": "{{count}} verbonden",
+      "other": "Overige"
+    },
+    "marketplace": {
+      "connectedCount": "{{count}} verbonden",
+      "activeConnections": "{{count}} actieve verbindingen",
+      "activeConnections_one": "{{count}} actieve verbinding",
+      "searchPlaceholder": "Zoek integraties...",
+      "empty": "Geen integraties gevonden.",
+      "emptyKind": "Geen integraties in deze categorie."
+    },
+    "connected": {
+      "addIntegration": "Integratie toevoegen",
+      "loading": "Verbindingen laden…",
+      "loadError": "Kon niet alle verbindingsgegevens laden.",
+      "emptyAllTitle": "Nog geen integraties verbonden",
+      "emptyAllDescription": "Koppel communicatie, repositories of MCP-servers via de Marketplace.",
+      "goToMarketplace": "Naar Marketplace",
+      "emptyInbox": "Nog geen mailboxen gekoppeld.",
+      "browseInbox": "Communication bekijken in Marketplace",
+      "browseRepository": "GitHub koppelen in Marketplace",
+      "browseMcp": "MCP bekijken in Marketplace",
+      "openProjects": "Projecten openen",
+      "manageMcp": "MCP beheren",
+      "mcpHint": "Externe MCP-servers voor deze workspace.",
+      "viewAll": "Bekijk verbonden integraties"
+    },
+    "pageMeta": {
+      "connected": {
+        "title": "Verbonden",
+        "description": "Overzicht van actieve koppelingen voor deze workspace."
+      },
+      "marketplace": {
+        "title": "Marketplace",
+        "description": "Ontdek en koppel communicatiekanalen, code-repositories en MCP-tools."
+      },
+      "connections": {
+        "title": "Verbonden",
+        "description": "Overzicht van actieve koppelingen voor deze workspace."
+      },
+      "mcp": {
+        "title": "MCP-servers",
+        "description": "Configureer externe MCP-servers en koppel Bokito MCP aan AI-clients."
+      },
+      "api": {
+        "title": "API-sleutels",
+        "description": "Developer-sleutels voor programmatische toegang."
+      },
+      "sources": {
+        "title": "Bronnen",
+        "description": "Geindexeerde documentatie en kennisbronnen voor AI-agents."
+      }
+    },
+    "sources": {
+      "description": "Geindexeerde documentatie en kennisbronnen voor AI-agents. Bronnen worden automatisch doorzoekbaar zodra indexering actief is.",
+      "loading": "Bronnen laden…",
+      "emptyTitle": "Nog geen geindexeerde documentatie",
+      "emptyDescription": "Tenant-documentatie uit de kennisbank verschijnt hier zodra bronnen zijn gekoppeld en geindexeerd. Projectcode wordt via gekoppelde repositories geindexeerd.",
+      "activeForAgents": "Actief voor agents"
+    },
+    "mcp": {
+      "tabs": {
+        "servers": "Externe servers",
+        "bokito": "Bokito-client"
+      },
+      "servers": {
+        "title": "MCP-verbindingen",
+        "description": "Installeer en beheer MCP-servers die Bokito-agents in deze workspace kunnen aanroepen.",
+        "addTitle": "MCP-server toevoegen",
+        "newConnection": "Nieuwe MCP-verbinding",
+        "modalDescription": "Koppel een externe MCP-server die Bokito-agents in deze workspace kunnen gebruiken.",
+        "dialogBjornTitle": "Bjorn Lunden MCP koppelen",
+        "dialogBjornDescription": "Voer je Bjorn Lunden User-Key in om deze MCP-provider voor je organisatie te installeren.",
+        "cancel": "Annuleren",
+        "saving": "Opslaan...",
+        "listTitle": "Geconfigureerde verbindingen",
+        "empty": "Nog geen MCP-verbindingen geconfigureerd.",
+        "colProvider": "Provider",
+        "colName": "Naam",
+        "colEndpoint": "Endpoint",
+        "colAuth": "Authenticatie",
+        "colStatus": "Status",
+        "colActions": "Acties",
+        "name": "Weergavenaam",
+        "url": "Server-URL",
+        "authType": "Authenticatie",
+        "authApiKey": "API-sleutel",
+        "authBearer": "Bearer-token",
+        "secret": "Geheim / token",
+        "save": "Verbinding opslaan",
+        "bjornApiKey": "Bjorn Lunden User-Key"
+      },
+      "catalog": {
+        "customMcpName": "Aangepaste MCP-server",
+        "customMcpDescription": "Koppel een externe MCP-server via URL met API-sleutel of bearer-token."
+      },
+      "bokito": {
+        "title": "Bokito MCP",
+        "description": "Maak je Bokito-workspace beschikbaar voor AI-clients zoals Cursor of Claude Desktop via Model Context Protocol.",
+        "enable": "Bokito MCP inschakelen",
+        "enabledHint": "Bokito MCP is ingeschakeld voor deze workspace (preview).",
+        "disabledHint": "Schakel in om verbindingsgegevens en client-instructies te bekijken.",
+        "previewBanner": "Verbindingsinstructies zijn een UX-preview. Live MCP-authenticatie is nog niet beschikbaar.",
+        "connectionTitle": "Verbindingsgegevens",
+        "workspaceId": "Workspace-ID",
+        "schemaUrl": "Schema MCP-endpoint",
+        "dataUrl": "Data MCP-endpoint",
+        "accessToken": "Toegangstoken",
+        "copy": "Kopiëren",
+        "copied": "Gekopieerd",
+        "clientSetupTitle": "Client instellen",
+        "clients": {
+          "cursor": "Cursor",
+          "claude": "Claude Desktop",
+          "generic": "Generiek HTTP"
+        },
+        "steps": {
+          "cursor1": "Open Cursor-instellingen, daarna MCP.",
+          "cursor2": "Voeg een nieuwe MCP-server toe en plak de configuratie hieronder.",
+          "cursor3": "Herstart Cursor om tools uit je Bokito-workspace te laden.",
+          "claude1": "Open Claude Desktop-instellingen.",
+          "claude2": "Bewerk claude_desktop_config.json en plak de configuratie hieronder.",
+          "claude3": "Herstart Claude Desktop.",
+          "generic1": "Gebruik het HTTP-endpoint en bearer-token uit Verbindingsgegevens.",
+          "generic2": "Richt je MCP-client op de schema- of data-URL.",
+          "generic3": "Controleer of tools verschijnen na opnieuw verbinden."
+        },
+        "toolsTitle": "Beschikbare tools",
+        "toolsDescription": "Referentielijst van tools die Bokito schema- en data-MCP-servers aanbieden.",
+        "toolColumn": "Tool",
+        "categoryColumn": "Categorie",
+        "descriptionColumn": "Beschrijving",
+        "categorySchema": "Schema",
+        "categoryData": "Data"
+      }
     }
   },
   "workforce": {
@@ -77,7 +313,195 @@
     "links": {
       "overview": "Overzicht",
       "agents": "AI Agenten",
-      "tasks": "Taken"
+      "tasks": "Taken",
+      "runs": "Runs"
+    },
+    "runs": {
+      "description": "Geschiedenis en live event-stream voor Bokito-medewerkers en workspace-admins.",
+      "back": "Terug naar alle runs",
+      "loading": "Runs laden…",
+      "loadError": "Runs laden mislukt",
+      "empty": "Nog geen agent runs.",
+      "columns": {
+        "subject": "Onderwerp",
+        "project": "Project",
+        "status": "Status",
+        "started": "Gestart",
+        "tokens": "Tokens"
+      },
+      "fallbackSubject": "Agent run"
+    }
+  },
+  "projects": {
+    "group": {
+      "nav": "Projecten"
+    },
+    "links": {
+      "all": "Alle projecten",
+      "new": "Nieuw project"
+    },
+    "header": {
+      "new": "Project aanmaken",
+      "connect": "Code koppelen"
+    },
+    "create": {
+      "stepLabel": "Stap 1 van 2 — beschrijf waar dit project over gaat.",
+      "scopeLabel": "Waar gaat dit project over?",
+      "scopeHint": "Beschrijf het in een paar zinnen in je eigen woorden. Je AI-team gebruikt dit als hun noorderlicht.",
+      "scopePlaceholder": "Voorbeeld: Een Nederlandse webshop die handgemaakte keramiek verkoopt en wil groeien via Instagram en een eenvoudige webshop.",
+      "nameLabel": "Projectnaam",
+      "slugLabel": "URL-slug",
+      "submit": "Doorgaan",
+      "submitting": "Aanmaken…",
+      "error": "Project aanmaken mislukt"
+    },
+    "connect": {
+      "stepLabel": "Stap 2 van 2 — optioneel. Koppel een GitHub-repository zodat je AI-team de projectcode kan lezen.",
+      "githubTitle": "Ik gebruik GitHub",
+      "githubDescription": "Koppel een repository die je al op GitHub hebt. Jij houdt controle over je code.",
+      "managedTitle": "Doe het voor mij",
+      "managedDescription": "Wij maken een repository voor je en beheren die. Geen GitHub-account nodig.",
+      "comingSoon": "Binnenkort",
+      "back": "Terug",
+      "skip": "Sla over",
+      "notFound": "Project niet gevonden."
+    }
+  },
+  "project": {
+    "group": {
+      "nav": "Project",
+      "pages": "Pagina's"
+    },
+    "links": {
+      "overview": "Overzicht",
+      "knowledge": "Documentatie",
+      "request": "Wijziging aanvragen",
+      "messages": "Berichten",
+      "settings": "Instellingen"
+    },
+    "contextBar": {
+      "details": "Details",
+      "request": "Wijziging aanvragen",
+      "connect": "Code koppelen",
+      "notFound": "Project niet gevonden."
+    },
+    "overview": {
+      "title": "Recente updates",
+      "description": "Begrijpelijke berichten van je AI-team over dit project.",
+      "loading": "Laden…",
+      "empty": "Nog geen updates. Dien een wijzigingsverzoek in om te starten.",
+      "viewAll": "Alle projectberichten bekijken"
+    },
+    "messages": {
+      "title": "Projectberichten",
+      "description": "Updates en beslissingen, alleen voor dit project.",
+      "tenantInbox": "Open tenant-inbox",
+      "loading": "Laden…",
+      "tabs": {
+        "updates": "Updates",
+        "decisions": "Beslissingen"
+      },
+      "empty": {
+        "updates": "Nog geen updates voor dit project.",
+        "decisions": "Geen openstaande beslissingen voor dit project."
+      }
+    },
+    "settings": {
+      "about": {
+        "title": "Over dit project",
+        "name": "Projectnaam",
+        "scope": "Beschrijving voor je AI-team",
+        "save": "Wijzigingen opslaan",
+        "saving": "Opslaan…",
+        "saved": "Opgeslagen.",
+        "error": "Kon niet opslaan"
+      },
+      "code": {
+        "title": "Je code",
+        "description": "Koppel een GitHub-repository zodat je AI-team de codebase kan lezen, of sla over tot je er klaar voor bent."
+      }
+    },
+    "request": {
+      "title": "Wijziging aanvragen",
+      "description": "Beschrijf in je eigen woorden wat je wilt wijzigen of toevoegen. Je team pakt het op.",
+      "titlePlaceholder": "Titel (optioneel)",
+      "bodyPlaceholder": "Wat wil je wijzigen of toevoegen?",
+      "targetsPrefix": "Doel:",
+      "priority": {
+        "low": "Wanneer het kan",
+        "normal": "Binnenkort",
+        "urgent": "Urgent"
+      },
+      "submit": "Verzoek versturen",
+      "submitting": "Versturen…",
+      "error": "Kon verzoek niet indienen"
+    },
+    "list": {
+      "title": "Projecten",
+      "description": "Je actieve projecten en hun code-koppelingen.",
+      "loading": "Laden…",
+      "empty": "Nog geen projecten. Maak er een aan om te starten.",
+      "create": "Maak je eerste project",
+      "newProject": "Nieuw project"
+    },
+    "doc": {
+      "title": "Documentatie",
+      "loading": "Documentatie laden…",
+      "loadError": "Documentatie kon niet worden geladen.",
+      "loadErrorDeploy": "De documentatie-backend is nog niet beschikbaar. Het platformteam rolt de nieuwe docs-API uit.",
+      "empty": "Deze pagina heeft nog geen blokken.",
+      "emptyDoc": "Nog geen documentatiepagina's",
+      "emptyDocDescription": "Nieuwe projecten krijgen een startsjabloon zodra de documentatie-backend live is.",
+      "addPage": "Pagina toevoegen",
+      "requestChange": "Wijziging aanvragen",
+      "history": "Geschiedenis",
+      "historyTitle": "Paginageschiedenis",
+      "historyDescription": "Recente blok-wijzigingen op deze pagina.",
+      "historyEmpty": "Nog geen wijzigingen.",
+      "historyLoadError": "Kon geschiedenis niet laden.",
+      "lastEditedByAgent": "Laatst bewerkt door een agent",
+      "lastEditedByUser": "Laatst bewerkt door een gebruiker",
+      "pickPage": "Kies een pagina in de zijbalk om te lezen.",
+      "retry": "Opnieuw proberen",
+      "treeEmpty": "Nog geen pagina's.",
+      "lockedTitle": "Deze pagina is vergrendeld",
+      "lockedHint": "Ontgrendel via pagina-instellingen om te bewerken.",
+      "revert": "Terugdraaien",
+      "revertFailed": "Terugdraaien mislukt.",
+      "editor": {
+        "saving": "Opslaan…",
+        "saved": "Opgeslagen {{time}}",
+        "dragBlock": "Blok verslepen",
+        "deleteBlock": "Blok verwijderen",
+        "addBlockBelow": "Blok hieronder toevoegen",
+        "changeBlockType": "Bloktype wijzigen",
+        "locked": "Vergrendeld"
+      },
+      "blockPlaceholder": {
+        "heading_1": "Kop 1",
+        "heading_2": "Kop 2",
+        "heading_3": "Kop 3",
+        "bullet_list_item": "Lijst-item",
+        "numbered_list_item": "Lijst-item",
+        "to_do": "Taak",
+        "quote": "Citaat",
+        "callout": "Aandachtsblok",
+        "code": "Code",
+        "default": "Type '/' voor commando's…"
+      },
+      "blockType": {
+        "paragraph": "Tekst",
+        "heading_1": "Kop 1",
+        "heading_2": "Kop 2",
+        "heading_3": "Kop 3",
+        "bullet_list_item": "Bullet-lijst",
+        "numbered_list_item": "Genummerde lijst",
+        "to_do": "Taak",
+        "quote": "Citaat",
+        "callout": "Aandachtsblok",
+        "code": "Code",
+        "divider": "Scheidingslijn"
+      }
     }
   },
   "settings": {
@@ -90,7 +514,7 @@
     "links": {
       "profile": "Profiel",
       "notifications": "Notificaties",
-      "inbox": "Inbox-instellingen",
+      "inbox": "Mailboxen",
       "emailSettings": "E-mailinstellingen",
       "messenger": "Assistent",
       "helpCenters": "Kennisbank",

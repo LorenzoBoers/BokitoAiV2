@@ -25,16 +25,27 @@ import HelpCentersSettings from './pages/HelpCentersSettings'
 import CloudAgent from './pages/CloudAgent'
 import Projects from './pages/Projects'
 import CreateProject from './pages/CreateProject'
-import Pkb from './pages/Pkb'
+import ProjectDoc from './pages/ProjectDoc'
+import ProjectLayout from './components/layout/ProjectLayout'
+import ProjectOverview from './pages/ProjectOverview'
+import ProjectSettings from './pages/ProjectSettings'
+import ProjectMessages from './pages/ProjectMessages'
+import ConnectProjectRepo from './pages/ConnectProjectRepo'
 import ChangeRequest from './pages/ChangeRequest'
 import AdminRuns from './pages/AdminRuns'
 import DataSources from './pages/DataSources'
+import AiCommunicationSettings from './pages/AiCommunicationSettings'
 import WorkforceControl from './pages/OrchestratorControl'
 import WorkspaceSettings from './pages/WorkspaceSettings'
 import Workspaces from './pages/Workspaces'
 import WorkspaceBilling from './pages/WorkspaceBilling'
 import WorkspaceAccount from './pages/WorkspaceAccount'
 import WorkspaceSupport from './pages/WorkspaceSupport'
+import IntegrationsLayout from './components/layout/IntegrationsLayout'
+import IntegrationsMarketplace from './pages/IntegrationsMarketplace'
+import IntegrationsConnected from './pages/IntegrationsConnected'
+import IntegrationsMcp from './pages/IntegrationsMcp'
+import IntegrationsApi from './pages/IntegrationsApi'
 
 type ProjectRedirect =
   | { state: 'loading' }
@@ -99,7 +110,7 @@ function TenantHomeRedirect() {
     return <div className="py-6 text-sm text-text-muted">Loading your projects...</div>
   }
   if (redirect.state === 'none') return <Navigate to="/projects/new" replace />
-  if (redirect.state === 'one') return <Navigate to={`/project/${redirect.id}/pkb`} replace />
+  if (redirect.state === 'one') return <Navigate to={`/project/${redirect.id}/overview`} replace />
   if (redirect.state === 'many') return <Navigate to="/projects" replace />
   return <Navigate to="/projects" replace />
 }
@@ -174,20 +185,43 @@ export default function App() {
           <Route path="/settings/data/conversations" element={<DatabasePageWithProvider />} />
           <Route path="/settings/data/imports-exports" element={<DatabasePageWithProvider />} />
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+          <Route path="/settings/integrations" element={<Navigate to="/integrations/connected" replace />} />
+          <Route path="/settings/mcp" element={<Navigate to="/integrations/mcp" replace />} />
+          <Route element={<IntegrationsLayout />}>
+            <Route path="/integrations" element={<Navigate to="/integrations/connected" replace />} />
+            <Route path="/integrations/connected" element={<IntegrationsConnected />} />
+            <Route path="/integrations/marketplace" element={<IntegrationsMarketplace />} />
+            <Route
+              path="/integrations/connections"
+              element={<Navigate to="/integrations/connected" replace />}
+            />
+            <Route path="/integrations/mcp" element={<IntegrationsMcp />} />
+            <Route path="/integrations/api" element={<IntegrationsApi />} />
+            <Route path="/integrations/sources" element={<DataSources />} />
+          </Route>
 
           <Route path="/communication" element={<Communication />} />
           <Route path="/messages" element={<Communication />} />
           <Route path="/projects/new" element={<CreateProject />} />
-          <Route path="/project/:projectId/pkb" element={<Pkb />} />
-          <Route path="/project/:projectId/request" element={<ChangeRequest />} />
+          <Route path="/projects/new/:projectId/connect" element={<ConnectProjectRepo />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route element={<ProjectLayout />}>
+            <Route path="/project/:projectId" element={<Navigate to="overview" replace />} />
+            <Route path="/project/:projectId/overview" element={<ProjectOverview />} />
+            <Route path="/project/:projectId/pkb" element={<Navigate to="../doc" replace />} />
+            <Route path="/project/:projectId/doc" element={<ProjectDoc />} />
+            <Route path="/project/:projectId/doc/:pageSlug" element={<ProjectDoc />} />
+            <Route path="/project/:projectId/request" element={<ChangeRequest />} />
+            <Route path="/project/:projectId/messages" element={<ProjectMessages />} />
+            <Route path="/project/:projectId/settings" element={<ProjectSettings />} />
+          </Route>
           <Route path="/admin/runs/:workLogId" element={<AdminRuns />} />
           <Route path="/admin/runs" element={<AdminRuns />} />
           <Route path="/cloud-agent" element={<CloudAgent />} />
-          <Route path="/integrations" element={<Navigate to="/settings/profile" replace />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/datasources" element={<DataSources />} />
+          <Route path="/datasources" element={<Navigate to="/integrations/sources" replace />} />
           <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
+          <Route path="/ai/communicatie" element={<AiCommunicationSettings />} />
           <Route path="/ai" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/company-config" element={<Navigate to="/settings/company" replace />} />
           <Route path="/workforce" element={<Navigate to="/" replace />} />

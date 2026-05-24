@@ -1,51 +1,75 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BookOpen } from 'lucide-react'
+import { ConnectedIntegrationsPreview } from '../components/integrations/ConnectedIntegrationsPreview'
 import { Badge } from '../components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { EmptyState } from '../components/ui/empty-state'
+import { LoadingBlock } from '../components/ui/loading-block'
+import { PageContent } from '../components/layout/PageContent'
+import { listTenantDocs, type TenantDocRow } from '../lib/docs-api'
 
 export default function DataSources() {
-  const { t } = useTranslation()
+  const { t } = useTranslation('nav')
+  const [docs, setDocs] = useState<TenantDocRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void listTenantDocs().then((rows) => {
+      if (!cancelled) {
+        setDocs(rows.filter((d) => d.status !== 'archived'))
+        setLoading(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
-    <div className="h-full py-4 flex flex-col gap-3">
-      <Card className="flex-1 min-h-0 flex flex-col">
+    <PageContent width="xl" className="flex flex-col gap-4 py-1">
+      <Card>
         <CardHeader>
           <div>
-            <CardTitle>{t('nav:ai.links.datasources')}</CardTitle>
-            <p className="text-xs text-text-secondary mt-0.5">
-              Koppel externe bronnen om data automatisch te synchroniseren.
+            <CardTitle>{t('integrations.links.sources')}</CardTitle>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              {t('integrations.sources.description')}
             </p>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 min-h-0">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border border-border/60 bg-surface-secondary/40 p-4 flex flex-col items-center gap-3">
-              <img src="/logo-outlook.png" alt="Outlook" className="h-10 w-10 object-contain" />
-              <div className="text-center">
-                <p className="text-xs font-medium text-text-heading">Outlook</p>
-                <p className="text-2xs text-text-muted mt-0.5">E-mail en agenda synchronisatie via Microsoft Outlook.</p>
-              </div>
-              <Badge variant="neutral" className="mt-auto">Binnenkort</Badge>
+        <CardContent>
+          {loading ? (
+            <LoadingBlock variant="inline" label={t('integrations.sources.loading')} />
+          ) : docs.length === 0 ? (
+            <EmptyState
+              icon={BookOpen}
+              title={t('integrations.sources.emptyTitle')}
+              description={t('integrations.sources.emptyDescription')}
+              size="sm"
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {docs.map((doc) => (
+                <article
+                  key={doc.id}
+                  className="rounded-lg border border-border/60 bg-bg-elevated/40 p-4"
+                >
+                  <p className="text-sm font-medium text-text-heading">{doc.name}</p>
+                  {doc.source_url ? (
+                    <p className="mt-1 truncate text-xs text-text-muted">{doc.source_url}</p>
+                  ) : null}
+                  <Badge variant="success" className="mt-2">
+                    {t('integrations.sources.activeForAgents')}
+                  </Badge>
+                </article>
+              ))}
             </div>
-
-            <div className="rounded-lg border border-border/60 bg-surface-secondary/40 p-4 flex flex-col items-center gap-3">
-              <img src="/logo-king.png" alt="King Software" className="h-10 w-10 object-contain" />
-              <div className="text-center">
-                <p className="text-xs font-medium text-text-heading">King Software</p>
-                <p className="text-2xs text-text-muted mt-0.5">Boekhouding, facturatie en bedrijfsadministratie.</p>
-              </div>
-              <Badge variant="neutral" className="mt-auto">Binnenkort</Badge>
-            </div>
-
-            <div className="rounded-lg border border-border/60 bg-surface-secondary/40 p-4 flex flex-col items-center gap-3">
-              <img src="/logo-excel.png" alt="Excel" className="h-10 w-10 object-contain" />
-              <div className="text-center">
-                <p className="text-xs font-medium text-text-heading">Excel</p>
-                <p className="text-2xs text-text-muted mt-0.5">Importeer en synchroniseer data uit Excel-bestanden.</p>
-              </div>
-              <Badge variant="neutral" className="mt-auto">Binnenkort</Badge>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
-    </div>
+
+      <ConnectedIntegrationsPreview />
+    </PageContent>
   )
 }

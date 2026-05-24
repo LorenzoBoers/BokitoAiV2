@@ -419,7 +419,7 @@ export default function CompanyConfig() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-6 space-y-8">
+        <div className="mx-auto w-full max-w-[896px] py-1 space-y-8">
 
           {/* ── Auto-detect banner ───────────────────────────────────────── */}
           <BrandScanner onApply={handleApplyBrand} />

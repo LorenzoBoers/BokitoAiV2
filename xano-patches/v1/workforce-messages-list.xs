@@ -8,6 +8,7 @@ query "messages" verb=GET {
     text message_type?
     text channel?
     text thread_id?
+    uuid project_id?
   }
 
   stack {
@@ -22,7 +23,7 @@ query "messages" verb=GET {
     }
 
     db.query messages {
-      where = $db.messages.tenant_id == $me.organisation_id && $db.messages.status ==? $input.status && $db.messages.message_type ==? $input.message_type && $db.messages.channel ==? $input.channel && $db.messages.thread_id ==? $input.thread_id
+      where = $db.messages.tenant_id == $me.organisation_id && $db.messages.status ==? $input.status && $db.messages.message_type ==? $input.message_type && $db.messages.channel ==? $input.channel && $db.messages.thread_id ==? $input.thread_id && $db.messages.project_id ==? $input.project_id
       sort = {messages.updated_at: "desc"}
       return = {type: "list", paging: {page: 1, per_page: 100}}
     } as $rows

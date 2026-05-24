@@ -1,14 +1,19 @@
+import type { IntegrationKind } from '../lib/integration-kind'
+import { BRAND_ASSETS } from '../lib/brand-assets'
+
+const STATIC_HOST_SLUG: Record<string, string> = {
+  github: 'github',
+  'microsoft-365': 'microsoft',
+  'google-workspace': 'google',
+  bjorn_lunden_mcp: 'bjorn_lunden',
+  custom_mcp: 'custom',
+}
+
+/** Business categories kept for API rows; marketplace filters by IntegrationKind instead. */
 export type IntegrationCategory =
-  | 'CRM & Sales'
   | 'Communicatie'
-  | 'Projectbeheer'
-  | 'Marketing'
-  | 'E-commerce & Betalingen'
-  | 'Bestanden & Opslag'
-  | 'Productiviteit'
   | 'Ontwikkeling'
-  | 'Data & Analytics'
-  | 'HR & Support'
+  | 'Productiviteit'
 
 export type IntegrationStatus = 'connected' | 'available' | 'coming_soon'
 
@@ -18,455 +23,102 @@ export interface Integration {
   description: string
   category: IntegrationCategory
   status: IntegrationStatus
-  color: string       // brand bg color for the logo tile
-  initials: string    // fallback when no logo
-  popular?: boolean | undefined
-  connectedSince?: string | undefined // ISO date string, only if status === 'connected'
+  color: string
+  initials: string
+  kind: IntegrationKind
+  logoUrl?: string | null
+  logoDarkUrl?: string | null
+  hostSlug?: string | null
+  popular?: boolean
+  connectedSince?: string
+}
+
+/** Slugs registered in Xano `integration_providers` (see integration-providers-seed.md). */
+export const PLATFORM_PROVIDER_SLUGS = [
+  'github',
+  'outlook',
+  'gmail',
+  'bjorn_lunden_mcp',
+  'custom_mcp',
+] as const
+
+export type PlatformProviderSlug = (typeof PLATFORM_PROVIDER_SLUGS)[number]
+
+export function isPlatformProviderSlug(slug: string): slug is PlatformProviderSlug {
+  return (PLATFORM_PROVIDER_SLUGS as readonly string[]).includes(slug)
+}
+
+/**
+ * Static display metadata for live platform integrations (fallback when providers API is unavailable).
+ * API slugs `outlook` / `gmail` map to these ids via IntegrationsMarketplace SLUG_TO_STATIC_ID.
+ */
+function staticBrand(id: string): Pick<Integration, 'hostSlug' | 'logoUrl' | 'logoDarkUrl'> {
+  const hostSlug = STATIC_HOST_SLUG[id] ?? id
+  const assets = BRAND_ASSETS[hostSlug]
+  return {
+    hostSlug,
+    logoUrl: assets?.logoUrl ?? null,
+    logoDarkUrl: assets?.logoDarkUrl ?? null,
+  }
 }
 
 export const INTEGRATIONS: Integration[] = [
-  // ── CRM & Sales ──────────────────────────────────────────────────────────
   {
-    id: 'salesforce',
-    name: 'Salesforce',
-    description: 'Toonaangevend CRM-platform voor sales, service en marketing.',
-    category: 'CRM & Sales',
-    status: 'connected',
-    color: '#00A1E0',
-    initials: 'SF',
+    id: 'github',
+    name: 'GitHub',
+    description: 'Koppel repositories voor code-indexering en agentcontext.',
+    category: 'Ontwikkeling',
+    kind: 'repository',
+    status: 'available',
+    color: '#24292E',
+    initials: 'GH',
     popular: true,
-    connectedSince: '2024-11-02',
-  },
-  {
-    id: 'hubspot',
-    name: 'HubSpot',
-    description: 'All-in-one CRM met marketing-, sales- en servicetools.',
-    category: 'CRM & Sales',
-    status: 'available',
-    color: '#FF7A59',
-    initials: 'HS',
-    popular: true,
-  },
-  {
-    id: 'pipedrive',
-    name: 'Pipedrive',
-    description: 'Visueel sales-pipeline CRM gericht op deals sluiten.',
-    category: 'CRM & Sales',
-    status: 'available',
-    color: '#1A1F36',
-    initials: 'PD',
-  },
-  {
-    id: 'zoho-crm',
-    name: 'Zoho CRM',
-    description: 'Betaalbaar en uitgebreid CRM voor groeiende teams.',
-    category: 'CRM & Sales',
-    status: 'available',
-    color: '#E42527',
-    initials: 'ZO',
-  },
-  {
-    id: 'ms-dynamics',
-    name: 'Microsoft Dynamics 365',
-    description: 'Enterprise CRM & ERP naadloos geïntegreerd in Microsoft-ecosysteem.',
-    category: 'CRM & Sales',
-    status: 'coming_soon',
-    color: '#0078D4',
-    initials: 'D3',
-  },
-
-  // ── Communicatie ──────────────────────────────────────────────────────────
-  {
-    id: 'slack',
-    name: 'Slack',
-    description: 'Team-messaging platform met channels, threads en bots.',
-    category: 'Communicatie',
-    status: 'connected',
-    color: '#4A154B',
-    initials: 'SL',
-    popular: true,
-    connectedSince: '2024-10-15',
-  },
-  {
-    id: 'ms-teams',
-    name: 'Microsoft Teams',
-    description: 'Chat, vergaderingen en samenwerking binnen Microsoft 365.',
-    category: 'Communicatie',
-    status: 'available',
-    color: '#6264A7',
-    initials: 'MT',
-    popular: true,
-  },
-  {
-    id: 'whatsapp',
-    name: 'WhatsApp Business',
-    description: 'Klantcommunicatie via het meest gebruikte berichtenplatform.',
-    category: 'Communicatie',
-    status: 'connected',
-    color: '#25D366',
-    initials: 'WA',
-    popular: true,
-    connectedSince: '2025-01-08',
-  },
-  {
-    id: 'twilio',
-    name: 'Twilio',
-    description: 'API-platform voor SMS, voice en WhatsApp-berichten.',
-    category: 'Communicatie',
-    status: 'available',
-    color: '#F22F46',
-    initials: 'TW',
-  },
-  {
-    id: 'intercom',
-    name: 'Intercom',
-    description: 'Klantenservice- en chatplatform met AI-mogelijkheden.',
-    category: 'Communicatie',
-    status: 'available',
-    color: '#1F8DED',
-    initials: 'IC',
-  },
-
-  // ── Projectbeheer ─────────────────────────────────────────────────────────
-  {
-    id: 'jira',
-    name: 'Jira',
-    description: 'Issue tracking en agile projectbeheer voor developmentteams.',
-    category: 'Projectbeheer',
-    status: 'connected',
-    color: '#0052CC',
-    initials: 'JI',
-    popular: true,
-    connectedSince: '2024-12-01',
-  },
-  {
-    id: 'asana',
-    name: 'Asana',
-    description: 'Taak- en projectbeheer voor teams van elke omvang.',
-    category: 'Projectbeheer',
-    status: 'available',
-    color: '#F06A6A',
-    initials: 'AS',
-  },
-  {
-    id: 'monday',
-    name: 'Monday.com',
-    description: 'Visueel werkbeheerplatform met flexibele boards en automaties.',
-    category: 'Projectbeheer',
-    status: 'available',
-    color: '#FF3D57',
-    initials: 'MO',
-    popular: true,
-  },
-  {
-    id: 'linear',
-    name: 'Linear',
-    description: 'Modern issue tracker voor snelle, gefocuste softwareteams.',
-    category: 'Projectbeheer',
-    status: 'available',
-    color: '#5E6AD2',
-    initials: 'LN',
-  },
-  {
-    id: 'notion',
-    name: 'Notion',
-    description: 'Alles-in-één werkruimte voor docs, databases en projecten.',
-    category: 'Projectbeheer',
-    status: 'available',
-    color: '#191919',
-    initials: 'NO',
-    popular: true,
-  },
-  {
-    id: 'clickup',
-    name: 'ClickUp',
-    description: 'Productiviteitsplatform dat taken, docs en doelen combineert.',
-    category: 'Projectbeheer',
-    status: 'available',
-    color: '#7B68EE',
-    initials: 'CU',
-  },
-
-  // ── Marketing ─────────────────────────────────────────────────────────────
-  {
-    id: 'mailchimp',
-    name: 'Mailchimp',
-    description: 'E-mailmarketing en automatie voor groeiende bedrijven.',
-    category: 'Marketing',
-    status: 'available',
-    color: '#FFE01B',
-    initials: 'MC',
-    popular: true,
-  },
-  {
-    id: 'sendgrid',
-    name: 'SendGrid',
-    description: 'Transactionele e-mail API voor hoge volumes en deliverability.',
-    category: 'Marketing',
-    status: 'connected',
-    color: '#1A82E2',
-    initials: 'SG',
-    connectedSince: '2025-02-14',
-  },
-  {
-    id: 'activecampaign',
-    name: 'ActiveCampaign',
-    description: 'Marketing-automatie en e-mail CRM voor conversie-optimalisatie.',
-    category: 'Marketing',
-    status: 'available',
-    color: '#356AE6',
-    initials: 'AC',
-  },
-  {
-    id: 'klaviyo',
-    name: 'Klaviyo',
-    description: 'Data-gedreven marketing-automatie voor e-commerce merken.',
-    category: 'Marketing',
-    status: 'available',
-    color: '#000000',
-    initials: 'KL',
-  },
-  {
-    id: 'brevo',
-    name: 'Brevo',
-    description: 'Betaalbare e-mail-, SMS- en WhatsApp-marketingoplossing.',
-    category: 'Marketing',
-    status: 'coming_soon',
-    color: '#0B996E',
-    initials: 'BR',
-  },
-
-  // ── E-commerce & Betalingen ───────────────────────────────────────────────
-  {
-    id: 'shopify',
-    name: 'Shopify',
-    description: 'E-commerce platform voor online winkels van elke omvang.',
-    category: 'E-commerce & Betalingen',
-    status: 'available',
-    color: '#96BF48',
-    initials: 'SH',
-    popular: true,
-  },
-  {
-    id: 'stripe',
-    name: 'Stripe',
-    description: 'Betalingsinfrastructuur voor online transacties en abonnementen.',
-    category: 'E-commerce & Betalingen',
-    status: 'connected',
-    color: '#635BFF',
-    initials: 'ST',
-    popular: true,
-    connectedSince: '2024-09-20',
-  },
-  {
-    id: 'mollie',
-    name: 'Mollie',
-    description: 'Eenvoudige betalingsoplossing populair in de Benelux.',
-    category: 'E-commerce & Betalingen',
-    status: 'available',
-    color: '#FF6640',
-    initials: 'MO',
-  },
-  {
-    id: 'woocommerce',
-    name: 'WooCommerce',
-    description: 'Open-source e-commerce plugin voor WordPress-websites.',
-    category: 'E-commerce & Betalingen',
-    status: 'available',
-    color: '#96588A',
-    initials: 'WC',
-  },
-
-  // ── Bestanden & Opslag ───────────────────────────────────────────────────
-  {
-    id: 'google-drive',
-    name: 'Google Drive',
-    description: 'Cloudopslag en samenwerking via Google Workspace.',
-    category: 'Bestanden & Opslag',
-    status: 'connected',
-    color: '#0F9D58',
-    initials: 'GD',
-    popular: true,
-    connectedSince: '2024-10-01',
-  },
-  {
-    id: 'dropbox',
-    name: 'Dropbox',
-    description: 'Veilige bestandsopslag en synchronisatie voor teams.',
-    category: 'Bestanden & Opslag',
-    status: 'available',
-    color: '#0061FF',
-    initials: 'DB',
-  },
-  {
-    id: 'onedrive',
-    name: 'OneDrive',
-    description: 'Microsoft cloudopslag geïntegreerd in Windows en Office.',
-    category: 'Bestanden & Opslag',
-    status: 'available',
-    color: '#0078D4',
-    initials: 'OD',
-  },
-  {
-    id: 'box',
-    name: 'Box',
-    description: 'Enterprise cloudopslag met geavanceerde security en compliance.',
-    category: 'Bestanden & Opslag',
-    status: 'coming_soon',
-    color: '#0061D5',
-    initials: 'BX',
-  },
-
-  // ── Productiviteit ────────────────────────────────────────────────────────
-  {
-    id: 'google-workspace',
-    name: 'Google Workspace',
-    description: 'Gmail, Docs, Drive, Meet en Calendar in één pakket.',
-    category: 'Productiviteit',
-    status: 'connected',
-    color: '#4285F4',
-    initials: 'GW',
-    popular: true,
-    connectedSince: '2024-09-01',
+    ...staticBrand('github'),
   },
   {
     id: 'microsoft-365',
     name: 'Microsoft 365',
-    description: 'Office-apps, Teams en cloudservices voor productieve teams.',
-    category: 'Productiviteit',
+    description: 'Outlook-mailboxen voor inbox en e-mail in Bokito.',
+    category: 'Communicatie',
+    kind: 'inbox',
     status: 'available',
-    color: '#D83B01',
-    initials: 'M3',
+    color: '#0078D4',
+    initials: 'OL',
     popular: true,
+    ...staticBrand('microsoft-365'),
   },
   {
-    id: 'calendly',
-    name: 'Calendly',
-    description: 'Eenvoudig afspraken plannen zonder e-mailheen-en-weer.',
-    category: 'Productiviteit',
+    id: 'google-workspace',
+    name: 'Google Workspace',
+    description: 'Gmail-mailboxen voor inbox en e-mail in Bokito.',
+    category: 'Communicatie',
+    kind: 'inbox',
     status: 'available',
-    color: '#006BFF',
-    initials: 'CA',
-  },
-  {
-    id: 'docusign',
-    name: 'DocuSign',
-    description: 'Elektronisch ondertekenen van documenten en contracten.',
-    category: 'Productiviteit',
-    status: 'available',
-    color: '#FFCC00',
-    initials: 'DS',
-  },
-
-  // ── Ontwikkeling ──────────────────────────────────────────────────────────
-  {
-    id: 'github',
-    name: 'GitHub',
-    description: 'Git-hosting en samenwerking voor open source en bedrijven.',
-    category: 'Ontwikkeling',
-    status: 'connected',
-    color: '#24292E',
-    initials: 'GH',
+    color: '#4285F4',
+    initials: 'GM',
     popular: true,
-    connectedSince: '2024-11-15',
+    ...staticBrand('google-workspace'),
   },
   {
-    id: 'gitlab',
-    name: 'GitLab',
-    description: 'Complete DevOps-platform met CI/CD en issue tracking.',
-    category: 'Ontwikkeling',
+    id: 'bjorn_lunden_mcp',
+    name: 'Bjorn Lunden MCP',
+    description: 'Model Context Protocol-koppeling voor boekhoud- en ERP-tools.',
+    category: 'Productiviteit',
+    kind: 'mcp',
     status: 'available',
-    color: '#FC6D26',
-    initials: 'GL',
+    color: '#0F766E',
+    initials: 'BL',
+    ...staticBrand('bjorn_lunden_mcp'),
   },
   {
-    id: 'datadog',
-    name: 'Datadog',
-    description: 'Monitoring en observability voor cloud-applicaties en infra.',
-    category: 'Ontwikkeling',
+    id: 'custom_mcp',
+    name: 'Custom MCP server',
+    description: 'Connect any external MCP server by URL with API key or bearer token.',
+    category: 'Productiviteit',
+    kind: 'mcp',
     status: 'available',
-    color: '#632CA6',
-    initials: 'DD',
+    color: '#475569',
+    initials: 'MC',
+    ...staticBrand('custom_mcp'),
   },
-  {
-    id: 'pagerduty',
-    name: 'PagerDuty',
-    description: 'Incident management en on-call scheduling voor devops-teams.',
-    category: 'Ontwikkeling',
-    status: 'coming_soon',
-    color: '#25C151',
-    initials: 'PG',
-  },
-
-  // ── Data & Analytics ──────────────────────────────────────────────────────
-  {
-    id: 'segment',
-    name: 'Segment',
-    description: 'Customer data platform voor uniforme data-collectie en routing.',
-    category: 'Data & Analytics',
-    status: 'available',
-    color: '#52BD94',
-    initials: 'SG',
-  },
-  {
-    id: 'amplitude',
-    name: 'Amplitude',
-    description: 'Product-analytics voor inzicht in gebruikersgedrag en retentie.',
-    category: 'Data & Analytics',
-    status: 'available',
-    color: '#1E61F0',
-    initials: 'AM',
-  },
-  {
-    id: 'snowflake',
-    name: 'Snowflake',
-    description: 'Cloud data warehouse voor schaalbare data-opslag en queries.',
-    category: 'Data & Analytics',
-    status: 'coming_soon',
-    color: '#29B5E8',
-    initials: 'SF',
-  },
-
-  // ── HR & Support ──────────────────────────────────────────────────────────
-  {
-    id: 'zendesk',
-    name: 'Zendesk',
-    description: 'Klantenserviceplatform met ticketing, chat en kennisbank.',
-    category: 'HR & Support',
-    status: 'available',
-    color: '#03363D',
-    initials: 'ZD',
-    popular: true,
-  },
-  {
-    id: 'freshdesk',
-    name: 'Freshdesk',
-    description: 'Betaalbare helpdesk-software voor klantondersteuning.',
-    category: 'HR & Support',
-    status: 'available',
-    color: '#2DA94F',
-    initials: 'FD',
-  },
-  {
-    id: 'bamboohr',
-    name: 'BambooHR',
-    description: 'HR-software voor personeelsbeheer, verlof en onboarding.',
-    category: 'HR & Support',
-    status: 'coming_soon',
-    color: '#73AA24',
-    initials: 'BH',
-  },
-]
-
-export const CATEGORIES: IntegrationCategory[] = [
-  'CRM & Sales',
-  'Communicatie',
-  'Projectbeheer',
-  'Marketing',
-  'E-commerce & Betalingen',
-  'Bestanden & Opslag',
-  'Productiviteit',
-  'Ontwikkeling',
-  'Data & Analytics',
-  'HR & Support',
 ]

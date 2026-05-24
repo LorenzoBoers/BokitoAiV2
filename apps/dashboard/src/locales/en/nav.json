@@ -2,10 +2,15 @@
   "rail": {
     "support": "Inbox",
     "updates": "AI",
+    "integrations": "Integrations",
     "data": "Data",
     "workforce": "Workforce",
     "users": "Users",
-    "settings": "Settings"
+    "settings": "Settings",
+    "projects": "Projects",
+    "pkb": "Project",
+    "changeRequest": "Request",
+    "messages": "Messages"
   },
   "sectionTitle": {
     "users": "Users",
@@ -13,7 +18,9 @@
     "inbox": "Inbox",
     "ai": "AI",
     "workforce": "Workforce",
-    "data": "Data"
+    "data": "Data",
+    "project": "Project",
+    "projects": "Projects"
   },
   "userMenu": {
     "openAria": "Open user menu",
@@ -65,9 +72,237 @@
     },
     "links": {
       "assistent": "Assistants",
-      "kennis": "Sources",
-      "datasources": "Connections",
-      "handelingen": "MCP servers"
+      "kennis": "AI sources",
+      "communication": "AI communication settings"
+    },
+    "pageMeta": {
+      "communication": {
+        "title": "AI communication settings",
+        "description": "Configure AI suggestions, auto-labeling, and reply behavior per connected mailbox."
+      }
+    },
+    "communication": {
+      "loadingMailboxes": "Loading mailboxes…",
+      "loadingConfig": "Loading settings…",
+      "loadError": "Could not load AI settings.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved.",
+      "saveError": "Save failed.",
+      "noMailboxTitle": "No active mailbox",
+      "noMailboxDescription": "Connect a mailbox under Settings before configuring AI communication per inbox.",
+      "goToMailboxes": "Go to mailboxes",
+      "mailboxLabel": "Mailbox",
+      "mailboxPlaceholder": "Choose a mailbox",
+      "suggestionsEnabled": "AI suggestions in inbox",
+      "suggestionsEnabledHint": "Show draft suggestions and actions while reading messages.",
+      "autoLabelEnabled": "Auto-labeling",
+      "autoLabelEnabledHint": "Let AI assign labels based on message content.",
+      "autoReplyEnabled": "Auto-reply",
+      "autoReplyEnabledHint": "Send replies only when confidence is high enough.",
+      "autoReplyThreshold": "Minimum confidence",
+      "tone": "Tone",
+      "language": "Language",
+      "toneOptions": {
+        "formeel": "Formal",
+        "informeel": "Informal",
+        "match": "Match sender"
+      },
+      "languageOptions": {
+        "nl": "Dutch",
+        "en": "English",
+        "auto": "Automatic"
+      }
+    },
+    "cloudAgent": {
+      "title": "Cloud agents",
+      "description": "Compact view of deployment status, model and performance.",
+      "newAgent": "New agent",
+      "viewCards": "Cards",
+      "viewList": "List",
+      "empty": "No cloud agents configured."
+    }
+  },
+  "integrations": {
+    "group": {
+      "nav": "Integrations"
+    },
+    "links": {
+      "connected": "Connected",
+      "marketplace": "Marketplace",
+      "sources": "Sources",
+      "connections": "Connected",
+      "mcp": "MCP",
+      "api": "API keys"
+    },
+    "kindNav": {
+      "label": "Integration type"
+    },
+    "kind": {
+      "inbox": "Communication",
+      "repository": "Repository",
+      "mcp": "MCP"
+    },
+    "actions": {
+      "setupConnection": "Connect",
+      "setupInMcp": "Set up in MCP",
+      "manage": "Manage",
+      "manageInMcp": "Manage in MCP",
+      "viewInConnected": "View in Connected",
+      "addAccount": "Add account",
+      "comingSoon": "Coming soon",
+      "disconnect": "Disconnect"
+    },
+    "filters": {
+      "all": "All integrations",
+      "inbox": "Communication",
+      "repository": "Repository",
+      "mcp": "MCP",
+      "connected": "Connected",
+      "available": "Available",
+      "statusAll": "All statuses"
+    },
+    "connections": {
+      "noGithub": "No GitHub accounts linked.",
+      "goToCatalog": "Go to Marketplace",
+      "goToMarketplace": "Go to Marketplace",
+      "manageInbox": "Manage mailboxes",
+      "notConnected": "Not connected",
+      "mailboxCount": "{{count}} connected",
+      "other": "Other"
+    },
+    "marketplace": {
+      "connectedCount": "{{count}} connected",
+      "activeConnections": "{{count}} active connections",
+      "activeConnections_one": "{{count}} active connection",
+      "searchPlaceholder": "Search integrations...",
+      "empty": "No integrations found.",
+      "emptyKind": "No integrations in this category."
+    },
+    "connected": {
+      "addIntegration": "Add integration",
+      "loading": "Loading connections…",
+      "loadError": "Could not load all connection data.",
+      "emptyAllTitle": "No integrations connected yet",
+      "emptyAllDescription": "Connect communication channels, repositories, or MCP servers from the Marketplace.",
+      "goToMarketplace": "Go to Marketplace",
+      "emptyInbox": "No mailboxes connected yet.",
+      "browseInbox": "Browse Communication in Marketplace",
+      "browseRepository": "Connect GitHub in Marketplace",
+      "browseMcp": "Browse MCP in Marketplace",
+      "openProjects": "Open projects",
+      "manageMcp": "Manage MCP",
+      "mcpHint": "External MCP servers installed for this workspace.",
+      "viewAll": "View connected integrations"
+    },
+    "pageMeta": {
+      "connected": {
+        "title": "Connected",
+        "description": "Overview of active connections for this workspace."
+      },
+      "marketplace": {
+        "title": "Marketplace",
+        "description": "Discover and connect communication channels, code repositories, and MCP tools."
+      },
+      "connections": {
+        "title": "Connected",
+        "description": "Overview of active connections for this workspace."
+      },
+      "mcp": {
+        "title": "MCP servers",
+        "description": "Configure external MCP servers and connect Bokito MCP to AI clients."
+      },
+      "api": {
+        "title": "API keys",
+        "description": "Developer keys for programmatic access."
+      },
+      "sources": {
+        "title": "Sources",
+        "description": "Indexed documentation and knowledge sources for AI agents."
+      }
+    },
+    "sources": {
+      "description": "Indexed documentation and knowledge sources for AI agents. Sources become searchable as soon as indexing is active.",
+      "loading": "Loading sources…",
+      "emptyTitle": "No indexed documentation yet",
+      "emptyDescription": "Tenant documentation from the knowledge base appears here once sources are linked and indexed. Project code is indexed via connected repositories.",
+      "activeForAgents": "Active for agents"
+    },
+    "mcp": {
+      "tabs": {
+        "servers": "External servers",
+        "bokito": "Bokito client"
+      },
+      "servers": {
+        "title": "MCP connections",
+        "description": "Install and manage MCP servers that Bokito agents can call in this workspace.",
+        "addTitle": "Add MCP server",
+        "newConnection": "New MCP connection",
+        "modalDescription": "Connect an external MCP server that Bokito agents can use in this workspace.",
+        "dialogBjornTitle": "Connect Bjorn Lunden MCP",
+        "dialogBjornDescription": "Enter your Bjorn Lunden User-Key to install this MCP provider for your organization.",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "listTitle": "Configured connections",
+        "empty": "No MCP connections configured yet.",
+        "colProvider": "Provider",
+        "colName": "Name",
+        "colEndpoint": "Endpoint",
+        "colAuth": "Authentication",
+        "colStatus": "Status",
+        "colActions": "Actions",
+        "name": "Display name",
+        "url": "Server URL",
+        "authType": "Authentication",
+        "authApiKey": "API key",
+        "authBearer": "Bearer token",
+        "secret": "Secret / token",
+        "save": "Save connection",
+        "bjornApiKey": "Bjorn Lunden User-Key"
+      },
+      "catalog": {
+        "customMcpName": "Custom MCP server",
+        "customMcpDescription": "Connect any external MCP server by URL with API key or bearer token."
+      },
+      "bokito": {
+        "title": "Bokito MCP",
+        "description": "Expose your Bokito workspace to AI clients such as Cursor or Claude Desktop via Model Context Protocol.",
+        "enable": "Enable Bokito MCP",
+        "enabledHint": "Bokito MCP is enabled for this workspace (preview).",
+        "disabledHint": "Turn on to view connection details and client setup instructions.",
+        "previewBanner": "Connection setup is shown for UX preview. Live MCP authentication is not yet available.",
+        "connectionTitle": "Connection details",
+        "workspaceId": "Workspace ID",
+        "schemaUrl": "Schema MCP endpoint",
+        "dataUrl": "Data MCP endpoint",
+        "accessToken": "Access token",
+        "copy": "Copy",
+        "copied": "Copied",
+        "clientSetupTitle": "Client setup",
+        "clients": {
+          "cursor": "Cursor",
+          "claude": "Claude Desktop",
+          "generic": "Generic HTTP"
+        },
+        "steps": {
+          "cursor1": "Open Cursor Settings, then MCP.",
+          "cursor2": "Add a new MCP server and paste the configuration below.",
+          "cursor3": "Restart Cursor to load tools from your Bokito workspace.",
+          "claude1": "Open Claude Desktop settings.",
+          "claude2": "Edit claude_desktop_config.json and paste the configuration below.",
+          "claude3": "Restart Claude Desktop.",
+          "generic1": "Use the HTTP endpoint and bearer token from Connection details.",
+          "generic2": "Point your MCP-compatible client at the schema or data URL.",
+          "generic3": "Verify tools appear after reconnecting the client."
+        },
+        "toolsTitle": "Available tools",
+        "toolsDescription": "Reference list of tools exposed by Bokito schema and data MCP servers.",
+        "toolColumn": "Tool",
+        "categoryColumn": "Category",
+        "descriptionColumn": "Description",
+        "categorySchema": "Schema",
+        "categoryData": "Data"
+      }
     }
   },
   "workforce": {
@@ -77,7 +312,195 @@
     "links": {
       "overview": "Overview",
       "agents": "AI Agents",
-      "tasks": "Tasks"
+      "tasks": "Tasks",
+      "runs": "Runs"
+    },
+    "runs": {
+      "description": "Run history and live event stream for Bokito staff and workspace admins.",
+      "back": "Back to all runs",
+      "loading": "Loading runs…",
+      "loadError": "Failed to load runs",
+      "empty": "No agent runs yet.",
+      "columns": {
+        "subject": "Subject",
+        "project": "Project",
+        "status": "Status",
+        "started": "Started",
+        "tokens": "Tokens"
+      },
+      "fallbackSubject": "Agent run"
+    }
+  },
+  "projects": {
+    "group": {
+      "nav": "Projects"
+    },
+    "links": {
+      "all": "All projects",
+      "new": "New project"
+    },
+    "header": {
+      "new": "Create project",
+      "connect": "Connect your code"
+    },
+    "create": {
+      "stepLabel": "Step 1 of 2 — describe what this project is about.",
+      "scopeLabel": "What is this project about?",
+      "scopeHint": "Describe it in a few sentences in your own words. Your AI team uses this as their north star.",
+      "scopePlaceholder": "Example: A Dutch online shop that sells handmade ceramics and wants to grow through Instagram and a simple webshop.",
+      "nameLabel": "Project name",
+      "slugLabel": "URL slug",
+      "submit": "Continue",
+      "submitting": "Creating…",
+      "error": "Could not create project"
+    },
+    "connect": {
+      "stepLabel": "Step 2 of 2 — optional. Link a GitHub repository so your AI team can read the project code.",
+      "githubTitle": "I use GitHub",
+      "githubDescription": "Connect a repository you already have on GitHub. You stay in control of your code.",
+      "managedTitle": "Set it up for me",
+      "managedDescription": "We create and manage a repository for you. No GitHub account required.",
+      "comingSoon": "Coming soon",
+      "back": "Back",
+      "skip": "Skip for now",
+      "notFound": "Project not found."
+    }
+  },
+  "project": {
+    "group": {
+      "nav": "Project",
+      "pages": "Pages"
+    },
+    "links": {
+      "overview": "Overview",
+      "knowledge": "Documentation",
+      "request": "Request a change",
+      "messages": "Messages",
+      "settings": "Settings"
+    },
+    "contextBar": {
+      "details": "Details",
+      "request": "Request a change",
+      "connect": "Connect code",
+      "notFound": "Project not found."
+    },
+    "overview": {
+      "title": "Recent updates",
+      "description": "Plain-language messages from your AI team about this project.",
+      "loading": "Loading…",
+      "empty": "No updates yet. Submit a change request to get started.",
+      "viewAll": "View all project messages"
+    },
+    "messages": {
+      "title": "Project messages",
+      "description": "Updates and decisions for this project only.",
+      "tenantInbox": "Open tenant inbox",
+      "loading": "Loading…",
+      "tabs": {
+        "updates": "Updates",
+        "decisions": "Decisions"
+      },
+      "empty": {
+        "updates": "No updates for this project yet.",
+        "decisions": "No open decisions for this project."
+      }
+    },
+    "settings": {
+      "about": {
+        "title": "About this project",
+        "name": "Project name",
+        "scope": "Description for your AI team",
+        "save": "Save changes",
+        "saving": "Saving…",
+        "saved": "Saved.",
+        "error": "Could not save"
+      },
+      "code": {
+        "title": "Your code",
+        "description": "Connect a GitHub repository so your AI team can read the codebase, or skip until you are ready."
+      }
+    },
+    "request": {
+      "title": "Request a change",
+      "description": "Describe what you want to change or add in your own words. Your team will pick it up from here.",
+      "titlePlaceholder": "Title (optional)",
+      "bodyPlaceholder": "What would you like to change or add?",
+      "targetsPrefix": "Targets:",
+      "priority": {
+        "low": "Whenever you can",
+        "normal": "Soon",
+        "urgent": "Urgent"
+      },
+      "submit": "Submit request",
+      "submitting": "Submitting…",
+      "error": "Could not submit request"
+    },
+    "list": {
+      "title": "Projects",
+      "description": "Your active projects and their code connections.",
+      "loading": "Loading…",
+      "empty": "No projects yet. Create one to get started.",
+      "create": "Create your first project",
+      "newProject": "New project"
+    },
+    "doc": {
+      "title": "Documentation",
+      "loading": "Loading documentation…",
+      "loadError": "Could not load documentation.",
+      "loadErrorDeploy": "Documentation backend not available yet. The platform team is rolling out the new docs API.",
+      "empty": "This page has no blocks yet.",
+      "emptyDoc": "No documentation pages yet",
+      "emptyDocDescription": "New projects come with a starter template once the documentation backend is live.",
+      "addPage": "Add page",
+      "requestChange": "Request a change",
+      "history": "History",
+      "historyTitle": "Page history",
+      "historyDescription": "Recent block-level changes on this page.",
+      "historyEmpty": "No edits yet.",
+      "historyLoadError": "Could not load history.",
+      "lastEditedByAgent": "Last edited by an agent",
+      "lastEditedByUser": "Last edited by a user",
+      "pickPage": "Select a page from the sidebar to start reading.",
+      "retry": "Retry",
+      "treeEmpty": "No pages yet.",
+      "lockedTitle": "This page is locked",
+      "lockedHint": "Unlock it from page settings to edit.",
+      "revert": "Revert",
+      "revertFailed": "Revert failed.",
+      "editor": {
+        "saving": "Saving…",
+        "saved": "Saved {{time}}",
+        "dragBlock": "Drag block",
+        "deleteBlock": "Delete block",
+        "addBlockBelow": "Add block below",
+        "changeBlockType": "Change block type",
+        "locked": "Locked"
+      },
+      "blockPlaceholder": {
+        "heading_1": "Heading 1",
+        "heading_2": "Heading 2",
+        "heading_3": "Heading 3",
+        "bullet_list_item": "List item",
+        "numbered_list_item": "List item",
+        "to_do": "To-do",
+        "quote": "Quote",
+        "callout": "Callout",
+        "code": "Code",
+        "default": "Type '/' for commands…"
+      },
+      "blockType": {
+        "paragraph": "Text",
+        "heading_1": "Heading 1",
+        "heading_2": "Heading 2",
+        "heading_3": "Heading 3",
+        "bullet_list_item": "Bulleted list",
+        "numbered_list_item": "Numbered list",
+        "to_do": "To-do",
+        "quote": "Quote",
+        "callout": "Callout",
+        "code": "Code",
+        "divider": "Divider"
+      }
     }
   },
   "settings": {
@@ -90,7 +513,7 @@
     "links": {
       "profile": "Profile",
       "notifications": "Notifications",
-      "inbox": "Inbox settings",
+      "inbox": "Mailboxes",
       "emailSettings": "Email settings",
       "messenger": "Assistant",
       "helpCenters": "Knowledge base",

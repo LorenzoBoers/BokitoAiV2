@@ -7,6 +7,7 @@ import { NotificationProvider } from './context/NotificationContext'
 import { ValidationProvider } from './context/ValidationContext'
 import { UndoRedoProvider } from './context/UndoRedoContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
+import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import App from './App'
 import { readPublishedDashboardUser } from './lib/widget-bridge'
 import './i18n'
@@ -54,13 +55,15 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <AuthProvider>
           <WorkspaceProvider>
-            <NotificationProvider>
-              <ValidationProvider>
-                <UndoRedoProvider>
-                  <App />
-                </UndoRedoProvider>
-              </ValidationProvider>
-            </NotificationProvider>
+            <IntegrationBrandProvider>
+              <NotificationProvider>
+                <ValidationProvider>
+                  <UndoRedoProvider>
+                    <App />
+                  </UndoRedoProvider>
+                </ValidationProvider>
+              </NotificationProvider>
+            </IntegrationBrandProvider>
           </WorkspaceProvider>
         </AuthProvider>
       </ThemeProvider>

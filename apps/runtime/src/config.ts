@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -41,6 +42,7 @@ export const config = {
   ollamaEmbeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text-v2-moe',
   maxParallelPerTenant: Number(process.env.MAX_PARALLEL_PER_TENANT || 3),
   bullBoardBasicAuth: process.env.BULL_BOARD_BASIC_AUTH || '',
+  repoCloneDir: process.env.REPO_CLONE_DIR || join(tmpdir(), 'bokito-repos'),
 }
 
 export function assertRuntimeConfig(): void {

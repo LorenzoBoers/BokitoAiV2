@@ -73,7 +73,7 @@ async function upsertIndexChunk(input: {
 }
 
 export async function processIndexJob(data: IndexJobData): Promise<{ chunks: number }> {
-  const sourceType = data.source_type || 'github_file'
+  const sourceType = data.source_type || 'repo_file'
   const parts = chunkText(data.content)
   let written = 0
 

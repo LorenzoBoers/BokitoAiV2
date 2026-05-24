@@ -6,6 +6,7 @@ query "index/chunks" verb=POST {
     text worker_api_key
     uuid project_id
     uuid tenant_id
+    uuid connection_id?
     text source_type
     text source_ref
     text content
@@ -43,14 +44,15 @@ query "index/chunks" verb=POST {
       else {
         db.add index_chunks {
           data = {
-            project_id : $input.project_id
-            tenant_id  : $input.tenant_id
-            source_type: $input.source_type
-            source_ref : $input.source_ref
-            content    : $input.content
-            embedding  : $input.embedding
-            created_at : now
-            updated_at : now
+            project_id    : $input.project_id
+            tenant_id     : $input.tenant_id
+            connection_id : $input.connection_id
+            source_type   : $input.source_type
+            source_ref    : $input.source_ref
+            content       : $input.content
+            embedding     : $input.embedding
+            created_at    : now
+            updated_at    : now
           }
         } as $chunk
       }

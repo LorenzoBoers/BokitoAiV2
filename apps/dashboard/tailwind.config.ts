@@ -7,7 +7,9 @@ export default {
       colors: {
         bg: {
           DEFAULT: 'rgb(var(--color-bg) / <alpha-value>)',
+          root: 'rgb(var(--color-bg-root) / <alpha-value>)',
           sidebar: 'rgb(var(--color-bg-sidebar) / <alpha-value>)',
+          canvas: 'rgb(var(--color-bg-canvas) / <alpha-value>)',
           surface: 'rgb(var(--color-bg-surface) / <alpha-value>)',
           elevated: 'rgb(var(--color-bg-elevated) / <alpha-value>)',
           muted: 'rgb(var(--color-bg-hover) / <alpha-value>)',

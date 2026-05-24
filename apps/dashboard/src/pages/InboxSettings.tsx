@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertCircle, CheckCircle, Folder, Mail, Plus, RefreshCw, Settings as SettingsIcon, Trash2, Wifi, WifiOff } from 'lucide-react'
+import { AlertCircle, CheckCircle, Folder, Plus, RefreshCw, Settings as SettingsIcon, Trash2, Wifi, WifiOff } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Card } from '../components/ui/card'
 import { Switch } from '../components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import { LoadingBlock } from '../components/ui/loading-block'
+import { PageContent } from '../components/layout/PageContent'
+import { PageIntro } from '../components/layout/PageIntro'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import ProviderLogo from '../components/email/ProviderLogo'
 import SignatureEditor from '../components/inbox/SignatureEditor'
@@ -332,59 +335,50 @@ export default function InboxSettings() {
   }, [token, folderMailbox, folders])
 
   return (
-    <div className="h-full py-6">
-      <div className="max-w-5xl mx-auto h-full min-h-0 flex flex-col">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold text-text-heading flex items-center gap-2">
-              <Mail size={20} className="text-accent" />
-              Inbox en e-mail instellingen
-            </h1>
-            <p className="text-sm text-text-secondary mt-1">Beheer verbonden mailboxen, handtekeningen, routing en e-mailafhandeling.</p>
-          </div>
+    <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-5 py-1">
+      <PageIntro
+        description="Beheer verbonden mailboxen, handtekeningen, routing en e-mailafhandeling."
+        actions={
           <Button onClick={() => setConnectDialogOpen(true)}>
             <Plus size={16} />
             Mailbox verbinden
           </Button>
-        </div>
+        }
+      />
 
-        {pageAlert?.kind === 'oauth_success' ? (
-          <div className="mb-4">
-            <OauthRedirectAlert variant="success" onDismiss={() => setPageAlert(null)}>
-              {pageAlert.message}
-            </OauthRedirectAlert>
-          </div>
-        ) : null}
-        {pageAlert?.kind === 'oauth_error' ? (
-          <div className="mb-4">
-            <OauthRedirectAlert
-              variant="error"
-              title={pageAlert.title}
-              errorCode={pageAlert.code}
-              technicalDetail={pageAlert.detail}
-              onDismiss={() => setPageAlert(null)}
+      {pageAlert?.kind === 'oauth_success' ? (
+        <OauthRedirectAlert variant="success" onDismiss={() => setPageAlert(null)}>
+          {pageAlert.message}
+        </OauthRedirectAlert>
+      ) : null}
+      {pageAlert?.kind === 'oauth_error' ? (
+        <OauthRedirectAlert
+          variant="error"
+          title={pageAlert.title}
+          errorCode={pageAlert.code}
+          technicalDetail={pageAlert.detail}
+          onDismiss={() => setPageAlert(null)}
+        >
+          {pageAlert.summary}
+        </OauthRedirectAlert>
+      ) : null}
+      {pageAlert?.kind === 'simple_error' ? (
+        <div className="rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-xs text-status-error">
+          <div className="flex flex-wrap items-start justify-between gap-2 gap-x-4">
+            <span className="min-w-0 flex-1 leading-snug">{pageAlert.message}</span>
+            <button
+              type="button"
+              className="shrink-0 underline opacity-90 hover:opacity-100"
+              onClick={() => setPageAlert(null)}
             >
-              {pageAlert.summary}
-            </OauthRedirectAlert>
+              Sluiten
+            </button>
           </div>
-        ) : null}
-        {pageAlert?.kind === 'simple_error' ? (
-          <div className="mb-4 rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-xs text-status-error">
-            <div className="flex flex-wrap items-start justify-between gap-2 gap-x-4">
-              <span className="min-w-0 flex-1 leading-snug">{pageAlert.message}</span>
-              <button
-                type="button"
-                className="shrink-0 underline opacity-90 hover:opacity-100"
-                onClick={() => setPageAlert(null)}
-              >
-                Sluiten
-              </button>
-            </div>
-          </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        {loading ? <div className="text-sm text-text-muted">Mailboxen laden...</div> : null}
-        {error ? <div className="text-sm text-status-error">{error}</div> : null}
+      {loading ? <LoadingBlock variant="inline" label="Mailboxen laden…" /> : null}
+      {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
         <Card className="overflow-hidden p-0">
           <div className="border-b border-border/55 px-4 py-3">
@@ -632,7 +626,6 @@ export default function InboxSettings() {
             />
           </>
         ) : null}
-      </div>
-    </div>
+    </PageContent>
   )
 }

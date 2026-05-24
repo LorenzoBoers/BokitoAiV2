@@ -22,7 +22,7 @@ function isAutonomousProposal(message: MessageRow): boolean {
 
 function StandardDecisionCard({ message }: { message: MessageRow }) {
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-raised p-4">
+    <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
       <h3 className="font-medium text-text-primary">{message.subject || 'Decision needed'}</h3>
       <p className="mt-2 whitespace-pre-wrap text-sm text-text-primary">{message.body}</p>
     </div>
@@ -62,7 +62,7 @@ export function DecisionsPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-border-subtle px-4 py-3">
+      <div className="border-b border-border/60 px-4 py-3">
         <h1 className="text-lg font-semibold text-text-primary">Messages</h1>
         <p className="text-sm text-text-muted">Decisions from your AI team and project updates.</p>
       </div>
@@ -105,7 +105,7 @@ export function DecisionsPanel() {
               {updates.map((message) => (
                 <li
                   key={message.id}
-                  className="rounded-lg border border-border-subtle bg-surface-raised p-4"
+                  className="rounded-lg border border-border/60 bg-bg-surface p-4"
                 >
                   <h3 className="font-medium text-text-primary">{message.subject || 'Update'}</h3>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{message.body}</p>
@@ -126,7 +126,7 @@ export function DecisionsPanel() {
                 return (
                   <li
                     key={message.id}
-                    className="rounded-lg border border-border-subtle bg-surface-raised p-4"
+                    className="rounded-lg border border-border/60 bg-bg-surface p-4"
                   >
                     <h3 className="font-medium text-text-primary">{message.subject || 'Task result'}</h3>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{message.body}</p>

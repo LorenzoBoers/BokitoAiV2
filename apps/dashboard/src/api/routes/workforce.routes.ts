@@ -22,9 +22,6 @@ export const workforceRoutes = {
     search: '/index/search',
     chunks: '/index/chunks',
   },
-  pkb: {
-    patch: (sectionId: string) => `/pkb/${encodeURIComponent(sectionId)}`,
-  },
   workforce: {
     config: '/workforce/config',
     statusQuery: (params: URLSearchParams) => withQuery('/workforce/status', params),

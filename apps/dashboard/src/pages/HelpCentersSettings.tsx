@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BookOpen, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import {
   createKbCollection,
@@ -48,19 +49,12 @@ export default function HelpCentersSettings() {
   }, [refreshKbDocuments])
 
   return (
-    <div className="h-full py-6">
-      <div className="mx-auto flex h-full min-h-0 max-w-5xl flex-col">
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-text-heading">
-            <BookOpen size={20} className="text-accent" />
-            Helpcentra instellingen
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Beheer collectiebronnen voor AI-context en documentindexering.
-          </p>
-        </div>
+    <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-4 py-1">
+      <p className="text-sm text-text-secondary">
+        Beheer collectiebronnen voor AI-context en documentindexering.
+      </p>
 
-        <Card className="mb-4 p-4">
+      <Card className="p-4">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
             <input
               className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
@@ -190,9 +184,8 @@ export default function HelpCentersSettings() {
             ) : (
               <div className="text-sm text-text-muted">Selecteer eerst een collectie.</div>
             )}
-          </Card>
-        </div>
+        </Card>
       </div>
-    </div>
+    </PageContent>
   )
 }

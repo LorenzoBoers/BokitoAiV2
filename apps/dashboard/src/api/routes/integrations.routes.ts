@@ -5,6 +5,29 @@ import { withQuery } from '../url'
  * Reconstructed from `origin/master` literals in `email-api.ts` and `inbox-api.ts`, plus newer inbox pin routes.
  */
 export const integrationsRoutes = {
+  platform: {
+    providers: '/integrations/providers',
+    connections: (provider?: string) => {
+      const params = new URLSearchParams()
+      if (provider) params.set('provider', provider)
+      const q = params.toString()
+      return q ? `/integrations/connections?${q}` : '/integrations/connections'
+    },
+    connectionById: (connectionId: string) => `/integrations/connections/${connectionId}`,
+    connectionResources: (connectionId: string) =>
+      `/integrations/connections/${connectionId}/resources`,
+    oauthStart: (provider: string, encodedReturnUrl: string, projectId?: string) => {
+      const params = new URLSearchParams({
+        provider,
+        return_url: encodedReturnUrl,
+      })
+      if (projectId) params.set('project_id', projectId)
+      return withQuery('/integrations/oauth/start', params)
+    },
+    workerCredentials: '/integrations/worker/credentials',
+    mcpBindings: '/integrations/mcp/bindings',
+    mcpInstall: '/integrations/mcp/install',
+  },
   email: {
     connections: {
       list: '/email/connections',

@@ -1,6 +1,8 @@
 import { timingSafeEqual } from 'node:crypto'
 import type { Express, Request, Response } from 'express'
 import { agentQueue, indexQueue } from './queue.js'
+import { processRepoReindex } from './github/reindex.js'
+import { processDocPageReindex, processTenantDocsIndex } from './docs/reindex.js'
 import { config } from './config.js'
 import { checkTokenBudget } from './budget.js'
 import { startRun } from './xano-client.js'
@@ -156,6 +158,72 @@ export function registerDispatcherRoutes(app: Express): void {
     })
 
     res.json({ job_id: job.id, queued: true })
+  })
+
+  app.post('/index/tenant-docs', async (req: Request, res: Response) => {
+    if (inboundAuthFailed(req)) {
+      res.status(req.headers.authorization ? 401 : 403).json({ error: 'unauthorized' })
+      return
+    }
+
+    const { project_id, tenant_id, doc_id, sections } = req.body || {}
+    if (!project_id || !tenant_id || !doc_id || !Array.isArray(sections)) {
+      res.status(400).json({ error: 'missing_fields' })
+      return
+    }
+
+    void processTenantDocsIndex({
+      project_id: String(project_id),
+      tenant_id: String(tenant_id),
+      doc_id: String(doc_id),
+      sections,
+    }).catch((err) => {
+      console.error('[index/tenant-docs]', doc_id, err)
+    })
+
+    res.json({ queued: true, doc_id })
+  })
+
+  app.post('/doc/reindex-page', async (req: Request, res: Response) => {
+    if (inboundAuthFailed(req)) {
+      res.status(req.headers.authorization ? 401 : 403).json({ error: 'unauthorized' })
+      return
+    }
+
+    const { project_id, tenant_id, page_id } = req.body || {}
+    if (!project_id || !tenant_id || !page_id) {
+      res.status(400).json({ error: 'missing_fields' })
+      return
+    }
+
+    void processDocPageReindex({
+      project_id: String(project_id),
+      tenant_id: String(tenant_id),
+      page_id: String(page_id),
+    }).catch((err) => {
+      console.error('[doc/reindex-page]', page_id, err)
+    })
+
+    res.json({ queued: true, page_id })
+  })
+
+  app.post('/repo/reindex', async (req: Request, res: Response) => {
+    if (inboundAuthFailed(req)) {
+      res.status(req.headers.authorization ? 401 : 403).json({ error: 'unauthorized' })
+      return
+    }
+
+    const { project_id, tenant_id } = req.body || {}
+    if (!project_id || !tenant_id) {
+      res.status(400).json({ error: 'missing_fields' })
+      return
+    }
+
+    void processRepoReindex(String(project_id), String(tenant_id)).catch((err) => {
+      console.error('[repo/reindex]', project_id, err)
+    })
+
+    res.json({ queued: true, project_id, tenant_id })
   })
 
   app.get('/health', (_req, res) => {

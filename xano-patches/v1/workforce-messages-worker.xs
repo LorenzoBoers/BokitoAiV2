@@ -2,6 +2,19 @@
 // Accepts an arbitrary message_type (defaults to task_result for backwards
 // compat with postTaskResult). Used by the PO agent to write
 // status_update and decision_request messages back to the user.
+//
+// IMPORTANT: Xano's `db.add` and `db.edit` apply column defaults for fields
+// that are not explicitly set. The messages table has `default = ""` on
+// nullable enums (to_type, status), nullable json (payload), etc. Empty
+// string is invalid for those PostgreSQL types, causing 22P02 INVALID TEXT
+// REPRESENTATION. Workaround: explicitly set every nullable column to a
+// literal `null` (or valid value) in the initial db.add. Optional inputs
+// are then layered on with db.edit conditionals.
+//
+// Also note: passing `$input.to_id` (an unset optional uuid input) to
+// `data = {to_id: $input.to_id}` does NOT behave the same as a literal
+// `null`. Use literal null in db.add and only db.edit when the input is
+// actually present.
 query "messages/worker" verb=POST {
   api_group = "workforce"
 
@@ -9,7 +22,7 @@ query "messages/worker" verb=POST {
     text worker_api_key?
     text auth_token?
     uuid tenant_id
-    text project_id
+    uuid project_id
     uuid thread_id
     uuid from_id
     text body filters=trim|min:1
@@ -36,12 +49,16 @@ query "messages/worker" verb=POST {
       error = "Unauthorized."
     }
 
-    var $message_type {
-      value = $input.message_type != null && ($input.message_type|strlen) > 0 ? $input.message_type : "task_result"
+    var $subject {
+      value = $input.subject != null ? $input.subject : ""
     }
 
-    var $message_status {
+    var $status_val {
       value = $input.status != null && ($input.status|strlen) > 0 ? $input.status : "done"
+    }
+
+    var $message_type {
+      value = $input.message_type != null && ($input.message_type|strlen) > 0 ? $input.message_type : "task_result"
     }
 
     var $channel {
@@ -50,37 +67,25 @@ query "messages/worker" verb=POST {
 
     db.add messages {
       data = {
-        tenant_id    : $input.tenant_id
-        thread_id    : $input.thread_id
-        from_type    : "agent"
-        from_id      : $input.from_id
-        channel      : $channel
-        message_type : $message_type
-        body         : $input.body
+        thread_id        : $input.thread_id
+        tenant_id        : $input.tenant_id
+        from_id          : $input.from_id
+        from_type        : "agent"
+        channel          : $channel
+        message_type     : $message_type
+        body             : $input.body
+        body_html        : ""
+        external_id      : ""
+        subject          : $subject
+        payload          : null
+        status           : $status_val
+        to_type          : null
+        to_id            : null
+        project_id       : $input.project_id
+        parent_message_id: null
+        resolved_at      : null
       }
     } as $msg
-
-    db.edit messages {
-      field_name = "id"
-      field_value = $msg.id
-      data = {project_id: $input.project_id}
-    } as $msg
-
-    db.edit messages {
-      field_name = "id"
-      field_value = $msg.id
-      data = {status: $message_status}
-    } as $msg
-
-    conditional {
-      if ($input.subject != null && ($input.subject|strlen) > 0) {
-        db.edit messages {
-          field_name = "id"
-          field_value = $msg.id
-          data = {subject: $input.subject}
-        } as $msg
-      }
-    }
 
     conditional {
       if ($input.to_type != null && ($input.to_type|strlen) > 0) {

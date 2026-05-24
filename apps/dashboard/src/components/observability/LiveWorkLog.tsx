@@ -46,7 +46,7 @@ export function LiveWorkLog({ workLogId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded border border-border-subtle bg-surface-muted px-3 py-2 text-sm">
+      <div className="rounded border border-border/60 bg-bg-elevated px-3 py-2 text-sm">
         <p className="font-medium text-text-primary">{taskSubject || 'Agent run'}</p>
         <p className="text-text-muted">
           Status: {status || 'unknown'}
@@ -54,7 +54,7 @@ export function LiveWorkLog({ workLogId }: Props) {
         </p>
       </div>
 
-      <div className="max-h-96 space-y-2 overflow-y-auto rounded border border-border-subtle bg-surface-raised p-3 font-mono text-xs">
+      <div className="max-h-96 space-y-2 overflow-y-auto rounded border border-border/60 bg-bg-surface p-3 font-mono text-xs">
         {loading && events.length === 0 && !error ? (
           <p className="text-text-muted">Loading events...</p>
         ) : error ? (
@@ -63,7 +63,7 @@ export function LiveWorkLog({ workLogId }: Props) {
           <p className="text-text-muted">Waiting for events...</p>
         ) : (
           events.map((ev, i) => (
-            <details key={i} className="rounded bg-surface-muted p-2">
+            <details key={i} className="rounded bg-bg-elevated p-2">
               <summary className="cursor-pointer text-text-primary">
                 [{ev.type}] {ev.title || 'event'}
               </summary>

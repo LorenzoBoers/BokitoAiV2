@@ -51,7 +51,7 @@ export function RunStatusIndicator({ workLogId }: Props) {
         : `Your team is working on "${subject}" — started ${relativeTime(status.started_at)}.`
 
   return (
-    <div className="border-t border-border-subtle bg-surface-muted px-4 py-3 text-sm text-text-primary">
+    <div className="border-t border-border/60 bg-bg-elevated px-4 py-3 text-sm text-text-primary">
       {line}
     </div>
   )

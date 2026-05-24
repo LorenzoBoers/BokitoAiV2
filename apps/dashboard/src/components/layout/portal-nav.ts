@@ -17,6 +17,11 @@ import {
   Upload,
   FileText,
   PenLine,
+  FolderKanban,
+  Link2,
+  KeyRound,
+  Zap,
+  Blocks,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
@@ -44,7 +49,7 @@ export type SidebarGroup = {
  * project list (/projects) and the Change Request link is hidden.
  */
 export const getEndUserRailItems = (t: TFunction<'nav'>, projectId?: string): RailItem[] => {
-  const projectTo = projectId ? `/project/${projectId}/pkb` : '/projects'
+  const projectTo = projectId ? `/project/${projectId}/overview` : '/projects'
   const items: RailItem[] = [
     { label: t('rail.pkb', { defaultValue: 'Project' }), to: projectTo, icon: FileText },
   ]
@@ -66,7 +71,9 @@ export const getEndUserRailItems = (t: TFunction<'nav'>, projectId?: string): Ra
 export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
   { label: t('rail.support'), to: '/support/inbox/all', icon: MessageSquare },
   { label: t('rail.updates'), to: ASSISTENT_DEFAULT_PATH, icon: Sparkles },
+  { label: t('rail.integrations'), to: '/integrations', icon: Link2 },
   { label: t('rail.data'), to: '/database', icon: Database },
+  { label: t('rail.projects', { defaultValue: 'Projects' }), to: '/projects', icon: FolderKanban },
   { label: t('rail.workforce'), to: '/admin/runs', icon: Bot },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
@@ -105,9 +112,30 @@ export const getAiSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
     label: t('ai.group.ai'),
     links: [
       { label: t('ai.links.assistent'), to: ASSISTENT_DEFAULT_PATH },
-      { label: t('ai.links.kennis'), to: '/projects' },
-      { label: t('ai.links.datasources'), to: '/datasources' },
-      { label: t('ai.links.handelingen'), to: '/ai/handelingen', comingSoon: true },
+      { label: t('ai.links.communication'), to: '/ai/communicatie' },
+    ],
+  },
+]
+
+export const getIntegrationsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
+  {
+    label: t('integrations.group.nav'),
+    links: [
+      { label: t('integrations.links.connected'), to: '/integrations/connected' },
+      { label: t('integrations.links.marketplace'), to: '/integrations/marketplace' },
+      { label: t('integrations.links.sources'), to: '/integrations/sources' },
+      { label: t('integrations.links.mcp'), to: '/integrations/mcp' },
+    ],
+  },
+]
+
+/** Project list + create wizard (not inside a single project). */
+export const getProjectsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
+  {
+    label: t('projects.group.nav', { defaultValue: 'Projects' }),
+    links: [
+      { label: t('projects.links.all', { defaultValue: 'All projects' }), to: '/projects' },
+      { label: t('projects.links.new', { defaultValue: 'New project' }), to: '/projects/new' },
     ],
   },
 ]
@@ -116,9 +144,23 @@ export const getWorkforceSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] =
   {
     label: t('workforce.group.workforce'),
     links: [
+      { label: t('workforce.links.runs', { defaultValue: 'Agent runs' }), to: '/admin/runs' },
       { label: t('workforce.links.overview'), to: '/workforce', comingSoon: true },
       { label: t('workforce.links.agents'), to: '/workforce/agents', comingSoon: true },
       { label: t('workforce.links.tasks'), to: '/workforce/tasks', comingSoon: true },
+    ],
+  },
+]
+
+export const getProjectSidebarGroups = (t: TFunction<'nav'>, projectId: string): SidebarGroup[] => [
+  {
+    label: t('project.group.nav', { defaultValue: 'Project' }),
+    links: [
+      { label: t('project.links.overview', { defaultValue: 'Overview' }), to: `/project/${projectId}/overview` },
+      { label: t('project.links.knowledge', { defaultValue: 'Documentation' }), to: `/project/${projectId}/doc` },
+      { label: t('project.links.request', { defaultValue: 'Request a change' }), to: `/project/${projectId}/request` },
+      { label: t('project.links.messages', { defaultValue: 'Messages' }), to: `/project/${projectId}/messages` },
+      { label: t('project.links.settings', { defaultValue: 'Settings' }), to: `/project/${projectId}/settings` },
     ],
   },
 ]
@@ -252,6 +294,56 @@ export const getSettingsPageMeta = (
     title: t('settingsPageMeta.importsExports.title'),
     description: t('settingsPageMeta.importsExports.description'),
     icon: Upload,
+  },
+})
+
+export const getIntegrationsPageMeta = (
+  t: TFunction<'nav'>,
+): Record<string, { title: string; description: string; icon: LucideIcon }> => ({
+  connected: {
+    title: t('integrations.pageMeta.connected.title'),
+    description: t('integrations.pageMeta.connected.description'),
+    icon: Link2,
+  },
+  marketplace: {
+    title: t('integrations.pageMeta.marketplace.title'),
+    description: t('integrations.pageMeta.marketplace.description'),
+    icon: Blocks,
+  },
+  connections: {
+    title: t('integrations.pageMeta.connected.title'),
+    description: t('integrations.pageMeta.connected.description'),
+    icon: Link2,
+  },
+  mcp: {
+    title: t('integrations.pageMeta.mcp.title'),
+    description: t('integrations.pageMeta.mcp.description'),
+    icon: Zap,
+  },
+  api: {
+    title: t('integrations.pageMeta.api.title'),
+    description: t('integrations.pageMeta.api.description'),
+    icon: KeyRound,
+  },
+  sources: {
+    title: t('integrations.pageMeta.sources.title'),
+    description: t('integrations.pageMeta.sources.description'),
+    icon: BookOpen,
+  },
+})
+
+export const getAiPageMeta = (
+  t: TFunction<'nav'>,
+): Record<string, { title: string; description: string; icon: LucideIcon }> => ({
+  assistent: {
+    title: t('settingsPageMeta.messenger.title'),
+    description: t('settingsPageMeta.messenger.description'),
+    icon: MessageSquare,
+  },
+  communicatie: {
+    title: t('ai.pageMeta.communication.title'),
+    description: t('ai.pageMeta.communication.description'),
+    icon: MessageSquare,
   },
 })
 

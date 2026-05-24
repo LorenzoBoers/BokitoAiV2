@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus, CloudCog, LayoutGrid, List } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import AgentList from '../components/cloud-agent/AgentList'
 import AgentCardGrid from '../components/cloud-agent/AgentCardGrid'
 import AgentDetailModal from '../components/cloud-agent/AgentDetailModal'
@@ -7,10 +8,13 @@ import { cloudAgents } from '../data/mock-data'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { EmptyState } from '../components/ui/empty-state'
+import PageContent from '../components/layout/PageContent'
 
 type ViewMode = 'cards' | 'list'
 
 export default function CloudAgent() {
+  const { t } = useTranslation('nav')
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [modalAgentId, setModalAgentId] = useState<string | null>(null)
 
@@ -21,23 +25,27 @@ export default function CloudAgent() {
 
   if (!cloudAgents.length) {
     return (
-      <div className="h-full flex items-center justify-center text-text-muted text-sm">
-        Geen cloud agents geconfigureerd.
-      </div>
+      <PageContent width="lg">
+        <EmptyState
+          icon={CloudCog}
+          title={t('ai.cloudAgent.title')}
+          description={t('ai.cloudAgent.empty')}
+        />
+      </PageContent>
     )
   }
 
   return (
-    <div className="h-full py-4">
+    <PageContent width="xl" className="h-full">
       <Card className="h-full min-h-0 flex flex-col">
         <CardHeader>
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2">
               <CloudCog size={16} className="text-accent" />
-              Cloud agents
+              {t('ai.cloudAgent.title')}
             </CardTitle>
             <p className="text-xs text-text-secondary mt-0.5">
-              Compact beheer van deployment status, model en prestaties.
+              {t('ai.cloudAgent.description')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -45,17 +53,17 @@ export default function CloudAgent() {
               <TabsList>
                 <TabsTrigger value="cards">
                   <LayoutGrid size={13} />
-                  Kaarten
+                  {t('ai.cloudAgent.viewCards')}
                 </TabsTrigger>
                 <TabsTrigger value="list">
                   <List size={13} />
-                  Lijst
+                  {t('ai.cloudAgent.viewList')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
             <Button size="sm">
               <Plus size={14} />
-              Nieuwe agent
+              {t('ai.cloudAgent.newAgent')}
             </Button>
           </div>
         </CardHeader>
@@ -87,6 +95,6 @@ export default function CloudAgent() {
           onClose={() => setModalAgentId(null)}
         />
       )}
-    </div>
+    </PageContent>
   )
 }

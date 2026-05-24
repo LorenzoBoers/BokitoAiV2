@@ -6,15 +6,28 @@
   :root {
     color-scheme: dark;
     /*
-     * Dark mode shade hierarchy (cool blue, ~hue 225, sat ~22%):
-     *   bg          rail + body        #101319 (16,19,25)
-     *   bg-sidebar  section sidebar    #14171F (20,23,31)
-     *   bg-canvas   content area panel #161A22 (22,26,34)  [used by .featurebase-shell-panel]
-     *   bg-surface  cards / panels     #1D202B (29,32,43)
-     *   bg-input    inputs             #242835 (36,40,53)
-     * Each value nudged by 1 channel vs Featurebase reference tones.
+     * Dashboard surface hierarchy (Featurebase-like, cool blue, hue ~225).
+     *
+     *   bg          rail + body              #101319   outermost canvas
+     *   bg-sidebar  section sidebar          #14171F   1-step lighter than bg
+     *   bg-canvas   shell main panel         #161A22   featurebase-shell-panel
+     *   bg-surface  cards / panels           #1D202B   THE blessed surface
+     *   bg-elevated inputs / inline controls #242835   sub-panels, chips
+     *   bg-hover    hover state              #2D313F
+     *
+     * Usage rule:
+     *   - Page backgrounds rely on Layout (no class needed).
+     *   - Cards / sections wrap content with the `Card` primitive (bg-surface).
+     *   - Sub-panels inside a Card use bg-bg-elevated.
+     *   - Hover/selected rows use bg-bg-hover with /40-/60 opacity.
+     *
+     * Legacy aliases (do NOT use in new code; covered by deprecation pass):
+     *   bg-surface-raised  -> bg-bg-surface
+     *   bg-surface-muted   -> bg-bg-elevated
+     *   border-border-subtle -> border-border/60 (or /40 for very soft lines)
      */
     --color-bg: 16 19 25;
+    --color-bg-root: 16 19 25; /* alias of --color-bg, used by messenger preview CSS */
     --color-bg-sidebar: 20 23 31;
     --color-bg-canvas: 22 26 34;
     --color-bg-surface: 29 32 43;
@@ -43,6 +56,7 @@
   :root[data-theme='light'] {
     color-scheme: light;
     --color-bg: 242 246 252;
+    --color-bg-root: 242 246 252;
     --color-bg-sidebar: 238 243 250;
     --color-bg-canvas: 248 250 254;
     --color-bg-surface: 255 255 255;

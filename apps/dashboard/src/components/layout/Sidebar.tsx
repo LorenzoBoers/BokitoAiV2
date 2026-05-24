@@ -46,20 +46,38 @@ export default function Sidebar() {
     if (path === '/support/inbox/all') {
       return location.pathname.startsWith('/support') || location.pathname.startsWith('/communication')
     }
+    if (path === '/integrations') {
+      return location.pathname.startsWith('/integrations')
+    }
     if (path.startsWith('/ai/assistent')) {
-      return location.pathname.startsWith('/projects') || location.pathname.startsWith('/datasources') || location.pathname.startsWith('/ai')
+      return location.pathname.startsWith('/ai')
     }
     if (path === '/database') {
       return location.pathname.startsWith('/database')
     }
+    if (path === '/projects') {
+      return (
+        location.pathname.startsWith('/projects') ||
+        location.pathname.startsWith('/project/')
+      )
+    }
+    if (path === '/admin/runs') {
+      return location.pathname.startsWith('/admin/runs')
+    }
     if (path === '/workforce') {
       return location.pathname.startsWith('/workforce')
+    }
+    if (path === '/messages') {
+      return location.pathname === '/messages' || location.pathname === '/communication'
+    }
+    if (path.startsWith('/project/') || path === '/projects') {
+      return location.pathname.startsWith('/project/') || location.pathname.startsWith('/projects')
     }
     if (path === '/users/attributes') {
       return location.pathname.startsWith('/users')
     }
     if (path === '/settings/profile') {
-      return location.pathname.startsWith('/settings') || location.pathname.startsWith('/integrations') || location.pathname.startsWith('/company-config')
+      return location.pathname.startsWith('/settings') || location.pathname.startsWith('/company-config')
     }
     return false
   }

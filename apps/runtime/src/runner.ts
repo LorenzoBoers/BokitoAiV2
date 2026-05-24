@@ -4,6 +4,7 @@ import type { RunConfigJson } from '@bokito/shared'
 import { config } from './config.js'
 import { checkTokenBudget } from './budget.js'
 import { completeRun, fetchRunContext, postWorkLogEvent } from './xano-client.js'
+import { fetchDocMap } from './docs/doc-map.js'
 
 const STDERR_TAIL_BYTES = 2048
 
@@ -42,6 +43,8 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
     const ctx = await fetchRunContext(data.project_id, data.agent_id, workLogId).catch(() => ({}))
 
     const ctxRecord = ctx as Record<string, unknown>
+
+    const docMap = await fetchDocMap(data.tenant_id, data.project_id).catch(() => '')
     const runConfig: RunConfigJson = {
       run_id: runId,
       project_id: data.project_id,
@@ -84,9 +87,9 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
         work_log_url: `${config.xanoBaseUrl}/api:workforce/work_logs/${workLogId}/events`,
         messages_url: `${config.xanoBaseUrl}/api:workforce/messages/worker`,
         search_index_url: `${config.xanoBaseUrl}/api:workforce/index/search`,
-        pkb_url: `${config.xanoBaseUrl}/api:workforce/pkb`,
-        pkb_list_url: `${config.xanoBaseUrl}/api:workforce/pkb/worker/list`,
-        pkb_update_url: `${config.xanoBaseUrl}/api:workforce/pkb/worker/update`,
+        doc_blocks_worker_url: `${config.xanoBaseUrl}/api:integrations/doc/worker/blocks`,
+        doc_reindex_page_url: `${config.xanoBaseUrl}/api:integrations/doc/worker/reindex-page`,
+        doc_map: docMap,
       },
     }
 

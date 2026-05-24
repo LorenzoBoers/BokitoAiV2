@@ -25,12 +25,14 @@ export async function listMessages(filters: {
   message_type?: string
   channel?: string
   thread_id?: string
+  project_id?: string
 }): Promise<MessageRow[]> {
   const params = new URLSearchParams()
   if (filters.status) params.set('status', filters.status)
   if (filters.message_type) params.set('message_type', filters.message_type)
   if (filters.channel) params.set('channel', filters.channel)
   if (filters.thread_id) params.set('thread_id', filters.thread_id)
+  if (filters.project_id) params.set('project_id', filters.project_id)
   const data = await xanoGetWorkforce<MessageRow[] | { items: MessageRow[] }>(
     messagesRoutes.listQuery(params)
   )

@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { ChevronRight } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
 import { Input } from '../components/ui/input'
+import { PageContent } from '../components/layout/PageContent'
 import { createProject } from '../lib/projects-api'
 
-const PLACEHOLDER =
-  'Example: A Dutch online shop that sells handmade ceramics and wants to grow through Instagram and a simple webshop.'
-
 export default function CreateProject() {
+  const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -29,48 +30,58 @@ export default function CreateProject() {
         slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
         autonomous_scope: scope.trim(),
       })
-      navigate(`/project/${project.id}/pkb`)
+      navigate(`/projects/new/${project.id}/connect`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create project')
+      setError(err instanceof Error ? err.message : t('project.create.error'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold text-text-primary">Create a project</h1>
-        <p className="mt-1 text-sm text-text-muted">Step 1 of 2 — describe what this project is about.</p>
+    <PageContent width="sm" className="space-y-6 py-1">
+      <div className="flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
+          1
+        </span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-sm text-text-muted">
+          2
+        </span>
       </div>
+      <p className="text-sm text-text-muted">{t('project.create.stepLabel')}</p>
       <form className="space-y-4" onSubmit={onSubmit}>
         <div>
-          <label className="text-sm font-medium text-text-primary">What is this project about?</label>
-          <p className="text-xs text-text-muted">
-            Describe it in a few sentences in your own words. Your AI team uses this as their north star.
-          </p>
+          <label className="text-sm font-medium text-text-primary">
+            {t('project.create.scopeLabel')}
+          </label>
+          <p className="text-xs text-text-muted">{t('project.create.scopeHint')}</p>
           <Textarea
             className="mt-2 min-h-[120px]"
             value={scope}
             onChange={(e) => setScope(e.target.value)}
-            placeholder={PLACEHOLDER}
+            placeholder={t('project.create.scopePlaceholder')}
             maxLength={500}
             required
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-text-primary">Project name</label>
+          <label className="text-sm font-medium text-text-primary">
+            {t('project.create.nameLabel')}
+          </label>
           <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div>
-          <label className="text-sm font-medium text-text-primary">URL slug</label>
+          <label className="text-sm font-medium text-text-primary">
+            {t('project.create.slugLabel')}
+          </label>
           <Input className="mt-1" value={slug} onChange={(e) => setSlug(e.target.value)} required />
         </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-status-error">{error}</p> : null}
         <Button type="submit" disabled={loading || !scopeOk}>
-          {loading ? 'Creating…' : 'Continue'}
+          {loading ? t('project.create.submitting') : t('project.create.submit')}
+          <ChevronRight className="ml-1 h-4 w-4" />
         </Button>
       </form>
-    </div>
+    </PageContent>
   )
 }

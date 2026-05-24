@@ -9,6 +9,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
+import { PageContent } from '../components/layout/PageContent'
 import {
   Select,
   SelectContent,
@@ -323,13 +324,10 @@ export default function MemberManagement() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-[1080px] space-y-5 px-2 py-1.5">
-      <section className="space-y-1">
-        <h2 className="text-[28px] font-semibold leading-tight text-text-heading">Leden en teams</h2>
-        <p className="text-sm text-text-secondary">
-          Beheer leden, uitnodigingen en teams binnen je workspace.
-        </p>
-      </section>
+    <PageContent width="xl" className="space-y-5">
+      <p className="text-sm text-text-secondary">
+        Beheer leden, uitnodigingen en teams binnen je workspace.
+      </p>
 
       {error ? (
         <div className="rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-sm text-status-error">
@@ -570,6 +568,6 @@ export default function MemberManagement() {
         </div>
       )}
 
-    </div>
+    </PageContent>
   )
 }

@@ -8,6 +8,7 @@ query "index/search" verb=POST {
     uuid project_id
     json embedding
     int top_k?=8
+    json source_types?
   }
 
   stack {
@@ -46,13 +47,26 @@ query "index/search" verb=POST {
       value = $input.top_k != null ? $input.top_k : 8
     }
 
-    db.query index_chunks {
-      where = $db.index_chunks.project_id == $input.project_id
-      sort = {index_chunks.updated_at: "desc"}
-      return = {
-        type  : "list"
-        paging: {page: 1, per_page: $limit}
+    var $embedding_literal {
+      value = "[" ~ ($input.embedding|join:",") ~ "]"
+    }
+
+    var $source_filter {
+      value = ""
+    }
+
+    conditional {
+      if ($input.source_types != null && ($input.source_types|count) > 0) {
+        var.update $source_filter {
+          value = " AND source_type = ANY(ARRAY[" ~ ($input.source_types|map:"'" ~ $$ ~ "'" | join:",") ~ "])"
+        }
       }
+    }
+
+    db.direct_query {
+      sql = "SELECT id, project_id, tenant_id, source_type, source_ref, content, created_at, updated_at FROM index_chunks WHERE project_id = '{{ $input.project_id }}'{{ $source_filter }} ORDER BY embedding <=> '{{ $embedding_literal }}'::vector LIMIT {{ $limit }}"
+      parser = "template_engine"
+      response_type = "list"
     } as $chunks
   }
 

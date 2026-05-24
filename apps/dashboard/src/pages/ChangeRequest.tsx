@@ -1,13 +1,26 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
-import { submitChangeRequest } from '../lib/pkb-api'
+import { Input } from '../components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { ProjectShell } from '../components/project/ProjectShell'
+import { useProjectContext } from '../context/ProjectContext'
+import { createChangeRequest } from '../lib/doc-api'
+import { cn } from '../lib/utils'
 
 export default function ChangeRequest() {
-  const { projectId } = useParams<{ projectId: string }>()
+  const { t } = useTranslation('nav')
+  const { projectId } = useProjectContext()
   const navigate = useNavigate()
-  const [content, setContent] = useState('')
+  const location = useLocation()
+  const navState = (location.state as
+    | { targetPageId?: string; targetPageTitle?: string }
+    | null) ?? null
+
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
   const [priority, setPriority] = useState<'low' | 'normal' | 'urgent'>('normal')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -16,56 +29,78 @@ export default function ChangeRequest() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!projectId || !content.trim()) return
+    if (!projectId || !body.trim()) return
     setLoading(true)
     setError(null)
     try {
-      const row = await submitChangeRequest({
-        project_id: projectId,
-        content: content.trim(),
+      await createChangeRequest(projectId, {
+        body: body.trim(),
+        title: title.trim() ? title.trim() : undefined,
+        target_page_id: navState?.targetPageId ?? null,
         priority: priorityMap[priority],
       })
-      navigate(`/project/${projectId}/pkb`, { state: { highlightSectionId: row.id } })
+      navigate(`/project/${projectId}/doc`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not submit request')
+      setError(err instanceof Error ? err.message : t('project.request.error'))
     } finally {
       setLoading(false)
     }
   }
 
-  if (!projectId) return <p className="p-6 text-sm text-text-muted">Select a project.</p>
-
   return (
-    <div className="mx-auto max-w-lg space-y-4 p-6">
-      <h1 className="text-xl font-semibold text-text-primary">Request a change</h1>
-      <p className="text-sm text-text-muted">
-        Describe what you want to change or add in your own words. Your team will pick it up from here.
-      </p>
-      <form className="space-y-4" onSubmit={onSubmit}>
-        <Textarea
-          className="min-h-[160px]"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="What would you like to change or add?"
-          required
-        />
-        <div className="flex gap-2">
-          {(['low', 'normal', 'urgent'] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={`rounded-md px-3 py-1 text-sm ${priority === p ? 'bg-brand-primary text-white' : 'bg-surface-muted text-text-muted'}`}
-              onClick={() => setPriority(p)}
-            >
-              {p === 'low' ? 'Whenever you can' : p === 'urgent' ? 'Urgent' : 'Soon'}
-            </button>
-          ))}
-        </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <Button type="submit" disabled={loading || !content.trim()}>
-          {loading ? 'Submitting…' : 'Submit request'}
-        </Button>
-      </form>
-    </div>
+    <ProjectShell>
+      <div className="mx-auto max-w-xl">
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t('project.request.title')}</CardTitle>
+              <p className="mt-1 text-sm text-text-muted">{t('project.request.description')}</p>
+              {navState?.targetPageTitle ? (
+                <p className="mt-2 inline-block rounded-full border border-border/70 bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                  {t('project.request.targetsPrefix')} {navState.targetPageTitle}
+                </p>
+              ) : null}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={onSubmit}>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={t('project.request.titlePlaceholder')}
+              />
+              <Textarea
+                className="min-h-[160px]"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={t('project.request.bodyPlaceholder')}
+                required
+              />
+              <div className="flex gap-2">
+                {(['low', 'normal', 'urgent'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={cn(
+                      'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                      priority === p
+                        ? 'border-accent bg-accent-muted text-accent'
+                        : 'border-border/70 bg-bg-elevated text-text-secondary hover:border-border hover:bg-bg-hover',
+                    )}
+                    onClick={() => setPriority(p)}
+                  >
+                    {t(`project.request.priority.${p}`)}
+                  </button>
+                ))}
+              </div>
+              {error ? <p className="text-sm text-status-error">{error}</p> : null}
+              <Button type="submit" disabled={loading || !body.trim()}>
+                {loading ? t('project.request.submitting') : t('project.request.submit')}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </ProjectShell>
   )
 }

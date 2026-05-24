@@ -194,6 +194,31 @@ export function generateClaudeDesktopConfig(): string {
   }, null, 2);
 }
 
+export function generateCursorMCPConfig(): string {
+  const config = getMCPConnectionConfig();
+  const urls = generateMCPServerUrls(config.workspaceId);
+  return JSON.stringify(
+    {
+      mcpServers: {
+        'bokito-schema': {
+          url: urls.schema,
+          headers: {
+            Authorization: `Bearer ${config.apiKey}`,
+          },
+        },
+        'bokito-data': {
+          url: urls.data,
+          headers: {
+            Authorization: `Bearer ${config.apiKey}`,
+          },
+        },
+      },
+    },
+    null,
+    2,
+  );
+}
+
 // Generate generic MCP client config
 export function generateGenericMCPConfig(): string {
   const config = getMCPConnectionConfig();

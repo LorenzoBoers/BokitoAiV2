@@ -8,21 +8,27 @@ import {
   Building,
   CreditCard,
   Database,
+  FolderKanban,
   Inbox,
   KeyRound,
   Link2,
   Mail,
   MessageSquare,
+  PenLine,
   Shield,
   Sparkles,
   Tag,
   UserCircle2,
   Users,
   Zap,
+  Blocks,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAiSidebarGroups,
+  getIntegrationsSidebarGroups,
+  getProjectsSidebarGroups,
+  getProjectSidebarGroups,
   getSettingsSidebarGroups,
   getUserSidebarGroups,
   getWorkforceSidebarGroups,
@@ -30,6 +36,8 @@ import {
 } from './portal-nav'
 import InboxSidebarNav from '../inbox/InboxSidebarNav'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
+import { useOptionalProjectDocNav } from '../../context/ProjectDocNavContext'
+import { PageTree } from '../doc/PageTree'
 
 function sectionClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-all ${
@@ -63,12 +71,33 @@ function iconForLink(to: string) {
   if (to.includes('/settings/data/companies')) return Building
   if (to.includes('/settings/data/conversations')) return MessageSquare
   if (to.includes('/settings/data/imports-exports')) return Database
-  if (to.includes('/projects')) return BookOpen
+  if (to === '/projects' || to === '/projects/new') return FolderKanban
+  if (to.startsWith('/projects')) return FolderKanban
   if (to.includes('/ai/assistent')) return MessageSquare
+  if (to.includes('/ai/communicatie')) return MessageSquare
   if (to.includes('/ai/handelingen')) return Zap
-  if (to.includes('/datasources')) return Link2
-  if (to.includes('/workforce')) return Users
+  if (to.includes('/integrations/sources')) return BookOpen
+  if (to.includes('/integrations/connected')) return Link2
+  if (to.includes('/integrations/connections')) return Link2
+  if (to.includes('/integrations/marketplace')) return Blocks
+  if (to.includes('/integrations/mcp')) return Zap
+  if (to.includes('/integrations/api')) return KeyRound
+  if (to.includes('/admin/runs')) return Users
+  if (to.includes('/project/') && to.endsWith('/overview')) return Briefcase
+  if (/\/project\/[^/]+\/(pkb|doc)/.test(to)) return BookOpen
+  if (to.includes('/project/') && to.endsWith('/request')) return PenLine
+  if (to.includes('/project/') && to.endsWith('/messages')) return MessageSquare
+  if (to.includes('/project/') && to.endsWith('/settings')) return Shield
   return Inbox
+}
+
+function isLinkActive(to: string, pathname: string): boolean {
+  // Doc link should remain active for any /doc or /doc/:slug nested route.
+  const docMatch = to.match(/^(\/project\/[^/]+\/doc)$/)
+  if (docMatch) {
+    return pathname === docMatch[1] || pathname.startsWith(`${docMatch[1]}/`)
+  }
+  return pathname === to
 }
 
 function SidebarGroupBlock({
@@ -104,6 +133,7 @@ function SidebarGroupBlock({
               className={({ isActive }) =>
                 sectionClass(
                   isActive ||
+                    isLinkActive(item.to, pathname) ||
                     (item.to === ASSISTENT_DEFAULT_PATH && pathname.startsWith('/ai/assistent/')),
                 )
               }
@@ -125,19 +155,71 @@ function SidebarGroupBlock({
   )
 }
 
+function ProjectDocPagesGroup({
+  pathname,
+  projectId,
+}: {
+  pathname: string
+  projectId: string
+}) {
+  const { t } = useTranslation('nav')
+  const docNav = useOptionalProjectDocNav()
+  const slug = pathname.match(/^\/project\/[^/]+\/doc\/([^/]+)/)?.[1] ?? null
+  const activePageId = slug && docNav?.pages
+    ? docNav.pages.find((p) => p.slug === slug)?.id
+    : undefined
+
+  return (
+    <section className="space-y-1">
+      <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+        {t('project.group.pages', { defaultValue: 'Pages' })}
+      </p>
+      {docNav?.loading ? (
+        <p className="px-3 py-1 text-xs text-text-muted">
+          {t('project.doc.loading', { defaultValue: 'Loading documentation…' })}
+        </p>
+      ) : docNav?.error ? (
+        <p className="px-3 py-1 text-xs text-text-muted">
+          {t('project.doc.loadErrorDeploy', {
+            defaultValue: 'Documentation backend not available yet.',
+          })}
+        </p>
+      ) : docNav && docNav.pages.length > 0 ? (
+        <PageTree
+          pages={docNav.pages}
+          projectId={projectId}
+          activePageId={activePageId}
+          variant="sidebar"
+        />
+      ) : (
+        <p className="px-3 py-1 text-xs text-text-muted">
+          {t('project.doc.treeEmpty', { defaultValue: 'No pages yet.' })}
+        </p>
+      )}
+    </section>
+  )
+}
+
 function resolveGroups(pathname: string, t: (key: string) => string): SidebarGroup[] {
-  if (pathname.startsWith('/settings') || pathname.startsWith('/integrations')) return getSettingsSidebarGroups(t)
+  const projectMatch = pathname.match(/^\/project\/([^/]+)/)
+  if (projectMatch?.[1]) return getProjectSidebarGroups(t, projectMatch[1])
+  if (pathname.startsWith('/projects')) return getProjectsSidebarGroups(t)
+  if (pathname.startsWith('/integrations')) return getIntegrationsSidebarGroups(t)
+  if (pathname.startsWith('/settings')) return getSettingsSidebarGroups(t)
   if (pathname.startsWith('/users') || pathname.startsWith('/database')) return getUserSidebarGroups(t)
-  if (pathname.startsWith('/projects') || pathname.startsWith('/ai') || pathname.startsWith('/datasources')) return getAiSidebarGroups(t)
-  if (pathname.startsWith('/workforce')) return getWorkforceSidebarGroups(t)
+  if (pathname.startsWith('/ai')) return getAiSidebarGroups(t)
+  if (pathname.startsWith('/workforce') || pathname.startsWith('/admin/runs')) return getWorkforceSidebarGroups(t)
   return []
 }
 
 function resolveTitle(pathname: string, t: (key: string) => string): string {
+  if (pathname.match(/^\/project\/[^/]+/)) return t('nav:sectionTitle.project', { defaultValue: 'Project' })
+  if (pathname.startsWith('/projects')) return t('nav:sectionTitle.projects', { defaultValue: 'Projects' })
   if (pathname.startsWith('/users') || pathname.startsWith('/database')) return t('nav:sectionTitle.data')
-  if (pathname.startsWith('/settings') || pathname.startsWith('/integrations')) return t('nav:sectionTitle.settings')
-  if (pathname.startsWith('/projects') || pathname.startsWith('/ai') || pathname.startsWith('/datasources')) return t('nav:sectionTitle.ai')
-  if (pathname.startsWith('/workforce')) return t('nav:sectionTitle.workforce')
+  if (pathname.startsWith('/integrations')) return t('nav:sectionTitle.integrations')
+  if (pathname.startsWith('/settings')) return t('nav:sectionTitle.settings')
+  if (pathname.startsWith('/ai')) return t('nav:sectionTitle.ai')
+  if (pathname.startsWith('/workforce') || pathname.startsWith('/admin/runs')) return t('nav:sectionTitle.workforce')
   return t('nav:sectionTitle.inbox')
 }
 
@@ -149,6 +231,9 @@ export default function SectionSidebar() {
   const title = resolveTitle(pathname, t)
 
   const isInbox = pathname.startsWith('/support') || pathname.startsWith('/communication')
+  const projectMatch = pathname.match(/^\/project\/([^/]+)/)
+  const projectId = projectMatch?.[1] ?? null
+  const onDocRoute = Boolean(projectId && /\/project\/[^/]+\/doc/.test(pathname))
 
   return (
     <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-border/55 bg-bg-sidebar px-3 py-3">
@@ -161,6 +246,9 @@ export default function SectionSidebar() {
             {groups.map((group) => (
               <SidebarGroupBlock key={group.label} group={group} user={user ?? null} pathname={pathname} />
             ))}
+            {onDocRoute && projectId ? (
+              <ProjectDocPagesGroup pathname={pathname} projectId={projectId} />
+            ) : null}
           </div>
         )}
       </div>

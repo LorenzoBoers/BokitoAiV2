@@ -29,8 +29,8 @@ export function AutonomousProposalCard({ message, onResolved }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-raised p-4">
-      <span className="inline-block rounded-full bg-surface-muted px-2 py-0.5 text-xs text-text-muted">
+    <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+      <span className="inline-block rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-muted">
         Suggested by your team
       </span>
       {highRisk ? (
