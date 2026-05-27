@@ -5,9 +5,15 @@ import { withQuery } from '../url'
  */
 export const workforceRoutes = {
   workLogs: {
-    list: (params?: { project_id?: string; status?: string; limit?: number }) => {
+    list: (params?: {
+      project_id?: string
+      agent_id?: string
+      status?: string
+      limit?: number
+    }) => {
       const search = new URLSearchParams()
       if (params?.project_id) search.set('project_id', params.project_id)
+      if (params?.agent_id) search.set('agent_id', params.agent_id)
       if (params?.status) search.set('status', params.status)
       if (params?.limit != null) search.set('limit', String(params.limit))
       return withQuery('/work_logs', search)

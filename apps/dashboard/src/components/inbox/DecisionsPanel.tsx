@@ -4,11 +4,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { AutonomousProposalCard } from './AutonomousProposalCard'
 import { RunStatusIndicator } from './RunStatusIndicator'
 import { listMessages, type MessageRow } from '../../lib/messages-api'
+import { messageWorkLogUrl } from '../../lib/workforce-run-urls'
 
 function workLogIdFromMessage(message: MessageRow): string | null {
   const payload = message.payload ?? {}
   const id = payload.work_log_id ?? payload.workLogId
   return typeof id === 'string' && id.trim() ? id : null
+}
+
+function projectIdFromMessage(message: MessageRow): string | null {
+  if (typeof message.project_id === 'string' && message.project_id) return message.project_id
+  const fromPayload = message.payload?.project_id
+  return typeof fromPayload === 'string' ? fromPayload : null
+}
+
+function agentIdFromMessage(message: MessageRow): string | null {
+  const fromPayload = message.payload?.agent_id ?? message.payload?.agentId
+  return typeof fromPayload === 'string' && fromPayload.trim() ? fromPayload : null
 }
 
 function isAutonomousProposal(message: MessageRow): boolean {
@@ -132,7 +144,11 @@ export function DecisionsPanel() {
                     <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{message.body}</p>
                     {workLogId ? (
                       <Link
-                        to={`/admin/runs/${workLogId}`}
+                        to={messageWorkLogUrl(
+                          workLogId,
+                          projectIdFromMessage(message),
+                          agentIdFromMessage(message),
+                        )}
                         className="mt-2 inline-block text-sm text-accent hover:underline"
                       >
                         View run

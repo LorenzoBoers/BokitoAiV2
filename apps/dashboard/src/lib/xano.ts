@@ -3,6 +3,7 @@ import { APP_API_BASE, AUTH_API_BASE, INTEGRATIONS_API_BASE, WORKFORCE_API_BASE,
 
 const DEFAULT_ACCESS_TOKEN_TTL_S = 3600;
 const DEFAULT_REFRESH_TOKEN_TTL_S = 30 * 24 * 60 * 60;
+const ACCESS_TOKEN_SESSION_KEY = 'bokito_access_token_session';
 
 export { XANO_BASE_URL, xanoApiBase };
 export const XANO_AUTH_API = AUTH_API_BASE;
@@ -23,9 +24,21 @@ export function setAccessTokenProvider(provider: (() => string | null) | null): 
   accessTokenProvider = provider;
 }
 
+function readStoredAccessToken(): string | null {
+  try {
+    const fromSession = sessionStorage.getItem(ACCESS_TOKEN_SESSION_KEY);
+    if (fromSession?.trim()) return fromSession;
+  } catch {
+    // Ignore storage failures in private mode.
+  }
+  return null;
+}
+
 export function resolveAccessToken(explicitToken?: string): string | null {
   if (explicitToken && explicitToken.trim()) return explicitToken;
-  return accessTokenProvider?.() ?? null;
+  const fromProvider = accessTokenProvider?.();
+  if (fromProvider?.trim()) return fromProvider;
+  return readStoredAccessToken();
 }
 
 export function requireAccessToken(explicitToken?: string): string {

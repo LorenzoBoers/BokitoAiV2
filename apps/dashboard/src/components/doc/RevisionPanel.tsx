@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Undo2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { applyBlockOps, listBlockRevisions, type DocBlockRevisionRow } from '../../lib/doc-api'
+import { applyWorkspaceBlockOps, listWorkspaceBlockRevisions } from '../../lib/workspace-doc-api'
 import { renderInlineText } from '../../lib/doc-blocks'
 
 interface RevisionPanelProps {
-  projectId: string
+  projectId?: string
   pageId: string
+  docScope?: 'project' | 'workspace'
   refreshKey: number
   onReverted: () => void
   /** When `embedded`, render without outer card chrome (used inside a Dialog). */
@@ -36,11 +38,15 @@ export function RevisionPanel({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!projectId || !pageId) return
+    if ((docScope === 'project' && !projectId) || !pageId) return
     let cancelled = false
     setLoading(true)
     setError(null)
-    listBlockRevisions(projectId, pageId)
+    const loadRevs =
+      docScope === 'workspace'
+        ? listWorkspaceBlockRevisions(pageId)
+        : listBlockRevisions(projectId!, pageId)
+    loadRevs
       .then((rows) => {
         if (cancelled) return
         setRevs(rows)
@@ -55,16 +61,21 @@ export function RevisionPanel({
     return () => {
       cancelled = true
     }
-  }, [projectId, pageId, refreshKey])
+  }, [docScope, projectId, pageId, refreshKey, t])
+
+  const applyOps = (ops: Parameters<typeof applyBlockOps>[2]) =>
+    docScope === 'workspace'
+      ? applyWorkspaceBlockOps(pageId, ops)
+      : applyBlockOps(projectId!, pageId, ops)
 
   const onRevert = async (rev: DocBlockRevisionRow) => {
     setReverting(rev.id)
     try {
       if (rev.op === 'create') {
-        await applyBlockOps(projectId, pageId, [{ op: 'delete', id: rev.block_id }])
+        await applyOps([{ op: 'delete', id: rev.block_id }])
       } else if (rev.op === 'delete' && rev.before) {
         const b = rev.before
-        await applyBlockOps(projectId, pageId, [
+        await applyOps([
           {
             op: 'create',
             id: b.id,
@@ -77,7 +88,7 @@ export function RevisionPanel({
         ])
       } else if (rev.op === 'update' && rev.before) {
         const b = rev.before
-        await applyBlockOps(projectId, pageId, [
+        await applyOps([
           {
             op: 'update',
             id: b.id,
@@ -88,7 +99,7 @@ export function RevisionPanel({
         ])
       } else if (rev.op === 'move' && rev.before) {
         const b = rev.before
-        await applyBlockOps(projectId, pageId, [
+        await applyOps([
           {
             op: 'move',
             id: b.id,

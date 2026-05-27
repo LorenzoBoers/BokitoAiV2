@@ -16,10 +16,10 @@ export const integrationsRoutes = {
     connectionById: (connectionId: string) => `/integrations/connections/${connectionId}`,
     connectionResources: (connectionId: string) =>
       `/integrations/connections/${connectionId}/resources`,
-    oauthStart: (provider: string, encodedReturnUrl: string, projectId?: string) => {
+    oauthStart: (provider: string, returnUrl: string, projectId?: string) => {
       const params = new URLSearchParams({
         provider,
-        return_url: encodedReturnUrl,
+        return_url: returnUrl,
       })
       if (projectId) params.set('project_id', projectId)
       return withQuery('/integrations/oauth/start', params)
@@ -73,6 +73,7 @@ export const integrationsRoutes = {
   inbox: {
     threadsQuery: (params: URLSearchParams) => withQuery('/inbox/threads', params),
     thread: (threadId: number) => `/inbox/threads/${threadId}`,
+    threadDelete: (threadId: number) => `/inbox/threads/${threadId}`,
     threadMarkRead: (threadId: number) => `/inbox/threads/${threadId}/mark-read`,
     threadMarkUnread: (threadId: number) => `/inbox/threads/${threadId}/mark-unread`,
     threadPin: (threadId: number) => `/inbox/threads/${threadId}/pin`,

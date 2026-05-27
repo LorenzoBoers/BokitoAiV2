@@ -1,0 +1,69 @@
+import { Mail, Pin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
+import { cn } from '../../lib/utils'
+
+type Props = {
+  value: InboxListQuickFilter
+  onChange: (value: InboxListQuickFilter) => void
+  counts: {
+    all: number
+    unread: number
+    pinned: number
+  }
+}
+
+const FILTERS: Array<{
+  id: InboxListQuickFilter
+  labelKey: string
+  defaultLabel: string
+  icon?: typeof Mail
+}> = [
+  { id: 'all', labelKey: 'listFilters.all', defaultLabel: 'Alles' },
+  { id: 'unread', labelKey: 'listFilters.unread', defaultLabel: 'Ongelezen', icon: Mail },
+  { id: 'pinned', labelKey: 'listFilters.pinned', defaultLabel: 'Gepind', icon: Pin },
+]
+
+export default function ThreadListQuickFilters({ value, onChange, counts }: Props) {
+  const { t } = useTranslation('communication')
+
+  return (
+    <div className="flex flex-wrap gap-1 px-3 pt-2.5 pb-2 border-b border-border/50">
+      {FILTERS.map((filter) => {
+        const Icon = filter.icon
+        const count = counts[filter.id]
+        const active = value === filter.id
+        const disabled = filter.id !== 'all' && count === 0
+
+        return (
+          <button
+            key={filter.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(filter.id)}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+              active
+                ? 'border-accent/35 bg-accent/12 text-accent'
+                : 'border-border/55 bg-bg-surface-hover/40 text-text-secondary hover:border-border hover:bg-bg-hover/60 hover:text-text-primary',
+              disabled && 'opacity-40 pointer-events-none',
+            )}
+          >
+            {Icon ? <Icon size={11} className={active ? 'text-accent' : 'text-text-muted'} /> : null}
+            <span>{t(filter.labelKey, { defaultValue: filter.defaultLabel })}</span>
+            {count > 0 && filter.id !== 'all' ? (
+              <span
+                className={cn(
+                  'tabular-nums',
+                  active ? 'text-accent/90' : 'text-text-muted',
+                )}
+              >
+                {count}
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

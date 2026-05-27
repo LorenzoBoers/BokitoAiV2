@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useParams } from 'react-router-dom'
 import { ChevronDown, ChevronRight, Inbox, Mail, Pin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
+import { useNavBadges } from '../../context/NavBadgeContext'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
+import { countForInboxQueue } from '../../lib/nav-badge-counts'
+import NavCountBadge from '../layout/NavCountBadge'
 import { UserAvatar } from '../ui/UserAvatar'
 
 function navLinkClass(isActive: boolean) {
@@ -14,13 +18,13 @@ function navLinkClass(isActive: boolean) {
 }
 
 const GLOBAL_VIEWS = [
-  { label: 'Open', queue: 'all' },
-  { label: 'Toegewezen aan mij', queue: 'my' },
-  { label: 'Gepind', queue: 'pinned' },
-  { label: 'Niet toegewezen', queue: 'unassigned' },
-  { label: 'In behandeling', queue: 'pending' },
-  { label: 'Gesloten', queue: 'closed' },
-]
+  { labelKey: 'support.links.allMessages', queue: 'all', defaultLabel: 'Open' },
+  { labelKey: 'support.links.myInbox', queue: 'my', defaultLabel: 'Toegewezen aan mij' },
+  { labelKey: 'support.links.pinned', queue: 'pinned', defaultLabel: 'Gepind' },
+  { labelKey: 'support.links.unassigned', queue: 'unassigned', defaultLabel: 'Niet toegewezen' },
+  { labelKey: 'support.links.pending', queue: 'pending', defaultLabel: 'In behandeling' },
+  { labelKey: 'support.links.closed', queue: 'closed', defaultLabel: 'Gesloten' },
+] as const
 
 const CHANNEL_VIEWS = [
   { label: 'Open', queue: 'all' },
@@ -112,7 +116,9 @@ function ChannelSection({ connectionId, label, email, currentChannelId }: Channe
 }
 
 export default function InboxSidebarNav() {
+  const { t } = useTranslation('nav')
   const { user } = useAuth()
+  const { counts } = useNavBadges()
   const { channelId } = useParams<{ channelId?: string }>()
   const { connections, loading } = useMailboxConnections()
 
@@ -127,27 +133,32 @@ export default function InboxSidebarNav() {
           Alle kanalen
         </p>
         <div className="space-y-0.5">
-          {GLOBAL_VIEWS.map((v) => (
-            <NavLink
-              key={v.queue}
-              to={`/support/inbox/${v.queue}`}
-              className={({ isActive }) => navLinkClass(isActive)}
-            >
-              {v.queue === 'my' ? (
-                <UserAvatar
-                  name={user?.name ?? '?'}
-                  email={user?.email ?? ''}
-                  avatarUrl={user?.avatarUrl}
-                  size={14}
-                />
-              ) : v.queue === 'pinned' ? (
-                <Pin size={14} className="text-text-muted" />
-              ) : (
-                <Inbox size={14} className="text-text-muted" />
-              )}
-              <span>{v.label}</span>
-            </NavLink>
-          ))}
+          {GLOBAL_VIEWS.map((v) => {
+            const badgeCount = countForInboxQueue(counts, v.queue)
+            const label = t(v.labelKey, { defaultValue: v.defaultLabel })
+            return (
+              <NavLink
+                key={v.queue}
+                to={`/support/inbox/${v.queue}`}
+                className={({ isActive }) => navLinkClass(isActive)}
+              >
+                {v.queue === 'my' ? (
+                  <UserAvatar
+                    name={user?.name ?? '?'}
+                    email={user?.email ?? ''}
+                    avatarUrl={user?.avatarUrl}
+                    size={14}
+                  />
+                ) : v.queue === 'pinned' ? (
+                  <Pin size={14} className="text-text-muted" />
+                ) : (
+                  <Inbox size={14} className="text-text-muted" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{label}</span>
+                <NavCountBadge count={badgeCount} placement="inline" />
+              </NavLink>
+            )
+          })}
         </div>
       </section>
 

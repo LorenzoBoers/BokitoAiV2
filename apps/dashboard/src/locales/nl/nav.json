@@ -1,10 +1,13 @@
 {
   "rail": {
+    "home": "Home",
     "support": "Inbox",
     "updates": "AI",
+    "assistent": "Assistent",
     "integrations": "Integraties",
     "data": "Data",
     "workforce": "Workforce",
+    "agents": "Agenten",
     "users": "Gebruikers",
     "settings": "Instellingen",
     "projects": "Projecten",
@@ -13,15 +16,178 @@
     "messages": "Berichten"
   },
   "sectionTitle": {
+    "home": "Home",
     "users": "Gebruikers",
     "settings": "Instellingen",
     "inbox": "Inbox",
     "ai": "AI",
+    "assistent": "Assistent",
     "integrations": "Integraties",
     "workforce": "Workforce",
+    "agents": "Agenten",
     "data": "Data",
     "project": "Project",
-    "projects": "Projecten"
+    "projects": "Projecten",
+    "projectHub": "Project hub"
+  },
+  "home": {
+    "title": "Home",
+    "description": "Overzicht van je workspace: recente projecten, inbox en agent runs.",
+    "group": {
+      "overview": "Overzicht"
+    },
+    "quick": {
+      "newProject": "Nieuw project",
+      "openInbox": "Inbox openen",
+      "integrations": "Integraties",
+      "assistent": "Assistent"
+    },
+    "recentProjects": {
+      "title": "Recente projecten",
+      "viewAll": "Alle projecten",
+      "empty": "Nog geen projecten."
+    },
+    "inbox": {
+      "title": "Inbox",
+      "description": "Ga direct naar je belangrijkste wachtrijen."
+    },
+    "agentRuns": {
+      "title": "Recente agent runs",
+      "viewAll": "Alle runs",
+      "empty": "Nog geen agent runs."
+    }
+  },
+  "data": {
+    "group": {
+      "nav": "Data"
+    },
+    "links": {
+      "tables": "Tabellen",
+      "sources": "Kennisbronnen",
+      "importsExports": "Import en export"
+    }
+  },
+  "agents": {
+    "group": {
+      "nav": "Agenten"
+    },
+    "links": {
+      "runs": "Agent runs"
+    }
+  },
+  "inbox": {
+    "configureGroup": "Configureren",
+    "configureAssistent": "Assistent instellen",
+    "configureInbox": "Inbox-instellingen"
+  },
+  "badges": {
+    "unreadInbox": "{{count}} ongelezen in inbox",
+    "awaitingHuman": "{{count}} open voor goedkeuring",
+    "homeTotal": "{{count}} items vragen aandacht",
+    "railInbox": "Inbox ({{count}} ongelezen)",
+    "railAgents": "Agenten ({{count}} open)",
+    "railProjects": "Project hub ({{count}} open)",
+    "railHome": "Home ({{count}})",
+    "railMessages": "Berichten ({{count}} ongelezen)",
+    "ariaInbox": "{{count}} ongelezen berichten",
+    "ariaAgents": "{{count}} items wachten op actie",
+    "queue": {
+      "all": "{{count}} ongelezen open",
+      "my": "{{count}} ongelezen voor jou",
+      "unassigned": "{{count}} ongelezen niet toegewezen"
+    }
+  },
+  "backgroundWorkers": {
+    "label": "Achtergrondworkers",
+    "loading": "Workers laden…",
+    "empty": "Nog geen workers.",
+    "newProject": "Nieuw project",
+    "showMore": "Toon {{count}} meer",
+    "showLess": "Toon minder",
+    "status": {
+      "loading": "Status bijwerken…",
+      "blocked": "Geblokkeerd — actie nodig",
+      "attention": "Open vragen",
+      "running": "Bezig",
+      "error": "Fout",
+      "paused": "Gepauzeerd",
+      "scheduled": "Gepland",
+      "idle": "Inactief",
+      "lastActive": "Laatst actief {{time}}",
+      "neverActive": "Nog niet actief"
+    },
+    "setup": {
+      "notConnected": "Geen repo",
+      "indexPending": "Index in wachtrij",
+      "indexing": "Repo indexeren",
+      "indexError": "Indexfout",
+      "ready": "Repo klaar"
+    },
+    "strip": {
+      "openCommunication": "Open communicatie",
+      "viewRuns": "Bekijk runs",
+      "openOrchestration": "Orchestratie",
+      "nextWake": "Volgende wake {{time}}",
+      "budgetBlocked": "Tokenbudget bereikt"
+    }
+  },
+  "projectHub": {
+    "description": "Centrale documentatie, doorlopende projecten en agent-communicatie op een plek.",
+    "tabsAriaLabel": "Project hub-navigatie",
+    "tabs": {
+      "overview": "Overzicht",
+      "docs": "Documentatie",
+      "projects": "Projecten",
+      "communication": "Communicatie"
+    },
+    "quick": {
+      "newProject": "Nieuw project",
+      "openDocs": "Open documentatie",
+      "openCommunication": "Open communicatie"
+    },
+    "backgroundProjects": {
+      "label": "Achtergrondprojecten",
+      "loading": "Projecten laden…",
+      "empty": "Nog geen projecten.",
+      "newProject": "Nieuw project",
+      "showMore": "Toon {{count}} meer",
+      "showLess": "Toon minder"
+    },
+    "overview": {
+      "activeProjectsTitle": "Actieve projecten",
+      "viewAllProjects": "Alle projecten",
+      "openFirstProject": "Open project",
+      "emptyProjects": "Nog geen projecten.",
+      "pendingDecisionsTitle": "Wacht op goedkeuring",
+      "viewAllDecisions": "Open communicatie",
+      "emptyDecisions": "Geen openstaande beslissingen.",
+      "recentRunsTitle": "Recente agent runs"
+    },
+    "docs": {
+      "menuLabel": "Documentatie",
+      "group": "Pagina's",
+      "chaptersLabel": "Hoofdstukken",
+      "treeEmpty": "Nog geen pagina's. Vernieuw om standaard hoofdstukken aan te maken.",
+      "emptyTitle": "Geen documentatiepagina's",
+      "emptyDescription": "Workspace-documentatie kon niet worden geladen of heeft nog geen pagina's. Probeer opnieuw nadat de backend is gedeployed.",
+      "agentEdit": "Vraag agent",
+      "agentEditTitle": "Documentatie bijwerken",
+      "agentEditDescription": "Beschrijf de wijzigingen voor deze pagina. Er wordt een product-owner agent run ingepland.",
+      "agentEditPlaceholder": "Bijvoorbeeld: Voeg een sectie over ons retourbeleid toe onder Operations.",
+      "agentEditSubmit": "Verstuur verzoek",
+      "agentRequestTitle": "Pagina bijwerken: {{page}}",
+      "agentRequestSent": "Wijzigingsverzoek ingepland. Je krijgt bericht wanneer de agent klaar is.",
+      "agentRequestFailed": "Kon het wijzigingsverzoek niet aanmaken."
+    },
+    "projects": {
+      "description": "Continue agent-werkstromen. Elk project bundelt een doel met de agents die er continu aan werken."
+    },
+    "communication": {
+      "description": "Openstaande agent-berichten die om jouw beslissing vragen, gegroepeerd over alle projecten.",
+      "pendingTitle": "Wacht op admin",
+      "empty": "Geen openstaande agent-berichten.",
+      "openInbox": "Open inbox"
+    }
   },
   "userMenu": {
     "openAria": "Open gebruikersmenu",
@@ -69,12 +235,37 @@
   },
   "ai": {
     "group": {
-      "ai": "AI"
+      "ai": "AI",
+      "assistent": "Assistent",
+      "agents": "Agents"
     },
     "links": {
       "assistent": "Assistents",
+      "widget": "Widget",
       "kennis": "AI bronnen",
-      "communication": "AI communicatie instellingen"
+      "communication": "AI communicatie",
+      "agents": "Agents"
+    },
+    "agents": {
+      "pageTitle": "Agents",
+      "pageDescription": "Beheer workforce-agents en bekijk run-geschiedenis per agent.",
+      "listDescription": "Open een agent om run-geschiedenis en live logs te bekijken.",
+      "loading": "Agents laden…",
+      "loadError": "Kon agents niet laden.",
+      "detailLoadError": "Kon agent-geschiedenis niet laden.",
+      "empty": "Geen agents geconfigureerd voor deze workspace.",
+      "notFound": "Agent niet gevonden.",
+      "roleUnknown": "Agent",
+      "backToList": "Terug naar agents",
+      "backToAgent": "Terug naar agent",
+      "historyTitle": "Run-geschiedenis",
+      "historyDescription": "Runs van deze agent over alle projecten.",
+      "status": {
+        "active": "Actief",
+        "standby": "Stand-by",
+        "sleeping": "Slapend",
+        "error": "Fout"
+      }
     },
     "pageMeta": {
       "communication": {
@@ -146,6 +337,7 @@
     },
     "actions": {
       "setupConnection": "Koppelen",
+      "viewInfo": "Informatie over deze integratie",
       "setupInMcp": "Instellen in MCP",
       "manage": "Beheren",
       "manageInMcp": "Beheren in MCP",
@@ -171,6 +363,32 @@
       "notConnected": "Niet verbonden",
       "mailboxCount": "{{count}} verbonden",
       "other": "Overige"
+    },
+    "hub": {
+      "detail": {
+        "subtitle": "Meer informatie over deze integratie en hoe je deze koppelt.",
+        "setup": "Nieuwe verbinding instellen",
+        "manageConnected": "Beheren bij Verbonden",
+        "capabilities": "Mogelijkheden"
+      },
+      "capability": {
+        "inbox_sync": "Inbox-synchronisatie",
+        "repo_index": "Repository-indexering",
+        "mcp_tools": "MCP-tools voor agents"
+      },
+      "setup": {
+        "title": "{{name}} instellen",
+        "back": "Terug",
+        "oauthHint": "Je wordt doorgestuurd naar de provider om veilig in te loggen. Daarna kom je terug in Bokito.",
+        "oauthStepSignIn": "Meld je aan bij {{name}} en geef toestemming.",
+        "oauthStepReturn": "Je wordt teruggeleid naar de Marketplace.",
+        "oauthContinue": "Doorgaan naar inloggen",
+        "oauthContinuing": "Doorsturen…",
+        "oauthLoginRequired": "Log eerst in op Bokito om door te gaan.",
+        "successGithub": "GitHub-account succesvol gekoppeld.",
+        "successInbox": "Mailbox succesvol gekoppeld.",
+        "error": "Koppelen mislukt. Probeer het opnieuw."
+      }
     },
     "marketplace": {
       "connectedCount": "{{count}} verbonden",
@@ -318,7 +536,8 @@
     },
     "runs": {
       "description": "Geschiedenis en live event-stream voor Bokito-medewerkers en workspace-admins.",
-      "back": "Terug naar alle runs",
+      "back": "Terug naar workforce-geschiedenis",
+      "detailTitle": "Run-detail",
       "loading": "Runs laden…",
       "loadError": "Runs laden mislukt",
       "empty": "Nog geen agent runs.",
@@ -368,6 +587,7 @@
     }
   },
   "project": {
+    "tabsAriaLabel": "Projectonderdelen",
     "group": {
       "nav": "Project",
       "pages": "Pagina's"
@@ -375,6 +595,11 @@
     "links": {
       "overview": "Overzicht",
       "knowledge": "Documentatie",
+      "orchestration": "Orchestratie",
+      "communication": "Communicatie",
+      "workforce": "Workforce-geschiedenis",
+      "usage": "Tokenverbruik",
+      "notifications": "Notificaties",
       "request": "Wijziging aanvragen",
       "messages": "Berichten",
       "settings": "Instellingen"
@@ -404,6 +629,98 @@
       "empty": {
         "updates": "Nog geen updates voor dit project.",
         "decisions": "Geen openstaande beslissingen voor dit project."
+      }
+    },
+    "communication": {
+      "title": "Communicatie",
+      "description": "Updates en beslissingen voor dit project tussen jou en de agents.",
+      "hubLink": "Open hub-communicatie",
+      "tabs": {
+        "pending": "Openstaand",
+        "resolved": "Afgehandeld"
+      },
+      "emptyResolved": "Nog geen afgehandelde beslissingen."
+    },
+    "orchestration": {
+      "title": "Orchestratie",
+      "description": "Stuur hoe de project-owner-agent dit project laat draaien: cadans, autonomie en human-in-the-loop.",
+      "loading": "Orchestratie-instellingen laden…",
+      "saved": "Instellingen opgeslagen.",
+      "loadError": "Kon orchestratie-instellingen niet laden.",
+      "saveError": "Kon orchestratie-instellingen niet opslaan.",
+      "wakeFrequency": {
+        "label": "Wake-frequentie",
+        "hint": "Hoe vaak de PO-agent dit project bekijkt en plant.",
+        "options": {
+          "hourly": "Elk uur",
+          "daily": "Dagelijks",
+          "weekly": "Wekelijks",
+          "manual": "Alleen handmatig"
+        }
+      },
+      "autonomyMode": {
+        "label": "Autonomiemodus",
+        "hint": "Hoeveel ruimte agents krijgen om zelfstandig te beslissen.",
+        "options": {
+          "conservative": "Voorzichtig",
+          "balanced": "Gebalanceerd",
+          "aggressive": "Ambitieus"
+        }
+      },
+      "hitl": {
+        "label": "Human-in-the-loop gevoeligheid",
+        "hint": "Welke soort beslissingen om jouw goedkeuring vragen.",
+        "options": {
+          "low": "Alleen onomkeerbaar",
+          "medium": "Belangrijke wijzigingen",
+          "high": "De meeste beslissingen",
+          "all": "Alles"
+        }
+      },
+      "continuous": {
+        "label": "Continu doorlopen",
+        "hint": "Laat agents tussen wake-cycli door blijven werken aan open taken."
+      }
+    },
+    "notifications": {
+      "title": "Notificaties",
+      "description": "Bepaal per kanaal welke project-events je ontvangt.",
+      "loading": "Notificatievoorkeuren laden…",
+      "loadError": "Kon notificatievoorkeuren niet laden.",
+      "saveError": "Kon notificatievoorkeuren niet opslaan.",
+      "eventColumn": "Gebeurtenis",
+      "events": {
+        "decisions": "Beslissing vereist",
+        "updates": "Status-updates",
+        "failures": "Storingen en errors",
+        "tokens": "Token-drempel bereikt"
+      },
+      "channels": {
+        "desktop": "Desktop",
+        "email": "E-mail",
+        "mobile": "Mobiel"
+      }
+    },
+    "workforce": {
+      "title": "Workforce-geschiedenis",
+      "description": "Alle agent runs voor dit project. Klik door voor live event-logs."
+    },
+    "usage": {
+      "title": "Tokenverbruik",
+      "description": "Kerngetallen over agent-activiteit en gebruik voor dit project.",
+      "loadError": "Kon usage-gegevens niet laden.",
+      "budgetTitle": "Dagelijks budget",
+      "budget": {
+        "dailyLimit": "Daglimiet",
+        "usedToday": "Vandaag gebruikt",
+        "remainingToday": "Vandaag resterend",
+        "blocked": "Dag- of uurbudget bereikt."
+      },
+      "metrics": {
+        "totalRuns": "Totaal runs",
+        "runningRuns": "Lopend",
+        "totalTokens": "Tokens gebruikt",
+        "failedRuns": "Mislukt"
       }
     },
     "settings": {
@@ -464,6 +781,19 @@
       "pickPage": "Kies een pagina in de zijbalk om te lezen.",
       "retry": "Opnieuw proberen",
       "treeEmpty": "Nog geen pagina's.",
+      "pageCrud": {
+        "menuAria": "Pagina-acties",
+        "addPage": "Pagina toevoegen",
+        "newRootPrompt": "Paginatitel",
+        "newChildPrompt": "Titel subpagina",
+        "newSiblingPrompt": "Titel sibling-pagina",
+        "renamePrompt": "Pagina hernoemen",
+        "rename": "Hernoemen",
+        "delete": "Verwijderen",
+        "deleteConfirm": "Pagina \"{{title}}\" verwijderen?",
+        "newChild": "Subpagina toevoegen",
+        "newSibling": "Sibling-pagina toevoegen"
+      },
       "lockedTitle": "Deze pagina is vergrendeld",
       "lockedHint": "Ontgrendel via pagina-instellingen om te bewerken.",
       "revert": "Terugdraaien",

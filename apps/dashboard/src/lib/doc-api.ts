@@ -51,8 +51,12 @@ export interface InlineRun {
 export interface DocPageRow {
   id: string
   tenant_id: string
-  project_id: string
-  doc_id: string
+  /** Present on project-scoped pages only. */
+  project_id?: string
+  /** Present on project-scoped pages only. */
+  doc_id?: string
+  /** Present on workspace-scoped pages. */
+  workspace_doc_id?: string
   parent_page_id: string | null
   title: string
   slug: string

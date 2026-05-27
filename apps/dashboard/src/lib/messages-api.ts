@@ -11,6 +11,7 @@ export type MessageStatus =
 export interface MessageRow {
   id: string
   thread_id: string
+  project_id?: string | null
   subject: string | null
   body: string
   message_type: string

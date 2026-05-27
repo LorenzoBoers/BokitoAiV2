@@ -11,36 +11,40 @@ import {
 import {
   connectionCountForProvider,
   listIntegrationProviders,
-  startIntegrationOAuth,
   type IntegrationProviderRow,
   type ProvidersListResponse,
 } from '../lib/integrations-api'
 import { parseIntegrationCallback } from '../lib/integrations-oauth'
-import { listGithubConnections, startGithubOAuth } from '../lib/github-api'
-import { resolveIntegrationKind, type IntegrationKind } from '../lib/integration-kind'
+import { parseOAuthCallback, describeOAuthCallbackSummary } from '../lib/email-oauth'
+import { listGithubConnections } from '../lib/github-api'
+import { resolveIntegrationKind } from '../lib/integration-kind'
 import {
   parseKindFilter,
   kindFilterToParam,
   connectedPathWithKind,
   type IntegrationKindFilter,
 } from '../lib/integration-kind-url'
+import {
+  parseHubConnectParam,
+  stripOAuthCallbackParams,
+  type IntegrationHubStep,
+} from '../lib/integration-setup-url'
+import { integrationIdToPlatformSlug } from '../lib/integration-setup'
+import {
+  getRegistryEntryByStaticId,
+  SLUG_TO_STATIC_ID,
+} from '../lib/integrations/registry'
 import { applyBrandToIntegration, resolveProviderBrand } from '../lib/integration-brand'
 import { ProviderCard } from '../components/integrations/ProviderCard'
+import {
+  IntegrationHubDialog,
+  type HubBanner,
+} from '../components/integrations/IntegrationHubDialog'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import { Input } from '../components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
-
-const SLUG_TO_STATIC_ID: Record<string, string> = {
-  github: 'github',
-  outlook: 'microsoft-365',
-  gmail: 'google-workspace',
-  microsoft_mail: 'microsoft-365',
-  google_mail: 'google-workspace',
-  bjorn_lunden_mcp: 'bjorn_lunden_mcp',
-  custom_mcp: 'custom_mcp',
-}
 
 function providerToIntegration(
   p: IntegrationProviderRow,
@@ -75,9 +79,10 @@ function connectionCountForItem(
   providers: IntegrationProviderRow[],
   githubLen: number,
 ): number {
-  if (integration.id === 'github') return Math.max(githubLen, 0)
-  if (integration.id === 'microsoft-365' && counts) return counts.email_outlook ?? 0
-  if (integration.id === 'google-workspace' && counts) return counts.email_gmail ?? 0
+  const entry = getRegistryEntryByStaticId(integration.id)
+  if (entry?.connectionCountSource === 'github_api') return Math.max(githubLen, 0)
+  if (entry?.connectionCountSource === 'email_outlook' && counts) return counts.email_outlook ?? 0
+  if (entry?.connectionCountSource === 'email_gmail' && counts) return counts.email_gmail ?? 0
   const provider = providers.find(
     (p) => p.slug === integration.id || SLUG_TO_STATIC_ID[p.slug] === integration.id,
   )
@@ -105,6 +110,11 @@ export default function IntegrationsMarketplace() {
   )
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const [hubOpen, setHubOpen] = useState(false)
+  const [hubIntegration, setHubIntegration] = useState<Integration | null>(null)
+  const [hubStep, setHubStep] = useState<IntegrationHubStep>('detail')
+  const [hubBanner, setHubBanner] = useState<HubBanner>(null)
+
   const setKindFilter = useCallback(
     (next: IntegrationKindFilter) => {
       const param = kindFilterToParam(next)
@@ -114,6 +124,23 @@ export default function IntegrationsMarketplace() {
       setSearchParams(params, { replace: true })
     },
     [searchParams, setSearchParams],
+  )
+
+  const findProviderForIntegration = useCallback(
+    (integration: Integration): IntegrationProviderRow | undefined => {
+      const slug = integrationIdToPlatformSlug(integration.id)
+      return providers.find((p) => p.slug === slug || SLUG_TO_STATIC_ID[p.slug] === integration.id)
+    },
+    [providers],
+  )
+
+  const openHub = useCallback(
+    (integration: Integration, step: IntegrationHubStep = 'detail') => {
+      setHubIntegration(integration)
+      setHubStep(step)
+      setHubOpen(true)
+    },
+    [],
   )
 
   const refreshCatalog = useCallback(async () => {
@@ -163,64 +190,80 @@ export default function IntegrationsMarketplace() {
     }
   }, [])
 
+  const applyCallbackBanner = useCallback(
+    (params: URLSearchParams, connectId: string | null) => {
+      const githubCb = parseIntegrationCallback(params)
+      const emailCb = parseOAuthCallback(params)
+
+      if (githubCb.handled) {
+        if (githubCb.error) {
+          setHubBanner({ type: 'error', message: githubCb.error })
+        } else if (githubCb.connected) {
+          setHubBanner({ type: 'success', message: t('integrations.hub.setup.successGithub') })
+        }
+        const id = connectId ?? 'github'
+        const match = items.find((i) => i.id === id)
+        if (match) openHub(match, 'detail')
+        return true
+      }
+
+      if (emailCb.handled && connectId) {
+        const match = items.find((i) => i.id === connectId)
+        if (emailCb.error) {
+          setHubBanner({
+            type: 'error',
+            message: describeOAuthCallbackSummary(emailCb),
+          })
+        } else if (emailCb.status === 'connected') {
+          setHubBanner({ type: 'success', message: t('integrations.hub.setup.successInbox') })
+        }
+        if (match) openHub(match, 'detail')
+        return true
+      }
+
+      return false
+    },
+    [items, openHub, t],
+  )
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const callback = parseIntegrationCallback(params)
-    if (callback.handled) {
-      const next = new URL(window.location.href)
-      ;['integration', 'integration_error', 'provider', 'github', 'github_error'].forEach((k) =>
-        next.searchParams.delete(k),
-      )
-      window.history.replaceState({}, '', next.pathname + next.search)
-      if (callback.error) setLoadError(callback.error)
-    }
     void refreshCatalog()
   }, [refreshCatalog])
 
-  const handleSetup = async (id: string) => {
-    if (id === 'github') {
-      const returnUrl = `${window.location.origin}${window.location.pathname}`
-      try {
-        const { authorize_url } = await startGithubOAuth(returnUrl)
-        window.location.href = authorize_url
-      } catch {
-        const { authorize_url } = await startIntegrationOAuth('github', encodeURIComponent(returnUrl))
-        window.location.href = authorize_url
+  useEffect(() => {
+    if (items.length === 0) return
+
+    const params = new URLSearchParams(window.location.search)
+    const { integrationId, step } = parseHubConnectParam(params)
+    const hadCallback = applyCallbackBanner(params, integrationId)
+
+    const cleaned = stripOAuthCallbackParams(params)
+    if (hadCallback || integrationId) {
+      const match = items.find((i) => i.id === integrationId)
+      if (match && !hadCallback) {
+        openHub(match, step)
       }
-      return
+      if (integrationId) {
+        cleaned.set('connect', integrationId)
+        if (step === 'setup') cleaned.set('step', 'setup')
+      }
+      setSearchParams(cleaned, { replace: true })
     }
-    if (id === 'microsoft-365' || id === 'google-workspace') {
-      window.location.href = '/settings/inbox'
-      return
-    }
-    if (id === 'bjorn_lunden_mcp') {
-      navigate('/integrations/mcp?connect=bjorn_lunden_mcp')
-      return
-    }
-    if (id === 'custom_mcp') {
-      navigate('/integrations/mcp?connect=custom_mcp')
-    }
-  }
+  }, [items, applyCallbackBanner, openHub, setSearchParams])
 
   const handleViewConnected = (integration: Integration) => {
     const kind = integration.kind ?? resolveIntegrationKind(integration.id)
     navigate(connectedPathWithKind(kind))
   }
 
-  const handleSetupInMcp = (integration: Integration) => {
-    if (integration.id === 'bjorn_lunden_mcp') {
-      navigate('/integrations/mcp?connect=bjorn_lunden_mcp')
-      return
-    }
-    navigate('/integrations/mcp?connect=custom_mcp')
-  }
-
-  useEffect(() => {
-    const connect = searchParams.get('connect')
-    if (connect === 'bjorn_lunden_mcp' || connect === 'custom_mcp') {
-      navigate(`/integrations/mcp?connect=${connect}`, { replace: true })
-    }
-  }, [searchParams, navigate])
+  const hubConnectionCount = hubIntegration
+    ? connectionCountForItem(
+        hubIntegration,
+        connectionCounts,
+        providers,
+        githubConnections.length,
+      )
+    : 0
 
   const filtered = useMemo(() => {
     let list = items.map((integration) => ({
@@ -315,31 +358,31 @@ export default function IntegrationsMarketplace() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <IntegrationKindNav value={kindFilter} onChange={setKindFilter} />
           <div className="flex flex-wrap items-center gap-3">
-          <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-            <TabsList className="h-8">
-              <TabsTrigger value="all" className="text-xs px-2.5">
-                {t('integrations.filters.statusAll', { defaultValue: 'All statuses' })}
-              </TabsTrigger>
-              <TabsTrigger value="connected" className="text-xs px-2.5">
-                {t('integrations.filters.connected')}
-              </TabsTrigger>
-              <TabsTrigger value="available" className="text-xs px-2.5">
-                {t('integrations.filters.available')}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <div className="relative w-full sm:w-72">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-            />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9 text-sm"
-              placeholder={t('integrations.marketplace.searchPlaceholder')}
-            />
-          </div>
+            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="all" className="text-xs px-2.5">
+                  {t('integrations.filters.statusAll', { defaultValue: 'All statuses' })}
+                </TabsTrigger>
+                <TabsTrigger value="connected" className="text-xs px-2.5">
+                  {t('integrations.filters.connected')}
+                </TabsTrigger>
+                <TabsTrigger value="available" className="text-xs px-2.5">
+                  {t('integrations.filters.available')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="relative w-full sm:w-72">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+              />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+                placeholder={t('integrations.marketplace.searchPlaceholder')}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -360,22 +403,47 @@ export default function IntegrationsMarketplace() {
               key={integration.id}
               integration={integration}
               connectionCount={connectionCount}
-              onSetup={() => void handleSetup(integration.id)}
+              onOpenDetail={() => openHub(integration, 'detail')}
+              onSetup={() => openHub(integration, 'setup')}
               onViewConnected={() => handleViewConnected(integration)}
-              onSetupInMcp={
-                (integration.kind ?? resolveIntegrationKind(integration.id)) === 'mcp'
-                  ? () => handleSetupInMcp(integration)
-                  : undefined
-              }
               onAddAccount={
                 integration.id === 'github' && connectionCount > 0
-                  ? () => void handleSetup('github')
+                  ? () => openHub(integration, 'setup')
                   : undefined
               }
             />
           ))}
         </div>
       )}
+
+      <IntegrationHubDialog
+        key={hubIntegration ? `${hubIntegration.id}-${hubStep}` : 'closed'}
+        open={hubOpen}
+        onOpenChange={(open) => {
+          setHubOpen(open)
+          if (!open) {
+            setHubBanner(null)
+            const params = new URLSearchParams(searchParams)
+            params.delete('connect')
+            params.delete('step')
+            setSearchParams(params, { replace: true })
+          }
+        }}
+        integration={hubIntegration}
+        provider={hubIntegration ? findProviderForIntegration(hubIntegration) : null}
+        connectionCount={hubConnectionCount}
+        initialStep={hubStep}
+        banner={hubBanner}
+        onViewConnected={() => {
+          if (hubIntegration) handleViewConnected(hubIntegration)
+        }}
+        onAddAccount={
+          hubIntegration?.id === 'github'
+            ? () => setHubStep('setup')
+            : undefined
+        }
+        onSaved={() => void refreshCatalog()}
+      />
     </PageContent>
   )
 }

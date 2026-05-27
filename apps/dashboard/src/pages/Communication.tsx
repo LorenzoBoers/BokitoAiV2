@@ -1,5 +1,5 @@
 import { Mail } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import ThreadList from '../components/inbox/ThreadList'
@@ -7,6 +7,11 @@ import ThreadDetail from '../components/inbox/ThreadDetail'
 import ContactPanel from '../components/inbox/ContactPanel'
 import { DecisionsPanel } from '../components/inbox/DecisionsPanel'
 import { useAuth } from '../context/AuthContext'
+import { useNavBadges } from '../context/NavBadgeContext'
+import {
+  useInboxCommunication,
+  type InboxListQuickFilter,
+} from '../context/InboxCommunicationContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { useThreads } from '../hooks/useThreads'
 import { useThreadDetail } from '../hooks/useThreadDetail'
@@ -16,6 +21,7 @@ import {
   markThreadUnread as apiMarkThreadUnread,
   pinThread as apiPinThread,
   unpinThread as apiUnpinThread,
+  deleteThread as apiDeleteThread,
   type InboxThread,
   type PatchThreadInput,
   type ThreadFilters,
@@ -87,6 +93,17 @@ function getCanonicalView(thread: InboxThread): View {
   return 'all_open'
 }
 
+function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
+  switch (quickFilter) {
+    case 'unread':
+      return threads.filter((t) => t.hasUnread)
+    case 'pinned':
+      return threads.filter((t) => t.isPinned)
+    default:
+      return threads
+  }
+}
+
 
 export default function Communication() {
   const location = useLocation()
@@ -105,14 +122,20 @@ function InboxCommunication() {
   }>()
   const navigate = useNavigate()
   const { user, token } = useAuth()
+  const { refresh: refreshNavBadges } = useNavBadges()
   const currentUserId = user?.id ?? null
+
+  useEffect(() => {
+    void refreshNavBadges()
+  }, [refreshNavBadges])
 
   // URL is the single source of truth for the current view AND selected thread
   const view: View = (queue ? QUEUE_TO_VIEW[queue] : undefined) ?? 'all_open'
   const connectionId = channelId ? Number(channelId) : undefined
   const selectedThreadId = threadIdParam ? Number(threadIdParam) : null
 
-  const [search, setSearch] = useState('')
+  const { search, setSearch, quickFilter, setQuickFilter, resetQuickFilter } = useInboxCommunication()
+  const [deletingThreadId, setDeletingThreadId] = useState<number | null>(null)
   const [showContactPanel, setShowContactPanel] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
     const stored = window.localStorage.getItem('inbox.contactPanel.open')
@@ -148,10 +171,24 @@ function InboxCommunication() {
   const {
     threads,
     loading: threadsLoading,
+    threadsReady,
     error: threadsError,
     refresh: refreshThreads,
     setThreadReadState,
+    removeThread,
   } = useThreads({ view, search, connectionId }, pinnedIds)
+
+  const listContextKey = `${channelId ?? 'all'}:${queue ?? 'all'}`
+
+  useEffect(() => {
+    setSearch('')
+    resetQuickFilter()
+  }, [listContextKey, setSearch, resetQuickFilter])
+
+  const filteredThreads = useMemo(
+    () => applyQuickFilter(threads, quickFilter),
+    [threads, quickFilter],
+  )
 
   const {
     detail,
@@ -165,8 +202,14 @@ function InboxCommunication() {
     togglePin,
   } = useThreadDetail(selectedThreadId, pinnedIds)
 
+  useEffect(() => {
+    if (detail?.thread && !detail.thread.hasUnread) {
+      void refreshNavBadges()
+    }
+  }, [detail?.thread?.id, detail?.thread?.hasUnread, refreshNavBadges])
+
   const handleSelectThread = useCallback(
-    (id: number) => {
+    (id: number, replace = false) => {
       // Optimistic: clear the unread dot in the list as soon as the user
       // clicks. The detail hook then fires the server-side mark-read call
       // silently. If anything fails the next 30s poll reconciles state.
@@ -174,10 +217,23 @@ function InboxCommunication() {
       const base = channelId
         ? `/support/inbox/ch/${channelId}/${queue ?? 'all'}`
         : `/support/inbox/${queue ?? 'all'}`
-      navigate(`${base}/t/${id}`)
+      navigate(`${base}/t/${id}`, replace ? { replace: true } : undefined)
+      void refreshNavBadges()
     },
-    [channelId, queue, navigate, setThreadReadState],
+    [channelId, queue, navigate, setThreadReadState, refreshNavBadges],
   )
+
+  // When opening or switching inbox queue/folder without a thread in the URL,
+  // auto-select the most recent thread (first row). Skip when `/t/:id` is
+  // present so deep links and canonical queue redirects are not overridden.
+  const firstThreadInView =
+    filteredThreads.find((t) => isThreadInQueue(t, view, currentUserId)) ?? null
+  const firstThreadId = firstThreadInView?.id ?? null
+
+  useEffect(() => {
+    if (threadIdParam || !threadsReady || firstThreadId == null) return
+    handleSelectThread(firstThreadId, true)
+  }, [threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
 
   // Handlers triggered from the indicator dropdown on a list row. They keep
   // the list state in sync without forcing a full reload, mirroring the modern
@@ -188,11 +244,12 @@ function InboxCommunication() {
       setThreadReadState(id, false)
       try {
         await apiMarkThreadRead(token, id)
+        void refreshNavBadges()
       } catch {
         setThreadReadState(id, true)
       }
     },
-    [token, setThreadReadState],
+    [token, setThreadReadState, refreshNavBadges],
   )
 
   const handleListMarkUnread = useCallback(
@@ -201,11 +258,12 @@ function InboxCommunication() {
       setThreadReadState(id, true)
       try {
         await apiMarkThreadUnread(token, id)
+        void refreshNavBadges()
       } catch {
         setThreadReadState(id, false)
       }
     },
-    [token, setThreadReadState],
+    [token, setThreadReadState, refreshNavBadges],
   )
 
   const handleListTogglePin = useCallback(
@@ -245,6 +303,40 @@ function InboxCommunication() {
       else addPin(selectedThreadId)
     }
   }, [selectedThreadId, detail, togglePin, addPin, removePin])
+
+  const handleDeleteThread = useCallback(
+    async (id: number, subject?: string) => {
+      if (!token) return
+      const label = subject?.trim() || `thread #${id}`
+      if (!window.confirm(`Weet je zeker dat je "${label}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) {
+        return
+      }
+
+      setDeletingThreadId(id)
+      try {
+        await apiDeleteThread(token, id)
+        removeThread(id)
+        if (pinnedIds.includes(id)) removePin(id)
+        if (selectedThreadId === id) {
+          const base = channelId
+            ? `/support/inbox/ch/${channelId}/${queue ?? 'all'}`
+            : `/support/inbox/${queue ?? 'all'}`
+          navigate(base)
+        }
+        void refreshNavBadges()
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : 'Verwijderen mislukt.')
+      } finally {
+        setDeletingThreadId(null)
+      }
+    },
+    [token, removeThread, pinnedIds, removePin, selectedThreadId, channelId, queue, navigate, refreshNavBadges],
+  )
+
+  const handleDetailDelete = useCallback(async () => {
+    if (selectedThreadId == null) return
+    await handleDeleteThread(selectedThreadId, detail?.thread.emailSubject)
+  }, [selectedThreadId, detail?.thread.emailSubject, handleDeleteThread])
 
   // Canonical URL redirect: if the loaded thread no longer fits the queue or
   // channel context in the URL (e.g. it has been closed since the URL was
@@ -290,8 +382,9 @@ function InboxCommunication() {
     async (input: PatchThreadInput) => {
       await patch(input)
       void refreshThreads()
+      void refreshNavBadges()
     },
-    [patch, refreshThreads],
+    [patch, refreshThreads, refreshNavBadges],
   )
 
   const handleReply = useCallback(
@@ -349,16 +442,19 @@ function InboxCommunication() {
   return (
     <div className="flex h-full overflow-hidden rounded-md">
       <ThreadList
-        threads={threads}
+        threads={filteredThreads}
+        allThreads={threads}
         loading={threadsLoading}
         error={threadsError}
         selectedId={selectedThreadId}
-        search={search}
+        quickFilter={quickFilter}
+        onQuickFilterChange={setQuickFilter}
         onSelectThread={handleSelectThread}
-        onSearchChange={setSearch}
         onMarkRead={handleListMarkRead}
         onMarkUnread={handleListMarkUnread}
         onTogglePin={handleListTogglePin}
+        onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
+        deletingThreadId={deletingThreadId}
       />
       <ThreadDetail
         detail={detail}
@@ -371,6 +467,8 @@ function InboxCommunication() {
         onNote={handleNote}
         onRefresh={refreshDetail}
         onTogglePin={handleDetailTogglePin}
+        onDelete={detail ? handleDetailDelete : undefined}
+        deleting={deletingThreadId === selectedThreadId}
         onToggleContact={detail ? toggleContactPanel : undefined}
         contactOpen={showContactPanel}
       />

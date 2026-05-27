@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react'
-import { UserCheck } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { UserRound } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { listInboxMembers, type InboxMember } from '../../lib/inbox-api'
+import { cn } from '../../lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 type Props = {
   currentAssigneeId: number | null
@@ -20,22 +30,58 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
       .catch(() => {})
   }, [token])
 
+  const currentMember = useMemo(
+    () => members.find((m) => m.id === currentAssigneeId) ?? null,
+    [members, currentAssigneeId],
+  )
+
+  const tooltip = currentMember ? `Toegewezen aan ${currentMember.name}` : 'Toewijzen'
+
   return (
-    <div className="flex items-center gap-1.5">
-      <UserCheck size={13} className="text-text-muted shrink-0" />
-      <select
-        value={currentAssigneeId ?? ''}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-        disabled={disabled}
-        className="rounded border border-border bg-bg-surface py-0.5 px-1.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50 disabled:opacity-50"
-      >
-        <option value="">Niet toegewezen</option>
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled}
+              aria-label={tooltip}
+              className={cn(
+                'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors',
+                'hover:bg-bg-hover hover:text-text-primary',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+                'disabled:pointer-events-none disabled:opacity-40',
+                'data-[state=open]:bg-bg-hover data-[state=open]:text-text-primary',
+                currentMember && 'text-accent',
+              )}
+            >
+              <UserRound size={14} strokeWidth={currentMember ? 2.25 : 1.75} />
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{tooltip}</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="min-w-[11rem]">
+        <DropdownMenuLabel className="normal-case tracking-normal font-medium text-text-secondary">
+          Toewijzen
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => onChange(null)}
+          className={cn('text-xs', currentAssigneeId == null && 'bg-bg-hover/80')}
+        >
+          Niet toegewezen
+        </DropdownMenuItem>
         {members.map((m) => (
-          <option key={m.id} value={m.id}>
+          <DropdownMenuItem
+            key={m.id}
+            onSelect={() => onChange(m.id)}
+            className={cn('text-xs', currentAssigneeId === m.id && 'bg-bg-hover/80')}
+          >
             {m.name}
-          </option>
+          </DropdownMenuItem>
         ))}
-      </select>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

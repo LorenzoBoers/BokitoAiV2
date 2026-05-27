@@ -98,8 +98,7 @@ export async function startIntegrationOAuth(
   returnUrl: string,
   projectId?: string,
 ): Promise<{ authorize_url: string; provider: string }> {
-  const encoded = encodeURIComponent(returnUrl)
-  return xanoGetIntegrations(integrationsRoutes.platform.oauthStart(provider, encoded, projectId))
+  return xanoGetIntegrations(integrationsRoutes.platform.oauthStart(provider, returnUrl, projectId))
 }
 
 export async function revokeIntegrationConnection(connectionId: string): Promise<void> {

@@ -32,6 +32,7 @@ export type WorkLogEvent = {
 
 export async function listWorkLogs(filters?: {
   project_id?: string
+  agent_id?: string
   status?: string
   limit?: number
 }): Promise<WorkLogRow[]> {

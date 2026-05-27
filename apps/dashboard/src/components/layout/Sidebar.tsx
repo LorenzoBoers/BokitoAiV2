@@ -16,7 +16,10 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { getRailItems } from './portal-nav'
+import { getRailItems, type NavBadgeSlot } from './portal-nav'
+import NavCountBadge from './NavCountBadge'
+import { useNavBadges } from '../../context/NavBadgeContext'
+import { countForBadgeSlot } from '../../lib/nav-badge-counts'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 
 export default function Sidebar() {
@@ -30,8 +33,34 @@ export default function Sidebar() {
   const isAdmin = useIsAdmin()
   const projectMatch = location.pathname.match(/^\/project\/([^/]+)/)
   const projectId = projectMatch?.[1]
+  const { counts } = useNavBadges()
   const railItems = getRailItems(t, isAdmin, projectId)
   const mainRailItems = railItems.filter((item) => item.to !== '/settings/profile')
+
+  const railTooltip = (label: string, slot?: NavBadgeSlot) => {
+    const badgeCount = countForBadgeSlot(counts, slot)
+    if (badgeCount <= 0) return label
+    if (slot === 'inbox') return t('nav:badges.railInbox', { count: badgeCount })
+    if (slot === 'agents') return t('nav:badges.railAgents', { count: badgeCount })
+    if (slot === 'home') return t('nav:badges.railHome', { count: badgeCount })
+    if (slot === 'messages') return t('nav:badges.railMessages', { count: badgeCount })
+    if (slot === 'projectsAttention') {
+      return t('nav:badges.railProjects', { count: badgeCount })
+    }
+    return label
+  }
+
+  const railAriaLabel = (label: string, slot?: NavBadgeSlot) => {
+    const badgeCount = countForBadgeSlot(counts, slot)
+    if (badgeCount <= 0) return label
+    if (slot === 'inbox' || slot === 'messages') {
+      return `${label}. ${t('nav:badges.ariaInbox', { count: badgeCount })}`
+    }
+    if (slot === 'agents' || slot === 'projectsAttention') {
+      return `${label}. ${t('nav:badges.ariaAgents', { count: badgeCount })}`
+    }
+    return label
+  }
 
   const goToWorkspacesHub = () => {
     const controlPlaneUrl = buildControlPlaneUrl('/')
@@ -43,29 +72,30 @@ export default function Sidebar() {
   }
 
   const isRailActive = (path: string): boolean => {
+    if (path === '/home') {
+      return location.pathname === '/home' || location.pathname.startsWith('/home/')
+    }
     if (path === '/support/inbox/all') {
       return location.pathname.startsWith('/support') || location.pathname.startsWith('/communication')
     }
-    if (path === '/integrations') {
+    if (path === '/integrations/connected' || path === '/integrations') {
       return location.pathname.startsWith('/integrations')
     }
     if (path.startsWith('/ai/assistent')) {
       return location.pathname.startsWith('/ai')
     }
     if (path === '/database') {
-      return location.pathname.startsWith('/database')
+      return (
+        location.pathname.startsWith('/database') ||
+        location.pathname.startsWith('/users') ||
+        location.pathname.startsWith('/data/')
+      )
     }
     if (path === '/projects') {
       return (
         location.pathname.startsWith('/projects') ||
         location.pathname.startsWith('/project/')
       )
-    }
-    if (path === '/admin/runs') {
-      return location.pathname.startsWith('/admin/runs')
-    }
-    if (path === '/workforce') {
-      return location.pathname.startsWith('/workforce')
     }
     if (path === '/messages') {
       return location.pathname === '/messages' || location.pathname === '/communication'
@@ -116,26 +146,32 @@ export default function Sidebar() {
                   </TooltipTrigger>
                   <TooltipContent side="right" className="flex flex-col items-start gap-0.5">
                     <span>{item.label}</span>
-                    <span className="text-accent text-[11px] font-semibold">Binnenkort</span>
+                    <span className="text-accent text-[11px] font-semibold">
+                      {t('nav:integrations.actions.comingSoon', { defaultValue: 'Binnenkort' })}
+                    </span>
                   </TooltipContent>
                 </Tooltip>
               )
             }
+            const badgeCount = countForBadgeSlot(counts, item.badgeSlot)
+            const badgeVariant = item.badgeSlot === 'home' ? 'muted' : 'default'
             return (
               <Tooltip key={item.to}>
                 <TooltipTrigger asChild>
                   <NavLink
                     to={item.to}
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
+                    aria-label={railAriaLabel(item.label, item.badgeSlot)}
+                    className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
                       isActive
                         ? 'border-accent/35 bg-accent/20 text-accent shadow-[0_0_0_1px_rgba(110,102,255,0.28),0_10px_20px_-16px_rgba(63,81,181,0.6)]'
                         : 'border-transparent text-text-muted hover:border-border/65 hover:bg-bg-hover/70 hover:text-text-primary'
                     }`}
                   >
                     <Icon size={17} />
+                    <NavCountBadge count={badgeCount} variant={badgeVariant} placement="rail" />
                   </NavLink>
                 </TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
+                <TooltipContent side="right">{railTooltip(item.label, item.badgeSlot)}</TooltipContent>
               </Tooltip>
             )
           })}

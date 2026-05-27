@@ -1,5 +1,17 @@
 import type { BlockOp, DocBlockRow, InlineRun } from './doc-api'
 
+/** URL slug for doc pages (mirrors server-side slug rules). */
+export function slugifyPageTitle(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug || `page-${Date.now()}`
+}
+
 export interface BlockNode {
   block: DocBlockRow
   children: BlockNode[]

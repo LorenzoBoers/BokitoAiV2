@@ -75,6 +75,19 @@ export async function reindexProjectRepo(projectId: string): Promise<{ queued: b
   return xanoPostWorkforce<{ queued: boolean }>(projectsRoutes.repoReindex(projectId), {})
 }
 
+export interface ProjectBudgetResponse {
+  token_budget_daily: number
+  token_used_today: number
+  token_used_this_hour: number
+  remaining_today: number
+  remaining_hour: number
+  blocked: boolean
+}
+
+export async function getProjectBudget(projectId: string): Promise<ProjectBudgetResponse> {
+  return xanoGetWorkforce<ProjectBudgetResponse>(projectsRoutes.usageBudget(projectId))
+}
+
 export async function getRepoStatus(projectId: string): Promise<{
   repo_index_status: RepoIndexStatus
   repo_indexed_at: string | null

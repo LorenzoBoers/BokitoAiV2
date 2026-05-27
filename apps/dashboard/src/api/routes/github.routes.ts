@@ -2,8 +2,8 @@ import { withQuery } from '../url'
 
 export const githubRoutes = {
   oauth: {
-    start: (encodedReturnUrl: string, projectId?: string) => {
-      const params = new URLSearchParams({ return_url: encodedReturnUrl })
+    start: (returnUrl: string, projectId?: string) => {
+      const params = new URLSearchParams({ return_url: returnUrl })
       if (projectId) params.set('project_id', projectId)
       return withQuery('/github/oauth/start', params)
     },

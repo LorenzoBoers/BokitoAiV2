@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { WorkerStatusStrip } from '../workers/WorkerStatusStrip'
 import { ProjectContextBar } from './ProjectContextBar'
+import { ProjectTabNav } from './ProjectTabNav'
 
 interface ProjectShellProps {
   children: ReactNode
@@ -7,6 +9,10 @@ interface ProjectShellProps {
   width?: 'default' | 'wide' | 'full'
   /** Hide the context bar (e.g. on the documentation canvas where the page header takes over). */
   hideContextBar?: boolean
+  /** Hide horizontal project section tabs. */
+  hideTabNav?: boolean
+  /** Hide worker operational status strip (above tabs). */
+  hideWorkerStatus?: boolean
 }
 
 /**
@@ -18,6 +24,8 @@ export function ProjectShell({
   children,
   width = 'default',
   hideContextBar = false,
+  hideTabNav = false,
+  hideWorkerStatus = false,
 }: ProjectShellProps) {
   const widthClass =
     width === 'full'
@@ -29,6 +37,8 @@ export function ProjectShell({
   return (
     <div className={widthClass}>
       {hideContextBar ? null : <ProjectContextBar />}
+      {hideWorkerStatus ? null : <WorkerStatusStrip />}
+      {hideTabNav ? null : <ProjectTabNav />}
       {children}
     </div>
   )

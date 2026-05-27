@@ -1,40 +1,85 @@
-// Scheduled task: dispatch PO heartbeat runs to worker plane
+// Scheduled task: dispatch PO runs for projects due per orchestration config
 task po_heartbeat_dispatcher {
-  description = "Every 60 minutes POST worker /agent/po/run for autonomous projects with a PO agent"
+  description = "Dispatch PO heartbeat when project_orchestration_config.continuous_enabled and next_po_wake_at <= now"
 
   stack {
-    db.query projects {
-      where = $db.projects.autonomous_mode == true
+    db.query project_orchestration_config {
+      where = $db.project_orchestration_config.continuous_enabled == true && $db.project_orchestration_config.next_po_wake_at <= now
       return = {type: "list", paging: {page: 1, per_page: 100}}
-    } as $active_projects
+    } as $due_configs
 
-    foreach ($active_projects.items) {
-      each as $proj {
-        db.query agents {
-          where = $db.agents.project_id == $proj.id && $db.agents.role == "po"
+    foreach ($due_configs.items) {
+      each as $cfg {
+        db.query projects {
+          where = $db.projects.id == $cfg.project_id
           return = {type: "list", paging: {page: 1, per_page: 1}}
-        } as $po_rows
+        } as $proj_rows
 
         conditional {
-          if (($po_rows|count) > 0) {
-            var $po {
-              value = $po_rows|first
+          if (($proj_rows|count) > 0) {
+            var $proj {
+              value = $proj_rows|first
             }
 
-            api.request {
-              url = $env.WORKER_BASE_URL ~ "/agent/po/run"
-              method = "POST"
-              params = {
-                project_id : $proj.id
-                tenant_id  : $proj.tenant_id
-                po_agent_id: $po.id
+            db.query agents {
+              where = $db.agents.project_id == $proj.id && $db.agents.role == "po"
+              return = {type: "list", paging: {page: 1, per_page: 1}}
+            } as $po_rows
+
+            conditional {
+              if (($po_rows|count) > 0) {
+                var $po {
+                  value = $po_rows|first
+                }
+
+                api.request {
+                  url = $env.WORKER_BASE_URL ~ "/agent/po/run"
+                  method = "POST"
+                  params = {
+                    project_id : $proj.id
+                    tenant_id  : $proj.tenant_id
+                    po_agent_id: $po.id
+                  }
+                  headers = [
+                    "Content-Type: application/json"
+                    ("Authorization: Bearer " ~ $env.WORKER_INBOUND_SECRET)
+                  ]
+                  timeout = 120
+                } as $dispatch_result
+
+                var $next_wake {
+                  value = now|add_hours_to_timestamp:24
+                }
+
+                conditional {
+                  if ($cfg.wake_cadence == "hourly") {
+                    var.update $next_wake {
+                      value = now|add_hours_to_timestamp:1
+                    }
+                  }
+                  elseif ($cfg.wake_cadence == "weekly") {
+                    var.update $next_wake {
+                      value = now|add_hours_to_timestamp:168
+                    }
+                  }
+                  elseif ($cfg.wake_cadence == "manual") {
+                    var.update $next_wake {
+                      value = null
+                    }
+                  }
+                }
+
+                db.edit project_orchestration_config {
+                  field_name = "id"
+                  field_value = $cfg.id
+                  data = {
+                    last_po_wake_at: now
+                    next_po_wake_at  : $next_wake
+                    updated_at       : now
+                  }
+                } as $cfg_updated
               }
-              headers = [
-                "Content-Type: application/json"
-                ("Authorization: Bearer " ~ $env.WORKER_INBOUND_SECRET)
-              ]
-              timeout = 120
-            } as $dispatch_result
+            }
           }
         }
       }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/layout/Layout'
-import DatabaseLayout from './components/layout/DatabaseLayout'
 import WorkspaceHubLayout from './components/layout/WorkspaceHubLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import ControlPlaneRoute from './components/auth/ControlPlaneRoute'
@@ -14,7 +13,6 @@ import ResetPassword from './pages/ResetPassword'
 import Onboarding from './pages/Onboarding'
 import Communication from './pages/Communication'
 import InboxSettings from './pages/InboxSettings'
-import DatabasePage, { DatabasePageWithProvider } from './pages/DatabasePage'
 import ProfileSettings from './pages/ProfileSettings'
 import NotificationSettings from './pages/NotificationSettings'
 import CompanyConfig from './pages/CompanyConfig'
@@ -23,17 +21,25 @@ import MessengerSettings from './pages/MessengerSettings'
 import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
 import HelpCentersSettings from './pages/HelpCentersSettings'
 import CloudAgent from './pages/CloudAgent'
-import Projects from './pages/Projects'
 import CreateProject from './pages/CreateProject'
-import ProjectDoc from './pages/ProjectDoc'
+import ProjectHubShell from './components/layout/ProjectHubShell'
+import ProjectHubOverview from './pages/ProjectHubOverview'
+import ProjectHubDocs from './pages/ProjectHubDocs'
+import ProjectHubCommunication from './pages/ProjectHubCommunication'
 import ProjectLayout from './components/layout/ProjectLayout'
 import ProjectOverview from './pages/ProjectOverview'
 import ProjectSettings from './pages/ProjectSettings'
-import ProjectMessages from './pages/ProjectMessages'
+import ProjectCommunication from './pages/ProjectCommunication'
+import ProjectOrchestration from './pages/ProjectOrchestration'
+import ProjectNotifications from './pages/ProjectNotifications'
+import ProjectWorkforceHistory from './pages/ProjectWorkforceHistory'
+import ProjectUsage from './pages/ProjectUsage'
 import ConnectProjectRepo from './pages/ConnectProjectRepo'
 import ChangeRequest from './pages/ChangeRequest'
-import AdminRuns from './pages/AdminRuns'
-import DataSources from './pages/DataSources'
+import AiAgents from './pages/AiAgents'
+import AiAgentDetail from './pages/AiAgentDetail'
+import AdminRunLegacyRedirect from './pages/AdminRunLegacyRedirect'
+import ProjectWorkforceRunDetail from './pages/ProjectWorkforceRunDetail'
 import AiCommunicationSettings from './pages/AiCommunicationSettings'
 import WorkforceControl from './pages/OrchestratorControl'
 import WorkspaceSettings from './pages/WorkspaceSettings'
@@ -46,6 +52,8 @@ import IntegrationsMarketplace from './pages/IntegrationsMarketplace'
 import IntegrationsConnected from './pages/IntegrationsConnected'
 import IntegrationsMcp from './pages/IntegrationsMcp'
 import IntegrationsApi from './pages/IntegrationsApi'
+import HomeDashboard from './pages/HomeDashboard'
+import { useIsAdmin } from './hooks/useIsAdmin'
 
 type ProjectRedirect =
   | { state: 'loading' }
@@ -79,10 +87,12 @@ function writeCachedRedirect(redirect: ProjectRedirect): void {
 }
 
 function TenantHomeRedirect() {
+  const isAdmin = useIsAdmin()
   const cached = readCachedRedirect()
   const [redirect, setRedirect] = useState<ProjectRedirect>(cached ?? { state: 'loading' })
 
   useEffect(() => {
+    if (isAdmin) return
     if (cached && cached.state !== 'loading') return
     let cancelled = false
     listProjects()
@@ -104,15 +114,19 @@ function TenantHomeRedirect() {
     return () => {
       cancelled = true
     }
-  }, [cached])
+  }, [cached, isAdmin])
+
+  if (isAdmin) {
+    return <Navigate to="/home" replace />
+  }
 
   if (redirect.state === 'loading') {
     return <div className="py-6 text-sm text-text-muted">Loading your projects...</div>
   }
   if (redirect.state === 'none') return <Navigate to="/projects/new" replace />
   if (redirect.state === 'one') return <Navigate to={`/project/${redirect.id}/overview`} replace />
-  if (redirect.state === 'many') return <Navigate to="/projects" replace />
-  return <Navigate to="/projects" replace />
+  if (redirect.state === 'many') return <Navigate to="/home" replace />
+  return <Navigate to="/home" replace />
 }
 
 function HomeRoute() {
@@ -158,6 +172,7 @@ export default function App() {
         </Route>
 
         <Route element={<Layout />}>
+          <Route path="/home" element={<HomeDashboard />} />
           <Route path="/support/inbox/:queue" element={<Communication />} />
           <Route path="/support/inbox/:queue/t/:threadId" element={<Communication />} />
           <Route path="/support/inbox/ch/:channelId/:queue" element={<Communication />} />
@@ -165,7 +180,9 @@ export default function App() {
           <Route path="/support/customization" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/support/settings/general" element={<Navigate to="/settings/inbox" replace />} />
 
-          <Route path="/users/:tab" element={<DatabasePageWithProvider />} />
+          <Route path="/users/:tab" element={<Navigate to="/projects" replace />} />
+          <Route path="/data/sources" element={<Navigate to="/projects" replace />} />
+          <Route path="/data/imports-exports" element={<Navigate to="/projects" replace />} />
 
           <Route path="/settings/profile" element={<ProfileSettings />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
@@ -180,10 +197,10 @@ export default function App() {
           <Route path="/settings/access-security" element={<ProfileSettings />} />
           <Route path="/settings/inbox" element={<InboxSettings />} />
           <Route path="/settings/company" element={<CompanyConfig />} />
-          <Route path="/settings/data/users" element={<DatabasePageWithProvider />} />
-          <Route path="/settings/data/companies" element={<DatabasePageWithProvider />} />
-          <Route path="/settings/data/conversations" element={<DatabasePageWithProvider />} />
-          <Route path="/settings/data/imports-exports" element={<DatabasePageWithProvider />} />
+          <Route path="/settings/data/users" element={<Navigate to="/projects" replace />} />
+          <Route path="/settings/data/companies" element={<Navigate to="/projects" replace />} />
+          <Route path="/settings/data/conversations" element={<Navigate to="/projects" replace />} />
+          <Route path="/settings/data/imports-exports" element={<Navigate to="/projects" replace />} />
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
           <Route path="/settings/integrations" element={<Navigate to="/integrations/connected" replace />} />
           <Route path="/settings/mcp" element={<Navigate to="/integrations/mcp" replace />} />
@@ -197,43 +214,69 @@ export default function App() {
             />
             <Route path="/integrations/mcp" element={<IntegrationsMcp />} />
             <Route path="/integrations/api" element={<IntegrationsApi />} />
-            <Route path="/integrations/sources" element={<DataSources />} />
+            <Route path="/integrations/sources" element={<Navigate to="/projects" replace />} />
           </Route>
 
           <Route path="/communication" element={<Communication />} />
           <Route path="/messages" element={<Communication />} />
           <Route path="/projects/new" element={<CreateProject />} />
           <Route path="/projects/new/:projectId/connect" element={<ConnectProjectRepo />} />
-          <Route path="/projects" element={<Projects />} />
+          <Route element={<ProjectHubShell />}>
+            <Route path="/projects" element={<ProjectHubOverview />} />
+            <Route path="/projects/docs" element={<ProjectHubDocs />} />
+            <Route path="/projects/docs/:pageSlug" element={<ProjectHubDocs />} />
+            <Route path="/projects/list" element={<Navigate to="/projects" replace />} />
+            <Route path="/projects/communication" element={<ProjectHubCommunication />} />
+          </Route>
           <Route element={<ProjectLayout />}>
             <Route path="/project/:projectId" element={<Navigate to="overview" replace />} />
             <Route path="/project/:projectId/overview" element={<ProjectOverview />} />
-            <Route path="/project/:projectId/pkb" element={<Navigate to="../doc" replace />} />
-            <Route path="/project/:projectId/doc" element={<ProjectDoc />} />
-            <Route path="/project/:projectId/doc/:pageSlug" element={<ProjectDoc />} />
+            <Route
+              path="/project/:projectId/pkb"
+              element={<Navigate to="/projects/docs" replace />}
+            />
+            <Route
+              path="/project/:projectId/doc"
+              element={<Navigate to="/projects/docs" replace />}
+            />
+            <Route
+              path="/project/:projectId/doc/:pageSlug"
+              element={<Navigate to="/projects/docs" replace />}
+            />
             <Route path="/project/:projectId/request" element={<ChangeRequest />} />
-            <Route path="/project/:projectId/messages" element={<ProjectMessages />} />
+            <Route
+              path="/project/:projectId/messages"
+              element={<Navigate to="communication" replace />}
+            />
+            <Route path="/project/:projectId/communication" element={<ProjectCommunication />} />
+            <Route path="/project/:projectId/orchestration" element={<ProjectOrchestration />} />
+            <Route path="/project/:projectId/notifications" element={<ProjectNotifications />} />
+            <Route
+              path="/project/:projectId/workforce/:workLogId"
+              element={<ProjectWorkforceRunDetail />}
+            />
+            <Route path="/project/:projectId/workforce" element={<ProjectWorkforceHistory />} />
+            <Route path="/project/:projectId/usage" element={<ProjectUsage />} />
             <Route path="/project/:projectId/settings" element={<ProjectSettings />} />
           </Route>
-          <Route path="/admin/runs/:workLogId" element={<AdminRuns />} />
-          <Route path="/admin/runs" element={<AdminRuns />} />
+          <Route path="/ai/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
+          <Route path="/ai/agents/:agentId" element={<AiAgentDetail />} />
+          <Route path="/ai/agents" element={<AiAgents />} />
+          <Route path="/admin/runs/:workLogId" element={<AdminRunLegacyRedirect />} />
+          <Route path="/admin/runs" element={<Navigate to="/projects" replace />} />
           <Route path="/cloud-agent" element={<CloudAgent />} />
-          <Route path="/datasources" element={<Navigate to="/integrations/sources" replace />} />
+          <Route path="/datasources" element={<Navigate to="/projects" replace />} />
           <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
           <Route path="/ai/communicatie" element={<AiCommunicationSettings />} />
           <Route path="/ai" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/company-config" element={<Navigate to="/settings/company" replace />} />
-          <Route path="/workforce" element={<Navigate to="/" replace />} />
-          <Route path="/workforce/*" element={<Navigate to="/" replace />} />
-          <Route path="/analytics" element={<Navigate to="/database" replace />} />
+          <Route path="/workforce" element={<Navigate to="/ai/agents" replace />} />
+          <Route path="/workforce/*" element={<Navigate to="/ai/agents" replace />} />
+          <Route path="/analytics" element={<Navigate to="/projects" replace />} />
+          <Route path="/database" element={<Navigate to="/projects" replace />} />
+          <Route path="/database/*" element={<Navigate to="/projects" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-
-        <Route element={<DatabaseLayout />}>
-          <Route path="/database" element={<DatabasePage />} />
-          <Route path="/database/:tableSlug" element={<DatabasePage />} />
-          <Route path="/database/:tableSlug/record/:recordId" element={<DatabasePage />} />
         </Route>
       </Route>
     </Routes>

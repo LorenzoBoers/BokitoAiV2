@@ -1,0 +1,38 @@
+import type { NavBadgeCounts } from '../context/NavBadgeContext'
+import type { NavBadgeSlot } from '../components/layout/portal-nav'
+
+export function countForBadgeSlot(counts: NavBadgeCounts, slot: NavBadgeSlot | undefined): number {
+  if (!slot) return 0
+  switch (slot) {
+    case 'inbox':
+      return counts.inboxUnread
+    case 'agents':
+      return counts.agentsAttention
+    case 'home':
+      return counts.homeTotal
+    case 'messages':
+      return counts.inboxUnread
+    case 'projectsAttention':
+      return counts.agentsAttention
+    default:
+      return 0
+  }
+}
+
+export type InboxQueueBadgeKey = 'all' | 'my' | 'unassigned'
+
+export function countForInboxQueue(
+  counts: NavBadgeCounts,
+  queue: string,
+): number {
+  switch (queue) {
+    case 'my':
+      return counts.inboxByQueue.my
+    case 'unassigned':
+      return counts.inboxByQueue.unassigned
+    case 'all':
+      return counts.inboxByQueue.all
+    default:
+      return 0
+  }
+}

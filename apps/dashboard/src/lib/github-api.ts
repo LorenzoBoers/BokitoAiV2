@@ -3,7 +3,6 @@ import { xanoDeleteIntegrations, xanoGetIntegrations } from './xano'
 import {
   listIntegrationConnections,
   revokeIntegrationConnection,
-  startIntegrationOAuth,
 } from './integrations-api'
 
 export interface GithubConnectionRow {
@@ -23,13 +22,9 @@ export interface GithubRepoRow {
 }
 
 export async function startGithubOAuth(returnUrl: string, projectId?: string): Promise<{ authorize_url: string }> {
-  const encoded = encodeURIComponent(returnUrl)
-  try {
-    const res = await startIntegrationOAuth('github', encoded, projectId)
-    return { authorize_url: res.authorize_url }
-  } catch {
-    return xanoGetIntegrations<{ authorize_url: string }>(githubRoutes.oauth.start(encoded, projectId))
-  }
+  return xanoGetIntegrations<{ authorize_url: string }>(
+    githubRoutes.oauth.start(returnUrl, projectId),
+  )
 }
 
 function normalizeGithubConnectionRow(

@@ -368,6 +368,10 @@ export async function getThread(token: string, threadId: number): Promise<Thread
   }
 }
 
+export async function deleteThread(token: string, threadId: number): Promise<void> {
+  await xanoDelete<unknown>(integrationsRoutes.inbox.threadDelete(threadId), token)
+}
+
 export async function patchThread(token: string, threadId: number, patch: PatchThreadInput): Promise<InboxThread | null> {
   const body: Record<string, unknown> = {}
   if (patch.status !== undefined) body.status = patch.status

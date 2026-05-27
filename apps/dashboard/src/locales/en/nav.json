@@ -1,10 +1,13 @@
 {
   "rail": {
+    "home": "Home",
     "support": "Inbox",
     "updates": "AI",
+    "assistent": "Assistant",
     "integrations": "Integrations",
     "data": "Data",
     "workforce": "Workforce",
+    "agents": "Agents",
     "users": "Users",
     "settings": "Settings",
     "projects": "Projects",
@@ -13,14 +16,178 @@
     "messages": "Messages"
   },
   "sectionTitle": {
+    "home": "Home",
     "users": "Users",
     "settings": "Settings",
     "inbox": "Inbox",
     "ai": "AI",
+    "assistent": "Assistant",
+    "integrations": "Integrations",
     "workforce": "Workforce",
+    "agents": "Agents",
     "data": "Data",
     "project": "Project",
-    "projects": "Projects"
+    "projects": "Projects",
+    "projectHub": "Project hub"
+  },
+  "home": {
+    "title": "Home",
+    "description": "Workspace overview: recent projects, inbox, and agent runs.",
+    "group": {
+      "overview": "Overview"
+    },
+    "quick": {
+      "newProject": "New project",
+      "openInbox": "Open inbox",
+      "integrations": "Integrations",
+      "assistent": "Assistant"
+    },
+    "recentProjects": {
+      "title": "Recent projects",
+      "viewAll": "All projects",
+      "empty": "No projects yet."
+    },
+    "inbox": {
+      "title": "Inbox",
+      "description": "Jump to your main queues."
+    },
+    "agentRuns": {
+      "title": "Recent agent runs",
+      "viewAll": "All runs",
+      "empty": "No agent runs yet."
+    }
+  },
+  "data": {
+    "group": {
+      "nav": "Data"
+    },
+    "links": {
+      "tables": "Tables",
+      "sources": "Knowledge sources",
+      "importsExports": "Import and export"
+    }
+  },
+  "agents": {
+    "group": {
+      "nav": "Agents"
+    },
+    "links": {
+      "runs": "Agent runs"
+    }
+  },
+  "inbox": {
+    "configureGroup": "Configure",
+    "configureAssistent": "Assistant settings",
+    "configureInbox": "Inbox settings"
+  },
+  "badges": {
+    "unreadInbox": "{{count}} unread in inbox",
+    "awaitingHuman": "{{count}} awaiting approval",
+    "homeTotal": "{{count}} items need attention",
+    "railInbox": "Inbox ({{count}} unread)",
+    "railAgents": "Agents ({{count}} open)",
+    "railProjects": "Project hub ({{count}} open)",
+    "railHome": "Home ({{count}})",
+    "railMessages": "Messages ({{count}} unread)",
+    "ariaInbox": "{{count}} unread messages",
+    "ariaAgents": "{{count}} items need action",
+    "queue": {
+      "all": "{{count}} unread open",
+      "my": "{{count}} unread assigned to you",
+      "unassigned": "{{count}} unread unassigned"
+    }
+  },
+  "backgroundWorkers": {
+    "label": "Background workers",
+    "loading": "Loading workers…",
+    "empty": "No workers yet.",
+    "newProject": "New project",
+    "showMore": "Show {{count}} more",
+    "showLess": "Show less",
+    "status": {
+      "loading": "Updating status…",
+      "blocked": "Blocked — needs you",
+      "attention": "Open questions",
+      "running": "Working",
+      "error": "Error",
+      "paused": "Paused",
+      "scheduled": "Scheduled",
+      "idle": "Idle",
+      "lastActive": "Last active {{time}}",
+      "neverActive": "Not active yet"
+    },
+    "setup": {
+      "notConnected": "No repo",
+      "indexPending": "Index queued",
+      "indexing": "Indexing repo",
+      "indexError": "Index error",
+      "ready": "Repo ready"
+    },
+    "strip": {
+      "openCommunication": "Open communication",
+      "viewRuns": "View runs",
+      "openOrchestration": "Orchestration",
+      "nextWake": "Next wake {{time}}",
+      "budgetBlocked": "Token budget reached"
+    }
+  },
+  "projectHub": {
+    "description": "Central documentation, ongoing projects, and agent communication in one place.",
+    "tabsAriaLabel": "Project hub navigation",
+    "tabs": {
+      "overview": "Overview",
+      "docs": "Documentation",
+      "projects": "Projects",
+      "communication": "Communication"
+    },
+    "quick": {
+      "newProject": "New project",
+      "openDocs": "Open documentation",
+      "openCommunication": "Open communication"
+    },
+    "backgroundProjects": {
+      "label": "Background projects",
+      "loading": "Loading projects…",
+      "empty": "No projects yet.",
+      "newProject": "New project",
+      "showMore": "Show {{count}} more",
+      "showLess": "Show less"
+    },
+    "overview": {
+      "activeProjectsTitle": "Active projects",
+      "viewAllProjects": "All projects",
+      "openFirstProject": "Open project",
+      "emptyProjects": "No projects yet.",
+      "pendingDecisionsTitle": "Awaiting your decision",
+      "viewAllDecisions": "Open communication",
+      "emptyDecisions": "No pending decisions.",
+      "recentRunsTitle": "Recent agent runs"
+    },
+    "docs": {
+      "menuLabel": "Documentation",
+      "group": "Pages",
+      "chaptersLabel": "Chapters",
+      "treeEmpty": "No pages yet. Refresh to seed default chapters.",
+      "emptyTitle": "No documentation pages",
+      "emptyDescription": "Workspace documentation could not be loaded or has no pages yet. Retry after the backend is deployed.",
+      "agentEdit": "Ask agent",
+      "agentEditTitle": "Request documentation update",
+      "agentEditDescription": "Describe the changes you want on this page. A product-owner agent run will be queued.",
+      "agentEditPlaceholder": "For example: Add a section about our refund policy under Operations.",
+      "agentEditSubmit": "Send request",
+      "agentRequestTitle": "Update page: {{page}}",
+      "agentRequestSent": "Change request queued. You will be notified when the agent finishes.",
+      "agentRequestFailed": "Could not queue the change request."
+    },
+    "projects": {
+      "description": "Continuous agent work tracks. Each project pairs a goal with the agents that keep working on it."
+    },
+    "communication": {
+      "description": "Open agent messages waiting on your decision, grouped across all projects.",
+      "pendingTitle": "Awaiting admin",
+      "empty": "No pending agent messages.",
+      "openInbox": "Open inbox"
+    }
   },
   "userMenu": {
     "openAria": "Open user menu",
@@ -68,12 +235,37 @@
   },
   "ai": {
     "group": {
-      "ai": "AI"
+      "ai": "AI",
+      "assistent": "Assistant",
+      "agents": "Agents"
     },
     "links": {
       "assistent": "Assistants",
+      "widget": "Widget",
       "kennis": "AI sources",
-      "communication": "AI communication settings"
+      "communication": "AI communication",
+      "agents": "Agents"
+    },
+    "agents": {
+      "pageTitle": "Agents",
+      "pageDescription": "Manage workforce agents and inspect run history per agent.",
+      "listDescription": "Open an agent to see its run history and live logs.",
+      "loading": "Loading agents…",
+      "loadError": "Could not load agents.",
+      "detailLoadError": "Could not load agent history.",
+      "empty": "No agents configured for this workspace.",
+      "notFound": "Agent not found.",
+      "roleUnknown": "Agent",
+      "backToList": "Back to agents",
+      "backToAgent": "Back to agent",
+      "historyTitle": "Run history",
+      "historyDescription": "Runs started by this agent across all projects.",
+      "status": {
+        "active": "Active",
+        "standby": "Standby",
+        "sleeping": "Sleeping",
+        "error": "Error"
+      }
     },
     "pageMeta": {
       "communication": {
@@ -145,6 +337,7 @@
     },
     "actions": {
       "setupConnection": "Connect",
+      "viewInfo": "About this integration",
       "setupInMcp": "Set up in MCP",
       "manage": "Manage",
       "manageInMcp": "Manage in MCP",
@@ -170,6 +363,32 @@
       "notConnected": "Not connected",
       "mailboxCount": "{{count}} connected",
       "other": "Other"
+    },
+    "hub": {
+      "detail": {
+        "subtitle": "Learn how this integration works and how to connect it.",
+        "setup": "Set up new connection",
+        "manageConnected": "Manage in Connected",
+        "capabilities": "Capabilities"
+      },
+      "capability": {
+        "inbox_sync": "Inbox sync",
+        "repo_index": "Repository indexing",
+        "mcp_tools": "MCP tools for agents"
+      },
+      "setup": {
+        "title": "Set up {{name}}",
+        "back": "Back",
+        "oauthHint": "You will be redirected to the provider to sign in securely, then return to Bokito.",
+        "oauthStepSignIn": "Sign in to {{name}} and grant access.",
+        "oauthStepReturn": "You will return to the Marketplace.",
+        "oauthContinue": "Continue to sign in",
+        "oauthContinuing": "Redirecting…",
+        "oauthLoginRequired": "Sign in to Bokito first to continue.",
+        "successGithub": "GitHub account connected successfully.",
+        "successInbox": "Mailbox connected successfully.",
+        "error": "Connection failed. Please try again."
+      }
     },
     "marketplace": {
       "connectedCount": "{{count}} connected",
@@ -317,7 +536,8 @@
     },
     "runs": {
       "description": "Run history and live event stream for Bokito staff and workspace admins.",
-      "back": "Back to all runs",
+      "back": "Back to workforce history",
+      "detailTitle": "Run detail",
       "loading": "Loading runs…",
       "loadError": "Failed to load runs",
       "empty": "No agent runs yet.",
@@ -367,6 +587,7 @@
     }
   },
   "project": {
+    "tabsAriaLabel": "Project sections",
     "group": {
       "nav": "Project",
       "pages": "Pages"
@@ -374,6 +595,11 @@
     "links": {
       "overview": "Overview",
       "knowledge": "Documentation",
+      "orchestration": "Orchestration",
+      "communication": "Communication",
+      "workforce": "Workforce history",
+      "usage": "Token usage",
+      "notifications": "Notifications",
       "request": "Request a change",
       "messages": "Messages",
       "settings": "Settings"
@@ -403,6 +629,98 @@
       "empty": {
         "updates": "No updates for this project yet.",
         "decisions": "No open decisions for this project."
+      }
+    },
+    "communication": {
+      "title": "Communication",
+      "description": "Updates and decisions between you and the agents working on this project.",
+      "hubLink": "Open hub communication",
+      "tabs": {
+        "pending": "Pending",
+        "resolved": "Resolved"
+      },
+      "emptyResolved": "No resolved decisions yet."
+    },
+    "orchestration": {
+      "title": "Orchestration",
+      "description": "Tune how the project owner agent runs this project: cadence, autonomy, and human-in-the-loop.",
+      "loading": "Loading orchestration settings…",
+      "saved": "Settings saved.",
+      "loadError": "Could not load orchestration settings.",
+      "saveError": "Could not save orchestration settings.",
+      "wakeFrequency": {
+        "label": "Wake-up frequency",
+        "hint": "How often the PO agent reviews and plans this project.",
+        "options": {
+          "hourly": "Hourly",
+          "daily": "Daily",
+          "weekly": "Weekly",
+          "manual": "Manual only"
+        }
+      },
+      "autonomyMode": {
+        "label": "Autonomy mode",
+        "hint": "How much latitude agents get to decide on their own.",
+        "options": {
+          "conservative": "Conservative",
+          "balanced": "Balanced",
+          "aggressive": "Aggressive"
+        }
+      },
+      "hitl": {
+        "label": "Human-in-the-loop sensitivity",
+        "hint": "Which classes of decisions require your approval.",
+        "options": {
+          "low": "Irreversible only",
+          "medium": "Significant changes",
+          "high": "Most decisions",
+          "all": "Everything"
+        }
+      },
+      "continuous": {
+        "label": "Continuous mode",
+        "hint": "Let agents keep working on open tasks between wake cycles."
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Pick which project events you want to receive per channel.",
+      "loading": "Loading notification preferences…",
+      "loadError": "Could not load notification preferences.",
+      "saveError": "Could not save notification preferences.",
+      "eventColumn": "Event",
+      "events": {
+        "decisions": "Decision required",
+        "updates": "Status updates",
+        "failures": "Failures and errors",
+        "tokens": "Token threshold reached"
+      },
+      "channels": {
+        "desktop": "Desktop",
+        "email": "Email",
+        "mobile": "Mobile"
+      }
+    },
+    "workforce": {
+      "title": "Workforce history",
+      "description": "Every agent run for this project. Click through for live event logs."
+    },
+    "usage": {
+      "title": "Token usage",
+      "description": "Headline numbers on agent activity and consumption for this project.",
+      "loadError": "Could not load usage data.",
+      "budgetTitle": "Daily budget",
+      "budget": {
+        "dailyLimit": "Daily limit",
+        "usedToday": "Used today",
+        "remainingToday": "Remaining today",
+        "blocked": "Daily or hourly budget limit reached."
+      },
+      "metrics": {
+        "totalRuns": "Total runs",
+        "runningRuns": "Running",
+        "totalTokens": "Tokens used",
+        "failedRuns": "Failed runs"
       }
     },
     "settings": {
@@ -463,6 +781,19 @@
       "pickPage": "Select a page from the sidebar to start reading.",
       "retry": "Retry",
       "treeEmpty": "No pages yet.",
+      "pageCrud": {
+        "menuAria": "Page actions",
+        "addPage": "Add page",
+        "newRootPrompt": "Page title",
+        "newChildPrompt": "Child page title",
+        "newSiblingPrompt": "Sibling page title",
+        "renamePrompt": "Rename page",
+        "rename": "Rename",
+        "delete": "Delete",
+        "deleteConfirm": "Delete page \"{{title}}\"?",
+        "newChild": "New child page",
+        "newSibling": "New sibling page"
+      },
       "lockedTitle": "This page is locked",
       "lockedHint": "Unlock it from page settings to edit.",
       "revert": "Revert",

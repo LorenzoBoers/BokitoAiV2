@@ -71,6 +71,45 @@ query "runs/complete" verb=POST {
         updated_at : now
       }
     } as $updated
+
+    db.query projects {
+      where = $db.projects.id == $row.project_id
+      return = {type: "list", paging: {page: 1, per_page: 1}}
+    } as $proj_rows
+
+    conditional {
+      if (($proj_rows|count) > 0) {
+        var $proj {
+          value = $proj_rows|first
+        }
+
+        var $used_today {
+          value = $proj.token_used_today != null ? $proj.token_used_today : 0
+        }
+
+        var $used_hour {
+          value = $proj.token_used_this_hour != null ? $proj.token_used_this_hour : 0
+        }
+
+        var $delta {
+          value = $tokens_used - $existing_total
+        }
+
+        var $delta_pos {
+          value = $delta > 0 ? $delta : 0
+        }
+
+        db.edit projects {
+          field_name = "id"
+          field_value = $proj.id
+          data = {
+            token_used_today    : $used_today + $delta_pos
+            token_used_this_hour: $used_hour + $delta_pos
+            updated_at          : now
+          }
+        } as $proj_updated
+      }
+    }
   }
 
   response = {ok: true, work_log_id: $input.work_log_id, status: $input.status, tokens_used: $tokens_used}

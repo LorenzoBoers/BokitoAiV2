@@ -106,14 +106,15 @@ query "integrations/oauth/callback" verb=GET {
             api.request {
               url = "https://github.com/login/oauth/access_token"
               method = "POST"
-              headers = [{name: "Accept", value: "application/json"}, {name: "Content-Type", value: "application/json"}]
               params = {}
-              body = {
-                client_id    : $env.GITHUB_OAUTH_CLIENT_ID
-                client_secret: $env.GITHUB_OAUTH_CLIENT_SECRET
-                code         : $input.code
-                redirect_uri : $env.GITHUB_OAUTH_CALLBACK_URL
-              }
+                |set:"client_id":($env.GITHUB_OAUTH_CLIENT_ID|to_text)
+                |set:"client_secret":($env.GITHUB_OAUTH_CLIENT_SECRET|to_text)
+                |set:"code":($input.code|to_text)
+                |set:"redirect_uri":($env.GITHUB_OAUTH_CALLBACK_URL|to_text)
+              headers = []
+                |push:"Accept: application/json"
+                |push:"Content-Type: application/x-www-form-urlencoded"
+              timeout = 60
             } as $token_res
 
             var $access_token {

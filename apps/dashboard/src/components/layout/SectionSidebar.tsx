@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { UserAvatar } from '../ui/UserAvatar'
 import {
   Bell,
@@ -11,6 +12,7 @@ import {
   FolderKanban,
   Inbox,
   KeyRound,
+  LayoutDashboard,
   Link2,
   Mail,
   MessageSquare,
@@ -22,22 +24,29 @@ import {
   Users,
   Zap,
   Blocks,
+  Bot,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAiSidebarGroups,
+  getDataSidebarGroups,
   getIntegrationsSidebarGroups,
-  getProjectsSidebarGroups,
-  getProjectSidebarGroups,
+  getProjectHubSidebarGroups,
   getSettingsSidebarGroups,
-  getUserSidebarGroups,
-  getWorkforceSidebarGroups,
   type SidebarGroup,
+  type SidebarLink,
 } from './portal-nav'
+import DatabaseTablesPanel from './DatabaseTablesPanel'
 import InboxSidebarNav from '../inbox/InboxSidebarNav'
+import NavCountBadge from './NavCountBadge'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
 import { useOptionalProjectDocNav } from '../../context/ProjectDocNavContext'
+import { useOptionalWorkspaceDocNav } from '../../context/WorkspaceDocNavContext'
+import { useNavBadges } from '../../context/NavBadgeContext'
+import { countForBadgeSlot } from '../../lib/nav-badge-counts'
 import { PageTree } from '../doc/PageTree'
+import ProjectHubBackgroundWorkersNav from './ProjectHubBackgroundWorkersNav'
+import { isProjectHubRoute } from '../../context/ProjectHubNavContext'
 
 function sectionClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-all ${
@@ -71,31 +80,49 @@ function iconForLink(to: string) {
   if (to.includes('/settings/data/companies')) return Building
   if (to.includes('/settings/data/conversations')) return MessageSquare
   if (to.includes('/settings/data/imports-exports')) return Database
-  if (to === '/projects' || to === '/projects/new') return FolderKanban
+  if (to === '/projects') return LayoutDashboard
+  if (to === '/projects/docs' || to.startsWith('/projects/docs/')) return BookOpen
+  if (to === '/projects/list') return FolderKanban
+  if (to === '/projects/communication') return MessageSquare
+  if (to === '/projects/new' || to.startsWith('/projects/new/')) return FolderKanban
   if (to.startsWith('/projects')) return FolderKanban
   if (to.includes('/ai/assistent')) return MessageSquare
   if (to.includes('/ai/communicatie')) return MessageSquare
   if (to.includes('/ai/handelingen')) return Zap
-  if (to.includes('/integrations/sources')) return BookOpen
+  if (to.includes('/data/sources') || to.includes('/integrations/sources')) return BookOpen
+  if (to.includes('/data/imports-exports')) return Database
   if (to.includes('/integrations/connected')) return Link2
   if (to.includes('/integrations/connections')) return Link2
   if (to.includes('/integrations/marketplace')) return Blocks
   if (to.includes('/integrations/mcp')) return Zap
   if (to.includes('/integrations/api')) return KeyRound
-  if (to.includes('/admin/runs')) return Users
+  if (to === '/ai/agents' || to.startsWith('/ai/agents/')) return Bot
   if (to.includes('/project/') && to.endsWith('/overview')) return Briefcase
   if (/\/project\/[^/]+\/(pkb|doc)/.test(to)) return BookOpen
+  if (to.includes('/project/') && to.endsWith('/orchestration')) return Sparkles
+  if (to.includes('/project/') && to.endsWith('/notifications')) return Bell
+  if (to.includes('/project/') && to.endsWith('/workforce')) return Users
+  if (to.includes('/project/') && to.endsWith('/usage')) return Database
+  if (to.includes('/project/') && to.endsWith('/communication')) return MessageSquare
   if (to.includes('/project/') && to.endsWith('/request')) return PenLine
   if (to.includes('/project/') && to.endsWith('/messages')) return MessageSquare
   if (to.includes('/project/') && to.endsWith('/settings')) return Shield
   return Inbox
 }
 
-function isLinkActive(to: string, pathname: string): boolean {
+function isLinkActive(to: string, pathname: string, exact?: boolean): boolean {
+  if (exact) return pathname === to
   // Doc link should remain active for any /doc or /doc/:slug nested route.
   const docMatch = to.match(/^(\/project\/[^/]+\/doc)$/)
   if (docMatch) {
     return pathname === docMatch[1] || pathname.startsWith(`${docMatch[1]}/`)
+  }
+  // Workspace docs link stays active for child page slugs.
+  if (to === '/projects/docs') {
+    return pathname === '/projects/docs' || pathname.startsWith('/projects/docs/')
+  }
+  if (to === '/ai/agents') {
+    return pathname === '/ai/agents' || pathname.startsWith('/ai/agents/')
   }
   return pathname === to
 }
@@ -109,11 +136,12 @@ function SidebarGroupBlock({
   user: { name: string; email: string; avatarUrl?: string | null } | null
   pathname: string
 }) {
+  const { counts } = useNavBadges()
   return (
     <section className="space-y-1">
       <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">{group.label}</p>
       <div className="space-y-0.5">
-        {group.links.map((item) => {
+        {group.links.map((item: SidebarLink) => {
           if (item.comingSoon) {
             return (
               <div key={item.to} className="flex items-center gap-2 rounded-lg border border-transparent px-3 py-1.5 text-[13px] font-medium opacity-40 cursor-not-allowed select-none">
@@ -126,14 +154,17 @@ function SidebarGroupBlock({
               </div>
             )
           }
+          const badgeCount = item.badgeSlot ? countForBadgeSlot(counts, item.badgeSlot) : 0
+          const exact = item.exact === true
           return (
             <NavLink
               key={item.to}
               to={item.to}
+              end={exact}
               className={({ isActive }) =>
                 sectionClass(
-                  isActive ||
-                    isLinkActive(item.to, pathname) ||
+                  (isActive && (!exact || pathname === item.to)) ||
+                    isLinkActive(item.to, pathname, exact) ||
                     (item.to === ASSISTENT_DEFAULT_PATH && pathname.startsWith('/ai/assistent/')),
                 )
               }
@@ -146,7 +177,14 @@ function SidebarGroupBlock({
                   return <Icon size={14} className="text-text-muted" />
                 })()
               )}
-              <span>{item.label}</span>
+              <span className="min-w-0 truncate">{item.label}</span>
+              {badgeCount > 0 ? (
+                <NavCountBadge
+                  count={badgeCount}
+                  placement="inline"
+                  className="ml-auto"
+                />
+              ) : null}
             </NavLink>
           )
         })}
@@ -190,6 +228,8 @@ function ProjectDocPagesGroup({
           projectId={projectId}
           activePageId={activePageId}
           variant="sidebar"
+          enablePageCrud
+          onPagesChanged={() => docNav?.refresh()}
         />
       ) : (
         <p className="px-3 py-1 text-xs text-text-muted">
@@ -200,26 +240,37 @@ function ProjectDocPagesGroup({
   )
 }
 
-function resolveGroups(pathname: string, t: (key: string) => string): SidebarGroup[] {
-  const projectMatch = pathname.match(/^\/project\/([^/]+)/)
-  if (projectMatch?.[1]) return getProjectSidebarGroups(t, projectMatch[1])
-  if (pathname.startsWith('/projects')) return getProjectsSidebarGroups(t)
+function resolveGroups(pathname: string, t: TFunction<'nav'>): SidebarGroup[] {
+  if (pathname === '/home' || pathname.startsWith('/home/')) return []
+  // Wizard routes have their own full-bleed layout — no sidebar groups.
+  if (pathname === '/projects/new' || pathname.startsWith('/projects/new/')) return []
+  if (isProjectHubRoute(pathname)) return getProjectHubSidebarGroups(t)
   if (pathname.startsWith('/integrations')) return getIntegrationsSidebarGroups(t)
   if (pathname.startsWith('/settings')) return getSettingsSidebarGroups(t)
-  if (pathname.startsWith('/users') || pathname.startsWith('/database')) return getUserSidebarGroups(t)
+  if (
+    pathname.startsWith('/users') ||
+    pathname.startsWith('/database') ||
+    pathname.startsWith('/data/')
+  ) {
+    return getDataSidebarGroups(t)
+  }
   if (pathname.startsWith('/ai')) return getAiSidebarGroups(t)
-  if (pathname.startsWith('/workforce') || pathname.startsWith('/admin/runs')) return getWorkforceSidebarGroups(t)
+  if (pathname.startsWith('/workforce')) return getAiSidebarGroups(t)
   return []
 }
 
-function resolveTitle(pathname: string, t: (key: string) => string): string {
-  if (pathname.match(/^\/project\/[^/]+/)) return t('nav:sectionTitle.project', { defaultValue: 'Project' })
-  if (pathname.startsWith('/projects')) return t('nav:sectionTitle.projects', { defaultValue: 'Projects' })
-  if (pathname.startsWith('/users') || pathname.startsWith('/database')) return t('nav:sectionTitle.data')
+function resolveTitle(pathname: string, t: TFunction<['nav']>): string {
+  if (pathname === '/home' || pathname.startsWith('/home/')) return t('nav:sectionTitle.home', { defaultValue: 'Home' })
+  if (isProjectHubRoute(pathname)) return t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
+  if (pathname.startsWith('/users') || pathname.startsWith('/database') || pathname.startsWith('/data/')) {
+    return t('nav:sectionTitle.data')
+  }
   if (pathname.startsWith('/integrations')) return t('nav:sectionTitle.integrations')
   if (pathname.startsWith('/settings')) return t('nav:sectionTitle.settings')
-  if (pathname.startsWith('/ai')) return t('nav:sectionTitle.ai')
-  if (pathname.startsWith('/workforce') || pathname.startsWith('/admin/runs')) return t('nav:sectionTitle.workforce')
+  if (pathname.startsWith('/ai')) return t('nav:sectionTitle.assistent', { defaultValue: 'Assistent' })
+  if (pathname.startsWith('/workforce')) {
+    return t('nav:sectionTitle.assistent', { defaultValue: 'Assistent' })
+  }
   return t('nav:sectionTitle.inbox')
 }
 
@@ -227,10 +278,22 @@ export default function SectionSidebar() {
   const { t } = useTranslation(['nav'])
   const { user } = useAuth()
   const { pathname } = useLocation()
-  const groups = resolveGroups(pathname, t)
+
+  if (pathname === '/home' || pathname.startsWith('/home/')) {
+    return null
+  }
+
+  // The new-project wizard owns its full-bleed canvas; suppress the sidebar.
+  if (pathname === '/projects/new' || pathname.startsWith('/projects/new/')) {
+    return null
+  }
+
+  const onProjectHub = isProjectHubRoute(pathname)
+  const groups = resolveGroups(pathname, t as TFunction<'nav'>)
   const title = resolveTitle(pathname, t)
 
   const isInbox = pathname.startsWith('/support') || pathname.startsWith('/communication')
+  const isDatabaseRoute = pathname.startsWith('/database')
   const projectMatch = pathname.match(/^\/project\/([^/]+)/)
   const projectId = projectMatch?.[1] ?? null
   const onDocRoute = Boolean(projectId && /\/project\/[^/]+\/doc/.test(pathname))
@@ -246,14 +309,19 @@ export default function SectionSidebar() {
             {groups.map((group) => (
               <SidebarGroupBlock key={group.label} group={group} user={user ?? null} pathname={pathname} />
             ))}
+            {onProjectHub ? <ProjectHubBackgroundWorkersNav /> : null}
             {onDocRoute && projectId ? (
               <ProjectDocPagesGroup pathname={pathname} projectId={projectId} />
             ) : null}
+            {isDatabaseRoute ? <DatabaseTablesPanel /> : null}
           </div>
         )}
       </div>
       {isInbox && (
         <div className="mt-2 space-y-0.5 border-t border-border/40 pt-2">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+            {t('nav:inbox.configureGroup', { defaultValue: 'Configure' })}
+          </p>
           <NavLink
             to={ASSISTENT_DEFAULT_PATH}
             className={({ isActive }) =>
@@ -261,11 +329,11 @@ export default function SectionSidebar() {
             }
           >
             <MessageSquare size={14} className="text-text-muted" />
-            <span>{t('nav:settings.links.messenger')}</span>
+            <span>{t('nav:inbox.configureAssistent', { defaultValue: 'Assistent settings' })}</span>
           </NavLink>
           <NavLink to="/settings/inbox" className={({ isActive }) => sectionClass(isActive)}>
             <Mail size={14} className="text-text-muted" />
-            <span>{t('nav:settings.links.inbox')}</span>
+            <span>{t('nav:inbox.configureInbox', { defaultValue: 'Inbox settings' })}</span>
           </NavLink>
         </div>
       )}

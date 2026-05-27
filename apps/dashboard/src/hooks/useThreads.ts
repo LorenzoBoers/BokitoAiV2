@@ -1,6 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { listThreads, type InboxThread, type ThreadFilters } from '../lib/inbox-api'
+
+function buildFilterKey(filters: ThreadFilters): string {
+  return [
+    filters.view ?? '',
+    filters.tag ?? '',
+    String(filters.assigneeId ?? ''),
+    filters.search ?? '',
+    String(filters.page ?? ''),
+    String(filters.perPage ?? ''),
+    String(filters.connectionId ?? ''),
+  ].join('\0')
+}
 
 export function useThreads(
   filters: ThreadFilters = {},
@@ -8,29 +20,64 @@ export function useThreads(
   pollMs = 30000,
 ) {
   const { token } = useAuth()
+  const filterKey = useMemo(() => buildFilterKey(filters), [
+    filters.view,
+    filters.tag,
+    filters.assigneeId,
+    filters.search,
+    filters.page,
+    filters.perPage,
+    filters.connectionId,
+  ])
+
   const [rawThreads, setRawThreads] = useState<InboxThread[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [total, setTotal] = useState<number | null>(null)
+  const [syncedFilterKey, setSyncedFilterKey] = useState<string | null>(null)
+
+  // Drop stale rows synchronously when queue/search/channel changes so callers
+  // never auto-select from the previous folder while the new fetch is in flight.
+  useLayoutEffect(() => {
+    setRawThreads([])
+    setSyncedFilterKey(null)
+    setLoading(true)
+    setError(null)
+  }, [filterKey])
 
   const fetchThreads = useCallback(async () => {
     if (!token) {
       setRawThreads([])
+      setSyncedFilterKey(null)
+      setLoading(false)
       return
     }
     setLoading(true)
     setError(null)
+    const keyAtStart = filterKey
     try {
       const result = await listThreads(token, filters)
       setRawThreads(result.items)
       setTotal(result.itemsTotal)
+      setSyncedFilterKey(keyAtStart)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kon threads niet laden.')
       setRawThreads([])
+      setSyncedFilterKey(keyAtStart)
     } finally {
       setLoading(false)
     }
-  }, [token, filters.view, filters.tag, filters.assigneeId, filters.search, filters.page, filters.perPage, filters.connectionId])
+  }, [
+    token,
+    filterKey,
+    filters.view,
+    filters.tag,
+    filters.assigneeId,
+    filters.search,
+    filters.page,
+    filters.perPage,
+    filters.connectionId,
+  ])
 
   useEffect(() => {
     void fetchThreads()
@@ -58,6 +105,8 @@ export function useThreads(
     })
   }, [rawThreads, pinnedIds])
 
+  const threadsReady = syncedFilterKey === filterKey && !loading
+
   // Optimistic read/unread state update for the in-memory list. Lets the UI
   // toggle the unread dot instantly when a user opens a thread or manually
   // flips it back to unread, without waiting for the next poll.
@@ -65,5 +114,19 @@ export function useThreads(
     setRawThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, hasUnread } : t)))
   }, [])
 
-  return { threads, loading, error, total, refresh: fetchThreads, setThreadReadState }
+  const removeThread = useCallback((threadId: number) => {
+    setRawThreads((prev) => prev.filter((t) => t.id !== threadId))
+    setTotal((prev) => (prev != null && prev > 0 ? prev - 1 : prev))
+  }, [])
+
+  return {
+    threads,
+    loading,
+    threadsReady,
+    error,
+    total,
+    refresh: fetchThreads,
+    setThreadReadState,
+    removeThread,
+  }
 }

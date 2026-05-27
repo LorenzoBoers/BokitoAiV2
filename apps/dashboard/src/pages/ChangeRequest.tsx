@@ -39,7 +39,7 @@ export default function ChangeRequest() {
         target_page_id: navState?.targetPageId ?? null,
         priority: priorityMap[priority],
       })
-      navigate(`/project/${projectId}/doc`)
+      navigate(`/project/${projectId}/communication`)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('project.request.error'))
     } finally {

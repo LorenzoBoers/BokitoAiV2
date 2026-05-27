@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { InboxThread } from '../../lib/inbox-api'
 import ThreadIndicatorMenu from './ThreadIndicatorMenu'
@@ -9,6 +10,8 @@ type Props = {
   onMarkRead: (id: number) => void
   onMarkUnread: (id: number) => void
   onTogglePin: (id: number, currentPinned: boolean) => void
+  onDelete: (id: number) => void
+  deleting?: boolean
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -40,6 +43,8 @@ export default function ThreadListItem({
   onMarkRead,
   onMarkUnread,
   onTogglePin,
+  onDelete,
+  deleting = false,
 }: Props) {
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
 
@@ -72,7 +77,28 @@ export default function ThreadListItem({
             <span className={cn('text-sm font-medium truncate', thread.hasUnread ? 'text-text-heading' : 'text-text-primary')}>
               {thread.contactName || thread.contactEmail || 'Onbekende afzender'}
             </span>
-            <span className="text-xs text-text-muted shrink-0">{formatRelativeTime(thread.lastMessageAt)}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(thread.id)
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                title="Verwijderen"
+                aria-label="Thread verwijderen"
+                className={cn(
+                  'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
+                  'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
+                  'hover:bg-status-error/10 hover:text-status-error transition-opacity',
+                  'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+                )}
+              >
+                <Trash2 size={13} />
+              </button>
+              <span className="text-xs text-text-muted">{formatRelativeTime(thread.lastMessageAt)}</span>
+            </div>
           </div>
           <div className="flex items-center gap-1 mb-1">
             {priorityDot ? <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot)} /> : null}

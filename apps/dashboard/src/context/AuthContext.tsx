@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import {
   ACCESS_TOKEN_TTL_S,
   authLogin,
@@ -469,7 +469,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [applySession, clearSession]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setAccessTokenProvider(() => token);
     return () => setAccessTokenProvider(null);
   }, [token]);

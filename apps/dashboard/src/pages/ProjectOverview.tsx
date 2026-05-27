@@ -32,7 +32,7 @@ export default function ProjectOverview() {
             </p>
           </div>
           <Link
-            to={`/project/${projectId}/messages`}
+            to={`/project/${projectId}/communication`}
             className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
           >
             {t('project.overview.viewAll')}

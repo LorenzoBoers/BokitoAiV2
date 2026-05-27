@@ -44,6 +44,13 @@ export const APP_API_BASE = xanoApiBase(API_GROUP_APP)
 await fetch(`${APP_API_BASE}/members`)
 ```
 
+## Integrations
+
+- Developer guide: [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) (marketplace setup, registry, Xano deploy).
+- Route paths: `src/api/routes/integrations.routes.ts`, `github.routes.ts`.
+- Provider registry: `src/lib/integrations/registry.ts`.
+- API group base: `INTEGRATIONS_API_BASE` in `src/lib/api.config.ts` (`VITE_API_GROUP_INTEGRATIONS`).
+
 ## Migration approach for existing fetch code
 
 1. Identify feature files with direct origin usage.

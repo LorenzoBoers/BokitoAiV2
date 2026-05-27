@@ -24,13 +24,15 @@ import {
   type DocBlockType,
   type InlineRun,
 } from '../../lib/doc-api'
+import { applyWorkspaceBlockOps } from '../../lib/workspace-doc-api'
 import { diffBlockLists, newBlockId, renderInlineText } from '../../lib/doc-blocks'
 import { BlockTypeMenu } from './BlockTypeMenu'
 
 interface BlockEditorProps {
-  projectId: string
+  projectId?: string
   pageId: string
   initialBlocks: DocBlockRow[]
+  docScope?: 'project' | 'workspace'
   onSaved?: (blocks: DocBlockRow[]) => void
   onError?: (err: Error) => void
 }
@@ -85,9 +87,16 @@ function blockClassFor(type: DocBlockType): string {
     case 'quote':
       return 'border-l-4 border-border/60 pl-4 italic text-text-secondary'
     case 'code':
-      return 'rounded-lg border border-border/60 bg-bg-surface px-3 py-2 font-mono text-xs whitespace-pre-wrap'
+      return 'rounded-lg border border-border/60 bg-bg-surface px-3 py-2 font-mono text-sm leading-relaxed whitespace-pre-wrap'
+    case 'callout':
+      return 'rounded-lg border border-border/70 bg-bg-surface/90 px-4 py-3 text-[15px] leading-relaxed text-text-secondary shadow-sm'
+    case 'paragraph':
+      return 'text-[15px] leading-7 text-text-primary'
+    case 'bullet_list_item':
+    case 'numbered_list_item':
+      return 'text-[15px] leading-7 text-text-primary pl-1'
     default:
-      return 'text-base'
+      return 'text-[15px] leading-7 text-text-primary'
   }
 }
 
@@ -292,6 +301,7 @@ export function BlockEditor({
   projectId,
   pageId,
   initialBlocks,
+  docScope = 'project',
   onSaved,
   onError,
 }: BlockEditorProps) {
@@ -326,7 +336,10 @@ export function BlockEditor({
         if (ops.length === 0) return
         setSaving(true)
         try {
-          const res = await applyBlockOps(projectId, pageId, ops)
+          const res =
+            docScope === 'workspace'
+              ? await applyWorkspaceBlockOps(pageId, ops)
+              : await applyBlockOps(projectId!, pageId, ops)
           lastSavedRef.current = next as unknown as DocBlockRow[]
           setSavedAt(new Date())
           if (onSaved) onSaved(res.applied)
@@ -337,7 +350,7 @@ export function BlockEditor({
         }
       }, 600)
     },
-    [projectId, pageId, onSaved, onError],
+    [docScope, projectId, pageId, onSaved, onError],
   )
 
   const updateAndSave = useCallback(

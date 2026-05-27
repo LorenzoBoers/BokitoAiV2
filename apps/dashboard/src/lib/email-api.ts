@@ -251,8 +251,12 @@ export function buildEmailOAuthReturnUrl(): string {
   return `${window.location.origin}${window.location.pathname}`
 }
 
-export async function startOAuthConnection(token: string, provider: OAuthProvider): Promise<string> {
-  const returnUrl = buildEmailOAuthReturnUrl()
+export async function startOAuthConnection(
+  token: string,
+  provider: OAuthProvider,
+  returnUrlOverride?: string,
+): Promise<string> {
+  const returnUrl = returnUrlOverride?.trim() || buildEmailOAuthReturnUrl()
   const encodedReturnUrl = encodeURIComponent(returnUrl)
   const genericPath = integrationsRoutes.email.oauth.start(provider, encodedReturnUrl)
   try {

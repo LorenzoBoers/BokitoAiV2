@@ -1,6 +1,5 @@
-import { AlertCircle, Archive, ChevronDown, PanelRight, Pin, PinOff, RefreshCw, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { cn } from '../../lib/utils'
+import { AlertCircle, Archive, ArchiveRestore, PanelRight, Pin, PinOff, RefreshCw, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
   listInboxMembers,
@@ -12,7 +11,7 @@ import { MessageTimelineItem, EventTimelineItem, formatHourMinute } from './Time
 import ReplyComposer from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
 import { Button } from '../ui/button'
-import { TooltipProvider } from '../ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 
 type TimelineEntry =
   | { kind: 'message'; time: string; id: string; data: ThreadDetailType['messages'][number] }
@@ -46,23 +45,14 @@ type Props = {
   onNote: (bodyText: string) => Promise<void>
   onRefresh: () => void
   onTogglePin?: () => void | Promise<void>
+  onDelete?: () => void | Promise<void>
+  deleting?: boolean
   onToggleContact?: () => void
   contactOpen?: boolean
 }
 
-const STATUS_OPTIONS = [
-  { value: 'open', label: 'Open' },
-  { value: 'pending', label: 'In behandeling' },
-  { value: 'closed', label: 'Gesloten' },
-  { value: 'spam', label: 'Spam' },
-] as const
-
-const STATUS_COLORS: Record<string, string> = {
-  open: 'text-status-success',
-  pending: 'text-status-warning',
-  closed: 'text-text-muted',
-  spam: 'text-status-error',
-}
+const HEADER_ICON =
+  'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
 
 const DAY_FORMATTER = new Intl.DateTimeFormat('nl-NL', {
   day: 'numeric',
@@ -105,11 +95,10 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onToggleContact, contactOpen }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onDelete, deleting = false, onToggleContact, contactOpen }: Props) {
   const { token } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
   const previousMessageCountRef = useRef<number>(0)
   const groupRefs = useRef<Map<string, HTMLElement>>(new Map())
   // Anchor-to-bottom: when a thread opens we want the timeline to stay pinned
@@ -117,6 +106,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // measuring their height asynchronously, so a one-shot scroll right after
   // open is not enough; a ResizeObserver re-pins on every subsequent growth.
   const anchorToBottomRef = useRef<boolean>(false)
+  const programmaticScrollRef = useRef<boolean>(false)
   const [membersById, setMembersById] = useState<Record<number, InboxMember>>({})
   const [activeDayLabel, setActiveDayLabel] = useState<string | null>(null)
 
@@ -160,36 +150,69 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [detail])
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
-    const node = bottomRef.current
-    if (!node) return
-    node.scrollIntoView({ block: 'end', behavior })
+    const container = scrollRef.current
+    if (!container) return
+    programmaticScrollRef.current = true
+    const top = Math.max(0, container.scrollHeight - container.clientHeight)
+    if (behavior === 'smooth') {
+      container.scrollTo({ top, behavior: 'smooth' })
+    } else {
+      container.scrollTop = top
+    }
+    window.setTimeout(() => {
+      programmaticScrollRef.current = false
+    }, 120)
   }, [])
+
+  const pinToBottom = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      anchorToBottomRef.current = true
+      scrollToBottom(behavior)
+    },
+    [scrollToBottom],
+  )
 
   const loadedThreadId = detail?.thread.id ?? null
   const messageCount = detail?.messages.length ?? 0
 
-  // Scroll to bottom whenever a new thread is opened. We engage the anchor
-  // flag so the ResizeObserver below keeps re-pinning to the bottom as email
-  // iframes finish measuring their height (often a few hundred ms after the
-  // initial render).
-  useEffect(() => {
-    if (loadedThreadId == null) {
-      anchorToBottomRef.current = false
+  // Scroll to bottom whenever a thread finishes loading. We engage the anchor
+  // flag so the ResizeObserver below keeps re-pinning as email iframes finish
+  // measuring their height (often hundreds of ms after the initial render).
+  useLayoutEffect(() => {
+    if (loading || threadId == null || loadedThreadId !== threadId || groups.length === 0) {
+      if (loadedThreadId == null) anchorToBottomRef.current = false
       return
     }
+
     previousMessageCountRef.current = messageCount
-    anchorToBottomRef.current = true
-    const raf = window.requestAnimationFrame(() => scrollToBottom('auto'))
-    return () => window.cancelAnimationFrame(raf)
-    // Re-run only when switching threads, not on every message update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadedThreadId])
+    pinToBottom('auto')
+
+    const raf = window.requestAnimationFrame(() => pinToBottom('auto'))
+    const t1 = window.setTimeout(() => pinToBottom('auto'), 0)
+    const t2 = window.setTimeout(() => pinToBottom('auto'), 120)
+    const t3 = window.setTimeout(() => pinToBottom('auto'), 350)
+    const t4 = window.setTimeout(() => pinToBottom('auto'), 700)
+
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.clearTimeout(t3)
+      window.clearTimeout(t4)
+    }
+  }, [loading, threadId, loadedThreadId, groups.length, messageCount, pinToBottom])
+
+  // Re-pin when timeline content changes while anchored (extra events/messages).
+  useLayoutEffect(() => {
+    if (!anchorToBottomRef.current || loadedThreadId == null || groups.length === 0) return
+    pinToBottom('auto')
+  }, [groups, loadedThreadId, pinToBottom])
 
   // Re-pin to the bottom on any content height growth (iframes loading,
   // images decoding, etc.) for as long as the anchor is engaged.
   useEffect(() => {
     const node = contentRef.current
-    if (!node || typeof ResizeObserver === 'undefined') return
+    if (!node || typeof ResizeObserver === 'undefined' || loadedThreadId == null) return
     const observer = new ResizeObserver(() => {
       if (anchorToBottomRef.current) {
         scrollToBottom('auto')
@@ -197,7 +220,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     })
     observer.observe(node)
     return () => observer.disconnect()
-  }, [scrollToBottom])
+  }, [loadedThreadId, scrollToBottom])
 
   // Release the anchor as soon as the user scrolls away from the bottom so we
   // don't fight them while they read older messages.
@@ -205,6 +228,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     const container = scrollRef.current
     if (!container) return
     const onScroll = () => {
+      if (programmaticScrollRef.current) return
       const distance = container.scrollHeight - container.scrollTop - container.clientHeight
       if (distance > 80) {
         anchorToBottomRef.current = false
@@ -212,7 +236,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => container.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [loadedThreadId])
 
   // Scroll on message-count growth, but only when the user is already near the bottom.
   useEffect(() => {
@@ -339,86 +363,91 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   return (
     <TooltipProvider delayDuration={150}>
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-border/50 bg-bg-surface shrink-0">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold text-text-heading truncate">{thread.emailSubject}</h2>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs text-text-secondary truncate">{thread.contactEmail}</span>
-          </div>
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-bg-surface/90 shrink-0 min-h-10">
+        <div className="min-w-0 flex-1 leading-tight">
+          <h2 className="text-[13px] font-medium text-text-heading truncate">{thread.emailSubject}</h2>
+          <p className="text-[11px] text-text-muted truncate">{thread.contactEmail}</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div
+          className="flex items-center shrink-0 rounded-lg border border-border/50 bg-bg-surface-hover/30 p-0.5"
+          role="toolbar"
+          aria-label="Thread acties"
+        >
           <AssigneeSelector
             currentAssigneeId={thread.assignedToUserId}
             disabled={saving}
             onChange={(userId) => void onPatch({ assignedToUserId: userId ?? 0 })}
           />
-          <div className="relative">
-            <select
-              value={thread.status}
-              disabled={saving}
-              onChange={(e) =>
-                void onPatch({ status: e.target.value as typeof thread.status })
-              }
-              className={cn(
-                'appearance-none rounded border border-border bg-bg-surface py-0.5 pl-2 pr-6 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-accent/50 disabled:opacity-50 cursor-pointer',
-                STATUS_COLORS[thread.status] ?? 'text-text-primary',
-              )}
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted" />
-          </div>
-          {thread.status !== 'closed' ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void onPatch({ status: 'closed' })}
-              disabled={saving}
-              title="Sluiten"
-            >
-              <Archive size={14} />
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void onPatch({ status: 'open' })}
-              disabled={saving}
-              title="Heropenen"
-            >
-              <X size={14} />
-            </Button>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() =>
+                  void onPatch({ status: thread.status === 'closed' ? 'open' : 'closed' })
+                }
+                aria-label={thread.status === 'closed' ? 'Heropenen' : 'Sluiten'}
+                className={HEADER_ICON}
+              >
+                {thread.status === 'closed' ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {thread.status === 'closed' ? 'Heropenen' : 'Sluiten'}
+            </TooltipContent>
+          </Tooltip>
+          {onDelete ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={saving || deleting}
+                  onClick={() => void onDelete()}
+                  aria-label="Verwijderen"
+                  className={`${HEADER_ICON} hover:text-status-error`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Verwijderen</TooltipContent>
+            </Tooltip>
+          ) : null}
           {onTogglePin ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void onTogglePin()}
-              disabled={saving || loading}
-              title={thread.isPinned ? 'Pin verwijderen' : 'Thread pinnen'}
-              aria-label={thread.isPinned ? 'Pin verwijderen' : 'Thread pinnen'}
-              aria-pressed={thread.isPinned}
-              className={thread.isPinned ? 'text-accent' : ''}
-            >
-              {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={saving || loading}
+                  onClick={() => void onTogglePin()}
+                  aria-label={thread.isPinned ? 'Pin verwijderen' : 'Pinnen'}
+                  aria-pressed={thread.isPinned}
+                  className={`${HEADER_ICON}${thread.isPinned ? ' text-accent' : ''}`}
+                >
+                  {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {thread.isPinned ? 'Pin verwijderen' : 'Pinnen'}
+              </TooltipContent>
+            </Tooltip>
           ) : null}
           {onToggleContact ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onToggleContact}
-              title={contactOpen ? 'Verberg contactpaneel' : 'Toon contactpaneel'}
-              aria-label={contactOpen ? 'Verberg contactpaneel' : 'Toon contactpaneel'}
-              aria-pressed={contactOpen}
-              className={contactOpen ? 'text-accent' : ''}
-            >
-              <PanelRight size={13} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onToggleContact}
+                  aria-label={contactOpen ? 'Verberg contactpaneel' : 'Contactpaneel'}
+                  aria-pressed={contactOpen}
+                  className={`${HEADER_ICON}${contactOpen ? ' text-accent' : ''}`}
+                >
+                  <PanelRight size={13} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {contactOpen ? 'Verberg contactpaneel' : 'Contactpaneel'}
+              </TooltipContent>
+            </Tooltip>
           ) : null}
         </div>
       </div>
@@ -470,7 +499,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             </section>
           ))
         )}
-        <div ref={bottomRef} />
         </div>
         </div>
         {/* Fade overlay tegen de bovenzijde van het thread inhoud venster.

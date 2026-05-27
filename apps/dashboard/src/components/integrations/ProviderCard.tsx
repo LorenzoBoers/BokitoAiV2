@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Clock } from 'lucide-react'
+import { Clock, Info } from 'lucide-react'
 import type { Integration } from '../../data/integrations-data'
 import { resolveIntegrationKind } from '../../lib/integration-kind'
 import type { IntegrationKind } from '../../lib/integration-kind'
@@ -10,9 +10,9 @@ import { Button } from '../ui/button'
 type ProviderCardProps = {
   integration: Integration
   connectionCount: number
+  onOpenDetail: () => void
   onSetup: () => void
   onViewConnected: () => void
-  onSetupInMcp?: () => void
   onAddAccount?: () => void
 }
 
@@ -23,20 +23,30 @@ function kindLabelKey(kind: IntegrationKind): string {
 export function ProviderCard({
   integration,
   connectionCount,
+  onOpenDetail,
   onSetup,
   onViewConnected,
-  onSetupInMcp,
   onAddAccount,
 }: ProviderCardProps) {
   const { t } = useTranslation('nav')
   const kind = integration.kind ?? resolveIntegrationKind(integration.id)
   const isConnected = connectionCount > 0
   const isComingSoon = integration.status === 'coming_soon'
-  const isMcp = kind === 'mcp'
   const showAddAccount = kind === 'repository' && isConnected && onAddAccount != null
 
   return (
-    <article className="flex flex-col rounded-xl border border-border/60 bg-bg-surface p-5 transition-shadow hover:shadow-sm hover:border-border">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onOpenDetail}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpenDetail()
+        }
+      }}
+      className="flex flex-col rounded-xl border border-border/60 bg-bg-surface p-5 transition-shadow hover:shadow-sm hover:border-border cursor-pointer"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -65,7 +75,22 @@ export function ProviderCard({
         />
       </div>
 
-      <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-end gap-2 flex-wrap">
+      <div
+        className="mt-4 pt-4 border-t border-border/50 flex items-center justify-end gap-2 flex-wrap"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0 text-text-secondary"
+          aria-label={t('integrations.actions.viewInfo')}
+          title={t('integrations.actions.viewInfo')}
+          onClick={onOpenDetail}
+        >
+          <Info size={16} aria-hidden />
+        </Button>
         {isComingSoon ? (
           <Button size="sm" variant="secondary" disabled className="gap-1.5">
             <Clock size={12} />
@@ -78,19 +103,10 @@ export function ProviderCard({
                 {t('integrations.actions.addAccount')}
               </Button>
             ) : null}
-            {isMcp && onSetupInMcp ? (
-              <Button size="sm" variant="ghost" onClick={onSetupInMcp}>
-                {t('integrations.actions.manageInMcp')}
-              </Button>
-            ) : null}
             <Button size="sm" variant="secondary" onClick={onViewConnected}>
               {t('integrations.actions.viewInConnected')}
             </Button>
           </>
-        ) : isMcp && onSetupInMcp ? (
-          <Button size="sm" onClick={onSetupInMcp}>
-            {t('integrations.actions.setupInMcp')}
-          </Button>
         ) : (
           <Button size="sm" onClick={onSetup}>
             {t('integrations.actions.setupConnection')}

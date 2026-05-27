@@ -9,13 +9,15 @@ import {
   type IntegrationProviderRow,
   type ProvidersListResponse,
 } from './integrations-api'
+import { PROVIDER_REGISTRY } from './integrations/registry'
 import { withTimeout } from './promise-timeout'
 
 const MCP_CONNECTIONS_TIMEOUT_MS = 15_000
 
-export const MCP_PROVIDER_SERVER_IDS: Record<string, number> = {
-  bjorn_lunden_mcp: 8,
-}
+/** Default Xano MCP server ids per provider slug (see registry `mcpServerId`). */
+export const MCP_PROVIDER_SERVER_IDS: Record<string, number> = Object.fromEntries(
+  PROVIDER_REGISTRY.filter((e) => e.mcpServerId != null).map((e) => [e.platformSlug, e.mcpServerId!]),
+)
 
 export type McpAuthType = 'api_key' | 'bearer'
 

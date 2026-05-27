@@ -31,7 +31,7 @@ query "integrations/oauth/start" verb=GET {
     }
 
     var $resolved_return_url {
-      value = $input.return_url != null && ($input.return_url|strlen) > 0 ? $input.return_url : "https://app.bokito.ai/settings/integrations"
+      value = $input.return_url != null && ($input.return_url|strlen) > 0 ? $input.return_url : "https://app.bokito.ai/integrations/marketplace"
     }
 
     security.create_uuid as $state_id
@@ -80,6 +80,7 @@ query "integrations/oauth/start" verb=GET {
       }
 
       else {
+        // Add new oauth2 providers here (or use dedicated /{provider}/oauth/start like GitHub).
         precondition (false) {
           error_type = "inputerror"
           error = "OAuth start not implemented for this provider."

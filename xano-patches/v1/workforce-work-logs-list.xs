@@ -5,6 +5,7 @@ query "work_logs" verb=GET {
 
   input {
     text project_id?
+    uuid agent_id?
     text status?
     int limit?=50
   }
@@ -25,7 +26,7 @@ query "work_logs" verb=GET {
     }
 
     db.query work_logs {
-      where = $db.work_logs.tenant_id == $me.organisation_id && $db.work_logs.project_id ==? $input.project_id && $db.work_logs.status ==? $input.status
+      where = $db.work_logs.tenant_id == $me.organisation_id && $db.work_logs.project_id ==? $input.project_id && $db.work_logs.agent_id ==? $input.agent_id && $db.work_logs.status ==? $input.status
       sort = {work_logs.started_at: "desc"}
       return = {type: "list", paging: {page: 1, per_page: $per_page}}
     } as $rows
