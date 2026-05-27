@@ -24,7 +24,7 @@ import {
   type DocBlockType,
   type InlineRun,
 } from '../../lib/doc-api'
-import { applyWorkspaceBlockOps } from '../../lib/workspace-doc-api'
+import { applyWorkspaceBlockOps, isWorkspaceDocVersionConflict } from '../../lib/workspace-doc-api'
 import { diffBlockLists, newBlockId, renderInlineText } from '../../lib/doc-blocks'
 import { BlockTypeMenu } from './BlockTypeMenu'
 
@@ -33,8 +33,11 @@ interface BlockEditorProps {
   pageId: string
   initialBlocks: DocBlockRow[]
   docScope?: 'project' | 'workspace'
-  onSaved?: (blocks: DocBlockRow[]) => void
+  /** Workspace page content_version for optimistic concurrency. */
+  contentVersion?: number
+  onSaved?: (blocks: DocBlockRow[], meta?: { contentVersion?: number }) => void
   onError?: (err: Error) => void
+  onVersionConflict?: () => void
 }
 
 type EditableBlock = Pick<
@@ -56,11 +59,12 @@ type EditableBlock = Pick<
   | 'page_id'
 >
 
+/** Workspace docs use flat top-level blocks only (Pad A). */
 function blocksToEditable(blocks: DocBlockRow[]): EditableBlock[] {
   return [...blocks]
     .filter((b) => !b.parent_block_id)
     .sort((a, b) => a.position - b.position)
-    .map((b, i) => ({ ...b, position: i }))
+    .map((b, i) => ({ ...b, position: i, parent_block_id: null }))
 }
 
 function reposition(list: EditableBlock[]): EditableBlock[] {
@@ -302,19 +306,26 @@ export function BlockEditor({
   pageId,
   initialBlocks,
   docScope = 'project',
+  contentVersion = 0,
   onSaved,
   onError,
+  onVersionConflict,
 }: BlockEditorProps) {
+  const { t } = useTranslation('nav')
   const [blocks, setBlocks] = useState<EditableBlock[]>(() => blocksToEditable(initialBlocks))
   const lastSavedRef = useRef<DocBlockRow[]>(initialBlocks)
+  const contentVersionRef = useRef(contentVersion)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setBlocks(blocksToEditable(initialBlocks))
     lastSavedRef.current = initialBlocks
-  }, [initialBlocks])
+    contentVersionRef.current = contentVersion
+    setConflictMessage(null)
+  }, [initialBlocks, contentVersion])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -338,19 +349,33 @@ export function BlockEditor({
         try {
           const res =
             docScope === 'workspace'
-              ? await applyWorkspaceBlockOps(pageId, ops)
+              ? await applyWorkspaceBlockOps(pageId, ops, {
+                  expectedVersion: contentVersionRef.current,
+                })
               : await applyBlockOps(projectId!, pageId, ops)
           lastSavedRef.current = next as unknown as DocBlockRow[]
+          if (typeof res.content_version === 'number') {
+            contentVersionRef.current = res.content_version
+          }
+          setConflictMessage(null)
           setSavedAt(new Date())
-          if (onSaved) onSaved(res.applied)
+          if (onSaved) {
+            onSaved(res.applied, { contentVersion: res.content_version })
+          }
         } catch (err) {
-          if (onError) onError(err instanceof Error ? err : new Error(String(err)))
+          const error = err instanceof Error ? err : new Error(String(err))
+          if (docScope === 'workspace' && isWorkspaceDocVersionConflict(error)) {
+            setConflictMessage(t('project.doc.editor.versionConflict'))
+            onVersionConflict?.()
+          } else if (onError) {
+            onError(error)
+          }
         } finally {
           setSaving(false)
         }
       }, 600)
     },
-    [docScope, projectId, pageId, onSaved, onError],
+    [docScope, projectId, pageId, onSaved, onError, onVersionConflict, t],
   )
 
   const updateAndSave = useCallback(
@@ -478,12 +503,13 @@ export function BlockEditor({
   )
 
   const ids = useMemo(() => blocks.map((b) => b.id), [blocks])
-  const { t } = useTranslation('nav')
 
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-end gap-2 text-xs text-text-muted">
-        {saving ? (
+        {conflictMessage ? (
+          <span className="text-status-warning">{conflictMessage}</span>
+        ) : saving ? (
           <span>{t('project.doc.editor.saving')}</span>
         ) : savedAt ? (
           <span>

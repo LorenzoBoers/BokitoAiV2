@@ -17,6 +17,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
     uuid page_id
     json ops
     text actor_label?
+    int expected_version?
   }
 
   stack {
@@ -42,6 +43,24 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
 
     var $page {
       value = $page_rows|first
+    }
+
+    precondition ($page.is_locked == false) {
+      error_type = "accessdenied"
+      error = "Page is locked. Unlock it before editing."
+    }
+
+    var $current_version {
+      value = $page.content_version != null ? $page.content_version : 0
+    }
+
+    conditional {
+      if ($input.expected_version != null && $input.expected_version != $current_version) {
+        precondition (false) {
+          error_type = "inputerror"
+          error = "Content version conflict. Reload the page and retry."
+        }
+      }
     }
 
     var $page_workspace_doc_id {
@@ -99,8 +118,8 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
               after       : $created
               actor_type  : "user"
               actor_id    : $me.id|to_string
-                actor_label : "workspace-doc"
-                change_note : ""
+              actor_label : $actor_label
+              change_note : ""
               created_at  : now
             }
           }
@@ -148,7 +167,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
                   after       : $updated
                   actor_type  : "user"
                   actor_id    : $me.id|to_string
-                    actor_label : "workspace-doc"
+              actor_label : $actor_label
                     change_note : ""
                   created_at  : now
                 }
@@ -198,7 +217,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
                   after       : $moved
                   actor_type  : "user"
                   actor_id    : $me.id|to_string
-                    actor_label : "workspace-doc"
+              actor_label : $actor_label
                     change_note : ""
                   created_at  : now
                 }
@@ -241,7 +260,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
                   after       : null
                   actor_type  : "user"
                   actor_id    : $me.id|to_string
-                    actor_label : "workspace-doc"
+              actor_label : $actor_label
                     change_note : ""
                   created_at  : now
                 }
@@ -253,10 +272,17 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
       }
     }
 
+    var $new_version {
+      value = $current_version + 1
+    }
+
     db.edit workspace_doc_pages {
       field_name = "id"
       field_value = $input.page_id
-      data = {updated_at: now}
+      data = {
+        content_version: $new_version
+        updated_at     : now
+      }
     }
 
     api.request {
@@ -276,7 +302,8 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
   }
 
   response = {
-    applied: $applied
-    page_id: $input.page_id
+    applied        : $applied
+    page_id        : $input.page_id
+    content_version: $new_version
   }
 }

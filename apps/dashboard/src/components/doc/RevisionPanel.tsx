@@ -27,6 +27,7 @@ function previewText(rev: DocBlockRevisionRow): string {
 export function RevisionPanel({
   projectId,
   pageId,
+  docScope = 'project',
   refreshKey,
   onReverted,
   variant = 'card',

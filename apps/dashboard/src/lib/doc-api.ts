@@ -65,6 +65,12 @@ export interface DocPageRow {
   is_pinned: boolean
   is_locked: boolean
   position: number
+  /** Optimistic concurrency version (workspace docs). */
+  content_version?: number
+  rendered_markdown?: string | null
+  rendered_plaintext?: string | null
+  content_hash?: string | null
+  last_indexed_at?: string | null
   archived_at: string | null
   created_at: string
   updated_at: string

@@ -92,6 +92,7 @@ export default function ProjectHubDocs() {
   const docNav = useWorkspaceDocNav()
 
   const [blocks, setBlocks] = useState<DocBlockRow[]>([])
+  const [contentVersion, setContentVersion] = useState(0)
   const [loadingBlocks, setLoadingBlocks] = useState(false)
   const [blocksError, setBlocksError] = useState<string | null>(null)
   const [revisionRefresh, setRevisionRefresh] = useState(0)
@@ -127,6 +128,7 @@ export default function ProjectHubDocs() {
     setBlocksError(null)
     listWorkspacePageBlocks(activePage.id)
       .then(async (res) => {
+        setContentVersion(res.page.content_version ?? 0)
         if (res.blocks.length > 0) {
           setBlocks(res.blocks)
           return
@@ -139,6 +141,7 @@ export default function ProjectHubDocs() {
         try {
           await seedWorkspacePageStarterBlocks(activePage.id, def)
           const again = await listWorkspacePageBlocks(activePage.id)
+          setContentVersion(again.page.content_version ?? 0)
           setBlocks(again.blocks)
         } catch {
           // Keep docs readable while backend seed endpoint is recovering.
@@ -156,7 +159,10 @@ export default function ProjectHubDocs() {
     reloadBlocks()
   }, [reloadBlocks])
 
-  const onSaved = useCallback(() => {
+  const onSaved = useCallback((_: DocBlockRow[], meta?: { contentVersion?: number }) => {
+    if (typeof meta?.contentVersion === 'number') {
+      setContentVersion(meta.contentVersion)
+    }
     setRevisionRefresh((n) => n + 1)
   }, [])
 
@@ -377,7 +383,9 @@ export default function ProjectHubDocs() {
               pageId={activePage.id}
               docScope="workspace"
               initialBlocks={blocks}
+              contentVersion={contentVersion}
               onSaved={onSaved}
+              onVersionConflict={() => reloadBlocks()}
             />
           )}
         </article>

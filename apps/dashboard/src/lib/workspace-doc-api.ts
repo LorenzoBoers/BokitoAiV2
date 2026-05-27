@@ -65,12 +65,29 @@ export async function listWorkspacePageBlocks(pageId: string): Promise<DocPageBl
 export async function applyWorkspaceBlockOps(
   pageId: string,
   ops: BlockOp[],
-  actorLabel?: string,
-): Promise<{ applied: DocBlockRow[]; page_id: string }> {
+  options?: {
+    actorLabel?: string
+    expectedVersion?: number
+  },
+): Promise<{ applied: DocBlockRow[]; page_id: string; content_version?: number }> {
   return xanoPostWorkforce(workspaceDocRoutes.blocks(pageId), {
     ops,
-    actor_label: actorLabel,
+    actor_label: options?.actorLabel,
+    expected_version: options?.expectedVersion,
   })
+}
+
+export class WorkspaceDocVersionConflictError extends Error {
+  constructor(message = 'Content version conflict. Reload the page and retry.') {
+    super(message)
+    this.name = 'WorkspaceDocVersionConflictError'
+  }
+}
+
+export function isWorkspaceDocVersionConflict(err: unknown): boolean {
+  if (err instanceof WorkspaceDocVersionConflictError) return true
+  const message = err instanceof Error ? err.message : String(err)
+  return /content version conflict/i.test(message)
 }
 
 export async function listWorkspaceBlockRevisions(

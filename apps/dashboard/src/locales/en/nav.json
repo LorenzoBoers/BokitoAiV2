@@ -11,6 +11,7 @@
     "users": "Users",
     "settings": "Settings",
     "projects": "Projects",
+    "workspace": "Workspace",
     "pkb": "Project",
     "changeRequest": "Request",
     "messages": "Messages"
@@ -28,7 +29,7 @@
     "data": "Data",
     "project": "Project",
     "projects": "Projects",
-    "projectHub": "Project hub"
+    "projectHub": "Workspace"
   },
   "home": {
     "title": "Home",
@@ -86,7 +87,7 @@
     "homeTotal": "{{count}} items need attention",
     "railInbox": "Inbox ({{count}} unread)",
     "railAgents": "Agents ({{count}} open)",
-    "railProjects": "Project hub ({{count}} open)",
+    "railProjects": "Workspace ({{count}} open)",
     "railHome": "Home ({{count}})",
     "railMessages": "Messages ({{count}} unread)",
     "ariaInbox": "{{count}} unread messages",
@@ -132,8 +133,11 @@
     }
   },
   "projectHub": {
+    "group": {
+      "nav": "Workspace"
+    },
     "description": "Central documentation, ongoing projects, and agent communication in one place.",
-    "tabsAriaLabel": "Project hub navigation",
+    "tabsAriaLabel": "Workspace navigation",
     "tabs": {
       "overview": "Overview",
       "docs": "Documentation",
@@ -265,6 +269,11 @@
         "standby": "Standby",
         "sleeping": "Sleeping",
         "error": "Error"
+      },
+      "sidebar": {
+        "loading": "Loading agents…",
+        "showMore": "Show {{count}} more",
+        "showLess": "Show less"
       }
     },
     "pageMeta": {
@@ -805,7 +814,8 @@
         "deleteBlock": "Delete block",
         "addBlockBelow": "Add block below",
         "changeBlockType": "Change block type",
-        "locked": "Locked"
+        "locked": "Locked",
+        "versionConflict": "This page was updated elsewhere. Reloading latest content."
       },
       "blockPlaceholder": {
         "heading_1": "Heading 1",

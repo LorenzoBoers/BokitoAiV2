@@ -2,7 +2,8 @@ import { timingSafeEqual } from 'node:crypto'
 import type { Express, Request, Response } from 'express'
 import { agentQueue, indexQueue } from './queue.js'
 import { processRepoReindex } from './github/reindex.js'
-import { processDocPageReindex, processTenantDocsIndex } from './docs/reindex.js'
+import { processTenantDocsIndex } from './docs/reindex.js'
+import { scheduleDocPageReindex } from './docs/reindex-coalesce.js'
 import { config } from './config.js'
 import { checkTokenBudget } from './budget.js'
 import { startRun } from './xano-client.js'
@@ -190,18 +191,45 @@ export function registerDispatcherRoutes(app: Express): void {
       return
     }
 
-    const { project_id, tenant_id, page_id } = req.body || {}
+    const { project_id, tenant_id, page_id, changed_block_ids } = req.body || {}
     if (!project_id || !tenant_id || !page_id) {
       res.status(400).json({ error: 'missing_fields' })
       return
     }
 
-    void processDocPageReindex({
+    scheduleDocPageReindex({
+      scope: 'project',
       project_id: String(project_id),
       tenant_id: String(tenant_id),
       page_id: String(page_id),
-    }).catch((err) => {
-      console.error('[doc/reindex-page]', page_id, err)
+      changed_block_ids: Array.isArray(changed_block_ids)
+        ? changed_block_ids.map(String)
+        : undefined,
+    })
+
+    res.json({ queued: true, page_id })
+  })
+
+  app.post('/workspace/doc/reindex-page', async (req: Request, res: Response) => {
+    if (inboundAuthFailed(req)) {
+      res.status(req.headers.authorization ? 401 : 403).json({ error: 'unauthorized' })
+      return
+    }
+
+    const { workspace_doc_id, tenant_id, page_id, changed_block_ids } = req.body || {}
+    if (!workspace_doc_id || !tenant_id || !page_id) {
+      res.status(400).json({ error: 'missing_fields' })
+      return
+    }
+
+    scheduleDocPageReindex({
+      scope: 'workspace',
+      workspace_doc_id: String(workspace_doc_id),
+      tenant_id: String(tenant_id),
+      page_id: String(page_id),
+      changed_block_ids: Array.isArray(changed_block_ids)
+        ? changed_block_ids.map(String)
+        : undefined,
     })
 
     res.json({ queued: true, page_id })

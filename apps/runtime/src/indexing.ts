@@ -32,7 +32,8 @@ export async function searchIndex(projectId: string, query: string, topK = 8): P
 }
 
 export interface IndexJobData {
-  project_id: string
+  project_id?: string
+  workspace_doc_id?: string
   tenant_id: string
   file_path: string
   content: string
@@ -51,7 +52,8 @@ function chunkText(text: string, maxChars = CHUNK_MAX_CHARS): string[] {
 }
 
 async function upsertIndexChunk(input: {
-  project_id: string
+  project_id?: string
+  workspace_doc_id?: string
   tenant_id: string
   source_type: string
   source_ref: string
@@ -64,7 +66,10 @@ async function upsertIndexChunk(input: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.xanoWorkerApiKey}`,
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      worker_api_key: config.xanoWorkerApiKey,
+      ...input,
+    }),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -84,6 +89,7 @@ export async function processIndexJob(data: IndexJobData): Promise<{ chunks: num
       parts.length === 1 ? data.file_path : `${data.file_path}:chunk-${i + 1}`
     await upsertIndexChunk({
       project_id: data.project_id,
+      workspace_doc_id: data.workspace_doc_id,
       tenant_id: data.tenant_id,
       source_type: sourceType,
       source_ref: sourceRef,

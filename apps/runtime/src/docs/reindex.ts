@@ -1,7 +1,18 @@
 import { config } from '../config.js'
 import { embedDocumentText, processIndexJob } from '../indexing.js'
-import { fetchPageForReindex } from './client.js'
+import { fetchPageForReindex, type DocBlock } from './client.js'
 import { blockEmbeddingText, inlineRunsToText, pageSummaryText } from './block-utils.js'
+import {
+  blocksNeedSummaryRefresh,
+  blocksToMarkdown,
+  blocksToPlaintext,
+  contentHash,
+  normalizeDocBlocks,
+} from './projections.js'
+import {
+  fetchWorkspacePageForReindex,
+  patchWorkspacePageProjections,
+} from './workspace-client.js'
 
 interface DocSectionRow {
   id: string
@@ -55,9 +66,37 @@ export async function embedDocQuery(query: string): Promise<number[]> {
   return embedDocumentText(query, 'search_query')
 }
 
+async function indexProjectBlocksDelta(input: {
+  tenant_id: string
+  project_id: string
+  pageSlug: string
+  blocks: DocBlock[]
+  changed_block_ids?: string[]
+}): Promise<number> {
+  const changedSet = input.changed_block_ids?.length
+    ? new Set(input.changed_block_ids)
+    : null
+  let chunks = 0
+
+  for (const block of input.blocks) {
+    if (changedSet && !changedSet.has(block.id)) continue
+    const text = blockEmbeddingText(block)
+    if (!text.trim()) continue
+    await processIndexJob({
+      project_id: input.project_id,
+      tenant_id: input.tenant_id,
+      file_path: `${input.pageSlug}#${block.id}`,
+      content: text,
+      source_type: 'doc_block',
+    })
+    chunks += 1
+  }
+  return chunks
+}
+
 /**
  * Reindex a single project doc page. Fetches the page's blocks via the
- * worker endpoint, embeds each block (and a page-level summary chunk),
+ * worker endpoint, embeds changed blocks (and a page-level summary chunk),
  * and upserts into index_chunks with source_type=doc_block /
  * source_type=doc_page_summary.
  */
@@ -65,37 +104,110 @@ export async function processDocPageReindex(input: {
   tenant_id: string
   project_id: string
   page_id: string
+  changed_block_ids?: string[]
 }): Promise<{ chunks: number }> {
   const payload = await fetchPageForReindex(input.tenant_id, input.project_id, input.page_id)
   if (!payload) return { chunks: 0 }
 
   const { page, blocks } = payload
+  const flatBlocks = blocks.filter((b) => !b.parent_block_id)
+  let chunks = await indexProjectBlocksDelta({
+    tenant_id: input.tenant_id,
+    project_id: input.project_id,
+    pageSlug: page.slug,
+    blocks: flatBlocks,
+    changed_block_ids: input.changed_block_ids,
+  })
+
+  const changedBlocks = input.changed_block_ids?.length
+    ? flatBlocks.filter((b) => input.changed_block_ids!.includes(b.id))
+    : flatBlocks
+  const refreshSummary =
+    !input.changed_block_ids?.length || blocksNeedSummaryRefresh(changedBlocks)
+
+  if (refreshSummary) {
+    const summary = pageSummaryText(page, flatBlocks)
+    if (summary.trim()) {
+      await processIndexJob({
+        project_id: input.project_id,
+        tenant_id: input.tenant_id,
+        file_path: `${page.slug}#__summary__`,
+        content: summary,
+        source_type: 'doc_page_summary',
+      })
+      chunks += 1
+    }
+  }
+
+  return { chunks }
+}
+
+/**
+ * Reindex a workspace doc page using derived plaintext projections as the
+ * primary index source. Skips when content_hash is unchanged.
+ */
+export async function processWorkspaceDocPageReindex(input: {
+  tenant_id: string
+  workspace_doc_id: string
+  page_id: string
+  changed_block_ids?: string[]
+}): Promise<{ chunks: number }> {
+  const payload = await fetchWorkspacePageForReindex(
+    input.tenant_id,
+    input.workspace_doc_id,
+    input.page_id,
+  )
+  if (!payload) return { chunks: 0 }
+
+  const { page } = payload
+  const blocks = normalizeDocBlocks(payload.blocks as unknown[])
+  const markdown = blocksToMarkdown(blocks)
+  const plaintext = blocksToPlaintext(blocks)
+  const hash = contentHash(plaintext)
+
+  if (page.content_hash && page.content_hash === hash) {
+    return { chunks: 0 }
+  }
+
   let chunks = 0
-
-  for (const block of blocks) {
-    const text = blockEmbeddingText(block)
-    if (!text.trim()) continue
-    await processIndexJob({
-      project_id: input.project_id,
+  if (plaintext.trim()) {
+    const result = await processIndexJob({
+      workspace_doc_id: input.workspace_doc_id,
       tenant_id: input.tenant_id,
-      file_path: `${page.slug}#${block.id}`,
-      content: text,
-      source_type: 'doc_block',
+      file_path: `${page.slug}#__plaintext__`,
+      content: plaintext,
+      source_type: 'workspace_doc_page',
     })
-    chunks += 1
+    chunks += result.chunks
   }
 
-  const summary = pageSummaryText(page, blocks)
-  if (summary.trim()) {
-    await processIndexJob({
-      project_id: input.project_id,
-      tenant_id: input.tenant_id,
-      file_path: `${page.slug}#__summary__`,
-      content: summary,
-      source_type: 'doc_page_summary',
-    })
-    chunks += 1
+  const changedBlocks = input.changed_block_ids?.length
+    ? blocks.filter((b) => input.changed_block_ids!.includes(b.id))
+    : blocks
+  const refreshSummary =
+    !input.changed_block_ids?.length || blocksNeedSummaryRefresh(changedBlocks)
+
+  if (refreshSummary) {
+    const summary = pageSummaryText(page, blocks)
+    if (summary.trim()) {
+      const result = await processIndexJob({
+        workspace_doc_id: input.workspace_doc_id,
+        tenant_id: input.tenant_id,
+        file_path: `${page.slug}#__summary__`,
+        content: summary,
+        source_type: 'workspace_doc_page_summary',
+      })
+      chunks += result.chunks
+    }
   }
+
+  await patchWorkspacePageProjections({
+    tenantId: input.tenant_id,
+    pageId: input.page_id,
+    renderedMarkdown: markdown,
+    renderedPlaintext: plaintext,
+    contentHash: hash,
+  })
 
   return { chunks }
 }
@@ -110,6 +222,27 @@ export function formatDocMap(
   blocksByPage: Map<string, Array<{ type: string; text: Array<{ text?: string }> | null }>>,
 ): string {
   const lines: string[] = ['Project documentation map (read this before writing anything):']
+  for (const page of pages) {
+    lines.push(`- [${page.kind}] ${page.title} (slug: ${page.slug})`)
+    const blocks = blocksByPage.get(page.slug) ?? []
+    const headings = blocks
+      .filter(
+        (b) => b.type === 'heading_1' || b.type === 'heading_2' || b.type === 'heading_3',
+      )
+      .map((b) => inlineRunsToText(b.text as Array<{ text?: string }> | null))
+      .filter(Boolean)
+    if (headings.length) {
+      lines.push(`    sections: ${headings.join(' / ')}`)
+    }
+  }
+  return lines.join('\n')
+}
+
+export function formatWorkspaceDocMap(
+  pages: Array<{ slug: string; kind: string; title: string }>,
+  blocksByPage: Map<string, Array<{ type: string; text: Array<{ text?: string }> | null }>>,
+): string {
+  const lines: string[] = ['Workspace documentation map (read this before writing anything):']
   for (const page of pages) {
     lines.push(`- [${page.kind}] ${page.title} (slug: ${page.slug})`)
     const blocks = blocksByPage.get(page.slug) ?? []

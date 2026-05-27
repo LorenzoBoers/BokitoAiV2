@@ -195,10 +195,11 @@ Per plan Section 6. See messages-unification.md for migration.
 
 - id uuid pk
 - project_id uuid nullable (null for tenant-wide doc chunks if used)
+- workspace_doc_id uuid nullable (workspace documentation scope)
 - tenant_id uuid
 - connection_id uuid nullable (lineage for integration-sourced chunks)
-- source_type text (repo_file, github_file, tenant_doc_section, ...)
-- source_ref text (unique per project_id + source_ref for upsert)
+- source_type text (repo_file, github_file, tenant_doc_section, workspace_doc_page, workspace_doc_page_summary, ...)
+- source_ref text (unique per project_id + source_ref for upsert; workspace scope uses tenant_id + workspace_doc_id + source_ref)
 - content text
 - embedding vector(768)
 - ivfflat index on embedding

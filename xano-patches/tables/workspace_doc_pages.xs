@@ -59,6 +59,26 @@ table "workspace_doc_pages" {
       description = "Sibling order"
     }
 
+    int content_version?=0 {
+      description = "Optimistic concurrency version; incremented on each block batch"
+    }
+
+    text rendered_markdown? filters=trim {
+      description = "Derived markdown projection for export and indexing"
+    }
+
+    text rendered_plaintext? filters=trim {
+      description = "Derived plain-text projection for RAG chunking"
+    }
+
+    text content_hash? filters=trim {
+      description = "Hash of rendered_plaintext; skip reindex when unchanged"
+    }
+
+    timestamp last_indexed_at? {
+      description = "When this page was last indexed into index_chunks"
+    }
+
     timestamp archived_at? {
       description = "Soft delete timestamp"
     }

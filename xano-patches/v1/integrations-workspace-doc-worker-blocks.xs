@@ -15,6 +15,7 @@ query "workspace/doc/worker/blocks" verb=POST {
     uuid agent_id
     text actor_label
     text change_note filters=trim|min:1
+    text idempotency_key?
     json ops
   }
 
@@ -22,6 +23,25 @@ query "workspace/doc/worker/blocks" verb=POST {
     precondition ($input.token == $env.WORKER_INBOUND_SECRET) {
       error_type = "accessdenied"
       error = "Worker token mismatch."
+    }
+
+    conditional {
+      if ($input.idempotency_key != null && ($input.idempotency_key|trim|strlen) > 0) {
+        db.query workspace_doc_write_idempotency {
+          where = $db.workspace_doc_write_idempotency.tenant_id == $input.tenant_id && $db.workspace_doc_write_idempotency.idempotency_key == $input.idempotency_key
+          return = {type: "list", paging: {page: 1, per_page: 1}}
+        } as $idem_rows
+
+        conditional {
+          if (($idem_rows|count) > 0) {
+            var $cached {
+              value = ($idem_rows|first).response
+            }
+
+            response = $cached
+          }
+        }
+      }
     }
 
     db.query workspace_doc_pages {
@@ -41,6 +61,10 @@ query "workspace/doc/worker/blocks" verb=POST {
     precondition ($page.is_locked == false) {
       error_type = "accessdenied"
       error = "Page is locked. Agent writes are not allowed on this page."
+    }
+
+    var $current_version {
+      value = $page.content_version != null ? $page.content_version : 0
     }
 
     var $applied {
@@ -241,15 +265,57 @@ query "workspace/doc/worker/blocks" verb=POST {
       }
     }
 
+    var $new_version {
+      value = $current_version + 1
+    }
+
     db.edit workspace_doc_pages {
       field_name = "id"
       field_value = $input.page_id
-      data = {updated_at: now}
+      data = {
+        content_version: $new_version
+        updated_at     : now
+      }
     }
+
+    var $batch_response {
+      value = {
+        applied        : $applied
+        page_id        : $input.page_id
+        content_version: $new_version
+      }
+    }
+
+    conditional {
+      if ($input.idempotency_key != null && ($input.idempotency_key|trim|strlen) > 0) {
+        db.add workspace_doc_write_idempotency {
+          data = {
+            id              : ""|uuid
+            tenant_id       : $input.tenant_id
+            idempotency_key : $input.idempotency_key|trim
+            page_id         : $input.page_id
+            response        : $batch_response
+            created_at      : now
+          }
+        }
+      }
+    }
+
+    api.request {
+      url = $env.WORKER_BASE_URL ~ "/workspace/doc/reindex-page"
+      method = "POST"
+      params = {
+        workspace_doc_id: $input.workspace_doc_id
+        tenant_id       : $input.tenant_id
+        page_id         : $input.page_id
+      }
+      headers = [
+        "Content-Type: application/json"
+        ("Authorization: Bearer " ~ $env.WORKER_INBOUND_SECRET)
+      ]
+      timeout = 5
+    } as $reindex_dispatch
   }
 
-  response = {
-    applied: $applied
-    page_id: $input.page_id
-  }
+  response = $batch_response
 }

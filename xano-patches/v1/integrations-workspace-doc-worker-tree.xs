@@ -18,7 +18,7 @@ query "workspace/doc/worker/tree" verb=POST {
     }
 
     db.query workspace_docs {
-      where = $db.workspace_docs.project_id == $input.workspace_doc_id && $db.workspace_docs.tenant_id == $input.tenant_id
+      where = $db.workspace_docs.id == $input.workspace_doc_id && $db.workspace_docs.tenant_id == $input.tenant_id
       return = {type: "list", paging: {page: 1, per_page: 1}}
     } as $doc_rows
 
@@ -27,7 +27,7 @@ query "workspace/doc/worker/tree" verb=POST {
     }
 
     db.query workspace_doc_pages {
-      where = $db.workspace_doc_pages.project_id == $input.workspace_doc_id && $db.workspace_doc_pages.tenant_id == $input.tenant_id && $db.workspace_doc_pages.archived_at == null
+      where = $db.workspace_doc_pages.workspace_doc_id == $input.workspace_doc_id && $db.workspace_doc_pages.tenant_id == $input.tenant_id && $db.workspace_doc_pages.archived_at == null
       sort = {workspace_doc_pages.position: "asc"}
       return = {type: "list", paging: {page: 1, per_page: 200}}
     } as $pages

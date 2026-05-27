@@ -17,8 +17,11 @@ See sections below for `project_orchestration_config` and `project_notification_
 | `workspace_doc_blocks` | Block content per page |
 | `workspace_doc_block_revisions` | Audit trail per block op |
 | `workspace_doc_change_requests` | PO agent change requests targeting a page |
+| `workspace_doc_write_idempotency` | Cached agent batch responses keyed by idempotency_key |
 
-Extend `index_chunks` with nullable `workspace_doc_id` and `source_type` value `workspace_doc_page` for RAG.
+Extend `index_chunks` with nullable `workspace_doc_id` and `source_type` values `workspace_doc_page` / `workspace_doc_page_summary` for RAG.
+
+`workspace_doc_pages` projection columns: `content_version`, `rendered_markdown`, `rendered_plaintext`, `content_hash`, `last_indexed_at`.
 
 Table definitions: `xano-patches/tables/workspace_*.xs`.
 
@@ -34,6 +37,7 @@ Table definitions: `xano-patches/tables/workspace_*.xs`.
 | workforce-workspace-doc-page-blocks-batch.xs | POST | /workspace/doc/pages/{page_id}/blocks | 290 |
 | workforce-workspace-doc-revisions-list.xs | GET | /workspace/doc/pages/{page_id}/blocks/{block_id}/revisions | 281 |
 | workforce-workspace-doc-change-requests-create.xs | POST | /workspace/doc/change-requests | 282 |
+| workforce-workspace-doc-pages-projections-patch.xs | POST | /workspace/doc/worker/pages/{page_id}/projections | (worker) |
 | workforce-workspace-doc-migrate.xs | POST | /workspace/doc/migrate-from-project | (optional) |
 
 `GET /workspace/doc` returns `{ workspace_doc, pages }` (dashboard normalizes legacy `doc`). When `pages` is empty, the client seeds eight default chapters; when a page exists but has no blocks and its slug matches the scaffold, `ProjectHubDocs` seeds starter blocks on first open.
@@ -52,7 +56,7 @@ If starter-block seeding fails at runtime (`POST /workspace/doc/pages/{page_id}/
 | integrations-workspace-doc-worker-tree.xs | POST | /workspace/doc/worker/tree | 284 |
 | integrations-workspace-doc-worker-blocks.xs | POST | /workspace/doc/worker/blocks | 291 |
 
-User block batch enqueues reindex: `POST {WORKER_BASE_URL}/workspace/doc/reindex-page` with `WORKER_INBOUND_SECRET`.
+User block batch enqueues reindex: `POST {WORKER_BASE_URL}/workspace/doc/reindex-page` with `WORKER_INBOUND_SECRET` and body `{ workspace_doc_id, tenant_id, page_id }`. Runtime coalesces rapid edits (15s) before indexing. Locked pages reject user and agent batch writes server-side. Batch accepts optional `expected_version` for optimistic concurrency.
 
 ## Deploy
 

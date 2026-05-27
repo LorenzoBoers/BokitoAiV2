@@ -11,6 +11,7 @@
     "users": "Gebruikers",
     "settings": "Instellingen",
     "projects": "Projecten",
+    "workspace": "Workspace",
     "pkb": "Project",
     "changeRequest": "Verzoek",
     "messages": "Berichten"
@@ -28,7 +29,7 @@
     "data": "Data",
     "project": "Project",
     "projects": "Projecten",
-    "projectHub": "Project hub"
+    "projectHub": "Workspace"
   },
   "home": {
     "title": "Home",
@@ -86,7 +87,7 @@
     "homeTotal": "{{count}} items vragen aandacht",
     "railInbox": "Inbox ({{count}} ongelezen)",
     "railAgents": "Agenten ({{count}} open)",
-    "railProjects": "Project hub ({{count}} open)",
+    "railProjects": "Workspace ({{count}} open)",
     "railHome": "Home ({{count}})",
     "railMessages": "Berichten ({{count}} ongelezen)",
     "ariaInbox": "{{count}} ongelezen berichten",
@@ -132,8 +133,11 @@
     }
   },
   "projectHub": {
+    "group": {
+      "nav": "Workspace"
+    },
     "description": "Centrale documentatie, doorlopende projecten en agent-communicatie op een plek.",
-    "tabsAriaLabel": "Project hub-navigatie",
+    "tabsAriaLabel": "Workspace-navigatie",
     "tabs": {
       "overview": "Overzicht",
       "docs": "Documentatie",
@@ -265,6 +269,11 @@
         "standby": "Stand-by",
         "sleeping": "Slapend",
         "error": "Fout"
+      },
+      "sidebar": {
+        "loading": "Agents laden…",
+        "showMore": "Toon {{count}} meer",
+        "showLess": "Toon minder"
       }
     },
     "pageMeta": {
@@ -805,7 +814,8 @@
         "deleteBlock": "Blok verwijderen",
         "addBlockBelow": "Blok hieronder toevoegen",
         "changeBlockType": "Bloktype wijzigen",
-        "locked": "Vergrendeld"
+        "locked": "Vergrendeld",
+        "versionConflict": "Deze pagina is elders bijgewerkt. Laatste inhoud wordt opnieuw geladen."
       },
       "blockPlaceholder": {
         "heading_1": "Kop 1",
