@@ -35,6 +35,7 @@ import {
 import { listProjects } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { normalizeRoleSlug } from '../lib/workforce-nav-agents'
+import { defaultOrchestratorName } from '../lib/display-name'
 
 function isLinkablePoAgent(agent: RuntimeAgent, linkedElsewhere: Set<string>): boolean {
   if (normalizeRoleSlug(agent) !== 'po') return false
@@ -103,7 +104,7 @@ export default function ProjectPoConfig() {
 
   useEffect(() => {
     if (project?.name && !newPoName) {
-      setNewPoName(`${project.name} Orchestrator`)
+      setNewPoName(defaultOrchestratorName(project.name))
     }
   }, [project?.name, newPoName])
 
@@ -115,7 +116,7 @@ export default function ProjectPoConfig() {
   const setupComplete = summary?.setup_complete === true
 
   const defaultPoName = useMemo(
-    () => (project?.name ? `${project.name} Orchestrator` : t('project.po.defaultName', { defaultValue: 'Project orchestrator' })),
+    () => (project?.name ? defaultOrchestratorName(project.name) : t('project.po.defaultName', { defaultValue: 'Project orchestrator' })),
     [project?.name, t],
   )
 
@@ -347,7 +348,9 @@ export default function ProjectPoConfig() {
                       {t('project.po.switch.linkOther', { defaultValue: 'Link different orchestrator' })}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => void handleCreatePo()} disabled={savingPo}>
-                      {t('project.po.switch.createNew', { defaultValue: 'Create new orchestrator' })}
+                      {savingPo
+                        ? t('project.po.setup.creating', { defaultValue: 'Creating…' })
+                        : t('project.po.switch.createNew', { defaultValue: 'Create new orchestrator' })}
                     </Button>
                   </div>
                   {showLinkExisting ? (
@@ -409,7 +412,7 @@ export default function ProjectPoConfig() {
                 <CardContent className="space-y-3">
                   <p className="text-sm text-destructive">{orchLoadError}</p>
                   <Button size="sm" variant="secondary" onClick={() => void load()}>
-                    {t('common.retry', { defaultValue: 'Retry' })}
+                    {t('common:actions.retry', { defaultValue: 'Retry' })}
                   </Button>
                 </CardContent>
               </Card>

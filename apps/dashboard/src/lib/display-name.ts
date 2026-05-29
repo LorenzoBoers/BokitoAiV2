@@ -20,3 +20,11 @@ export function humanizeSnakeCase(value: string | null | undefined): string {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
+
+/** Default orchestrator label from project name without doubling the suffix. */
+export function defaultOrchestratorName(projectName: string | null | undefined): string {
+  const base = (projectName ?? '').trim()
+  if (!base) return 'Orchestrator'
+  if (/\borchestrator$/i.test(base)) return base
+  return `${base} Orchestrator`
+}

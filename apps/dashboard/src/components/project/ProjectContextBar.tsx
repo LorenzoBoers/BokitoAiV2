@@ -44,7 +44,7 @@ export function ProjectContextBar() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-status-error">{error}</span>
             <Button size="sm" variant="secondary" onClick={() => void refresh()}>
-              {t('common.retry', { defaultValue: 'Retry' })}
+              {t('common:actions.retry', { defaultValue: 'Retry' })}
             </Button>
           </div>
         ) : (

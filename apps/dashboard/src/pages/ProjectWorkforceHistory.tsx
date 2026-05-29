@@ -60,7 +60,7 @@ export default function ProjectWorkforceHistory() {
             <div className="space-y-2">
               <p className="text-sm text-status-error">{error}</p>
               <Button size="sm" variant="secondary" onClick={() => void load()}>
-                {t('common.retry', { defaultValue: 'Retry' })}
+                {t('common:actions.retry', { defaultValue: 'Retry' })}
               </Button>
             </div>
           ) : runs.length === 0 ? (

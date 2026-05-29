@@ -211,6 +211,18 @@ export function projectOrchestratorPath(projectId: string): string {
   return `/project/${projectId}/orchestrator`
 }
 
+export function projectOverviewPath(projectId: string, streamSlug?: string | null): string {
+  const base = `/project/${projectId}/overview`
+  if (!streamSlug?.trim()) return base
+  return `${base}?stream=${encodeURIComponent(streamSlug.trim())}`
+}
+
+export function projectCommunicationPath(projectId: string, streamSlug?: string | null): string {
+  const base = `/project/${projectId}/communication`
+  if (!streamSlug?.trim()) return base
+  return `${base}?stream=${encodeURIComponent(streamSlug.trim())}`
+}
+
 /** Per-project cockpit tabs rendered in the main canvas (not the hub sidebar). */
 export const getProjectTabLinks = (t: TFunction<'nav'>, projectId: string): SidebarLink[] => [
   { label: t('project.links.overview', { defaultValue: 'Overview' }), to: `/project/${projectId}/overview` },

@@ -1,4 +1,5 @@
 {
+  "comingSoon": "Binnenkort",
   "rail": {
     "home": "Home",
     "support": "Inbox",
@@ -428,7 +429,8 @@
       "activeConnections_one": "{{count}} actieve verbinding",
       "searchPlaceholder": "Zoek integraties...",
       "empty": "Geen integraties gevonden.",
-      "emptyKind": "Geen integraties in deze categorie."
+      "emptyKind": "Geen integraties in deze categorie.",
+      "catalogFallback": "Catalogus-API niet beschikbaar; lokale lijst wordt gebruikt."
     },
     "connected": {
       "addIntegration": "Integratie toevoegen",
@@ -733,7 +735,9 @@
       "slugLabel": "URL-slug",
       "submit": "Doorgaan",
       "submitting": "Aanmaken…",
-      "error": "Project aanmaken mislukt"
+      "error": "Project aanmaken mislukt",
+      "success": "Project aangemaakt",
+      "scopeCounter": "{{count}} / {{min}} tekens (spaties niet meegeteld)"
     },
     "connect": {
       "stepLabel": "Stap 2 van 2 — optioneel. Koppel een GitHub-repository zodat je AI-team de projectcode kan lezen.",
@@ -962,6 +966,33 @@
         "title": "Je code",
         "description": "Koppel een GitHub-repository zodat je AI-team de codebase kan lezen, of sla over tot je er klaar voor bent."
       },
+      "orchestrator": {
+        "description": "Configureer de dedicated orchestrator en orchestration-cadans voor dit project.",
+        "open": "Orchestrator instellen openen"
+      },
+      "repo": {
+        "connectGithub": "Koppelen met GitHub",
+        "connectedTo": "Gekoppeld aan {{repo}}",
+        "branchLabel": "{{branch}}",
+        "accountLabel": "GitHub-account: {{login}}",
+        "signedInAs": "Ingelogd als {{login}}",
+        "searchPlaceholder": "Zoek repositories…",
+        "loadingRepos": "Repositories laden…",
+        "selectRepo": "Selecteer een repository",
+        "linkRepo": "Repository koppelen",
+        "reindex": "Project opnieuw inlezen",
+        "disconnect": "Ontkoppelen",
+        "disconnectTitle": "Repository ontkoppelen",
+        "disconnectDescription": "Verwijder de koppeling met {{repo}}. Je AI-team kan deze codebase niet meer lezen tot je opnieuw koppelt.",
+        "disconnectCancel": "Annuleren",
+        "disconnectConfirm": "Ontkoppelen",
+        "disconnecting": "Ontkoppelen…",
+        "oauthError": "Kon GitHub-koppeling niet starten",
+        "loadReposError": "Kon repositories niet laden",
+        "linkError": "Kon repository niet koppelen",
+        "disconnectError": "Kon niet ontkoppelen",
+        "reindexError": "Kon project niet opnieuw inlezen"
+      },
       "danger": {
         "title": "Gevaarlijke acties",
         "deleteTitle": "Dit project verwijderen",
@@ -1021,6 +1052,20 @@
       "expandChapter": "Sectie uitklappen",
       "collapseChapter": "Sectie inklappen",
       "lockedBadge": "Vergrendeld",
+      "lockError": "Kon paginavergrendeling niet bijwerken.",
+      "pageKind": {
+        "overview": "Overzicht",
+        "vision": "Visie",
+        "features": "Functies",
+        "brand": "Merk",
+        "tech": "Technologie",
+        "marketing": "Marketing",
+        "operations": "Operatie",
+        "roadmap": "Roadmap",
+        "log": "Log",
+        "notes": "Notities",
+        "custom": "Aangepast"
+      },
       "pageCrud": {
         "menuAria": "Pagina-acties",
         "addPage": "Pagina toevoegen",

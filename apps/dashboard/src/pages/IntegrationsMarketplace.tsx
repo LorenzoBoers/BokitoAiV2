@@ -202,7 +202,7 @@ export default function IntegrationsMarketplace() {
       }))
       setItems([...fromApi, ...missingStatic])
     } catch {
-      setLoadError('Catalog API unavailable; using local list.')
+      setLoadError(t('integrations.marketplace.catalogFallback', { defaultValue: 'Catalog API unavailable; using local list.' }))
       setProviders([])
       setConnectionCounts(null)
       setItems(

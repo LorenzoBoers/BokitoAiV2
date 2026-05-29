@@ -162,7 +162,7 @@ export default function ProjectHubOverview() {
               <div className="space-y-2">
                 <p className="text-sm text-destructive">{projectsError}</p>
                 <Button size="sm" variant="secondary" onClick={() => void loadProjects()}>
-                  {t('common.retry', { defaultValue: 'Retry' })}
+                  {t('common:actions.retry', { defaultValue: 'Retry' })}
                 </Button>
               </div>
             ) : topProjects.length === 0 ? (
@@ -219,7 +219,7 @@ export default function ProjectHubOverview() {
               <div className="space-y-2">
                 <p className="text-sm text-destructive">{pendingError}</p>
                 <Button size="sm" variant="secondary" onClick={() => void loadPending()}>
-                  {t('common.retry', { defaultValue: 'Retry' })}
+                  {t('common:actions.retry', { defaultValue: 'Retry' })}
                 </Button>
               </div>
             ) : pending.length === 0 ? (
@@ -274,7 +274,7 @@ export default function ProjectHubOverview() {
               <div className="space-y-2">
                 <p className="text-sm text-destructive">{runsError}</p>
                 <Button size="sm" variant="secondary" onClick={() => void loadRuns()}>
-                  {t('common.retry', { defaultValue: 'Retry' })}
+                  {t('common:actions.retry', { defaultValue: 'Retry' })}
                 </Button>
               </div>
             ) : runs.length === 0 ? (

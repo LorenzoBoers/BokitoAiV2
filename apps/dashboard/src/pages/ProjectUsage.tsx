@@ -53,7 +53,7 @@ export default function ProjectUsage() {
               <div className="space-y-2">
                 <p className="text-sm text-destructive">{error}</p>
                 <Button size="sm" variant="secondary" onClick={() => void load()}>
-                  {t('common.retry', { defaultValue: 'Retry' })}
+                  {t('common:actions.retry', { defaultValue: 'Retry' })}
                 </Button>
               </div>
             ) : (

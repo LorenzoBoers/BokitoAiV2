@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 import {
   connectProjectRepo,
   disconnectProjectRepo,
@@ -31,6 +40,7 @@ export function ConnectRepoPanel({
   onConnected,
   onProjectUpdated,
 }: ConnectRepoPanelProps) {
+  const { t } = useTranslation('nav')
   const [connections, setConnections] = useState<GithubConnectionRow[]>([])
   const [selectedConnectionId, setSelectedConnectionId] = useState('')
   const [connectionLogin, setConnectionLogin] = useState<string | null>(null)
@@ -42,6 +52,7 @@ export function ConnectRepoPanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(oauthConnected)
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
 
   const linkedRepo = project?.github_repo_full_name ?? null
 
@@ -71,12 +82,12 @@ export function ConnectRepoPanel({
       const rows = await listGithubRepos(selectedConnectionId || undefined)
       setRepos(rows)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load repositories')
+      setError(e instanceof Error ? e.message : t('project.settings.repo.loadReposError'))
       setRepos([])
     } finally {
       setLoading(false)
     }
-  }, [selectedConnectionId, connections.length])
+  }, [selectedConnectionId, connections.length, t])
 
   useEffect(() => {
     void loadConnection()
@@ -105,7 +116,7 @@ export function ConnectRepoPanel({
       const { authorize_url } = await startGithubOAuth(returnUrl, projectId)
       window.location.assign(authorize_url)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start GitHub connection')
+      setError(e instanceof Error ? e.message : t('project.settings.repo.oauthError'))
     }
   }
 
@@ -123,7 +134,7 @@ export function ConnectRepoPanel({
       onProjectUpdated?.()
       onConnected?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not link repository')
+      setError(e instanceof Error ? e.message : t('project.settings.repo.linkError'))
     } finally {
       setLoading(false)
     }
@@ -134,9 +145,10 @@ export function ConnectRepoPanel({
     setError(null)
     try {
       await disconnectProjectRepo(projectId)
+      setShowDisconnectDialog(false)
       onProjectUpdated?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not disconnect')
+      setError(e instanceof Error ? e.message : t('project.settings.repo.disconnectError'))
     } finally {
       setLoading(false)
     }
@@ -149,7 +161,7 @@ export function ConnectRepoPanel({
       await reindexProjectRepo(projectId)
       onProjectUpdated?.()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not re-read project')
+      setError(e instanceof Error ? e.message : t('project.settings.repo.reindexError'))
     } finally {
       setLoading(false)
     }
@@ -163,23 +175,57 @@ export function ConnectRepoPanel({
     return (
       <div className="space-y-3">
         <p className="text-sm text-text-primary">
-          Connected to <span className="font-medium">{linkedRepo}</span>
-          {project?.github_default_branch ? ` (${project.github_default_branch})` : ''}
+          {t('project.settings.repo.connectedTo', { repo: linkedRepo })}
+          {project?.github_default_branch
+            ? ` (${t('project.settings.repo.branchLabel', { branch: project.github_default_branch })})`
+            : ''}
         </p>
         {connectionLogin ? (
-          <p className="text-xs text-text-muted">GitHub account: {connectionLogin}</p>
+          <p className="text-xs text-text-muted">
+            {t('project.settings.repo.accountLabel', { login: connectionLogin })}
+          </p>
         ) : null}
         {project?.repo_index_error ? (
           <p className="text-sm text-status-error">{project.repo_index_error}</p>
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="secondary" disabled={loading} onClick={() => void handleReindex()}>
-            Re-read project
+            {t('project.settings.repo.reindex')}
           </Button>
-          <Button type="button" size="sm" variant="ghost" disabled={loading} onClick={() => void handleDisconnect()}>
-            Disconnect
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={loading}
+            onClick={() => setShowDisconnectDialog(true)}
+          >
+            {t('project.settings.repo.disconnect')}
           </Button>
         </div>
+        {error ? <p className="text-sm text-status-error">{error}</p> : null}
+        <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('project.settings.repo.disconnectTitle')}</DialogTitle>
+              <DialogDescription>
+                {t('project.settings.repo.disconnectDescription', { repo: linkedRepo })}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={loading}
+                onClick={() => setShowDisconnectDialog(false)}
+              >
+                {t('project.settings.repo.disconnectCancel')}
+              </Button>
+              <Button type="button" variant="destructive" disabled={loading} onClick={() => void handleDisconnect()}>
+                {loading ? t('project.settings.repo.disconnecting') : t('project.settings.repo.disconnectConfirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
@@ -188,7 +234,7 @@ export function ConnectRepoPanel({
     return (
       <div className="space-y-3">
         <Button type="button" size="sm" onClick={() => void handleConnectOAuth()}>
-          Connect with GitHub
+          {t('project.settings.repo.connectGithub')}
         </Button>
         {error ? <p className="text-sm text-status-error">{error}</p> : null}
       </div>
@@ -214,22 +260,24 @@ export function ConnectRepoPanel({
           ))}
         </select>
       ) : connectionLogin ? (
-        <p className="text-xs text-text-muted">Signed in as {connectionLogin}</p>
+        <p className="text-xs text-text-muted">
+          {t('project.settings.repo.signedInAs', { login: connectionLogin })}
+        </p>
       ) : null}
       <Input
-        placeholder="Search repositories..."
+        placeholder={t('project.settings.repo.searchPlaceholder')}
         value={repoSearch}
         onChange={(e) => setRepoSearch(e.target.value)}
       />
       {loading && repos.length === 0 ? (
-        <p className="text-sm text-text-muted">Loading repositories...</p>
+        <p className="text-sm text-text-muted">{t('project.settings.repo.loadingRepos')}</p>
       ) : (
         <select
           className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm"
           value={selectedRepo}
           onChange={(e) => setSelectedRepo(e.target.value)}
         >
-          <option value="">Select a repository</option>
+          <option value="">{t('project.settings.repo.selectRepo')}</option>
           {filteredRepos.map((r) => (
             <option key={r.id} value={r.full_name}>
               {r.full_name}
@@ -251,7 +299,7 @@ export function ConnectRepoPanel({
         </select>
       ) : null}
       <Button type="button" size="sm" disabled={loading || !selectedRepo} onClick={() => void handleLinkRepo()}>
-        Link repository
+        {t('project.settings.repo.linkRepo')}
       </Button>
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
     </div>

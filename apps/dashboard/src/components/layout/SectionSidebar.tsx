@@ -154,7 +154,9 @@ function SidebarGroupBlock({
                   return <Icon size={14} className="text-text-muted shrink-0" />
                 })()}
                 <span>{item.label}</span>
-                <span className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-bg-hover text-text-muted">binnenkort</span>
+                <span className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-bg-hover text-text-muted">
+                  {t('comingSoon', { defaultValue: 'Coming soon' })}
+                </span>
               </div>
             )
           }
@@ -273,7 +275,7 @@ export default function SectionSidebar() {
                 className="mt-1 h-7 px-2 text-xs"
                 onClick={() => void projectHubNav.refresh()}
               >
-                {t('common.retry', { defaultValue: 'Retry' })}
+                {t('common:actions.retry', { defaultValue: 'Retry' })}
               </Button>
             </div>
           ) : null}

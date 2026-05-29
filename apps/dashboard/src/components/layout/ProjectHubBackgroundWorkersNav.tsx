@@ -7,6 +7,7 @@ import { useProjectHubNav } from '../../context/ProjectHubNavContext'
 import { AiAvatar } from '../ui/AiAvatar'
 import AddWorkstreamDialog from '../project/AddWorkstreamDialog'
 import { projectOrchestratorPath } from './portal-nav'
+import { defaultOrchestratorName } from '../../lib/display-name'
 
 const DEFAULT_VISIBLE_COUNT = 6
 
@@ -80,7 +81,7 @@ export default function ProjectHubBackgroundWorkersNav() {
   )
   const poDisplayName =
     poAgent?.name?.trim() ||
-    (selectedProject?.name ? `${selectedProject.name} Orchestrator` : null) ||
+    (selectedProject?.name ? defaultOrchestratorName(selectedProject.name) : null) ||
     t('projectHub.po.label', { defaultValue: 'Orchestrator' })
 
   return (

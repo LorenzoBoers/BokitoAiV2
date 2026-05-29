@@ -111,6 +111,7 @@ export default function ProjectHubDocs() {
   const [agentBusy, setAgentBusy] = useState(false)
   const [agentMessage, setAgentMessage] = useState<string | null>(null)
   const [lockBusy, setLockBusy] = useState(false)
+  const [lockError, setLockError] = useState<string | null>(null)
 
   const sortedPages = useMemo(
     () => [...docNav.pages].sort((a, b) => a.position - b.position),
@@ -208,10 +209,13 @@ export default function ProjectHubDocs() {
   const togglePageLock = async () => {
     if (!activePage) return
     setLockBusy(true)
+    setLockError(null)
     try {
       await patchWorkspaceDocPage(activePage.id, { is_locked: !activePage.is_locked })
       await docNav.refresh()
       setSaveStatus({ phase: 'idle', lastEditedAt: null, lastSavedAt: null })
+    } catch (err) {
+      setLockError(err instanceof Error ? err.message : t('project.doc.lockError', { defaultValue: 'Could not update page lock.' }))
     } finally {
       setLockBusy(false)
     }
@@ -317,7 +321,9 @@ export default function ProjectHubDocs() {
           <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-border/50 pb-5">
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
-                {activePage.kind.replace(/_/g, ' ')}
+                {t(`project.doc.pageKind.${activePage.kind}`, {
+                  defaultValue: activePage.kind.replace(/_/g, ' '),
+                })}
               </p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-text-heading sm:text-3xl">
                 {activePage.title}
@@ -330,6 +336,7 @@ export default function ProjectHubDocs() {
               ) : !loadingBlocks && !blocksError ? (
                 <DocSaveIndicator status={saveStatus} className="mt-2" />
               ) : null}
+              {lockError ? <p className="mt-2 text-sm text-status-error">{lockError}</p> : null}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               <Button

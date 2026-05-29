@@ -66,7 +66,7 @@ export default function WorkforceOverview() {
         <Card className="p-4">
           <p className="text-sm text-status-error">{error}</p>
           <Button className="mt-3" size="sm" variant="secondary" onClick={() => void load()}>
-            {t('common.retry', { defaultValue: 'Retry' })}
+            {t('common:actions.retry', { defaultValue: 'Retry' })}
           </Button>
         </Card>
       ) : null}

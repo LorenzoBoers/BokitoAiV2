@@ -14,6 +14,7 @@ import AddWorkstreamDialog from '../components/project/AddWorkstreamDialog'
 import { useProjectContext } from '../context/ProjectContext'
 import { useProjectHubNav } from '../context/ProjectHubNavContext'
 import type { ProjectWorkstreamRow, WorkstreamStep } from '../lib/workstreams-api'
+import { projectCommunicationPath } from '../components/layout/portal-nav'
 
 const OVERVIEW_TOOL_LABELS: Array<{ key: string; label: string }> = [
   { key: 'github', label: 'GitHub' },
@@ -137,7 +138,7 @@ export default function ProjectOverview() {
     <ProjectShell width="wide" hideContextBar hideTabNav hideWorkerStatus>
       <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
         <Button size="sm" variant="ghost" asChild>
-          <Link to={`/project/${projectId}/communication?stream=${encodeURIComponent(selectedStream.slug)}`}>
+          <Link to={projectCommunicationPath(projectId, selectedStream.slug)}>
             <MessageSquare size={14} className="mr-1.5" />
             {t('project.overview.openStreamCommunication', { defaultValue: 'Open stream communication' })}
           </Link>

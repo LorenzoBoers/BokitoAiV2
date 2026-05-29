@@ -59,29 +59,6 @@ query "projects/{project_id}/workstreams" verb=GET {
               trigger_text : "PO invokes stream from change request"
               output_text  : "PO receives status report and next actions"
               position     : 0
-              steps        : [
-                {
-                  id           : "intake"
-                  name         : "Intake"
-                  role_label   : "PO agent"
-                  instruction  : "Parse request scope and create an execution brief for delivery steps."
-                  tool_keys    : ["outlook", "gmail"]
-                }
-                {
-                  id           : "implementation"
-                  name         : "Implementation"
-                  role_label   : "Builder agent"
-                  instruction  : "Execute task and pass implementation notes to review."
-                  tool_keys    : ["github", "mcp"]
-                }
-                {
-                  id           : "report"
-                  name         : "Review and report"
-                  role_label   : "Communication agent"
-                  instruction  : "Generate stakeholder-ready update and push summary back to PO."
-                  tool_keys    : ["outlook", "mcp"]
-                }
-              ]
             }
             {
               slug         : "bugfix-triage"
@@ -90,29 +67,6 @@ query "projects/{project_id}/workstreams" verb=GET {
               trigger_text : "PO invokes stream from bug intake"
               output_text  : "Prioritised bugfix report to PO"
               position     : 1
-              steps        : [
-                {
-                  id           : "classify"
-                  name         : "Classify issue"
-                  role_label   : "Communication agent"
-                  instruction  : "Classify severity, reproduce context, and draft a triage record."
-                  tool_keys    : ["outlook", "mcp"]
-                }
-                {
-                  id           : "propose"
-                  name         : "Propose fix path"
-                  role_label   : "PO agent"
-                  instruction  : "Choose implementation lane and assign target builder profile."
-                  tool_keys    : ["mcp"]
-                }
-                {
-                  id           : "handoff"
-                  name         : "Handoff"
-                  role_label   : "Builder agent"
-                  instruction  : "Convert approved triage into concrete execution tasks."
-                  tool_keys    : ["github"]
-                }
-              ]
             }
             {
               slug         : "feature-delivery"
@@ -121,29 +75,6 @@ query "projects/{project_id}/workstreams" verb=GET {
               trigger_text : "PO invokes stream from roadmap item"
               output_text  : "Release summary and blueprint sync"
               position     : 2
-              steps        : [
-                {
-                  id           : "scope"
-                  name         : "Scope"
-                  role_label   : "PO agent"
-                  instruction  : "Break feature down into milestones and acceptance checks."
-                  tool_keys    : ["mcp"]
-                }
-                {
-                  id           : "build"
-                  name         : "Build"
-                  role_label   : "Builder agent"
-                  instruction  : "Implement approved milestones and collect implementation artifacts."
-                  tool_keys    : ["github", "mcp"]
-                }
-                {
-                  id           : "sync"
-                  name         : "Blueprint sync"
-                  role_label   : "Communication agent"
-                  instruction  : "Publish implementation summary and blueprint deltas for project communication."
-                  tool_keys    : ["outlook", "gmail"]
-                }
-              ]
             }
           ]
         }
@@ -155,13 +86,13 @@ query "projects/{project_id}/workstreams" verb=GET {
                 id            : ""|uuid
                 tenant_id     : $me.organisation_id
                 project_id    : $input.project_id
-                name          : $def.name
-                slug          : $def.slug
-                status        : $def.status
-                trigger_text  : $def.trigger_text
-                output_text   : $def.output_text
-                steps         : $def.steps
-                position      : $def.position
+                name          : $def|get:"name"
+                slug          : $def|get:"slug"
+                status        : $def|get:"status"
+                trigger_text  : $def|get:"trigger_text"
+                output_text   : $def|get:"output_text"
+                steps         : []
+                position      : $def|get:"position"
                 last_active_at: null
                 created_at    : now
                 updated_at    : now
@@ -243,10 +174,10 @@ query "projects/{project_id}/workstreams" verb=GET {
           value = {
             id        : $po_agent_id
             name      : $po_agent_row|get:"name"
-            slug      : $po_agent_row|get:"slug"
+            slug      : null
             role      : $po_agent_row|get:"role"
             agent_type: "po"
-            status    : $po_agent_row|get:"status"
+            status    : ($po_agent_row|get:"is_active") == true ? "active" : "standby"
           }
         }
       }

@@ -62,7 +62,7 @@ export default function AiAgentDetail() {
         if (!cancelled) {
           setAgent(null)
           setRuns([])
-          setError(e instanceof Error ? e.message : t('ai.agents.detailLoadError'))
+          setError(e instanceof Error ? e.message : t('workforce.agents.detailLoadError', { defaultValue: 'Could not load agent.' }))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -98,7 +98,7 @@ export default function AiAgentDetail() {
           to={`/ai/agents/${agentId}`}
           className="text-sm text-accent hover:underline"
         >
-          {t('ai.agents.backToAgent')}
+          {t('workforce.agents.backToAgent', { defaultValue: 'Back to agent' })}
         </Link>
         <LiveWorkLog workLogId={workLogId} />
       </PageContent>
@@ -112,11 +112,11 @@ export default function AiAgentDetail() {
       </Link>
 
       {loading ? (
-        <LoadingBlock label={t('ai.agents.loading')} />
+        <LoadingBlock label={t('workforce.agents.loading', { defaultValue: 'Loading agents…' })} />
       ) : !agent ? (
         <Card className="p-4">
           <p className="text-sm text-status-error">
-            {error ?? t('ai.agents.notFound')}
+            {error ?? t('workforce.agents.notFound', { defaultValue: 'Agent not found.' })}
           </p>
         </Card>
       ) : (
@@ -128,14 +128,14 @@ export default function AiAgentDetail() {
                 <div>
                   <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
                   <p className="mt-0.5 text-sm text-text-muted">
-                    {agent.role_name || agent.role_slug || t('ai.agents.roleUnknown')}
+                    {agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown', { defaultValue: 'Unknown role' })}
                   </p>
                 </div>
               </div>
               <span
                 className={cn('text-sm font-medium capitalize', STATUS_CLASS[agent.status])}
               >
-                {t(`ai.agents.status.${agent.status}`, { defaultValue: agent.status })}
+                {t(`workforce.agents.status.${agent.status}`, { defaultValue: agent.status })}
               </span>
             </div>
             {agent.current_activity_summary ? (

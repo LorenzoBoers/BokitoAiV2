@@ -14,6 +14,7 @@ import {
 import { slugifyPageTitle } from '../../lib/doc-blocks'
 import { createProjectWorkstream, type ProjectWorkstreamRow } from '../../lib/workstreams-api'
 import { useProjectHubNav } from '../../context/ProjectHubNavContext'
+import { projectOverviewPath } from '../layout/portal-nav'
 
 function uniqueSlug(base: string, existingSlugs: Set<string>): string {
   if (!existingSlugs.has(base)) return base
@@ -70,7 +71,7 @@ export default function AddWorkstreamDialog({
       await refreshWorkstreams()
       onCreated?.(created)
       onOpenChange(false)
-      navigate(`/project/${projectId}/overview?stream=${encodeURIComponent(created.slug)}`)
+      navigate(projectOverviewPath(projectId, created.slug))
     } catch (err) {
       setError(
         err instanceof Error

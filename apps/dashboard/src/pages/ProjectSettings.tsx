@@ -92,7 +92,7 @@ export default function ProjectSettings() {
                 <label className="text-sm font-medium text-text-primary">
                   {t('project.settings.about.name')}
                 </label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} required />
+                <Input value={name} onChange={(e) => setName(e.target.value)} required disabled={saving} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-text-primary">
@@ -103,6 +103,7 @@ export default function ProjectSettings() {
                   value={scope}
                   onChange={(e) => setScope(e.target.value)}
                   required
+                  disabled={saving}
                 />
               </div>
               {error ? <p className="text-sm text-status-error">{error}</p> : null}

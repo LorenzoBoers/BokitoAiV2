@@ -1,4 +1,5 @@
 {
+  "comingSoon": "Coming soon",
   "rail": {
     "home": "Home",
     "support": "Inbox",
@@ -428,7 +429,8 @@
       "activeConnections_one": "{{count}} active connection",
       "searchPlaceholder": "Search integrations...",
       "empty": "No integrations found.",
-      "emptyKind": "No integrations in this category."
+      "emptyKind": "No integrations in this category.",
+      "catalogFallback": "Catalog API unavailable; using local list."
     },
     "connected": {
       "addIntegration": "Add integration",
@@ -733,7 +735,9 @@
       "slugLabel": "URL slug",
       "submit": "Continue",
       "submitting": "Creating…",
-      "error": "Could not create project"
+      "error": "Could not create project",
+      "success": "Project created",
+      "scopeCounter": "{{count}} / {{min}} characters (spaces ignored)"
     },
     "connect": {
       "stepLabel": "Step 2 of 2 — optional. Link a GitHub repository so your AI team can read the project code.",
@@ -962,6 +966,33 @@
         "title": "Your code",
         "description": "Connect a GitHub repository so your AI team can read the codebase, or skip until you are ready."
       },
+      "orchestrator": {
+        "description": "Configure the dedicated orchestrator and orchestration cadence for this project.",
+        "open": "Open orchestrator setup"
+      },
+      "repo": {
+        "connectGithub": "Connect with GitHub",
+        "connectedTo": "Connected to {{repo}}",
+        "branchLabel": "{{branch}}",
+        "accountLabel": "GitHub account: {{login}}",
+        "signedInAs": "Signed in as {{login}}",
+        "searchPlaceholder": "Search repositories…",
+        "loadingRepos": "Loading repositories…",
+        "selectRepo": "Select a repository",
+        "linkRepo": "Link repository",
+        "reindex": "Re-read project",
+        "disconnect": "Disconnect",
+        "disconnectTitle": "Disconnect repository",
+        "disconnectDescription": "Remove the link to {{repo}}. Your AI team will no longer read this codebase until you connect again.",
+        "disconnectCancel": "Cancel",
+        "disconnectConfirm": "Disconnect",
+        "disconnecting": "Disconnecting…",
+        "oauthError": "Could not start GitHub connection",
+        "loadReposError": "Could not load repositories",
+        "linkError": "Could not link repository",
+        "disconnectError": "Could not disconnect",
+        "reindexError": "Could not re-read project"
+      },
       "danger": {
         "title": "Danger zone",
         "deleteTitle": "Delete this project",
@@ -1021,6 +1052,20 @@
       "expandChapter": "Expand section",
       "collapseChapter": "Collapse section",
       "lockedBadge": "Locked",
+      "lockError": "Could not update page lock.",
+      "pageKind": {
+        "overview": "Overview",
+        "vision": "Vision",
+        "features": "Features",
+        "brand": "Brand",
+        "tech": "Technology",
+        "marketing": "Marketing",
+        "operations": "Operations",
+        "roadmap": "Roadmap",
+        "log": "Log",
+        "notes": "Notes",
+        "custom": "Custom"
+      },
       "pageCrud": {
         "menuAria": "Page actions",
         "addPage": "Add page",
