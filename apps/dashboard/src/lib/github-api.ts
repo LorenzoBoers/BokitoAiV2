@@ -1,9 +1,6 @@
 import { githubRoutes, integrationsRoutes } from '../api/routes'
 import { xanoDeleteIntegrations, xanoGetIntegrations } from './xano'
-import {
-  listIntegrationConnections,
-  revokeIntegrationConnection,
-} from './integrations-api'
+import { revokeIntegrationConnection } from './integrations-api'
 
 export interface GithubConnectionRow {
   id: string
@@ -55,9 +52,10 @@ function normalizeGithubConnectionRow(
 async function fetchGithubConnectionSingular(): Promise<GithubConnectionRow | null> {
   try {
     const data = await xanoGetIntegrations<
-      GithubConnectionRow | { connection: GithubConnectionRow | null }
+      GithubConnectionRow | null | { connection: GithubConnectionRow | null }
     >(githubRoutes.connection)
-    if (data && typeof data === 'object' && 'connection' in data) {
+    if (data == null) return null
+    if (typeof data === 'object' && 'connection' in data) {
       const nested = (data as { connection: GithubConnectionRow | null }).connection
       return nested ? normalizeGithubConnectionRow(nested) : null
     }
@@ -70,25 +68,9 @@ async function fetchGithubConnectionSingular(): Promise<GithubConnectionRow | nu
 export async function listGithubConnections(): Promise<GithubConnectionRow[]> {
   try {
     const data = await xanoGetIntegrations<{ connections: GithubConnectionRow[] }>(githubRoutes.connections)
-    if (data.connections?.length) return data.connections
+    if (Array.isArray(data.connections)) return data.connections
   } catch {
-    // fall through
-  }
-
-  try {
-    const ic = await listIntegrationConnections('github')
-    if (ic.length > 0) {
-      return ic.map((c) => ({
-        id: c.id,
-        github_login: (c.metadata?.github_login as string) || c.display_name,
-        display_name: c.display_name,
-        status: c.status,
-        connected_at: c.created_at,
-        created_at: c.created_at,
-      }))
-    }
-  } catch {
-    // fall through
+    // fall through to legacy singular endpoint
   }
 
   const single = await fetchGithubConnectionSingular()
@@ -97,7 +79,8 @@ export async function listGithubConnections(): Promise<GithubConnectionRow[]> {
 
 export async function getGithubConnection(): Promise<GithubConnectionRow | null> {
   const list = await listGithubConnections()
-  return list[0] ?? null
+  if (list[0]) return list[0]
+  return fetchGithubConnectionSingular()
 }
 
 export async function disconnectGithubConnection(connectionId?: string): Promise<void> {

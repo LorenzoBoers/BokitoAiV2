@@ -18,18 +18,16 @@ const key = env.XANO_METADATA_API_KEY
 const base = (env.XANO_META_BASE_URL || 'https://xrex-nmji-j9ur.f2.xano.io/api:meta').replace(/\/$/, '')
 const v1 = path.join(root, 'xano-patches/v1')
 const WORKSPACE_ID = 1
-const APIGROUP_ID = 15
+const APIGROUP_ID = 17
 
 /** apiId optional — when set, PUT update; otherwise POST create */
 const endpoints = [
-  { file: 'workforce-projects-workstreams-list.xs', apiId: 303 },
-  { file: 'workforce-projects-workstreams-create.xs', apiId: 299 },
-  { file: 'workforce-projects-workstreams-patch.xs', apiId: 300 },
-  { file: 'workforce-projects-po-agent-get.xs', apiId: 304 },
-  { file: 'workforce-projects-po-agent-post.xs', apiId: 305 },
-  { file: 'workforce-projects-po-agent-patch.xs', apiId: 301 },
-  { file: 'workforce-projects-po-agent-delete.xs', apiId: 306 },
-  { file: 'workforce-projects-delete.xs', apiId: 302 },
+  { file: 'integrations-providers-list.xs', apiId: 307 },
+  { file: 'integrations-connections-list.xs', apiId: 308 },
+  { file: 'integrations-mcp-tenant-bindings.xs', apiId: 309 },
+  { file: 'integrations-github-connections-list.xs', apiId: 310 },
+  { file: 'integrations-github-connection-get.xs', apiId: 311 },
+  { file: 'integrations-github-connection-delete.xs', apiId: 312 },
 ]
 
 async function push({ file, apiId }) {
@@ -47,31 +45,10 @@ async function push({ file, apiId }) {
     body: xs,
   })
   const text = await res.text()
-  let parsed = text
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    // keep text
-  }
-  const id = typeof parsed === 'object' && parsed != null ? parsed.id : apiId
-  console.log(isUpdate ? 'PUT' : 'POST', file, res.status, id ?? text.slice(0, 200))
-  if (!res.ok) {
-    console.error(text.slice(0, 500))
-    process.exitCode = 1
-    return null
-  }
-  return id
+  console.log(isUpdate ? 'PUT' : 'POST', file, res.status, text.slice(0, 120))
+  if (!res.ok) process.exitCode = 1
 }
 
-const created = []
 for (const ep of endpoints) {
-  const id = await push(ep)
-  if (id != null) created.push({ file: ep.file, apiId: id })
-}
-
-if (created.length > 0) {
-  console.log('\nRecord these API IDs in xano-patches/v1/PROJECT-HUB-BACKEND.md:')
-  for (const row of created) {
-    console.log(`- ${row.file}: ${row.apiId}`)
-  }
+  await push(ep)
 }

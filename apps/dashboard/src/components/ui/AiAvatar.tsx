@@ -1,7 +1,7 @@
 import { getAvatarColor, getInitials } from '../../lib/avatar'
 
 interface AiAvatarProps {
-  name: string
+  name?: string | null
   seed?: string
   size?: number
   className?: string
@@ -27,8 +27,9 @@ function hexToRgba(hex: string, alpha: number): string {
  * This visually distinguishes agents from human user avatars.
  */
 export function AiAvatar({ name, seed, size = 32, className = '' }: AiAvatarProps) {
-  const initials = getInitials(name)
-  const { bg: accent } = getAvatarColor(seed ?? name)
+  const displayName = name?.trim() || 'Agent'
+  const initials = getInitials(displayName)
+  const { bg: accent } = getAvatarColor(seed ?? displayName)
   const fontSize = Math.round(size * 0.36)
   const borderRadius = Math.round(size * 0.5)
 
@@ -45,8 +46,8 @@ export function AiAvatar({ name, seed, size = 32, className = '' }: AiAvatarProp
         boxShadow: `0 0 0 2px ${hexToRgba(accent, 0.16)}, 0 0 12px ${hexToRgba(accent, 0.22)}`,
       }}
       className={`inline-flex shrink-0 select-none items-center justify-center font-semibold ${className}`}
-      aria-label={name}
-      title={name}
+      aria-label={displayName}
+      title={displayName}
     >
       {initials}
     </span>

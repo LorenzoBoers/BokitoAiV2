@@ -120,6 +120,14 @@
     "apiUnavailable": "Workstreams are not available yet. Try refreshing in a moment.",
     "lastActive": "Last active {{time}}",
     "notActiveYet": "Not active yet",
+    "addStream": "Add workstream",
+    "addStreamTitle": "New workstream",
+    "addStreamNameLabel": "Name",
+    "addStreamNamePlaceholder": "e.g. Content refresh",
+    "addStreamSubmit": "Create workstream",
+    "addStreamSubmitting": "Creating…",
+    "addStreamError": "Could not create workstream",
+    "addStreamCancel": "Cancel",
     "newProject": "New project",
     "showMore": "Show {{count}} more",
     "showLess": "Show less",
@@ -167,12 +175,13 @@
     "selector": {
       "label": "Current project",
       "placeholder": "Select project",
-      "none": "No projects available"
+      "none": "No projects available",
+      "create": "New project"
     },
     "settingsLink": "Project settings",
     "po": {
-      "label": "Project PO",
-      "none": "No PO agent linked to this project yet."
+      "label": "Orchestrator",
+      "none": "No orchestrator linked to this project yet."
     },
     "backgroundProjects": {
       "label": "Background projects",
@@ -201,7 +210,7 @@
       "emptyDescription": "Workspace Blueprint could not be loaded or has no pages yet. Retry after the backend is deployed.",
       "agentEdit": "Ask agent",
       "agentEditTitle": "Request Blueprint update",
-      "agentEditDescription": "Describe the changes you want on this page. A product-owner agent run will be queued.",
+      "agentEditDescription": "Describe the changes you want on this page. An orchestrator run will be queued.",
       "agentEditPlaceholder": "For example: Add a section about our refund policy under Operations.",
       "agentEditSubmit": "Send request",
       "agentRequestTitle": "Update page: {{page}}",
@@ -574,33 +583,44 @@
       "workforce": "Workforce",
       "platform": "Platform agents",
       "operations": "Operations",
-      "yourAgents": "Your agents"
+      "yourAgents": "Your agents",
+      "projects": "Projects",
+      "library": "Agent library"
     },
     "links": {
       "overview": "Overview",
-      "agents": "AI Agents",
+      "agents": "Agent library",
       "assistant": "Assistant agent",
       "communication": "Communication agent",
-      "po": "PO agent",
+      "po": "Orchestrator",
       "backgroundWorkers": "Workstreams",
       "viewAllAgents": "View all agents",
       "tasks": "Tasks",
       "runs": "Runs"
     },
     "po": {
-      "none": "No PO agent configured yet."
+      "none": "No orchestrator configured yet."
+    },
+    "projects": {
+      "loading": "Loading projects…",
+      "loadError": "Could not load projects.",
+      "empty": "No projects yet.",
+      "poReady": "Orchestrator configured",
+      "poMissing": "Orchestrator required",
+      "showMore": "Show {{count}} more",
+      "showLess": "Show less"
     },
     "agents": {
-      "listDescription": "Custom workforce agents for this workspace (platform agents are listed separately in the sidebar).",
+      "listDescription": "Reusable worker agents for this workspace. Platform agents and project orchestrator setup live in dedicated sections.",
       "loading": "Loading agents…",
       "loadError": "Could not load agents.",
       "empty": "No custom agents yet.",
       "sections": {
-        "po": "PO agents",
+        "po": "Orchestrators",
         "workers": "Worker agents"
       },
       "types": {
-        "po": "PO",
+        "po": "Orchestrator",
         "worker": "Worker"
       },
       "roleUnknown": "Unknown role",
@@ -610,6 +630,7 @@
       "notFound": "Agent not found.",
       "historyTitle": "Run history",
       "historyDescription": "Recent runs for this agent.",
+      "projectLink": "Project: {{name}}",
       "sidebar": {
         "loading": "Loading agents…",
         "showLess": "Show less",
@@ -623,13 +644,17 @@
       }
     },
     "pageMeta": {
+      "overview": {
+        "title": "Workforce overview",
+        "description": "Operational overview of orchestrator coverage and workforce activity."
+      },
       "agents": {
-        "title": "Your agents",
-        "description": "Configured workforce agents for this workspace."
+        "title": "Agent library",
+        "description": "Reusable worker agents available for project workstreams."
       },
       "po": {
-        "title": "PO agents",
-        "description": "Product-owner orchestrators across projects."
+        "title": "Orchestrators",
+        "description": "Project orchestrators across the workspace."
       },
       "backgroundWorkers": {
         "title": "Workstreams",
@@ -661,6 +686,26 @@
         "tokens": "Tokens"
       },
       "fallbackSubject": "Agent run"
+    },
+    "overview": {
+      "loading": "Loading workforce overview…",
+      "loadError": "Could not load workforce overview.",
+      "cards": {
+        "projects": "Projects",
+        "projectsHint": "Total active projects in this workspace.",
+        "poCoverage": "Orchestrator coverage",
+        "poMissingHint": "{{count}} projects still need an orchestrator.",
+        "poCompleteHint": "All projects have an orchestrator.",
+        "running": "Running now",
+        "runningHint": "Active agent runs across all projects."
+      },
+      "projectsTitle": "Projects needing orchestrator setup",
+      "projectsEmpty": "No projects are missing an orchestrator.",
+      "attentionTitle": "Needs attention",
+      "attentionHint": "Messages awaiting human decision across all projects.",
+      "openCommunication": "Open communication",
+      "openProjectHub": "Open project hub",
+      "manageAgents": "Manage agents"
     }
   },
   "projects": {
@@ -705,7 +750,8 @@
       "pages": "Pages"
     },
     "links": {
-      "overview": "Workstreams",
+      "overview": "Overview",
+      "po": "Orchestrator",
       "knowledge": "Blueprint",
       "orchestration": "Orchestration",
       "communication": "Communication",
@@ -724,7 +770,7 @@
     },
     "overview": {
       "title": "Workstreams",
-      "description": "Manage project workstreams where PO and agents execute step-by-step flows.",
+      "description": "Manage project workstreams where the orchestrator and agents execute step-by-step flows.",
       "loading": "Loading…",
       "empty": "No updates yet. Submit a change request to get started.",
       "viewAll": "View all project messages",
@@ -736,14 +782,14 @@
       "addStep": "Add step",
       "dragPreview": "Drag preview",
       "inputTitle": "Input",
-      "inputChip": "in: project context + PO trigger",
+      "inputChip": "in: project context + orchestrator trigger",
       "stepLabel": "Step",
       "agentLabel": "Agent",
       "instructionLabel": "Instruction",
       "toolsLabel": "Tools (tenant integrations)",
       "selectTool": "Select tool",
       "outputTitle": "Output",
-      "outputChip": "out: stream report to PO",
+      "outputChip": "out: stream report to orchestrator",
       "emptySteps": "No steps configured for this workstream yet."
     },
     "messages": {
@@ -776,14 +822,14 @@
     },
     "orchestration": {
       "title": "Orchestration",
-      "description": "Tune how the project owner agent runs this project: cadence, autonomy, and human-in-the-loop.",
+      "description": "Tune how the orchestrator runs this project: cadence, autonomy, and human-in-the-loop.",
       "loading": "Loading orchestration settings…",
       "saved": "Settings saved.",
       "loadError": "Could not load orchestration settings.",
       "saveError": "Could not save orchestration settings.",
       "wakeFrequency": {
         "label": "Wake-up frequency",
-        "hint": "How often the PO agent reviews and plans this project.",
+        "hint": "How often the orchestrator reviews and plans this project.",
         "options": {
           "hourly": "Hourly",
           "daily": "Daily",
@@ -813,6 +859,48 @@
       "continuous": {
         "label": "Continuous mode",
         "hint": "Let agents keep working on open tasks between wake cycles."
+      }
+    },
+    "po": {
+      "title": "Orchestrator",
+      "description": "Configure the dedicated orchestrator for this project. Plans work, routes agents, and keeps project knowledge current.",
+      "loading": "Loading orchestrator settings…",
+      "loadError": "Could not load orchestrator settings.",
+      "createError": "Could not create orchestrator.",
+      "linkError": "Could not link orchestrator.",
+      "defaultName": "Project orchestrator",
+      "sidebarCta": "Set up orchestrator",
+      "advancedProfile": "Advanced agent profile",
+      "required": {
+        "title": "Set up an orchestrator",
+        "description": "This project needs a dedicated orchestrator before workstreams and orchestration can run.",
+        "cta": "Set up orchestrator"
+      },
+      "gate": {
+        "title": "Orchestrator required",
+        "description": "Link or create an orchestrator for this project to continue."
+      },
+      "identity": {
+        "title": "Orchestrator identity",
+        "empty": "No orchestrator is linked to this project yet."
+      },
+      "setup": {
+        "title": "Link or create orchestrator",
+        "description": "Each project needs one dedicated orchestrator. Create a new one or link an existing unassigned orchestrator.",
+        "createLabel": "New orchestrator name",
+        "createCta": "Create orchestrator for project",
+        "creating": "Creating…",
+        "showExisting": "Link existing orchestrator",
+        "hideExisting": "Hide existing orchestrators",
+        "noCandidates": "No unassigned orchestrators available in this workspace.",
+        "selectPlaceholder": "Select orchestrator",
+        "linkCta": "Link selected orchestrator"
+      },
+      "switch": {
+        "title": "Change orchestrator",
+        "description": "Switch to another unassigned orchestrator or create a new dedicated agent.",
+        "linkOther": "Link different orchestrator",
+        "createNew": "Create new orchestrator"
       }
     },
     "notifications": {

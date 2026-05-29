@@ -77,6 +77,7 @@ When pushing via the Metadata API:
 - Use `db.del` (not `db.delete`) for row removal.
 - Use inline `db.edit` `data = { ... }` objects instead of `data = $patch` variables.
 - Do not use variable or response keys named `doc` in workspace doc XanoScript (Xano can coerce `doc` / `$doc.*` to integer `1`). Use names like `$workspace_doc_row`, `$workspace_doc_id`, and response field `workspace_doc` instead of `doc`. Read UUIDs with `($workspace_doc_rows|first)|get:"id"`.
+- Avoid `$project` as a variable name in project-hub XanoScript; Xano can mis-resolve `$project.po_agent_id`. Use `$proj_row` and `$proj_row|get:"po_agent_id"` instead. On DELETE name confirmation, do **not** use `$stored_name`, `$db_name`, or `|get:"name"` — compare with a second `db.query projects` where clause: `$db.projects.name == $input.confirm_name`.
 - `GET /workspace/doc` uses `try_catch` around `workspace_docs` insert and re-queries to survive parallel first loads.
 
 ## Other project hub patches
@@ -92,7 +93,10 @@ When pushing via the Metadata API:
 | workforce-projects-workstreams-list.xs | GET | /projects/{id}/workstreams | 303 |
 | workforce-projects-workstreams-create.xs | POST | /projects/{id}/workstreams | 299 |
 | workforce-projects-workstreams-patch.xs | PATCH | /projects/{id}/workstreams/{workstream_id} | 300 |
+| workforce-projects-po-agent-get.xs | GET | /projects/{id}/po-agent | 304 |
+| workforce-projects-po-agent-post.xs | POST | /projects/{id}/po-agent | 305 |
 | workforce-projects-po-agent-patch.xs | PATCH | /projects/{id}/po-agent | 301 |
+| workforce-projects-po-agent-delete.xs | DELETE | /projects/{id}/po-agent | 306 |
 | workforce-projects-delete.xs | DELETE | /projects/{id} (body: `confirm_name` must match project name) | 302 |
 | workforce-runs-complete.xs | POST | /runs/complete (token counters) |
 | task-po-heartbeat.xs | task | per-project orchestration dispatch |
@@ -133,3 +137,23 @@ Response shape per project:
 ```
 
 Blocking count = `decision_request` + `token_limit_reached` with `status=awaiting_human` and `resolved_at` null or in the past.
+
+## Post-deploy verification
+
+After pushing workforce APIs via the Metadata API, run:
+
+```bash
+node scripts/verify-xano-api-push.mjs --apigroup 15 --api 290 302 303
+```
+
+The script flags known Metadata API corruption patterns (literal backtick `|get:"name"`, empty `db.query ""`, `$doc` / `$project` variables, and `workspace_doc_blocks` list queries without paging).
+
+## Integration catalog seed
+
+Seed `integration_hosts` and core `integration_providers` rows:
+
+```bash
+node scripts/seed-integration-providers.mjs
+```
+
+Requires `XANO_METADATA_API_KEY` in `.env`. Hosts must exist before providers (`host_id` FK). See `integration-hosts-seed.md` and `integration-providers-seed.md`.

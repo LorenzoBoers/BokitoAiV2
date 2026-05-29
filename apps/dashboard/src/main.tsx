@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { NotificationProvider } from './context/NotificationContext'
@@ -8,6 +9,7 @@ import { ValidationProvider } from './context/ValidationContext'
 import { UndoRedoProvider } from './context/UndoRedoContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
 import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
+import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
 import App from './App'
 import { readPublishedDashboardUser } from './lib/widget-bridge'
 import './i18n'
@@ -51,22 +53,25 @@ loadChatWidgetScript()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <WorkspaceProvider>
-            <IntegrationBrandProvider>
-              <NotificationProvider>
-                <ValidationProvider>
-                  <UndoRedoProvider>
-                    <App />
-                  </UndoRedoProvider>
-                </ValidationProvider>
-              </NotificationProvider>
-            </IntegrationBrandProvider>
-          </WorkspaceProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <ThemeProvider>
+          <AuthProvider>
+            <WorkspaceProvider>
+              <IntegrationBrandProvider>
+                <NotificationProvider>
+                  <ValidationProvider>
+                    <UndoRedoProvider>
+                      <App />
+                      <Toaster richColors closeButton position="top-right" />
+                    </UndoRedoProvider>
+                  </ValidationProvider>
+                </NotificationProvider>
+              </IntegrationBrandProvider>
+            </WorkspaceProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </AppErrorBoundary>
   </StrictMode>,
 )

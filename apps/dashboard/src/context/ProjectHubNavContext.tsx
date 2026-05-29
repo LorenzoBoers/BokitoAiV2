@@ -21,6 +21,7 @@ import {
   type ProjectPoAgent,
   type ProjectWorkstreamRow,
 } from '../lib/workstreams-api'
+import { getProjectPoAgent } from '../lib/po-agent-api'
 import type { WorkerStatusSnapshot } from '../lib/project-worker-status'
 import {
   projectHubScopeKey,
@@ -89,7 +90,7 @@ export function ProjectHubNavProvider({ children }: { children: ReactNode }) {
       const map = await fetchProjectWorkerStatusMap(rows)
       setWorkerStatusByProjectId(map)
     } catch {
-      setWorkerStatusByProjectId({})
+      // Keep last known status on transient poll failures.
     } finally {
       setStatusLoading(false)
     }
@@ -126,7 +127,19 @@ export function ProjectHubNavProvider({ children }: { children: ReactNode }) {
     try {
       const data = await listProjectWorkstreams(projectId)
       setWorkstreams(data.items)
-      setPoAgent(data.po_agent)
+      let nextPoAgent = data.po_agent
+      const projectRow = projectsRef.current.find((project) => project.id === projectId)
+      const shouldLoadPoSummary =
+        Boolean(projectRow?.po_agent_id) || Boolean(nextPoAgent?.id)
+      if (shouldLoadPoSummary) {
+        try {
+          const summary = await getProjectPoAgent(projectId)
+          if (summary.po_agent) nextPoAgent = summary.po_agent
+        } catch {
+          // Keep workstreams payload when po-agent endpoint fails.
+        }
+      }
+      setPoAgent(nextPoAgent)
     } catch (err) {
       setWorkstreams([])
       setPoAgent(null)
@@ -166,6 +179,11 @@ export function ProjectHubNavProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshWorkstreams()
   }, [selectedProjectId, refreshWorkstreams])
+
+  useEffect(() => {
+    if (!activeProjectIdFromRoute) return
+    void refreshWorkstreams()
+  }, [pathname, activeProjectIdFromRoute, refreshWorkstreams])
 
   useEffect(() => {
     const id = window.setInterval(() => {

@@ -27,7 +27,7 @@ import type { TFunction } from 'i18next'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
 
 /** Default landing for the merged Workforce rail item. */
-export const WORKFORCE_DEFAULT_PATH = '/workforce/agents' as const
+export const WORKFORCE_DEFAULT_PATH = '/workforce/overview' as const
 
 export const WORKFORCE_PO_PATH = '/workforce/po' as const
 
@@ -79,7 +79,7 @@ export const getEndUserRailItems = (t: TFunction<'nav'>, projectId?: string): Ra
   if (projectId) {
     items.push({
       label: t('rail.changeRequest', { defaultValue: 'Request' }),
-      to: `/project/${projectId}/request`,
+      to: '/projects/docs',
       icon: PenLine,
     })
   }
@@ -136,6 +136,17 @@ export const getDataSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
 ]
 
 export const getWorkforceSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
+  {
+    label: t('workforce.group.workforce', { defaultValue: 'Workforce' }),
+    links: [
+      { label: t('workforce.links.overview', { defaultValue: 'Overview' }), to: WORKFORCE_DEFAULT_PATH },
+      {
+        label: t('workforce.links.agents', { defaultValue: 'Agent library' }),
+        to: '/workforce/agents',
+        badgeSlot: 'agents',
+      },
+    ],
+  },
   {
     label: t('workforce.group.platform', { defaultValue: 'Platform agents' }),
     links: [
@@ -195,6 +206,11 @@ export const getProjectHubSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] 
   },
 ]
 
+/** Per-project orchestrator setup (sidebar entry; not a horizontal tab). */
+export function projectOrchestratorPath(projectId: string): string {
+  return `/project/${projectId}/orchestrator`
+}
+
 /** Per-project cockpit tabs rendered in the main canvas (not the hub sidebar). */
 export const getProjectTabLinks = (t: TFunction<'nav'>, projectId: string): SidebarLink[] => [
   { label: t('project.links.overview', { defaultValue: 'Overview' }), to: `/project/${projectId}/overview` },
@@ -217,10 +233,6 @@ export const getProjectTabLinks = (t: TFunction<'nav'>, projectId: string): Side
   {
     label: t('project.links.notifications', { defaultValue: 'Notifications' }),
     to: `/project/${projectId}/notifications`,
-  },
-  {
-    label: t('project.links.request', { defaultValue: 'Request a change' }),
-    to: `/project/${projectId}/request`,
   },
   {
     label: t('project.links.settings', { defaultValue: 'Settings' }),
@@ -416,17 +428,24 @@ export const getAiPageMeta = (
 export const getWorkforcePageMeta = (
   t: TFunction<'nav'>,
 ): Record<string, { title: string; description: string; icon: LucideIcon }> => ({
+  overview: {
+    title: t('workforce.pageMeta.overview.title', { defaultValue: 'Workforce overview' }),
+    description: t('workforce.pageMeta.overview.description', {
+      defaultValue: 'Operational overview of orchestrator coverage and agent activity.',
+    }),
+    icon: Bot,
+  },
   agents: {
-    title: t('workforce.pageMeta.agents.title', { defaultValue: 'Your agents' }),
+    title: t('workforce.pageMeta.agents.title', { defaultValue: 'Agent library' }),
     description: t('workforce.pageMeta.agents.description', {
-      defaultValue: 'Configured workforce agents for this workspace.',
+      defaultValue: 'Reusable worker agents available for project workstreams.',
     }),
     icon: Bot,
   },
   po: {
-    title: t('workforce.pageMeta.po.title', { defaultValue: 'PO agents' }),
+    title: t('workforce.pageMeta.po.title', { defaultValue: 'Orchestrators' }),
     description: t('workforce.pageMeta.po.description', {
-      defaultValue: 'Product-owner orchestrators across projects.',
+      defaultValue: 'Project orchestrators across the workspace.',
     }),
     icon: Bot,
   },

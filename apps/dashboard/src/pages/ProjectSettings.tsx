@@ -29,7 +29,7 @@ export default function ProjectSettings() {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  const projectName = project?.name ?? ''
+  const projectName = project?.name?.trim() ?? ''
 
   useEffect(() => {
     if (project) {
@@ -59,11 +59,12 @@ export default function ProjectSettings() {
   }
 
   async function handleDeleteProject() {
-    if (!project || deleteConfirmation !== projectName) return
+    const confirmed = deleteConfirmation.trim()
+    if (!project || confirmed !== projectName) return
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deleteProject(project.id, deleteConfirmation)
+      await deleteProject(project.id, confirmed)
       const scopeKey = projectHubScopeKey(user?.tenant?.id ?? null, user?.tenant?.slug)
       clearLastProjectId(scopeKey, project.id)
       await projectHubNav?.refresh()
@@ -80,15 +81,6 @@ export default function ProjectSettings() {
   return (
     <ProjectShell>
       <div className="space-y-5">
-        <div>
-          <h1 className="text-xl font-semibold text-text-heading">
-            {t('project.links.settings', { defaultValue: 'Settings' })}
-          </h1>
-          <p className="mt-1 text-sm text-text-muted">
-            {t('project.settings.about.title')}
-          </p>
-        </div>
-
         <Card>
           <CardHeader>
             <CardTitle>{t('project.settings.about.title')}</CardTitle>
@@ -193,7 +185,7 @@ export default function ProjectSettings() {
               <Button
                 variant="destructive"
                 onClick={() => void handleDeleteProject()}
-                disabled={deleteConfirmation !== projectName || deleting}
+                disabled={deleteConfirmation.trim() !== projectName || deleting}
               >
                 {deleting ? t('project.settings.danger.deleting') : t('project.settings.danger.confirmButton')}
               </Button>

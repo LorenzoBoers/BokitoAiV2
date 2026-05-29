@@ -368,6 +368,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     async function hydrateSession() {
       setIsLoading(true);
+      const tenantSubdomain = resolveTenantSubdomainFromHost();
       try {
         const handoffToken = consumeDevLocalhostAccessHashFromLocation();
         if (handoffToken) {
@@ -379,7 +380,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearLocationHashPreservePath();
         }
 
-        const tenantSubdomain = resolveTenantSubdomainFromHost();
         if (tenantSubdomain && !shouldSkipServerAuthRefresh()) {
           try {
             const session = await authRefresh();

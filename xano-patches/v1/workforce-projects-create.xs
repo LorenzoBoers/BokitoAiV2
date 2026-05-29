@@ -149,7 +149,8 @@ query projects verb=POST {
       value = 0
     }
 
-    foreach ($scaffold as $page_def) {
+    foreach ($scaffold) {
+      each as $page_def {
       var $page_id {
         value = ""|uuid
       }
@@ -249,7 +250,38 @@ query projects verb=POST {
       var.update $position {
         value = $position + 1
       }
+      }
     }
+
+    var $po_agent_id {
+      value = ""|uuid
+    }
+
+    var $po_name {
+      value = $input.name ~ " Orchestrator"
+    }
+
+    db.add agents {
+      data = {
+        id            : $po_agent_id
+        tenant_id     : $me.organisation_id
+        project_id    : $project_id
+        name          : $po_name
+        role          : "po"
+        model         : "claude-sonnet-4"
+        system_prompt : "You are the orchestrator for this project. North star: " ~ $input.autonomous_scope
+        max_loops     : 25
+        tools         : []
+        is_active     : true
+        updated_at    : now
+      }
+    } as $po_agent
+
+    db.edit projects {
+      field_name = "id"
+      field_value = $project_id
+      data = {po_agent_id: $po_agent_id, updated_at: now}
+    } as $project
   }
 
   response = $project

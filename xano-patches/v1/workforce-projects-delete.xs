@@ -1,12 +1,13 @@
 // DELETE /api:workforce/projects/{project_id} - permanently remove a project
 // Requires confirm_name to match the project name exactly (double opt-in).
+// Compare name in db.query where — avoid $*name vars and |get:"name" (Xano mis-resolves them).
 query "projects/{project_id}" verb=DELETE {
   api_group = "workforce"
   auth = "user"
 
   input {
     uuid project_id
-    text confirm_name
+    text confirm_name filters=trim
   }
 
   stack {
@@ -35,11 +36,12 @@ query "projects/{project_id}" verb=DELETE {
       error = "Project not found."
     }
 
-    var $project {
-      value = $proj_rows|first
-    }
+    db.query projects {
+      where = $db.projects.id == $input.project_id && $db.projects.tenant_id == $me.organisation_id && $db.projects.name == $input.confirm_name
+      return = {type: "list", paging: {page: 1, per_page: 1}}
+    } as $match_rows
 
-    precondition ($project.name == $input.confirm_name) {
+    precondition (($match_rows|count) > 0) {
       error_type = "inputerror"
       error = "Project name does not match."
     }
@@ -54,34 +56,6 @@ query "projects/{project_id}" verb=DELETE {
         db.del project_workstreams {
           field_name = "id"
           field_value = $ws.id
-        }
-      }
-    }
-
-    db.query project_orchestration_config {
-      where = $db.project_orchestration_config.project_id == $input.project_id && $db.project_orchestration_config.tenant_id == $me.organisation_id
-      return = {type: "list", paging: {page: 1, per_page: 10}}
-    } as $orch_rows
-
-    foreach ($orch_rows.items) {
-      each as $orch {
-        db.del project_orchestration_config {
-          field_name = "id"
-          field_value = $orch.id
-        }
-      }
-    }
-
-    db.query project_notification_preferences {
-      where = $db.project_notification_preferences.project_id == $input.project_id && $db.project_notification_preferences.tenant_id == $me.organisation_id
-      return = {type: "list", paging: {page: 1, per_page: 200}}
-    } as $pref_rows
-
-    foreach ($pref_rows.items) {
-      each as $pref {
-        db.del project_notification_preferences {
-          field_name = "id"
-          field_value = $pref.id
         }
       }
     }

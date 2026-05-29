@@ -39,3 +39,9 @@ coverage/
 
 # Local deploy artifacts (regenerate from scripts)
 widget-wink-build.zip
+
+# Scratch / temp (do not commit)
+-w
+.tmp-*
+*.xs.bak
+**/.tmp/

@@ -30,8 +30,12 @@ query "projects/{project_id}/workstreams" verb=GET {
       error = "Project not found."
     }
 
-    var $project {
+    var $proj_row {
       value = $proj_rows|first
+    }
+
+    var $linked_po_agent_id {
+      value = $proj_row|get:"po_agent_id"
     }
 
     db.query project_workstreams {
@@ -40,8 +44,12 @@ query "projects/{project_id}/workstreams" verb=GET {
       return = {type: "list", paging: {page: 1, per_page: 100}}
     } as $stream_rows
 
+    var $stream_items {
+      value = $stream_rows.items
+    }
+
     conditional {
-      if (($stream_rows|count) == 0) {
+      if (($stream_items|count) == 0) {
         var $defaults {
           value = [
             {
@@ -167,23 +175,27 @@ query "projects/{project_id}/workstreams" verb=GET {
           sort = {project_workstreams.position: "asc"}
           return = {type: "list", paging: {page: 1, per_page: 100}}
         } as $stream_rows
+
+        var.update $stream_items {
+          value = $stream_rows.items
+        }
       }
     }
 
-    var $po_agent {
+    var $po_agent_row {
       value = null
     }
 
     conditional {
-      if ($project.po_agent_id != null) {
+      if ($linked_po_agent_id != null) {
         db.query agents {
-          where = $db.agents.id == $project.po_agent_id && $db.agents.tenant_id == $me.organisation_id && $db.agents.role == "po"
+          where = $db.agents.id == $linked_po_agent_id && $db.agents.tenant_id == $me.organisation_id && $db.agents.role == "po"
           return = {type: "list", paging: {page: 1, per_page: 1}}
         } as $po_by_id_rows
 
         conditional {
           if (($po_by_id_rows|count) > 0) {
-            var.update $po_agent {
+            var.update $po_agent_row {
               value = $po_by_id_rows|first
             }
           }
@@ -192,7 +204,7 @@ query "projects/{project_id}/workstreams" verb=GET {
     }
 
     conditional {
-      if ($po_agent == null) {
+      if ($po_agent_row == null) {
         db.query agents {
           where = $db.agents.project_id == $input.project_id && $db.agents.tenant_id == $me.organisation_id && $db.agents.role == "po"
           sort = {agents.updated_at: "desc"}
@@ -201,7 +213,7 @@ query "projects/{project_id}/workstreams" verb=GET {
 
         conditional {
           if (($po_by_project_rows|count) > 0) {
-            var.update $po_agent {
+            var.update $po_agent_row {
               value = $po_by_project_rows|first
             }
           }
@@ -213,21 +225,33 @@ query "projects/{project_id}/workstreams" verb=GET {
       value = null
     }
 
+    var $po_agent_id {
+      value = null
+    }
+
     conditional {
-      if ($po_agent != null) {
+      if ($po_agent_row != null) {
+        var.update $po_agent_id {
+          value = $po_agent_row|get:"id"
+        }
+      }
+    }
+
+    conditional {
+      if ($po_agent_id != null) {
         var.update $po_payload {
           value = {
-            id        : $po_agent.id
-            name      : $po_agent.name
-            slug      : $po_agent.slug
-            role      : $po_agent.role
+            id        : $po_agent_id
+            name      : $po_agent_row|get:"name"
+            slug      : $po_agent_row|get:"slug"
+            role      : $po_agent_row|get:"role"
             agent_type: "po"
-            status    : $po_agent.status
+            status    : $po_agent_row|get:"status"
           }
         }
       }
     }
   }
 
-  response = {items: $stream_rows, po_agent: $po_payload}
+  response = {items: $stream_items, po_agent: $po_payload}
 }

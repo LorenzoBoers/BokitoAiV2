@@ -35,7 +35,29 @@ query "github/connections" verb=GET {
         } as $ic_rows
 
         var $from_ic {
-          value = $ic_rows|map:$$|pick: ["id", "display_name", "external_account_id", "status", "metadata", "created_at", "updated_at"]|map:$$|set:github_login:$$.display_name|set:connected_at:$$.created_at
+          value = []
+        }
+
+        foreach ($ic_rows) {
+          each as $row {
+            var $item {
+              value = {
+                id                  : $row.id
+                display_name        : $row.display_name
+                external_account_id : $row.external_account_id
+                status              : $row.status
+                metadata            : $row.metadata
+                created_at          : $row.created_at
+                updated_at          : $row.updated_at
+                github_login        : $row.display_name
+                connected_at        : $row.created_at
+              }
+            }
+
+            var.update $from_ic {
+              value = $from_ic|push:$item
+            }
+          }
         }
 
         var.update $connections {
@@ -52,8 +74,31 @@ query "github/connections" verb=GET {
           return = {type: "list"}
         } as $gh_rows
 
+        var $from_legacy {
+          value = []
+        }
+
+        foreach ($gh_rows) {
+          each as $row {
+            var $item {
+              value = {
+                id           : $row.id
+                github_login : $row.github_login
+                status       : $row.status
+                created_at   : $row.created_at
+                updated_at   : $row.updated_at
+                connected_at : $row.created_at
+              }
+            }
+
+            var.update $from_legacy {
+              value = $from_legacy|push:$item
+            }
+          }
+        }
+
         var.update $connections {
-          value = $gh_rows|map:$$|pick: ["id", "github_login", "status", "created_at", "updated_at"]|map:$$|set:connected_at:$$.created_at
+          value = $from_legacy
         }
       }
     }

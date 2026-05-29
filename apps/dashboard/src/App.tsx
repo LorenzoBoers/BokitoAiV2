@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import WorkspaceHubLayout from './components/layout/WorkspaceHubLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -19,7 +19,7 @@ import CompanyConfig from './pages/CompanyConfig'
 import MemberManagement from './pages/MemberManagement'
 import MessengerSettings from './pages/MessengerSettings'
 import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
-import { WORKFORCE_DEFAULT_PATH } from './components/layout/portal-nav'
+import { WORKFORCE_DEFAULT_PATH, projectOrchestratorPath } from './components/layout/portal-nav'
 import HelpCentersSettings from './pages/HelpCentersSettings'
 import CloudAgent from './pages/CloudAgent'
 import CreateProject from './pages/CreateProject'
@@ -32,14 +32,15 @@ import ProjectOverview from './pages/ProjectOverview'
 import ProjectSettings from './pages/ProjectSettings'
 import ProjectCommunication from './pages/ProjectCommunication'
 import ProjectOrchestration from './pages/ProjectOrchestration'
+import ProjectPoConfig from './pages/ProjectPoConfig'
 import ProjectNotifications from './pages/ProjectNotifications'
 import ProjectWorkforceHistory from './pages/ProjectWorkforceHistory'
 import ProjectUsage from './pages/ProjectUsage'
 import ConnectProjectRepo from './pages/ConnectProjectRepo'
-import ChangeRequest from './pages/ChangeRequest'
 import AdminRunLegacyRedirect from './pages/AdminRunLegacyRedirect'
 import AiAgents from './pages/AiAgents'
 import AiAgentDetail from './pages/AiAgentDetail'
+import WorkforceOverview from './pages/WorkforceOverview'
 import ProjectWorkforceRunDetail from './pages/ProjectWorkforceRunDetail'
 import WorkforcePoAgents from './pages/WorkforcePoAgents'
 import AiCommunicationSettings from './pages/AiCommunicationSettings'
@@ -56,6 +57,12 @@ import IntegrationsApi from './pages/IntegrationsApi'
 import IntegrationsDocs from './pages/IntegrationsDocs'
 import HomeDashboard from './pages/HomeDashboard'
 import { useIsAdmin } from './hooks/useIsAdmin'
+
+function LegacyProjectPoRedirect() {
+  const { projectId } = useParams<{ projectId: string }>()
+  if (!projectId) return <Navigate to="/projects" replace />
+  return <Navigate to={projectOrchestratorPath(projectId)} replace />
+}
 
 type ProjectRedirect =
   | { state: 'loading' }
@@ -246,13 +253,15 @@ export default function App() {
               path="/project/:projectId/doc/:pageSlug"
               element={<Navigate to="/projects/docs" replace />}
             />
-            <Route path="/project/:projectId/request" element={<ChangeRequest />} />
+            <Route path="/project/:projectId/request" element={<Navigate to="/projects/docs" replace />} />
             <Route
               path="/project/:projectId/messages"
               element={<Navigate to="communication" replace />}
             />
             <Route path="/project/:projectId/communication" element={<ProjectCommunication />} />
             <Route path="/project/:projectId/orchestration" element={<ProjectOrchestration />} />
+            <Route path="/project/:projectId/orchestrator" element={<ProjectPoConfig />} />
+            <Route path="/project/:projectId/po" element={<LegacyProjectPoRedirect />} />
             <Route path="/project/:projectId/notifications" element={<ProjectNotifications />} />
             <Route path="/project/:projectId/workforce" element={<ProjectWorkforceHistory />} />
             <Route
@@ -265,6 +274,7 @@ export default function App() {
           <Route path="/admin/runs/:workLogId" element={<AdminRunLegacyRedirect />} />
           <Route path="/admin/runs" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
           <Route path="/workforce" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
+          <Route path="/workforce/overview" element={<WorkforceOverview />} />
           <Route path="/workforce/agents" element={<AiAgents />} />
           <Route path="/workforce/po" element={<WorkforcePoAgents />} />
           <Route path="/ai/agents" element={<AiAgents />} />

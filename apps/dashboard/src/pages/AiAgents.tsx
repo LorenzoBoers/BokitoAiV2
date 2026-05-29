@@ -10,6 +10,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
+import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { agentType, filterPoAgents, filterUserAgents, sortAgentsByUpdated } from '../lib/workforce-nav-agents'
 import { cn } from '../lib/utils'
@@ -26,6 +27,7 @@ export default function AiAgents() {
   const isAdmin = useIsAdmin()
   const [poAgents, setPoAgents] = useState<RuntimeAgent[]>([])
   const [workerAgents, setWorkerAgents] = useState<RuntimeAgent[]>([])
+  const [projects, setProjects] = useState<ProjectRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,17 +35,19 @@ export default function AiAgents() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    listAgents()
-      .then((rows) => {
+    Promise.all([listAgents(), listProjects()])
+      .then(([rows, projectRows]) => {
         if (!cancelled) {
           setPoAgents(sortAgentsByUpdated(filterPoAgents(rows)))
           setWorkerAgents(sortAgentsByUpdated(filterUserAgents(rows)))
+          setProjects(projectRows)
         }
       })
       .catch((e) => {
         if (!cancelled) {
           setPoAgents([])
           setWorkerAgents([])
+          setProjects([])
           setError(e instanceof Error ? e.message : t('workforce.agents.loadError'))
         }
       })
@@ -74,7 +78,7 @@ export default function AiAgents() {
       ) : (
         <Card className="overflow-hidden divide-y divide-border/60">
           <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t('workforce.agents.sections.po', { defaultValue: 'PO agents' })}
+            {t('workforce.agents.sections.po', { defaultValue: 'Orchestrators' })}
           </div>
           <ul>
             {poAgents.length === 0 ? (
@@ -92,17 +96,35 @@ export default function AiAgents() {
                         <p className="font-medium text-text-heading">{agent.name}</p>
                         <div className="mt-0.5 flex items-center gap-2">
                           <Badge variant="secondary" className="text-[10px]">
-                            {t(`workforce.agents.types.${agentType(agent)}`, { defaultValue: 'PO' })}
+                            {t(`workforce.agents.types.${agentType(agent)}`, { defaultValue: 'Orchestrator' })}
                           </Badge>
-                          <p className="text-xs text-text-muted">
-                            {agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown')}
-                          </p>
+                          {(() => {
+                            const roleLabel =
+                              agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown')
+                            const showRole =
+                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase()
+                            return showRole ? (
+                              <p className="text-xs text-text-muted">{roleLabel}</p>
+                            ) : null
+                          })()}
                         </div>
                         {agent.current_activity_summary ? (
                           <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
                             {agent.current_activity_summary}
                           </p>
                         ) : null}
+                        {(() => {
+                          const linkedProject = projects.find((project) => project.po_agent_id === agent.id)
+                          if (!linkedProject) return null
+                          return (
+                            <p className="mt-1 text-xs text-text-muted">
+                              {t('workforce.agents.projectLink', {
+                                defaultValue: 'Project: {{name}}',
+                                name: linkedProject.name,
+                              })}
+                            </p>
+                          )
+                        })()}
                       </div>
                     </div>
                     <span className={cn('shrink-0 text-xs font-medium capitalize', STATUS_CLASS[agent.status])}>
@@ -134,9 +156,15 @@ export default function AiAgents() {
                           <Badge variant="secondary" className="text-[10px]">
                             {t(`workforce.agents.types.${agentType(agent)}`, { defaultValue: 'Worker' })}
                           </Badge>
-                          <p className="text-xs text-text-muted">
-                            {agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown')}
-                          </p>
+                          {(() => {
+                            const roleLabel =
+                              agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown')
+                            const showRole =
+                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase()
+                            return showRole ? (
+                              <p className="text-xs text-text-muted">{roleLabel}</p>
+                            ) : null
+                          })()}
                         </div>
                         {agent.current_activity_summary ? (
                           <p className="mt-1 line-clamp-2 text-sm text-text-secondary">

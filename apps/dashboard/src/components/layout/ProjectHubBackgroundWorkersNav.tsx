@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useProjectHubNav } from '../../context/ProjectHubNavContext'
-import { Badge } from '../ui/badge'
 import { AiAvatar } from '../ui/AiAvatar'
+import AddWorkstreamDialog from '../project/AddWorkstreamDialog'
+import { projectOrchestratorPath } from './portal-nav'
 
 const DEFAULT_VISIBLE_COUNT = 6
 
@@ -38,13 +39,16 @@ export default function ProjectHubBackgroundWorkersNav() {
   const { t, i18n } = useTranslation('nav')
   const { pathname, search } = useLocation()
   const {
+    projects,
     selectedProjectId,
     workstreams,
     poAgent,
     workstreamsLoading,
     workstreamsError,
+    refreshWorkstreams,
   } = useProjectHubNav()
   const [showAll, setShowAll] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
 
   const activeStreamSlug = useMemo(() => {
     const params = new URLSearchParams(search)
@@ -60,39 +64,71 @@ export default function ProjectHubBackgroundWorkersNav() {
     if (activeIndex >= DEFAULT_VISIBLE_COUNT) setShowAll(true)
   }, [activeIndex])
 
+  useEffect(() => {
+    if (selectedProjectId) void refreshWorkstreams()
+  }, [selectedProjectId, refreshWorkstreams])
+
   const hasMore = workstreams.length > DEFAULT_VISIBLE_COUNT
   const visibleStreams = showAll ? workstreams : workstreams.slice(0, DEFAULT_VISIBLE_COUNT)
   const hiddenCount = workstreams.length - DEFAULT_VISIBLE_COUNT
   const projectBase = selectedProjectId ? `/project/${selectedProjectId}/overview` : null
+  const poConfigPath = selectedProjectId ? projectOrchestratorPath(selectedProjectId) : null
+  const poNavActive = Boolean(poConfigPath && pathname === poConfigPath)
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId],
+  )
+  const poDisplayName =
+    poAgent?.name?.trim() ||
+    (selectedProject?.name ? `${selectedProject.name} Orchestrator` : null) ||
+    t('projectHub.po.label', { defaultValue: 'Orchestrator' })
 
   return (
     <section className="space-y-1 border-t border-border/40 pt-3">
       {selectedProjectId ? (
         <div className="px-3 pb-2">
           <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t('projectHub.po.label', { defaultValue: 'Project PO' })}
+            {t('projectHub.po.label', { defaultValue: 'Orchestrator' })}
           </p>
           {poAgent ? (
-            <Link
-              to={`/ai/agents/${poAgent.id}`}
-              className="flex items-center gap-2 rounded-lg border border-border/60 px-2.5 py-2 transition-colors hover:bg-bg-hover/55"
+            <NavLink
+              to={poConfigPath ?? '#'}
+              className={() =>
+                cn(
+                  'flex items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors',
+                  poNavActive
+                    ? 'border-border/70 bg-bg-hover/85'
+                    : 'border-border/60 hover:bg-bg-hover/55',
+                )
+              }
             >
-              <AiAvatar name={poAgent.name} seed={poAgent.id} size={22} />
+              <AiAvatar name={poDisplayName} seed={poAgent.id} size={22} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-text-heading">{poAgent.name}</span>
+                <span className="block truncate text-sm font-medium text-text-heading">{poDisplayName}</span>
                 <span className="mt-0.5 flex items-center gap-1.5">
-                  <Badge variant="secondary" className="text-[10px]">
-                    {t('workforce.agents.types.po', { defaultValue: 'PO' })}
-                  </Badge>
                   {poAgent.status ? (
                     <span className="truncate text-xs capitalize text-text-muted">{poAgent.status}</span>
                   ) : null}
                 </span>
               </span>
-            </Link>
+            </NavLink>
+          ) : poConfigPath ? (
+            <NavLink
+              to={poConfigPath}
+              className={() =>
+                cn(
+                  'flex items-center justify-center rounded-lg border border-dashed px-2.5 py-2 text-xs font-medium transition-colors',
+                  poNavActive
+                    ? 'border-accent/50 bg-accent/10 text-accent'
+                    : 'border-border/70 text-text-muted hover:border-border hover:bg-bg-hover/55 hover:text-text-primary',
+                )
+              }
+            >
+              {t('project.po.sidebarCta', { defaultValue: 'Set up orchestrator' })}
+            </NavLink>
           ) : (
             <p className="px-1 text-xs text-text-muted">
-              {t('projectHub.po.none', { defaultValue: 'No PO agent linked to this project yet.' })}
+              {t('projectHub.po.none', { defaultValue: 'No orchestrator linked to this project yet.' })}
             </p>
           )}
         </div>
@@ -109,9 +145,18 @@ export default function ProjectHubBackgroundWorkersNav() {
         ) : workstreamsLoading ? (
           <p className="px-3 py-1 text-xs text-text-muted">{t('backgroundWorkers.loading')}</p>
         ) : workstreamsError ? (
-          <p className="px-3 py-1 text-xs text-status-error">
-            {formatWorkstreamsError(workstreamsError, t)}
-          </p>
+          <div className="space-y-1 px-3 py-1">
+            <p className="text-xs text-status-error">
+              {formatWorkstreamsError(workstreamsError, t)}
+            </p>
+            <button
+              type="button"
+              className="text-xs font-medium text-accent hover:underline"
+              onClick={() => void refreshWorkstreams()}
+            >
+              {t('backgroundWorkers.retry', { defaultValue: 'Retry' })}
+            </button>
+          </div>
         ) : workstreams.length === 0 ? (
           <p className="px-3 py-1 text-xs text-text-muted">{t('backgroundWorkers.empty')}</p>
         ) : (
@@ -162,16 +207,22 @@ export default function ProjectHubBackgroundWorkersNav() {
             ) : null}
           </>
         )}
-        <NavLink
-          to="/projects/new"
-          className={({ isActive }) =>
-            cn(rowClass(isActive), 'mt-1 border-dashed text-text-muted')
-          }
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          disabled={!selectedProjectId}
+          className={cn(
+            rowClass(false),
+            'mt-1 w-full border-dashed text-left text-text-muted disabled:cursor-not-allowed disabled:opacity-50',
+          )}
         >
           <Plus size={14} className="mt-0.5 shrink-0" />
-          <span className="font-medium">{t('backgroundWorkers.newProject')}</span>
-        </NavLink>
+          <span className="font-medium">{t('backgroundWorkers.addStream', { defaultValue: 'Add workstream' })}</span>
+        </button>
       </div>
+      {selectedProjectId ? (
+        <AddWorkstreamDialog open={addOpen} onOpenChange={setAddOpen} projectId={selectedProjectId} />
+      ) : null}
     </section>
   )
 }

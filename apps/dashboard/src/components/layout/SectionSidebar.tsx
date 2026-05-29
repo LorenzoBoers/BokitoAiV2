@@ -18,6 +18,7 @@ import {
   Mail,
   MessageSquare,
   PenLine,
+  Plus,
   Shield,
   Sparkles,
   Settings,
@@ -48,6 +49,9 @@ import { countForBadgeSlot } from '../../lib/nav-badge-counts'
 import ProjectHubBackgroundWorkersNav from './ProjectHubBackgroundWorkersNav'
 import { isProjectHubRoute, useOptionalProjectHubNav } from '../../context/ProjectHubNavContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { Button } from '../ui/button'
+
+const CREATE_PROJECT_VALUE = '__create__'
 
 function sectionClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-all ${
@@ -97,9 +101,10 @@ function iconForLink(to: string) {
   if (to.includes('/integrations/marketplace')) return Blocks
   if (to.includes('/integrations/mcp')) return Zap
   if (to.includes('/integrations/api')) return KeyRound
-  if (to.includes('/workforce/po') || to.includes('/workforce/agents')) return Bot
+  if (to.includes('/workforce/po') || to.includes('/workforce/agents') || to.includes('/workforce/overview')) return Bot
   if (to.includes('/admin/runs')) return Bot
   if (to.includes('/project/') && to.endsWith('/overview')) return Briefcase
+  if (to.includes('/project/') && (to.endsWith('/orchestrator') || to.endsWith('/po'))) return Bot
   if (/\/project\/[^/]+\/doc/.test(to)) return BookOpen
   if (to.includes('/project/') && to.endsWith('/orchestration')) return Sparkles
   if (to.includes('/project/') && to.endsWith('/notifications')) return Bell
@@ -258,13 +263,30 @@ export default function SectionSidebar() {
           <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-text-muted/90">
             {t('projectHub.selector.label', { defaultValue: 'Current project' })}
           </p>
+          {projectHubNav?.error ? (
+            <div className="mb-2 rounded-lg border border-status-error/30 bg-status-error/10 px-2.5 py-2">
+              <p className="text-xs text-status-error">{projectHubNav.error}</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="mt-1 h-7 px-2 text-xs"
+                onClick={() => void projectHubNav.refresh()}
+              >
+                {t('common.retry', { defaultValue: 'Retry' })}
+              </Button>
+            </div>
+          ) : null}
           <Select
             value={selectedProjectId ?? undefined}
             onValueChange={(projectId) => {
+              if (projectId === CREATE_PROJECT_VALUE) {
+                void navigate('/projects/new')
+                return
+              }
               projectHubNav?.setSelectedProjectId(projectId)
               void navigate(`/project/${projectId}/overview`)
             }}
-            disabled={hubProjects.length === 0}
           >
             <SelectTrigger className="h-8 bg-bg-sidebar px-2.5 text-xs [&>span]:max-w-[150px] [&>span]:truncate">
               <SelectValue
@@ -284,6 +306,13 @@ export default function SectionSidebar() {
                   </SelectItem>
                 ))
               )}
+              {hubProjects.length > 0 ? <div className="my-1 border-t border-border/60" /> : null}
+              <SelectItem value={CREATE_PROJECT_VALUE} className="pl-2.5 font-medium text-text-primary">
+                <span className="flex items-center gap-2">
+                  <Plus size={12} className="shrink-0 text-accent" />
+                  {t('projectHub.selector.create', { defaultValue: 'New project' })}
+                </span>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

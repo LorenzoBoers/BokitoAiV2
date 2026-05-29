@@ -29,7 +29,7 @@ export type ProjectWorkstreamRow = {
 
 export type ProjectPoAgent = {
   id: string
-  name: string
+  name: string | null
   slug?: string | null
   role: string
   agent_type: 'po'

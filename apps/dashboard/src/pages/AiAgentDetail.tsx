@@ -13,9 +13,10 @@ import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import type { RuntimeAgent } from '../lib/workforce-api'
-import { WORKFORCE_DEFAULT_PATH } from '../components/layout/portal-nav'
+import { WORKFORCE_DEFAULT_PATH, projectOrchestratorPath } from '../components/layout/portal-nav'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { cn } from '../lib/utils'
+import { isPoAgent } from '../lib/workforce-nav-agents'
 
 const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
   active: 'text-status-success',
@@ -77,6 +78,10 @@ export default function AiAgentDetail() {
     () => (run: WorkLogRow) => agentWorkforceRunUrl(agentId ?? '', run.id),
     [agentId],
   )
+  const linkedProject = useMemo(() => {
+    if (!agent) return null
+    return projects.find((project) => project.po_agent_id === agent.id) ?? null
+  }, [agent, projects])
 
   if (!isAdmin) {
     return <Navigate to="/messages" replace />
@@ -136,13 +141,26 @@ export default function AiAgentDetail() {
             {agent.current_activity_summary ? (
               <p className="mt-2 text-sm text-text-secondary">{agent.current_activity_summary}</p>
             ) : null}
+            {isPoAgent(agent) && linkedProject ? (
+              <div className="mt-3 rounded-lg border border-border/60 bg-bg-input/35 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                  {t('project.po.title', { defaultValue: 'Orchestrator' })}
+                </p>
+                <Link
+                  to={projectOrchestratorPath(linkedProject.id)}
+                  className="mt-1 block text-sm font-medium text-accent hover:underline"
+                >
+                  {linkedProject.name}
+                </Link>
+              </div>
+            ) : null}
           </Card>
 
           <div className="space-y-2">
             <h3 className="text-base font-semibold text-text-heading">
-              {t('ai.agents.historyTitle')}
+              {t('workforce.agents.historyTitle')}
             </h3>
-            <p className="text-sm text-text-muted">{t('ai.agents.historyDescription')}</p>
+            <p className="text-sm text-text-muted">{t('workforce.agents.historyDescription')}</p>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             {runs.length === 0 ? (
               <EmptyState title={t('workforce.runs.empty')} />

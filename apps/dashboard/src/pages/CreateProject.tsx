@@ -7,6 +7,7 @@ import { Textarea } from '../components/ui/textarea'
 import { Input } from '../components/ui/input'
 import { PageContent } from '../components/layout/PageContent'
 import { createProject } from '../lib/projects-api'
+import { projectOrchestratorPath } from '../components/layout/portal-nav'
 
 export default function CreateProject() {
   const { t } = useTranslation('nav')
@@ -30,7 +31,7 @@ export default function CreateProject() {
         slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
         autonomous_scope: scope.trim(),
       })
-      navigate(`/projects/new/${project.id}/connect`)
+      navigate(projectOrchestratorPath(project.id))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('project.create.error'))
     } finally {

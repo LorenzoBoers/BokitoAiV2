@@ -6,6 +6,7 @@ export type ProjectContextValue = {
   projectId: string
   project: ProjectRow | null
   loading: boolean
+  error: string | null
   refresh: () => Promise<void>
 }
 
@@ -15,19 +16,23 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const { projectId } = useParams<{ projectId: string }>()
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     if (!projectId) {
       setProject(null)
+      setError(null)
       setLoading(false)
       return
     }
     setLoading(true)
+    setError(null)
     try {
       const row = await getProject(projectId)
       setProject(row)
-    } catch {
+    } catch (err) {
       setProject(null)
+      setError(err instanceof Error ? err.message : 'Could not load project.')
     } finally {
       setLoading(false)
     }
@@ -42,9 +47,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       projectId: projectId ?? '',
       project,
       loading,
+      error,
       refresh,
     }),
-    [projectId, project, loading, refresh],
+    [projectId, project, loading, error, refresh],
   )
 
   if (!projectId) {

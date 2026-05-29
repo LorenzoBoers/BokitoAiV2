@@ -7,5 +7,6 @@ export function formatWorkLogWhen(value?: string | number | null): string {
 }
 
 export function projectNameForRun(projects: ProjectRow[], projectId: string): string {
-  return projects.find((p) => p.id === projectId)?.name ?? projectId.slice(0, 8)
+  const id = projectId ?? ''
+  return projects.find((p) => p.id === projectId)?.name ?? (id ? id.slice(0, 8) : '—')
 }

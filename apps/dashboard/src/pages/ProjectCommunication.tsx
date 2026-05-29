@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowUpRight } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent, CardHeader } from '../components/ui/card'
 import { ProjectShell } from '../components/project/ProjectShell'
 import { WorkforceDecisionList } from '../components/workforce/WorkforceDecisionList'
 import { useProjectContext } from '../context/ProjectContext'
@@ -119,11 +119,8 @@ export default function ProjectCommunication() {
   return (
     <ProjectShell>
       <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>{t('project.communication.title')}</CardTitle>
-            <p className="mt-1 text-sm text-text-muted">{t('project.communication.description')}</p>
-          </div>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <p className="text-sm text-text-muted">{t('project.communication.description')}</p>
           <Link
             to="/projects/communication"
             className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"

@@ -48,7 +48,6 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
     let outlook = 0
     let gmail = 0
     let mcp: McpIntegrationRow[] = []
-    let providersFailed = false
 
     try {
       const [ghResult, providersResult] = await Promise.all([
@@ -59,16 +58,15 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
       gh = ghResult
       setGithub(gh)
 
-      let providersList: ProvidersListResponse | null = providersResult
-      if (!providersList) {
-        providersFailed = true
-        setEmailOutlook(0)
-        setEmailGmail(0)
-      } else {
+      const providersList: ProvidersListResponse | null = providersResult
+      if (providersList) {
         outlook = providersList.connection_counts?.email_outlook ?? 0
         gmail = providersList.connection_counts?.email_gmail ?? 0
         setEmailOutlook(outlook)
         setEmailGmail(gmail)
+      } else {
+        setEmailOutlook(0)
+        setEmailGmail(0)
       }
 
       mcp = await withTimeout(
@@ -79,10 +77,7 @@ export function useConnectedIntegrationsSummary(): ConnectedIntegrationsSummary 
         [] as McpIntegrationRow[],
       )
       setMcpRows(mcp)
-
-      if (providersFailed) {
-        setLoadError('integrations.connected.loadError')
-      }
+      setLoadError(null)
     } catch {
       setGithub([])
       setEmailOutlook(0)

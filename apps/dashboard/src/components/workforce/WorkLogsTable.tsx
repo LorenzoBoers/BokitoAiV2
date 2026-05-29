@@ -4,6 +4,7 @@ import { Card } from '../ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import type { ProjectRow } from '../../lib/projects-api'
 import type { WorkLogRow } from '../../lib/work-logs-api'
+import { formatWorkLogSubject } from '../../lib/work-log-labels'
 import { formatWorkLogWhen, projectNameForRun } from '../../lib/work-logs-format'
 
 type WorkLogsTableProps = {
@@ -40,7 +41,7 @@ export function WorkLogsTable({
             <TableRow key={run.id}>
               <TableCell>
                 <Link to={runTo(run)} className="font-medium text-accent hover:underline">
-                  {run.task_subject || t('workforce.runs.fallbackSubject')}
+                  {formatWorkLogSubject(run.task_subject, t('workforce.runs.fallbackSubject'))}
                 </Link>
               </TableCell>
               {showProjectColumn ? (

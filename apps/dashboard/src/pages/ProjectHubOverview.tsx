@@ -17,6 +17,9 @@ import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { projectWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { listMessages, type MessageRow } from '../lib/messages-api'
+import { ProjectRequiredPoBanner } from '../components/project/ProjectRequiredPoBanner'
+import { useProjectHubNav } from '../context/ProjectHubNavContext'
+import { formatWorkLogSubject } from '../lib/work-log-labels'
 import { repoStatusLabel, repoStatusVariant } from '../lib/repo-status'
 
 function formatWhen(value?: string | number | null): string {
@@ -36,12 +39,13 @@ function sortProjectsByRecency(rows: ProjectRow[]): ProjectRow[] {
     const aTs = (a as ProjectRow & { updated_at?: string }).updated_at
     const bTs = (b as ProjectRow & { updated_at?: string }).updated_at
     if (aTs && bTs) return new Date(bTs).getTime() - new Date(aTs).getTime()
-    return a.name.localeCompare(b.name)
+    return (a.name ?? '').localeCompare(b.name ?? '')
   })
 }
 
 export default function ProjectHubOverview() {
   const { t } = useTranslation('nav')
+  const { selectedProjectId, poAgent, workstreamsLoading, projects: hubProjects } = useProjectHubNav()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
   const [pending, setPending] = useState<MessageRow[]>([])
@@ -100,9 +104,21 @@ export default function ProjectHubOverview() {
   }, [loadProjects, loadRuns, loadPending])
 
   const topProjects = useMemo(() => projects.slice(0, 5), [projects])
+  const selectedProject = useMemo(
+    () => hubProjects.find((project) => project.id === selectedProjectId) ?? null,
+    [hubProjects, selectedProjectId],
+  )
+  const needsOrchestratorSetup =
+    Boolean(selectedProjectId) &&
+    !workstreamsLoading &&
+    !poAgent &&
+    !selectedProject?.po_agent_id
 
   return (
     <div className="space-y-5">
+      {needsOrchestratorSetup ? (
+        <ProjectRequiredPoBanner projectId={selectedProjectId!} />
+      ) : null}
       <section className="grid gap-3 sm:grid-cols-3">
         <Button asChild variant="secondary" size="sm" className="h-auto justify-start gap-2 py-3">
           <Link to="/projects/new">
@@ -258,7 +274,7 @@ export default function ProjectHubOverview() {
                       className="flex items-center justify-between gap-3 py-2 text-sm hover:text-accent"
                     >
                       <span className="truncate font-medium text-text-heading">
-                        {run.task_subject?.trim() || t('workforce.runs.fallbackSubject')}
+                        {formatWorkLogSubject(run.task_subject, t('workforce.runs.fallbackSubject'))}
                       </span>
                       <span className="shrink-0 text-xs text-text-muted">
                         {formatWhen(run.started_at)}

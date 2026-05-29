@@ -29,15 +29,15 @@ Requires root `.env`: `XANO_METADATA_API_KEY`, optional `XANO_META_BASE_URL`.
 
 | File | Endpoint |
 |------|----------|
-| integrations-providers-list.xs | GET integrations/providers |
-| integrations-connections-list.xs | GET integrations/connections |
+| integrations-providers-list.xs | GET integrations/providers | **307** (deployed) |
+| integrations-connections-list.xs | GET integrations/connections | **308** (deployed) |
 | integrations-connections-create.xs | POST integrations/connections |
 | integrations-connections-delete.xs | DELETE integrations/connections/{connection_id} |
 | integrations-oauth-start.xs | GET integrations/oauth/start |
 | integrations-oauth-callback.xs | GET integrations/oauth/callback |
 | integrations-connections-resources.xs | GET integrations/connections/{connection_id}/resources |
 | integrations-worker-credentials.xs | POST integrations/worker/credentials |
-| integrations-mcp-tenant-bindings.xs | GET integrations/mcp/bindings |
+| integrations-mcp-tenant-bindings.xs | GET integrations/mcp/bindings | **309** (deployed) |
 | integrations-mcp-install.xs | POST integrations/mcp/install |
 | integrations-mcp-oauth-start.xs | GET integrations/mcp/oauth/start |
 | integrations-mcp-oauth-callback.xs | GET integrations/mcp/oauth/callback |
@@ -58,9 +58,9 @@ Requires root `.env`: `XANO_METADATA_API_KEY`, optional `XANO_META_BASE_URL`.
 |------|----------|
 | integrations-github-oauth-start.xs | GET github/oauth/start |
 | integrations-github-oauth-callback.xs | GET github/oauth/callback |
-| integrations-github-connections-list.xs | GET github/connections |
-| integrations-github-connection-get.xs | GET github/connection |
-| integrations-github-connection-delete.xs | DELETE github/connection |
+| integrations-github-connections-list.xs | GET github/connections | **310** (deployed) |
+| integrations-github-connection-get.xs | GET github/connection | **311** (deployed) |
+| integrations-github-connection-delete.xs | DELETE github/connection | **312** (deployed) |
 | integrations-github-repos-list.xs | GET github/repos |
 | integrations-github-branches.xs | GET github/repos/{owner}/{repo}/branches |
 | integrations-github-worker-token.xs | POST github/worker/token |

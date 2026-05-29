@@ -23,6 +23,7 @@ import { listMessages, type MessageRow } from '../lib/messages-api'
 import { listAgents } from '../lib/agents-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { projectWorkforceRunUrl } from '../lib/workforce-run-urls'
+import { formatWorkLogSubject } from '../lib/work-log-labels'
 import { repoStatusLabel, repoStatusVariant } from '../lib/repo-status'
 import { Badge } from '../components/ui/badge'
 
@@ -110,7 +111,7 @@ export default function HomeDashboard() {
       return {
         id: `run:${run.id}`,
         kind: 'run',
-        title: run.task_subject?.trim() || t('workforce.runs.fallbackSubject'),
+        title: formatWorkLogSubject(run.task_subject, t('workforce.runs.fallbackSubject')),
         summary: null,
         createdAt: ts,
         createdAtRaw: run.started_at ?? run.finished_at ?? null,

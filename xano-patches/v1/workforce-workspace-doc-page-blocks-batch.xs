@@ -123,6 +123,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
         if ($op.op == "update") {
           db.query workspace_doc_blocks {
             where = $db.workspace_doc_blocks.id == $op.id && $db.workspace_doc_blocks.page_id == $input.page_id
+            return = {type: "list", paging: {page: 1, per_page: 1}}
           } as $existing_rows
 
           conditional {
@@ -178,6 +179,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
         if ($op.op == "move") {
           db.query workspace_doc_blocks {
             where = $db.workspace_doc_blocks.id == $op.id && $db.workspace_doc_blocks.page_id == $input.page_id
+            return = {type: "list", paging: {page: 1, per_page: 1}}
           } as $existing_rows
 
           conditional {
@@ -228,6 +230,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
         if ($op.op == "delete") {
           db.query workspace_doc_blocks {
             where = $db.workspace_doc_blocks.id == $op.id && $db.workspace_doc_blocks.page_id == $input.page_id
+            return = {type: "list", paging: {page: 1, per_page: 1}}
           } as $existing_rows
 
           conditional {
@@ -272,6 +275,21 @@ query "workspace/doc/pages/{page_id}/blocks" verb=POST {
         updated_at: now
       }
     }
+
+    api.request {
+      url = $env.WORKER_BASE_URL ~ "/workspace/doc/reindex-page"
+      method = "POST"
+      params = {
+        workspace_doc_id: $page_workspace_doc_id
+        tenant_id       : $me.organisation_id
+        page_id         : $input.page_id
+      }
+      headers = [
+        "Content-Type: application/json"
+        ("Authorization: Bearer " ~ $env.WORKER_INBOUND_SECRET)
+      ]
+      timeout = 5
+    } as $reindex_dispatch
   }
 
   response = {

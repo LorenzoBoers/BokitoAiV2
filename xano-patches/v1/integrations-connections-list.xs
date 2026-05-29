@@ -39,11 +39,41 @@ query "integrations/connections" verb=GET {
       }
     }
 
-    db.query integration_connections {
-      where = $db.integration_connections.tenant_id == $me.organisation_id && ($provider_id == null || $db.integration_connections.provider_id == $provider_id)
-      sort = {integration_connections.created_at: "desc"}
-      return = {type: "list"}
-    } as $rows
+    var $rows {
+      value = []
+    }
+
+    conditional {
+      if ($input.provider != null && ($input.provider|strlen) > 0 && $provider_id == null) {
+        var.update $rows {
+          value = []
+        }
+      }
+
+      elseif ($provider_id != null) {
+        db.query integration_connections {
+          where = $db.integration_connections.tenant_id == $me.organisation_id && $db.integration_connections.provider_id == $provider_id
+          sort = {integration_connections.created_at: "desc"}
+          return = {type: "list"}
+        } as $filtered_rows
+
+        var.update $rows {
+          value = $filtered_rows
+        }
+      }
+
+      else {
+        db.query integration_connections {
+          where = $db.integration_connections.tenant_id == $me.organisation_id
+          sort = {integration_connections.created_at: "desc"}
+          return = {type: "list"}
+        } as $all_rows
+
+        var.update $rows {
+          value = $all_rows
+        }
+      }
+    }
 
     var $safe {
       value = $rows|map:$$|pick: ["id", "tenant_id", "provider_id", "external_account_id", "display_name", "status", "metadata", "connected_by_user_id", "created_at", "updated_at"]

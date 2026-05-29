@@ -9,7 +9,7 @@ The dashboard uses a two-layer shell: **primary rail** (icons) + **context sideb
 | Home | `/home` | Workspace overview (projects, inbox links, recent agent runs) |
 | Inbox | `/support/inbox/all` | Team inbox queues |
 | Workspace | `/projects` | Overview, Communication; Blueprint section with page tree; Background projects list |
-| Workforce | `/workforce/agents` | Merged assistant + agents: platform agents and custom agents |
+| Workforce | `/workforce/overview` | Hybrid cockpit: overview, orchestrator coverage, platform agents, and agent library |
 | Integrations | `/integrations/connected` | Connected apps, marketplace, MCP, API keys |
 | Data | `/database` | Coming soon (rail disabled; routes redirect to `/projects`) |
 | Settings (footer) | `/settings/profile` | Personal and workspace settings only |
@@ -26,9 +26,9 @@ Assistant and Agents are **no longer separate rail items**. Widget settings, AI 
 
 - **Home**: no context sidebar (navigation is on the dashboard cards and quick actions).
 - **Project hub** (`/projects`, `/projects/communication`, `/projects/docs[/:slug]`, `/project/:id/*`): context sidebar renders hub links — Overview, Communication, and Blueprint — from [`getProjectHubSidebarGroups`](../src/components/layout/portal-nav.ts), then **Workstreams** ([`ProjectHubBackgroundWorkersNav`](../src/components/layout/ProjectHubBackgroundWorkersNav.tsx)) with per-project operational status from [`ProjectHubNavContext`](../src/context/ProjectHubNavContext.tsx) and [`project-worker-status.ts`](../src/lib/project-worker-status.ts). Footer link **Project settings** (`/project/:selectedId/settings`) appears when a project is selected in the hub selector. Blueprint page tree lives in the main content on [`ProjectHubDocs`](../src/pages/ProjectHubDocs.tsx) (`PageTree` `variant="minimal"`). On `/project/:id/*`, [`WorkerStatusStrip`](../src/components/workers/WorkerStatusStrip.tsx) appears above project tabs in [`ProjectShell`](../src/components/project/ProjectShell.tsx).
-- **Per-project cockpit** (`/project/:id/*`): same hub sidebar (including workstream-status project list with the active project highlighted). Section navigation (Workstreams, Orchestration, Communication, Workforce history, Token usage, Notifications, Request a change, Settings) is horizontal in-page via [`ProjectTabNav`](../src/components/project/ProjectTabNav.tsx) inside [`ProjectShell`](../src/components/project/ProjectShell.tsx).
+- **Per-project cockpit** (`/project/:id/*`): same hub sidebar (including workstream-status project list with the active project highlighted). Section navigation (Workstreams, Orchestrator, Orchestration, Communication, Workforce history, Token usage, Notifications, Request a change, Settings) is horizontal in-page via [`ProjectTabNav`](../src/components/project/ProjectTabNav.tsx) inside [`ProjectShell`](../src/components/project/ProjectShell.tsx).
 - **Inbox**: `InboxSidebarNav` + footer **Configure** (assistant + inbox settings).
-- **Workforce** (`/workforce/*`, `/ai/*`, legacy `/admin/runs`): sidebar from [`getWorkforceSidebarGroups`](../src/components/layout/portal-nav.ts) plus [`WorkforceSidebarNav`](../src/components/layout/WorkforceSidebarNav.tsx). **Platform agents:** Assistant agent (widget settings at `/ai/assistent/...`), Communication agent (`/ai/communicatie`), PO agent (resolved from `GET /agents`, or `/workforce/po` when multiple). **Your agents:** dynamic list of non-platform agents that can be used in project workstream steps. Agent detail and live run logs: `/ai/agents/:agentId` and `/ai/agents/:agentId/runs/:workLogId`. Default landing: `/workforce/agents`.
+- **Workforce** (`/workforce/*`, `/ai/*`, legacy `/admin/runs`): sidebar from [`getWorkforceSidebarGroups`](../src/components/layout/portal-nav.ts) plus [`WorkforceSidebarNav`](../src/components/layout/WorkforceSidebarNav.tsx). **Workforce group:** `/workforce/overview` + `/workforce/agents` (agent library). **Dynamic agent sections:** Orchestrators and Worker agents (from `GET /agents`), each linking to `/ai/agents/:id`; orchestrator rows may show linked project name. **Platform agents:** Assistant (`/ai/assistent/...`) and Communication (`/ai/communicatie`). Agent detail and live run logs stay at `/ai/agents/:agentId` and `/ai/agents/:agentId/runs/:workLogId`. Default landing: `/workforce/overview`. Orchestrator setup stays in the Project hub sidebar, not Workforce.
 - **Integrations**: Connected, marketplace, MCP, **Documentation** (`/integrations/docs`), API (no sources here).
 - **Data**: Unified links for `/database`, `/users/*`, `/data/sources`, `/data/imports-exports`; table list appears on `/database` routes.
 - **Settings**: Personal + Workspace groups only.
@@ -59,13 +59,14 @@ sidebar; background projects are a collapsible list below them.
   [`WorkspaceDocNavContext`](../src/context/WorkspaceDocNavContext.tsx) loads `GET /workspace/doc` and seeds
   eight default chapters when the tree is empty. Users can queue agent edits via **Ask agent**
   (`POST /workspace/doc/change-requests`).
-- **Workstreams** (sidebar) — for the selected project in the hub selector: linked **Project PO** agent (type PO, backend-backed) plus a list of persisted workstreams for that project. Each workstream opens `/project/:id/overview?stream={slug}`. Default streams are auto-seeded on first API load when empty.
+- **Workstreams** (sidebar) — for the selected project in the hub selector: **Orchestrator** row (linked agent or "Set up orchestrator" CTA) opens `/project/:id/orchestrator`. Below that, persisted workstreams for the project; each opens `/project/:id/overview?stream={slug}`. Default streams auto-seed on first API load when empty.
+- **Orchestrator** (`/project/:id/orchestrator`) — dedicated setup page (sidebar entry only; not a horizontal project tab): orchestrator identity, create or link an exclusive orchestrator agent, orchestration settings (wake cadence, autonomy, HITL, continuous). Uses a focused layout without project context bar, worker strip, or tab row. Required before workstreams overview and orchestration tab are usable (setup gate + hub banner when missing). Legacy `/project/:id/po` redirects here.
 - **Communication** (`/projects/communication`) — pending agent messages
   (`status: 'awaiting_human'`) across all projects, deep-linking into each
   project's communication thread. Shows a `projectsAttention` badge.
 
 Per-project pages no longer host Blueprint editing; they focus on workstream execution,
-agent orchestration (PO wake cadence, HITL sensitivity, autonomy mode), notification
+agent orchestration (orchestrator wake cadence, HITL sensitivity, autonomy mode), notification
 preferences, workforce history, token usage, and project-scoped communication (with optional stream filter).
 Legacy `/project/:id/doc[/:slug]` and `/project/:id/pkb` paths redirect to
 `/projects/docs`; `/project/:id/messages` redirects to `/project/:id/communication`.
@@ -78,12 +79,13 @@ Legacy `/project/:id/doc[/:slug]` and `/project/:id/pkb` paths redirect to
 | `/datasources` | `/data/sources` |
 | `/settings/data/*` | `/users/*`, `/database`, or `/data/imports-exports` |
 | `/settings/messenger` | Assistant default path |
-| `/admin/runs` | `/workforce/agents` |
+| `/admin/runs` | `/workforce/overview` |
 | `/admin/runs/:workLogId` | Resolved via [`AdminRunLegacyRedirect`](../src/pages/AdminRunLegacyRedirect.tsx) to project run detail when possible, else `/projects` |
-| `/workforce` | `/workforce/agents` |
-| `/workforce/*` (unknown) | `/workforce/agents` |
+| `/workforce` | `/workforce/overview` |
+| `/workforce/*` (unknown) | `/workforce/overview` |
 | `/project/:id/doc[/:slug]` | `/projects/docs` (central docs) |
 | `/project/:id/pkb` | `/projects/docs` |
+| `/project/:id/po` | `/project/:id/orchestrator` |
 | `/project/:id/messages` | `/project/:id/communication` |
 | `/projects/list` | `/projects` |
 

@@ -4,11 +4,12 @@ import { useLocation } from 'react-router-dom'
 import { Input } from '../ui/input'
 import { getAiPageMeta, getIntegrationsPageMeta, getSettingsPageMeta, getSupportPageMeta, getWorkforcePageMeta } from './portal-nav'
 import { useOptionalProjectContext } from '../../context/ProjectContext'
+import { useOptionalProjectHubNav } from '../../context/ProjectHubNavContext'
 import { useOptionalWorkspaceDocNav } from '../../context/WorkspaceDocNavContext'
 
 export default function AppHeader() {
   const { t } = useTranslation(['nav', 'common'])
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const showSearch = pathname.startsWith('/settings')
   const settingsPageMeta = getSettingsPageMeta(t)
   const integrationsPageMeta = getIntegrationsPageMeta(t)
@@ -23,12 +24,15 @@ export default function AppHeader() {
   const userSlug = pathname.split('/')[2] ?? ''
 
   const projectCtx = useOptionalProjectContext()
+  const hubNav = useOptionalProjectHubNav()
   const workspaceDocNav = useOptionalWorkspaceDocNav()
 
   const projectSection = pathname.match(/^\/project\/[^/]+\/([^/]+)/)?.[1]
   const projectSectionTitle =
     projectSection === 'overview'
       ? t('project.links.overview', { defaultValue: 'Overview' })
+      : projectSection === 'po' || projectSection === 'orchestrator'
+        ? t('project.links.po', { defaultValue: 'Orchestrator' })
       : projectSection === 'pkb' || projectSection === 'doc'
         ? t('project.links.knowledge', { defaultValue: 'Blueprint' })
         : projectSection === 'orchestration'
@@ -51,11 +55,21 @@ export default function AppHeader() {
 
   let projectBreadcrumb: string | null = null
   if (projectSectionTitle) {
-    const projectName = projectCtx?.project?.name ?? null
-    const parts = [projectName, projectSectionTitle].filter(
-      (s): s is string => Boolean(s && s.trim()),
-    )
-    projectBreadcrumb = parts.length ? parts.join(' / ') : projectSectionTitle
+    if (projectSection === 'overview') {
+      const streamSlug =
+        new URLSearchParams(search).get('stream') ?? hubNav?.workstreams[0]?.slug ?? null
+      const stream =
+        hubNav?.workstreams.find((row) => row.slug === streamSlug) ?? hubNav?.workstreams[0] ?? null
+      projectBreadcrumb = stream?.name ?? projectCtx?.project?.name ?? projectSectionTitle
+    } else if (projectSection === 'po' || projectSection === 'orchestrator') {
+      projectBreadcrumb = projectSectionTitle
+    } else {
+      const projectName = projectCtx?.project?.name ?? null
+      const parts = [projectName, projectSectionTitle].filter(
+        (s): s is string => Boolean(s && s.trim()),
+      )
+      projectBreadcrumb = parts.length ? parts.join(' / ') : projectSectionTitle
+    }
   }
 
   const onProjectHub =
@@ -119,7 +133,7 @@ export default function AppHeader() {
                       : pathname.startsWith('/integrations')
                         ? integrationsPageMeta[integrationsSlug]?.title ?? t('nav:sectionTitle.integrations')
                         : pathname.startsWith('/admin/runs')
-                          ? t('nav:workforce.pageMeta.agents.title', { defaultValue: 'Your agents' })
+                          ? t('nav:workforce.pageMeta.overview.title', { defaultValue: 'Workforce overview' })
                           : pathname.startsWith('/workforce/')
                             ? workforcePageMeta[pathname.split('/')[2] ?? 'agents']?.title ??
                               t('nav:sectionTitle.workforce', { defaultValue: 'Workforce' })

@@ -72,8 +72,7 @@ export default function ProjectNotifications() {
     <ProjectShell>
       <Card>
         <CardHeader>
-          <CardTitle>{t('project.notifications.title')}</CardTitle>
-          <p className="mt-1 text-sm text-text-muted">{t('project.notifications.description')}</p>
+          <p className="text-sm text-text-muted">{t('project.notifications.description')}</p>
         </CardHeader>
         <CardContent className="space-y-3">
           {loading ? (

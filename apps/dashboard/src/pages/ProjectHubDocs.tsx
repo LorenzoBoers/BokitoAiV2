@@ -348,7 +348,7 @@ export default function ProjectHubDocs() {
                 <DialogTrigger asChild>
                   <Button size="sm" variant="secondary" className="gap-1.5">
                     <Sparkles size={14} />
-                    {t('projectHub.docs.agentEdit')}
+                    {t('project.doc.requestChange')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-lg">

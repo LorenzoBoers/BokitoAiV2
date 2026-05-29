@@ -38,8 +38,7 @@ export default function ProjectUsage() {
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>{t('project.usage.title')}</CardTitle>
-            <p className="mt-1 text-sm text-text-muted">{t('project.usage.description')}</p>
+            <p className="text-sm text-text-muted">{t('project.usage.description')}</p>
           </CardHeader>
           <CardContent>
             {loading ? (

@@ -120,6 +120,14 @@
     "apiUnavailable": "Workstreams zijn nog niet beschikbaar. Vernieuw over een moment.",
     "lastActive": "Laatst actief {{time}}",
     "notActiveYet": "Nog niet actief",
+    "addStream": "Workstream toevoegen",
+    "addStreamTitle": "Nieuwe workstream",
+    "addStreamNameLabel": "Naam",
+    "addStreamNamePlaceholder": "bijv. Content refresh",
+    "addStreamSubmit": "Workstream aanmaken",
+    "addStreamSubmitting": "Aanmaken…",
+    "addStreamError": "Kon workstream niet aanmaken",
+    "addStreamCancel": "Annuleren",
     "newProject": "Nieuw project",
     "showMore": "Toon {{count}} meer",
     "showLess": "Toon minder",
@@ -167,12 +175,13 @@
     "selector": {
       "label": "Huidig project",
       "placeholder": "Selecteer project",
-      "none": "Geen projecten beschikbaar"
+      "none": "Geen projecten beschikbaar",
+      "create": "Nieuw project"
     },
     "settingsLink": "Projectinstellingen",
     "po": {
-      "label": "Project PO",
-      "none": "Nog geen PO agent gekoppeld aan dit project."
+      "label": "Orkestrator",
+      "none": "Nog geen orkestrator gekoppeld aan dit project."
     },
     "backgroundProjects": {
       "label": "Achtergrondprojecten",
@@ -201,7 +210,7 @@
       "emptyDescription": "Workspace-Blueprint kon niet worden geladen of heeft nog geen pagina's. Probeer opnieuw nadat de backend is gedeployed.",
       "agentEdit": "Vraag agent",
       "agentEditTitle": "Blueprint bijwerken",
-      "agentEditDescription": "Beschrijf de wijzigingen voor deze pagina. Er wordt een product-owner agent run ingepland.",
+      "agentEditDescription": "Beschrijf de wijzigingen voor deze pagina. Er wordt een orkestrator-run ingepland.",
       "agentEditPlaceholder": "Bijvoorbeeld: Voeg een sectie over ons retourbeleid toe onder Operations.",
       "agentEditSubmit": "Verstuur verzoek",
       "agentRequestTitle": "Pagina bijwerken: {{page}}",
@@ -574,33 +583,44 @@
       "workforce": "Workforce",
       "platform": "Platform agents",
       "operations": "Operatie",
-      "yourAgents": "Jouw agents"
+      "yourAgents": "Jouw agents",
+      "projects": "Projecten",
+      "library": "Agentbibliotheek"
     },
     "links": {
       "overview": "Overzicht",
-      "agents": "AI Agenten",
+      "agents": "Agentbibliotheek",
       "assistant": "Assistant agent",
       "communication": "Communication agent",
-      "po": "PO agent",
+      "po": "Orkestrator",
       "backgroundWorkers": "Workstreams",
       "viewAllAgents": "Alle agents",
       "tasks": "Taken",
       "runs": "Runs"
     },
     "po": {
-      "none": "Nog geen PO agent geconfigureerd."
+      "none": "Nog geen orkestrator geconfigureerd."
+    },
+    "projects": {
+      "loading": "Projecten laden…",
+      "loadError": "Kon projecten niet laden.",
+      "empty": "Nog geen projecten.",
+      "poReady": "Orkestrator geconfigureerd",
+      "poMissing": "Orkestrator verplicht",
+      "showMore": "Toon {{count}} meer",
+      "showLess": "Toon minder"
     },
     "agents": {
-      "listDescription": "Custom workforce agents voor deze workspace (platform agents staan apart in de sidebar).",
+      "listDescription": "Herbruikbare worker-agents voor deze workspace. Platform-agents en orkestrator-setup per project staan in aparte secties.",
       "loading": "Agents laden…",
       "loadError": "Agents laden mislukt.",
       "empty": "Nog geen custom agents.",
       "sections": {
-        "po": "PO agents",
+        "po": "Orkestrators",
         "workers": "Worker agents"
       },
       "types": {
-        "po": "PO",
+        "po": "Orkestrator",
         "worker": "Worker"
       },
       "roleUnknown": "Onbekende rol",
@@ -610,6 +630,7 @@
       "notFound": "Agent niet gevonden.",
       "historyTitle": "Run-geschiedenis",
       "historyDescription": "Recente runs voor deze agent.",
+      "projectLink": "Project: {{name}}",
       "sidebar": {
         "loading": "Agents laden…",
         "showLess": "Minder tonen",
@@ -623,13 +644,17 @@
       }
     },
     "pageMeta": {
+      "overview": {
+        "title": "Workforce-overzicht",
+        "description": "Operationeel overzicht van orkestrator-dekking en workforce-activiteit."
+      },
       "agents": {
-        "title": "Jouw agents",
-        "description": "Geconfigureerde workforce agents voor deze workspace."
+        "title": "Agentbibliotheek",
+        "description": "Herbruikbare worker-agents die je inzet in project-workstreams."
       },
       "po": {
-        "title": "PO agents",
-        "description": "Product-owner orchestrators per project."
+        "title": "Orkestrators",
+        "description": "Project-orkestrators in deze workspace."
       },
       "backgroundWorkers": {
         "title": "Workstreams",
@@ -661,6 +686,26 @@
         "tokens": "Tokens"
       },
       "fallbackSubject": "Agent run"
+    },
+    "overview": {
+      "loading": "Workforce-overzicht laden…",
+      "loadError": "Kon workforce-overzicht niet laden.",
+      "cards": {
+        "projects": "Projecten",
+        "projectsHint": "Totaal actieve projecten in deze workspace.",
+        "poCoverage": "Orkestrator-dekking",
+        "poMissingHint": "{{count}} projecten hebben nog een orkestrator nodig.",
+        "poCompleteHint": "Alle projecten hebben een orkestrator.",
+        "running": "Nu actief",
+        "runningHint": "Actieve agent-runs over alle projecten."
+      },
+      "projectsTitle": "Projecten die een orkestrator nodig hebben",
+      "projectsEmpty": "Geen projecten missen een orkestrator.",
+      "attentionTitle": "Vereist aandacht",
+      "attentionHint": "Berichten die nog menselijke beslissing nodig hebben over alle projecten.",
+      "openCommunication": "Open communicatie",
+      "openProjectHub": "Open project hub",
+      "manageAgents": "Beheer agents"
     }
   },
   "projects": {
@@ -705,7 +750,8 @@
       "pages": "Pagina's"
     },
     "links": {
-      "overview": "Workstreams",
+      "overview": "Overzicht",
+      "po": "Orkestrator",
       "knowledge": "Blueprint",
       "orchestration": "Orchestratie",
       "communication": "Communicatie",
@@ -724,7 +770,7 @@
     },
     "overview": {
       "title": "Workstreams",
-      "description": "Beheer project-workstreams waar PO en agents taken stap voor stap uitvoeren.",
+      "description": "Beheer project-workstreams waar de orkestrator en agents taken stap voor stap uitvoeren.",
       "loading": "Laden…",
       "empty": "Nog geen updates. Dien een wijzigingsverzoek in om te starten.",
       "viewAll": "Alle projectberichten bekijken",
@@ -736,14 +782,14 @@
       "addStep": "Stap toevoegen",
       "dragPreview": "Drag preview",
       "inputTitle": "Input",
-      "inputChip": "in: projectcontext + PO-trigger",
+      "inputChip": "in: projectcontext + orkestrator-trigger",
       "stepLabel": "Stap",
       "agentLabel": "Agent",
       "instructionLabel": "Instructie",
       "toolsLabel": "Tools (tenant-integraties)",
       "selectTool": "Selecteer tool",
       "outputTitle": "Output",
-      "outputChip": "out: streamrapport naar PO",
+      "outputChip": "out: streamrapport naar orkestrator",
       "emptySteps": "Nog geen stappen geconfigureerd voor deze workstream."
     },
     "messages": {
@@ -776,14 +822,14 @@
     },
     "orchestration": {
       "title": "Orchestratie",
-      "description": "Stuur hoe de project-owner-agent dit project laat draaien: cadans, autonomie en human-in-the-loop.",
+      "description": "Stel in hoe de orkestrator dit project aanstuurt: cadans, autonomie en human-in-the-loop.",
       "loading": "Orchestratie-instellingen laden…",
       "saved": "Instellingen opgeslagen.",
       "loadError": "Kon orchestratie-instellingen niet laden.",
       "saveError": "Kon orchestratie-instellingen niet opslaan.",
       "wakeFrequency": {
         "label": "Wake-frequentie",
-        "hint": "Hoe vaak de PO-agent dit project bekijkt en plant.",
+        "hint": "Hoe vaak de orkestrator dit project bekijkt en plant.",
         "options": {
           "hourly": "Elk uur",
           "daily": "Dagelijks",
@@ -813,6 +859,48 @@
       "continuous": {
         "label": "Continu doorlopen",
         "hint": "Laat agents tussen wake-cycli door blijven werken aan open taken."
+      }
+    },
+    "po": {
+      "title": "Orkestrator",
+      "description": "Configureer de dedicated orkestrator voor dit project. Plant werk, routeert agents en houdt projectkennis actueel.",
+      "loading": "Orkestrator-instellingen laden…",
+      "loadError": "Kon orkestrator-instellingen niet laden.",
+      "createError": "Kon orkestrator niet aanmaken.",
+      "linkError": "Kon orkestrator niet koppelen.",
+      "defaultName": "Project-orkestrator",
+      "sidebarCta": "Orkestrator instellen",
+      "advancedProfile": "Geavanceerd agentprofiel",
+      "required": {
+        "title": "Stel een orkestrator in",
+        "description": "Dit project heeft een dedicated orkestrator nodig voordat workstreams en orchestratie kunnen draaien.",
+        "cta": "Orkestrator instellen"
+      },
+      "gate": {
+        "title": "Orkestrator verplicht",
+        "description": "Koppel of maak een orkestrator voor dit project om verder te gaan."
+      },
+      "identity": {
+        "title": "Orkestrator-identiteit",
+        "empty": "Er is nog geen orkestrator gekoppeld aan dit project."
+      },
+      "setup": {
+        "title": "Orkestrator koppelen of aanmaken",
+        "description": "Elk project heeft één dedicated orkestrator nodig. Maak een nieuwe aan of koppel een bestaande niet-toegewezen orkestrator.",
+        "createLabel": "Naam nieuwe orkestrator",
+        "createCta": "Orkestrator voor project aanmaken",
+        "creating": "Aanmaken…",
+        "showExisting": "Bestaande orkestrator koppelen",
+        "hideExisting": "Bestaande orkestrators verbergen",
+        "noCandidates": "Geen niet-toegewezen orkestrators beschikbaar in deze workspace.",
+        "selectPlaceholder": "Selecteer orkestrator",
+        "linkCta": "Geselecteerde orkestrator koppelen"
+      },
+      "switch": {
+        "title": "Orkestrator wisselen",
+        "description": "Wissel naar een andere niet-toegewezen orkestrator of maak een nieuwe dedicated agent.",
+        "linkOther": "Andere orkestrator koppelen",
+        "createNew": "Nieuwe orkestrator aanmaken"
       }
     },
     "notifications": {

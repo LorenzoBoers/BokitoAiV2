@@ -16,8 +16,8 @@ const PALETTE: Array<{ bg: string; text: string }> = [
 ]
 
 /** First initial of first word + first initial of last word, uppercase. */
-export function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
+export function getInitials(name: string | null | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
   if (parts.length === 1) {
     const word = parts[0]
