@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { ProjectShell } from '../components/project/ProjectShell'
 import { useProjectContext } from '../context/ProjectContext'
@@ -8,30 +9,35 @@ import { getProjectBudget, type ProjectBudgetResponse } from '../lib/projects-ap
 import { getProjectUsageSummary, type ProjectUsageSummary } from '../lib/project-usage-api'
 
 export default function ProjectUsage() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const { projectId } = useProjectContext()
   const [summary, setSummary] = useState<ProjectUsageSummary | null>(null)
   const [budget, setBudget] = useState<ProjectBudgetResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
     setError(null)
-    Promise.all([
-      getProjectUsageSummary(projectId, '30d').catch(() => null),
-      getProjectBudget(projectId).catch(() => null),
-    ])
-      .then(([sum, bud]) => {
-        setSummary(sum)
-        setBudget(bud)
-        if (!sum && !bud) {
-          setError(t('project.usage.loadError'))
-        }
-      })
-      .finally(() => setLoading(false))
+    try {
+      const [sum, bud] = await Promise.all([
+        getProjectUsageSummary(projectId, '30d').catch(() => null),
+        getProjectBudget(projectId).catch(() => null),
+      ])
+      setSummary(sum)
+      setBudget(bud)
+      if (!sum && !bud) {
+        setError(t('project.usage.loadError'))
+      }
+    } finally {
+      setLoading(false)
+    }
   }, [projectId, t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
     <ProjectShell>
@@ -44,7 +50,12 @@ export default function ProjectUsage() {
             {loading ? (
               <LoadingBlock label={t('workforce.runs.loading')} />
             ) : error && !summary && !budget ? (
-              <p className="text-sm text-destructive">{error}</p>
+              <div className="space-y-2">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button size="sm" variant="secondary" onClick={() => void load()}>
+                  {t('common.retry', { defaultValue: 'Retry' })}
+                </Button>
+              </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {summary ? (

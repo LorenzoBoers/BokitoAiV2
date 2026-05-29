@@ -20,6 +20,7 @@ import { listMessages, type MessageRow } from '../lib/messages-api'
 import { ProjectRequiredPoBanner } from '../components/project/ProjectRequiredPoBanner'
 import { useProjectHubNav } from '../context/ProjectHubNavContext'
 import { formatWorkLogSubject } from '../lib/work-log-labels'
+import { humanizeSnakeCase } from '../lib/display-name'
 import { repoStatusLabel, repoStatusVariant } from '../lib/repo-status'
 
 function formatWhen(value?: string | number | null): string {
@@ -44,7 +45,7 @@ function sortProjectsByRecency(rows: ProjectRow[]): ProjectRow[] {
 }
 
 export default function ProjectHubOverview() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const { selectedProjectId, poAgent, workstreamsLoading, projects: hubProjects } = useProjectHubNav()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
@@ -158,7 +159,12 @@ export default function ProjectHubOverview() {
             {loadingProjects ? (
               <LoadingBlock label={t('project.list.loading')} />
             ) : projectsError ? (
-              <p className="text-sm text-destructive">{projectsError}</p>
+              <div className="space-y-2">
+                <p className="text-sm text-destructive">{projectsError}</p>
+                <Button size="sm" variant="secondary" onClick={() => void loadProjects()}>
+                  {t('common.retry', { defaultValue: 'Retry' })}
+                </Button>
+              </div>
             ) : topProjects.length === 0 ? (
               <EmptyState
                 icon={FolderKanban}
@@ -210,7 +216,12 @@ export default function ProjectHubOverview() {
             {loadingPending ? (
               <LoadingBlock label={t('project.messages.loading')} />
             ) : pendingError ? (
-              <p className="text-sm text-destructive">{pendingError}</p>
+              <div className="space-y-2">
+                <p className="text-sm text-destructive">{pendingError}</p>
+                <Button size="sm" variant="secondary" onClick={() => void loadPending()}>
+                  {t('common.retry', { defaultValue: 'Retry' })}
+                </Button>
+              </div>
             ) : pending.length === 0 ? (
               <EmptyState
                 icon={MessageSquare}
@@ -238,9 +249,7 @@ export default function ProjectHubOverview() {
                         <p className="mt-1 text-xs text-text-muted">
                           {msg.created_at ? formatWhen(msg.created_at) : null}
                           {msg.message_type ? (
-                            <span className="ml-2 capitalize">
-                              {msg.message_type.replace(/_/g, ' ')}
-                            </span>
+                            <span className="ml-2">{humanizeSnakeCase(msg.message_type)}</span>
                           ) : null}
                         </p>
                       </Link>
@@ -262,7 +271,12 @@ export default function ProjectHubOverview() {
             {loadingRuns ? (
               <LoadingBlock label={t('workforce.runs.loading')} />
             ) : runsError ? (
-              <p className="text-sm text-destructive">{runsError}</p>
+              <div className="space-y-2">
+                <p className="text-sm text-destructive">{runsError}</p>
+                <Button size="sm" variant="secondary" onClick={() => void loadRuns()}>
+                  {t('common.retry', { defaultValue: 'Retry' })}
+                </Button>
+              </div>
             ) : runs.length === 0 ? (
               <EmptyState icon={Bot} title={t('home.agentRuns.empty')} />
             ) : (

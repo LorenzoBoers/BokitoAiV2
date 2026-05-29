@@ -185,10 +185,14 @@ export default function ProjectHubBackgroundWorkersNav() {
                       {stream.name}
                     </span>
                     <span className="mt-0.5 block truncate text-xs text-text-muted capitalize">
-                      {stream.status}
+                      {t(`backgroundWorkers.status.${stream.status}`, {
+                        defaultValue: stream.status,
+                      })}
                       {lastActive
                         ? ` · ${t('backgroundWorkers.lastActive', { defaultValue: 'Last active {{time}}', time: lastActive })}`
-                        : ` · ${t('backgroundWorkers.notActiveYet', { defaultValue: 'Not active yet' })}`}
+                        : stream.status === 'active'
+                          ? ` · ${t('backgroundWorkers.notActiveYet', { defaultValue: 'Not active yet' })}`
+                          : null}
                     </span>
                   </span>
                 </NavLink>

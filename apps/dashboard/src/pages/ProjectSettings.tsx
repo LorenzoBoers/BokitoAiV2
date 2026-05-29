@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { ProjectShell } from '../components/project/ProjectShell'
 import { ConnectRepoPanel } from '../components/project/ConnectRepoPanel'
@@ -11,6 +11,7 @@ import { useProjectContext } from '../context/ProjectContext'
 import { useOptionalProjectHubNav } from '../context/ProjectHubNavContext'
 import { useAuth } from '../context/AuthContext'
 import { deleteProject, patchProject } from '../lib/projects-api'
+import { projectOrchestratorPath } from '../components/layout/portal-nav'
 import { clearLastProjectId, projectHubScopeKey } from '../lib/project-hub-last-opened'
 
 export default function ProjectSettings() {
@@ -18,7 +19,7 @@ export default function ProjectSettings() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const projectHubNav = useOptionalProjectHubNav()
-  const { project, refresh } = useProjectContext()
+  const { project, projectId, refresh } = useProjectContext()
   const [name, setName] = useState('')
   const [scope, setScope] = useState('')
   const [saving, setSaving] = useState(false)
@@ -112,6 +113,24 @@ export default function ProjectSettings() {
                 {saving ? t('project.settings.about.saving') : t('project.settings.about.save')}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('project.links.po', { defaultValue: 'Orchestrator' })}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-text-muted">
+              {t('project.settings.orchestrator.description', {
+                defaultValue: 'Configure the dedicated orchestrator and orchestration cadence for this project.',
+              })}
+            </p>
+            <Button variant="secondary" size="sm" asChild>
+              <Link to={projectOrchestratorPath(projectId)}>
+                {t('project.settings.orchestrator.open', { defaultValue: 'Open orchestrator setup' })}
+              </Link>
+            </Button>
           </CardContent>
         </Card>
 

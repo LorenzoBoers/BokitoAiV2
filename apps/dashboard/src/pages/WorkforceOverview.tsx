@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bot, FolderKanban, MessageSquare, PlayCircle } from 'lucide-react'
@@ -13,44 +13,38 @@ import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { listMessages, type MessageRow } from '../lib/messages-api'
 
 export default function WorkforceOverview() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [runningLogs, setRunningLogs] = useState<WorkLogRow[]>([])
   const [pendingMessages, setPendingMessages] = useState<MessageRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const [projectRows, runningRows, pendingRows] = await Promise.all([
-          listProjects(),
-          listWorkLogs({ status: 'running', limit: 25 }),
-          listMessages({ status: 'awaiting_human' }),
-        ])
-        if (cancelled) return
-        setProjects(projectRows)
-        setRunningLogs(runningRows)
-        setPendingMessages(pendingRows)
-      } catch (err) {
-        if (!cancelled) {
-          setProjects([])
-          setRunningLogs([])
-          setPendingMessages([])
-          setError(err instanceof Error ? err.message : t('workforce.overview.loadError'))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [projectRows, runningRows, pendingRows] = await Promise.all([
+        listProjects(),
+        listWorkLogs({ status: 'running', limit: 25 }),
+        listMessages({ status: 'awaiting_human' }),
+      ])
+      setProjects(projectRows)
+      setRunningLogs(runningRows)
+      setPendingMessages(pendingRows)
+    } catch (err) {
+      setProjects([])
+      setRunningLogs([])
+      setPendingMessages([])
+      setError(err instanceof Error ? err.message : t('workforce.overview.loadError'))
+    } finally {
+      setLoading(false)
     }
   }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const projectsWithPo = useMemo(
     () => projects.filter((project) => Boolean(project.po_agent_id)).length,
@@ -71,6 +65,9 @@ export default function WorkforceOverview() {
       {error ? (
         <Card className="p-4">
           <p className="text-sm text-status-error">{error}</p>
+          <Button className="mt-3" size="sm" variant="secondary" onClick={() => void load()}>
+            {t('common.retry', { defaultValue: 'Retry' })}
+          </Button>
         </Card>
       ) : null}
 

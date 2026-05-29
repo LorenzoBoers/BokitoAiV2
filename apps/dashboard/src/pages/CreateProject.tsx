@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
@@ -17,6 +17,19 @@ export default function CreateProject() {
   const [scope, setScope] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const [slugTouched, setSlugTouched] = useState(false)
+
+  useEffect(() => {
+    if (slugTouched) return
+    setSlug(
+      name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, ''),
+    )
+  }, [name, slugTouched])
 
   const scopeOk = scope.replace(/\s/g, '').length >= 30
 
@@ -69,13 +82,21 @@ export default function CreateProject() {
           <label className="text-sm font-medium text-text-primary">
             {t('project.create.nameLabel')}
           </label>
-          <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} autoFocus required />
         </div>
         <div>
           <label className="text-sm font-medium text-text-primary">
             {t('project.create.slugLabel')}
           </label>
-          <Input className="mt-1" value={slug} onChange={(e) => setSlug(e.target.value)} required />
+          <Input
+            className="mt-1"
+            value={slug}
+            onChange={(e) => {
+              setSlugTouched(true)
+              setSlug(e.target.value)
+            }}
+            required
+          />
         </div>
         {error ? <p className="text-sm text-status-error">{error}</p> : null}
         <Button type="submit" disabled={loading || !scopeOk}>

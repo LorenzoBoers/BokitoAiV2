@@ -74,7 +74,7 @@ export function ProjectContextBar() {
                 {stream.name}
               </h1>
               <Badge variant={streamStatusVariant(stream.status)} className="shrink-0 capitalize">
-                {stream.status}
+                {t(`backgroundWorkers.status.${stream.status}`, { defaultValue: stream.status })}
               </Badge>
             </>
           ) : (

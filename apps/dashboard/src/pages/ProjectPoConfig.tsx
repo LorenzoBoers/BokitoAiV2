@@ -387,7 +387,6 @@ export default function ProjectPoConfig() {
             {setupComplete && orchestration ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">{t('project.orchestration.title')}</CardTitle>
                   <p className="text-sm text-text-muted">{t('project.orchestration.description')}</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -405,7 +404,7 @@ export default function ProjectPoConfig() {
             ) : setupComplete && orchLoadError ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">{t('project.orchestration.title')}</CardTitle>
+                  <p className="text-sm text-text-muted">{t('project.orchestration.description')}</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-destructive">{orchLoadError}</p>

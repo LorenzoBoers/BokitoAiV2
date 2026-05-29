@@ -24,6 +24,7 @@ import { listAgents } from '../lib/agents-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { projectWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { formatWorkLogSubject } from '../lib/work-log-labels'
+import { displayNameOrFallback, humanizeSnakeCase, looksLikeUuid } from '../lib/display-name'
 import { repoStatusLabel, repoStatusVariant } from '../lib/repo-status'
 import { Badge } from '../components/ui/badge'
 
@@ -107,7 +108,10 @@ export default function HomeDashboard() {
   const recentActivity = useMemo<HomeActivityRow[]>(() => {
     const fromRuns: HomeActivityRow[] = runs.map((run) => {
       const ts = toTimestamp(run.started_at ?? run.finished_at ?? null)
-      const agentName = run.agent_id ? (agentById.get(run.agent_id) ?? run.agent_id) : '-'
+      const agentName = displayNameOrFallback(
+        run.agent_id ? agentById.get(run.agent_id) : null,
+        t('home.activity.unknownAgent', { defaultValue: 'Unknown agent' }),
+      )
       return {
         id: `run:${run.id}`,
         kind: 'run',
@@ -116,11 +120,14 @@ export default function HomeDashboard() {
         createdAt: ts,
         createdAtRaw: run.started_at ?? run.finished_at ?? null,
         href: projectWorkforceRunUrl(run.project_id, run.id),
-        projectName: projectById.get(run.project_id) ?? run.project_id,
+        projectName: displayNameOrFallback(
+          projectById.get(run.project_id),
+          t('home.activity.unknownProject', { defaultValue: 'Unknown project' }),
+        ),
         actor: t('home.activity.actorSystem', { defaultValue: 'System' }),
         agent: agentName || '-',
         workstream: t('home.activity.unknown', { defaultValue: '-' }),
-        action: `${t('home.activity.actionRun', { defaultValue: 'Run' })}: ${run.status}`,
+        action: `${t('home.activity.actionRun', { defaultValue: 'Run' })}: ${humanizeSnakeCase(run.status) || run.status}`,
       }
     })
 
@@ -131,12 +138,22 @@ export default function HomeDashboard() {
       const stream =
         readString(payload, ['stream_name', 'stream_slug', 'workstream_name', 'workstream_slug', 'stream', 'stream_id']) ??
         t('home.activity.unknown', { defaultValue: '-' })
-      const actor =
+      const actorRaw =
         readString(payload, ['user_name', 'actor_name', 'created_by_name', 'author_name']) ??
-        readString(payload, ['user_id', 'actor_id', 'created_by_user_id']) ??
-        t('home.activity.actorAgent', { defaultValue: 'Agent' })
-      const agent = agentNameFromPayload ?? (agentId ? (agentById.get(agentId) ?? agentId) : t('home.activity.unknown', { defaultValue: '-' }))
-      const action = `${msg.message_type} (${msg.status})`
+        readString(payload, ['user_id', 'actor_id', 'created_by_user_id'])
+      const actor = displayNameOrFallback(
+        actorRaw,
+        t('home.activity.actorAgent', { defaultValue: 'Agent' }),
+      )
+      const agent = displayNameOrFallback(
+        agentNameFromPayload ?? (agentId ? agentById.get(agentId) : null),
+        t('home.activity.unknownAgent', { defaultValue: 'Unknown agent' }),
+      )
+      const actionParts = [
+        humanizeSnakeCase(msg.message_type),
+        humanizeSnakeCase(msg.status),
+      ].filter(Boolean)
+      const action = actionParts.length ? actionParts.join(' · ') : t('home.activity.fallbackMessage', { defaultValue: 'Message update' })
       const ts = toTimestamp(msg.created_at)
       const summary = msg.body?.trim() ? msg.body.trim() : null
       const title = msg.subject?.trim() || t('home.activity.fallbackMessage', { defaultValue: 'Message update' })
@@ -150,7 +167,12 @@ export default function HomeDashboard() {
         createdAt: ts,
         createdAtRaw: msg.created_at,
         href,
-        projectName: projectId ? (projectById.get(projectId) ?? projectId) : t('home.activity.crossProject', { defaultValue: 'Cross-project' }),
+        projectName: projectId
+          ? displayNameOrFallback(
+              projectById.get(projectId),
+              t('home.activity.unknownProject', { defaultValue: 'Unknown project' }),
+            )
+          : t('home.activity.crossProject', { defaultValue: 'Cross-project' }),
         actor,
         agent,
         workstream: stream,
@@ -165,10 +187,7 @@ export default function HomeDashboard() {
 
   return (
     <PageContent width="xl" className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-text-heading">{t('home.title')}</h1>
-        <p className="mt-1 text-sm text-text-muted">{t('home.description')}</p>
-      </div>
+      <p className="text-sm text-text-muted">{t('home.description')}</p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Button asChild variant="secondary" size="sm" className="h-auto justify-start gap-2 py-3">
@@ -298,15 +317,19 @@ export default function HomeDashboard() {
                       </div>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         <Badge variant="secondary" className="text-[10px]">{item.projectName}</Badge>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {t('home.activity.labels.actor')}: {item.actor}
-                        </Badge>
+                        {!looksLikeUuid(item.actor) ? (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {t('home.activity.labels.actor')}: {item.actor}
+                          </Badge>
+                        ) : null}
                         <Badge variant="secondary" className="text-[10px]">
                           {t('home.activity.labels.agent')}: {item.agent}
                         </Badge>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {t('home.activity.labels.workstream')}: {item.workstream}
-                        </Badge>
+                        {item.workstream !== '-' ? (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {t('home.activity.labels.workstream')}: {item.workstream}
+                          </Badge>
+                        ) : null}
                         <Badge variant="secondary" className="text-[10px]">
                           {t('home.activity.labels.action')}: {item.action}
                         </Badge>

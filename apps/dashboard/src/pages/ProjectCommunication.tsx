@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowUpRight } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Button } from '../components/ui/button'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { Card, CardContent, CardHeader } from '../components/ui/card'
 import { ProjectShell } from '../components/project/ProjectShell'
 import { WorkforceDecisionList } from '../components/workforce/WorkforceDecisionList'
@@ -131,7 +132,7 @@ export default function ProjectCommunication() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-text-muted">{t('project.messages.loading')}</p>
+            <LoadingBlock label={t('project.messages.loading')} />
           ) : error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : (

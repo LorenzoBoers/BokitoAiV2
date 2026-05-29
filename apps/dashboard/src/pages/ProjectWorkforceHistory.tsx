@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, Bot } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { Badge } from '../components/ui/badge'
@@ -12,6 +13,7 @@ import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { projectWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { formatWorkLogWhen } from '../lib/work-logs-format'
 import { formatWorkLogSubject } from '../lib/work-log-labels'
+import { humanizeSnakeCase } from '../lib/display-name'
 
 function statusVariant(status: string): 'neutral' | 'success' | 'destructive' {
   if (status === 'completed') return 'success'
@@ -21,24 +23,29 @@ function statusVariant(status: string): 'neutral' | 'success' | 'destructive' {
 
 /** Per-project workforce history: agent runs for this project only. */
 export default function ProjectWorkforceHistory() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const { projectId } = useProjectContext()
   const [runs, setRuns] = useState<WorkLogRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!projectId) return
     setLoading(true)
     setError(null)
-    listWorkLogs({ project_id: projectId, limit: 25 })
-      .then(setRuns)
-      .catch((err) => {
-        setRuns([])
-        setError(err instanceof Error ? err.message : t('workforce.runs.loadError'))
-      })
-      .finally(() => setLoading(false))
+    try {
+      setRuns(await listWorkLogs({ project_id: projectId, limit: 25 }))
+    } catch (err) {
+      setRuns([])
+      setError(err instanceof Error ? err.message : t('workforce.runs.loadError'))
+    } finally {
+      setLoading(false)
+    }
   }, [projectId, t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
     <ProjectShell>
@@ -50,7 +57,12 @@ export default function ProjectWorkforceHistory() {
           {loading ? (
             <LoadingBlock label={t('workforce.runs.loading')} />
           ) : error ? (
-            <p className="text-sm text-status-error">{error}</p>
+            <div className="space-y-2">
+              <p className="text-sm text-status-error">{error}</p>
+              <Button size="sm" variant="secondary" onClick={() => void load()}>
+                {t('common.retry', { defaultValue: 'Retry' })}
+              </Button>
+            </div>
           ) : runs.length === 0 ? (
             <EmptyState icon={Bot} title={t('workforce.runs.empty')} />
           ) : (
@@ -67,7 +79,7 @@ export default function ProjectWorkforceHistory() {
                       </p>
                       <div className="mt-1 flex items-center gap-2">
                         <Badge variant={statusVariant(run.status)} className="text-[10px]">
-                          {run.status}
+                          {humanizeSnakeCase(run.status)}
                         </Badge>
                         <span className="text-xs text-text-muted">
                           {formatWorkLogWhen(run.started_at)}

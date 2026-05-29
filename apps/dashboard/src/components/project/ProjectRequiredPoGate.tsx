@@ -16,7 +16,7 @@ export function ProjectRequiredPoGate({ projectId, title, description }: Project
   const { t } = useTranslation('nav')
 
   return (
-    <ProjectShell>
+    <ProjectShell hideContextBar hideTabNav hideWorkerStatus>
       <Card className="mx-auto max-w-lg border-border/80 p-6 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-bg-hover">
           <Bot size={22} className="text-text-muted" />
