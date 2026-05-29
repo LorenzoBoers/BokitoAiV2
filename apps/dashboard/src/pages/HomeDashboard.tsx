@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  Activity,
   ArrowUpRight,
-  Bot,
   FolderKanban,
   Inbox,
   Link2,
@@ -19,6 +19,9 @@ import { PageContent } from '../components/layout/PageContent'
 import { ASSISTENT_DEFAULT_PATH } from '../lib/assistent-settings-path'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
+import { listMessages, type MessageRow } from '../lib/messages-api'
+import { listAgents } from '../lib/agents-api'
+import type { RuntimeAgent } from '../lib/workforce-api'
 import { projectWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { repoStatusLabel, repoStatusVariant } from '../lib/repo-status'
 import { Badge } from '../components/ui/badge'
@@ -29,12 +32,50 @@ function formatWhen(value?: string | number | null): string {
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString()
 }
 
+type HomeActivityRow = {
+  id: string
+  kind: 'run' | 'message'
+  title: string
+  summary?: string | null
+  createdAt: number
+  createdAtRaw?: string | number | null
+  href: string
+  projectName: string
+  actor: string
+  agent: string
+  workstream: string
+  action: string
+}
+
+function readString(payload: Record<string, unknown> | undefined, keys: string[]): string | null {
+  if (!payload) return null
+  for (const key of keys) {
+    const value = payload[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  }
+  return null
+}
+
+function toTimestamp(value?: string | number | null): number {
+  if (typeof value === 'number') {
+    return value > 1e12 ? value : value * 1000
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  return 0
+}
+
 export default function HomeDashboard() {
   const { t } = useTranslation('nav')
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
+  const [messages, setMessages] = useState<MessageRow[]>([])
+  const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [loadingProjects, setLoadingProjects] = useState(true)
-  const [loadingRuns, setLoadingRuns] = useState(true)
+  const [loadingActivity, setLoadingActivity] = useState(true)
 
   useEffect(() => {
     listProjects()
@@ -44,13 +85,82 @@ export default function HomeDashboard() {
   }, [])
 
   useEffect(() => {
-    listWorkLogs({ limit: 5 })
-      .then(setRuns)
-      .catch(() => setRuns([]))
-      .finally(() => setLoadingRuns(false))
+    Promise.all([listWorkLogs({ limit: 20 }), listMessages({}), listAgents()])
+      .then(([runRows, messageRows, agentRows]) => {
+        setRuns(runRows)
+        setMessages(messageRows)
+        setAgents(agentRows)
+      })
+      .catch(() => {
+        setRuns([])
+        setMessages([])
+        setAgents([])
+      })
+      .finally(() => setLoadingActivity(false))
   }, [])
 
   const recentProjects = projects.slice(0, 5)
+  const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
+  const agentById = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents])
+
+  const recentActivity = useMemo<HomeActivityRow[]>(() => {
+    const fromRuns: HomeActivityRow[] = runs.map((run) => {
+      const ts = toTimestamp(run.started_at ?? run.finished_at ?? null)
+      const agentName = run.agent_id ? (agentById.get(run.agent_id) ?? run.agent_id) : '-'
+      return {
+        id: `run:${run.id}`,
+        kind: 'run',
+        title: run.task_subject?.trim() || t('workforce.runs.fallbackSubject'),
+        summary: null,
+        createdAt: ts,
+        createdAtRaw: run.started_at ?? run.finished_at ?? null,
+        href: projectWorkforceRunUrl(run.project_id, run.id),
+        projectName: projectById.get(run.project_id) ?? run.project_id,
+        actor: t('home.activity.actorSystem', { defaultValue: 'System' }),
+        agent: agentName || '-',
+        workstream: t('home.activity.unknown', { defaultValue: '-' }),
+        action: `${t('home.activity.actionRun', { defaultValue: 'Run' })}: ${run.status}`,
+      }
+    })
+
+    const fromMessages: HomeActivityRow[] = messages.map((msg) => {
+      const payload = msg.payload
+      const agentId = readString(payload, ['agent_id'])
+      const agentNameFromPayload = readString(payload, ['agent_name'])
+      const stream =
+        readString(payload, ['stream_name', 'stream_slug', 'workstream_name', 'workstream_slug', 'stream', 'stream_id']) ??
+        t('home.activity.unknown', { defaultValue: '-' })
+      const actor =
+        readString(payload, ['user_name', 'actor_name', 'created_by_name', 'author_name']) ??
+        readString(payload, ['user_id', 'actor_id', 'created_by_user_id']) ??
+        t('home.activity.actorAgent', { defaultValue: 'Agent' })
+      const agent = agentNameFromPayload ?? (agentId ? (agentById.get(agentId) ?? agentId) : t('home.activity.unknown', { defaultValue: '-' }))
+      const action = `${msg.message_type} (${msg.status})`
+      const ts = toTimestamp(msg.created_at)
+      const summary = msg.body?.trim() ? msg.body.trim() : null
+      const title = msg.subject?.trim() || t('home.activity.fallbackMessage', { defaultValue: 'Message update' })
+      const projectId = msg.project_id?.trim() || null
+      const href = projectId ? `/project/${projectId}/communication` : '/messages'
+      return {
+        id: `message:${msg.id}`,
+        kind: 'message',
+        title,
+        summary,
+        createdAt: ts,
+        createdAtRaw: msg.created_at,
+        href,
+        projectName: projectId ? (projectById.get(projectId) ?? projectId) : t('home.activity.crossProject', { defaultValue: 'Cross-project' }),
+        actor,
+        agent,
+        workstream: stream,
+        action,
+      }
+    })
+
+    return [...fromRuns, ...fromMessages]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 20)
+  }, [runs, messages, agentById, projectById, t])
 
   return (
     <PageContent width="xl" className="space-y-6">
@@ -164,25 +274,45 @@ export default function HomeDashboard() {
 
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">{t('home.agentRuns.title')}</CardTitle>
+            <CardTitle className="text-base font-semibold">{t('home.activity.title')}</CardTitle>
           </CardHeader>
           <CardContent>
-            {loadingRuns ? (
+            {loadingActivity ? (
               <LoadingBlock label={t('workforce.runs.loading')} />
-            ) : runs.length === 0 ? (
-              <EmptyState icon={Bot} title={t('home.agentRuns.empty')} />
+            ) : recentActivity.length === 0 ? (
+              <EmptyState icon={Activity} title={t('home.activity.empty')} />
             ) : (
               <ul className="divide-y divide-border/60">
-                {runs.map((run) => (
-                  <li key={run.id}>
+                {recentActivity.map((item) => (
+                  <li key={item.id}>
                     <Link
-                      to={projectWorkforceRunUrl(run.project_id, run.id)}
-                      className="flex items-center justify-between gap-3 py-2 text-sm hover:text-accent"
+                      to={item.href}
+                      className="block py-2 text-sm hover:text-accent"
                     >
-                      <span className="truncate font-medium text-text-heading">
-                        {run.task_subject?.trim() || t('workforce.runs.fallbackSubject')}
-                      </span>
-                      <span className="shrink-0 text-xs text-text-muted">{formatWhen(run.started_at)}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="truncate font-medium text-text-heading">
+                          {item.title}
+                        </span>
+                        <span className="shrink-0 text-xs text-text-muted">{formatWhen(item.createdAtRaw)}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <Badge variant="secondary" className="text-[10px]">{item.projectName}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {t('home.activity.labels.actor')}: {item.actor}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {t('home.activity.labels.agent')}: {item.agent}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {t('home.activity.labels.workstream')}: {item.workstream}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {t('home.activity.labels.action')}: {item.action}
+                        </Badge>
+                      </div>
+                      {item.summary ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-text-muted">{item.summary}</p>
+                      ) : null}
                     </Link>
                   </li>
                 ))}

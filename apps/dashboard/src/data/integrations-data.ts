@@ -1,5 +1,6 @@
 import type { IntegrationKind } from '../lib/integration-kind'
 import { BRAND_ASSETS } from '../lib/brand-assets'
+import { REMOTE_MCP_PROVIDERS } from '../lib/mcp-remote-providers'
 
 const STATIC_HOST_SLUG: Record<string, string> = {
   github: 'github',
@@ -7,6 +8,31 @@ const STATIC_HOST_SLUG: Record<string, string> = {
   'google-workspace': 'google',
   bjorn_lunden_mcp: 'bjorn_lunden',
   custom_mcp: 'custom',
+  notion: 'notion',
+  linear: 'linear',
+  atlassian: 'atlassian',
+  slack: 'slack',
+  asana: 'asana',
+  clickup: 'clickup',
+  sentry: 'sentry',
+  stripe: 'stripe',
+  shopify: 'shopify',
+  'github-mcp': 'github',
+  'microsoft-graph-mcp': 'microsoft',
+}
+
+const REMOTE_LOGO_META: Record<string, { initials: string; color: string }> = {
+  notion: { initials: 'NO', color: '#000000' },
+  linear: { initials: 'LN', color: '#5E6AD2' },
+  atlassian: { initials: 'AT', color: '#0052CC' },
+  slack: { initials: 'SL', color: '#4A154B' },
+  asana: { initials: 'AS', color: '#F06A6A' },
+  clickup: { initials: 'CU', color: '#7B68EE' },
+  sentry: { initials: 'SE', color: '#362D59' },
+  stripe: { initials: 'ST', color: '#635BFF' },
+  shopify: { initials: 'SH', color: '#96BF48' },
+  'github-mcp': { initials: 'GH', color: '#24292E' },
+  'microsoft-graph-mcp': { initials: 'MG', color: '#0078D4' },
 }
 
 /** Business categories kept for API rows; marketplace filters by IntegrationKind instead. */
@@ -40,6 +66,8 @@ export const PLATFORM_PROVIDER_SLUGS = [
   'gmail',
   'bjorn_lunden_mcp',
   'custom_mcp',
+  'shopify_mcp',
+  ...REMOTE_MCP_PROVIDERS.map((p) => p.slug),
 ] as const
 
 export type PlatformProviderSlug = (typeof PLATFORM_PROVIDER_SLUGS)[number]
@@ -59,6 +87,22 @@ function staticBrand(id: string): Pick<Integration, 'hostSlug' | 'logoUrl' | 'lo
     hostSlug,
     logoUrl: assets?.logoUrl ?? null,
     logoDarkUrl: assets?.logoDarkUrl ?? null,
+  }
+}
+
+function remoteMcpIntegration(p: (typeof REMOTE_MCP_PROVIDERS)[number]): Integration {
+  const meta = REMOTE_LOGO_META[p.staticId] ?? { initials: 'MC', color: '#475569' }
+  return {
+    id: p.staticId,
+    name: p.name,
+    description: p.description,
+    category: p.category,
+    kind: 'mcp',
+    status: p.defaultStatus,
+    color: meta.color,
+    initials: meta.initials,
+    popular: p.popular,
+    ...staticBrand(p.staticId),
   }
 }
 
@@ -121,4 +165,16 @@ export const INTEGRATIONS: Integration[] = [
     initials: 'MC',
     ...staticBrand('custom_mcp'),
   },
+  {
+    id: 'shopify',
+    name: 'Shopify',
+    description: 'Koppel een Shopify-winkel voor producten, orders en storefront MCP (per winkel).',
+    category: 'Productiviteit',
+    kind: 'mcp',
+    status: 'coming_soon',
+    color: '#96BF48',
+    initials: 'SH',
+    ...staticBrand('shopify'),
+  },
+  ...REMOTE_MCP_PROVIDERS.map(remoteMcpIntegration),
 ]

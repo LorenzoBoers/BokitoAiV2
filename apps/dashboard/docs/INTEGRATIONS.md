@@ -35,6 +35,7 @@ flowchart TB
   OAuthFlow -->|strategy github| GH
   OAuthFlow -->|strategy inbox| Email
   OAuthFlow -->|strategy platform| Plat
+  OAuthFlow -->|strategy mcp_remote| McpOAuth["GET /integrations/mcp/oauth/start"]
 ```
 
 | Setup mode | UI panel | Primary backend |
@@ -42,7 +43,10 @@ flowchart TB
 | `oauth2` + strategy `github` | `IntegrationOAuthSetupPanel` | `GET /github/oauth/start` |
 | `oauth2` + strategy `inbox` | `IntegrationOAuthSetupPanel` | `GET /email/oauth/start` (JWT required) |
 | `oauth2` + strategy `platform` | `IntegrationOAuthSetupPanel` | `GET /integrations/oauth/start` |
+| `remote_mcp_oauth` + strategy `mcp_remote` | `IntegrationOAuthSetupPanel` | `GET /integrations/mcp/oauth/start` (runtime PKCE) |
 | `api_key` / `custom_mcp` | `IntegrationMcpSetupPanel` | `POST /integrations/mcp/install` |
+
+**In-app guide:** `/integrations/docs` in the portal (sidebar under Integrations).
 
 Unified tables: `integration_hosts` → `integration_providers` → `integration_connections` → `integration_bindings`. Email and legacy GitHub also use parallel tables (see below).
 
@@ -83,6 +87,42 @@ Unified tables: `integration_hosts` → `integration_providers` → `integration
 - [ ] Setup opens MCP form; install succeeds
 - [ ] `GET /integrations/mcp/bindings` lists binding
 - [ ] Connected page shows connection
+
+---
+
+## Checklist: remote MCP OAuth provider
+
+Vendor-hosted MCP servers (Notion, Linear, Slack, etc.) use OAuth 2.1 + PKCE. Token exchange is implemented in **`apps/runtime/src/mcp-oauth/`**; Xano stores state and connections.
+
+### 1. Xano
+
+- [ ] Columns on `integration_providers`: `mcp_remote_url`, `mcp_transport`, `oauth_profile`; `auth_type: mcp_remote_oauth`
+- [ ] Columns on `integration_oauth_states`: `code_verifier`, `oauth_client_id`, `mcp_remote_url`, `oauth_profile`
+- [ ] Seed row in `integration-providers-seed.md` + host in `integration-hosts-seed.md`
+- [ ] Deploy `integrations-mcp-oauth-start.xs`, `integrations-mcp-oauth-callback.xs`, `integrations-worker-mcp-credentials.xs`, `integrations-mcp-oauth-refresh.xs`
+- [ ] Env: `RUNTIME_INTERNAL_URL`, `WORKER_INBOUND_SECRET`, `MCP_OAUTH_CALLBACK_URL`, `{PREFIX}_CLIENT_ID`, `_CLIENT_SECRET`, `_REDIRECT_URI`
+- [ ] Set provider `status: available` only when OAuth app is registered at vendor
+
+### 2. Frontend
+
+- [ ] Entry in `apps/dashboard/src/lib/mcp-remote-providers.ts` and `integrations/registry.ts` (`setupMode: remote_mcp_oauth`, `oauthStrategy: mcp_remote`)
+- [ ] Card in `integrations-data.ts` + `PLATFORM_PROVIDER_SLUGS`
+- [ ] Route: `integrationsRoutes.platform.mcpOAuthStart` in `integrations.routes.ts`
+- [ ] `startMcpRemoteOAuth` in `integrations-api.ts`; `mcp_remote` branch in `integration-oauth-flow.ts`
+
+### 3. Runtime
+
+- [ ] `MCP_OAUTH_CALLBACK_URL` matches public callback URL
+- [ ] Internal routes: `POST /internal/mcp/oauth/start`, `/exchange`, `/refresh` (Bearer `WORKER_INBOUND_SECRET`)
+
+### 4. Verify
+
+- [ ] Marketplace setup opens OAuth panel (not API key form)
+- [ ] OAuth round-trip: `?integration=connected&provider=<slug>`
+- [ ] `GET /integrations/mcp/bindings` shows `remote_oauth` config
+- [ ] `POST /integrations/worker/mcp-credentials` returns access token for agents
+
+Adding provider #11: seed + env + `mcp-remote-providers.ts` only (no new Xano `if provider ==` branches).
 
 ---
 

@@ -89,6 +89,11 @@ When pushing via the Metadata API:
 | workforce-projects-notification-prefs-get.xs | GET | /projects/{id}/notifications/preferences |
 | workforce-projects-notification-prefs-patch.xs | PATCH | /projects/{id}/notifications/preferences |
 | workforce-projects-usage-summary.xs | GET | /projects/{id}/usage/summary |
+| workforce-projects-workstreams-list.xs | GET | /projects/{id}/workstreams | 303 |
+| workforce-projects-workstreams-create.xs | POST | /projects/{id}/workstreams | 299 |
+| workforce-projects-workstreams-patch.xs | PATCH | /projects/{id}/workstreams/{workstream_id} | 300 |
+| workforce-projects-po-agent-patch.xs | PATCH | /projects/{id}/po-agent | 301 |
+| workforce-projects-delete.xs | DELETE | /projects/{id} (body: `confirm_name` must match project name) | 302 |
 | workforce-runs-complete.xs | POST | /runs/complete (token counters) |
 | task-po-heartbeat.xs | task | per-project orchestration dispatch |
 

@@ -35,11 +35,18 @@ import {
   SLUG_TO_STATIC_ID,
 } from '../lib/integrations/registry'
 import { applyBrandToIntegration, resolveProviderBrand } from '../lib/integration-brand'
-import { ProviderCard } from '../components/integrations/ProviderCard'
 import {
-  IntegrationHubDialog,
-  type HubBanner,
-} from '../components/integrations/IntegrationHubDialog'
+  buildIntegrationApplications,
+  resolveApplicationConnectTarget,
+  type IntegrationApplication,
+  type IntegrationOffer,
+} from '../lib/integration-applications'
+import { ApplicationCard } from '../components/integrations/ApplicationCard'
+import {
+  ApplicationHubDialog,
+  type ApplicationHubStep,
+} from '../components/integrations/ApplicationHubDialog'
+import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import { Input } from '../components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
@@ -93,6 +100,11 @@ function connectionCountForItem(
   return connectionCountForProvider(provider, counts)
 }
 
+function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): ApplicationHubStep {
+  if (!offer) return 'app'
+  return step === 'setup' ? 'offer-setup' : 'offer-detail'
+}
+
 export default function IntegrationsMarketplace() {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
@@ -111,8 +123,9 @@ export default function IntegrationsMarketplace() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [hubOpen, setHubOpen] = useState(false)
-  const [hubIntegration, setHubIntegration] = useState<Integration | null>(null)
-  const [hubStep, setHubStep] = useState<IntegrationHubStep>('detail')
+  const [hubApplication, setHubApplication] = useState<IntegrationApplication | null>(null)
+  const [hubOffer, setHubOffer] = useState<IntegrationOffer | null>(null)
+  const [hubStep, setHubStep] = useState<ApplicationHubStep>('app')
   const [hubBanner, setHubBanner] = useState<HubBanner>(null)
 
   const setKindFilter = useCallback(
@@ -134,9 +147,33 @@ export default function IntegrationsMarketplace() {
     [providers],
   )
 
-  const openHub = useCallback(
-    (integration: Integration, step: IntegrationHubStep = 'detail') => {
-      setHubIntegration(integration)
+  const catalogRows = useMemo(
+    () =>
+      items.map((integration) => ({
+        integration,
+        connectionCount: connectionCountForItem(
+          integration,
+          connectionCounts,
+          providers,
+          githubConnections.length,
+        ),
+      })),
+    [items, connectionCounts, providers, githubConnections.length],
+  )
+
+  const applications = useMemo(
+    () => buildIntegrationApplications(catalogRows, findProviderForIntegration),
+    [catalogRows, findProviderForIntegration],
+  )
+
+  const openApplicationHub = useCallback(
+    (
+      app: IntegrationApplication,
+      step: ApplicationHubStep = 'app',
+      offer: IntegrationOffer | null = null,
+    ) => {
+      setHubApplication(app)
+      setHubOffer(offer)
       setHubStep(step)
       setHubOpen(true)
     },
@@ -191,24 +228,39 @@ export default function IntegrationsMarketplace() {
   }, [])
 
   const applyCallbackBanner = useCallback(
-    (params: URLSearchParams, connectId: string | null) => {
-      const githubCb = parseIntegrationCallback(params)
+    (params: URLSearchParams, connectParam: string | null) => {
+      const integrationCb = parseIntegrationCallback(params)
       const emailCb = parseOAuthCallback(params)
 
-      if (githubCb.handled) {
-        if (githubCb.error) {
-          setHubBanner({ type: 'error', message: githubCb.error })
-        } else if (githubCb.connected) {
-          setHubBanner({ type: 'success', message: t('integrations.hub.setup.successGithub') })
+      if (integrationCb.handled) {
+        const slug = integrationCb.provider ?? 'github'
+        const staticId = SLUG_TO_STATIC_ID[slug] ?? slug
+        const isGithub =
+          slug === 'github' || params.get('github') === 'connected' || staticId === 'github'
+        if (integrationCb.error) {
+          setHubBanner({ type: 'error', message: integrationCb.error })
+        } else if (integrationCb.connected) {
+          setHubBanner({
+            type: 'success',
+            message: isGithub
+              ? t('integrations.hub.setup.successGithub')
+              : t('integrations.hub.setup.successRemoteMcp'),
+          })
         }
-        const id = connectId ?? 'github'
-        const match = items.find((i) => i.id === id)
-        if (match) openHub(match, 'detail')
+        const id = connectParam ?? staticId
+        const target = resolveApplicationConnectTarget(applications, id)
+        if (target) {
+          openApplicationHub(
+            target.app,
+            target.offer ? 'offer-detail' : 'app',
+            target.offer ?? null,
+          )
+        }
         return true
       }
 
-      if (emailCb.handled && connectId) {
-        const match = items.find((i) => i.id === connectId)
+      if (emailCb.handled && connectParam) {
+        const target = resolveApplicationConnectTarget(applications, connectParam)
         if (emailCb.error) {
           setHubBanner({
             type: 'error',
@@ -217,13 +269,19 @@ export default function IntegrationsMarketplace() {
         } else if (emailCb.status === 'connected') {
           setHubBanner({ type: 'success', message: t('integrations.hub.setup.successInbox') })
         }
-        if (match) openHub(match, 'detail')
+        if (target) {
+          openApplicationHub(
+            target.app,
+            target.offer ? 'offer-detail' : 'app',
+            target.offer ?? null,
+          )
+        }
         return true
       }
 
       return false
     },
-    [items, openHub, t],
+    [applications, openApplicationHub, t],
   )
 
   useEffect(() => {
@@ -231,75 +289,63 @@ export default function IntegrationsMarketplace() {
   }, [refreshCatalog])
 
   useEffect(() => {
-    if (items.length === 0) return
+    if (applications.length === 0) return
 
     const params = new URLSearchParams(window.location.search)
-    const { integrationId, step } = parseHubConnectParam(params)
-    const hadCallback = applyCallbackBanner(params, integrationId)
+    const { integrationId: connectParam, step } = parseHubConnectParam(params)
+    const hadCallback = applyCallbackBanner(params, connectParam)
 
     const cleaned = stripOAuthCallbackParams(params)
-    if (hadCallback || integrationId) {
-      const match = items.find((i) => i.id === integrationId)
-      if (match && !hadCallback) {
-        openHub(match, step)
+    if (hadCallback || connectParam) {
+      if (!hadCallback && connectParam) {
+        const target = resolveApplicationConnectTarget(applications, connectParam)
+        if (target) {
+          openApplicationHub(
+            target.app,
+            hubStepFromLegacy(step, target.offer),
+            target.offer ?? null,
+          )
+        }
       }
-      if (integrationId) {
-        cleaned.set('connect', integrationId)
+      if (connectParam) {
+        cleaned.set('connect', connectParam)
         if (step === 'setup') cleaned.set('step', 'setup')
       }
       setSearchParams(cleaned, { replace: true })
     }
-  }, [items, applyCallbackBanner, openHub, setSearchParams])
+  }, [applications, applyCallbackBanner, openApplicationHub, setSearchParams])
 
-  const handleViewConnected = (integration: Integration) => {
-    const kind = integration.kind ?? resolveIntegrationKind(integration.id)
+  const handleViewConnected = (offer: IntegrationOffer) => {
+    const kind = offer.kind ?? resolveIntegrationKind(offer.integration.id)
     navigate(connectedPathWithKind(kind))
   }
 
-  const hubConnectionCount = hubIntegration
-    ? connectionCountForItem(
-        hubIntegration,
-        connectionCounts,
-        providers,
-        githubConnections.length,
-      )
-    : 0
-
   const filtered = useMemo(() => {
-    let list = items.map((integration) => ({
-      integration,
-      connectionCount: connectionCountForItem(
-        integration,
-        connectionCounts,
-        providers,
-        githubConnections.length,
-      ),
-    }))
+    let list = [...applications]
 
     if (kindFilter !== 'all') {
-      list = list.filter(
-        ({ integration }) =>
-          (integration.kind ?? resolveIntegrationKind(integration.id)) === kindFilter,
-      )
+      list = list.filter((app) => app.kinds.includes(kindFilter))
     }
     if (statusFilter === 'connected') {
-      list = list.filter(({ connectionCount }) => connectionCount > 0)
+      list = list.filter((app) => app.connectionCount > 0)
     }
     if (statusFilter === 'available') {
-      list = list.filter(
-        ({ integration, connectionCount }) =>
-          connectionCount === 0 && integration.status !== 'coming_soon',
-      )
+      list = list.filter((app) => app.connectionCount === 0 && app.status !== 'coming_soon')
     }
     if (search.trim()) {
       const q = search.toLowerCase()
-      list = list.filter(({ integration }) => {
-        const kind = integration.kind ?? resolveIntegrationKind(integration.id)
-        return (
-          integration.name.toLowerCase().includes(q) ||
-          integration.description.toLowerCase().includes(q) ||
-          t(`integrations.kind.${kind}`).toLowerCase().includes(q)
-        )
+      list = list.filter((app) => {
+        if (app.name.toLowerCase().includes(q) || app.description.toLowerCase().includes(q)) {
+          return true
+        }
+        return app.offers.some((offer) => {
+          const kind = offer.kind
+          return (
+            offer.integration.name.toLowerCase().includes(q) ||
+            offer.integration.description.toLowerCase().includes(q) ||
+            t(`integrations.kind.${kind}`).toLowerCase().includes(q)
+          )
+        })
       })
     }
 
@@ -307,40 +353,16 @@ export default function IntegrationsMarketplace() {
       const aConn = a.connectionCount > 0 ? 0 : 1
       const bConn = b.connectionCount > 0 ? 0 : 1
       if (aConn !== bConn) return aConn - bConn
-      return a.integration.name.localeCompare(b.integration.name)
+      return a.name.localeCompare(b.name)
     })
 
     return list
-  }, [
-    items,
-    kindFilter,
-    statusFilter,
-    search,
-    connectionCounts,
-    providers,
-    githubConnections.length,
-    t,
-  ])
+  }, [applications, kindFilter, statusFilter, search, t])
 
-  const connectedTotal = useMemo(() => {
-    const seen = new Set<string>()
-    let n = 0
-    for (const { integration, connectionCount } of items.map((integration) => ({
-      integration,
-      connectionCount: connectionCountForItem(
-        integration,
-        connectionCounts,
-        providers,
-        githubConnections.length,
-      ),
-    }))) {
-      if (connectionCount > 0 && !seen.has(integration.id)) {
-        seen.add(integration.id)
-        n += 1
-      }
-    }
-    return n
-  }, [items, connectionCounts, providers, githubConnections.length])
+  const connectedTotal = useMemo(
+    () => applications.filter((app) => app.connectionCount > 0).length,
+    [applications],
+  )
 
   return (
     <PageContent width="xl">
@@ -398,50 +420,39 @@ export default function IntegrationsMarketplace() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(({ integration, connectionCount }) => (
-            <ProviderCard
-              key={integration.id}
-              integration={integration}
-              connectionCount={connectionCount}
-              onOpenDetail={() => openHub(integration, 'detail')}
-              onSetup={() => openHub(integration, 'setup')}
-              onViewConnected={() => handleViewConnected(integration)}
-              onAddAccount={
-                integration.id === 'github' && connectionCount > 0
-                  ? () => openHub(integration, 'setup')
-                  : undefined
-              }
+          {filtered.map((application) => (
+            <ApplicationCard
+              key={application.hostSlug}
+              application={application}
+              onOpenDetail={() => openApplicationHub(application, 'app')}
             />
           ))}
         </div>
       )}
 
-      <IntegrationHubDialog
-        key={hubIntegration ? `${hubIntegration.id}-${hubStep}` : 'closed'}
+      <ApplicationHubDialog
+        key={
+          hubApplication
+            ? `${hubApplication.hostSlug}-${hubOffer?.integration.id ?? 'app'}-${hubStep}`
+            : 'closed'
+        }
         open={hubOpen}
         onOpenChange={(open) => {
           setHubOpen(open)
           if (!open) {
             setHubBanner(null)
+            setHubOffer(null)
             const params = new URLSearchParams(searchParams)
             params.delete('connect')
             params.delete('step')
             setSearchParams(params, { replace: true })
           }
         }}
-        integration={hubIntegration}
-        provider={hubIntegration ? findProviderForIntegration(hubIntegration) : null}
-        connectionCount={hubConnectionCount}
+        application={hubApplication}
         initialStep={hubStep}
+        initialOfferId={hubOffer?.integration.id ?? null}
         banner={hubBanner}
-        onViewConnected={() => {
-          if (hubIntegration) handleViewConnected(hubIntegration)
-        }}
-        onAddAccount={
-          hubIntegration?.id === 'github'
-            ? () => setHubStep('setup')
-            : undefined
-        }
+        onViewConnected={handleViewConnected}
         onSaved={() => void refreshCatalog()}
       />
     </PageContent>

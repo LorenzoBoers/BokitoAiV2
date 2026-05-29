@@ -19,6 +19,7 @@ import CompanyConfig from './pages/CompanyConfig'
 import MemberManagement from './pages/MemberManagement'
 import MessengerSettings from './pages/MessengerSettings'
 import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
+import { WORKFORCE_DEFAULT_PATH } from './components/layout/portal-nav'
 import HelpCentersSettings from './pages/HelpCentersSettings'
 import CloudAgent from './pages/CloudAgent'
 import CreateProject from './pages/CreateProject'
@@ -36,12 +37,12 @@ import ProjectWorkforceHistory from './pages/ProjectWorkforceHistory'
 import ProjectUsage from './pages/ProjectUsage'
 import ConnectProjectRepo from './pages/ConnectProjectRepo'
 import ChangeRequest from './pages/ChangeRequest'
+import AdminRunLegacyRedirect from './pages/AdminRunLegacyRedirect'
 import AiAgents from './pages/AiAgents'
 import AiAgentDetail from './pages/AiAgentDetail'
-import AdminRunLegacyRedirect from './pages/AdminRunLegacyRedirect'
 import ProjectWorkforceRunDetail from './pages/ProjectWorkforceRunDetail'
+import WorkforcePoAgents from './pages/WorkforcePoAgents'
 import AiCommunicationSettings from './pages/AiCommunicationSettings'
-import WorkforceControl from './pages/OrchestratorControl'
 import WorkspaceSettings from './pages/WorkspaceSettings'
 import Workspaces from './pages/Workspaces'
 import WorkspaceBilling from './pages/WorkspaceBilling'
@@ -52,6 +53,7 @@ import IntegrationsMarketplace from './pages/IntegrationsMarketplace'
 import IntegrationsConnected from './pages/IntegrationsConnected'
 import IntegrationsMcp from './pages/IntegrationsMcp'
 import IntegrationsApi from './pages/IntegrationsApi'
+import IntegrationsDocs from './pages/IntegrationsDocs'
 import HomeDashboard from './pages/HomeDashboard'
 import { useIsAdmin } from './hooks/useIsAdmin'
 
@@ -213,6 +215,7 @@ export default function App() {
               element={<Navigate to="/integrations/connected" replace />}
             />
             <Route path="/integrations/mcp" element={<IntegrationsMcp />} />
+            <Route path="/integrations/docs" element={<IntegrationsDocs />} />
             <Route path="/integrations/api" element={<IntegrationsApi />} />
             <Route path="/integrations/sources" element={<Navigate to="/projects" replace />} />
           </Route>
@@ -251,28 +254,30 @@ export default function App() {
             <Route path="/project/:projectId/communication" element={<ProjectCommunication />} />
             <Route path="/project/:projectId/orchestration" element={<ProjectOrchestration />} />
             <Route path="/project/:projectId/notifications" element={<ProjectNotifications />} />
+            <Route path="/project/:projectId/workforce" element={<ProjectWorkforceHistory />} />
             <Route
               path="/project/:projectId/workforce/:workLogId"
               element={<ProjectWorkforceRunDetail />}
             />
-            <Route path="/project/:projectId/workforce" element={<ProjectWorkforceHistory />} />
             <Route path="/project/:projectId/usage" element={<ProjectUsage />} />
             <Route path="/project/:projectId/settings" element={<ProjectSettings />} />
           </Route>
-          <Route path="/ai/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
-          <Route path="/ai/agents/:agentId" element={<AiAgentDetail />} />
-          <Route path="/ai/agents" element={<AiAgents />} />
           <Route path="/admin/runs/:workLogId" element={<AdminRunLegacyRedirect />} />
-          <Route path="/admin/runs" element={<Navigate to="/projects" replace />} />
+          <Route path="/admin/runs" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
+          <Route path="/workforce" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
+          <Route path="/workforce/agents" element={<AiAgents />} />
+          <Route path="/workforce/po" element={<WorkforcePoAgents />} />
+          <Route path="/ai/agents" element={<AiAgents />} />
+          <Route path="/ai/agents/:agentId" element={<AiAgentDetail />} />
+          <Route path="/ai/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
           <Route path="/cloud-agent" element={<CloudAgent />} />
           <Route path="/datasources" element={<Navigate to="/projects" replace />} />
           <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
           <Route path="/ai/communicatie" element={<AiCommunicationSettings />} />
-          <Route path="/ai" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
+          <Route path="/ai" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
           <Route path="/company-config" element={<Navigate to="/settings/company" replace />} />
-          <Route path="/workforce" element={<Navigate to="/ai/agents" replace />} />
-          <Route path="/workforce/*" element={<Navigate to="/ai/agents" replace />} />
+          <Route path="/workforce/*" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
           <Route path="/analytics" element={<Navigate to="/projects" replace />} />
           <Route path="/database" element={<Navigate to="/projects" replace />} />
           <Route path="/database/*" element={<Navigate to="/projects" replace />} />

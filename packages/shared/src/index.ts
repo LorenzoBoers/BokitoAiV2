@@ -20,7 +20,7 @@ export type MessageType =
   | 'task_request'
   | 'task_result'
   | 'status_update'
-  | 'pkb_change'
+  | 'blueprint_change'
   | 'decision_request'
   | 'token_warning'
   | 'token_limit_reached'
@@ -38,8 +38,8 @@ export type MessageStatus =
   | 'done'
   | 'failed'
 
-export type PkbLayer = 'current_state' | 'intended_state' | 'change_queue'
-export type PkbDomain =
+export type BlueprintLayer = 'current_state' | 'intended_state' | 'change_queue'
+export type BlueprintDomain =
   | 'code'
   | 'marketing'
   | 'research'
@@ -103,7 +103,9 @@ export interface RunConfigJson {
     subject: string
     body: string
     payload: Record<string, unknown>
-    change_queue_section_id?: string | null
+    blueprint_change_request_id?: string | null
+    blueprint_change_scope?: 'project' | 'workspace' | null
+    blueprint_target_page_id?: string | null
   }
   report_to: { type: 'agent' | 'user' | 'team'; id: string }
   budget: { remaining_today: number; remaining_hour: number }
@@ -112,12 +114,6 @@ export interface RunConfigJson {
     work_log_url: string
     messages_url: string
     search_index_url: string
-    /** @deprecated Replaced by doc_* endpoints. Kept for legacy agent loop compat. */
-    pkb_url?: string
-    /** @deprecated */
-    pkb_list_url?: string
-    /** @deprecated */
-    pkb_update_url?: string
     /** Worker batch endpoint: agents POST block ops here with change notes. */
     doc_blocks_worker_url: string
     /** Worker reindex endpoint for a single page. */

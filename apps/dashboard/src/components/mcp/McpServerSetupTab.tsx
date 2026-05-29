@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Button } from '../ui/button'
 import { listMcpIntegrationRows, type McpIntegrationRow } from '../../lib/mcp-integrations'
@@ -59,6 +59,12 @@ export function McpServerSetupTab() {
         <div>
           <h2 className="text-lg font-medium text-text-heading">{t('integrations.mcp.servers.title')}</h2>
           <p className="text-sm text-text-secondary mt-1">{t('integrations.mcp.servers.description')}</p>
+          <Link
+            to="/integrations/docs"
+            className="text-xs text-accent hover:underline mt-2 inline-block"
+          >
+            {t('integrations.mcp.servers.docsLink')}
+          </Link>
         </div>
         <Button size="sm" className="shrink-0 gap-1.5" onClick={() => openDialog('custom_mcp')}>
           <Plus size={14} />

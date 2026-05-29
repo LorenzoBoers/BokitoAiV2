@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { History, RefreshCw, Sparkles } from 'lucide-react'
+import { History, Lock, LockOpen, RefreshCw, Sparkles } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import {
   Dialog,
@@ -13,26 +13,29 @@ import {
   DialogTrigger,
 } from '../components/ui/dialog'
 import { Textarea } from '../components/ui/textarea'
-import { BlockEditor } from '../components/doc/BlockEditor'
+import { BlockEditor, type DocEditorSaveStatus } from '../components/doc/BlockEditor'
+import { BlockList } from '../components/doc/BlockRenderer'
+import { DocSaveIndicator } from '../components/doc/DocSaveIndicator'
 import { PageTree } from '../components/doc/PageTree'
 import { RevisionPanel } from '../components/doc/RevisionPanel'
 import { useWorkspaceDocNav } from '../context/WorkspaceDocNavContext'
-import { listWorkspacePageBlocks, createWorkspaceDocChangeRequest } from '../lib/workspace-doc-api'
+import { listWorkspacePageBlocks, createWorkspaceDocChangeRequest, patchWorkspaceDocPage } from '../lib/workspace-doc-api'
 import type { DocBlockRow, DocPageRow } from '../lib/doc-api'
 import {
   WORKSPACE_DOC_SCAFFOLD_PAGES,
   seedWorkspacePageStarterBlocks,
 } from '../lib/workspace-doc-scaffold'
+import { newBlockId } from '../lib/doc-blocks'
 import { cn } from '../lib/utils'
 
 function buildFallbackScaffoldBlocks(page: DocPageRow): DocBlockRow[] {
   const def = WORKSPACE_DOC_SCAFFOLD_PAGES.find((item) => item.slug === page.slug)
   if (!def) return []
   const now = new Date().toISOString()
-  const mkId = (suffix: string) => `${page.id}-${suffix}`
+  const mkId = () => newBlockId()
   return [
     {
-      id: mkId('fallback-h1'),
+      id: mkId(),
       tenant_id: page.tenant_id,
       project_id: '',
       page_id: page.id,
@@ -49,7 +52,7 @@ function buildFallbackScaffoldBlocks(page: DocPageRow): DocBlockRow[] {
       updated_at: now,
     },
     {
-      id: mkId('fallback-callout'),
+      id: mkId(),
       tenant_id: page.tenant_id,
       project_id: '',
       page_id: page.id,
@@ -66,7 +69,7 @@ function buildFallbackScaffoldBlocks(page: DocPageRow): DocBlockRow[] {
       updated_at: now,
     },
     {
-      id: mkId('fallback-p'),
+      id: mkId(),
       tenant_id: page.tenant_id,
       project_id: '',
       page_id: page.id,
@@ -92,7 +95,13 @@ export default function ProjectHubDocs() {
   const docNav = useWorkspaceDocNav()
 
   const [blocks, setBlocks] = useState<DocBlockRow[]>([])
+  const [blocksRevision, setBlocksRevision] = useState(0)
   const [contentVersion, setContentVersion] = useState(0)
+  const [saveStatus, setSaveStatus] = useState<DocEditorSaveStatus>({
+    phase: 'idle',
+    lastEditedAt: null,
+    lastSavedAt: null,
+  })
   const [loadingBlocks, setLoadingBlocks] = useState(false)
   const [blocksError, setBlocksError] = useState<string | null>(null)
   const [revisionRefresh, setRevisionRefresh] = useState(0)
@@ -101,6 +110,7 @@ export default function ProjectHubDocs() {
   const [agentBody, setAgentBody] = useState('')
   const [agentBusy, setAgentBusy] = useState(false)
   const [agentMessage, setAgentMessage] = useState<string | null>(null)
+  const [lockBusy, setLockBusy] = useState(false)
 
   const sortedPages = useMemo(
     () => [...docNav.pages].sort((a, b) => a.position - b.position),
@@ -131,11 +141,13 @@ export default function ProjectHubDocs() {
         setContentVersion(res.page.content_version ?? 0)
         if (res.blocks.length > 0) {
           setBlocks(res.blocks)
+          setBlocksRevision((n) => n + 1)
           return
         }
         const def = WORKSPACE_DOC_SCAFFOLD_PAGES.find((p) => p.slug === activePage.slug)
         if (!def) {
           setBlocks([])
+          setBlocksRevision((n) => n + 1)
           return
         }
         try {
@@ -143,9 +155,11 @@ export default function ProjectHubDocs() {
           const again = await listWorkspacePageBlocks(activePage.id)
           setContentVersion(again.page.content_version ?? 0)
           setBlocks(again.blocks)
+          setBlocksRevision((n) => n + 1)
         } catch {
           // Keep docs readable while backend seed endpoint is recovering.
           setBlocks(buildFallbackScaffoldBlocks(activePage))
+          setBlocksRevision((n) => n + 1)
           setBlocksError(null)
         }
       })
@@ -157,12 +171,17 @@ export default function ProjectHubDocs() {
 
   useEffect(() => {
     reloadBlocks()
-  }, [reloadBlocks])
+  }, [reloadBlocks, docNav.handbookRevision])
 
-  const onSaved = useCallback((_: DocBlockRow[], meta?: { contentVersion?: number }) => {
+  useEffect(() => {
+    setSaveStatus({ phase: 'idle', lastEditedAt: null, lastSavedAt: null })
+  }, [activePage?.id])
+
+  const onSaved = useCallback((savedBlocks: DocBlockRow[], meta?: { contentVersion?: number }) => {
     if (typeof meta?.contentVersion === 'number') {
       setContentVersion(meta.contentVersion)
     }
+    setBlocks(savedBlocks)
     setRevisionRefresh((n) => n + 1)
   }, [])
 
@@ -183,6 +202,18 @@ export default function ProjectHubDocs() {
       setAgentMessage(err instanceof Error ? err.message : t('projectHub.docs.agentRequestFailed'))
     } finally {
       setAgentBusy(false)
+    }
+  }
+
+  const togglePageLock = async () => {
+    if (!activePage) return
+    setLockBusy(true)
+    try {
+      await patchWorkspaceDocPage(activePage.id, { is_locked: !activePage.is_locked })
+      await docNav.refresh()
+      setSaveStatus({ phase: 'idle', lastEditedAt: null, lastSavedAt: null })
+    } finally {
+      setLockBusy(false)
     }
   }
 
@@ -277,11 +308,12 @@ export default function ProjectHubDocs() {
               docScope="workspace"
               enablePageCrud
               onPagesChanged={() => void docNav.refresh()}
+              onPageCreated={(page) => navigate(`/projects/docs/${page.slug}`)}
             />
           </div>
         </aside>
 
-        <article className="min-w-0 flex-1 pb-8">
+        <article className="min-w-0 flex-1 pb-8 max-w-3xl">
           <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-border/50 pb-5">
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
@@ -290,8 +322,28 @@ export default function ProjectHubDocs() {
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-text-heading sm:text-3xl">
                 {activePage.title}
               </h1>
+              {activePage.is_locked ? (
+                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-status-warning/40 bg-status-warning/10 px-2.5 py-0.5 text-xs font-medium text-status-warning">
+                  <Lock size={12} aria-hidden />
+                  {t('project.doc.lockedBadge')}
+                </span>
+              ) : !loadingBlocks && !blocksError ? (
+                <DocSaveIndicator status={saveStatus} className="mt-2" />
+              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
+              <Button
+                size="sm"
+                variant={activePage.is_locked ? 'secondary' : 'ghost'}
+                className="gap-1.5"
+                disabled={lockBusy}
+                onClick={() => void togglePageLock()}
+              >
+                {activePage.is_locked ? <LockOpen size={14} /> : <Lock size={14} />}
+                {activePage.is_locked
+                  ? t('project.doc.pageCrud.unlock')
+                  : t('project.doc.pageCrud.lock')}
+              </Button>
               <Dialog open={agentOpen} onOpenChange={setAgentOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" variant="secondary" className="gap-1.5">
@@ -374,17 +426,33 @@ export default function ProjectHubDocs() {
               </Button>
             </div>
           ) : activePage.is_locked ? (
-            <div className="rounded-lg border border-status-warning/30 bg-status-warning/8 p-4 text-sm text-text-secondary">
-              <p className="font-medium text-text-primary">{t('project.doc.lockedTitle')}</p>
-              <p className="mt-1 text-text-muted">{t('project.doc.lockedHint')}</p>
+            <div className="space-y-6">
+              <div className="rounded-lg border border-status-warning/30 bg-status-warning/8 px-4 py-3 text-sm">
+                <p className="font-medium text-text-primary">{t('project.doc.lockedTitle')}</p>
+                <p className="mt-1 text-text-muted">{t('project.doc.lockedHint')}</p>
+              </div>
+              {blocks.length > 0 ? (
+                <BlockList blocks={blocks} />
+              ) : (
+                <p className="text-sm text-text-muted">{t('project.doc.empty')}</p>
+              )}
             </div>
           ) : (
             <BlockEditor
+              key={`${activePage.id}-${blocksRevision}`}
               pageId={activePage.id}
               docScope="workspace"
               initialBlocks={blocks}
               contentVersion={contentVersion}
               onSaved={onSaved}
+              onSaveStatusChange={setSaveStatus}
+              onError={() =>
+                setSaveStatus((prev) => ({
+                  ...prev,
+                  phase: 'error',
+                  errorMessage: t('project.doc.editor.saveFailed'),
+                }))
+              }
               onVersionConflict={() => reloadBlocks()}
             />
           )}

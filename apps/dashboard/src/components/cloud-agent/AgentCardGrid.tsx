@@ -1,5 +1,6 @@
-import { Bot, Gauge, Cpu } from 'lucide-react'
+import { Gauge, Cpu } from 'lucide-react'
 import type { CloudAgent } from '../../types'
+import { AiAvatar } from '../ui/AiAvatar'
 
 const statusLabel: Record<CloudAgent['status'], string> = {
   active: 'Actief',
@@ -41,9 +42,7 @@ export default function AgentCardGrid({
           >
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-9 h-9 rounded-md bg-accent-subtle flex items-center justify-center flex-shrink-0">
-                  <Bot size={18} className="text-accent" />
-                </div>
+                <AiAvatar name={agent.name} seed={agent.id} size={36} />
                 <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-text-heading truncate">
                     {agent.name}

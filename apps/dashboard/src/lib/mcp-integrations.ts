@@ -55,7 +55,11 @@ export async function listMcpProviders(): Promise<IntegrationProviderRow[]> {
   return providers.filter(isMcpProvider)
 }
 
-function authTypeFromMetadata(metadata?: Record<string, unknown>): McpAuthType {
+function authTypeFromMetadata(
+  metadata?: Record<string, unknown>,
+  providerAuth?: string,
+): McpAuthType {
+  if (providerAuth === 'mcp_remote_oauth') return 'bearer'
   const raw = metadata?.auth_type
   return raw === 'bearer' ? 'bearer' : 'api_key'
 }
@@ -74,6 +78,10 @@ function endpointForRow(
   if (provider.slug === 'bjorn_lunden_mcp') {
     return 'Bjorn Lunden MCP'
   }
+  const remoteUrl =
+    (connection.metadata?.mcp_remote_url as string | undefined) ??
+    (bindingConfig?.mcp_remote_url as string | undefined)
+  if (remoteUrl) return remoteUrl
   const url = bindingConfig?.server_url as string | undefined
   return url ?? provider.name
 }
@@ -155,7 +163,7 @@ export async function listMcpIntegrationRows(
         providerName: provider.name,
         displayName: connection.display_name,
         endpoint: endpointForRow(provider, connection, bindingConfig),
-        authLabel: authTypeFromMetadata(connection.metadata),
+        authLabel: authTypeFromMetadata(connection.metadata, provider.auth_type),
         status: connection.status,
         mcpServerId: mcpServerId != null ? mcpServerId : undefined,
         createdAt: connection.created_at,

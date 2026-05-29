@@ -70,11 +70,51 @@ export async function applyWorkspaceBlockOps(
     expectedVersion?: number
   },
 ): Promise<{ applied: DocBlockRow[]; page_id: string; content_version?: number }> {
-  return xanoPostWorkforce(workspaceDocRoutes.blocks(pageId), {
-    ops,
-    actor_label: options?.actorLabel,
-    expected_version: options?.expectedVersion,
-  })
+  const sanitizedOps = ops
+    .map((op) => {
+      if (op.op === 'create') {
+        const next: BlockOp = {
+          op: 'create',
+          id: op.id,
+          type: op.type,
+          text: op.text ?? [],
+          props: op.props ?? {},
+          position: op.position,
+        }
+        if (op.parent_block_id) next.parent_block_id = op.parent_block_id
+        return next
+      }
+      if (op.op === 'update') {
+        if (!op.id) return null
+        const next: BlockOp = { op: 'update', id: op.id }
+        if (op.type != null) next.type = op.type
+        if (op.text != null) next.text = op.text
+        if (op.props != null) next.props = op.props
+        return next
+      }
+      if (op.op === 'move') {
+        if (!op.id) return null
+        const next: BlockOp = { op: 'move', id: op.id, position: op.position }
+        if (op.parent_block_id) next.parent_block_id = op.parent_block_id
+        return next
+      }
+      if (op.op === 'delete') {
+        if (!op.id) return null
+        return { op: 'delete', id: op.id }
+      }
+      return op
+    })
+    .filter((op): op is BlockOp => op != null)
+
+  const body: Record<string, unknown> = {
+    ops: sanitizedOps,
+  }
+  if (options?.actorLabel) body.actor_label = options.actorLabel
+  if (typeof options?.expectedVersion === 'number') {
+    body.expected_version = options.expectedVersion
+  }
+
+  return xanoPostWorkforce(workspaceDocRoutes.blocks(pageId), body)
 }
 
 export class WorkspaceDocVersionConflictError extends Error {
@@ -106,6 +146,7 @@ export async function createWorkspaceDocPage(input: {
   kind?: DocPageKind
   icon?: string
   parent_page_id?: string | null
+  position?: number
 }): Promise<DocPageRow> {
   return xanoPostWorkforce<DocPageRow>(workspaceDocRoutes.pages(), input)
 }
@@ -122,7 +163,11 @@ export async function patchWorkspaceDocPage(
     is_locked: boolean
   }>,
 ): Promise<DocPageRow> {
-  return xanoPatchWorkforce<DocPageRow>(workspaceDocRoutes.page(pageId), patch)
+  const { is_locked, ...rest } = patch
+  const body: Record<string, unknown> = { ...rest }
+  if (is_locked === true) body.lock_action = 'lock'
+  else if (is_locked === false) body.lock_action = 'unlock'
+  return xanoPatchWorkforce<DocPageRow>(workspaceDocRoutes.page(pageId), body)
 }
 
 export async function deleteWorkspaceDocPage(pageId: string): Promise<void> {

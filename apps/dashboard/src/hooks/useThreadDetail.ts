@@ -14,8 +14,29 @@ import {
   type ReplyInput,
 } from '../lib/inbox-api'
 
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function buildReplyHtml(bodyText: string, signatureImageUrl: string): string {
+  const text = bodyText.trim()
+  const content = escapeHtml(text).replace(/\n/g, '<br/>')
+  const safeUrl = escapeHtml(signatureImageUrl)
+  return [
+    `<div>${content || '&nbsp;'}</div>`,
+    '<div style="margin-top:16px;">',
+    `<img src="${safeUrl}" alt="Signature" style="display:block;max-width:260px;height:auto;" />`,
+    '</div>',
+  ].join('')
+}
+
 export function useThreadDetail(threadId: number | null, pinnedIds: number[] = []) {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [rawDetail, setRawDetail] = useState<ThreadDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -84,7 +105,15 @@ export function useThreadDetail(threadId: number | null, pinnedIds: number[] = [
       if (!token || !threadId) return
       setSaving(true)
       try {
-        const msg = await replyToThread(token, threadId, input)
+        const signatureImageUrl =
+          user?.signatureUrl?.trim() ||
+          user?.tenant?.logo?.trim() ||
+          '/bokito-logo.svg'
+        const bodyHtml =
+          input.bodyHtml && input.bodyHtml.trim()
+            ? input.bodyHtml
+            : buildReplyHtml(input.bodyText, signatureImageUrl)
+        const msg = await replyToThread(token, threadId, { ...input, bodyHtml })
         if (msg) {
           setRawDetail((prev) =>
             prev
@@ -104,7 +133,7 @@ export function useThreadDetail(threadId: number | null, pinnedIds: number[] = [
         setSaving(false)
       }
     },
-    [token, threadId],
+    [token, threadId, user?.signatureUrl, user?.tenant?.logo],
   )
 
   const addNote = useCallback(

@@ -1,7 +1,7 @@
 // POST /api:workforce/runs/context - worker body auth.
 // Returns the agent config + project context the runner needs to assemble
-// RUN_CONFIG_JSON. Includes project_name and project_autonomous_scope so the
-// PO can substitute them into its system prompt and reason about the project.
+// RUN_CONFIG_JSON. Includes project_name + autonomous_scope and the highest
+// priority pending Blueprint change request for deterministic PO planning.
 query "runs/context" verb=POST {
   api_group = "workforce"
 
@@ -41,9 +41,9 @@ query "runs/context" verb=POST {
       value = ($proj_rows|count) > 0 ? ($proj_rows|first) : null
     }
 
-    db.query pkb_sections {
-      where = $db.pkb_sections.project_id == $input.project_id && $db.pkb_sections.layer == "change_queue" && $db.pkb_sections.change_status == "pending"
-      sort = {pkb_sections.priority: "asc"}
+    db.query doc_change_requests {
+      where = $db.doc_change_requests.project_id == $input.project_id && ($db.doc_change_requests.status == "pending" || $db.doc_change_requests.status == "in_progress")
+      sort = {doc_change_requests.priority: "asc", doc_change_requests.created_at: "asc"}
       return = {type: "list", paging: {page: 1, per_page: 5}}
     } as $queue_rows
 
@@ -64,9 +64,11 @@ query "runs/context" verb=POST {
         project_name            : $project != null ? $project.name : ""
         project_autonomous_scope: $project != null ? $project.autonomous_scope : ""
         tenant_id               : $project != null ? $project.tenant_id : null
-        subject                 : $first_queue != null ? ($first_queue.title != null ? $first_queue.title : "Agent run") : "Agent run"
-        body                    : $first_queue != null ? ($first_queue.content != null ? $first_queue.content : "") : ""
-        change_queue_section_id : $first_queue != null ? $first_queue.id : null
+        subject                 : $first_queue != null ? ($first_queue.title != null ? $first_queue.title : "Blueprint change request") : "Agent run"
+        body                    : $first_queue != null ? ($first_queue.body != null ? $first_queue.body : "") : ""
+        blueprint_change_request_id: $first_queue != null ? $first_queue.id : null
+        blueprint_change_scope  : $first_queue != null ? "project" : null
+        blueprint_target_page_id: $first_queue != null ? $first_queue.target_page_id : null
         thread_id               : $input.work_log_id
       }
     }

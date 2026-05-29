@@ -8,8 +8,6 @@ export function countForBadgeSlot(counts: NavBadgeCounts, slot: NavBadgeSlot | u
       return counts.inboxUnread
     case 'agents':
       return counts.agentsAttention
-    case 'home':
-      return counts.homeTotal
     case 'messages':
       return counts.inboxUnread
     case 'projectsAttention':

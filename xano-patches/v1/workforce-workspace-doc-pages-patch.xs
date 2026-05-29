@@ -5,14 +5,16 @@ query "workspace/doc/pages/{page_id}" verb=PATCH {
   auth = "user"
 
   input {
-        uuid page_id
+    uuid page_id
     text title? filters=trim
     text kind?
     text icon?
     uuid parent_page_id?
     int position?
     bool is_pinned?
-    bool is_locked?
+    enum lock_action? {
+      values = ["lock", "unlock"]
+    }
   }
 
   stack {
@@ -26,31 +28,47 @@ query "workspace/doc/pages/{page_id}" verb=PATCH {
       error = "No organisation context."
     }
 
-    db.query workspace_doc_pages {
-      where = $db.workspace_doc_pages.id == $input.page_id && $db.workspace_doc_pages.tenant_id == $me.organisation_id
-      return = {type: "list", paging: {page: 1, per_page: 1}}
-    } as $page_rows
+    db.get workspace_doc_pages {
+      field_name = "id"
+      field_value = $input.page_id
+    } as $page
 
-    precondition (($page_rows|count) > 0) {
+    precondition ($page != null && $page.tenant_id == $me.organisation_id) {
       error_type = "inputerror"
       error = "Page not found."
     }
 
-    var $page {
-      value = $page_rows|first
+    var $next_locked {
+      value = $page|get:"is_locked" == true
+    }
+
+    conditional {
+      if ($input.lock_action == "lock") {
+        var.update $next_locked {
+          value = true
+        }
+      }
+    }
+
+    conditional {
+      if ($input.lock_action == "unlock") {
+        var.update $next_locked {
+          value = false
+        }
+      }
     }
 
     db.edit workspace_doc_pages {
       field_name = "id"
       field_value = $input.page_id
       data = {
-        title         : $input.title != null && ($input.title|strlen) > 0 ? $input.title : $page.title
-        kind          : $input.kind != null ? $input.kind : $page.kind
-        icon          : $input.icon != null ? $input.icon : $page.icon
-        parent_page_id: $input.parent_page_id != null ? $input.parent_page_id : $page.parent_page_id
-        position      : $input.position != null ? $input.position : $page.position
-        is_pinned     : $input.is_pinned != null ? $input.is_pinned : $page.is_pinned
-        is_locked     : $input.is_locked != null ? $input.is_locked : $page.is_locked
+        title         : $input.title != null && ($input.title|strlen) > 0 ? $input.title : ($page|get:"title")
+        kind          : $input.kind != null ? $input.kind : ($page|get:"kind")
+        icon          : $input.icon != null ? $input.icon : ($page|get:"icon")
+        parent_page_id: $input.parent_page_id != null ? $input.parent_page_id : ($page|get:"parent_page_id")
+        position      : $input.position != null ? $input.position : ($page|get:"position")
+        is_pinned     : $input.is_pinned != null ? $input.is_pinned : ($page|get:"is_pinned")
+        is_locked     : $next_locked
         updated_at    : now
       }
     } as $updated

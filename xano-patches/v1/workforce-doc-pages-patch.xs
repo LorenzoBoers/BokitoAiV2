@@ -13,7 +13,9 @@ query "projects/{project_id}/doc/pages/{page_id}" verb=PATCH {
     uuid parent_page_id?
     int position?
     bool is_pinned?
-    bool is_locked?
+    enum lock_action? {
+      values = ["lock", "unlock"]
+    }
   }
 
   stack {
@@ -94,9 +96,17 @@ query "projects/{project_id}/doc/pages/{page_id}" verb=PATCH {
     }
 
     conditional {
-      if ($input.is_locked != null) {
+      if ($input.lock_action == "lock") {
         var.update $patch {
-          value = $patch|set:"is_locked":$input.is_locked
+          value = $patch|set:"is_locked":true
+        }
+      }
+    }
+
+    conditional {
+      if ($input.lock_action == "unlock") {
+        var.update $patch {
+          value = $patch|set:"is_locked":false
         }
       }
     }

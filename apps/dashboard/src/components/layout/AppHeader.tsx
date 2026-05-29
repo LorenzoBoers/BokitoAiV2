@@ -2,33 +2,27 @@ import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { Input } from '../ui/input'
-import InboxHeaderSearch from '../inbox/InboxHeaderSearch'
-import { getAiPageMeta, getIntegrationsPageMeta, getSettingsPageMeta, getSupportPageMeta } from './portal-nav'
-import { isInboxCommunicationRoute } from '../../context/InboxCommunicationContext'
+import { getAiPageMeta, getIntegrationsPageMeta, getSettingsPageMeta, getSupportPageMeta, getWorkforcePageMeta } from './portal-nav'
 import { useOptionalProjectContext } from '../../context/ProjectContext'
-import { useOptionalProjectDocNav } from '../../context/ProjectDocNavContext'
 import { useOptionalWorkspaceDocNav } from '../../context/WorkspaceDocNavContext'
 
 export default function AppHeader() {
   const { t } = useTranslation(['nav', 'common'])
   const { pathname } = useLocation()
-  const isInboxRoute = isInboxCommunicationRoute(pathname)
-  const showSettingsSearch = pathname.startsWith('/settings')
+  const showSearch = pathname.startsWith('/settings')
   const settingsPageMeta = getSettingsPageMeta(t)
   const integrationsPageMeta = getIntegrationsPageMeta(t)
   const aiPageMeta = getAiPageMeta(t)
+  const workforcePageMeta = getWorkforcePageMeta(t)
   const supportPageMeta = getSupportPageMeta(t)
   const integrationsSlug = pathname.startsWith('/integrations/') ? pathname.split('/')[2] ?? 'marketplace' : ''
 
-  const supportQueue = pathname.startsWith('/support/inbox/ch/')
-    ? pathname.split('/')[4] ?? 'all'
-    : pathname.split('/')[3] ?? 'all'
+  const supportQueue = pathname.split('/')[3] ?? 'all'
   const settingsSlug = pathname.split('/')[2] ?? ''
   const settingsDataSlug = pathname.startsWith('/settings/data/') ? pathname.split('/')[3] ?? '' : ''
   const userSlug = pathname.split('/')[2] ?? ''
 
   const projectCtx = useOptionalProjectContext()
-  const docNav = useOptionalProjectDocNav()
   const workspaceDocNav = useOptionalWorkspaceDocNav()
 
   const projectSection = pathname.match(/^\/project\/[^/]+\/([^/]+)/)?.[1]
@@ -36,15 +30,13 @@ export default function AppHeader() {
     projectSection === 'overview'
       ? t('project.links.overview', { defaultValue: 'Overview' })
       : projectSection === 'pkb' || projectSection === 'doc'
-        ? t('project.links.knowledge', { defaultValue: 'Documentation' })
+        ? t('project.links.knowledge', { defaultValue: 'Blueprint' })
         : projectSection === 'orchestration'
           ? t('project.links.orchestration', { defaultValue: 'Orchestration' })
           : projectSection === 'communication'
             ? t('project.links.communication', { defaultValue: 'Communication' })
             : projectSection === 'workforce'
-              ? pathname.match(/^\/project\/[^/]+\/workforce\/[^/]+/)
-                ? t('workforce.runs.detailTitle', { defaultValue: 'Run detail' })
-                : t('project.links.workforce', { defaultValue: 'Workforce history' })
+              ? t('project.links.workforce', { defaultValue: 'Workforce history' })
               : projectSection === 'usage'
                 ? t('project.links.usage', { defaultValue: 'Token usage' })
                 : projectSection === 'notifications'
@@ -60,15 +52,7 @@ export default function AppHeader() {
   let projectBreadcrumb: string | null = null
   if (projectSectionTitle) {
     const projectName = projectCtx?.project?.name ?? null
-    let docPageTitle: string | null = null
-    if (projectSection === 'doc') {
-      const slug = pathname.match(/^\/project\/[^/]+\/doc\/([^/]+)/)?.[1] ?? null
-      if (slug && docNav?.pages?.length) {
-        const match = docNav.pages.find((p) => p.slug === slug)
-        if (match) docPageTitle = match.title
-      }
-    }
-    const parts = [projectName, projectSectionTitle, docPageTitle].filter(
+    const parts = [projectName, projectSectionTitle].filter(
       (s): s is string => Boolean(s && s.trim()),
     )
     projectBreadcrumb = parts.length ? parts.join(' / ') : projectSectionTitle
@@ -124,10 +108,8 @@ export default function AppHeader() {
               : pathname.startsWith('/workspaces')
                 ? t('nav:fallbackTitles.workspaces')
               : pathname.startsWith('/ai/')
-                ? pathname.startsWith('/ai/agents')
-                  ? aiPageMeta.agents?.title ?? t('nav:ai.agents.pageTitle', { defaultValue: 'Agents' })
-                  : aiPageMeta[pathname.split('/')[2] ?? 'assistent']?.title ??
-                    t('nav:settingsPageMeta.messenger.title')
+                ? aiPageMeta[pathname.split('/')[2] ?? 'assistent']?.title ??
+                  t('nav:sectionTitle.workforce', { defaultValue: 'Workforce' })
                 : pathname.startsWith('/projects/new/') && pathname.includes('/connect')
                   ? t('nav:projects.header.connect', { defaultValue: 'Connect your code' })
                   : pathname.startsWith('/projects/new')
@@ -136,7 +118,12 @@ export default function AppHeader() {
                       ? t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
                       : pathname.startsWith('/integrations')
                         ? integrationsPageMeta[integrationsSlug]?.title ?? t('nav:sectionTitle.integrations')
-                        : pathname.startsWith('/data/')
+                        : pathname.startsWith('/admin/runs')
+                          ? t('nav:workforce.pageMeta.agents.title', { defaultValue: 'Your agents' })
+                          : pathname.startsWith('/workforce/')
+                            ? workforcePageMeta[pathname.split('/')[2] ?? 'agents']?.title ??
+                              t('nav:sectionTitle.workforce', { defaultValue: 'Workforce' })
+                          : pathname.startsWith('/data/')
                             ? pathname.startsWith('/data/sources')
                               ? t('nav:integrations.pageMeta.sources.title')
                               : t('nav:data.links.importsExports', { defaultValue: 'Import and export' })
@@ -148,20 +135,13 @@ export default function AppHeader() {
   return (
     <header
       className={`grid h-16 items-center gap-3 border-b border-border/55 px-5 pt-2 pb-3 ${
-        showSettingsSearch ? 'grid-cols-[1fr_minmax(280px,440px)]' : 'grid-cols-[1fr]'
+        showSearch ? 'grid-cols-[1fr_minmax(280px,440px)]' : 'grid-cols-[1fr]'
       }`}
     >
-      {isInboxRoute ? (
-        <div className="flex min-w-0 items-center gap-3">
-          <p className="truncate text-[16px] font-semibold text-text-heading shrink-0">{title}</p>
-          <InboxHeaderSearch />
-        </div>
-      ) : (
-        <div className="min-w-0">
-          <p className="truncate text-[16px] font-semibold text-text-heading">{title}</p>
-        </div>
-      )}
-      {showSettingsSearch ? (
+      <div className="min-w-0">
+        <p className="truncate text-[16px] font-semibold text-text-heading">{title}</p>
+      </div>
+      {showSearch ? (
         <div className="relative">
           <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <Input

@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react'
 import type { CloudAgent } from '../../types'
+import { AiAvatar } from '../ui/AiAvatar'
 
 const statusLabel: Record<CloudAgent['status'], string> = {
   active: 'Actief',
@@ -53,13 +54,12 @@ export default function AgentList({
                   : 'border-transparent hover:bg-bg-hover'
               }`}
             >
-              <div className="flex items-center justify-between gap-2 mb-0.5">
-                <span className="text-sm font-medium text-text-heading truncate">
-                  {agent.name}
+              <div className="mb-0.5 flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <AiAvatar name={agent.name} seed={agent.id} size={24} />
+                  <span className="truncate text-sm font-medium text-text-heading">{agent.name}</span>
                 </span>
-                <span
-                  className={`flex-shrink-0 text-2xs font-semibold px-1.5 py-0.5 rounded ${statusClass[agent.status]}`}
-                >
+                <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold ${statusClass[agent.status]}`}>
                   {statusLabel[agent.status]}
                 </span>
               </div>

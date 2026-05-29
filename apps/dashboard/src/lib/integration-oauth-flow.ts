@@ -6,7 +6,7 @@ import {
   type IntegrationOAuthStrategy,
   type ProviderRegistryEntry,
 } from './integrations/registry'
-import { startIntegrationOAuth } from './integrations-api'
+import { startIntegrationOAuth, startMcpRemoteOAuth } from './integrations-api'
 
 export async function startProviderOAuth(
   entry: ProviderRegistryEntry,
@@ -40,6 +40,10 @@ export async function startProviderOAuth(
         returnUrl,
         options?.projectId,
       )
+      return authorize_url
+    }
+    case 'mcp_remote': {
+      const { authorize_url } = await startMcpRemoteOAuth(entry.platformSlug, returnUrl)
       return authorize_url
     }
     default: {

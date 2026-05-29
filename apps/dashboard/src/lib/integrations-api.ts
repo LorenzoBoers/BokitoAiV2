@@ -6,7 +6,7 @@ import {
   xanoPostIntegrations,
 } from './xano'
 
-export type IntegrationAuthType = 'oauth2' | 'api_key' | 'none'
+export type IntegrationAuthType = 'oauth2' | 'api_key' | 'mcp_remote_oauth' | 'none'
 export type IntegrationProviderStatus = 'available' | 'coming_soon' | 'deprecated'
 
 export interface IntegrationHostRow {
@@ -33,6 +33,9 @@ export interface IntegrationProviderRow {
   host?: IntegrationHostRow | null
   logo_meta?: { initials?: string; color?: string }
   sort_order?: number
+  mcp_remote_url?: string | null
+  mcp_transport?: string | null
+  oauth_profile?: Record<string, unknown> | null
 }
 
 export interface IntegrationConnectionRow {
@@ -99,6 +102,13 @@ export async function startIntegrationOAuth(
   projectId?: string,
 ): Promise<{ authorize_url: string; provider: string }> {
   return xanoGetIntegrations(integrationsRoutes.platform.oauthStart(provider, returnUrl, projectId))
+}
+
+export async function startMcpRemoteOAuth(
+  provider: string,
+  returnUrl: string,
+): Promise<{ authorize_url: string; provider: string; state?: string }> {
+  return xanoGetIntegrations(integrationsRoutes.platform.mcpOAuthStart(provider, returnUrl))
 }
 
 export async function revokeIntegrationConnection(connectionId: string): Promise<void> {

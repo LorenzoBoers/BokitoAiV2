@@ -11,7 +11,6 @@
     "users": "Users",
     "settings": "Settings",
     "projects": "Projects",
-    "workspace": "Workspace",
     "pkb": "Project",
     "changeRequest": "Request",
     "messages": "Messages"
@@ -29,11 +28,11 @@
     "data": "Data",
     "project": "Project",
     "projects": "Projects",
-    "projectHub": "Workspace"
+    "projectHub": "Project hub"
   },
   "home": {
     "title": "Home",
-    "description": "Workspace overview: recent projects, inbox, and agent runs.",
+    "description": "Workspace overview: recent projects, inbox, and combined activity.",
     "group": {
       "overview": "Overview"
     },
@@ -56,6 +55,22 @@
       "title": "Recent agent runs",
       "viewAll": "All runs",
       "empty": "No agent runs yet."
+    },
+    "activity": {
+      "title": "Recent activity",
+      "empty": "No activity yet.",
+      "unknown": "-",
+      "crossProject": "Cross-project",
+      "fallbackMessage": "Message update",
+      "actorSystem": "System",
+      "actorAgent": "Agent",
+      "actionRun": "Run",
+      "labels": {
+        "actor": "Actor",
+        "agent": "Agent",
+        "workstream": "Workstream",
+        "action": "Action"
+      }
     }
   },
   "data": {
@@ -87,7 +102,7 @@
     "homeTotal": "{{count}} items need attention",
     "railInbox": "Inbox ({{count}} unread)",
     "railAgents": "Agents ({{count}} open)",
-    "railProjects": "Workspace ({{count}} open)",
+    "railProjects": "Project hub ({{count}} open)",
     "railHome": "Home ({{count}})",
     "railMessages": "Messages ({{count}} unread)",
     "ariaInbox": "{{count}} unread messages",
@@ -99,9 +114,12 @@
     }
   },
   "backgroundWorkers": {
-    "label": "Background workers",
-    "loading": "Loading workers…",
-    "empty": "No workers yet.",
+    "label": "Workstreams",
+    "loading": "Loading workstreams…",
+    "empty": "No workstreams yet.",
+    "apiUnavailable": "Workstreams are not available yet. Try refreshing in a moment.",
+    "lastActive": "Last active {{time}}",
+    "notActiveYet": "Not active yet",
     "newProject": "New project",
     "showMore": "Show {{count}} more",
     "showLess": "Show less",
@@ -133,21 +151,28 @@
     }
   },
   "projectHub": {
-    "group": {
-      "nav": "Workspace"
-    },
-    "description": "Central documentation, ongoing projects, and agent communication in one place.",
-    "tabsAriaLabel": "Workspace navigation",
+    "description": "Central Blueprint, ongoing projects, and agent communication in one place.",
+    "tabsAriaLabel": "Project hub navigation",
     "tabs": {
       "overview": "Overview",
-      "docs": "Documentation",
+      "docs": "Blueprint",
       "projects": "Projects",
       "communication": "Communication"
     },
     "quick": {
       "newProject": "New project",
-      "openDocs": "Open documentation",
+      "openDocs": "Open Blueprint",
       "openCommunication": "Open communication"
+    },
+    "selector": {
+      "label": "Current project",
+      "placeholder": "Select project",
+      "none": "No projects available"
+    },
+    "settingsLink": "Project settings",
+    "po": {
+      "label": "Project PO",
+      "none": "No PO agent linked to this project yet."
     },
     "backgroundProjects": {
       "label": "Background projects",
@@ -168,14 +193,14 @@
       "recentRunsTitle": "Recent agent runs"
     },
     "docs": {
-      "menuLabel": "Documentation",
+      "menuLabel": "Blueprint",
       "group": "Pages",
       "chaptersLabel": "Chapters",
       "treeEmpty": "No pages yet. Refresh to seed default chapters.",
-      "emptyTitle": "No documentation pages",
-      "emptyDescription": "Workspace documentation could not be loaded or has no pages yet. Retry after the backend is deployed.",
+      "emptyTitle": "No Blueprint pages",
+      "emptyDescription": "Workspace Blueprint could not be loaded or has no pages yet. Retry after the backend is deployed.",
       "agentEdit": "Ask agent",
-      "agentEditTitle": "Request documentation update",
+      "agentEditTitle": "Request Blueprint update",
       "agentEditDescription": "Describe the changes you want on this page. A product-owner agent run will be queued.",
       "agentEditPlaceholder": "For example: Add a section about our refund policy under Operations.",
       "agentEditSubmit": "Send request",
@@ -240,41 +265,13 @@
   "ai": {
     "group": {
       "ai": "AI",
-      "assistent": "Assistant",
-      "agents": "Agents"
+      "assistent": "Assistant"
     },
     "links": {
       "assistent": "Assistants",
       "widget": "Widget",
       "kennis": "AI sources",
-      "communication": "AI communication",
-      "agents": "Agents"
-    },
-    "agents": {
-      "pageTitle": "Agents",
-      "pageDescription": "Manage workforce agents and inspect run history per agent.",
-      "listDescription": "Open an agent to see its run history and live logs.",
-      "loading": "Loading agents…",
-      "loadError": "Could not load agents.",
-      "detailLoadError": "Could not load agent history.",
-      "empty": "No agents configured for this workspace.",
-      "notFound": "Agent not found.",
-      "roleUnknown": "Agent",
-      "backToList": "Back to agents",
-      "backToAgent": "Back to agent",
-      "historyTitle": "Run history",
-      "historyDescription": "Runs started by this agent across all projects.",
-      "status": {
-        "active": "Active",
-        "standby": "Standby",
-        "sleeping": "Sleeping",
-        "error": "Error"
-      },
-      "sidebar": {
-        "loading": "Loading agents…",
-        "showMore": "Show {{count}} more",
-        "showLess": "Show less"
-      }
+      "communication": "AI communication"
     },
     "pageMeta": {
       "communication": {
@@ -334,6 +331,7 @@
       "sources": "Sources",
       "connections": "Connected",
       "mcp": "MCP",
+      "docs": "Documentation",
       "api": "API keys"
     },
     "kindNav": {
@@ -383,7 +381,8 @@
       "capability": {
         "inbox_sync": "Inbox sync",
         "repo_index": "Repository indexing",
-        "mcp_tools": "MCP tools for agents"
+        "mcp_tools": "MCP tools for agents",
+        "remote_mcp": "Remote MCP (OAuth)"
       },
       "setup": {
         "title": "Set up {{name}}",
@@ -396,8 +395,19 @@
         "oauthLoginRequired": "Sign in to Bokito first to continue.",
         "successGithub": "GitHub account connected successfully.",
         "successInbox": "Mailbox connected successfully.",
+        "successRemoteMcp": "Remote MCP connection saved successfully.",
+        "comingSoonRemoteMcp": "This provider is not enabled on the platform yet. An administrator must configure OAuth before you can connect.",
+        "remoteMcpEndpoint": "MCP endpoint",
         "error": "Connection failed. Please try again."
       }
+    },
+    "application": {
+      "offerCount": "{{count}} connection types",
+      "offerCount_one": "{{count}} connection type",
+      "manage": "Manage",
+      "hubSubtitle": "Choose how you want to connect ({{count}} options).",
+      "connectionTypes": "Connection types",
+      "connectedShort": "Connected"
     },
     "marketplace": {
       "connectedCount": "{{count}} connected",
@@ -440,6 +450,10 @@
         "title": "MCP servers",
         "description": "Configure external MCP servers and connect Bokito MCP to AI clients."
       },
+      "docs": {
+        "title": "Integrations documentation",
+        "description": "How marketplace connections work, including remote MCP OAuth providers."
+      },
       "api": {
         "title": "API keys",
         "description": "Developer keys for programmatic access."
@@ -448,6 +462,27 @@
         "title": "Sources",
         "description": "Indexed documentation and knowledge sources for AI agents."
       }
+    },
+    "docs": {
+      "overviewTitle": "Integrations overview",
+      "overviewBody": "The marketplace lists communication (Outlook, Gmail), repository (GitHub), API-key MCP servers, and vendor-hosted remote MCP integrations. Connected integrations appear under Connected and on the MCP tab when they expose tools to agents.",
+      "remoteMcpTitle": "Remote MCP OAuth",
+      "remoteMcpBody": "Official providers (Notion, Linear, Slack, and others) host their own MCP server. Bokito starts OAuth in the browser, stores tokens per workspace, and agents receive a bearer token when calling vendor tools.",
+      "remoteMcpStep1": "Open Marketplace, filter MCP, and choose a provider.",
+      "remoteMcpStep2": "Select Set up connection and complete OAuth at the vendor.",
+      "remoteMcpStep3": "Verify the connection under Connected or MCP servers.",
+      "catalogTitle": "Remote MCP catalog",
+      "catalogHint": "Cards marked Coming soon need platform OAuth configuration before connect is available.",
+      "wave1": "Wave 1",
+      "openInMarketplace": "Open in Marketplace",
+      "existingTitle": "Other connection types",
+      "existingGithub": "GitHub repository indexing uses a separate OAuth flow (not the GitHub MCP card).",
+      "existingInbox": "Outlook and Gmail use inbox OAuth; mailboxes are managed under Settings.",
+      "existingApiKeyMcp": "Bjorn Lunden MCP and Custom MCP use an API key or URL instead of remote OAuth.",
+      "adminTitle": "Platform requirements",
+      "adminBody": "Remote MCP requires the integrations API patches, runtime OAuth service, and per-vendor OAuth apps. Until configured, providers stay in Coming soon status.",
+      "devTitle": "Developer documentation (repository)",
+      "devBody": "Technical setup guides live in the GitHub repository for engineers deploying Xano and runtime:"
     },
     "sources": {
       "description": "Indexed documentation and knowledge sources for AI agents. Sources become searchable as soon as indexing is active.",
@@ -464,6 +499,7 @@
       "servers": {
         "title": "MCP connections",
         "description": "Install and manage MCP servers that Bokito agents can call in this workspace.",
+        "docsLink": "Read integrations documentation",
         "addTitle": "Add MCP server",
         "newConnection": "New MCP connection",
         "modalDescription": "Connect an external MCP server that Bokito agents can use in this workspace.",
@@ -535,18 +571,85 @@
   },
   "workforce": {
     "group": {
-      "workforce": "Workforce"
+      "workforce": "Workforce",
+      "platform": "Platform agents",
+      "operations": "Operations",
+      "yourAgents": "Your agents"
     },
     "links": {
       "overview": "Overview",
       "agents": "AI Agents",
+      "assistant": "Assistant agent",
+      "communication": "Communication agent",
+      "po": "PO agent",
+      "backgroundWorkers": "Workstreams",
+      "viewAllAgents": "View all agents",
       "tasks": "Tasks",
       "runs": "Runs"
     },
+    "po": {
+      "none": "No PO agent configured yet."
+    },
+    "agents": {
+      "listDescription": "Custom workforce agents for this workspace (platform agents are listed separately in the sidebar).",
+      "loading": "Loading agents…",
+      "loadError": "Could not load agents.",
+      "empty": "No custom agents yet.",
+      "sections": {
+        "po": "PO agents",
+        "workers": "Worker agents"
+      },
+      "types": {
+        "po": "PO",
+        "worker": "Worker"
+      },
+      "roleUnknown": "Unknown role",
+      "backToList": "Back to agents",
+      "backToAgent": "Back to agent",
+      "detailLoadError": "Could not load agent.",
+      "notFound": "Agent not found.",
+      "historyTitle": "Run history",
+      "historyDescription": "Recent runs for this agent.",
+      "sidebar": {
+        "loading": "Loading agents…",
+        "showLess": "Show less",
+        "showMore": "Show {{count}} more"
+      },
+      "status": {
+        "active": "Active",
+        "standby": "Standby",
+        "sleeping": "Sleeping",
+        "error": "Error"
+      }
+    },
+    "pageMeta": {
+      "agents": {
+        "title": "Your agents",
+        "description": "Configured workforce agents for this workspace."
+      },
+      "po": {
+        "title": "PO agents",
+        "description": "Product-owner orchestrators across projects."
+      },
+      "backgroundWorkers": {
+        "title": "Workstreams",
+        "description": "Composable workstreams per project with chained agent steps."
+      }
+    },
+    "backgroundWorkers": {
+      "description": "Design and review workstreams per project. Steps pass tasks between agents from input to output.",
+      "emptyTitle": "No workstreams yet",
+      "emptyDescription": "Create a project to set up your first workstream.",
+      "openProject": "Open project",
+      "summary": {
+        "working": "{{count}} working",
+        "attention": "{{count}} need attention",
+        "blocked": "{{count}} blocked"
+      }
+    },
     "runs": {
       "description": "Run history and live event stream for Bokito staff and workspace admins.",
-      "back": "Back to workforce history",
-      "detailTitle": "Run detail",
+      "back": "Back to all runs",
       "loading": "Loading runs…",
       "loadError": "Failed to load runs",
       "empty": "No agent runs yet.",
@@ -602,8 +705,8 @@
       "pages": "Pages"
     },
     "links": {
-      "overview": "Overview",
-      "knowledge": "Documentation",
+      "overview": "Workstreams",
+      "knowledge": "Blueprint",
       "orchestration": "Orchestration",
       "communication": "Communication",
       "workforce": "Workforce history",
@@ -620,11 +723,28 @@
       "notFound": "Project not found."
     },
     "overview": {
-      "title": "Recent updates",
-      "description": "Plain-language messages from your AI team about this project.",
+      "title": "Workstreams",
+      "description": "Manage project workstreams where PO and agents execute step-by-step flows.",
       "loading": "Loading…",
       "empty": "No updates yet. Submit a change request to get started.",
-      "viewAll": "View all project messages"
+      "viewAll": "View all project messages",
+      "streamsLabel": "Workstreams",
+      "addStream": "Add workstream",
+      "openStreamCommunication": "Open stream communication",
+      "openProjectCommunication": "Open project communication",
+      "wireframeBadge": "Wireframe",
+      "addStep": "Add step",
+      "dragPreview": "Drag preview",
+      "inputTitle": "Input",
+      "inputChip": "in: project context + PO trigger",
+      "stepLabel": "Step",
+      "agentLabel": "Agent",
+      "instructionLabel": "Instruction",
+      "toolsLabel": "Tools (tenant integrations)",
+      "selectTool": "Select tool",
+      "outputTitle": "Output",
+      "outputChip": "out: stream report to PO",
+      "emptySteps": "No steps configured for this workstream yet."
     },
     "messages": {
       "title": "Project messages",
@@ -644,6 +764,10 @@
       "title": "Communication",
       "description": "Updates and decisions between you and the agents working on this project.",
       "hubLink": "Open hub communication",
+      "filter": {
+        "all": "All project messages",
+        "stream": "Stream: {{stream}}"
+      },
       "tabs": {
         "pending": "Pending",
         "resolved": "Resolved"
@@ -745,6 +869,18 @@
       "code": {
         "title": "Your code",
         "description": "Connect a GitHub repository so your AI team can read the codebase, or skip until you are ready."
+      },
+      "danger": {
+        "title": "Danger zone",
+        "deleteTitle": "Delete this project",
+        "deleteDescription": "Permanently removes this project, its workstreams, and orchestration settings. Agents are unlinked but not deleted. This cannot be undone.",
+        "deleteButton": "Delete project",
+        "dialogTitle": "Delete project",
+        "dialogPrompt": "Type \"{{name}}\" to confirm deletion.",
+        "namePlaceholder": "Project name",
+        "confirmButton": "Delete permanently",
+        "deleting": "Deleting…",
+        "deleteError": "Could not delete project"
       }
     },
     "request": {
@@ -771,13 +907,13 @@
       "newProject": "New project"
     },
     "doc": {
-      "title": "Documentation",
-      "loading": "Loading documentation…",
-      "loadError": "Could not load documentation.",
-      "loadErrorDeploy": "Documentation backend not available yet. The platform team is rolling out the new docs API.",
+      "title": "Blueprint",
+      "loading": "Loading Blueprint…",
+      "loadError": "Could not load Blueprint.",
+      "loadErrorDeploy": "Blueprint backend not available yet. The platform team is rolling out the new docs API.",
       "empty": "This page has no blocks yet.",
-      "emptyDoc": "No documentation pages yet",
-      "emptyDocDescription": "New projects come with a starter template once the documentation backend is live.",
+      "emptyDoc": "No Blueprint pages yet",
+      "emptyDocDescription": "New projects come with a starter template once the Blueprint backend is live.",
       "addPage": "Add page",
       "requestChange": "Request a change",
       "history": "History",
@@ -790,6 +926,9 @@
       "pickPage": "Select a page from the sidebar to start reading.",
       "retry": "Retry",
       "treeEmpty": "No pages yet.",
+      "expandChapter": "Expand section",
+      "collapseChapter": "Collapse section",
+      "lockedBadge": "Locked",
       "pageCrud": {
         "menuAria": "Page actions",
         "addPage": "Add page",
@@ -801,15 +940,25 @@
         "delete": "Delete",
         "deleteConfirm": "Delete page \"{{title}}\"?",
         "newChild": "New child page",
-        "newSibling": "New sibling page"
+        "newSibling": "New sibling page",
+        "lock": "Lock page",
+        "unlock": "Unlock page",
+        "newPageDefault": "Page",
+        "dragPage": "Drag page",
+        "renameInline": "Page title",
+        "newRootInline": "New page title",
+        "newChildInline": "Child page title"
       },
       "lockedTitle": "This page is locked",
-      "lockedHint": "Unlock it from page settings to edit.",
+      "lockedHint": "Editing is disabled. Click Unlock in the header or use the page menu to make changes.",
       "revert": "Revert",
       "revertFailed": "Revert failed.",
       "editor": {
         "saving": "Saving…",
         "saved": "Saved {{time}}",
+        "savedShort": "Saved",
+        "lastEdited": "Last edited {{time}}",
+        "saveFailed": "Could not save changes",
         "dragBlock": "Drag block",
         "deleteBlock": "Delete block",
         "addBlockBelow": "Add block below",
@@ -827,7 +976,8 @@
         "quote": "Quote",
         "callout": "Callout",
         "code": "Code",
-        "default": "Type '/' for commands…"
+        "default": "Type here…",
+        "defaultHint": "Type '- ' for bullet, '1. ' for numbered, '#' for heading…"
       },
       "blockType": {
         "paragraph": "Text",

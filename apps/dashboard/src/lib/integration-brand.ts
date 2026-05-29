@@ -13,13 +13,35 @@ export type ResolvedIntegrationBrand = {
 /** Maps provider or catalog id to integration_hosts.slug for fallbacks. */
 export const PROVIDER_TO_HOST_SLUG: Record<string, string> = {
   github: 'github',
+  github_mcp: 'github',
+  'github-mcp': 'github',
   outlook: 'microsoft',
   'microsoft-365': 'microsoft',
+  microsoft_graph_mcp: 'microsoft',
+  'microsoft-graph-mcp': 'microsoft',
   gmail: 'google',
   'google-workspace': 'google',
   bjorn_lunden_mcp: 'bjorn_lunden',
   custom_mcp: 'custom',
   smtp_imap: 'smtp',
+  notion_mcp: 'notion',
+  notion: 'notion',
+  linear_mcp: 'linear',
+  linear: 'linear',
+  atlassian_mcp: 'atlassian',
+  atlassian: 'atlassian',
+  slack_mcp: 'slack',
+  slack: 'slack',
+  asana_mcp: 'asana',
+  asana: 'asana',
+  clickup_mcp: 'clickup',
+  clickup: 'clickup',
+  sentry_mcp: 'sentry',
+  sentry: 'sentry',
+  stripe_mcp: 'stripe',
+  stripe: 'stripe',
+  shopify_mcp: 'shopify',
+  shopify: 'shopify',
 }
 
 import { BRAND_ASSETS, BRAND_ASSET_PATHS, brandAssetUrl } from './brand-assets'
@@ -33,6 +55,15 @@ export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: s
   bjorn_lunden: { initials: 'BL', color: '#0f766e', name: 'Bjorn Lunden' },
   custom: { initials: 'MC', color: '#475569', name: 'Custom MCP' },
   smtp: { initials: 'SM', color: '#64748b', name: 'SMTP / IMAP' },
+  notion: { initials: 'NO', color: '#000000', name: 'Notion' },
+  linear: { initials: 'LN', color: '#5e6ad2', name: 'Linear' },
+  atlassian: { initials: 'AT', color: '#0052cc', name: 'Atlassian' },
+  slack: { initials: 'SL', color: '#4a154b', name: 'Slack' },
+  asana: { initials: 'AS', color: '#f06a6a', name: 'Asana' },
+  clickup: { initials: 'CU', color: '#7b68ee', name: 'ClickUp' },
+  sentry: { initials: 'SE', color: '#362d59', name: 'Sentry' },
+  stripe: { initials: 'ST', color: '#635bff', name: 'Stripe' },
+  shopify: { initials: 'SH', color: '#96bf48', name: 'Shopify' },
 }
 
 function imageUrlFromUnknown(value: unknown): string | null {

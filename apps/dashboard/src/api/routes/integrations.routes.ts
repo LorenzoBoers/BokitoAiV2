@@ -27,6 +27,15 @@ export const integrationsRoutes = {
     workerCredentials: '/integrations/worker/credentials',
     mcpBindings: '/integrations/mcp/bindings',
     mcpInstall: '/integrations/mcp/install',
+    mcpOAuthStart: (provider: string, returnUrl: string) => {
+      const params = new URLSearchParams({
+        provider,
+        return_url: returnUrl,
+      })
+      return withQuery('/integrations/mcp/oauth/start', params)
+    },
+    workerMcpCredentials: '/integrations/worker/mcp-credentials',
+    mcpOAuthRefresh: '/integrations/mcp/oauth/refresh',
   },
   email: {
     connections: {

@@ -14,7 +14,7 @@ type Props = {
 export function IntegrationSetupPanel({ integration, provider, onSaved, onBack }: Props) {
   const config = resolveSetupConfig(integration, provider)
 
-  if (config.mode === 'oauth2') {
+  if (config.mode === 'oauth2' || config.mode === 'remote_mcp_oauth') {
     return <IntegrationOAuthSetupPanel integration={integration} config={config} />
   }
 

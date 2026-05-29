@@ -5,7 +5,7 @@ Production-active cron tasks in the Xano workspace. Each task is defined in
 
 | Cron name | Schedule | Source | Purpose |
 | --- | --- | --- | --- |
-| `po_heartbeat_dispatcher` | every 60 minutes | `task-po-heartbeat.xs` | For each project with `autonomous_mode=true` and a PO agent, fire `POST {WORKER_BASE_URL}/agent/po/run`. Safety net so PO runs at least once per hour even if no `change_queue` activity. |
+| `po_heartbeat_dispatcher` | every 60 minutes | `task-po-heartbeat.xs` | For each project with `autonomous_mode=true` and a PO agent, fire `POST {WORKER_BASE_URL}/agent/po/run`. Safety net so PO runs at least once per hour even if no new Blueprint request arrives. |
 | `run_reaper` | every 5 minutes | `task-run-reaper.xs` | Mark `work_logs` rows still in `status=running` after 10 minutes as `failed` and append a `reaped_by_timeout` error event. Removes zombie rows from the run list. |
 | `tokens_reset_hourly` | hourly | (legacy) | Reset `projects.token_used_this_hour=0`. |
 | `tokens_reset_daily` | daily | (legacy) | Reset `projects.token_used_today=0`. |
@@ -17,13 +17,13 @@ The PO agent does **not** rely on `po_heartbeat_dispatcher` for fresh user
 input. The path is synchronous-on-write:
 
 1. User submits a change request from `apps/dashboard/src/pages/ChangeRequest.tsx`.
-2. Browser calls `POST /api:workforce/pkb` (api 241) with `layer=change_queue`.
-3. Xano inserts the row, then within the same handler calls `api.request POST
+2. Browser calls `POST /api:workforce/projects/{project_id}/doc/change-requests` (or workspace equivalent).
+3. Xano inserts the `doc_change_requests` / `workspace_doc_change_requests` row, then within the same handler calls `api.request POST
    {WORKER_BASE_URL}/agent/po/run` with `Authorization: Bearer
    {WORKER_INBOUND_SECRET}` and a 10s timeout.
 4. The runtime worker accepts the dispatch and enqueues a BullMQ job that
    spawns the PO agent container.
-5. The PO agent reads the change_queue row via `read_pkb` and writes a
+5. The PO agent reads Blueprint context (`runs/context`, doc map) and writes a
    `status_update` or `decision_request` message back to the user.
 
 Expected end-to-end latency from submit to user-visible message: **a few
@@ -31,9 +31,8 @@ seconds** when worker capacity is free, up to ~30s under cold-start
 (Anthropic + Docker spawn).
 
 If the synchronous dispatch fails (worker unreachable, secret rotation,
-`api.request` timeout) the row is still in the change_queue with
-`change_status="pending"`, so `po_heartbeat_dispatcher` will pick it up on
-its next 60-minute tick.
+`api.request` timeout) the request row remains `pending`, so
+`po_heartbeat_dispatcher` picks it up on its next 60-minute tick.
 
 ## Required environment variables
 

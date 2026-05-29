@@ -16,7 +16,8 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { getRailItems, type NavBadgeSlot } from './portal-nav'
+import { getRailItems, type NavBadgeSlot, WORKFORCE_DEFAULT_PATH } from './portal-nav'
+import { isWorkforceRoute } from '../../lib/workforce-nav-agents'
 import NavCountBadge from './NavCountBadge'
 import { useNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
@@ -81,8 +82,8 @@ export default function Sidebar() {
     if (path === '/integrations/connected' || path === '/integrations') {
       return location.pathname.startsWith('/integrations')
     }
-    if (path.startsWith('/ai/assistent')) {
-      return location.pathname.startsWith('/ai')
+    if (path === WORKFORCE_DEFAULT_PATH) {
+      return isWorkforceRoute(location.pathname)
     }
     if (path === '/database') {
       return (

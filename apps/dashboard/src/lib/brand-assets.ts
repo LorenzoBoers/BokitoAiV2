@@ -1,15 +1,24 @@
 /**
- * Optional static fallbacks: official brand SVGs only (see file headers in public/brands/).
- * Hosts without an official asset use initials placeholder until Xano `integration_hosts.logo` is set.
+ * Static fallbacks for integration_hosts when Xano image fields are empty.
+ * Official third-party marks: see public/brands/README.md (Simple Icons MIT where noted).
  */
 
 export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: string }> = {
-  /** Simple Icons / GitHub brand (https://github.com/logos) */
   github: { logoUrl: '/brands/logo-github.svg' },
-  /** Microsoft Outlook product icon (Fluent UI asset, pre-existing in repo) */
-  microsoft: { logoUrl: '/brands/logo-outlook.svg' },
-  /** Google Gmail product logo (multi-color; Google product log set) */
+  microsoft: { logoUrl: '/brands/logo-microsoft.svg' },
   google: { logoUrl: '/brands/logo-gmail.svg' },
+  smtp: { logoUrl: '/brands/logo-smtp-imap.svg' },
+  bjorn_lunden: { logoUrl: '/brands/logo-bjorn-lunden.svg' },
+  custom: { logoUrl: '/brands/logo-custom.svg' },
+  notion: { logoUrl: '/brands/logo-notion.svg' },
+  linear: { logoUrl: '/brands/logo-linear.svg' },
+  atlassian: { logoUrl: '/brands/logo-atlassian.svg' },
+  slack: { logoUrl: '/brands/logo-slack.svg' },
+  asana: { logoUrl: '/brands/logo-asana.svg' },
+  clickup: { logoUrl: '/brands/logo-clickup.svg' },
+  sentry: { logoUrl: '/brands/logo-sentry.svg' },
+  stripe: { logoUrl: '/brands/logo-stripe.svg' },
+  shopify: { logoUrl: '/brands/logo-shopify.svg' },
 }
 
 export function brandAssetUrl(relativePath: string): string {

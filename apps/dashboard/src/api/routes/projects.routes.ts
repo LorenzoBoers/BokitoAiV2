@@ -20,4 +20,8 @@ export const projectsRoutes = {
   repo: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/repo`,
   repoReindex: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/repo/reindex`,
   repoStatus: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/repo/status`,
+  workstreams: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/workstreams`,
+  workstreamById: (projectId: string, workstreamId: string) =>
+    `/projects/${encodeURIComponent(projectId)}/workstreams/${encodeURIComponent(workstreamId)}`,
+  poAgent: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/po-agent`,
 } as const

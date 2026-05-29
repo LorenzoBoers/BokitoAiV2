@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { ProjectShell } from '../components/project/ProjectShell'
 import { ConnectRepoPanel } from '../components/project/ConnectRepoPanel'
@@ -7,16 +8,28 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { useProjectContext } from '../context/ProjectContext'
-import { patchProject } from '../lib/projects-api'
+import { useOptionalProjectHubNav } from '../context/ProjectHubNavContext'
+import { useAuth } from '../context/AuthContext'
+import { deleteProject, patchProject } from '../lib/projects-api'
+import { clearLastProjectId, projectHubScopeKey } from '../lib/project-hub-last-opened'
 
 export default function ProjectSettings() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const projectHubNav = useOptionalProjectHubNav()
   const { project, refresh } = useProjectContext()
   const [name, setName] = useState('')
   const [scope, setScope] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const projectName = project?.name ?? ''
 
   useEffect(() => {
     if (project) {
@@ -45,9 +58,37 @@ export default function ProjectSettings() {
     }
   }
 
+  async function handleDeleteProject() {
+    if (!project || deleteConfirmation !== projectName) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteProject(project.id, deleteConfirmation)
+      const scopeKey = projectHubScopeKey(user?.tenant?.id ?? null, user?.tenant?.slug)
+      clearLastProjectId(scopeKey, project.id)
+      await projectHubNav?.refresh()
+      setShowDeleteDialog(false)
+      setDeleteConfirmation('')
+      void navigate('/projects')
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : t('project.settings.danger.deleteError'))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <ProjectShell>
       <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-semibold text-text-heading">
+            {t('project.links.settings', { defaultValue: 'Settings' })}
+          </h1>
+          <p className="mt-1 text-sm text-text-muted">
+            {t('project.settings.about.title')}
+          </p>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>{t('project.settings.about.title')}</CardTitle>
@@ -97,7 +138,69 @@ export default function ProjectSettings() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-status-error/40 bg-status-error/5">
+          <CardContent className="pt-6">
+            <h2 className="mb-3 text-base font-semibold text-status-error">
+              {t('project.settings.danger.title')}
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <h3 className="mb-2 font-medium text-text-heading">
+                  {t('project.settings.danger.deleteTitle')}
+                </h3>
+                <p className="mb-4 text-sm text-text-secondary">
+                  {t('project.settings.danger.deleteDescription')}
+                </p>
+                <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+                  {t('project.settings.danger.deleteButton')}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {showDeleteDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="mx-4 w-full max-w-md p-6">
+            <h3 className="mb-4 text-lg font-semibold text-text-heading">
+              {t('project.settings.danger.dialogTitle')}
+            </h3>
+            <p className="mb-4 text-sm text-text-muted">
+              {t('project.settings.danger.dialogPrompt', { name: projectName })}
+            </p>
+            <Input
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder={t('project.settings.danger.namePlaceholder')}
+              className="mb-4"
+              autoComplete="off"
+            />
+            {deleteError ? <p className="mb-4 text-sm text-status-error">{deleteError}</p> : null}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowDeleteDialog(false)
+                  setDeleteConfirmation('')
+                  setDeleteError(null)
+                }}
+                disabled={deleting}
+              >
+                {t('common:actions.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void handleDeleteProject()}
+                disabled={deleteConfirmation !== projectName || deleting}
+              >
+                {deleting ? t('project.settings.danger.deleting') : t('project.settings.danger.confirmButton')}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </ProjectShell>
   )
 }

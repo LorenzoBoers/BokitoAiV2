@@ -1,10 +1,11 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { UserAvatar } from '../ui/UserAvatar'
 import {
   Bell,
   BookOpen,
+  Bot,
   Briefcase,
   Building,
   CreditCard,
@@ -19,34 +20,34 @@ import {
   PenLine,
   Shield,
   Sparkles,
+  Settings,
   Tag,
   UserCircle2,
   Users,
   Zap,
   Blocks,
-  Bot,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getAiSidebarGroups,
   getDataSidebarGroups,
   getIntegrationsSidebarGroups,
   getProjectHubSidebarGroups,
   getSettingsSidebarGroups,
+  getWorkforceSidebarGroups,
   type SidebarGroup,
   type SidebarLink,
 } from './portal-nav'
+import WorkforceSidebarNav from './WorkforceSidebarNav'
+import { isWorkforceRoute } from '../../lib/workforce-nav-agents'
 import DatabaseTablesPanel from './DatabaseTablesPanel'
 import InboxSidebarNav from '../inbox/InboxSidebarNav'
 import NavCountBadge from './NavCountBadge'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
-import { useOptionalProjectDocNav } from '../../context/ProjectDocNavContext'
-import { useOptionalWorkspaceDocNav } from '../../context/WorkspaceDocNavContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
-import { PageTree } from '../doc/PageTree'
 import ProjectHubBackgroundWorkersNav from './ProjectHubBackgroundWorkersNav'
-import { isProjectHubRoute } from '../../context/ProjectHubNavContext'
+import { isProjectHubRoute, useOptionalProjectHubNav } from '../../context/ProjectHubNavContext'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 
 function sectionClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-all ${
@@ -96,9 +97,10 @@ function iconForLink(to: string) {
   if (to.includes('/integrations/marketplace')) return Blocks
   if (to.includes('/integrations/mcp')) return Zap
   if (to.includes('/integrations/api')) return KeyRound
-  if (to === '/ai/agents' || to.startsWith('/ai/agents/')) return Bot
+  if (to.includes('/workforce/po') || to.includes('/workforce/agents')) return Bot
+  if (to.includes('/admin/runs')) return Bot
   if (to.includes('/project/') && to.endsWith('/overview')) return Briefcase
-  if (/\/project\/[^/]+\/(pkb|doc)/.test(to)) return BookOpen
+  if (/\/project\/[^/]+\/doc/.test(to)) return BookOpen
   if (to.includes('/project/') && to.endsWith('/orchestration')) return Sparkles
   if (to.includes('/project/') && to.endsWith('/notifications')) return Bell
   if (to.includes('/project/') && to.endsWith('/workforce')) return Users
@@ -120,9 +122,6 @@ function isLinkActive(to: string, pathname: string, exact?: boolean): boolean {
   // Workspace docs link stays active for child page slugs.
   if (to === '/projects/docs') {
     return pathname === '/projects/docs' || pathname.startsWith('/projects/docs/')
-  }
-  if (to === '/ai/agents') {
-    return pathname === '/ai/agents' || pathname.startsWith('/ai/agents/')
   }
   return pathname === to
 }
@@ -193,53 +192,6 @@ function SidebarGroupBlock({
   )
 }
 
-function ProjectDocPagesGroup({
-  pathname,
-  projectId,
-}: {
-  pathname: string
-  projectId: string
-}) {
-  const { t } = useTranslation('nav')
-  const docNav = useOptionalProjectDocNav()
-  const slug = pathname.match(/^\/project\/[^/]+\/doc\/([^/]+)/)?.[1] ?? null
-  const activePageId = slug && docNav?.pages
-    ? docNav.pages.find((p) => p.slug === slug)?.id
-    : undefined
-
-  return (
-    <section className="space-y-1">
-      <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-        {t('project.group.pages', { defaultValue: 'Pages' })}
-      </p>
-      {docNav?.loading ? (
-        <p className="px-3 py-1 text-xs text-text-muted">
-          {t('project.doc.loading', { defaultValue: 'Loading documentation…' })}
-        </p>
-      ) : docNav?.error ? (
-        <p className="px-3 py-1 text-xs text-text-muted">
-          {t('project.doc.loadErrorDeploy', {
-            defaultValue: 'Documentation backend not available yet.',
-          })}
-        </p>
-      ) : docNav && docNav.pages.length > 0 ? (
-        <PageTree
-          pages={docNav.pages}
-          projectId={projectId}
-          activePageId={activePageId}
-          variant="sidebar"
-          enablePageCrud
-          onPagesChanged={() => docNav?.refresh()}
-        />
-      ) : (
-        <p className="px-3 py-1 text-xs text-text-muted">
-          {t('project.doc.treeEmpty', { defaultValue: 'No pages yet.' })}
-        </p>
-      )}
-    </section>
-  )
-}
-
 function resolveGroups(pathname: string, t: TFunction<'nav'>): SidebarGroup[] {
   if (pathname === '/home' || pathname.startsWith('/home/')) return []
   // Wizard routes have their own full-bleed layout — no sidebar groups.
@@ -254,8 +206,7 @@ function resolveGroups(pathname: string, t: TFunction<'nav'>): SidebarGroup[] {
   ) {
     return getDataSidebarGroups(t)
   }
-  if (pathname.startsWith('/ai')) return getAiSidebarGroups(t)
-  if (pathname.startsWith('/workforce')) return getAiSidebarGroups(t)
+  if (isWorkforceRoute(pathname)) return getWorkforceSidebarGroups(t)
   return []
 }
 
@@ -267,10 +218,7 @@ function resolveTitle(pathname: string, t: TFunction<['nav']>): string {
   }
   if (pathname.startsWith('/integrations')) return t('nav:sectionTitle.integrations')
   if (pathname.startsWith('/settings')) return t('nav:sectionTitle.settings')
-  if (pathname.startsWith('/ai')) return t('nav:sectionTitle.assistent', { defaultValue: 'Assistent' })
-  if (pathname.startsWith('/workforce')) {
-    return t('nav:sectionTitle.assistent', { defaultValue: 'Assistent' })
-  }
+  if (isWorkforceRoute(pathname)) return t('nav:sectionTitle.workforce', { defaultValue: 'Workforce' })
   return t('nav:sectionTitle.inbox')
 }
 
@@ -278,6 +226,8 @@ export default function SectionSidebar() {
   const { t } = useTranslation(['nav'])
   const { user } = useAuth()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const projectHubNav = useOptionalProjectHubNav()
 
   if (pathname === '/home' || pathname.startsWith('/home/')) {
     return null
@@ -289,30 +239,86 @@ export default function SectionSidebar() {
   }
 
   const onProjectHub = isProjectHubRoute(pathname)
-  const groups = resolveGroups(pathname, t as TFunction<'nav'>)
+  const onWorkforce = isWorkforceRoute(pathname)
+  const hubProjects = projectHubNav?.projects ?? []
+  const selectedProjectId = projectHubNav?.selectedProjectId ?? null
+
+  const workforceGroups = onWorkforce ? getWorkforceSidebarGroups(t as TFunction<'nav'>) : []
+  const groups = onWorkforce ? [] : resolveGroups(pathname, t as TFunction<'nav'>)
   const title = resolveTitle(pathname, t)
 
   const isInbox = pathname.startsWith('/support') || pathname.startsWith('/communication')
   const isDatabaseRoute = pathname.startsWith('/database')
-  const projectMatch = pathname.match(/^\/project\/([^/]+)/)
-  const projectId = projectMatch?.[1] ?? null
-  const onDocRoute = Boolean(projectId && /\/project\/[^/]+\/doc/.test(pathname))
 
   return (
     <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-border/55 bg-bg-sidebar px-3 py-3">
       <h2 className="px-3 pb-3 text-[22px] font-semibold leading-none text-text-heading">{title}</h2>
+      {onProjectHub ? (
+        <div className="px-3 pb-2">
+          <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-text-muted/90">
+            {t('projectHub.selector.label', { defaultValue: 'Current project' })}
+          </p>
+          <Select
+            value={selectedProjectId ?? undefined}
+            onValueChange={(projectId) => {
+              projectHubNav?.setSelectedProjectId(projectId)
+              void navigate(`/project/${projectId}/overview`)
+            }}
+            disabled={hubProjects.length === 0}
+          >
+            <SelectTrigger className="h-8 bg-bg-sidebar px-2.5 text-xs [&>span]:max-w-[150px] [&>span]:truncate">
+              <SelectValue
+                className="truncate"
+                placeholder={t('projectHub.selector.placeholder', { defaultValue: 'Select project' })}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {hubProjects.length === 0 ? (
+                <SelectItem value="__empty__" disabled>
+                  {t('projectHub.selector.none', { defaultValue: 'No projects available' })}
+                </SelectItem>
+              ) : (
+                hubProjects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isInbox ? (
           <InboxSidebarNav />
         ) : (
           <div className="space-y-4">
-            {groups.map((group) => (
-              <SidebarGroupBlock key={group.label} group={group} user={user ?? null} pathname={pathname} />
-            ))}
+            {onWorkforce ? (
+              <>
+                {workforceGroups[0] ? (
+                  <SidebarGroupBlock
+                    key={workforceGroups[0].label}
+                    group={workforceGroups[0]}
+                    user={user ?? null}
+                    pathname={pathname}
+                  />
+                ) : null}
+                <WorkforceSidebarNav />
+                {workforceGroups[1] ? (
+                  <SidebarGroupBlock
+                    key={workforceGroups[1].label}
+                    group={workforceGroups[1]}
+                    user={user ?? null}
+                    pathname={pathname}
+                  />
+                ) : null}
+              </>
+            ) : (
+              groups.map((group) => (
+                <SidebarGroupBlock key={group.label} group={group} user={user ?? null} pathname={pathname} />
+              ))
+            )}
             {onProjectHub ? <ProjectHubBackgroundWorkersNav /> : null}
-            {onDocRoute && projectId ? (
-              <ProjectDocPagesGroup pathname={pathname} projectId={projectId} />
-            ) : null}
             {isDatabaseRoute ? <DatabaseTablesPanel /> : null}
           </div>
         )}
@@ -337,6 +343,17 @@ export default function SectionSidebar() {
           </NavLink>
         </div>
       )}
+      {onProjectHub && selectedProjectId ? (
+        <div className="mt-2 border-t border-border/40 pt-2">
+          <NavLink
+            to={`/project/${selectedProjectId}/settings`}
+            className={({ isActive }) => sectionClass(isActive)}
+          >
+            <Settings size={14} className="text-text-muted" />
+            <span>{t('projectHub.settingsLink', { defaultValue: 'Project settings' })}</span>
+          </NavLink>
+        </div>
+      ) : null}
     </aside>
   )
 }

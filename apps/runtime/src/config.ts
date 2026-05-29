@@ -43,6 +43,10 @@ export const config = {
   maxParallelPerTenant: Number(process.env.MAX_PARALLEL_PER_TENANT || 3),
   bullBoardBasicAuth: process.env.BULL_BOARD_BASIC_AUTH || '',
   repoCloneDir: process.env.REPO_CLONE_DIR || join(tmpdir(), 'bokito-repos'),
+  runtimeInternalUrl: (process.env.RUNTIME_INTERNAL_URL || `http://127.0.0.1:${process.env.WORKER_PORT || 3300}`).replace(
+    /\/+$/,
+    '',
+  ),
 }
 
 export function assertRuntimeConfig(): void {

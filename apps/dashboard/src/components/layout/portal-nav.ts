@@ -11,7 +11,6 @@ import {
   Building2,
   Database,
   BookOpen,
-  Sparkles,
   Building,
   Bot,
   Upload,
@@ -26,6 +25,11 @@ import {
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
+
+/** Default landing for the merged Workforce rail item. */
+export const WORKFORCE_DEFAULT_PATH = '/workforce/agents' as const
+
+export const WORKFORCE_PO_PATH = '/workforce/po' as const
 
 export type NavBadgeSlot =
   | 'inbox'
@@ -101,7 +105,12 @@ export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
     badgeSlot: 'projectsAttention',
   },
   { label: t('rail.support'), to: '/support/inbox/all', icon: MessageSquare, badgeSlot: 'inbox' },
-  { label: t('rail.assistent', { defaultValue: 'Assistent' }), to: ASSISTENT_DEFAULT_PATH, icon: Sparkles },
+  {
+    label: t('rail.workforce', { defaultValue: 'Workforce' }),
+    to: WORKFORCE_DEFAULT_PATH,
+    icon: Bot,
+    badgeSlot: 'agents',
+  },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
   { label: t('rail.data'), to: '/database', icon: Database, comingSoon: true },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
@@ -126,23 +135,27 @@ export const getDataSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
   },
 ]
 
-export const getAiSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
+export const getWorkforceSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
   {
-    label: t('ai.group.assistent', { defaultValue: 'Assistent' }),
+    label: t('workforce.group.platform', { defaultValue: 'Platform agents' }),
     links: [
-      { label: t('ai.links.widget', { defaultValue: 'Widget' }), to: ASSISTENT_DEFAULT_PATH },
-      { label: t('ai.links.communication'), to: '/ai/communicatie' },
-    ],
-  },
-  {
-    label: t('ai.group.agents', { defaultValue: 'Agents' }),
-    links: [
+      { label: t('workforce.links.assistant', { defaultValue: 'Assistant agent' }), to: ASSISTENT_DEFAULT_PATH },
       {
-        label: t('ai.links.agents', { defaultValue: 'Agents' }),
-        to: '/ai/agents',
-        badgeSlot: 'agents',
+        label: t('workforce.links.communication', { defaultValue: 'Communication agent' }),
+        to: '/ai/communicatie',
       },
     ],
+  },
+]
+
+/** @deprecated Use getWorkforceSidebarGroups. Kept for legacy imports. */
+export const getAiSidebarGroups = getWorkforceSidebarGroups
+
+/** @deprecated Use getWorkforceSidebarGroups. */
+export const getAgentsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
+  {
+    label: t('agents.group.nav', { defaultValue: 'Agents' }),
+    links: [{ label: t('agents.links.runs', { defaultValue: 'Agent runs' }), to: WORKFORCE_DEFAULT_PATH }],
   },
 ]
 
@@ -153,6 +166,7 @@ export const getIntegrationsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[
       { label: t('integrations.links.connected'), to: '/integrations/connected' },
       { label: t('integrations.links.marketplace'), to: '/integrations/marketplace' },
       { label: t('integrations.links.mcp'), to: '/integrations/mcp' },
+      { label: t('integrations.links.docs'), to: '/integrations/docs' },
       { label: t('integrations.links.api'), to: '/integrations/api' },
     ],
   },
@@ -174,7 +188,7 @@ export const getProjectHubSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] 
         badgeSlot: 'projectsAttention',
       },
       {
-        label: t('projectHub.tabs.docs', { defaultValue: 'Documentation' }),
+        label: t('projectHub.tabs.docs', { defaultValue: 'Blueprint' }),
         to: '/projects/docs',
       },
     ],
@@ -360,6 +374,11 @@ export const getIntegrationsPageMeta = (
     description: t('integrations.pageMeta.mcp.description'),
     icon: Zap,
   },
+  docs: {
+    title: t('integrations.pageMeta.docs.title'),
+    description: t('integrations.pageMeta.docs.description'),
+    icon: BookOpen,
+  },
   api: {
     title: t('integrations.pageMeta.api.title'),
     description: t('integrations.pageMeta.api.description'),
@@ -386,9 +405,28 @@ export const getAiPageMeta = (
     icon: MessageSquare,
   },
   agents: {
-    title: t('ai.agents.pageTitle', { defaultValue: 'Agents' }),
-    description: t('ai.agents.pageDescription', {
-      defaultValue: 'Manage workforce agents and inspect run history per agent.',
+    title: t('workforce.pageMeta.agents.title', { defaultValue: 'Your agents' }),
+    description: t('workforce.pageMeta.agents.description', {
+      defaultValue: 'Configured workforce agents for this workspace.',
+    }),
+    icon: Bot,
+  },
+})
+
+export const getWorkforcePageMeta = (
+  t: TFunction<'nav'>,
+): Record<string, { title: string; description: string; icon: LucideIcon }> => ({
+  agents: {
+    title: t('workforce.pageMeta.agents.title', { defaultValue: 'Your agents' }),
+    description: t('workforce.pageMeta.agents.description', {
+      defaultValue: 'Configured workforce agents for this workspace.',
+    }),
+    icon: Bot,
+  },
+  po: {
+    title: t('workforce.pageMeta.po.title', { defaultValue: 'PO agents' }),
+    description: t('workforce.pageMeta.po.description', {
+      defaultValue: 'Product-owner orchestrators across projects.',
     }),
     icon: Bot,
   },

@@ -4,6 +4,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter'
 import { ExpressAdapter } from '@bull-board/express'
 import { assertRuntimeConfig, config } from './config.js'
 import { registerDispatcherRoutes } from './dispatcher.js'
+import { registerMcpOAuthRoutes } from './mcp-oauth/routes.js'
 import { agentQueue, indexQueue, startAgentWorker, startIndexWorker } from './queue.js'
 
 function parseBasicAuth(header: string | undefined): { user: string; pass: string } | null {
@@ -47,6 +48,7 @@ async function main(): Promise<void> {
   const app = express()
   app.use(express.json({ limit: '10mb' }))
   registerDispatcherRoutes(app)
+  registerMcpOAuthRoutes(app)
 
   const serverAdapter = new ExpressAdapter()
   serverAdapter.setBasePath('/admin/queues')

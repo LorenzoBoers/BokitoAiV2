@@ -1,7 +1,6 @@
 // POST /api:workforce/projects/{project_id}/doc/change-requests
-// User submits a change request for a project doc. Replaces the legacy
-// pkb_sections.layer = change_queue write. On create, fires a PO heartbeat
-// run on the worker plane so the user gets fast feedback.
+// User submits a change request for a project Blueprint page. On create this
+// dispatches a PO heartbeat with deterministic project/workspace context.
 query "projects/{project_id}/doc/change-requests" verb=POST {
   api_group = "workforce"
   auth = "user"
@@ -64,7 +63,7 @@ query "projects/{project_id}/doc/change-requests" verb=POST {
     } as $tenant_po
 
     var $po_id {
-      value = ($project_po.items|count) > 0 ? ($project_po.items|first).id : (($tenant_po.items|count) > 0 ? ($tenant_po.items|first).id : null)
+      value = ($project_po|count) > 0 ? ($project_po|first).id : (($tenant_po|count) > 0 ? ($tenant_po|first).id : null)
     }
 
     conditional {
@@ -73,9 +72,12 @@ query "projects/{project_id}/doc/change-requests" verb=POST {
           url = $env.WORKER_BASE_URL ~ "/agent/po/run"
           method = "POST"
           params = {
-            project_id : $input.project_id
-            tenant_id  : $me.organisation_id
-            po_agent_id: $po_id
+            project_id        : $input.project_id
+            tenant_id         : $me.organisation_id
+            po_agent_id       : $po_id
+            trigger_message_id: $request.id
+            blueprint_scope   : "project"
+            target_page_id    : $input.target_page_id
           }
           headers = [
             "Content-Type: application/json"

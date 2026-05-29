@@ -20,6 +20,7 @@ Create these tables in the Xano workspace. All tenant-scoped rows use `tenant_id
 - token_warning_sent_at timestamp nullable
 - cron_interval_minutes int default 60
 - report_to_user_id uuid nullable
+- po_agent_id uuid nullable ref agents (explicit PO link; fallback: agents where project_id + role=po)
 - github_connection_id uuid nullable
 - github_repo_full_name text nullable
 - github_default_branch text default main
@@ -167,6 +168,33 @@ Replaces `pkb_sections.layer = change_queue`. A request from the user (or eventu
 
 Index: (project_id, status, created_at desc).
 
+## project_workstreams
+
+Composable agent workflows within a project (sidebar + overview wireframe).
+
+- id uuid pk
+- tenant_id uuid
+- project_id uuid ref projects
+- name text
+- slug text (unique per project)
+- status enum: active | draft | paused (default draft)
+- trigger_text text nullable
+- output_text text nullable
+- steps json default [] (step wireframe: id, name, role_label, instruction, tool_keys)
+- position int default 0
+- last_active_at timestamp nullable
+- created_at, updated_at
+
+Index: (project_id, position), (project_id, slug unique).
+
+Table definition: `xano-patches/tables/project_workstreams.xs`.
+
+API:
+- GET /projects/{id}/workstreams — list (+ auto-seed defaults when empty) and `po_agent` payload
+- POST /projects/{id}/workstreams — create
+- PATCH /projects/{id}/workstreams/{workstream_id} — update
+- PATCH /projects/{id}/po-agent — link PO agent (validates role=po)
+
 ## agents, agent_presets, teams
 
 Per PRD spec. agents.role enum matches RunConfigJson roles.
@@ -195,11 +223,10 @@ Per plan Section 6. See messages-unification.md for migration.
 
 - id uuid pk
 - project_id uuid nullable (null for tenant-wide doc chunks if used)
-- workspace_doc_id uuid nullable (workspace documentation scope)
 - tenant_id uuid
 - connection_id uuid nullable (lineage for integration-sourced chunks)
-- source_type text (repo_file, github_file, tenant_doc_section, workspace_doc_page, workspace_doc_page_summary, ...)
-- source_ref text (unique per project_id + source_ref for upsert; workspace scope uses tenant_id + workspace_doc_id + source_ref)
+- source_type text (repo_file, github_file, tenant_doc_section, ...)
+- source_ref text (unique per project_id + source_ref for upsert)
 - content text
 - embedding vector(768)
 - ivfflat index on embedding
@@ -228,10 +255,13 @@ Seed rows: see `xano-patches/v1/integration-hosts-seed.md`. Upload logo images i
 - name text
 - description text
 - category text
-- auth_type enum: oauth2 | api_key | none
-- capabilities json (repo_index, inbox_sync, mcp_tools, doc_index flags)
+- auth_type enum: oauth2 | api_key | mcp_remote_oauth | none
+- capabilities json (repo_index, inbox_sync, mcp_tools, remote_mcp, doc_index flags)
 - status enum: available | coming_soon | deprecated
-- oauth_config_key text nullable (env key group name, not secrets)
+- oauth_config_key text nullable (env key group name, not secrets; e.g. `NOTION_MCP` -> `NOTION_MCP_CLIENT_ID` in Xano env)
+- mcp_remote_url text nullable (canonical vendor MCP endpoint, e.g. `https://mcp.notion.com/mcp`)
+- mcp_transport text nullable default `streamable_http` (`streamable_http` | `sse`)
+- oauth_profile json nullable (supports_dcr, client_registration_mode, scopes, resource_parameter, static OAuth endpoints)
 - logo_meta json nullable (initials, color; legacy fallback if host logo missing)
 - sort_order int default 0
 - created_at, updated_at
@@ -260,6 +290,10 @@ Seed rows: see `xano-patches/v1/integration-providers-seed.md`.
 - user_id int
 - return_url text
 - project_id uuid nullable
+- code_verifier text nullable (PKCE; remote MCP OAuth)
+- oauth_client_id text nullable (DCR client id for token exchange)
+- mcp_remote_url text nullable
+- oauth_profile json nullable (snapshot at authorize time)
 - expires_at timestamp
 
 ## integration_bindings

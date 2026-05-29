@@ -1,12 +1,13 @@
 import type { IntegrationKind } from '../integration-kind'
 import type { OAuthProvider } from '../email-oauth'
+import { REMOTE_MCP_PROVIDERS } from '../mcp-remote-providers'
 
 export type McpSetupPreset = 'bjorn_lunden_mcp' | 'custom_mcp'
 
 /** How the dashboard starts OAuth for this provider. */
-export type IntegrationOAuthStrategy = 'github' | 'inbox' | 'platform'
+export type IntegrationOAuthStrategy = 'github' | 'inbox' | 'platform' | 'mcp_remote'
 
-export type IntegrationSetupMode = 'oauth2' | 'api_key' | 'custom_mcp'
+export type IntegrationSetupMode = 'oauth2' | 'api_key' | 'custom_mcp' | 'remote_mcp_oauth'
 
 export type ConnectionCountSource =
   | 'github_api'
@@ -26,10 +27,11 @@ export type ProviderRegistryEntry = {
   mcpPreset?: McpSetupPreset
   /** Default Xano MCP server id for platform MCP install. */
   mcpServerId?: number
+  mcpRemoteUrl?: string
   connectionCountSource: ConnectionCountSource
 }
 
-const REGISTRY_LIST: ProviderRegistryEntry[] = [
+const CORE_REGISTRY: ProviderRegistryEntry[] = [
   {
     staticId: 'github',
     platformSlug: 'github',
@@ -73,13 +75,32 @@ const REGISTRY_LIST: ProviderRegistryEntry[] = [
     mcpPreset: 'custom_mcp',
     connectionCountSource: 'platform',
   },
+  {
+    staticId: 'shopify',
+    platformSlug: 'shopify_mcp',
+    kind: 'mcp',
+    setupMode: 'oauth2',
+    oauthStrategy: 'platform',
+    connectionCountSource: 'platform',
+  },
 ]
+
+const REMOTE_MCP_REGISTRY: ProviderRegistryEntry[] = REMOTE_MCP_PROVIDERS.map((p) => ({
+  staticId: p.staticId,
+  platformSlug: p.slug,
+  kind: 'mcp' as IntegrationKind,
+  setupMode: 'remote_mcp_oauth' as IntegrationSetupMode,
+  oauthStrategy: 'mcp_remote' as IntegrationOAuthStrategy,
+  mcpRemoteUrl: p.mcpRemoteUrl,
+  connectionCountSource: 'platform' as ConnectionCountSource,
+}))
+
+const REGISTRY_LIST: ProviderRegistryEntry[] = [...CORE_REGISTRY, ...REMOTE_MCP_REGISTRY]
 
 const BY_STATIC_ID = new Map(REGISTRY_LIST.map((e) => [e.staticId, e]))
 const BY_PLATFORM_SLUG = new Map(REGISTRY_LIST.map((e) => [e.platformSlug, e]))
 
-/** Maps Xano provider slug to marketplace integration card id. */
-export const SLUG_TO_STATIC_ID: Record<string, string> = {
+const SLUG_TO_STATIC_ID_RECORD: Record<string, string> = {
   github: 'github',
   outlook: 'microsoft-365',
   gmail: 'google-workspace',
@@ -87,7 +108,15 @@ export const SLUG_TO_STATIC_ID: Record<string, string> = {
   google_mail: 'google-workspace',
   bjorn_lunden_mcp: 'bjorn_lunden_mcp',
   custom_mcp: 'custom_mcp',
+  shopify_mcp: 'shopify',
 }
+
+for (const p of REMOTE_MCP_PROVIDERS) {
+  SLUG_TO_STATIC_ID_RECORD[p.slug] = p.staticId
+}
+
+/** Maps Xano provider slug to marketplace integration card id. */
+export const SLUG_TO_STATIC_ID: Record<string, string> = SLUG_TO_STATIC_ID_RECORD
 
 export const STATIC_ID_TO_SLUG: Record<string, string> = Object.fromEntries(
   REGISTRY_LIST.map((e) => [e.staticId, e.platformSlug]),

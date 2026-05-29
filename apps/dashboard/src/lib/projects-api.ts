@@ -19,7 +19,15 @@ export interface ProjectRow {
   repo_index_status?: RepoIndexStatus
   repo_indexed_at?: string | null
   repo_index_error?: string | null
-  repo_last_commit_sha?: string | null
+  po_agent_id?: string | null
+  po_agent?: {
+    id: string
+    name: string
+    slug?: string | null
+    role?: string | null
+    agent_type?: 'po' | string | null
+    status?: string | null
+  } | null
 }
 
 export async function listProjects(): Promise<ProjectRow[]> {
@@ -45,6 +53,12 @@ export async function patchProject(
   patch: Partial<Pick<ProjectRow, 'autonomous_scope' | 'name' | 'description'>>,
 ): Promise<ProjectRow> {
   return xanoPatchWorkforce<ProjectRow>(projectsRoutes.byId(projectId), patch)
+}
+
+export async function deleteProject(projectId: string, confirmName: string): Promise<{ deleted: boolean }> {
+  return xanoDeleteWorkforce<{ deleted: boolean }>(projectsRoutes.byId(projectId), {
+    confirm_name: confirmName,
+  }) as Promise<{ deleted: boolean }>
 }
 
 export async function connectProjectRepo(

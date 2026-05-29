@@ -39,6 +39,10 @@ Requires root `.env`: `XANO_METADATA_API_KEY`, optional `XANO_META_BASE_URL`.
 | integrations-worker-credentials.xs | POST integrations/worker/credentials |
 | integrations-mcp-tenant-bindings.xs | GET integrations/mcp/bindings |
 | integrations-mcp-install.xs | POST integrations/mcp/install |
+| integrations-mcp-oauth-start.xs | GET integrations/mcp/oauth/start |
+| integrations-mcp-oauth-callback.xs | GET integrations/mcp/oauth/callback |
+| integrations-mcp-oauth-refresh.xs | POST integrations/mcp/oauth/refresh |
+| integrations-worker-mcp-credentials.xs | POST integrations/worker/mcp-credentials |
 
 ### Doc worker (block-based PKB)
 
@@ -84,6 +88,7 @@ See `BOKITO_KNOWLEDGE.md` inbox/email sections.
 
 - **GitHub dedicated:** `GET /github/oauth/callback` — set `GITHUB_OAUTH_CALLBACK_URL` to this exact URL in GitHub app and Xano env.
 - **Generic platform:** `GET /integrations/oauth/callback` — alternative; GitHub branch in `integrations-oauth-callback.xs` dual-writes legacy tables when used.
+- **Remote MCP OAuth:** `GET /integrations/mcp/oauth/callback` — set `MCP_OAUTH_CALLBACK_URL` (runtime) and per-provider `{PREFIX}_REDIRECT_URI` to this URL. PKCE/token exchange runs on runtime (`RUNTIME_INTERNAL_URL` + `WORKER_INBOUND_SECRET`).
 
 Marketplace UI uses **`/github/oauth/start`** for GitHub (`oauthStrategy: github` in frontend registry). New repo OAuth providers can use **`/integrations/oauth/start`** after adding a provider branch in `integrations-oauth-start.xs` and `integrations-oauth-callback.xs`, then set `oauthStrategy: platform` in `apps/dashboard/src/lib/integrations/registry.ts`.
 
@@ -97,6 +102,9 @@ Marketplace UI uses **`/github/oauth/start`** for GitHub (`oauthStrategy: github
 | `MICROSOFT_CLIENT_ID` / `SECRET` / `REDIRECT_URI` | Outlook |
 | `GOOGLE_CLIENT_ID` / `SECRET` / `REDIRECT_URI` | Gmail |
 | `WORKER_INBOUND_SECRET` | Worker credential endpoints |
+| `RUNTIME_INTERNAL_URL` | Xano calls runtime `/internal/mcp/oauth/*` (e.g. `http://127.0.0.1:3300`) |
+| `MCP_OAUTH_CALLBACK_URL` | Runtime OAuth redirect URI (must match vendor app registration) |
+| `{PREFIX}_CLIENT_ID` / `_CLIENT_SECRET` / `_REDIRECT_URI` | Per remote MCP provider (`oauth_config_key` in seed, e.g. `SLACK_MCP_*`) |
 
 ## Post-deploy verification
 
@@ -107,4 +115,7 @@ Marketplace UI uses **`/github/oauth/start`** for GitHub (`oauthStrategy: github
 - [ ] `POST integrations/mcp/install` creates connection + `mcp_server` binding.
 - [ ] `PATCH projects/{id}/repo` with `connection_id` creates `project_repo` binding.
 - [ ] `POST integrations/worker/credentials` returns token for active GitHub connection.
-- [ ] Marketplace: five cards load; Koppelen / MCP install / inbox OAuth smoke-tested per `apps/dashboard/docs/INTEGRATIONS.md`.
+- [ ] `GET integrations/mcp/oauth/start?provider=notion_mcp&return_url=...` returns `authorize_url` when runtime + env configured.
+- [ ] Remote MCP OAuth callback creates `integration_connections` + `mcp_server` binding with `config.mode=remote_oauth`.
+- [ ] `POST integrations/worker/mcp-credentials` returns Bearer + `mcp_remote_url` for active remote MCP connection.
+- [ ] Marketplace: core + remote MCP cards load; Koppelen / MCP install / inbox / remote MCP OAuth smoke-tested per `apps/dashboard/docs/INTEGRATIONS.md`.

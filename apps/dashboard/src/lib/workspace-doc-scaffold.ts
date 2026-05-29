@@ -1,5 +1,8 @@
 import type { DocPageKind, InlineRun } from './doc-api'
 import { slugifyPageTitle } from './doc-blocks'
+import {
+  getCompanyHandbookCreateOps,
+} from './workspace-company-handbook'
 import { applyWorkspaceBlockOps, createWorkspaceDocPage } from './workspace-doc-api'
 
 export interface WorkspaceDocScaffoldPage {
@@ -87,11 +90,17 @@ function runs(text: string): InlineRun[] {
   return [{ text }]
 }
 
-/** Starter blocks for one scaffold page (heading, callout, paragraph). */
+/** Starter blocks for one scaffold page (company handbook or legacy stub). */
 export async function seedWorkspacePageStarterBlocks(
   pageId: string,
   def: WorkspaceDocScaffoldPage,
 ): Promise<void> {
+  const handbookOps = getCompanyHandbookCreateOps(def.slug, def.title)
+  if (handbookOps) {
+    await applyWorkspaceBlockOps(pageId, handbookOps)
+    return
+  }
+
   await applyWorkspaceBlockOps(pageId, [
     {
       op: 'create',
@@ -123,31 +132,64 @@ export async function seedWorkspaceDocScaffoldIfEmpty(
   if (pages.length > 0) return false
   if (!workspaceDocId) return false
 
-  for (const def of WORKSPACE_DOC_SCAFFOLD_PAGES) {
-    let page
-    try {
+  for (let index = 0; index < WORKSPACE_DOC_SCAFFOLD_PAGES.length; index++) {
+    await createScaffoldPage(workspaceDocId, WORKSPACE_DOC_SCAFFOLD_PAGES[index], index)
+  }
+  return true
+}
+
+async function createScaffoldPage(
+  workspaceDocId: string,
+  def: WorkspaceDocScaffoldPage,
+  position: number,
+): Promise<void> {
+  let page
+  try {
+    page = await createWorkspaceDocPage({
+      workspace_doc_id: workspaceDocId,
+      title: def.title,
+      slug: def.slug,
+      kind: def.kind,
+      icon: def.icon,
+      position,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (/slug/i.test(message) && /unique|duplicate|clash/i.test(message)) {
       page = await createWorkspaceDocPage({
         workspace_doc_id: workspaceDocId,
         title: def.title,
-        slug: def.slug,
+        slug: `${def.slug}-${Date.now()}`,
         kind: def.kind,
         icon: def.icon,
+        position,
       })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      if (/slug/i.test(message) && /unique|duplicate|clash/i.test(message)) {
-        page = await createWorkspaceDocPage({
-          workspace_doc_id: workspaceDocId,
-          title: def.title,
-          slug: `${def.slug}-${Date.now()}`,
-          kind: def.kind,
-          icon: def.icon,
-        })
-      } else {
-        throw err
-      }
+    } else {
+      throw err
     }
-    await seedWorkspacePageStarterBlocks(page.id, def)
   }
-  return true
+  await seedWorkspacePageStarterBlocks(page.id, def)
+}
+
+/**
+ * Create any default scaffold pages missing from an existing workspace doc tree
+ * (e.g. tenant had only Overview before the full handbook shipped).
+ */
+export async function ensureMissingWorkspaceDocScaffoldPages(
+  workspaceDocId: string,
+  pages: { slug: string }[],
+): Promise<boolean> {
+  if (!workspaceDocId) return false
+
+  const existingSlugs = new Set(pages.map((page) => page.slug))
+  let created = false
+
+  for (let index = 0; index < WORKSPACE_DOC_SCAFFOLD_PAGES.length; index++) {
+    const def = WORKSPACE_DOC_SCAFFOLD_PAGES[index]
+    if (existingSlugs.has(def.slug)) continue
+    await createScaffoldPage(workspaceDocId, def, index)
+    created = true
+  }
+
+  return created
 }

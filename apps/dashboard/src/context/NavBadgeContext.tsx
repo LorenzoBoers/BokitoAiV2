@@ -20,14 +20,12 @@ export type NavBadgeCounts = {
   inboxUnread: number
   inboxByQueue: { my: number; unassigned: number; all: number }
   agentsAttention: number
-  homeTotal: number
 }
 
 const EMPTY_COUNTS: NavBadgeCounts = {
   inboxUnread: 0,
   inboxByQueue: { my: 0, unassigned: 0, all: 0 },
   agentsAttention: 0,
-  homeTotal: 0,
 }
 
 function countUnread(items: { hasUnread: boolean }[]): number {
@@ -73,7 +71,6 @@ async function fetchNavBadgeCounts(token: string, isAdmin: boolean): Promise<Nav
       all: allUnread,
     },
     agentsAttention,
-    homeTotal: inboxUnread + agentsAttention,
   }
 }
 

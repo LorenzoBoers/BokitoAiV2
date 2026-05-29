@@ -57,7 +57,7 @@ export function PkbScreen() {
       ) : loading && !filtered.length ? (
         <Text style={styles.body}>Loading...</Text>
       ) : !filtered.length ? (
-        <Text style={styles.body}>Nothing here yet. Your team will fill this in shortly.</Text>
+        <Text style={styles.body}>No Blueprint requests yet. Create a change request to start planning.</Text>
       ) : (
         filtered.map((row) => (
           <View key={row.id} style={styles.card}>

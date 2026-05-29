@@ -213,9 +213,11 @@ export async function createDocPage(
   projectId: string,
   input: {
     title: string
+    slug?: string
     kind?: DocPageKind
     icon?: string
     parent_page_id?: string | null
+    position?: number
   },
 ): Promise<DocPageRow> {
   return xanoPostWorkforce<DocPageRow>(docRoutes.pages(projectId), input)
@@ -234,7 +236,11 @@ export async function patchDocPage(
     is_locked: boolean
   }>,
 ): Promise<DocPageRow> {
-  return xanoPatchWorkforce<DocPageRow>(docRoutes.page(projectId, pageId), patch)
+  const { is_locked, ...rest } = patch
+  const body: Record<string, unknown> = { ...rest }
+  if (is_locked === true) body.lock_action = 'lock'
+  else if (is_locked === false) body.lock_action = 'unlock'
+  return xanoPatchWorkforce<DocPageRow>(docRoutes.page(projectId, pageId), body)
 }
 
 export async function deleteDocPage(projectId: string, pageId: string): Promise<void> {

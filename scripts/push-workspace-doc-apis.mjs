@@ -23,6 +23,7 @@ const endpoints = [
   { file: 'workforce-workspace-doc-pages-create.xs', apigroup: 15, apiId: 279 },
   { file: 'workforce-workspace-doc-page-blocks-get.xs', apigroup: 15, apiId: 280 },
   { file: 'workforce-workspace-doc-page-blocks-batch.xs', apigroup: 15, apiId: 290 },
+  { file: 'workforce-workspace-doc-pages-patch.xs', apigroup: 15, apiId: 285 },
   { file: 'integrations-workspace-doc-worker-reindex-page.xs', apigroup: 17, apiId: 283 },
   { file: 'integrations-workspace-doc-worker-tree.xs', apigroup: 17, apiId: 284 },
   { file: 'integrations-workspace-doc-worker-blocks.xs', apigroup: 17, apiId: 291 },

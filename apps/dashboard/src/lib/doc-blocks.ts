@@ -130,3 +130,15 @@ export function newBlockId(): string {
   const rand = Math.random().toString(16).slice(2)
   return `${Date.now().toString(16)}-${rand.slice(0, 12)}`
 }
+
+/** Client-only scaffold ids are not in the database until first create. */
+export function isClientOnlyBlockId(id: string): boolean {
+  return id.includes('-fallback-')
+}
+
+/** Baseline for diffing: treat unsaved scaffold blocks as absent on the server. */
+export function baselineBlocksForDiff(blocks: DocBlockRow[]): DocBlockRow[] {
+  if (blocks.length === 0) return blocks
+  if (blocks.every((b) => isClientOnlyBlockId(b.id))) return []
+  return blocks.filter((b) => !isClientOnlyBlockId(b.id))
+}

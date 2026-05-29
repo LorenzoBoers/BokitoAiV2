@@ -1,7 +1,6 @@
 // POST /api:workforce/workspace/doc/change-requests
-// User submits a change request for a project doc. Replaces the legacy
-// pkb_sections.layer = change_queue write. On create, fires a PO heartbeat
-// run on the worker plane so the user gets fast feedback.
+// User submits a change request for workspace Blueprint pages. On create this
+// dispatches a PO heartbeat with explicit tenant + project context.
 query "workspace/doc/change-requests" verb=POST {
   api_group = "workforce"
   auth = "user"
@@ -56,23 +55,37 @@ query "workspace/doc/change-requests" verb=POST {
       }
     } as $request
 
+    db.query projects {
+      where = $db.projects.tenant_id == $me.organisation_id
+      sort = {projects.updated_at: "desc"}
+      return = {type: "list", paging: {page: 1, per_page: 1}}
+    } as $proj_rows
+
+    var $project_id {
+      value = ($proj_rows|count) > 0 ? ($proj_rows|first).id : null
+    }
+
     db.query agents {
-      where = $db.agents.tenant_id == $me.organisation_id && $db.agents.role == "po"
+      where = $db.agents.tenant_id == $me.organisation_id && $db.agents.role == "po" && ($project_id == null || $db.agents.project_id == $project_id)
       return = {type: "list", paging: {page: 1, per_page: 1}}
     } as $tenant_po
 
     var $po_id {
-      value = ($tenant_po.items|count) > 0 ? ($tenant_po.items|first).id : null
+      value = ($tenant_po|count) > 0 ? ($tenant_po|first).id : null
     }
 
     conditional {
-      if ($po_id != null) {
+      if ($po_id != null && $project_id != null) {
         api.request {
           url = $env.WORKER_BASE_URL ~ "/agent/po/run"
           method = "POST"
           params = {
-            tenant_id  : $me.organisation_id
-            po_agent_id: $po_id
+            project_id      : $project_id
+            tenant_id       : $me.organisation_id
+            po_agent_id     : $po_id
+            trigger_message_id: $request.id
+            blueprint_scope : "workspace"
+            workspace_doc_id: $workspace_doc_id
           }
           headers = [
             "Content-Type: application/json"

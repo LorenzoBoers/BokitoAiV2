@@ -414,12 +414,17 @@ export async function xanoPatchWorkforce<T>(path: string, body: object, token?: 
   return readJsonResponse<T>(res, path);
 }
 
-export async function xanoDeleteWorkforce<T = unknown>(path: string, token?: string): Promise<T | void> {
-  const headers = buildAuthHeaders(token, false);
+export async function xanoDeleteWorkforce<T = unknown>(
+  path: string,
+  body?: object,
+  token?: string,
+): Promise<T | void> {
+  const headers = buildAuthHeaders(token, body != null);
   const res = await fetch(`${WORKFORCE_API_BASE}${path}`, {
     method: 'DELETE',
     headers,
     credentials: 'include',
+    ...(body != null ? { body: JSON.stringify(body) } : {}),
   });
   if (res.status === 204) return undefined as T;
   return readJsonResponse<T>(res, path);

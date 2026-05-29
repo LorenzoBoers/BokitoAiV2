@@ -11,7 +11,6 @@
     "users": "Gebruikers",
     "settings": "Instellingen",
     "projects": "Projecten",
-    "workspace": "Workspace",
     "pkb": "Project",
     "changeRequest": "Verzoek",
     "messages": "Berichten"
@@ -29,11 +28,11 @@
     "data": "Data",
     "project": "Project",
     "projects": "Projecten",
-    "projectHub": "Workspace"
+    "projectHub": "Project hub"
   },
   "home": {
     "title": "Home",
-    "description": "Overzicht van je workspace: recente projecten, inbox en agent runs.",
+    "description": "Overzicht van je workspace: recente projecten, inbox en gecombineerde activiteit.",
     "group": {
       "overview": "Overzicht"
     },
@@ -56,6 +55,22 @@
       "title": "Recente agent runs",
       "viewAll": "Alle runs",
       "empty": "Nog geen agent runs."
+    },
+    "activity": {
+      "title": "Recente activiteit",
+      "empty": "Nog geen activiteit.",
+      "unknown": "-",
+      "crossProject": "Projectoverstijgend",
+      "fallbackMessage": "Bericht-update",
+      "actorSystem": "Systeem",
+      "actorAgent": "Agent",
+      "actionRun": "Run",
+      "labels": {
+        "actor": "Actor",
+        "agent": "Agent",
+        "workstream": "Workstream",
+        "action": "Actie"
+      }
     }
   },
   "data": {
@@ -87,7 +102,7 @@
     "homeTotal": "{{count}} items vragen aandacht",
     "railInbox": "Inbox ({{count}} ongelezen)",
     "railAgents": "Agenten ({{count}} open)",
-    "railProjects": "Workspace ({{count}} open)",
+    "railProjects": "Project hub ({{count}} open)",
     "railHome": "Home ({{count}})",
     "railMessages": "Berichten ({{count}} ongelezen)",
     "ariaInbox": "{{count}} ongelezen berichten",
@@ -99,9 +114,12 @@
     }
   },
   "backgroundWorkers": {
-    "label": "Achtergrondworkers",
-    "loading": "Workers laden…",
-    "empty": "Nog geen workers.",
+    "label": "Workstreams",
+    "loading": "Workstreams laden…",
+    "empty": "Nog geen workstreams.",
+    "apiUnavailable": "Workstreams zijn nog niet beschikbaar. Vernieuw over een moment.",
+    "lastActive": "Laatst actief {{time}}",
+    "notActiveYet": "Nog niet actief",
     "newProject": "Nieuw project",
     "showMore": "Toon {{count}} meer",
     "showLess": "Toon minder",
@@ -133,21 +151,28 @@
     }
   },
   "projectHub": {
-    "group": {
-      "nav": "Workspace"
-    },
-    "description": "Centrale documentatie, doorlopende projecten en agent-communicatie op een plek.",
-    "tabsAriaLabel": "Workspace-navigatie",
+    "description": "Centrale Blueprint, doorlopende projecten en agent-communicatie op een plek.",
+    "tabsAriaLabel": "Project hub-navigatie",
     "tabs": {
       "overview": "Overzicht",
-      "docs": "Documentatie",
+      "docs": "Blueprint",
       "projects": "Projecten",
       "communication": "Communicatie"
     },
     "quick": {
       "newProject": "Nieuw project",
-      "openDocs": "Open documentatie",
+      "openDocs": "Open Blueprint",
       "openCommunication": "Open communicatie"
+    },
+    "selector": {
+      "label": "Huidig project",
+      "placeholder": "Selecteer project",
+      "none": "Geen projecten beschikbaar"
+    },
+    "settingsLink": "Projectinstellingen",
+    "po": {
+      "label": "Project PO",
+      "none": "Nog geen PO agent gekoppeld aan dit project."
     },
     "backgroundProjects": {
       "label": "Achtergrondprojecten",
@@ -168,14 +193,14 @@
       "recentRunsTitle": "Recente agent runs"
     },
     "docs": {
-      "menuLabel": "Documentatie",
+      "menuLabel": "Blueprint",
       "group": "Pagina's",
       "chaptersLabel": "Hoofdstukken",
       "treeEmpty": "Nog geen pagina's. Vernieuw om standaard hoofdstukken aan te maken.",
-      "emptyTitle": "Geen documentatiepagina's",
-      "emptyDescription": "Workspace-documentatie kon niet worden geladen of heeft nog geen pagina's. Probeer opnieuw nadat de backend is gedeployed.",
+      "emptyTitle": "Geen Blueprint-pagina's",
+      "emptyDescription": "Workspace-Blueprint kon niet worden geladen of heeft nog geen pagina's. Probeer opnieuw nadat de backend is gedeployed.",
       "agentEdit": "Vraag agent",
-      "agentEditTitle": "Documentatie bijwerken",
+      "agentEditTitle": "Blueprint bijwerken",
       "agentEditDescription": "Beschrijf de wijzigingen voor deze pagina. Er wordt een product-owner agent run ingepland.",
       "agentEditPlaceholder": "Bijvoorbeeld: Voeg een sectie over ons retourbeleid toe onder Operations.",
       "agentEditSubmit": "Verstuur verzoek",
@@ -240,41 +265,13 @@
   "ai": {
     "group": {
       "ai": "AI",
-      "assistent": "Assistent",
-      "agents": "Agents"
+      "assistent": "Assistent"
     },
     "links": {
       "assistent": "Assistents",
       "widget": "Widget",
       "kennis": "AI bronnen",
-      "communication": "AI communicatie",
-      "agents": "Agents"
-    },
-    "agents": {
-      "pageTitle": "Agents",
-      "pageDescription": "Beheer workforce-agents en bekijk run-geschiedenis per agent.",
-      "listDescription": "Open een agent om run-geschiedenis en live logs te bekijken.",
-      "loading": "Agents laden…",
-      "loadError": "Kon agents niet laden.",
-      "detailLoadError": "Kon agent-geschiedenis niet laden.",
-      "empty": "Geen agents geconfigureerd voor deze workspace.",
-      "notFound": "Agent niet gevonden.",
-      "roleUnknown": "Agent",
-      "backToList": "Terug naar agents",
-      "backToAgent": "Terug naar agent",
-      "historyTitle": "Run-geschiedenis",
-      "historyDescription": "Runs van deze agent over alle projecten.",
-      "status": {
-        "active": "Actief",
-        "standby": "Stand-by",
-        "sleeping": "Slapend",
-        "error": "Fout"
-      },
-      "sidebar": {
-        "loading": "Agents laden…",
-        "showMore": "Toon {{count}} meer",
-        "showLess": "Toon minder"
-      }
+      "communication": "AI communicatie"
     },
     "pageMeta": {
       "communication": {
@@ -334,6 +331,7 @@
       "sources": "Bronnen",
       "connections": "Verbonden",
       "mcp": "MCP",
+      "docs": "Documentatie",
       "api": "API-sleutels"
     },
     "kindNav": {
@@ -383,7 +381,8 @@
       "capability": {
         "inbox_sync": "Inbox-synchronisatie",
         "repo_index": "Repository-indexering",
-        "mcp_tools": "MCP-tools voor agents"
+        "mcp_tools": "MCP-tools voor agents",
+        "remote_mcp": "Remote MCP (OAuth)"
       },
       "setup": {
         "title": "{{name}} instellen",
@@ -396,8 +395,19 @@
         "oauthLoginRequired": "Log eerst in op Bokito om door te gaan.",
         "successGithub": "GitHub-account succesvol gekoppeld.",
         "successInbox": "Mailbox succesvol gekoppeld.",
+        "successRemoteMcp": "Remote MCP-verbinding opgeslagen.",
+        "comingSoonRemoteMcp": "Deze provider is nog niet ingeschakeld op het platform. Een beheerder moet OAuth configureren voordat je kunt koppelen.",
+        "remoteMcpEndpoint": "MCP-endpoint",
         "error": "Koppelen mislukt. Probeer het opnieuw."
       }
+    },
+    "application": {
+      "offerCount": "{{count}} koppelingstypen",
+      "offerCount_one": "{{count}} koppelingstype",
+      "manage": "Beheren",
+      "hubSubtitle": "Kies hoe je wilt koppelen ({{count}} opties).",
+      "connectionTypes": "Koppelingstypen",
+      "connectedShort": "Verbonden"
     },
     "marketplace": {
       "connectedCount": "{{count}} verbonden",
@@ -440,6 +450,10 @@
         "title": "MCP-servers",
         "description": "Configureer externe MCP-servers en koppel Bokito MCP aan AI-clients."
       },
+      "docs": {
+        "title": "Integratiedocumentatie",
+        "description": "Uitleg over marketplace-koppelingen, inclusief remote MCP OAuth-providers."
+      },
       "api": {
         "title": "API-sleutels",
         "description": "Developer-sleutels voor programmatische toegang."
@@ -448,6 +462,27 @@
         "title": "Bronnen",
         "description": "Geindexeerde documentatie en kennisbronnen voor AI-agents."
       }
+    },
+    "docs": {
+      "overviewTitle": "Overzicht integraties",
+      "overviewBody": "De marketplace toont communicatie (Outlook, Gmail), repository (GitHub), API-key MCP-servers en vendor-hosted remote MCP-integraties. Verbonden koppelingen staan onder Verbonden en op het tabblad MCP wanneer agents tools mogen gebruiken.",
+      "remoteMcpTitle": "Remote MCP OAuth",
+      "remoteMcpBody": "Officiële providers (Notion, Linear, Slack en anderen) hosten hun eigen MCP-server. Bokito start OAuth in de browser, slaat tokens per workspace op en agents krijgen een bearer token bij vendor-aanroepen.",
+      "remoteMcpStep1": "Open Marketplace, filter op MCP en kies een provider.",
+      "remoteMcpStep2": "Kies Nieuwe verbinding instellen en rond OAuth af bij de vendor.",
+      "remoteMcpStep3": "Controleer de koppeling onder Verbonden of MCP-servers.",
+      "catalogTitle": "Remote MCP-catalogus",
+      "catalogHint": "Kaarten met status Binnenkort vereisen eerst platform-OAuth voordat koppelen mogelijk is.",
+      "wave1": "Wave 1",
+      "openInMarketplace": "Open in Marketplace",
+      "existingTitle": "Andere koppelingstypen",
+      "existingGithub": "GitHub repository-indexering gebruikt een aparte OAuth-flow (niet de GitHub MCP-kaart).",
+      "existingInbox": "Outlook en Gmail gebruiken inbox-OAuth; mailboxen beheer je onder Instellingen.",
+      "existingApiKeyMcp": "Bjorn Lunden MCP en Custom MCP gebruiken een API-key of URL in plaats van remote OAuth.",
+      "adminTitle": "Platformvereisten",
+      "adminBody": "Remote MCP vereist integrations API-patches, de runtime OAuth-service en OAuth-apps per vendor. Zonder configuratie blijven providers op Binnenkort staan.",
+      "devTitle": "Developer-documentatie (repository)",
+      "devBody": "Technische handleidingen staan in de GitHub-repository voor engineers die Xano en runtime deployen:"
     },
     "sources": {
       "description": "Geindexeerde documentatie en kennisbronnen voor AI-agents. Bronnen worden automatisch doorzoekbaar zodra indexering actief is.",
@@ -464,6 +499,7 @@
       "servers": {
         "title": "MCP-verbindingen",
         "description": "Installeer en beheer MCP-servers die Bokito-agents in deze workspace kunnen aanroepen.",
+        "docsLink": "Lees integratiedocumentatie",
         "addTitle": "MCP-server toevoegen",
         "newConnection": "Nieuwe MCP-verbinding",
         "modalDescription": "Koppel een externe MCP-server die Bokito-agents in deze workspace kunnen gebruiken.",
@@ -535,18 +571,85 @@
   },
   "workforce": {
     "group": {
-      "workforce": "Workforce"
+      "workforce": "Workforce",
+      "platform": "Platform agents",
+      "operations": "Operatie",
+      "yourAgents": "Jouw agents"
     },
     "links": {
       "overview": "Overzicht",
       "agents": "AI Agenten",
+      "assistant": "Assistant agent",
+      "communication": "Communication agent",
+      "po": "PO agent",
+      "backgroundWorkers": "Workstreams",
+      "viewAllAgents": "Alle agents",
       "tasks": "Taken",
       "runs": "Runs"
     },
+    "po": {
+      "none": "Nog geen PO agent geconfigureerd."
+    },
+    "agents": {
+      "listDescription": "Custom workforce agents voor deze workspace (platform agents staan apart in de sidebar).",
+      "loading": "Agents laden…",
+      "loadError": "Agents laden mislukt.",
+      "empty": "Nog geen custom agents.",
+      "sections": {
+        "po": "PO agents",
+        "workers": "Worker agents"
+      },
+      "types": {
+        "po": "PO",
+        "worker": "Worker"
+      },
+      "roleUnknown": "Onbekende rol",
+      "backToList": "Terug naar agents",
+      "backToAgent": "Terug naar agent",
+      "detailLoadError": "Agent laden mislukt.",
+      "notFound": "Agent niet gevonden.",
+      "historyTitle": "Run-geschiedenis",
+      "historyDescription": "Recente runs voor deze agent.",
+      "sidebar": {
+        "loading": "Agents laden…",
+        "showLess": "Minder tonen",
+        "showMore": "Nog {{count}} tonen"
+      },
+      "status": {
+        "active": "Actief",
+        "standby": "Standby",
+        "sleeping": "Slapend",
+        "error": "Fout"
+      }
+    },
+    "pageMeta": {
+      "agents": {
+        "title": "Jouw agents",
+        "description": "Geconfigureerde workforce agents voor deze workspace."
+      },
+      "po": {
+        "title": "PO agents",
+        "description": "Product-owner orchestrators per project."
+      },
+      "backgroundWorkers": {
+        "title": "Workstreams",
+        "description": "Samenstelbare workstreams per project met gekoppelde agent-stappen."
+      }
+    },
+    "backgroundWorkers": {
+      "description": "Ontwerp en bekijk workstreams per project. Stappen geven taken door van input naar output.",
+      "emptyTitle": "Nog geen workstreams",
+      "emptyDescription": "Maak een project om je eerste workstream op te zetten.",
+      "openProject": "Project openen",
+      "summary": {
+        "working": "{{count}} actief",
+        "attention": "{{count}} aandacht nodig",
+        "blocked": "{{count}} geblokkeerd"
+      }
+    },
     "runs": {
       "description": "Geschiedenis en live event-stream voor Bokito-medewerkers en workspace-admins.",
-      "back": "Terug naar workforce-geschiedenis",
-      "detailTitle": "Run-detail",
+      "back": "Terug naar alle runs",
       "loading": "Runs laden…",
       "loadError": "Runs laden mislukt",
       "empty": "Nog geen agent runs.",
@@ -602,8 +705,8 @@
       "pages": "Pagina's"
     },
     "links": {
-      "overview": "Overzicht",
-      "knowledge": "Documentatie",
+      "overview": "Workstreams",
+      "knowledge": "Blueprint",
       "orchestration": "Orchestratie",
       "communication": "Communicatie",
       "workforce": "Workforce-geschiedenis",
@@ -620,11 +723,28 @@
       "notFound": "Project niet gevonden."
     },
     "overview": {
-      "title": "Recente updates",
-      "description": "Begrijpelijke berichten van je AI-team over dit project.",
+      "title": "Workstreams",
+      "description": "Beheer project-workstreams waar PO en agents taken stap voor stap uitvoeren.",
       "loading": "Laden…",
       "empty": "Nog geen updates. Dien een wijzigingsverzoek in om te starten.",
-      "viewAll": "Alle projectberichten bekijken"
+      "viewAll": "Alle projectberichten bekijken",
+      "streamsLabel": "Workstreams",
+      "addStream": "Workstream toevoegen",
+      "openStreamCommunication": "Open stream-communicatie",
+      "openProjectCommunication": "Open projectcommunicatie",
+      "wireframeBadge": "Wireframe",
+      "addStep": "Stap toevoegen",
+      "dragPreview": "Drag preview",
+      "inputTitle": "Input",
+      "inputChip": "in: projectcontext + PO-trigger",
+      "stepLabel": "Stap",
+      "agentLabel": "Agent",
+      "instructionLabel": "Instructie",
+      "toolsLabel": "Tools (tenant-integraties)",
+      "selectTool": "Selecteer tool",
+      "outputTitle": "Output",
+      "outputChip": "out: streamrapport naar PO",
+      "emptySteps": "Nog geen stappen geconfigureerd voor deze workstream."
     },
     "messages": {
       "title": "Projectberichten",
@@ -644,6 +764,10 @@
       "title": "Communicatie",
       "description": "Updates en beslissingen voor dit project tussen jou en de agents.",
       "hubLink": "Open hub-communicatie",
+      "filter": {
+        "all": "Alle projectberichten",
+        "stream": "Stream: {{stream}}"
+      },
       "tabs": {
         "pending": "Openstaand",
         "resolved": "Afgehandeld"
@@ -745,6 +869,18 @@
       "code": {
         "title": "Je code",
         "description": "Koppel een GitHub-repository zodat je AI-team de codebase kan lezen, of sla over tot je er klaar voor bent."
+      },
+      "danger": {
+        "title": "Gevaarlijke acties",
+        "deleteTitle": "Dit project verwijderen",
+        "deleteDescription": "Verwijdert dit project, de workstreams en orchestration-instellingen permanent. Agenten worden ontkoppeld maar niet verwijderd. Dit kan niet ongedaan worden gemaakt.",
+        "deleteButton": "Project verwijderen",
+        "dialogTitle": "Project verwijderen",
+        "dialogPrompt": "Typ \"{{name}}\" om verwijdering te bevestigen.",
+        "namePlaceholder": "Projectnaam",
+        "confirmButton": "Definitief verwijderen",
+        "deleting": "Verwijderen…",
+        "deleteError": "Kon project niet verwijderen"
       }
     },
     "request": {
@@ -771,13 +907,13 @@
       "newProject": "Nieuw project"
     },
     "doc": {
-      "title": "Documentatie",
-      "loading": "Documentatie laden…",
-      "loadError": "Documentatie kon niet worden geladen.",
-      "loadErrorDeploy": "De documentatie-backend is nog niet beschikbaar. Het platformteam rolt de nieuwe docs-API uit.",
+      "title": "Blueprint",
+      "loading": "Blueprint laden…",
+      "loadError": "Blueprint kon niet worden geladen.",
+      "loadErrorDeploy": "De Blueprint-backend is nog niet beschikbaar. Het platformteam rolt de nieuwe docs-API uit.",
       "empty": "Deze pagina heeft nog geen blokken.",
-      "emptyDoc": "Nog geen documentatiepagina's",
-      "emptyDocDescription": "Nieuwe projecten krijgen een startsjabloon zodra de documentatie-backend live is.",
+      "emptyDoc": "Nog geen Blueprint-pagina's",
+      "emptyDocDescription": "Nieuwe projecten krijgen een startsjabloon zodra de Blueprint-backend live is.",
       "addPage": "Pagina toevoegen",
       "requestChange": "Wijziging aanvragen",
       "history": "Geschiedenis",
@@ -790,6 +926,9 @@
       "pickPage": "Kies een pagina in de zijbalk om te lezen.",
       "retry": "Opnieuw proberen",
       "treeEmpty": "Nog geen pagina's.",
+      "expandChapter": "Sectie uitklappen",
+      "collapseChapter": "Sectie inklappen",
+      "lockedBadge": "Vergrendeld",
       "pageCrud": {
         "menuAria": "Pagina-acties",
         "addPage": "Pagina toevoegen",
@@ -801,15 +940,25 @@
         "delete": "Verwijderen",
         "deleteConfirm": "Pagina \"{{title}}\" verwijderen?",
         "newChild": "Subpagina toevoegen",
-        "newSibling": "Sibling-pagina toevoegen"
+        "newSibling": "Sibling-pagina toevoegen",
+        "lock": "Vergrendelen",
+        "unlock": "Ontgrendelen",
+        "newPageDefault": "Pagina",
+        "dragPage": "Pagina verslepen",
+        "renameInline": "Paginatitel",
+        "newRootInline": "Nieuwe paginatitel",
+        "newChildInline": "Titel subpagina"
       },
       "lockedTitle": "Deze pagina is vergrendeld",
-      "lockedHint": "Ontgrendel via pagina-instellingen om te bewerken.",
+      "lockedHint": "Bewerken is uitgeschakeld. Klik op Ontgrendelen in de kop of via het paginamenu om wijzigingen te maken.",
       "revert": "Terugdraaien",
       "revertFailed": "Terugdraaien mislukt.",
       "editor": {
         "saving": "Opslaan…",
         "saved": "Opgeslagen {{time}}",
+        "savedShort": "Opgeslagen",
+        "lastEdited": "Laatst bewerkt {{time}}",
+        "saveFailed": "Opslaan mislukt",
         "dragBlock": "Blok verslepen",
         "deleteBlock": "Blok verwijderen",
         "addBlockBelow": "Blok hieronder toevoegen",
@@ -827,7 +976,8 @@
         "quote": "Citaat",
         "callout": "Aandachtsblok",
         "code": "Code",
-        "default": "Type '/' voor commando's…"
+        "default": "Typ hier…",
+        "defaultHint": "Typ '- ' voor bullet, '1. ' voor genummerd, '#' voor kop…"
       },
       "blockType": {
         "paragraph": "Tekst",

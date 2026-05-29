@@ -13,6 +13,8 @@ import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import type { RuntimeAgent } from '../lib/workforce-api'
+import { WORKFORCE_DEFAULT_PATH } from '../components/layout/portal-nav'
+import { AiAvatar } from '../components/ui/AiAvatar'
 import { cn } from '../lib/utils'
 
 const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
@@ -81,7 +83,7 @@ export default function AiAgentDetail() {
   }
 
   if (!agentId) {
-    return <Navigate to="/ai/agents" replace />
+    return <Navigate to={WORKFORCE_DEFAULT_PATH} replace />
   }
 
   if (workLogId) {
@@ -100,8 +102,8 @@ export default function AiAgentDetail() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <Link to="/ai/agents" className="text-sm text-accent hover:underline">
-        {t('ai.agents.backToList')}
+      <Link to={WORKFORCE_DEFAULT_PATH} className="text-sm text-accent hover:underline">
+        {t('workforce.agents.backToList')}
       </Link>
 
       {loading ? (
@@ -116,11 +118,14 @@ export default function AiAgentDetail() {
         <>
           <Card className="px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
-                <p className="mt-0.5 text-sm text-text-muted">
-                  {agent.role_name || agent.role_slug || t('ai.agents.roleUnknown')}
-                </p>
+              <div className="flex items-start gap-3">
+                <AiAvatar name={agent.name} seed={agent.id} size={34} className="mt-0.5" />
+                <div>
+                  <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
+                  <p className="mt-0.5 text-sm text-text-muted">
+                    {agent.role_name || agent.role_slug || t('ai.agents.roleUnknown')}
+                  </p>
+                </div>
               </div>
               <span
                 className={cn('text-sm font-medium capitalize', STATUS_CLASS[agent.status])}

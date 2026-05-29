@@ -10,7 +10,11 @@ import {
 } from 'react'
 import type { DocPageRow, DocRoot } from '../lib/doc-api'
 import { getWorkspaceDoc } from '../lib/workspace-doc-api'
-import { seedWorkspaceDocScaffoldIfEmpty } from '../lib/workspace-doc-scaffold'
+import { ensureCompanyHandbookApplied } from '../lib/workspace-company-handbook'
+import {
+  ensureMissingWorkspaceDocScaffoldPages,
+  seedWorkspaceDocScaffoldIfEmpty,
+} from '../lib/workspace-doc-scaffold'
 import { useAuth } from './AuthContext'
 
 export interface WorkspaceDocNavValue {
@@ -18,6 +22,8 @@ export interface WorkspaceDocNavValue {
   pages: DocPageRow[]
   loading: boolean
   error: string | null
+  /** Increments when company handbook content is applied to doc pages. */
+  handbookRevision: number
   refresh: () => Promise<void>
 }
 
@@ -32,6 +38,7 @@ export function WorkspaceDocNavProvider({ children }: { children: ReactNode }) {
   const [pages, setPages] = useState<DocPageRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [handbookRevision, setHandbookRevision] = useState(0)
   const refreshInFlight = useRef<Promise<void> | null>(null)
 
   const refresh = useCallback(async () => {
@@ -53,10 +60,26 @@ export function WorkspaceDocNavProvider({ children }: { children: ReactNode }) {
       setError(null)
       try {
         let res = await getWorkspaceDoc()
+        let scaffoldAdded = false
         if (!res.pages.length && res.doc?.id) {
           const seeded = await seedWorkspaceDocScaffoldIfEmpty(res.doc.id, res.pages)
           if (seeded) {
             res = await getWorkspaceDoc()
+          }
+        }
+        if (res.doc?.id && res.pages.length > 0) {
+          scaffoldAdded = await ensureMissingWorkspaceDocScaffoldPages(res.doc.id, res.pages)
+          if (scaffoldAdded) {
+            res = await getWorkspaceDoc()
+          }
+        }
+        if (res.doc?.id && res.pages.length > 0) {
+          const handbookApplied = await ensureCompanyHandbookApplied(res.doc.id, res.pages)
+          if (handbookApplied || scaffoldAdded) {
+            setHandbookRevision((n) => n + 1)
+            if (handbookApplied) {
+              res = await getWorkspaceDoc()
+            }
           }
         }
         setDoc(res.doc)
@@ -93,9 +116,10 @@ export function WorkspaceDocNavProvider({ children }: { children: ReactNode }) {
       pages,
       loading,
       error,
+      handbookRevision,
       refresh,
     }),
-    [doc, pages, loading, error, refresh],
+    [doc, pages, loading, error, handbookRevision, refresh],
   )
 
   return (

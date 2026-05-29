@@ -39,6 +39,7 @@ export type PkbSectionRow = {
   title?: string | null
   content: string
   change_status?: string
+  target_page_id?: string | null
 }
 
 export type MessageRow = {
@@ -106,12 +107,30 @@ export async function listPkbSections(
   projectId: string,
   layer?: PkbSectionRow['layer']
 ): Promise<PkbSectionRow[]> {
-  const params = new URLSearchParams({ project_id: projectId })
-  if (layer) params.set('layer', layer)
-  const data = await apiFetch<PkbSectionRow[] | { items: PkbSectionRow[] }>(
-    `/workforce/pkb?${params}`
-  )
-  return Array.isArray(data) ? data : data.items ?? []
+  if (layer && layer !== 'change_queue') {
+    return []
+  }
+
+  const data = await apiFetch<
+    Array<{
+      id: string
+      project_id: string
+      title?: string | null
+      body: string
+      status?: string
+      target_page_id?: string | null
+    }>
+  >(`/workforce/projects/${encodeURIComponent(projectId)}/doc/change-requests`)
+
+  return (Array.isArray(data) ? data : []).map((row) => ({
+    id: row.id,
+    project_id: row.project_id,
+    layer: 'change_queue',
+    title: row.title ?? null,
+    content: row.body,
+    change_status: row.status ?? 'pending',
+    target_page_id: row.target_page_id ?? null,
+  }))
 }
 
 export async function submitChangeRequest(input: {
@@ -119,17 +138,30 @@ export async function submitChangeRequest(input: {
   content: string
   priority?: number
 }): Promise<PkbSectionRow> {
-  return apiFetch<PkbSectionRow>('/workforce/pkb', {
+  const response = await apiFetch<{
+    id: string
+    project_id: string
+    title?: string | null
+    body: string
+    status?: string
+    target_page_id?: string | null
+  }>(`/workforce/projects/${encodeURIComponent(input.project_id)}/doc/change-requests`, {
     method: 'POST',
     body: JSON.stringify({
-      project_id: input.project_id,
-      layer: 'change_queue',
-      change_status: 'pending',
-      submitted_by_type: 'user',
-      content: input.content,
+      body: input.content,
       priority: input.priority ?? 5,
     }),
   })
+
+  return {
+    id: response.id,
+    project_id: response.project_id,
+    layer: 'change_queue',
+    title: response.title ?? null,
+    content: response.body,
+    change_status: response.status ?? 'pending',
+    target_page_id: response.target_page_id ?? null,
+  }
 }
 
 export async function listMessages(filters: {

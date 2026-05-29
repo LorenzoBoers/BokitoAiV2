@@ -20,12 +20,12 @@ query "workspace/doc/pages/{page_id}/blocks" verb=GET {
       error = "No organisation context."
     }
 
-    db.query workspace_doc_pages {
-      where = $db.workspace_doc_pages.id == $input.page_id && $db.workspace_doc_pages.tenant_id == $me.organisation_id
-      return = {type: "list", paging: {page: 1, per_page: 1}}
-    } as $page_rows
+    db.get workspace_doc_pages {
+      field_name = "id"
+      field_value = $input.page_id
+    } as $page
 
-    precondition (($page_rows|count) > 0) {
+    precondition ($page != null && $page.tenant_id == $me.organisation_id) {
       error_type = "inputerror"
       error = "Page not found."
     }
@@ -42,7 +42,7 @@ query "workspace/doc/pages/{page_id}/blocks" verb=GET {
   }
 
   response = {
-    page  : $page_rows|first
+    page  : $page
     blocks: $block_list
   }
 }

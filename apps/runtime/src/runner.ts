@@ -69,9 +69,17 @@ export async function processAgentJob(data: AgentJobData): Promise<void> {
         subject: String(ctxRecord.subject || 'Agent run'),
         body: String(ctxRecord.body || ''),
         payload: (ctxRecord.payload as Record<string, unknown>) || {},
-        change_queue_section_id:
-          typeof ctxRecord.change_queue_section_id === 'string'
-            ? ctxRecord.change_queue_section_id
+        blueprint_change_request_id:
+          typeof ctxRecord.blueprint_change_request_id === 'string'
+            ? ctxRecord.blueprint_change_request_id
+            : null,
+        blueprint_change_scope:
+          ctxRecord.blueprint_change_scope === 'workspace' || ctxRecord.blueprint_change_scope === 'project'
+            ? ctxRecord.blueprint_change_scope
+            : null,
+        blueprint_target_page_id:
+          typeof ctxRecord.blueprint_target_page_id === 'string'
+            ? ctxRecord.blueprint_target_page_id
             : null,
       },
       report_to: {

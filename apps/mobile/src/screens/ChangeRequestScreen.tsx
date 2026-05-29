@@ -54,7 +54,7 @@ export function ChangeRequestScreen() {
         ]}
       />
       {done ? (
-        <Text style={styles.success}>Your request was submitted. Check the Changing tab in PKB.</Text>
+        <Text style={styles.success}>Your request was submitted. Check the Changing tab in Blueprint.</Text>
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button

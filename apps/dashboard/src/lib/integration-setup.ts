@@ -41,11 +41,18 @@ export function resolveSetupConfig(
     }
   }
 
+  if (provider?.auth_type === 'mcp_remote_oauth') {
+    return { mode: 'remote_mcp_oauth', platformSlug }
+  }
+
   const authType: IntegrationAuthType = provider?.auth_type ?? defaultAuthType(integration.id)
   if (authType === 'oauth2' || integration.id === 'github') {
     return { mode: 'oauth2', platformSlug }
   }
-  if (provider?.capabilities?.mcp_tools) {
+  if (provider?.capabilities?.mcp_tools || provider?.capabilities?.remote_mcp) {
+    if (provider.auth_type === 'mcp_remote_oauth') {
+      return { mode: 'remote_mcp_oauth', platformSlug }
+    }
     return { mode: 'api_key', platformSlug, mcpPreset: 'custom_mcp' }
   }
   return { mode: 'oauth2', platformSlug }
@@ -72,6 +79,7 @@ export function capabilityLabels(
   const labels: string[] = []
   if (caps.inbox_sync) labels.push('inbox_sync')
   if (caps.repo_index) labels.push('repo_index')
+  if (caps.remote_mcp) labels.push('remote_mcp')
   if (caps.mcp_tools || integration?.kind === 'mcp') labels.push('mcp_tools')
   if (labels.length === 0 && integration?.kind === 'inbox') labels.push('inbox_sync')
   if (labels.length === 0 && integration?.kind === 'repository') labels.push('repo_index')

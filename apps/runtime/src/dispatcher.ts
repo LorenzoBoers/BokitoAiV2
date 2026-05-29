@@ -105,7 +105,7 @@ export function registerDispatcherRoutes(app: Express): void {
       return
     }
 
-    const { project_id, tenant_id, po_agent_id } = req.body || {}
+    const { project_id, tenant_id, po_agent_id, trigger_message_id } = req.body || {}
     if (!project_id || !tenant_id || !po_agent_id) {
       res.status(400).json({ error: 'missing_fields' })
       return
@@ -118,6 +118,7 @@ export function registerDispatcherRoutes(app: Express): void {
         tenant_id: String(tenant_id),
         agent_id: String(po_agent_id),
         task_subject: 'PO heartbeat run',
+        trigger_message_id: trigger_message_id ? String(trigger_message_id) : undefined,
       })
     } catch (e) {
       res.status(502).json({ error: 'xano_start_failed', detail: (e as Error).message })

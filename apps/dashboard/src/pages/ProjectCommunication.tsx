@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpRight } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { ProjectShell } from '../components/project/ProjectShell'
 import { WorkforceDecisionList } from '../components/workforce/WorkforceDecisionList'
@@ -34,11 +36,13 @@ function MessageList({ rows, empty }: { rows: MessageRow[]; empty: string }) {
 export default function ProjectCommunication() {
   const { t } = useTranslation('nav')
   const { projectId } = useProjectContext()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [pendingDecisions, setPendingDecisions] = useState<MessageRow[]>([])
   const [resolvedDecisions, setResolvedDecisions] = useState<MessageRow[]>([])
   const [updates, setUpdates] = useState<MessageRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const streamFilter = searchParams.get('stream')?.trim() ?? ''
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -74,6 +78,44 @@ export default function ProjectCommunication() {
     void load()
   }, [load])
 
+  function detectStreamRef(msg: MessageRow): string | null {
+    const payload = msg.payload
+    if (!payload) return null
+    const candidates = ['stream_slug', 'workstream_slug', 'stream', 'stream_id', 'workflow_stream']
+    for (const key of candidates) {
+      const value = payload[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+      if (typeof value === 'number') return String(value)
+    }
+    return null
+  }
+
+  const allRows = [...pendingDecisions, ...resolvedDecisions, ...updates]
+  const streamOptions = Array.from(
+    new Set(allRows.map((row) => detectStreamRef(row)).filter((value): value is string => Boolean(value))),
+  )
+
+  function applyStreamFilter(rows: MessageRow[]): MessageRow[] {
+    if (!streamFilter) return rows
+    return rows.filter((row) => {
+      const streamRef = detectStreamRef(row)
+      // Mixed mode: keep project-wide rows while filtering stream-specific messages.
+      if (!streamRef) return true
+      return streamRef === streamFilter
+    })
+  }
+
+  const pendingRows = applyStreamFilter(pendingDecisions)
+  const updateRows = applyStreamFilter(updates)
+  const resolvedRows = applyStreamFilter(resolvedDecisions)
+
+  function setFilter(next: string) {
+    const params = new URLSearchParams(searchParams)
+    if (next) params.set('stream', next)
+    else params.delete('stream')
+    setSearchParams(params, { replace: true })
+  }
+
   return (
     <ProjectShell>
       <Card>
@@ -97,29 +139,51 @@ export default function ProjectCommunication() {
             <p className="text-sm text-destructive">{error}</p>
           ) : (
             <Tabs defaultValue="pending">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={streamFilter ? 'secondary' : 'default'}
+                  onClick={() => setFilter('')}
+                >
+                  {t('project.communication.filter.all', { defaultValue: 'All project messages' })}
+                </Button>
+                {streamOptions.map((stream) => (
+                  <Button
+                    key={stream}
+                    size="sm"
+                    variant={streamFilter === stream ? 'default' : 'secondary'}
+                    onClick={() => setFilter(stream)}
+                  >
+                    {t('project.communication.filter.stream', {
+                      defaultValue: 'Stream: {{stream}}',
+                      stream,
+                    })}
+                  </Button>
+                ))}
+              </div>
               <TabsList>
                 <TabsTrigger value="pending">
                   {t('project.communication.tabs.pending')}
-                  {pendingDecisions.length > 0 ? ` (${pendingDecisions.length})` : ''}
+                  {pendingRows.length > 0 ? ` (${pendingRows.length})` : ''}
                 </TabsTrigger>
                 <TabsTrigger value="updates">{t('project.messages.tabs.updates')}</TabsTrigger>
                 <TabsTrigger value="resolved">{t('project.communication.tabs.resolved')}</TabsTrigger>
               </TabsList>
               <TabsContent value="pending" className="mt-4">
-                {pendingDecisions.length === 0 ? (
+                {pendingRows.length === 0 ? (
                   <p className="text-sm text-text-muted">
                     {t('project.messages.empty.decisions')}
                   </p>
                 ) : (
-                  <WorkforceDecisionList messages={pendingDecisions} onRefresh={load} />
+                  <WorkforceDecisionList messages={pendingRows} onRefresh={load} />
                 )}
               </TabsContent>
               <TabsContent value="updates" className="mt-4">
-                <MessageList rows={updates} empty={t('project.messages.empty.updates')} />
+                <MessageList rows={updateRows} empty={t('project.messages.empty.updates')} />
               </TabsContent>
               <TabsContent value="resolved" className="mt-4">
                 <MessageList
-                  rows={resolvedDecisions}
+                  rows={resolvedRows}
                   empty={t('project.communication.emptyResolved')}
                 />
               </TabsContent>

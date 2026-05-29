@@ -27,6 +27,10 @@ query "messages/{message_id}/reject" verb=POST {
       value = $rows|first
     }
 
+    var $request_id {
+      value = $msg.payload != null ? $msg.payload.blueprint_change_request_id : null
+    }
+
     db.edit messages {
       field_name = "id"
       field_value = $input.message_id
@@ -34,12 +38,12 @@ query "messages/{message_id}/reject" verb=POST {
     } as $updated
 
     conditional {
-      if ($msg.pkb_section_id != null) {
-        db.edit pkb_sections {
+      if ($request_id != null) {
+        db.edit doc_change_requests {
           field_name = "id"
-          field_value = $msg.pkb_section_id
-          data = {change_status: "rejected", updated_at: now}
-        } as $pkb
+          field_value = $request_id
+          data = {status: "rejected", updated_at: now}
+        } as $request
       }
     }
   }

@@ -61,6 +61,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), chatWidgetDevPlugin()],
     server: {
       port: 5174,
+      // Bind IPv4 explicitly; Node on Windows may otherwise listen only on [::1].
+      host: '127.0.0.1',
       open: false,
       proxy: {
         '/api/auth': {

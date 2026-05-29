@@ -82,6 +82,8 @@ interface User {
   email: string;
   jobTitle: string | null;
   avatarUrl: string | null;
+  /** Public signature image URL used in outbound mail signatures. */
+  signatureUrl: string | null;
   accountId: number | null;
   /** Xano `user.organisation_id` (UUID); required for tenant-scoped APIs such as email. */
   organisationId: string | null;
@@ -101,7 +103,7 @@ interface AuthContextValue {
   hasPermission: (action: PermissionAction) => boolean;
   setUserRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
-  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl'>>) => void;
+  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl'>>) => void;
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
 }
@@ -216,6 +218,19 @@ function normalizeAuthUser(raw: unknown): User {
   const avatarUrl = avatarRaw
     ? toString(avatarRaw.url ?? avatarRaw.path ?? avatarRaw.src ?? '')
     : typeof payload.avatar === 'string' ? toString(payload.avatar) : null;
+  const signatureRaw =
+    payload.signature && typeof payload.signature === 'object'
+      ? (payload.signature as Record<string, unknown>)
+      : null;
+  const signatureUrl = toString(
+    payload.signature_url ??
+      payload.signatureUrl ??
+      payload.user_signature_url ??
+      payload.userSignatureUrl ??
+      signatureRaw?.url ??
+      signatureRaw?.path ??
+      '',
+  );
 
   return {
     id: toNumber(payload.id) ?? 0,
@@ -223,6 +238,7 @@ function normalizeAuthUser(raw: unknown): User {
     email: toString(payload.email),
     jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,
     avatarUrl: avatarUrl || null,
+    signatureUrl: signatureUrl || null,
     accountId: toNumber(payload.account_id),
     organisationId: normalizeOrganisationId(payload),
     role: mapTenantRoleToUserRole(payload.role),
@@ -536,7 +552,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token]);
 
-  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl'>>) => {
+  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl'>>) => {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 
