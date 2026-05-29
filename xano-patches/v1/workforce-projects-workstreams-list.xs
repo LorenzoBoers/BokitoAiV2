@@ -1,6 +1,5 @@
 // GET /api:workforce/projects/{project_id}/workstreams
 // Returns workstreams for a project and the linked PO agent (role=po).
-// Seeds three default workstreams when none exist yet.
 query "projects/{project_id}/workstreams" verb=GET {
   api_group = "workforce"
   auth = "user"
@@ -45,72 +44,7 @@ query "projects/{project_id}/workstreams" verb=GET {
     } as $stream_rows
 
     var $stream_items {
-      value = $stream_rows.items
-    }
-
-    conditional {
-      if (($stream_items|count) == 0) {
-        var $defaults {
-          value = [
-            {
-              slug         : "request-fulfilment"
-              name         : "Request fulfilment"
-              status       : "active"
-              trigger_text : "PO invokes stream from change request"
-              output_text  : "PO receives status report and next actions"
-              position     : 0
-            }
-            {
-              slug         : "bugfix-triage"
-              name         : "Bugfix triage"
-              status       : "draft"
-              trigger_text : "PO invokes stream from bug intake"
-              output_text  : "Prioritised bugfix report to PO"
-              position     : 1
-            }
-            {
-              slug         : "feature-delivery"
-              name         : "Feature delivery"
-              status       : "paused"
-              trigger_text : "PO invokes stream from roadmap item"
-              output_text  : "Release summary and blueprint sync"
-              position     : 2
-            }
-          ]
-        }
-
-        foreach ($defaults) {
-          each as $def {
-            db.add project_workstreams {
-              data = {
-                id            : ""|uuid
-                tenant_id     : $me.organisation_id
-                project_id    : $input.project_id
-                name          : $def|get:"name"
-                slug          : $def|get:"slug"
-                status        : $def|get:"status"
-                trigger_text  : $def|get:"trigger_text"
-                output_text   : $def|get:"output_text"
-                steps         : []
-                position      : $def|get:"position"
-                last_active_at: null
-                created_at    : now
-                updated_at    : now
-              }
-            }
-          }
-        }
-
-        db.query project_workstreams {
-          where = $db.project_workstreams.project_id == $input.project_id && $db.project_workstreams.tenant_id == $me.organisation_id
-          sort = {project_workstreams.position: "asc"}
-          return = {type: "list", paging: {page: 1, per_page: 100}}
-        } as $stream_rows
-
-        var.update $stream_items {
-          value = $stream_rows.items
-        }
-      }
+      value = ($stream_rows|get:"items") != null ? ($stream_rows|get:"items") : []
     }
 
     var $po_agent_row {
