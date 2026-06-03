@@ -8,7 +8,14 @@
   "scripts": {
     "build:widget": "npm run build -w bokito-chat-widget",
     "build:dashboard": "npm run build -w dashboard",
+    "build:messenger": "npm run build -w bokito-messenger",
     "build:runtime": "npm run build -w @bokito/runtime",
-    "build:shared": "npm run build -w @bokito/shared"
+    "build:shared": "npm run build -w @bokito/shared",
+    "dev:stack": "docker compose -f docker-compose.dev.yml up --build",
+    "test:api": "cd apps/api && pip install -e \".[dev]\" && pytest",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
   }
 }

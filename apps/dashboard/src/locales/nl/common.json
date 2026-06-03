@@ -9,6 +9,7 @@
     "delete": "Verwijderen",
     "enable": "Inschakelen",
     "disable": "Uitschakelen",
-    "signOut": "Uitloggen"
+    "signOut": "Uitloggen",
+    "retry": "Opnieuw proberen"
   }
 }

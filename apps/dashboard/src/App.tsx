@@ -21,7 +21,6 @@ import MessengerSettings from './pages/MessengerSettings'
 import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
 import { WORKFORCE_DEFAULT_PATH, projectOrchestratorPath } from './components/layout/portal-nav'
 import HelpCentersSettings from './pages/HelpCentersSettings'
-import CloudAgent from './pages/CloudAgent'
 import CreateProject from './pages/CreateProject'
 import ProjectHubShell from './components/layout/ProjectHubShell'
 import ProjectHubOverview from './pages/ProjectHubOverview'
@@ -280,7 +279,7 @@ export default function App() {
           <Route path="/ai/agents" element={<AiAgents />} />
           <Route path="/ai/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/ai/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
-          <Route path="/cloud-agent" element={<CloudAgent />} />
+          <Route path="/cloud-agent" element={<Navigate to="/home" replace />} />
           <Route path="/datasources" element={<Navigate to="/projects" replace />} />
           <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />

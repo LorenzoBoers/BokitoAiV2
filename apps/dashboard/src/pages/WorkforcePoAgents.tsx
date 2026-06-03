@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bot } from 'lucide-react'
+import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { LoadingBlock } from '../components/ui/loading-block'
@@ -20,33 +21,28 @@ const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
 }
 
 export default function WorkforcePoAgents() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const isAdmin = useIsAdmin()
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    listAgents()
-      .then((rows) => {
-        if (!cancelled) setAgents(rows)
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setAgents([])
-          setError(e instanceof Error ? e.message : t('workforce.agents.loadError'))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+    try {
+      setAgents(await listAgents())
+    } catch (e) {
+      setAgents([])
+      setError(e instanceof Error ? e.message : t('workforce.agents.loadError'))
+    } finally {
+      setLoading(false)
     }
   }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const poAgents = useMemo(() => sortAgentsByUpdated(filterPoAgents(agents)), [agents])
   const singleTarget = useMemo(() => resolvePoNavTarget(agents), [agents])
@@ -72,6 +68,9 @@ export default function WorkforcePoAgents() {
       ) : error ? (
         <Card className="p-4">
           <p className="text-sm text-status-error">{error}</p>
+          <Button size="sm" variant="secondary" className="mt-2" onClick={() => void load()}>
+            {t('common:actions.retry')}
+          </Button>
         </Card>
       ) : poAgents.length === 0 ? (
         <EmptyState icon={Bot} title={t('workforce.po.none')} />

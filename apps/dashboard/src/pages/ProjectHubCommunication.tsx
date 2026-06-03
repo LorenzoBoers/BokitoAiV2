@@ -14,7 +14,7 @@ import { listProjects } from '../lib/projects-api'
  * Aggregate view of pending agent communications across all projects.
  */
 export default function ProjectHubCommunication() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const [messages, setMessages] = useState<Awaited<ReturnType<typeof listMessages>>>([])
   const [projects, setProjects] = useState<Awaited<ReturnType<typeof listProjects>>>([])
   const [loading, setLoading] = useState(true)
@@ -33,7 +33,7 @@ export default function ProjectHubCommunication() {
     } catch (err) {
       setMessages([])
       setProjects([])
-      setError(err instanceof Error ? err.message : 'Could not load messages.')
+      setError(err instanceof Error ? err.message : t('projectHub.communication.loadError'))
     } finally {
       setLoading(false)
     }
@@ -64,7 +64,12 @@ export default function ProjectHubCommunication() {
           {loading ? (
             <LoadingBlock label={t('project.messages.loading')} />
           ) : error ? (
-            <p className="text-sm text-destructive">{error}</p>
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">{error}</p>
+              <Button size="sm" variant="secondary" onClick={() => void load()}>
+                {t('common:actions.retry')}
+              </Button>
+            </div>
           ) : messages.length === 0 ? (
             <EmptyState
               icon={MessageSquare}

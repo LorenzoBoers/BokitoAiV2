@@ -7,6 +7,7 @@ import { WorkspaceDocNavProvider } from '../../context/WorkspaceDocNavContext'
 import Sidebar from './Sidebar'
 import AppHeader from './AppHeader'
 import SectionSidebar from './SectionSidebar'
+import { FloatingMessengerHost } from '../messenger/FloatingMessengerHost'
 
 /**
  * Lift the workspace docs provider above `SectionSidebar` on hub doc
@@ -50,6 +51,7 @@ export default function Layout() {
         </div>
         </MaybeWorkspaceDocs>
       </MaybeProjectHubNav>
+      <FloatingMessengerHost />
       </InboxCommunicationProvider>
     </NavBadgeProvider>
   )

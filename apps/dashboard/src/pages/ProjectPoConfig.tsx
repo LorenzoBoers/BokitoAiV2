@@ -183,17 +183,12 @@ export default function ProjectPoConfig() {
   return (
     <ProjectShell hideContextBar hideTabNav hideWorkerStatus>
       <div className="space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold text-text-heading">
-            {t('project.po.title', { defaultValue: 'Orchestrator' })}
-          </h1>
-          <p className="mt-1 text-sm text-text-muted">
-            {t('project.po.description', {
-              defaultValue:
-                'Configure the dedicated orchestrator for this project. Plans work, routes agents, and keeps project knowledge current.',
-            })}
-          </p>
-        </div>
+        <p className="text-sm text-text-muted">
+          {t('project.po.description', {
+            defaultValue:
+              'Configure the dedicated orchestrator for this project. Plans work, routes agents, and keeps project knowledge current.',
+          })}
+        </p>
 
         {loading ? (
           <LoadingBlock label={t('project.po.loading', { defaultValue: 'Loading orchestrator settings…' })} />

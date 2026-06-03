@@ -48,7 +48,7 @@ export default function ProjectUsage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <LoadingBlock label={t('workforce.runs.loading')} />
+              <LoadingBlock label={t('project.usage.loading')} />
             ) : error && !summary && !budget ? (
               <div className="space-y-2">
                 <p className="text-sm text-destructive">{error}</p>

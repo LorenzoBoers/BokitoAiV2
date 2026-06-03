@@ -48,6 +48,7 @@ import {
 } from '../components/integrations/ApplicationHubDialog'
 import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
+import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { EmptyState } from '../components/ui/empty-state'
@@ -106,7 +107,7 @@ function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): 
 }
 
 export default function IntegrationsMarketplace() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFilter = parseKindFilter(searchParams.get('kind'))
@@ -225,7 +226,7 @@ export default function IntegrationsMarketplace() {
     } catch {
       setGithubConnections([])
     }
-  }, [])
+  }, [t])
 
   const applyCallbackBanner = useCallback(
     (params: URLSearchParams, connectParam: string | null) => {
@@ -370,7 +371,14 @@ export default function IntegrationsMarketplace() {
         <p className="max-w-2xl text-sm text-text-secondary">
           {t('integrations.pageMeta.marketplace.description')}
         </p>
-        {loadError ? <p className="mt-2 text-xs text-text-muted">{loadError}</p> : null}
+        {loadError ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <p className="text-xs text-text-muted">{loadError}</p>
+            <Button type="button" size="sm" variant="ghost" onClick={() => void refreshCatalog()}>
+              {t('common:actions.retry')}
+            </Button>
+          </div>
+        ) : null}
         <p className="mt-3 text-xs text-text-muted">
           {t('integrations.marketplace.connectedCount', { count: connectedTotal })}
         </p>

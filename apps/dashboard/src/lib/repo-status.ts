@@ -3,19 +3,21 @@ import type { ProjectRow } from './projects-api'
 export type RepoIndexStatus = 'none' | 'pending' | 'indexing' | 'ready' | 'error'
 export type RepoSource = 'none' | 'github_oauth' | 'bokito_managed'
 
-export function repoStatusLabel(project: Pick<ProjectRow, 'repo_index_status' | 'github_repo_full_name'>): string {
-  if (!project.github_repo_full_name) return 'Not connected'
+export function repoStatusLabelKey(
+  project: Pick<ProjectRow, 'repo_index_status' | 'github_repo_full_name'>,
+): string {
+  if (!project.github_repo_full_name) return 'repoStatus.notConnected'
   switch (project.repo_index_status) {
     case 'ready':
-      return 'Ready'
+      return 'repoStatus.ready'
     case 'indexing':
-      return 'Reading project'
+      return 'repoStatus.indexing'
     case 'pending':
-      return 'Queued'
+      return 'repoStatus.pending'
     case 'error':
-      return 'Connection issue'
+      return 'repoStatus.error'
     default:
-      return 'Connected'
+      return 'repoStatus.connected'
   }
 }
 

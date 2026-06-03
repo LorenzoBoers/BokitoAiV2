@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { PageContent } from '../components/layout/PageContent'
 import { ConnectRepoPanel } from '../components/project/ConnectRepoPanel'
-import { getProject } from '../lib/projects-api'
+import { getProject, type ProjectRow } from '../lib/projects-api'
 import { parseGithubCallback } from '../lib/github-oauth'
 
 export default function ConnectProjectRepo() {
@@ -14,6 +14,7 @@ export default function ConnectProjectRepo() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [project, setProject] = useState<ProjectRow | null>(null)
   const [projectName, setProjectName] = useState('')
   const [oauthReady, setOauthReady] = useState(false)
 
@@ -21,8 +22,10 @@ export default function ConnectProjectRepo() {
     if (!projectId) return
     try {
       const p = await getProject(projectId)
+      setProject(p)
       setProjectName(p.name)
     } catch {
+      setProject(null)
       setProjectName('')
     }
   }, [projectId])
@@ -77,8 +80,10 @@ export default function ConnectProjectRepo() {
           <div className="mt-4">
             <ConnectRepoPanel
               projectId={projectId}
+              project={project}
               oauthConnected={oauthReady}
               onConnected={() => navigate(`/project/${projectId}/overview`)}
+              onProjectUpdated={() => void loadProject()}
             />
           </div>
         </div>

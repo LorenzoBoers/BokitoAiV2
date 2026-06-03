@@ -16,12 +16,7 @@ import { useProjectHubNav } from '../context/ProjectHubNavContext'
 import type { ProjectWorkstreamRow, WorkstreamStep } from '../lib/workstreams-api'
 import { projectCommunicationPath } from '../components/layout/portal-nav'
 
-const OVERVIEW_TOOL_LABELS: Array<{ key: string; label: string }> = [
-  { key: 'github', label: 'GitHub' },
-  { key: 'outlook', label: 'Outlook' },
-  { key: 'gmail', label: 'Gmail' },
-  { key: 'mcp', label: 'MCP' },
-]
+const OVERVIEW_TOOL_KEYS = ['github', 'outlook', 'gmail', 'mcp'] as const
 
 function normalizeSteps(stream: ProjectWorkstreamRow): WorkstreamStep[] {
   if (!Array.isArray(stream.steps)) return []
@@ -37,7 +32,7 @@ function normalizeSteps(stream: ProjectWorkstreamRow): WorkstreamStep[] {
 }
 
 export default function ProjectOverview() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const { projectId, project, loading: projectLoading } = useProjectContext()
   const {
     poAgent,
@@ -71,8 +66,14 @@ export default function ProjectOverview() {
     workstreams.find((stream) => stream.slug === selectedStreamSlug) ?? workstreams[0] ?? null
 
   const toolByKey = useMemo(
-    () => new Map(OVERVIEW_TOOL_LABELS.map((tool) => [tool.key, tool.label])),
-    [],
+    () =>
+      new Map(
+        OVERVIEW_TOOL_KEYS.map((key) => [
+          key,
+          t(`project.overview.tools.${key}`, { defaultValue: key.toUpperCase() }),
+        ]),
+      ),
+    [t],
   )
 
   const steps = selectedStream ? normalizeSteps(selectedStream) : []
@@ -111,6 +112,9 @@ export default function ProjectOverview() {
       <ProjectShell width="wide" hideContextBar hideTabNav hideWorkerStatus>
         <Card className="p-4">
           <p className="text-sm text-status-error">{workstreamsError}</p>
+          <Button size="sm" variant="secondary" className="mt-2" onClick={() => void refreshWorkstreams()}>
+            {t('common:actions.retry', { defaultValue: 'Retry' })}
+          </Button>
         </Card>
       </ProjectShell>
     )
@@ -212,7 +216,7 @@ export default function ProjectOverview() {
                         {step.tool_keys.map((toolKey) => (
                           <Badge key={`${step.id}-${toolKey}`} variant="neutral" className="text-[11px]">
                             <Sparkles size={11} className="mr-1" />
-                            {toolByKey.get(toolKey) ??
+                            {toolByKey.get(toolKey as (typeof OVERVIEW_TOOL_KEYS)[number]) ??
                               t('project.overview.selectTool', { defaultValue: 'Select tool' })}
                           </Badge>
                         ))}

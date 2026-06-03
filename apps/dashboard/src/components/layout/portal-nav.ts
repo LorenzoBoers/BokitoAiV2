@@ -112,7 +112,6 @@ export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
     badgeSlot: 'agents',
   },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
-  { label: t('rail.data'), to: '/database', icon: Database, comingSoon: true },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
 

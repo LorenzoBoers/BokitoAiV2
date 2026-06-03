@@ -1,0 +1,166 @@
+.bk-floating-messenger {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  font-family: system-ui, sans-serif;
+}
+
+.bk-floating-launcher {
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.bk-floating-panel {
+  width: 380px;
+  height: 520px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.bk-floating-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.bk-floating-tabs button {
+  margin-right: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.bk-floating-tabs button.active {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+.bk-floating-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bk-floating-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.bk-chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.bk-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bk-chat-bubble {
+  max-width: 85%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.bk-chat-bubble--user {
+  align-self: flex-end;
+  background: #111827;
+  color: #fff;
+}
+
+.bk-chat-bubble--assistant {
+  align-self: flex-start;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.bk-chat-compose {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.bk-chat-compose textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.bk-chat-compose button {
+  border: none;
+  background: #111827;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.bk-decisions {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bk-decision-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.bk-decision-card h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.bk-decision-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bk-decision-options button {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.bk-decision-reject {
+  color: #b91c1c;
+}
+
+.bk-decisions-empty {
+  padding: 16px;
+  color: #6b7280;
+}

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bot } from 'lucide-react'
+import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { AiAvatar } from '../components/ui/AiAvatar'
@@ -23,7 +24,7 @@ const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
 }
 
 export default function AiAgents() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const isAdmin = useIsAdmin()
   const [poAgents, setPoAgents] = useState<RuntimeAgent[]>([])
   const [workerAgents, setWorkerAgents] = useState<RuntimeAgent[]>([])
@@ -31,33 +32,27 @@ export default function AiAgents() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    Promise.all([listAgents(), listProjects()])
-      .then(([rows, projectRows]) => {
-        if (!cancelled) {
-          setPoAgents(sortAgentsByUpdated(filterPoAgents(rows)))
-          setWorkerAgents(sortAgentsByUpdated(filterUserAgents(rows)))
-          setProjects(projectRows)
-        }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setPoAgents([])
-          setWorkerAgents([])
-          setProjects([])
-          setError(e instanceof Error ? e.message : t('workforce.agents.loadError'))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+    try {
+      const [rows, projectRows] = await Promise.all([listAgents(), listProjects()])
+      setPoAgents(sortAgentsByUpdated(filterPoAgents(rows)))
+      setWorkerAgents(sortAgentsByUpdated(filterUserAgents(rows)))
+      setProjects(projectRows)
+    } catch (e) {
+      setPoAgents([])
+      setWorkerAgents([])
+      setProjects([])
+      setError(e instanceof Error ? e.message : t('workforce.agents.loadError'))
+    } finally {
+      setLoading(false)
     }
   }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   if (!isAdmin) {
     return <Navigate to="/messages" replace />
@@ -72,6 +67,9 @@ export default function AiAgents() {
       ) : error ? (
         <Card className="p-4">
           <p className="text-sm text-status-error">{error}</p>
+          <Button size="sm" variant="secondary" className="mt-2" onClick={() => void load()}>
+            {t('common:actions.retry')}
+          </Button>
         </Card>
       ) : poAgents.length === 0 && workerAgents.length === 0 ? (
         <EmptyState icon={Bot} title={t('workforce.agents.empty')} />

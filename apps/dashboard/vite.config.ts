@@ -56,26 +56,36 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const xanoBaseUrl = env.VITE_XANO_BASE_URL || 'https://xrex-nmji-j9ur.f2.xano.io'
   const authCanonical = env.VITE_API_GROUP_AUTH || 'auth'
+  const bokitoApiUrl = env.VITE_BOKITO_API_URL || 'http://127.0.0.1:8000'
+  const useBokitoApi = env.VITE_API_MODE === 'bokito'
+
+  const proxy: Record<string, object> = useBokitoApi
+    ? {
+        '/api': {
+          target: bokitoApiUrl,
+          changeOrigin: true,
+        },
+      }
+    : {
+        '/api/auth': {
+          target: xanoBaseUrl,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/api\/auth/, `/api:${authCanonical}`),
+        },
+        '/api': {
+          target: xanoBaseUrl,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/api\/([^/]+)/, '/api:$1'),
+        },
+      }
 
   return {
     plugins: [react(), chatWidgetDevPlugin()],
     server: {
       port: 5174,
-      // Bind IPv4 explicitly; Node on Windows may otherwise listen only on [::1].
       host: '127.0.0.1',
       open: false,
-      proxy: {
-        '/api/auth': {
-          target: xanoBaseUrl,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/auth/, `/api:${authCanonical}`),
-        },
-        '/api': {
-          target: xanoBaseUrl,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/([^/]+)/, '/api:$1'),
-        },
-      },
+      proxy,
     },
   }
 })

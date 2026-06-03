@@ -21,7 +21,7 @@ import { ProjectRequiredPoBanner } from '../components/project/ProjectRequiredPo
 import { useProjectHubNav } from '../context/ProjectHubNavContext'
 import { formatWorkLogSubject } from '../lib/work-log-labels'
 import { humanizeSnakeCase } from '../lib/display-name'
-import { repoStatusLabel, repoStatusVariant } from '../lib/repo-status'
+import { repoStatusLabelKey, repoStatusVariant } from '../lib/repo-status'
 
 function formatWhen(value?: string | number | null): string {
   if (value == null || value === '' || value === 0) return '-'
@@ -65,11 +65,11 @@ export default function ProjectHubOverview() {
       setProjects(sortProjectsByRecency(rows))
     } catch (err) {
       setProjects([])
-      setProjectsError(err instanceof Error ? err.message : 'Could not load projects.')
+      setProjectsError(err instanceof Error ? err.message : t('projectHub.overview.loadErrors.projects'))
     } finally {
       setLoadingProjects(false)
     }
-  }, [])
+  }, [t])
 
   const loadRuns = useCallback(async () => {
     setLoadingRuns(true)
@@ -78,11 +78,11 @@ export default function ProjectHubOverview() {
       setRuns(await listWorkLogs({ limit: 50 }))
     } catch (err) {
       setRuns([])
-      setRunsError(err instanceof Error ? err.message : 'Could not load runs.')
+      setRunsError(err instanceof Error ? err.message : t('projectHub.overview.loadErrors.runs'))
     } finally {
       setLoadingRuns(false)
     }
-  }, [])
+  }, [t])
 
   const loadPending = useCallback(async () => {
     setLoadingPending(true)
@@ -92,7 +92,7 @@ export default function ProjectHubOverview() {
       setPending(rows.slice(0, 5))
     } catch (err) {
       setPending([])
-      setPendingError(err instanceof Error ? err.message : 'Could not load decisions.')
+      setPendingError(err instanceof Error ? err.message : t('projectHub.overview.loadErrors.decisions'))
     } finally {
       setLoadingPending(false)
     }
@@ -187,7 +187,7 @@ export default function ProjectHubOverview() {
                         <p className="truncate font-medium text-text-heading">{p.name}</p>
                         <div className="mt-1 flex items-center gap-2">
                           <Badge variant={repoStatusVariant(p)} className="text-[10px]">
-                            {repoStatusLabel(p)}
+                            {t(repoStatusLabelKey(p))}
                           </Badge>
                         </div>
                       </div>

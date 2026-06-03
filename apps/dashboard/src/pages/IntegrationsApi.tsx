@@ -14,11 +14,9 @@ export default function IntegrationsApi() {
         <h2 className="text-sm font-semibold text-text-heading">{t('integrations.pageMeta.api.title')}</h2>
         <p className="text-xs text-text-secondary mt-2">{t('integrations.pageMeta.api.description')}</p>
         <Badge variant="neutral" className="mt-4">
-          Binnenkort
+          {t('integrations.pageMeta.api.comingSoon')}
         </Badge>
-        <p className="text-xs text-text-muted mt-4">
-          Developer API-sleutels en webhooks worden hier beschikbaar zodra de backend is uitgerold.
-        </p>
+        <p className="text-xs text-text-muted mt-4">{t('integrations.pageMeta.api.comingSoonBody')}</p>
       </div>
     </div>
   )

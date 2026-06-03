@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { ProjectShell } from '../components/project/ProjectShell'
 import { ProjectOrchestrationForm } from '../components/project/ProjectOrchestrationForm'
@@ -14,7 +15,7 @@ import {
 } from '../lib/project-orchestration-api'
 
 export default function ProjectOrchestration() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const { projectId, project, loading: projectLoading } = useProjectContext()
   const { poAgent, workstreamsLoading } = useProjectHubNav()
   const [config, setConfig] = useState<ProjectOrchestrationConfig | null>(null)
@@ -79,7 +80,12 @@ export default function ProjectOrchestration() {
           {loading ? (
             <LoadingBlock label={t('project.orchestration.loading')} />
           ) : !config ? (
-            <p className="text-sm text-destructive">{error ?? t('project.orchestration.loadError')}</p>
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">{error ?? t('project.orchestration.loadError')}</p>
+              <Button size="sm" variant="secondary" onClick={() => void load()}>
+                {t('common:actions.retry')}
+              </Button>
+            </div>
           ) : (
             <>
               {error ? <p className="text-sm text-destructive">{error}</p> : null}

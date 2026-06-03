@@ -25,7 +25,7 @@ import type { RuntimeAgent } from '../lib/workforce-api'
 import { projectWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { formatWorkLogSubject } from '../lib/work-log-labels'
 import { displayNameOrFallback, humanizeSnakeCase, looksLikeUuid } from '../lib/display-name'
-import { repoStatusLabel, repoStatusVariant } from '../lib/repo-status'
+import { repoStatusLabelKey, repoStatusVariant } from '../lib/repo-status'
 import { Badge } from '../components/ui/badge'
 
 function formatWhen(value?: string | number | null): string {
@@ -249,7 +249,7 @@ export default function HomeDashboard() {
                         <p className="truncate font-medium text-text-heading">{p.name}</p>
                         <div className="mt-1 flex items-center gap-2">
                           <Badge variant={repoStatusVariant(p)} className="text-[10px]">
-                            {repoStatusLabel(p)}
+                            {t(repoStatusLabelKey(p))}
                           </Badge>
                         </div>
                       </div>

@@ -31,6 +31,14 @@
     "projects": "Projects",
     "projectHub": "Project hub"
   },
+  "repoStatus": {
+    "notConnected": "Not connected",
+    "ready": "Ready",
+    "indexing": "Reading project",
+    "pending": "Queued",
+    "error": "Connection issue",
+    "connected": "Connected"
+  },
   "home": {
     "title": "Home",
     "description": "Workspace overview: recent projects, inbox, and combined activity.",
@@ -131,6 +139,10 @@
     "addStreamSubmitting": "Creating…",
     "addStreamError": "Could not create workstream",
     "addStreamCancel": "Cancel",
+    "retry": "Retry",
+    "loadError": "Could not load workstreams.",
+    "emptyTitle": "No workstreams yet",
+    "emptyDescription": "Add a workstream to define how agents execute work for this project.",
     "newProject": "New project",
     "showMore": "Show {{count}} more",
     "showLess": "Show less",
@@ -204,7 +216,12 @@
       "pendingDecisionsTitle": "Awaiting your decision",
       "viewAllDecisions": "Open communication",
       "emptyDecisions": "No pending decisions.",
-      "recentRunsTitle": "Recent agent runs"
+      "recentRunsTitle": "Recent agent runs",
+      "loadErrors": {
+        "projects": "Could not load projects.",
+        "runs": "Could not load runs.",
+        "decisions": "Could not load decisions."
+      }
     },
     "docs": {
       "menuLabel": "Blueprint",
@@ -229,7 +246,8 @@
       "description": "Open agent messages waiting on your decision, grouped across all projects.",
       "pendingTitle": "Awaiting admin",
       "empty": "No pending agent messages.",
-      "openInbox": "Open inbox"
+      "openInbox": "Open inbox",
+      "loadError": "Could not load messages."
     }
   },
   "userMenu": {
@@ -432,6 +450,9 @@
       "emptyKind": "No integrations in this category.",
       "catalogFallback": "Catalog API unavailable; using local list."
     },
+    "categories": {
+      "productivity": "Productivity"
+    },
     "connected": {
       "addIntegration": "Add integration",
       "loading": "Loading connections…",
@@ -471,7 +492,9 @@
       },
       "api": {
         "title": "API keys",
-        "description": "Developer keys for programmatic access."
+        "description": "Developer keys for programmatic access.",
+        "comingSoon": "Coming soon",
+        "comingSoonBody": "Developer API keys and webhooks will appear here once the backend is rolled out."
       },
       "sources": {
         "title": "Sources",
@@ -691,7 +714,14 @@
         "started": "Started",
         "tokens": "Tokens"
       },
-      "fallbackSubject": "Agent run"
+      "fallbackSubject": "Agent run",
+      "status": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "running": "Running",
+        "pending": "Pending",
+        "cancelled": "Cancelled"
+      }
     },
     "overview": {
       "loading": "Loading workforce overview…",
@@ -753,6 +783,8 @@
   },
   "project": {
     "tabsAriaLabel": "Project sections",
+    "loadError": "Could not load project.",
+    "notFound": "Project not found.",
     "group": {
       "nav": "Project",
       "pages": "Pages"
@@ -798,13 +830,20 @@
       "selectTool": "Select tool",
       "outputTitle": "Output",
       "outputChip": "out: stream report to orchestrator",
-      "emptySteps": "No steps configured for this workstream yet."
+      "emptySteps": "No steps configured for this workstream yet.",
+      "tools": {
+        "github": "GitHub",
+        "outlook": "Outlook",
+        "gmail": "Gmail",
+        "mcp": "MCP"
+      }
     },
     "messages": {
       "title": "Project messages",
       "description": "Updates and decisions for this project only.",
       "tenantInbox": "Open tenant inbox",
       "loading": "Loading…",
+      "loadError": "Could not load messages.",
       "tabs": {
         "updates": "Updates",
         "decisions": "Decisions"
@@ -937,6 +976,7 @@
     "usage": {
       "title": "Token usage",
       "description": "Headline numbers on agent activity and consumption for this project.",
+      "loading": "Loading usage data…",
       "loadError": "Could not load usage data.",
       "budgetTitle": "Daily budget",
       "budget": {
@@ -989,6 +1029,7 @@
         "disconnecting": "Disconnecting…",
         "oauthError": "Could not start GitHub connection",
         "loadReposError": "Could not load repositories",
+        "connectionLoadError": "Could not load GitHub connection.",
         "linkError": "Could not link repository",
         "disconnectError": "Could not disconnect",
         "reindexError": "Could not re-read project"
@@ -1025,6 +1066,7 @@
       "title": "Projects",
       "description": "Your active projects and their code connections.",
       "loading": "Loading…",
+      "loadError": "Could not load projects.",
       "empty": "No projects yet. Create one to get started.",
       "create": "Create your first project",
       "newProject": "New project"

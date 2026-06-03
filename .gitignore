@@ -33,6 +33,9 @@ coverage/
 # Tooling
 .vercel/
 .idea/
+__pycache__/
+*.pyc
+.pytest_cache/
 
 # Cursor MCP (may contain API tokens — use mcp.json.example)
 .cursor/mcp.json

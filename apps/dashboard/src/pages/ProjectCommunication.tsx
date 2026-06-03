@@ -35,7 +35,7 @@ function MessageList({ rows, empty }: { rows: MessageRow[]; empty: string }) {
 }
 
 export default function ProjectCommunication() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const { projectId } = useProjectContext()
   const [searchParams, setSearchParams] = useSearchParams()
   const [pendingDecisions, setPendingDecisions] = useState<MessageRow[]>([])
@@ -69,7 +69,7 @@ export default function ProjectCommunication() {
       setPendingDecisions([])
       setResolvedDecisions([])
       setUpdates([])
-      setError(err instanceof Error ? err.message : 'Could not load messages.')
+      setError(err instanceof Error ? err.message : t('project.messages.loadError'))
     } finally {
       setLoading(false)
     }
@@ -134,7 +134,12 @@ export default function ProjectCommunication() {
           {loading ? (
             <LoadingBlock label={t('project.messages.loading')} />
           ) : error ? (
-            <p className="text-sm text-destructive">{error}</p>
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">{error}</p>
+              <Button size="sm" variant="secondary" onClick={() => void load()}>
+                {t('common:actions.retry')}
+              </Button>
+            </div>
           ) : (
             <Tabs defaultValue="pending">
               <div className="mb-4 flex flex-wrap items-center gap-2">

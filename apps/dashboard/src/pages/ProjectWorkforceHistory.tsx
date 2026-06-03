@@ -13,7 +13,7 @@ import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { projectWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { formatWorkLogWhen } from '../lib/work-logs-format'
 import { formatWorkLogSubject } from '../lib/work-log-labels'
-import { humanizeSnakeCase } from '../lib/display-name'
+import { runStatusLabel } from '../lib/run-status-label'
 
 function statusVariant(status: string): 'neutral' | 'success' | 'destructive' {
   if (status === 'completed') return 'success'
@@ -79,7 +79,7 @@ export default function ProjectWorkforceHistory() {
                       </p>
                       <div className="mt-1 flex items-center gap-2">
                         <Badge variant={statusVariant(run.status)} className="text-[10px]">
-                          {humanizeSnakeCase(run.status)}
+                          {runStatusLabel(run.status, t)}
                         </Badge>
                         <span className="text-xs text-text-muted">
                           {formatWorkLogWhen(run.started_at)}

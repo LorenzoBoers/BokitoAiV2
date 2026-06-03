@@ -9,6 +9,7 @@
     "delete": "Delete",
     "enable": "Enable",
     "disable": "Disable",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "retry": "Retry"
   }
 }

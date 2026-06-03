@@ -29,7 +29,15 @@
     "data": "Data",
     "project": "Project",
     "projects": "Projecten",
-    "projectHub": "Project hub"
+    "projectHub": "Projecthub"
+  },
+  "repoStatus": {
+    "notConnected": "Niet gekoppeld",
+    "ready": "Gereed",
+    "indexing": "Project lezen",
+    "pending": "In wachtrij",
+    "error": "Verbindingsprobleem",
+    "connected": "Gekoppeld"
   },
   "home": {
     "title": "Home",
@@ -131,6 +139,10 @@
     "addStreamSubmitting": "Aanmaken…",
     "addStreamError": "Kon workstream niet aanmaken",
     "addStreamCancel": "Annuleren",
+    "retry": "Opnieuw proberen",
+    "loadError": "Kon workstreams niet laden.",
+    "emptyTitle": "Nog geen workstreams",
+    "emptyDescription": "Voeg een workstream toe om te bepalen hoe agents werk uitvoeren voor dit project.",
     "newProject": "Nieuw project",
     "showMore": "Toon {{count}} meer",
     "showLess": "Toon minder",
@@ -204,7 +216,12 @@
       "pendingDecisionsTitle": "Wacht op goedkeuring",
       "viewAllDecisions": "Open communicatie",
       "emptyDecisions": "Geen openstaande beslissingen.",
-      "recentRunsTitle": "Recente agent runs"
+      "recentRunsTitle": "Recente agent runs",
+      "loadErrors": {
+        "projects": "Kon projecten niet laden.",
+        "runs": "Kon runs niet laden.",
+        "decisions": "Kon beslissingen niet laden."
+      }
     },
     "docs": {
       "menuLabel": "Blueprint",
@@ -229,7 +246,8 @@
       "description": "Openstaande agent-berichten die om jouw beslissing vragen, gegroepeerd over alle projecten.",
       "pendingTitle": "Wacht op admin",
       "empty": "Geen openstaande agent-berichten.",
-      "openInbox": "Open inbox"
+      "openInbox": "Open inbox",
+      "loadError": "Kon berichten niet laden."
     }
   },
   "userMenu": {
@@ -432,6 +450,9 @@
       "emptyKind": "Geen integraties in deze categorie.",
       "catalogFallback": "Catalogus-API niet beschikbaar; lokale lijst wordt gebruikt."
     },
+    "categories": {
+      "productivity": "Productiviteit"
+    },
     "connected": {
       "addIntegration": "Integratie toevoegen",
       "loading": "Verbindingen laden…",
@@ -471,7 +492,9 @@
       },
       "api": {
         "title": "API-sleutels",
-        "description": "Developer-sleutels voor programmatische toegang."
+        "description": "Developer-sleutels voor programmatische toegang.",
+        "comingSoon": "Binnenkort",
+        "comingSoonBody": "Developer API-sleutels en webhooks worden hier beschikbaar zodra de backend is uitgerold."
       },
       "sources": {
         "title": "Bronnen",
@@ -691,7 +714,14 @@
         "started": "Gestart",
         "tokens": "Tokens"
       },
-      "fallbackSubject": "Agent run"
+      "fallbackSubject": "Agent run",
+      "status": {
+        "completed": "Voltooid",
+        "failed": "Mislukt",
+        "running": "Bezig",
+        "pending": "In wachtrij",
+        "cancelled": "Geannuleerd"
+      }
     },
     "overview": {
       "loading": "Workforce-overzicht laden…",
@@ -753,6 +783,8 @@
   },
   "project": {
     "tabsAriaLabel": "Projectonderdelen",
+    "loadError": "Kon project niet laden.",
+    "notFound": "Project niet gevonden.",
     "group": {
       "nav": "Project",
       "pages": "Pagina's"
@@ -798,13 +830,20 @@
       "selectTool": "Selecteer tool",
       "outputTitle": "Output",
       "outputChip": "out: streamrapport naar orkestrator",
-      "emptySteps": "Nog geen stappen geconfigureerd voor deze workstream."
+      "emptySteps": "Nog geen stappen geconfigureerd voor deze workstream.",
+      "tools": {
+        "github": "GitHub",
+        "outlook": "Outlook",
+        "gmail": "Gmail",
+        "mcp": "MCP"
+      }
     },
     "messages": {
       "title": "Projectberichten",
       "description": "Updates en beslissingen, alleen voor dit project.",
       "tenantInbox": "Open tenant-inbox",
       "loading": "Laden…",
+      "loadError": "Kon berichten niet laden.",
       "tabs": {
         "updates": "Updates",
         "decisions": "Beslissingen"
@@ -937,6 +976,7 @@
     "usage": {
       "title": "Tokenverbruik",
       "description": "Kerngetallen over agent-activiteit en gebruik voor dit project.",
+      "loading": "Usage-gegevens laden…",
       "loadError": "Kon usage-gegevens niet laden.",
       "budgetTitle": "Dagelijks budget",
       "budget": {
@@ -989,6 +1029,7 @@
         "disconnecting": "Ontkoppelen…",
         "oauthError": "Kon GitHub-koppeling niet starten",
         "loadReposError": "Kon repositories niet laden",
+        "connectionLoadError": "Kon GitHub-verbinding niet laden.",
         "linkError": "Kon repository niet koppelen",
         "disconnectError": "Kon niet ontkoppelen",
         "reindexError": "Kon project niet opnieuw inlezen"
@@ -1025,6 +1066,7 @@
       "title": "Projecten",
       "description": "Je actieve projecten en hun code-koppelingen.",
       "loading": "Laden…",
+      "loadError": "Kon projecten niet laden.",
       "empty": "Nog geen projecten. Maak er een aan om te starten.",
       "create": "Maak je eerste project",
       "newProject": "Nieuw project"

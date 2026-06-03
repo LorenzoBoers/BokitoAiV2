@@ -1,3 +1,4 @@
+import i18n from 'i18next'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { getProject, type ProjectRow } from '../lib/projects-api'
@@ -32,7 +33,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setProject(row)
     } catch (err) {
       setProject(null)
-      setError(err instanceof Error ? err.message : 'Could not load project.')
+      setError(err instanceof Error ? err.message : i18n.t('nav:project.loadError'))
     } finally {
       setLoading(false)
     }
@@ -54,7 +55,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   )
 
   if (!projectId) {
-    return <div className="p-6 text-sm text-text-muted">Project not found.</div>
+    return <div className="p-6 text-sm text-text-muted">{i18n.t('nav:project.notFound')}</div>
   }
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>

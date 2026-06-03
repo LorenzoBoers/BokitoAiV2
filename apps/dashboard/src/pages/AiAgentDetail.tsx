@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
+import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { EmptyState } from '../components/ui/empty-state'
@@ -26,7 +27,7 @@ const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
 }
 
 export default function AiAgentDetail() {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const { agentId, workLogId } = useParams<{ agentId: string; workLogId?: string }>()
   const isAdmin = useIsAdmin()
   const [agent, setAgent] = useState<RuntimeAgent | null>(null)
@@ -35,44 +36,40 @@ export default function AiAgentDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!agentId || workLogId) return
-    let cancelled = false
-    const load = async () => {
-      setLoading(true)
-      setError(null)
+    setLoading(true)
+    setError(null)
+    try {
+      const [agentRows, projectRows] = await Promise.all([listAgents(), listProjects()])
+      let runRows: WorkLogRow[] = []
       try {
-        const [agentRows, projectRows] = await Promise.all([listAgents(), listProjects()])
-        let runRows: WorkLogRow[] = []
-        try {
-          runRows = await listWorkLogs({ agent_id: agentId, limit: 50 })
-        } catch {
-          const all = await listWorkLogs({ limit: 100 })
-          runRows = all.filter((r) => r.agent_id === agentId)
-        }
-        if (runRows.length === 0) {
-          const all = await listWorkLogs({ limit: 100 })
-          runRows = all.filter((r) => r.agent_id === agentId)
-        }
-        if (cancelled) return
-        setAgent(agentRows.find((a) => a.id === agentId) ?? null)
-        setRuns(runRows)
-        setProjects(projectRows)
-      } catch (e) {
-        if (!cancelled) {
-          setAgent(null)
-          setRuns([])
-          setError(e instanceof Error ? e.message : t('workforce.agents.detailLoadError', { defaultValue: 'Could not load agent.' }))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
+        runRows = await listWorkLogs({ agent_id: agentId, limit: 50 })
+      } catch {
+        const all = await listWorkLogs({ limit: 100 })
+        runRows = all.filter((r) => r.agent_id === agentId)
       }
-    }
-    void load()
-    return () => {
-      cancelled = true
+      if (runRows.length === 0) {
+        const all = await listWorkLogs({ limit: 100 })
+        runRows = all.filter((r) => r.agent_id === agentId)
+      }
+      setAgent(agentRows.find((a) => a.id === agentId) ?? null)
+      setRuns(runRows)
+      setProjects(projectRows)
+    } catch (e) {
+      setAgent(null)
+      setRuns([])
+      setError(
+        e instanceof Error ? e.message : t('workforce.agents.detailLoadError', { defaultValue: 'Could not load agent.' }),
+      )
+    } finally {
+      setLoading(false)
     }
   }, [agentId, workLogId, t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const runTo = useMemo(
     () => (run: WorkLogRow) => agentWorkforceRunUrl(agentId ?? '', run.id),
@@ -118,6 +115,11 @@ export default function AiAgentDetail() {
           <p className="text-sm text-status-error">
             {error ?? t('workforce.agents.notFound', { defaultValue: 'Agent not found.' })}
           </p>
+          {error ? (
+            <Button size="sm" variant="secondary" className="mt-2" onClick={() => void load()}>
+              {t('common:actions.retry')}
+            </Button>
+          ) : null}
         </Card>
       ) : (
         <>

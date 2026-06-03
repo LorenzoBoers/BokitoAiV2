@@ -40,7 +40,7 @@ export function ConnectRepoPanel({
   onConnected,
   onProjectUpdated,
 }: ConnectRepoPanelProps) {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'common'])
   const [connections, setConnections] = useState<GithubConnectionRow[]>([])
   const [selectedConnectionId, setSelectedConnectionId] = useState('')
   const [connectionLogin, setConnectionLogin] = useState<string | null>(null)
@@ -51,12 +51,14 @@ export function ConnectRepoPanel({
   const [repoSearch, setRepoSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(oauthConnected)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
 
   const linkedRepo = project?.github_repo_full_name ?? null
 
   const loadConnection = useCallback(async () => {
+    setConnectionError(null)
     try {
       const list = await listGithubConnections()
       setConnections(list)
@@ -69,10 +71,11 @@ export function ConnectRepoPanel({
       setConnectionLogin(active?.github_login ?? null)
       if (list.some((c) => c.status === 'active')) setShowPicker(true)
     } catch {
+      setConnectionError(t('project.settings.repo.connectionLoadError'))
       setConnectionLogin(null)
       setConnections([])
     }
-  }, [project?.github_connection_id])
+  }, [project?.github_connection_id, t])
 
   const loadRepos = useCallback(async () => {
     if (!selectedConnectionId && connections.length === 0) return
@@ -236,6 +239,14 @@ export function ConnectRepoPanel({
         <Button type="button" size="sm" onClick={() => void handleConnectOAuth()}>
           {t('project.settings.repo.connectGithub')}
         </Button>
+        {connectionError ? (
+          <div className="space-y-2">
+            <p className="text-sm text-status-error">{connectionError}</p>
+            <Button type="button" size="sm" variant="secondary" onClick={() => void loadConnection()}>
+              {t('common:actions.retry')}
+            </Button>
+          </div>
+        ) : null}
         {error ? <p className="text-sm text-status-error">{error}</p> : null}
       </div>
     )
@@ -243,6 +254,14 @@ export function ConnectRepoPanel({
 
   return (
     <div className="space-y-3">
+      {connectionError ? (
+        <div className="space-y-2">
+          <p className="text-sm text-status-error">{connectionError}</p>
+          <Button type="button" size="sm" variant="secondary" onClick={() => void loadConnection()}>
+            {t('common:actions.retry')}
+          </Button>
+        </div>
+      ) : null}
       {connections.length > 1 ? (
         <select
           className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm"

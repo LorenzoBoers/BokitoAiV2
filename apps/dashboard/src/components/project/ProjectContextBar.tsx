@@ -6,7 +6,7 @@ import { Badge } from '../ui/badge'
 import { useProjectContext } from '../../context/ProjectContext'
 import { useOptionalProjectHubNav } from '../../context/ProjectHubNavContext'
 import { formatWorkerStatusLabel } from '../../lib/project-worker-status'
-import { repoStatusLabel, repoStatusVariant } from '../../lib/repo-status'
+import { repoStatusLabelKey, repoStatusVariant } from '../../lib/repo-status'
 import { WorkerStatusDot } from '../workers/WorkerStatusDot'
 import type { ProjectWorkstreamRow } from '../../lib/workstreams-api'
 
@@ -106,7 +106,7 @@ export function ProjectContextBar() {
     )
   }
 
-  const statusLabel = repoStatusLabel(project)
+  const statusLabel = t(repoStatusLabelKey(project))
   const statusVariant = repoStatusVariant(project)
   const scopeOneLine = project.autonomous_scope?.replace(/\s+/g, ' ').trim() ?? ''
 

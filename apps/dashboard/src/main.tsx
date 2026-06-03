@@ -24,7 +24,10 @@ declare global {
   }
 }
 
+const USE_BOKITO_API = import.meta.env.VITE_API_MODE === 'bokito'
+
 function loadChatWidgetScript(): void {
+  if (USE_BOKITO_API) return
   if (typeof document === 'undefined') return
   const existing = document.querySelector('script[data-bokito-chat-widget]')
   if (existing) return

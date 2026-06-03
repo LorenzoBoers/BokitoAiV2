@@ -1,3 +1,4 @@
+import i18n from 'i18next'
 import {
   createContext,
   useCallback,
@@ -109,7 +110,7 @@ export function ProjectHubNavProvider({ children }: { children: ReactNode }) {
       setProjects([])
       projectsRef.current = []
       setWorkerStatusByProjectId({})
-      setError(err instanceof Error ? err.message : 'Could not load projects.')
+      setError(err instanceof Error ? err.message : i18n.t('nav:project.list.loadError'))
       setLoading(false)
     }
   }, [refreshStatus])
@@ -143,7 +144,7 @@ export function ProjectHubNavProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setWorkstreams([])
       setPoAgent(null)
-      setWorkstreamsError(err instanceof Error ? err.message : 'Could not load workstreams.')
+      setWorkstreamsError(err instanceof Error ? err.message : i18n.t('nav:backgroundWorkers.loadError'))
     } finally {
       setWorkstreamsLoading(false)
     }
