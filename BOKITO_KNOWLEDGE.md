@@ -51,7 +51,7 @@ Tech stack: React + TypeScript + Vite + Tailwind (`apps/dashboard`, `apps/messen
 - **Widget:** public `POST /api/widget/{slug}/session`; embed at `packages/messenger-ui/embed/widget.js`.
 - **Shared UI:** `packages/messenger-ui` — DecisionCard, ThreadList, InboxList, FloatingMessenger with branding + powered-by.
 - **Messenger PWA:** inbox-first home, thread at `/chat/:id`.
-- **Dashboard bokito mode:** `VITE_API_MODE=bokito` — Cockpit at `/home`, Orchestra at `/orchestra`, Agenda at `/agenda`.
+- **Dashboard bokito mode:** `VITE_API_MODE=bokito` — Cockpit at `/home`, Orchestra at `/orchestra`, Agenda at `/agenda`. Multichannel inbox uses FastAPI `/api/integrations/inbox/*` (same contract as legacy Xano). Workspace Blueprint editor uses FastAPI `/api/workforce/workspace/doc/*` backed by `blueprint_*` tables (page tree, block batch ops, revisions, change-requests).
 - **Local dev:** `docker compose -f docker-compose.dev.yml up`; seed `admin@bokito.ai` / `bokito-test-password`.
 - **Tests:** pytest (7 tests, mock LLM) + GitHub Actions CI.
 - **Legacy removed:** `apps/runtime`, `apps/chat-widget`, `apps/mobile`, `packages/docker`, `xano-patches`.

@@ -143,7 +143,12 @@ async def _seed_tenant_data(session, tenant):
             page_id=overview.id,
             tenant_id=tenant.id,
             block_type="paragraph",
-            content_json=json.dumps({"text": "Bokito AI OS platform overview."}),
+            content_json=json.dumps(
+                {
+                    "text": [{"text": "Bokito AI OS platform overview."}],
+                    "props": {},
+                }
+            ),
         )
         session.add(block)
         await session.flush()

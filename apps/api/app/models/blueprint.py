@@ -12,6 +12,7 @@ class BlueprintDoc(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True, unique=True)
     title: str = "Blueprint"
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class BlueprintPage(SQLModel, table=True):
@@ -23,9 +24,14 @@ class BlueprintPage(SQLModel, table=True):
     parent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="blueprint_pages.id")
     title: str
     slug: str = Field(index=True)
-    kind: str = Field(default="page")  # page | prd | sop | custom
+    kind: str = Field(default="page")  # page | prd | sop | custom | overview | ...
+    icon: Optional[str] = None
+    is_pinned: bool = False
+    is_locked: bool = False
+    content_version: int = 0
     sort_order: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class BlueprintBlock(SQLModel, table=True):

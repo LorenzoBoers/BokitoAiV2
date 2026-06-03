@@ -21,6 +21,7 @@ from app.routers import (
     push,
     settings_orchestra,
     widget,
+    workforce_doc,
 )
 from app.routers.settings_orchestra import orchestra_router
 
@@ -63,3 +64,4 @@ app.include_router(cockpit.router, prefix=api_prefix)
 app.include_router(settings_orchestra.router, prefix=api_prefix)
 app.include_router(orchestra_router, prefix=api_prefix)
 app.include_router(widget.router, prefix=api_prefix)
+app.include_router(workforce_doc.router, prefix=api_prefix)
