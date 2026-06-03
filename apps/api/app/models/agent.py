@@ -11,10 +11,14 @@ class Agent(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     name: str
-    role: str = Field(default="assistant")  # assistant | po | coding | orchestra
+    role: str = Field(default="assistant")  # assistant | po | orchestrator | coding | orchestra
     model: str = "claude-sonnet-4-20250514"
+    provider: str = Field(default="platform")
     system_prompt: str = ""
+    thinking_budget: int = 0
+    max_tokens: int = 4096
     max_loops: int = 15
+    cost_aware: bool = False
     tools_json: str = Field(default="[]")
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -27,7 +31,7 @@ class AgentRun(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     agent_id: uuid.UUID = Field(foreign_key="agents.id", index=True)
     status: str = Field(default="running")  # running | completed | failed
-    trigger_type: str = Field(default="manual")  # manual | chat | email | orchestra | change_request
+    trigger_type: str = Field(default="manual")
     trigger_id: Optional[str] = None
     subject: str = ""
     tokens_input: int = 0

@@ -2,7 +2,6 @@
 
 from uuid import UUID
 
-from app.workers.tasks import coding_agent_run
 
 
 async def enqueue_coding_task(tenant_id: UUID, subject: str, repo_path: str = "/work") -> None:

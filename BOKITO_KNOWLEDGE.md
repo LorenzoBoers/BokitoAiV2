@@ -1,4 +1,4 @@
-# Bokito Platform – Product Knowledge Base
+﻿# Bokito Platform – Product Knowledge Base
 
 > **Levend document.** Elke keer dat nieuwe informatie wordt geleerd over hoe het Bokito platform werkt — qua features, workflows, SOPs, configuraties of business rules — wordt dit bestand bijgewerkt.
 >
@@ -37,21 +37,26 @@ Bokito is een AI-platform waarmee bedrijven (voornamelijk SMBs) AI-agents kunnen
 
 Op de marketing website (`apps/website`) tonen de hoofdnavigatie (Navbar) tijdelijk geen links naar `/pricing` en `/kennisbank`; die pagina’s blijven bereikbaar via directe URL.
 
-Tech stack: React + TypeScript + Vite + Tailwind (dashboard), Expo + React Native (mobile), TypeScript + Vite IIFE (widget). Backend: Xano (legacy) plus **Bokito AI OS** Python/FastAPI backend (`apps/api`) for V1 migration.
+Tech stack: React + TypeScript + Vite + Tailwind (`apps/dashboard`, `apps/messenger` PWA), shared `@bokito/messenger-ui`. Backend: Xano (legacy portal APIs) plus **Bokito AI OS** Python/FastAPI backend (`apps/api`) for V1 migration.
 
 ### Bokito AI OS (V1, 2026-06)
 
-- **Backend:** `apps/api` — FastAPI + SQLModel + Postgres/pgvector + Redis/arq workers.
-- **Messenger PWA:** `apps/messenger` — installable web app (login, chat, OS decisions); dev port 5175.
-- **Shared UI:** `packages/messenger-ui` — chat panel, decision panel, floating messenger widget used in dashboard.
-- **Local dev:** `docker compose -f docker-compose.dev.yml up`; seed user `admin@bokito.ai` / `bokito-test-password`.
-- **Dashboard mode:** set `VITE_API_MODE=bokito` to proxy `/api/*` to Python backend and show floating messenger instead of legacy Xano chat widget script.
-- **Agent brain:** unified tool loop in Python (`app/services/agent/`) with mock LLM for tests (`LLM_MODE=mock`).
-- **Email V1:** inbound mock/sync triggers arq job (or inline fallback) that creates decision-request proposals; execution after admin approval.
-- **Strangler:** Cloudflare worker `cloudflare-workers/bokito-api-strangler` routes migrated API prefixes to Python backend.
-- **V2 hooks:** `orchestra_tick` and `coding_agent_run` arq jobs; see `docs/AI-OS-DEV.md`.
+- **Backend:** `apps/api` — FastAPI + SQLModel + Alembic + Postgres/pgvector + Redis/arq workers.
+- **Auth:** signup (tenant+owner), invite/accept, staff-login + switch-tenant, roles `owner|admin|member`, JWT with `staff` claim, subdomain tenant routing (`*.bokito.ai`).
+- **Unified inbox:** `GET /api/inbox` aggregates conversations (all channels), open decisions, email threads.
+- **Chat:** multi-thread conversations, rename/delete, human takeover/release, inline decision cards, message feedback into `FeedbackQueue`.
+- **Policy:** `ActionPolicy` modes `manual|whitelist|yolo`; whitelist with "Voortaan automatisch oppakken" on decision cards.
+- **Orchestra foundation:** Task, AgentProfile, Workstream(+steps/runs), mock execution environment, `/api/orchestra/*`.
+- **Cockpit:** `GET /api/cockpit/summary` KPIs including time saved estimate.
+- **Widget:** public `POST /api/widget/{slug}/session`; embed at `packages/messenger-ui/embed/widget.js`.
+- **Shared UI:** `packages/messenger-ui` — DecisionCard, ThreadList, InboxList, FloatingMessenger with branding + powered-by.
+- **Messenger PWA:** inbox-first home, thread at `/chat/:id`.
+- **Dashboard bokito mode:** `VITE_API_MODE=bokito` — Cockpit at `/home`, Orchestra at `/orchestra`, Agenda at `/agenda`.
+- **Local dev:** `docker compose -f docker-compose.dev.yml up`; seed `admin@bokito.ai` / `bokito-test-password`.
+- **Tests:** pytest (7 tests, mock LLM) + GitHub Actions CI.
+- **Legacy removed:** `apps/runtime`, `apps/chat-widget`, `apps/mobile`, `packages/docker`, `xano-patches`.
 
-**Chat-widget lokaal:** Bron staat onder `apps/chat-widget/src/` (ingang `index.ts`, hoofdlogica `widget-main.ts`); productiebundle is `apps/chat-widget/dist/bokito-chat.js` na `npm run build`. In `apps/chat-widget` draai `npm install`, daarna `npm run build` (minstens eenmalig vóór standalone test) en `npm run dev` (Vite op `http://127.0.0.1:8787`, opent de systeembrowser). [`chat-standalone.html`](apps/chat-widget/chat-standalone.html) laadt `/bokito-chat.js` (uit `dist/` wanneer aanwezig). Voor **dashboard dev** (`apps/dashboard`): bouw eerst de widget zodat `apps/chat-widget/dist/bokito-chat.js` bestaat; de Vite-middleware serveert `/chat-widget/*` uit die `dist/`, waarbij `/chat-widget/internal/*` en `/chat-widget/external/*` naar dezelfde bestanden worden omgezet (twee entry-URL’s: team-widget vs publieke widget). De portal laadt zelf het team-script via `/chat-widget/internal/bokito-chat.js` (`main.tsx`). Livechat-requests gaan naar Xano (`api_url` / `data-api-url`). De ingebouwde **Simple Browser**-tab in Cursor/VS Code toont bij localhost vaak een wit scherm; gebruik Chrome/Edge of het venster dat Vite opent. Zie [`apps/chat-widget/README.md`](apps/chat-widget/README.md). Livechat- en gerelateerde paden worden centraal gebouwd in `apps/chat-widget/src/api/livechat-url.ts` en `livechat.routes.ts` (zie `.cursor/rules/chat-widget-api-routes.mdc`).
+**Externe klant-widget (V1):** embed via `packages/messenger-ui/embed/widget.js`; publieke sessie via `POST /api/widget/{slug}/session`. Vervangt de oude `apps/chat-widget` IIFE-bundle (verwijderd in V1 cleanup).
 
 **Broncode (GitHub):** monorepo onder [github.com/BokitoAI/Bokito-AI](https://github.com/BokitoAI/Bokito-AI) (`origin`).
 

@@ -6,13 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "build:widget": "npm run build -w bokito-chat-widget",
-    "build:dashboard": "npm run build -w dashboard",
+    "build:dashboard": "npm run build:static -w bokito-dashboard",
     "build:messenger": "npm run build -w bokito-messenger",
-    "build:runtime": "npm run build -w @bokito/runtime",
-    "build:shared": "npm run build -w @bokito/shared",
     "dev:stack": "docker compose -f docker-compose.dev.yml up --build",
-    "test:api": "cd apps/api && pip install -e \".[dev]\" && pytest",
+    "test:api": "cd apps/api && py -3.11 -m pip install -e \".[dev]\" && py -3.11 -m pytest",
     "test:e2e": "playwright test"
   },
   "devDependencies": {

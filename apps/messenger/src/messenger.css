@@ -83,3 +83,12 @@
 .messenger-main .bk-chat-panel {
   min-height: calc(100vh - 72px);
 }
+
+.messenger-main.messenger-inbox-full {
+  max-width: none;
+}
+
+.messenger-header nav {
+  display: flex;
+  gap: 16px;
+}

@@ -2,7 +2,6 @@
 
 from uuid import UUID
 
-from app.workers.tasks import orchestra_tick
 
 
 async def schedule_orchestra_for_tenant(tenant_id: UUID) -> None:

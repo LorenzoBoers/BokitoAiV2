@@ -55,7 +55,12 @@ import IntegrationsMcp from './pages/IntegrationsMcp'
 import IntegrationsApi from './pages/IntegrationsApi'
 import IntegrationsDocs from './pages/IntegrationsDocs'
 import HomeDashboard from './pages/HomeDashboard'
+import Cockpit from './pages/Cockpit'
+import OrchestraPage from './pages/OrchestraPage'
+import AgendaPage from './pages/AgendaPage'
 import { useIsAdmin } from './hooks/useIsAdmin'
+
+const USE_BOKITO_API = import.meta.env.VITE_API_MODE === 'bokito'
 
 function LegacyProjectPoRedirect() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -180,7 +185,13 @@ export default function App() {
         </Route>
 
         <Route element={<Layout />}>
-          <Route path="/home" element={<HomeDashboard />} />
+          <Route path="/home" element={USE_BOKITO_API ? <Cockpit /> : <HomeDashboard />} />
+          {USE_BOKITO_API ? (
+            <>
+              <Route path="/orchestra" element={<OrchestraPage />} />
+              <Route path="/agenda" element={<AgendaPage />} />
+            </>
+          ) : null}
           <Route path="/support/inbox/:queue" element={<Communication />} />
           <Route path="/support/inbox/:queue/t/:threadId" element={<Communication />} />
           <Route path="/support/inbox/ch/:channelId/:queue" element={<Communication />} />

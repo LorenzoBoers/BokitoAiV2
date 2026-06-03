@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ChatPage } from './pages/ChatPage'
 import { DecisionsPage } from './pages/DecisionsPage'
+import { InboxPage } from './pages/InboxPage'
 import { LoginPage } from './pages/LoginPage'
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,14 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/"
+          element={
+            <Protected>
+              <InboxPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/chat/:conversationId"
           element={
             <Protected>
               <ChatPage />

@@ -2,11 +2,13 @@ import json
 from typing import Any, AsyncGenerator
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
+from app.models.policy import AssistantPersona
 from app.services.agent.llm import get_llm_provider
-from app.services.agent.rag import build_blueprint_context
+from app.services.agent.rag import build_core_summary, search_index
 from app.services.agent.tools import execute_tool, get_tool_definitions
 
 
@@ -41,17 +43,40 @@ class AgentLoop:
         self.session.add(event)
         await self.session.commit()
 
-    async def _build_system_prompt(self, extra_context: str = "") -> str:
-        blueprint = await build_blueprint_context(self.session, self.tenant_id)
+    async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
+        core = await build_core_summary(self.session, self.tenant_id)
+        rag_context = ""
+        if user_query:
+            hits = await search_index(self.session, self.tenant_id, user_query, top_k=5)
+            if hits:
+                rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
+        persona_result = await self.session.execute(
+            select(AssistantPersona).where(AssistantPersona.tenant_id == self.tenant_id)
+        )
+        persona = persona_result.scalar_one_or_none()
+        persona_text = ""
+        if persona:
+            persona_text = f"Tone: {persona.tone}\nDo: {persona.do_text}\nDon't: {persona.dont_text}"
         base = self.agent.system_prompt if self.agent else "You are the Bokito AI OS assistant."
-        return f"{base}\n\n## Blueprint\n{blueprint}\n\n{extra_context}".strip()
+        return (
+            f"{base}\n\n## Persona\n{persona_text}\n\n## Core summary\n{core}\n\n"
+            f"## Relevant context\n{rag_context}\n\n{extra_context}"
+        ).strip()
 
     async def run_chat(
         self,
         messages: list[dict[str, Any]],
         extra_context: str = "",
+        attachments: list[dict] | None = None,
     ) -> tuple[str, dict[str, int]]:
-        system = await self._build_system_prompt(extra_context)
+        user_query = ""
+        if messages:
+            last = messages[-1]
+            user_query = last.get("content", "") if isinstance(last.get("content"), str) else ""
+        system = await self._build_system_prompt(extra_context, user_query=user_query)
+        if attachments:
+            vision_note = f"\n\nUser attached {len(attachments)} file(s). Describe and use them if relevant."
+            system += vision_note
         llm_messages = [{"role": "system", "content": system}, *messages]
         tokens = {"input_tokens": 0, "output_tokens": 0}
         final_text = ""
@@ -100,8 +125,9 @@ class AgentLoop:
         self,
         messages: list[dict[str, Any]],
         extra_context: str = "",
+        attachments: list[dict] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
-        text, tokens = await self.run_chat(messages, extra_context)
+        text, tokens = await self.run_chat(messages, extra_context, attachments=attachments)
         for i in range(0, len(text), 24):
             yield {"type": "delta", "text": text[i : i + 24]}
         yield {"type": "done", "text": text, "usage": tokens}

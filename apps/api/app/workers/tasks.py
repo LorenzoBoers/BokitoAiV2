@@ -12,7 +12,6 @@ from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.blueprint import BlueprintChangeRequest
 from app.models.email import EmailMessage
 from app.services.agent.loop import AgentLoop
-from app.services.agent.tools import execute_tool
 
 settings = get_settings()
 

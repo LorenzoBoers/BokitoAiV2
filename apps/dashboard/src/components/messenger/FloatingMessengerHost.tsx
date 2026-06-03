@@ -1,22 +1,26 @@
-import { useMemo } from 'react'
-import { FloatingMessenger } from '@bokito/messenger-ui'
+import { useEffect, useMemo, useState } from 'react'
+import { FloatingMessenger, type TenantAppearance } from '@bokito/messenger-ui'
 import '@bokito/messenger-ui/src/styles.css'
-import { useAuth } from '../context/AuthContext'
-
-const BOKITO_API_URL = import.meta.env.VITE_BOKITO_API_URL || 'http://127.0.0.1:8000'
+import { useAuth } from '../../context/AuthContext'
+import { bokitoTenantAppearance, createBokitoApiConfig } from '../../lib/bokito-api'
 
 export function FloatingMessengerHost() {
   const { token } = useAuth()
+  const [appearance, setAppearance] = useState<TenantAppearance | undefined>()
 
-  const config = useMemo(
-    () => ({
-      baseUrl: BOKITO_API_URL,
-      getToken: () => token,
-    }),
-    [token],
-  )
+  const config = useMemo(() => createBokitoApiConfig(() => token), [token])
+
+  useEffect(() => {
+    if (!token) {
+      setAppearance(undefined)
+      return
+    }
+    bokitoTenantAppearance(token)
+      .then(setAppearance)
+      .catch(() => setAppearance(undefined))
+  }, [token])
 
   if (!token) return null
 
-  return <FloatingMessenger config={config} />
+  return <FloatingMessenger config={config} appearance={appearance} />
 }

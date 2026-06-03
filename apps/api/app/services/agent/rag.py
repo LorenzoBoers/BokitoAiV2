@@ -102,6 +102,20 @@ async def upsert_index_chunk(
     return chunk
 
 
+async def build_core_summary(session: AsyncSession, tenant_id: UUID) -> str:
+    result = await session.execute(
+        select(IndexChunk).where(
+            IndexChunk.tenant_id == tenant_id,
+            IndexChunk.source_type == "blueprint_summary",
+        )
+    )
+    chunk = result.scalar_one_or_none()
+    if chunk:
+        return chunk.content
+    full = await build_blueprint_context(session, tenant_id)
+    return full[:1500]
+
+
 async def build_blueprint_context(session: AsyncSession, tenant_id: UUID) -> str:
     pages_result = await session.execute(
         select(BlueprintPage).where(BlueprintPage.tenant_id == tenant_id).order_by(BlueprintPage.sort_order)

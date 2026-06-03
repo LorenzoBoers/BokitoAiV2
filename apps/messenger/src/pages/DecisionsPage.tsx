@@ -10,7 +10,7 @@ export function DecisionsPage() {
       <header className="messenger-header">
         <h1>OS Decisions</h1>
         <nav>
-          <Link to="/">Chat</Link>
+          <Link to="/">Inbox</Link>
         </nav>
       </header>
       <main className="messenger-main">

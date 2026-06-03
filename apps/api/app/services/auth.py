@@ -2,16 +2,19 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from jose import JWTError, jwt
+from jose import jwt
 from passlib.context import CryptContext
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.exceptions import AppError
 from app.models.auth import Membership, Session, Tenant, User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 settings = get_settings()
+
+ROLES = ("owner", "admin", "member")
 
 
 def hash_password(password: str) -> str:
@@ -22,12 +25,19 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(user_id: UUID, tenant_id: UUID, email: str) -> str:
+def create_access_token(
+    user_id: UUID,
+    tenant_id: UUID,
+    email: str,
+    *,
+    staff: bool = False,
+) -> str:
     expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),
         "email": email,
+        "staff": staff,
         "exp": expire,
         "type": "access",
     }
@@ -61,11 +71,28 @@ async def get_tenant_for_user(session: AsyncSession, user_id: UUID) -> tuple[Ten
         select(Tenant, Membership)
         .join(Membership, Membership.tenant_id == Tenant.id)
         .where(Membership.user_id == user_id)
+        .order_by(Membership.created_at)
     )
     row = result.first()
     if not row:
         return None
     return row[0], row[1]
+
+
+async def ensure_single_owner(session: AsyncSession, tenant_id: UUID, exclude_membership_id: UUID | None = None) -> None:
+    query = select(func.count()).select_from(Membership).where(
+        Membership.tenant_id == tenant_id, Membership.role == "owner"
+    )
+    if exclude_membership_id:
+        query = select(func.count()).select_from(Membership).where(
+            Membership.tenant_id == tenant_id,
+            Membership.role == "owner",
+            Membership.id != exclude_membership_id,
+        )
+    result = await session.execute(query)
+    count = result.scalar_one()
+    if count > 1:
+        raise AppError("Tenant can only have one owner", code="multiple_owners")
 
 
 async def create_refresh_session(session: AsyncSession, user_id: UUID) -> tuple[str, Session]:
@@ -91,3 +118,9 @@ async def verify_refresh_token(session: AsyncSession, raw_token: str) -> User | 
             user_result = await session.execute(select(User).where(User.id == db_session.user_id))
             return user_result.scalar_one_or_none()
     return None
+
+
+async def create_invite_token() -> str:
+    import secrets
+
+    return secrets.token_urlsafe(32)

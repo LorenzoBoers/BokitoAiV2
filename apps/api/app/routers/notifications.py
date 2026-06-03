@@ -17,6 +17,7 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 class DecisionAction(BaseModel):
     option_id: str
+    always_auto: bool = False
 
 
 @router.get("")
@@ -76,7 +77,10 @@ async def approve_decision(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     try:
-        decision = await resolve_decision(session, auth.tenant.id, decision_id, body.option_id, "approved")
+        decision = await resolve_decision(
+            session, auth.tenant.id, decision_id, body.option_id, "approved",
+            user_id=auth.user.id, always_auto=body.always_auto or body.option_id == "always_auto",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"id": str(decision.id), "status": decision.status, "chosen_option_id": decision.chosen_option_id}

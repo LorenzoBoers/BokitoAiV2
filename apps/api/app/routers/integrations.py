@@ -1,6 +1,5 @@
 import json
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -9,9 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
+from app.models.email import EmailAccount
+from app.models.inbox_threads import user_numeric_id
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
+
+
+def _account_numeric_id(account_id) -> int:
+    return user_numeric_id(account_id)
 
 
 class ConnectionCreate(BaseModel):
@@ -64,6 +69,74 @@ async def create_connection(
     await session.commit()
     await session.refresh(conn)
     return {"id": str(conn.id), "provider": conn.provider}
+
+
+@router.get("/email/connections")
+async def list_email_connections(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Email/mailbox connections in the dashboard contract.
+
+    Maps FastAPI EmailAccount rows to the connection shape the dashboard
+    expects. Provider is normalized to gmail/outlook so the dashboard's
+    normalizer accepts it (mock accounts are surfaced as gmail in V1).
+    """
+    result = await session.execute(select(EmailAccount).where(EmailAccount.tenant_id == auth.tenant.id))
+    connections = []
+    for index, account in enumerate(result.scalars().all()):
+        provider = account.provider if account.provider in ("gmail", "outlook") else "gmail"
+        connections.append(
+            {
+                "id": _account_numeric_id(account.id),
+                "provider": provider,
+                "mailbox_email": account.email_address,
+                "display_name": account.email_address,
+                "status": "active",
+                "last_sync_at": None,
+                "last_error": None,
+                "signature_html": None,
+                "is_enabled": account.is_enabled,
+                "is_primary": index == 0,
+            }
+        )
+    return connections
+
+
+@router.put("/email/connections/{connection_id}/mailbox-settings")
+async def update_mailbox_settings(
+    connection_id: int,
+    body: dict,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return {"ok": True}
+
+
+@router.put("/email/connections/{connection_id}/signature")
+async def save_signature(
+    connection_id: int,
+    body: dict,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return {"ok": True, "signature_html": body.get("signature_html", "")}
+
+
+@router.get("/email/connections/{connection_id}/signature")
+async def get_signature(
+    connection_id: int,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    return {"signature_html": ""}
+
+
+@router.delete("/email/connections/{connection_id}")
+async def disconnect_email_connection(
+    connection_id: int,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    return {"ok": True}
 
 
 @router.get("/mcp/servers")

@@ -25,10 +25,12 @@ class DecisionRequest(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     notification_id: Optional[uuid.UUID] = Field(default=None, foreign_key="notifications.id")
+    conversation_id: Optional[uuid.UUID] = Field(default=None, foreign_key="conversations.id")
+    message_id: Optional[uuid.UUID] = Field(default=None, foreign_key="conversation_messages.id")
     title: str
     summary: str = ""
     status: str = Field(default="awaiting_human")  # awaiting_human | approved | rejected | deferred
-    options_json: str = Field(default="[]")  # [{id, label, description, action_type, payload}]
+    options_json: str = Field(default="[]")
     chosen_option_id: Optional[str] = None
     source_type: str = Field(default="agent")  # agent | email | system
     source_id: Optional[str] = None
