@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
 from app.models.inbox_threads import user_numeric_id
-from app.services.auth import create_invite_token, hash_password
+from app.services.auth import create_invite_token
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
 from app.services.workforce_runtime import tenant_numeric_id
 

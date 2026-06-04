@@ -24,7 +24,7 @@ jobs:
         working-directory: apps/api
         env:
           LLM_MODE: mock
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
         run: pytest -q
 
   dashboard:
