@@ -19,6 +19,16 @@ class Notification(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class UserNotificationPreference(SQLModel, table=True):
+    __tablename__ = "user_notification_preferences"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    prefs_json: str = Field(default="[]")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class DecisionRequest(SQLModel, table=True):
     __tablename__ = "decision_requests"
 

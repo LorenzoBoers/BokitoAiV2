@@ -8,6 +8,7 @@ import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { appendDevLocalhostCrossHostAccessHash, buildTenantOrigin, buildTenantWorkspaceUrl } from '../lib/host-routing'
+import { isBokitoMode } from '../lib/bokito-mode'
 import { useAuth } from '../context/AuthContext'
 import {
   Dialog,
@@ -118,7 +119,12 @@ export default function Workspaces() {
                       return
                     }
                     const tenantSlug = workspace.slug || ''
-                    const tenantUrl = buildTenantWorkspaceUrl(tenantSlug, '/support/inbox/all')
+                    if (isBokitoMode()) {
+                      await switchWorkspace(workspace.id)
+                      navigate('/home', { replace: true })
+                      return
+                    }
+                    const tenantUrl = buildTenantWorkspaceUrl(tenantSlug, '/home')
                     if (!tenantUrl) {
                       navigate('/settings/branding')
                       return

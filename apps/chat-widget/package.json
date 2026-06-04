@@ -1,0 +1,15 @@
+{
+  "name": "bokito-chat-widget",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --open /",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.7.0",
+    "vite": "^6.3.5"
+  }
+}

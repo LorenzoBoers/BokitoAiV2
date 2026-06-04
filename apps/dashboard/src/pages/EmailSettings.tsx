@@ -202,7 +202,7 @@ export default function EmailSettings() {
   const signaturePreview = useMemo(() => {
     let html = signatureHtml
     for (const [key, value] of Object.entries(PREVIEW_VALUES)) {
-      html = html.replaceAll(key, value)
+      html = html.split(key).join(value)
     }
     return html
   }, [signatureHtml])

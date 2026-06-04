@@ -35,7 +35,7 @@ export default function CreateProject() {
   }, [name, slugTouched])
 
   const scopeChars = scope.replace(/\s/g, '').length
-  const scopeMin = 30
+  const scopeMin = 10
   const scopeOk = scopeChars >= scopeMin
 
   async function onSubmit(e: React.FormEvent) {

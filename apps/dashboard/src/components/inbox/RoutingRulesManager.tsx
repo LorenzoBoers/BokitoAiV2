@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { listInboxMembers, type InboxMember } from '../../lib/inbox-api';
 import { 
   Plus, 
   Edit, 
@@ -23,13 +25,6 @@ import type {
   UpdateRoutingRuleRequest 
 } from '../../types/inbox';
 import { ROUTING_CONDITION_LABELS } from '../../types/inbox';
-
-// Mock users for assignment
-const mockUsers = [
-  { id: 1, name: 'Jan Jansen', email: 'jan@vba-accountancy.nl' },
-  { id: 2, name: 'Marie de Vries', email: 'marie@vba-accountancy.nl' },
-  { id: 3, name: 'Piet Bakker', email: 'piet@vba-accountancy.nl' }
-];
 
 // Mock labels
 const availableLabels = [
@@ -69,10 +64,27 @@ export default function RoutingRulesManager({
   rules, 
   onSaveRules 
 }: RoutingRulesManagerProps) {
+  const { token } = useAuth();
+  const [assignableUsers, setAssignableUsers] = useState<InboxMember[]>([]);
   const [localRules, setLocalRules] = useState<RoutingRule[]>(rules);
   const [editingRule, setEditingRule] = useState<RoutingRule | null>(null);
   const [ruleFormOpen, setRuleFormOpen] = useState(false);
   const [ruleForm, setRuleForm] = useState<RuleFormData>(defaultRuleForm);
+
+  useEffect(() => {
+    if (!open || !token) return;
+    let cancelled = false;
+    void listInboxMembers(token)
+      .then((rows) => {
+        if (!cancelled) setAssignableUsers(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setAssignableUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, token]);
 
   const handleAddRule = useCallback(() => {
     setEditingRule(null);
@@ -266,7 +278,7 @@ export default function RoutingRulesManager({
                           {rule.assign_to_user_id ? (
                             <div className="flex items-center gap-1">
                               <User size={12} />
-                              {mockUsers.find(u => u.id === rule.assign_to_user_id)?.name || 'Onbekend'}
+                              {assignableUsers.find(u => u.id === rule.assign_to_user_id)?.name || 'Unknown'}
                             </div>
                           ) : (
                             <span className="text-text-muted">Niet toegewezen</span>
@@ -399,7 +411,7 @@ export default function RoutingRulesManager({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Niet toewijzen</SelectItem>
-                    {mockUsers.map(user => (
+                    {assignableUsers.map(user => (
                       <SelectItem key={user.id} value={user.id.toString()}>
                         {user.name} ({user.email})
                       </SelectItem>

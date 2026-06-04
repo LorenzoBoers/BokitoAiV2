@@ -386,19 +386,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearLocationHashPreservePath();
         }
 
-        if (tenantSubdomain && !shouldSkipServerAuthRefresh()) {
-          try {
-            const session = await authRefresh();
-            const nextToken = applySession(session);
-            const me = await authMeForTenant(nextToken, tenantSubdomain);
-            if (!cancelled) setUser(normalizeAuthUser(me));
-            return;
-          } catch (err) {
-            if (isMissingRefreshEndpointError(err)) rememberSkipServerAuthRefresh();
-            // Continue with fallback auth strategies below.
-          }
-        }
-
         const storedToken = (() => {
           try {
             return sessionStorage.getItem(ACCESS_TOKEN_FALLBACK_KEY);
@@ -426,16 +413,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        if (!shouldSkipServerAuthRefresh()) {
+        if (tenantSubdomain && !shouldSkipServerAuthRefresh()) {
           try {
             const session = await authRefresh();
             const nextToken = applySession(session);
-            const me = tenantSubdomain ? await authMeForTenant(nextToken, tenantSubdomain) : await authMe(nextToken);
+            const me = await authMeForTenant(nextToken, tenantSubdomain);
             if (!cancelled) setUser(normalizeAuthUser(me));
             return;
           } catch (err) {
             if (isMissingRefreshEndpointError(err)) rememberSkipServerAuthRefresh();
-            // No refresh cookie or profile fetch failed; remain logged out without calling unauthenticated GET /me.
+          }
+        } else if (!shouldSkipServerAuthRefresh()) {
+          try {
+            const session = await authRefresh();
+            const nextToken = applySession(session);
+            const me = await authMe(nextToken);
+            if (!cancelled) setUser(normalizeAuthUser(me));
+            return;
+          } catch (err) {
+            if (isMissingRefreshEndpointError(err)) rememberSkipServerAuthRefresh();
           }
         }
       } catch (err) {

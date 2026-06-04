@@ -22,10 +22,10 @@ export function useFieldValidation() {
     // Group errors by field
     const errorsByField: Record<string, ValidationError[]> = {}
     for (const error of allErrors) {
-      if (!errorsByField[error.field]) {
-        errorsByField[error.field] = []
+      if (!errorsByField[error.fieldSlug]) {
+        errorsByField[error.fieldSlug] = []
       }
-      errorsByField[error.field].push(error)
+      errorsByField[error.fieldSlug].push(error)
     }
     
     setErrors(errorsByField)

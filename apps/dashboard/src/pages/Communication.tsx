@@ -1,7 +1,7 @@
 import { Mail } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import ContactPanel from '../components/inbox/ContactPanel'
@@ -107,14 +107,53 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
 
 export default function Communication() {
   const location = useLocation()
-  const isV1Messages =
-    location.pathname === '/messages' || location.pathname === '/communication'
-  if (isV1Messages) return <DecisionsPanel />
+  if (location.pathname === '/messages' || location.pathname === '/communication') {
+    return <Navigate to="/support/inbox/mine?hub=decisions" replace />
+  }
   return <InboxCommunication />
+}
+
+function InboxHubTabs({
+  hub,
+  onHubChange,
+}: {
+  hub: 'conversations' | 'decisions'
+  onHubChange: (next: 'conversations' | 'decisions') => void
+}) {
+  const tabClass = (active: boolean) =>
+    `px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+      active
+        ? 'border-border/70 bg-bg-hover text-text-heading'
+        : 'border-transparent text-text-muted hover:text-text-primary'
+    }`
+  return (
+    <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2 shrink-0">
+      <button type="button" className={tabClass(hub === 'conversations')} onClick={() => onHubChange('conversations')}>
+        Conversations
+      </button>
+      <button type="button" className={tabClass(hub === 'decisions')} onClick={() => onHubChange('decisions')}>
+        Decisions
+      </button>
+    </div>
+  )
 }
 
 function InboxCommunication() {
   const { t } = useTranslation('communication')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const hub: 'conversations' | 'decisions' =
+    searchParams.get('hub') === 'decisions' ? 'decisions' : 'conversations'
+  const setHub = (next: 'conversations' | 'decisions') => {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        if (next === 'decisions') params.set('hub', 'decisions')
+        else params.delete('hub')
+        return params
+      },
+      { replace: true },
+    )
+  }
   const { queue, channelId, threadId: threadIdParam } = useParams<{
     queue: string
     channelId?: string
@@ -439,8 +478,21 @@ function InboxCommunication() {
     )
   }
 
+  if (hub === 'decisions') {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+        <InboxHubTabs hub={hub} onHubChange={setHub} />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <DecisionsPanel />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-full overflow-hidden rounded-md">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+      <InboxHubTabs hub={hub} onHubChange={setHub} />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
       <ThreadList
         threads={filteredThreads}
         allThreads={threads}
@@ -475,6 +527,7 @@ function InboxCommunication() {
       {detail && showContactPanel ? (
         <ContactPanel thread={detail.thread} onClose={toggleContactPanel} />
       ) : null}
+      </div>
     </div>
   )
 }

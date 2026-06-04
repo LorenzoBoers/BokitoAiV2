@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat Widget Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      max-width: 960px;
+      margin: 60px auto;
+      padding: 0 24px;
+      color: #1A1A2E;
+      background: #F8FAFC;
+    }
+    h1 { font-size: 28px; margin-bottom: 12px; }
+    p  { color: #6B7280; line-height: 1.6; margin-bottom: 12px; }
+    .demo-card {
+      background: white;
+      border: 1px solid #E5E7EB;
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 24px;
+    }
+    pre {
+      background: #1E2433;
+      color: #E2E8F0;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 13px;
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Bokito Chat Widget Demo</h1>
+  <p>De chat widget staat rechtsonder in beeld. Klik op de blauwe knop om te beginnen.</p>
+
+  <div class="demo-card">
+    <h2 style="font-size:16px;margin-bottom:8px;">Embed code</h2>
+    <p>Voeg dit toe aan je website om de chatbot in te sluiten:</p>
+    <pre>&lt;script
+  src="https://YOUR-XANO-URL/api:livechat/script/main"
+  data-agent-slug="jouw-bot-slug"
+  data-api-url="https://YOUR-XANO-URL"
+&gt;&lt;/script&gt;</pre>
+  </div>
+
+  <div class="demo-card">
+    <h2 style="font-size:16px;margin-bottom:8px;">Page Context Demo</h2>
+    <p>Je kunt contextuele data meegeven aan de AI via <code>window.chatContext</code>:</p>
+    <pre>window.chatContext = {
+  customer_id: "12345",
+  customer_name: "Jan de Vries",
+  current_order: "ORD-67890",
+  account_type: "premium"
+};</pre>
+    <button onclick="window.chatContext = { demo: true, page: 'product', product_id: 'P-001' }" style="margin-top:12px;padding:8px 16px;background:#0F7CF5;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">
+      Stel demo context in
+    </button>
+  </div>
+
+  <!--
+    Chat widget embed — nieuwe syntax
+    Vervang YOUR-XANO-URL door jouw Xano API URL
+    Vervang demo-bot door jouw bot agent slug
+  -->
+  <script
+    src="./js/chat-module.js"
+    data-agent-slug="demo-bot"
+    data-api-url="http://localhost:3000"
+    data-debug="true"
+  ></script>
+
+</body>
+</html>

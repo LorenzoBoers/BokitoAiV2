@@ -18,7 +18,7 @@ from app.models.inbox_threads import (
 )
 from app.models.index import IndexChunk
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
-from app.models.notification import DecisionRequest, Notification
+from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
 from app.models.orchestra import (
     AgentProfile,
     Task,
@@ -55,6 +55,7 @@ __all__ = [
     "Conversation",
     "ConversationMessage",
     "Notification",
+    "UserNotificationPreference",
     "DecisionRequest",
     "BlueprintDoc",
     "BlueprintPage",

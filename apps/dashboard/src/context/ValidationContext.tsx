@@ -25,13 +25,13 @@ export function ValidationProvider({ children }: { children: React.ReactNode }) 
 
   const addError = useCallback((field: string, message: string) => {
     setErrors(prev => {
-      const filtered = prev.filter(e => e.field !== field);
-      return [...filtered, { field, message }];
+      const filtered = prev.filter(e => e.fieldSlug !== field);
+      return [...filtered, { fieldSlug: field, message, type: 'custom' as const }];
     });
   }, []);
 
   const removeError = useCallback((field: string) => {
-    setErrors(prev => prev.filter(e => e.field !== field));
+    setErrors(prev => prev.filter(e => e.fieldSlug !== field));
   }, []);
 
   const clearErrors = useCallback(() => {
@@ -39,7 +39,7 @@ export function ValidationProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const getFieldError = useCallback((field: string) => {
-    return errors.find(e => e.field === field)?.message;
+    return errors.find(e => e.fieldSlug === field)?.message;
   }, [errors]);
 
   const validateField = useCallback((field: string, value: any, rules: ValidationRule[]): boolean => {

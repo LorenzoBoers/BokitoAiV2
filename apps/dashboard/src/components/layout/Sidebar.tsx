@@ -82,7 +82,7 @@ export default function Sidebar() {
     if (path === '/agenda') {
       return location.pathname === '/agenda' || location.pathname.startsWith('/agenda/')
     }
-    if (path === '/support/inbox/all') {
+    if (path === '/support/inbox/mine' || path === '/support/inbox/all') {
       return location.pathname.startsWith('/support') || location.pathname.startsWith('/communication')
     }
     if (path === '/integrations/connected' || path === '/integrations') {
@@ -189,6 +189,7 @@ export default function Sidebar() {
             <TooltipTrigger asChild>
               <NavLink
                 to="/settings/profile"
+                aria-label={t('nav:rail.settings')}
                 className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
                   isRailActive('/settings/profile')
                     ? 'border-accent/35 bg-accent/20 text-accent shadow-[0_0_0_1px_rgba(110,102,255,0.28),0_10px_20px_-16px_rgba(63,81,181,0.6)]'

@@ -11,6 +11,7 @@ import { LoadingBlock } from '../components/ui/loading-block'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { listMessages, type MessageRow } from '../lib/messages-api'
+import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 
 export default function WorkforceOverview() {
   const { t } = useTranslation(['nav', 'common'])
@@ -36,7 +37,7 @@ export default function WorkforceOverview() {
       setProjects([])
       setRunningLogs([])
       setPendingMessages([])
-      setError(err instanceof Error ? err.message : t('workforce.overview.loadError'))
+      setError(formatApiErrorMessage(err, t('workforce.overview.loadError', { defaultValue: 'Could not load workforce overview.' })))
     } finally {
       setLoading(false)
     }
@@ -62,14 +63,7 @@ export default function WorkforceOverview() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      {error ? (
-        <Card className="p-4">
-          <p className="text-sm text-status-error">{error}</p>
-          <Button className="mt-3" size="sm" variant="secondary" onClick={() => void load()}>
-            {t('common:actions.retry', { defaultValue: 'Retry' })}
-          </Button>
-        </Card>
-      ) : null}
+      {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
       <section className="grid gap-3 md:grid-cols-3">
         <Card className="border-border/70 p-4">

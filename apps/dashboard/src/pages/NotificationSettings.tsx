@@ -1,8 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bell, Mail, Monitor, Smartphone } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
+import { useAuth } from '../context/AuthContext'
+import { policyRoutes } from '../api/routes/policy.routes'
+import { isBokitoMode } from '../lib/bokito-mode'
 
 type ChannelKey = 'desktop' | 'email' | 'mobile'
 
@@ -53,16 +56,37 @@ const DEFAULT_ROWS: NotificationRow[] = [
 const STORAGE_KEY = 'bokito_notification_settings_v1'
 
 export default function NotificationSettings() {
-  const [rows, setRows] = useState<NotificationRow[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw) return DEFAULT_ROWS
-      const parsed = JSON.parse(raw) as NotificationRow[]
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_ROWS
-    } catch {
-      return DEFAULT_ROWS
+  const { token } = useAuth()
+  const useApi = isBokitoMode()
+  const [rows, setRows] = useState<NotificationRow[]>(DEFAULT_ROWS)
+  const [loading, setLoading] = useState(useApi)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!useApi || !token) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return
+        const parsed = JSON.parse(raw) as NotificationRow[]
+        if (Array.isArray(parsed) && parsed.length > 0) setRows(parsed)
+      } catch {
+        // ignore
+      }
+      setLoading(false)
+      return
     }
-  })
+    setLoading(true)
+    fetch(`/api${policyRoutes.notificationPreferences()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Load failed'))))
+      .then((data: { rows?: NotificationRow[] }) => {
+        if (Array.isArray(data.rows) && data.rows.length > 0) setRows(data.rows)
+      })
+      .catch(() => setRows(DEFAULT_ROWS))
+      .finally(() => setLoading(false))
+  }, [token, useApi])
 
   const summary = useMemo(() => {
     return rows.reduce(
@@ -75,6 +99,33 @@ export default function NotificationSettings() {
     )
   }, [rows])
 
+  const persistRows = useCallback(
+    async (next: NotificationRow[]) => {
+      if (useApi && token) {
+        setSaveError(null)
+        const res = await fetch(`/api${policyRoutes.notificationPreferences()}`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ rows: next }),
+        })
+        if (!res.ok) {
+          setSaveError('Could not save notification preferences.')
+        }
+        return
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      } catch {
+        // ignore
+      }
+    },
+    [token, useApi],
+  )
+
   function updateRow(rowId: string, channel: ChannelKey, checked: boolean) {
     setRows((prev) => {
       const next = prev.map((row) =>
@@ -82,7 +133,7 @@ export default function NotificationSettings() {
           ? { ...row, channels: { ...row.channels, [channel]: checked } }
           : row,
       )
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      void persistRows(next)
       return next
     })
   }
@@ -159,10 +210,19 @@ export default function NotificationSettings() {
         </div>
       </Card>
 
-      <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
-        <Bell size={13} className="text-text-muted" />
-        Notification preferences are saved locally as UX draft.
-      </div>
+      {loading ? <p className="text-sm text-text-muted">Loading preferences...</p> : null}
+      {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
+      {!useApi ? (
+        <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
+          <Bell size={13} className="text-text-muted" />
+          Notification preferences are saved locally in this mode.
+        </div>
+      ) : (
+        <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
+          <Bell size={13} className="text-text-muted" />
+          Preferences are saved to your account.
+        </div>
+      )}
     </PageContent>
   )
 }

@@ -61,6 +61,11 @@ export default defineConfig(({ mode }) => {
 
   const proxy: Record<string, object> = useBokitoApi
     ? {
+        '/api:livechat': {
+          target: bokitoApiUrl,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/api:livechat/, '/api/livechat'),
+        },
         '/api': {
           target: bokitoApiUrl,
           changeOrigin: true,

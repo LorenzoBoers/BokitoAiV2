@@ -5,7 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db.session import init_db
-from app.exceptions import AppError, app_error_handler, http_exception_handler
+from sqlalchemy.exc import OperationalError
+
+from app.exceptions import (
+    AppError,
+    app_error_handler,
+    http_exception_handler,
+    operational_error_handler,
+)
 from app.middleware.tenant import TenantHostMiddleware
 from app.routers import (
     auth,
@@ -19,6 +26,7 @@ from app.routers import (
     health,
     inbox,
     inbox_threads,
+    livechat,
     integrations,
     notifications,
     projects,
@@ -43,6 +51,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.add_exception_handler(AppError, app_error_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(OperationalError, operational_error_handler)
 
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
@@ -70,6 +79,7 @@ app.include_router(cockpit.router, prefix=api_prefix)
 app.include_router(settings_orchestra.router, prefix=api_prefix)
 app.include_router(orchestra_router, prefix=api_prefix)
 app.include_router(widget.router, prefix=api_prefix)
+app.include_router(livechat.router, prefix=api_prefix)
 app.include_router(workforce_doc.router, prefix=api_prefix)
 app.include_router(projects.router, prefix=api_prefix)
 app.include_router(workforce.router, prefix=api_prefix)

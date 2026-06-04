@@ -204,6 +204,11 @@ export function buildTenantOrigin(subdomain: string): string | null {
 
   const protocol = getCurrentProtocol()
   const port = getCurrentPort()
+
+  if (import.meta.env.VITE_API_MODE === 'bokito' && isLocalHostname(hostname) && typeof window !== 'undefined') {
+    return window.location.origin
+  }
+
   const tenantRootDomain = resolveTenantRootDomain(hostname)
 
   if (isLocalHostname(hostname)) {

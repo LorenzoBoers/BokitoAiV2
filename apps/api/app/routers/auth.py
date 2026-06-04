@@ -542,6 +542,8 @@ async def workspace_branding(
     brand_color: str | None = Form(None),
     logo: UploadFile | None = File(None),
     favicon: UploadFile | None = File(None),
+    appearance_json: str | None = Form(None),
+    widget_favicon: UploadFile | None = File(None),
 ):
     auth.require_role("owner", "admin")
     try:
@@ -550,6 +552,9 @@ async def workspace_branding(
         )
         logo_bytes = await logo.read() if logo and logo.filename else None
         favicon_bytes = await favicon.read() if favicon and favicon.filename else None
+        widget_favicon_bytes = (
+            await widget_favicon.read() if widget_favicon and widget_favicon.filename else None
+        )
         payload = await apply_branding(
             session,
             tenant,
@@ -560,6 +565,9 @@ async def workspace_branding(
             logo_content_type=logo.content_type if logo else None,
             favicon_bytes=favicon_bytes,
             favicon_content_type=favicon.content_type if favicon else None,
+            appearance_json=appearance_json,
+            widget_favicon_bytes=widget_favicon_bytes,
+            widget_favicon_content_type=widget_favicon.content_type if widget_favicon else None,
         )
         payload["role"] = role
         return payload

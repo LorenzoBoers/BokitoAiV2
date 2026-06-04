@@ -78,6 +78,8 @@ async def get_or_create_doc(session: AsyncSession, tenant_id: UUID) -> Blueprint
     doc = BlueprintDoc(tenant_id=tenant_id, title="Blueprint")
     session.add(doc)
     await session.flush()
+    await session.commit()
+    await session.refresh(doc)
     return doc
 
 

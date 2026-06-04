@@ -8,6 +8,7 @@ import {
   Bot,
   Briefcase,
   Building,
+  CalendarDays,
   CreditCard,
   Database,
   FolderKanban,
@@ -40,7 +41,6 @@ import {
 } from './portal-nav'
 import WorkforceSidebarNav from './WorkforceSidebarNav'
 import { isWorkforceRoute } from '../../lib/workforce-nav-agents'
-import DatabaseTablesPanel from './DatabaseTablesPanel'
 import InboxSidebarNav from '../inbox/InboxSidebarNav'
 import NavCountBadge from './NavCountBadge'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
@@ -103,6 +103,8 @@ function iconForLink(to: string) {
   if (to.includes('/integrations/api')) return KeyRound
   if (to.includes('/workforce/po') || to.includes('/workforce/agents') || to.includes('/workforce/overview')) return Bot
   if (to.includes('/admin/runs')) return Bot
+  if (to === '/orchestra' || to.startsWith('/orchestra/')) return Sparkles
+  if (to === '/agenda' || to.startsWith('/agenda/')) return CalendarDays
   if (to.includes('/project/') && to.endsWith('/overview')) return Briefcase
   if (to.includes('/project/') && (to.endsWith('/orchestrator') || to.endsWith('/po'))) return Bot
   if (/\/project\/[^/]+\/doc/.test(to)) return BookOpen
@@ -114,7 +116,7 @@ function iconForLink(to: string) {
   if (to.includes('/project/') && to.endsWith('/request')) return PenLine
   if (to.includes('/project/') && to.endsWith('/messages')) return MessageSquare
   if (to.includes('/project/') && to.endsWith('/settings')) return Shield
-  return Inbox
+  return LayoutDashboard
 }
 
 function isLinkActive(to: string, pathname: string, exact?: boolean): boolean {
@@ -219,6 +221,12 @@ function resolveGroups(pathname: string, t: TFunction<'nav'>): SidebarGroup[] {
 
 function resolveTitle(pathname: string, t: TFunction<['nav']>): string {
   if (pathname === '/home' || pathname.startsWith('/home/')) return t('nav:sectionTitle.home', { defaultValue: 'Home' })
+  if (pathname === '/orchestra' || pathname.startsWith('/orchestra/')) {
+    return t('nav:sectionTitle.orchestra', { defaultValue: 'Orchestra' })
+  }
+  if (pathname === '/agenda' || pathname.startsWith('/agenda/')) {
+    return t('nav:sectionTitle.agenda', { defaultValue: 'Agenda' })
+  }
   if (isProjectHubRoute(pathname)) return t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
   if (pathname.startsWith('/users') || pathname.startsWith('/database') || pathname.startsWith('/data/')) {
     return t('nav:sectionTitle.data')
@@ -226,7 +234,10 @@ function resolveTitle(pathname: string, t: TFunction<['nav']>): string {
   if (pathname.startsWith('/integrations')) return t('nav:sectionTitle.integrations')
   if (pathname.startsWith('/settings')) return t('nav:sectionTitle.settings')
   if (isWorkforceRoute(pathname)) return t('nav:sectionTitle.workforce', { defaultValue: 'Workforce' })
-  return t('nav:sectionTitle.inbox')
+  if (pathname.startsWith('/support') || pathname.startsWith('/communication')) {
+    return t('nav:sectionTitle.inbox')
+  }
+  return t('nav:sectionTitle.home', { defaultValue: 'Home' })
 }
 
 export default function SectionSidebar() {
@@ -255,7 +266,15 @@ export default function SectionSidebar() {
   const title = resolveTitle(pathname, t)
 
   const isInbox = pathname.startsWith('/support') || pathname.startsWith('/communication')
-  const isDatabaseRoute = pathname.startsWith('/database')
+  const hideSectionSidebar =
+    pathname === '/orchestra' ||
+    pathname.startsWith('/orchestra/') ||
+    pathname === '/agenda' ||
+    pathname.startsWith('/agenda/')
+
+  if (hideSectionSidebar) {
+    return null
+  }
 
   return (
     <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-border/55 bg-bg-sidebar px-3 py-3">
@@ -350,7 +369,6 @@ export default function SectionSidebar() {
               ))
             )}
             {onProjectHub ? <ProjectHubBackgroundWorkersNav /> : null}
-            {isDatabaseRoute ? <DatabaseTablesPanel /> : null}
           </div>
         )}
       </div>

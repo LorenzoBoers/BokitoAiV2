@@ -27,6 +27,8 @@ import { Switch } from '../components/ui/switch'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
+import { policyRoutes } from '../api/routes/policy.routes'
+import { isBokitoMode } from '../lib/bokito-mode'
 import { XANO_AUTH_API } from '../lib/xano'
 import {
   CHAT_WIDGET_SCRIPT_PATH_EXTERNAL,
@@ -190,7 +192,9 @@ function MessengerSettingsContent({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveOk, setSaveOk] = useState(false)
 
-  /** Agent tab: frontend-only until API exists */
+  const [personaTone, setPersonaTone] = useState('')
+  const [personaDo, setPersonaDo] = useState('')
+  const [personaDont, setPersonaDont] = useState('')
   const [agentModelSource, setAgentModelSource] = useState<AgentModelSource>('bokito_ai')
   const [customModelId, setCustomModelId] = useState('')
   const [customTemperature, setCustomTemperature] = useState('0.7')
@@ -285,6 +289,23 @@ function MessengerSettingsContent({
       return null
     })
   }, [currentWorkspace?.id, JSON.stringify(currentWorkspace?.messengerAppearance ?? null)])
+
+  useEffect(() => {
+    if (!token || !isBokitoMode()) return
+    fetch(`/api${policyRoutes.persona()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('persona load failed'))))
+      .then((data: { tone?: string; do_text?: string; dont_text?: string }) => {
+        setPersonaTone(data.tone ?? '')
+        setPersonaDo(data.do_text ?? '')
+        setPersonaDont(data.dont_text ?? '')
+      })
+      .catch(() => {
+        // keep defaults
+      })
+  }, [token])
 
   const dirty = useMemo(() => {
     if (widgetFaviconFile) return true
@@ -406,10 +427,29 @@ function MessengerSettingsContent({
       })
       setSaved({ ...draft })
       setDraft({ ...draft })
+      if (isBokitoMode()) {
+        const personaRes = await fetch(`/api${policyRoutes.persona()}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            tone: personaTone,
+            do_text: personaDo,
+            dont_text: personaDont,
+          }),
+        })
+        if (!personaRes.ok) {
+          throw new Error('Could not save agent persona')
+        }
+      }
+
       setSaveOk(true)
       window.setTimeout(() => setSaveOk(false), 2200)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Opslaan mislukt')
+      setSaveError(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
     }
@@ -615,10 +655,44 @@ function MessengerSettingsContent({
 
             {section === 'agent' ? (
               <div className="space-y-4">
-                <p className="text-xs text-text-secondary">
-                  Options below are UI-only for now. Saving the page does not persist them yet. The live widget preview is
-                  hidden on this tab.
-                </p>
+                {isBokitoMode() ? (
+                  <FoldableSection title="Assistant persona" defaultOpen>
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <p className="text-sm font-medium text-text-heading">Tone</p>
+                        <Input
+                          className="mt-2"
+                          value={personaTone}
+                          onChange={(e) => setPersonaTone(e.target.value)}
+                          placeholder="Professional and helpful"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-text-heading">Do</p>
+                        <textarea
+                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                          value={personaDo}
+                          onChange={(e) => setPersonaDo(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-text-heading">Do not</p>
+                        <textarea
+                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                          value={personaDont}
+                          onChange={(e) => setPersonaDont(e.target.value)}
+                        />
+                      </div>
+                      <p className="text-xs text-text-secondary">
+                        Saved with the Save button (same as customization). Advanced model options below are not persisted yet.
+                      </p>
+                    </div>
+                  </FoldableSection>
+                ) : (
+                  <p className="text-xs text-text-secondary">
+                    Persona API is available in Bokito API mode only. The live widget preview is hidden on this tab.
+                  </p>
+                )}
 
                 <div>
                   <p className="mb-2 text-sm font-medium text-text-heading">Model</p>

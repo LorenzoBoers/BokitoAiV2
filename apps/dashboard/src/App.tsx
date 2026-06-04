@@ -62,6 +62,7 @@ import DatabasePage from './pages/DatabasePage'
 import DatabaseRouteLayout from './components/layout/DatabaseRouteLayout'
 import { useIsAdmin } from './hooks/useIsAdmin'
 import { isBokitoMode } from './lib/bokito-mode'
+import { useAuth } from './context/AuthContext'
 
 const USE_BOKITO_API = isBokitoMode()
 
@@ -146,15 +147,23 @@ function TenantHomeRedirect() {
 }
 
 function HomeRoute() {
-  const { workspaceLoading } = useWorkspace()
+  const { workspaceLoading, workspaces } = useWorkspace()
+  const { user } = useAuth()
   const tenantSubdomain = resolveTenantSubdomainFromHost()
 
   if (workspaceLoading) {
-    return <div className="py-6 text-sm text-text-muted">Workspaces laden...</div>
+    return <div className="py-6 text-sm text-text-muted">Loading workspaces...</div>
   }
 
   if (tenantSubdomain) {
     return <TenantHomeRedirect />
+  }
+
+  if (USE_BOKITO_API) {
+    const activeMemberships = (user?.memberships ?? []).filter((m) => m.status === 'active')
+    if (activeMemberships.length === 1 && workspaces.length <= 1) {
+      return <Navigate to="/home" replace />
+    }
   }
 
   return (
@@ -240,8 +249,8 @@ export default function App() {
             <Route path="/integrations/sources" element={<Navigate to="/projects" replace />} />
           </Route>
 
-          <Route path="/communication" element={<Communication />} />
-          <Route path="/messages" element={<Communication />} />
+          <Route path="/communication" element={<Navigate to="/support/inbox/mine?hub=decisions" replace />} />
+          <Route path="/messages" element={<Navigate to="/support/inbox/mine?hub=decisions" replace />} />
           <Route path="/projects/new" element={<CreateProject />} />
           <Route path="/projects/new/:projectId/connect" element={<ConnectProjectRepo />} />
           <Route element={<ProjectHubShell />}>

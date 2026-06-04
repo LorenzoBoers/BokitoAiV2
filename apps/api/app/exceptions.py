@@ -1,5 +1,6 @@
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 
 
 class AppError(Exception):
@@ -34,6 +35,22 @@ async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": exc.code, "message": exc.message}},
+    )
+
+
+async def operational_error_handler(_request: Request, exc: OperationalError) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": {
+                "code": "schema_out_of_date",
+                "message": (
+                    "Database schema is out of date. "
+                    "Run: cd apps/api && alembic upgrade head && python scripts/seed.py "
+                    "(or delete dev.db and restart the API)."
+                ),
+            }
+        },
     )
 
 

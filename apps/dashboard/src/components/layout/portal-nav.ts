@@ -107,7 +107,7 @@ export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
     icon: FolderKanban,
     badgeSlot: 'projectsAttention',
   },
-  { label: t('rail.support'), to: '/support/inbox/all', icon: MessageSquare, badgeSlot: 'inbox' },
+  { label: t('rail.support'), to: '/support/inbox/mine', icon: MessageSquare, badgeSlot: 'inbox' },
   {
     label: t('rail.workforce', { defaultValue: 'Workforce' }),
     to: WORKFORCE_DEFAULT_PATH,
@@ -129,14 +129,13 @@ export const getBokitoAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
     icon: FolderKanban,
     badgeSlot: 'projectsAttention',
   },
-  { label: t('rail.support'), to: '/support/inbox/all', icon: MessageSquare, badgeSlot: 'inbox' },
+  { label: t('rail.support'), to: '/support/inbox/mine', icon: MessageSquare, badgeSlot: 'inbox' },
   {
     label: t('rail.workforce', { defaultValue: 'Workforce' }),
     to: WORKFORCE_DEFAULT_PATH,
     icon: Bot,
     badgeSlot: 'agents',
   },
-  { label: t('data.links.tables', { defaultValue: 'Database' }), to: '/database', icon: Database },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]

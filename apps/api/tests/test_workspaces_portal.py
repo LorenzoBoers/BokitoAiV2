@@ -90,3 +90,29 @@ async def test_change_password_and_branding(client: AsyncClient):
     body = branding.json()
     assert body["name"] == "Branded Tenant"
     assert body.get("brand_color") == "#112233" or body.get("livechat_settings", {}).get("main_color") == "#112233"
+
+
+@pytest.mark.asyncio
+async def test_branding_appearance_json(client: AsyncClient):
+    token, tenant_id = await _login(client)
+    headers = _auth(token)
+
+    appearance = {
+        "welcome_title": "Hello",
+        "welcome_subtitle": "How can we help?",
+        "chatbot_name": "Bokito",
+        "main_color": "#00FF99",
+    }
+    branding = await client.post(
+        f"{AUTH}/workspaces/{tenant_id}/branding",
+        headers=headers,
+        data={
+            "appearance_json": __import__("json").dumps(appearance),
+            "brand_color": "#00FF99",
+        },
+    )
+    assert branding.status_code == 200
+    settings = branding.json().get("livechat_settings") or {}
+    stored = settings.get("appearance") or {}
+    assert stored.get("welcome_title") == "Hello"
+    assert stored.get("chatbot_name") == "Bokito"

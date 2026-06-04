@@ -9,7 +9,7 @@
     "build:dashboard": "npm run build:static -w bokito-dashboard",
     "build:messenger": "npm run build -w bokito-messenger",
     "dev:stack": "docker compose -f docker-compose.dev.yml up --build",
-    "test:api": "cd apps/api && py -3.11 -m pip install -e \".[dev]\" && py -3.11 -m pytest -q",
+    "test:api": "cd apps/api && uv run pytest -q",
     "test:e2e": "playwright test",
     "verify:bokito": "npm run test:api && npm run build:dashboard && npm run build:messenger",
     "verify:bokito:e2e": "playwright test"

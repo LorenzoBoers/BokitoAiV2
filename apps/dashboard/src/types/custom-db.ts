@@ -487,6 +487,21 @@ export interface SemanticSearchResult {
   highlights?: Record<string, string>;
 }
 
+// Onboarding wizard (legacy Xano flow; types kept for compile)
+export interface OnboardingStep1Data {
+  workspace_name: string;
+  timezone: string;
+}
+
+export interface OnboardingStep2Data {
+  table_template: string;
+  table_name: string;
+}
+
+export interface OnboardingStep3Data {
+  invites: string[];
+}
+
 // Magic table config
 export interface MagicTableConfig {
   enabled?: boolean;

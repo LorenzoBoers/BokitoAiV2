@@ -17,6 +17,7 @@ from app.models.orchestra import (
     WorkstreamRun,
     WorkstreamStepRun,
 )
+from app.models.notification import UserNotificationPreference
 from app.models.policy import ActionPolicy, ActionWhitelistEntry, AssistantPersona
 from app.services.orchestra_runner import run_workstream_mock, trigger_task
 
@@ -166,6 +167,67 @@ async def update_policy(
     session.add(policy)
     await session.commit()
     return {"ok": True}
+
+
+DEFAULT_NOTIFICATION_ROWS = [
+    {"id": "unassigned", "label": "Activity from all unassigned conversations", "channels": {"desktop": True, "email": False, "mobile": False}},
+    {"id": "assigned-to-me", "label": "Activity for conversations assigned to you", "channels": {"desktop": True, "email": True, "mobile": True}},
+    {"id": "team-conversations", "label": "Activity from your team conversations", "channels": {"desktop": True, "email": False, "mobile": False}},
+    {"id": "assigned-to-others", "label": "Activity from conversations assigned to other teammates", "channels": {"desktop": False, "email": False, "mobile": False}},
+    {"id": "mentions", "label": "When you are mentioned in conversations", "channels": {"desktop": True, "email": True, "mobile": True}},
+    {"id": "started-by-you", "label": "Activity on conversations you started", "channels": {"desktop": True, "email": True, "mobile": True}},
+    {"id": "status-changes", "label": "Ticket status changes", "channels": {"desktop": True, "email": True, "mobile": True}},
+]
+
+
+class NotificationPrefsBody(BaseModel):
+    rows: list[dict] | None = None
+
+
+@router.get("/user/notification-preferences")
+async def get_notification_preferences(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    result = await session.execute(
+        select(UserNotificationPreference).where(
+            UserNotificationPreference.tenant_id == auth.tenant.id,
+            UserNotificationPreference.user_id == auth.user.id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row or not row.prefs_json.strip():
+        return {"rows": DEFAULT_NOTIFICATION_ROWS}
+    try:
+        parsed = json.loads(row.prefs_json)
+        if isinstance(parsed, list) and parsed:
+            return {"rows": parsed}
+    except json.JSONDecodeError:
+        pass
+    return {"rows": DEFAULT_NOTIFICATION_ROWS}
+
+
+@router.patch("/user/notification-preferences")
+async def patch_notification_preferences(
+    body: NotificationPrefsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    rows = body.rows if isinstance(body.rows, list) else DEFAULT_NOTIFICATION_ROWS
+    result = await session.execute(
+        select(UserNotificationPreference).where(
+            UserNotificationPreference.tenant_id == auth.tenant.id,
+            UserNotificationPreference.user_id == auth.user.id,
+        )
+    )
+    pref = result.scalar_one_or_none() or UserNotificationPreference(
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+    )
+    pref.prefs_json = json.dumps(rows)
+    session.add(pref)
+    await session.commit()
+    return {"rows": rows}
 
 
 @router.get("/persona")

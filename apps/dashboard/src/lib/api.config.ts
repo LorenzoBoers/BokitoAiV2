@@ -37,8 +37,16 @@ export const BAKERMAT_API_BASE = xanoApiBase(API_GROUP_BAKERMAT)
 
 export const PUBLIC_API_URL = import.meta.env.VITE_PUBLIC_API_URL || DEFAULT_PUBLIC_API_URL
 
-/** Absolute Xano origin for `bokito-chat` `data-api-url` (widget composes `/api:livechat/...` itself). */
+const USE_BOKITO_API = import.meta.env.VITE_API_MODE === 'bokito'
+
+/**
+ * Origin for `bokito-chat` `data-api-url` (widget appends `/api:livechat/...`).
+ * In bokito mode use same-origin so Vite proxies `/api:livechat` to FastAPI `/api/livechat`.
+ */
 export function livechatWidgetHttpOrigin(): string {
+  if (USE_BOKITO_API && typeof window !== 'undefined') {
+    return window.location.origin.replace(/\/+$/, '')
+  }
   return XANO_BASE_URL.replace(/\/+$/, '').replace(/\/api:livechat$/i, '')
 }
 

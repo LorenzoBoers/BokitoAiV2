@@ -1,15 +1,19 @@
 import type { CustomField, ValidationError } from '../types/custom-db'
 
+function err(
+  field: CustomField,
+  message: string,
+  type: ValidationError['type'],
+): ValidationError {
+  return { fieldSlug: field.slug, message, type }
+}
+
 export function validateFieldValue(field: CustomField, value: unknown): ValidationError[] {
   const errors: ValidationError[] = []
   
   // Required field validation
   if (field.required && (value === null || value === undefined || value === '')) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} is verplicht`,
-      code: 'REQUIRED'
-    })
+    errors.push(err(field, `${field.name} is verplicht`, 'required'))
     return errors // Don't validate further if required field is empty
   }
 
@@ -58,146 +62,101 @@ export function validateFieldValue(field: CustomField, value: unknown): Validati
 function validateTextField(field: CustomField, value: string): ValidationError[] {
   const errors: ValidationError[] = []
   const { maxLength, regex, regexMessage } = field.config
-  
+
   if (maxLength && value.length > maxLength) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} mag maximaal ${maxLength} karakters bevatten`,
-      code: 'MAX_LENGTH'
-    })
+    errors.push(err(field, `${field.name} mag maximaal ${maxLength} karakters bevatten`, 'range'))
   }
-  
+
   if (regex) {
     try {
       const regexPattern = new RegExp(regex)
       if (!regexPattern.test(value)) {
-        errors.push({
-          field: field.slug,
-          message: regexMessage || `${field.name} heeft een ongeldige indeling`,
-          code: 'REGEX_MISMATCH'
-        })
+        errors.push(
+          err(field, regexMessage || `${field.name} heeft een ongeldige indeling`, 'format'),
+        )
       }
-    } catch (e) {
+    } catch {
       // Invalid regex pattern - skip validation
     }
   }
-  
-  // Note: Unique validation would need to be done server-side with database access
-  
+
   return errors
 }
 
 function validateNumberField(field: CustomField, value: unknown): ValidationError[] {
   const errors: ValidationError[] = []
   const { min, max, isInteger, decimals } = field.config
-  
+
   const num = Number(value)
   if (isNaN(num)) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een geldig getal zijn`,
-      code: 'INVALID_NUMBER'
-    })
+    errors.push(err(field, `${field.name} moet een geldig getal zijn`, 'format'))
     return errors
   }
-  
+
   if (isInteger && !Number.isInteger(num)) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een geheel getal zijn`,
-      code: 'NOT_INTEGER'
-    })
+    errors.push(err(field, `${field.name} moet een geheel getal zijn`, 'format'))
   }
-  
+
   if (min !== undefined && num < min) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet minimaal ${min} zijn`,
-      code: 'MIN_VALUE'
-    })
+    errors.push(err(field, `${field.name} moet minimaal ${min} zijn`, 'range'))
   }
-  
+
   if (max !== undefined && num > max) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} mag maximaal ${max} zijn`,
-      code: 'MAX_VALUE'
-    })
+    errors.push(err(field, `${field.name} mag maximaal ${max} zijn`, 'range'))
   }
-  
+
   if (decimals !== undefined && !isInteger) {
     const decimalPlaces = (num.toString().split('.')[1] || '').length
     if (decimalPlaces > decimals) {
-      errors.push({
-        field: field.slug,
-        message: `${field.name} mag maximaal ${decimals} decimalen hebben`,
-        code: 'TOO_MANY_DECIMALS'
-      })
+      errors.push(err(field, `${field.name} mag maximaal ${decimals} decimalen hebben`, 'range'))
     }
   }
-  
+
   return errors
 }
 
 function validateEmailField(field: CustomField, value: string): ValidationError[] {
   const errors: ValidationError[] = []
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  
+
   if (!emailRegex.test(value)) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een geldig e-mailadres zijn`,
-      code: 'INVALID_EMAIL'
-    })
+    errors.push(err(field, `${field.name} moet een geldig e-mailadres zijn`, 'format'))
   }
-  
+
   return errors
 }
 
 function validateUrlField(field: CustomField, value: string): ValidationError[] {
   const errors: ValidationError[] = []
-  
+
   try {
     new URL(value)
   } catch {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een geldige URL zijn`,
-      code: 'INVALID_URL'
-    })
+    errors.push(err(field, `${field.name} moet een geldige URL zijn`, 'format'))
   }
-  
+
   return errors
 }
 
 function validatePhoneField(field: CustomField, value: string): ValidationError[] {
   const errors: ValidationError[] = []
-  // Basic phone validation - could be enhanced with more specific patterns
   const phoneRegex = /^[\+]?[0-9\s\-\(\)]{7,}$/
-  
+
   if (!phoneRegex.test(value)) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een geldig telefoonnummer zijn`,
-      code: 'INVALID_PHONE'
-    })
+    errors.push(err(field, `${field.name} moet een geldig telefoonnummer zijn`, 'format'))
   }
-  
+
   return errors
 }
 
 function validateDateField(field: CustomField, value: unknown): ValidationError[] {
   const errors: ValidationError[] = []
-  
+
   const date = new Date(String(value))
   if (isNaN(date.getTime())) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een geldige datum zijn`,
-      code: 'INVALID_DATE'
-    })
+    errors.push(err(field, `${field.name} moet een geldige datum zijn`, 'format'))
   }
-  
+
   return errors
 }
 
@@ -212,20 +171,12 @@ function validateRatingField(field: CustomField, value: unknown): ValidationErro
   
   const num = Number(value)
   if (isNaN(num) || !Number.isInteger(num)) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een geheel getal zijn`,
-      code: 'INVALID_RATING'
-    })
+    errors.push(err(field, `${field.name} moet een geheel getal zijn`, 'format'))
     return errors
   }
-  
+
   if (num < 0 || num > max) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet tussen 0 en ${max} zijn`,
-      code: 'RATING_OUT_OF_RANGE'
-    })
+    errors.push(err(field, `${field.name} moet tussen 0 en ${max} zijn`, 'range'))
   }
   
   return errors
@@ -237,11 +188,7 @@ function validateSelectField(field: CustomField, value: unknown): ValidationErro
   
   const validValues = options.map(opt => opt.value)
   if (!validValues.includes(String(value))) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} heeft een ongeldige waarde`,
-      code: 'INVALID_OPTION'
-    })
+    errors.push(err(field, `${field.name} heeft een ongeldige waarde`, 'format'))
   }
   
   return errors
@@ -252,23 +199,17 @@ function validateMultiSelectField(field: CustomField, value: unknown): Validatio
   const { options = [] } = field.config
   
   if (!Array.isArray(value)) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} moet een lijst van waarden zijn`,
-      code: 'INVALID_MULTI_SELECT'
-    })
+    errors.push(err(field, `${field.name} moet een lijst van waarden zijn`, 'format'))
     return errors
   }
-  
+
   const validValues = options.map(opt => opt.value)
   const invalidValues = value.filter(v => !validValues.includes(String(v)))
-  
+
   if (invalidValues.length > 0) {
-    errors.push({
-      field: field.slug,
-      message: `${field.name} bevat ongeldige waarden: ${invalidValues.join(', ')}`,
-      code: 'INVALID_MULTI_SELECT_OPTIONS'
-    })
+    errors.push(
+      err(field, `${field.name} bevat ongeldige waarden: ${invalidValues.join(', ')}`, 'format'),
+    )
   }
   
   return errors
@@ -302,10 +243,14 @@ export function applyDefaultValues(fields: CustomField[], data: Record<string, u
 }
 
 function getDefaultValue(field: CustomField): unknown {
-  if (!field.default_value) return undefined
-  
-  const { type, value } = field.default_value
-  
+  const defaultValue = field.default_value
+  if (defaultValue === null || defaultValue === undefined) return undefined
+  if (typeof defaultValue !== 'object' || defaultValue === null || !('type' in defaultValue)) {
+    return defaultValue
+  }
+
+  const { type, value } = defaultValue as { type: string; value: unknown }
+
   switch (type) {
     case 'static':
       return value

@@ -17,6 +17,15 @@ export const AUTH_PROXY_BASE = import.meta.env.VITE_AUTH_PROXY_BASE || '/api/aut
 export const ACCESS_TOKEN_TTL_S = Number(import.meta.env.VITE_DEFAULT_ACCESS_TOKEN_TTL_S || DEFAULT_ACCESS_TOKEN_TTL_S);
 export const REFRESH_TOKEN_TTL_S = Number(import.meta.env.VITE_DEFAULT_REFRESH_TOKEN_TTL_S || DEFAULT_REFRESH_TOKEN_TTL_S);
 const AUTH_PROXY_FALLBACK_STATUSES = new Set([404, 405, 502, 503, 504]);
+const AUTH_FETCH_TIMEOUT_MS = 12_000;
+const USE_BOKITO_API = import.meta.env.VITE_API_MODE === 'bokito';
+
+function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
+  const merged: RequestInit = { ...init, signal: controller.signal };
+  return fetch(url, merged).finally(() => window.clearTimeout(timeoutId));
+}
 
 let accessTokenProvider: (() => string | null) | null = null;
 
@@ -81,13 +90,17 @@ function buildAuthDirectUrl(path: string): string {
 }
 
 async function fetchAuthWithFallback(proxyPath: string, directPath: string, init: RequestInit): Promise<Response> {
+  const doFetch = (url: string) => fetchWithTimeout(url, init);
   try {
-    const proxyRes = await fetch(buildAuthProxyUrl(proxyPath), init);
+    const proxyRes = await doFetch(buildAuthProxyUrl(proxyPath));
     if (!AUTH_PROXY_FALLBACK_STATUSES.has(proxyRes.status)) return proxyRes;
   } catch {
     // Fall through to direct auth endpoint when proxy is unreachable.
   }
-  return fetch(buildAuthDirectUrl(directPath), init);
+  if (USE_BOKITO_API) {
+    throw new Error('Auth API unreachable (bokito mode)');
+  }
+  return doFetch(buildAuthDirectUrl(directPath));
 }
 
 export async function xanoPost<T>(path: string, body: object, token?: string): Promise<T> {

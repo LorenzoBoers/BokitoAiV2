@@ -10,8 +10,8 @@ const messengerBase = `http://127.0.0.1:${messengerPort}`
 
 const apiCommand =
   process.platform === 'win32'
-    ? 'py -3.11 scripts/run_e2e_api.py'
-    : 'python3 scripts/run_e2e_api.py'
+    ? 'uv run python scripts/run_e2e_api.py'
+    : 'uv run python scripts/run_e2e_api.py'
 
 export default defineConfig({
   testDir: './e2e',

@@ -214,6 +214,7 @@ export default function WorkforceSidebarNav() {
   }, [workerActiveIndex])
 
   if (!isAdmin) return null
+  if (error && !loading) return null
 
   return (
     <div className="space-y-3">

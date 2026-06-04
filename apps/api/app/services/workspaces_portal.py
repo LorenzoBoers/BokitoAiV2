@@ -283,6 +283,9 @@ async def apply_branding(
     logo_content_type: str | None,
     favicon_bytes: bytes | None,
     favicon_content_type: str | None,
+    appearance_json: str | None = None,
+    widget_favicon_bytes: bytes | None = None,
+    widget_favicon_content_type: str | None = None,
 ) -> dict[str, Any]:
     if name and name.strip():
         tenant.name = name.strip()
@@ -303,6 +306,15 @@ async def apply_branding(
     if not isinstance(appearance, dict):
         appearance = {}
         livechat["appearance"] = appearance
+    if appearance_json and appearance_json.strip():
+        try:
+            parsed = json.loads(appearance_json)
+            if isinstance(parsed, dict):
+                for key, value in parsed.items():
+                    if value is not None:
+                        appearance[str(key)] = value
+        except json.JSONDecodeError as exc:
+            raise AppError("Invalid appearance_json", status_code=400) from exc
     if brand_color and brand_color.strip():
         color = brand_color.strip()
         appearance["main_color"] = color
@@ -314,14 +326,17 @@ async def apply_branding(
         encoded = base64.b64encode(logo_bytes).decode("ascii")
         tenant.logo_url = f"data:{mime};base64,{encoded}"
         livechat["logo"] = _asset_object(tenant.logo_url)
-    if favicon_bytes:
-        if len(favicon_bytes) > MAX_UPLOAD_BYTES:
+    widget_favicon_source = widget_favicon_bytes if widget_favicon_bytes else favicon_bytes
+    widget_favicon_mime = widget_favicon_content_type if widget_favicon_bytes else favicon_content_type
+    if widget_favicon_source:
+        if len(widget_favicon_source) > MAX_UPLOAD_BYTES:
             raise AppError("Favicon file too large", status_code=400)
-        mime = favicon_content_type or "image/png"
-        encoded = base64.b64encode(favicon_bytes).decode("ascii")
+        mime = widget_favicon_mime or "image/png"
+        encoded = base64.b64encode(widget_favicon_source).decode("ascii")
         favicon_url = f"data:{mime};base64,{encoded}"
-        settings["favicon_url"] = favicon_url
-        livechat["favicon"] = _asset_object(favicon_url)
+        if favicon_bytes and not widget_favicon_bytes:
+            settings["favicon_url"] = favicon_url
+            livechat["favicon"] = _asset_object(favicon_url)
         appearance["widget_favicon"] = _asset_object(favicon_url)
     livechat["subdomain"] = tenant.slug
     save_settings(tenant, settings)
