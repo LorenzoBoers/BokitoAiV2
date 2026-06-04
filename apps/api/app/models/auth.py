@@ -23,6 +23,8 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     password_hash: str
     display_name: str = ""
+    job_title: str = ""
+    avatar_url: Optional[str] = None
     is_active: bool = True
     is_staff: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)

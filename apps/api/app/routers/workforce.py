@@ -1,0 +1,301 @@
+"""Workforce API router (agents, work logs, messages, runtime controls)."""
+
+from typing import Annotated, Any
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_session
+from app.dependencies import AuthContext, get_current_auth
+from app.services import workforce_runtime as svc
+
+router = APIRouter(prefix="/workforce", tags=["workforce"])
+
+
+class AgentStatusBody(BaseModel):
+    status: str
+
+
+class TriggerAgentBody(BaseModel):
+    agent_id: str
+    instruction: str
+    priority: str | None = None
+    correlation_id: str | None = None
+
+
+class CompleteActivityBody(BaseModel):
+    activity_id: str
+    outcome: str
+    summary: str | None = None
+    result: dict[str, Any] | None = None
+    correlation_id: str | None = None
+
+
+class WorkforceConfigPatch(BaseModel):
+    enabled: bool | None = None
+    autonomy_level: str | None = None
+    check_interval_sec: int | None = None
+    max_retry_per_feature: int | None = None
+    allow_verdict_override: bool | None = None
+    sleep_mode: str | None = None
+
+
+class DeferBody(BaseModel):
+    days: int = 7
+
+
+# --- Work logs ---
+
+
+@router.get("/work_logs")
+async def get_work_logs(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    project_id: str | None = Query(default=None),
+    agent_id: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    items = await svc.list_work_logs(
+        session,
+        auth.tenant.id,
+        project_id=project_id,
+        agent_id=agent_id,
+        status=status,
+        limit=limit,
+    )
+    return {"items": items}
+
+
+@router.get("/work_logs/{work_log_id}/events")
+async def work_log_events(
+    work_log_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.get_work_log_events(session, auth.tenant.id, work_log_id)
+
+
+@router.get("/runs/{work_log_id}/status")
+async def run_status(
+    work_log_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    data = await svc.get_work_log_events(session, auth.tenant.id, work_log_id)
+    return {
+        "status": data.get("status"),
+        "task_subject": data.get("task_subject"),
+        "tokens_used": data.get("tokens_used"),
+    }
+
+
+# --- Agents ---
+
+
+@router.get("/agents")
+async def list_agents(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    items = await svc.list_runtime_agents(session, auth.tenant.id)
+    return {"items": items}
+
+
+@router.get("/timeline")
+async def timeline(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    items = await svc.list_timeline(session, auth.tenant.id)
+    return {"items": items}
+
+
+@router.patch("/agents/{agent_id}/status")
+async def patch_agent_status(
+    agent_id: UUID,
+    body: AgentStatusBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.update_agent_runtime_status(session, auth.tenant.id, agent_id, body.status)
+
+
+# --- Messages / decisions ---
+
+
+@router.get("/messages")
+async def list_messages(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    status: str | None = Query(default=None),
+    message_type: str | None = Query(default=None),
+    channel: str | None = Query(default=None),
+    thread_id: str | None = Query(default=None),
+    project_id: str | None = Query(default=None),
+):
+    items = await svc.list_messages(
+        session,
+        auth.tenant.id,
+        status=status,
+        message_type=message_type,
+        channel=channel,
+        thread_id=thread_id,
+        project_id=project_id,
+    )
+    return {"items": items}
+
+
+@router.post("/messages/{message_id}/approve")
+async def approve_message(
+    message_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await svc.resolve_message(session, auth.tenant.id, message_id, new_status="done")
+    return {"ok": True}
+
+
+@router.post("/messages/{message_id}/defer")
+async def defer_message(
+    message_id: UUID,
+    body: DeferBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    del body
+    await svc.resolve_message(session, auth.tenant.id, message_id, new_status="deferred")
+    return {"ok": True}
+
+
+@router.post("/messages/{message_id}/reject")
+async def reject_message(
+    message_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await svc.resolve_message(session, auth.tenant.id, message_id, new_status="rejected")
+    return {"ok": True}
+
+
+# --- Workforce runtime controls ---
+
+
+@router.get("/workforce/config")
+async def get_workforce_config(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    return svc.default_workforce_config(auth.tenant.id)
+
+
+@router.patch("/workforce/config")
+async def patch_workforce_config(
+    body: WorkforceConfigPatch,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    config = svc.default_workforce_config(auth.tenant.id)
+    for key, value in body.model_dump(exclude_unset=True).items():
+        if value is not None:
+            config[key] = value
+    return config
+
+
+@router.get("/workforce/status")
+async def workforce_status(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    pipeline_id: int | None = Query(default=None),
+):
+    del pipeline_id
+    return await svc.get_workforce_status(session, auth.tenant.id)
+
+
+@router.post("/workforce/force-wake")
+async def force_wake(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    body: dict[str, Any] | None = None,
+):
+    del body
+    agents = await svc.list_runtime_agents(session, auth.tenant.id)
+    manager = next((a for a in agents if a.get("role_slug") == "manager"), None)
+    if manager:
+        return await svc.trigger_agent(
+            session,
+            auth.tenant.id,
+            agent_id=UUID(manager["id"]),
+            instruction="Force wake from workforce dashboard",
+        )
+    if agents:
+        return await svc.trigger_agent(
+            session,
+            auth.tenant.id,
+            agent_id=UUID(agents[0]["id"]),
+            instruction="Force wake from workforce dashboard",
+        )
+    return {"ok": True}
+
+
+@router.post("/workforce/force-rescan")
+async def force_rescan():
+    return {"ok": True, "trigger_id": 1}
+
+
+@router.post("/workforce/pause")
+async def pause_workforce(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    agents = await svc.list_runtime_agents(session, auth.tenant.id)
+    manager = next((a for a in agents if a.get("role_slug") in ("manager", "orchestrator")), None)
+    if manager:
+        await svc.update_agent_runtime_status(session, auth.tenant.id, UUID(manager["id"]), "standby")
+    return {"ok": True}
+
+
+@router.post("/workforce/trigger-agent")
+async def post_trigger_agent(
+    body: TriggerAgentBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    del body.priority, body.correlation_id
+    return await svc.trigger_agent(
+        session,
+        auth.tenant.id,
+        agent_id=UUID(body.agent_id),
+        instruction=body.instruction,
+    )
+
+
+@router.post("/workforce/complete-activity")
+async def post_complete_activity(
+    body: CompleteActivityBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    del body.result, body.correlation_id
+    return await svc.complete_activity(
+        session,
+        auth.tenant.id,
+        activity_id=UUID(body.activity_id),
+        outcome=body.outcome,
+        summary=body.summary,
+    )
+
+
+@router.post("/workforce/maintenance-run")
+async def maintenance_run():
+    return {"ok": True, "stale_cleared": 0}
+
+
+@router.post("/index/search")
+async def index_search():
+    return {"items": []}
+
+
+@router.get("/index/chunks")
+async def index_chunks():
+    return {"items": []}

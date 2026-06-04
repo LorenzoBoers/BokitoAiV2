@@ -6,6 +6,7 @@ import { getAiPageMeta, getIntegrationsPageMeta, getSettingsPageMeta, getSupport
 import { useOptionalProjectContext } from '../../context/ProjectContext'
 import { useOptionalProjectHubNav } from '../../context/ProjectHubNavContext'
 import { useOptionalWorkspaceDocNav } from '../../context/WorkspaceDocNavContext'
+import StaffTenantBar from './StaffTenantBar'
 
 export default function AppHeader() {
   const { t } = useTranslation(['nav', 'common'])
@@ -107,7 +108,11 @@ export default function AppHeader() {
       ? projectHubTitle
       : pathname === '/home' || pathname.startsWith('/home/')
       ? t('nav:home.title')
-      : pathname.startsWith('/support/inbox/')
+      : pathname === '/orchestra' || pathname.startsWith('/orchestra/')
+        ? t('nav:orchestra.title', { defaultValue: 'Orchestra' })
+        : pathname === '/agenda' || pathname.startsWith('/agenda/')
+          ? t('nav:agenda.title', { defaultValue: 'Agenda' })
+          : pathname.startsWith('/support/inbox/')
     ? supportPageMeta[supportQueue ?? 'all']?.title ?? t('nav:fallbackTitles.supportInbox')
     : pathname.startsWith('/support/customization')
       ? t('nav:settingsPageMeta.messenger.title')
@@ -149,12 +154,13 @@ export default function AppHeader() {
   return (
     <header
       className={`grid h-16 items-center gap-3 border-b border-border/55 px-5 pt-2 pb-3 ${
-        showSearch ? 'grid-cols-[1fr_minmax(280px,440px)]' : 'grid-cols-[1fr]'
+        showSearch ? 'grid-cols-[1fr_auto_minmax(280px,440px)]' : 'grid-cols-[1fr_auto]'
       }`}
     >
       <div className="min-w-0">
         <p className="truncate text-[16px] font-semibold text-text-heading">{title}</p>
       </div>
+      <StaffTenantBar />
       {showSearch ? (
         <div className="relative">
           <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />

@@ -76,6 +76,12 @@ export default function Sidebar() {
     if (path === '/home') {
       return location.pathname === '/home' || location.pathname.startsWith('/home/')
     }
+    if (path === '/orchestra') {
+      return location.pathname === '/orchestra' || location.pathname.startsWith('/orchestra/')
+    }
+    if (path === '/agenda') {
+      return location.pathname === '/agenda' || location.pathname.startsWith('/agenda/')
+    }
     if (path === '/support/inbox/all') {
       return location.pathname.startsWith('/support') || location.pathname.startsWith('/communication')
     }

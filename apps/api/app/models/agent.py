@@ -21,7 +21,12 @@ class Agent(SQLModel, table=True):
     cost_aware: bool = False
     tools_json: str = Field(default="[]")
     is_active: bool = True
+    slug: str = ""
+    runtime_status: str = Field(default="standby")
+    parent_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    current_activity_summary: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class AgentRun(SQLModel, table=True):
@@ -30,6 +35,7 @@ class AgentRun(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     agent_id: uuid.UUID = Field(foreign_key="agents.id", index=True)
+    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     status: str = Field(default="running")  # running | completed | failed
     trigger_type: str = Field(default="manual")
     trigger_id: Optional[str] = None

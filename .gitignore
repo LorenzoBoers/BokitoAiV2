@@ -36,6 +36,10 @@ coverage/
 __pycache__/
 *.pyc
 .pytest_cache/
+apps/api/e2e-dev.db
+test-results/
+playwright-report/
+apps/api/dev.db
 
 # Cursor MCP (may contain API tokens — use mcp.json.example)
 .cursor/mcp.json

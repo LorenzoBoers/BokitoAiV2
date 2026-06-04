@@ -11,6 +11,7 @@ import {
   setAccessTokenProvider,
   type AuthSessionResponse,
 } from '../lib/xano';
+import { switchStaffTenant as switchStaffTenantRequest } from '../lib/staff-api';
 import { UserRole, PermissionAction } from '../types/custom-db';
 import {
   clearLocationHashPreservePath,
@@ -88,6 +89,7 @@ interface User {
   /** Xano `user.organisation_id` (UUID); required for tenant-scoped APIs such as email. */
   organisationId: string | null;
   role: UserRole;
+  isStaff: boolean;
   tenant: Tenant;
   memberships: TenantMembership[];
 }
@@ -106,6 +108,8 @@ interface AuthContextValue {
   patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl'>>) => void;
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
+  isStaff: boolean;
+  switchStaffTenant: (tenantId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -242,6 +246,7 @@ function normalizeAuthUser(raw: unknown): User {
     accountId: toNumber(payload.account_id),
     organisationId: normalizeOrganisationId(payload),
     role: mapTenantRoleToUserRole(payload.role),
+    isStaff: Boolean(payload.is_staff),
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
@@ -260,6 +265,7 @@ function buildFallbackUserFromLogin(loginPayload: AuthTokens, loginEmail: string
     name: loginPayload.name ?? guessedName,
     email: loginPayload.email ?? loginEmail,
     role: mapTenantRoleToUserRole(loginPayload.role),
+    is_staff: lp.is_staff,
     account_id: loginPayload.account_id ?? null,
     organisation_id: lp.organisation_id ?? lp.organization_id,
     tenant: loginPayload.tenant ?? {},
@@ -556,6 +562,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 
+  const switchStaffTenant = useCallback(
+    async (tenantId: string) => {
+      if (!token) throw new Error('Not authenticated');
+      const session = await switchStaffTenantRequest(tenantId, token);
+      const nextToken = applySession(session);
+      const me = await authMe(nextToken);
+      setUser(normalizeAuthUser(me));
+    },
+    [applySession, token],
+  );
+
   useEffect(() => {
     if (!user) {
       publishDashboardUserToWidget(null);
@@ -585,7 +602,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, login, logout, sendPasswordReset, resetPassword, hasPermission, setUserRole, refreshUser, patchLocalUser, currentTenantRole, hasTenantAccess }}
+      value={{
+        user,
+        token,
+        isLoading,
+        login,
+        logout,
+        sendPasswordReset,
+        resetPassword,
+        hasPermission,
+        setUserRole,
+        refreshUser,
+        patchLocalUser,
+        currentTenantRole,
+        hasTenantAccess,
+        isStaff: Boolean(user?.isStaff),
+        switchStaffTenant,
+      }}
     >
       {children}
     </AuthContext.Provider>

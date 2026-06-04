@@ -38,4 +38,9 @@ export const authRoutes = {
   workspaceBranding(workspaceId: number | string): string {
     return `/workspaces/${workspaceId}/branding`
   },
+  staff: {
+    login: '/staff-login',
+    switchTenant: '/switch-tenant',
+    tenants: '/tenants',
+  },
 } as const

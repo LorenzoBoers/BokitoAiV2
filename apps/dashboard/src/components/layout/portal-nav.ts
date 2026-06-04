@@ -22,9 +22,12 @@ import {
   Zap,
   Blocks,
   LayoutDashboard,
+  CalendarDays,
+  Sparkles,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
+import { isBokitoMode } from '../../lib/bokito-mode'
 
 /** Default landing for the merged Workforce rail item. */
 export const WORKFORCE_DEFAULT_PATH = '/workforce/overview' as const
@@ -115,8 +118,33 @@ export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
 
-export const getRailItems = (t: TFunction<'nav'>, isAdmin = true, projectId?: string): RailItem[] =>
-  isAdmin ? getAdminRailItems(t) : getEndUserRailItems(t, projectId)
+/** Bokito AI OS: surfaces backed by FastAPI in `VITE_API_MODE=bokito`. */
+export const getBokitoAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
+  { label: t('rail.home', { defaultValue: 'Cockpit' }), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
+  { label: t('rail.orchestra', { defaultValue: 'Orchestra' }), to: '/orchestra', icon: Sparkles },
+  { label: t('rail.agenda', { defaultValue: 'Agenda' }), to: '/agenda', icon: CalendarDays },
+  {
+    label: t('rail.projects', { defaultValue: 'Projects' }),
+    to: '/projects',
+    icon: FolderKanban,
+    badgeSlot: 'projectsAttention',
+  },
+  { label: t('rail.support'), to: '/support/inbox/all', icon: MessageSquare, badgeSlot: 'inbox' },
+  {
+    label: t('rail.workforce', { defaultValue: 'Workforce' }),
+    to: WORKFORCE_DEFAULT_PATH,
+    icon: Bot,
+    badgeSlot: 'agents',
+  },
+  { label: t('data.links.tables', { defaultValue: 'Database' }), to: '/database', icon: Database },
+  { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
+  { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
+]
+
+export const getRailItems = (t: TFunction<'nav'>, isAdmin = true, projectId?: string): RailItem[] => {
+  if (isAdmin && isBokitoMode()) return getBokitoAdminRailItems(t)
+  return isAdmin ? getAdminRailItems(t) : getEndUserRailItems(t, projectId)
+}
 
 export const getDataSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
   {

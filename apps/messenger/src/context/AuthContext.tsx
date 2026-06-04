@@ -9,7 +9,11 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null)
 
-const API_BASE = import.meta.env.VITE_BOKITO_API_URL || ''
+/** In dev, use same-origin `/api` proxy (vite.config.ts) to avoid CORS on cross-origin API calls. */
+function resolveApiBase(): string {
+  if (import.meta.env.DEV) return ''
+  return (import.meta.env.VITE_BOKITO_API_URL || '').replace(/\/$/, '')
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => sessionStorage.getItem('bokito_access_token'))
@@ -22,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const apiConfig = useMemo<ApiConfig>(
     () => ({
-      baseUrl: API_BASE,
+      baseUrl: resolveApiBase(),
       getToken: () => token,
     }),
     [token],

@@ -12,15 +12,20 @@ from app.routers import (
     blueprint,
     chat,
     cockpit,
+    app_workspaces,
+    custom_db,
     email,
+    github_integrations,
     health,
     inbox,
     inbox_threads,
     integrations,
     notifications,
+    projects,
     push,
     settings_orchestra,
     widget,
+    workforce,
     workforce_doc,
 )
 from app.routers.settings_orchestra import orchestra_router
@@ -56,6 +61,7 @@ app.include_router(chat.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(blueprint.router, prefix=api_prefix)
 app.include_router(integrations.router, prefix=api_prefix)
+app.include_router(github_integrations.router, prefix=api_prefix)
 app.include_router(email.router, prefix=api_prefix)
 app.include_router(push.router, prefix=api_prefix)
 app.include_router(inbox.router, prefix=api_prefix)
@@ -65,3 +71,7 @@ app.include_router(settings_orchestra.router, prefix=api_prefix)
 app.include_router(orchestra_router, prefix=api_prefix)
 app.include_router(widget.router, prefix=api_prefix)
 app.include_router(workforce_doc.router, prefix=api_prefix)
+app.include_router(projects.router, prefix=api_prefix)
+app.include_router(workforce.router, prefix=api_prefix)
+app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
+app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")

@@ -1,8 +1,9 @@
+import base64
 from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
+from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
 from app.models.inbox_threads import user_numeric_id
 from app.models.staff import StaffAccessLog
@@ -20,9 +22,15 @@ from app.services.auth import (
     create_refresh_session,
     get_tenant_for_user,
     hash_password,
+    verify_password,
     verify_refresh_token,
 )
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
+from app.services.workspaces_portal import (
+    apply_branding,
+    resolve_tenant_for_workspace,
+    tenant_by_subdomain,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
@@ -59,6 +67,36 @@ class AcceptInviteRequest(BaseModel):
     token: str
     password: str
     display_name: str = ""
+
+
+class ProfilePatchRequest(BaseModel):
+    name: str | None = None
+    email: EmailStr | None = None
+    job_title: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    password_confirmation: str | None = None
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    password: str
+    password_confirmation: str | None = None
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
 
 
 class LoginResponse(BaseModel):
@@ -347,37 +385,220 @@ async def _build_memberships(session: AsyncSession, user: User) -> list[dict]:
     return memberships
 
 
-@router.get("/me")
-async def me(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    memberships = await _build_memberships(session, auth.user)
-    # Top-level fields are consumed by the dashboard AuthContext (normalizeAuthUser);
-    # nested user/tenant are consumed by @bokito/messenger-ui.
+def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
+    avatar = None
+    if auth.user.avatar_url:
+        avatar = {"url": auth.user.avatar_url, "path": auth.user.avatar_url}
+    tenant_id = str(auth.tenant.id)
     return {
         "id": user_numeric_id(auth.user.id),
         "name": auth.user.display_name or auth.user.email,
         "email": auth.user.email,
+        "job_title": auth.user.job_title or None,
         "role": auth.role,
-        "organisation_id": str(auth.tenant.id),
+        "organisation_id": tenant_id,
         "account_id": None,
         "is_staff": auth.is_staff,
+        "avatar": avatar,
         "tenant": {
-            "id": None,
+            "id": tenant_id,
             "slug": auth.tenant.slug,
             "name": auth.tenant.name,
+            "logo": auth.tenant.logo_url,
             "logo_url": auth.tenant.logo_url,
         },
         "current_tenant": {
-            "id": None,
+            "id": tenant_id,
             "slug": auth.tenant.slug,
             "name": auth.tenant.name,
+            "logo": auth.tenant.logo_url,
             "logo_url": auth.tenant.logo_url,
         },
         "memberships": memberships,
         "user": _user_dict(auth.user, auth.tenant, auth.role, is_staff=auth.is_staff),
     }
+
+
+@router.get("/me")
+async def me(
+    request: Request,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant = auth.tenant
+    subdomain = request.query_params.get("tenant_subdomain")
+    if subdomain:
+        resolved = await tenant_by_subdomain(session, subdomain)
+        if resolved:
+            if auth.is_staff:
+                tenant = resolved
+            else:
+                membership_result = await session.execute(
+                    select(Membership).where(
+                        Membership.user_id == auth.user.id,
+                        Membership.tenant_id == resolved.id,
+                    )
+                )
+                if membership_result.scalar_one_or_none():
+                    tenant = resolved
+    memberships = await _build_memberships(session, auth.user)
+    scoped_auth = AuthContext(
+        user=auth.user,
+        tenant=tenant,
+        membership=auth.membership,
+        token=auth.token,
+        is_staff=auth.is_staff,
+    )
+    return _me_payload(scoped_auth, memberships)
+
+
+@router.patch("/profile")
+async def patch_profile(
+    body: ProfilePatchRequest,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    user = auth.user
+    if body.name is not None and body.name.strip():
+        user.display_name = body.name.strip()
+    if body.job_title is not None:
+        user.job_title = body.job_title.strip()
+    if body.email is not None:
+        email = str(body.email).strip().lower()
+        if email != user.email:
+            existing = await session.execute(select(User).where(User.email == email))
+            if existing.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail="Email already in use")
+            user.email = email
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    memberships = await _build_memberships(session, user)
+    scoped = AuthContext(
+        user=user,
+        tenant=auth.tenant,
+        membership=auth.membership,
+        token=auth.token,
+        is_staff=auth.is_staff,
+    )
+    return _me_payload(scoped, memberships)
+
+
+@router.post("/change-password")
+async def change_password(
+    body: ChangePasswordRequest,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    if not verify_password(body.current_password, auth.user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    confirm = body.password_confirmation or body.new_password
+    if body.new_password != confirm:
+        raise HTTPException(status_code=400, detail="Password confirmation does not match")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    auth.user.password_hash = hash_password(body.new_password)
+    session.add(auth.user)
+    await session.commit()
+    return {"ok": True}
+
+
+async def _store_avatar(user: User, upload: UploadFile, session: AsyncSession) -> dict:
+    raw = await upload.read()
+    if len(raw) > 512_000:
+        raise HTTPException(status_code=400, detail="Avatar file too large")
+    mime = upload.content_type or "image/png"
+    user.avatar_url = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+    session.add(user)
+    await session.commit()
+    return {"avatar": {"url": user.avatar_url, "path": user.avatar_url}}
+
+
+@router.post("/users/me/avatar")
+async def upload_me_avatar(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    avatar: UploadFile = File(...),
+):
+    return await _store_avatar(auth.user, avatar, session)
+
+
+@router.post("/avatar")
+async def upload_avatar_legacy(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    avatar: UploadFile = File(...),
+):
+    return await _store_avatar(auth.user, avatar, session)
+
+
+@router.post("/workspaces/{workspace_id}/branding")
+async def workspace_branding(
+    workspace_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    name: str | None = Form(None),
+    subdomain: str | None = Form(None),
+    brand_color: str | None = Form(None),
+    logo: UploadFile | None = File(None),
+    favicon: UploadFile | None = File(None),
+):
+    auth.require_role("owner", "admin")
+    try:
+        tenant, role = await resolve_tenant_for_workspace(
+            session, workspace_id, auth.user, is_staff=auth.is_staff
+        )
+        logo_bytes = await logo.read() if logo and logo.filename else None
+        favicon_bytes = await favicon.read() if favicon and favicon.filename else None
+        payload = await apply_branding(
+            session,
+            tenant,
+            name=name,
+            subdomain=subdomain,
+            brand_color=brand_color,
+            logo_bytes=logo_bytes,
+            logo_content_type=logo.content_type if logo else None,
+            favicon_bytes=favicon_bytes,
+            favicon_content_type=favicon.content_type if favicon else None,
+        )
+        payload["role"] = role
+        return payload
+    except AppError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@router.post("/auth/password-reset-request")
+@router.post("/password-reset-request")
+async def password_reset_request(body: PasswordResetRequest):
+    return {"message": "If the email exists, a reset link has been sent."}
+
+
+@router.post("/auth/password-reset")
+@router.post("/password-reset")
+async def password_reset(_body: PasswordResetConfirm):
+    return {"message": "Password reset is not enabled in this environment."}
+
+
+@router.post("/auth/verify-email")
+@router.post("/verify-email")
+async def verify_email(_body: VerifyEmailRequest):
+    return {"message": "Email verified."}
+
+
+@router.post("/auth/resend-verification")
+@router.post("/resend-verification")
+async def resend_verification(_body: ResendVerificationRequest):
+    return {"message": "Verification email sent if applicable."}
+
+
+@router.post("/auth/revoke")
+@router.post("/revoke")
+async def revoke_session(
+    response: Response,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    response.delete_cookie(settings.refresh_cookie_name)
+    return {"ok": True}
 
 
 @router.post("/logout")

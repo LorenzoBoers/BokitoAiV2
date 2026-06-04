@@ -68,6 +68,8 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             tenant_id=tenant.id,
             name="Test Assistant",
             role="assistant",
+            slug="assistant",
+            runtime_status="standby",
             system_prompt="Test assistant",
         )
     )

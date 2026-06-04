@@ -28,8 +28,23 @@ from app.models.orchestra import (
     WorkstreamStepRun,
 )
 from app.models.policy import ActionPolicy, ActionWhitelistEntry, AssistantPersona
+from app.models.custom_db import (
+    CustomField,
+    CustomRecord,
+    CustomRecordActivity,
+    CustomRecordComment,
+    CustomTable,
+    CustomView,
+)
 from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
+from app.models.project import (
+    Project,
+    ProjectNotificationPreference,
+    ProjectOrchestration,
+    ProjectWorkstream,
+)
+from app.models.workforce_message import WorkforceMessage
 
 __all__ = [
     "Tenant",
@@ -73,6 +88,17 @@ __all__ = [
     "WorkstreamStep",
     "WorkstreamRun",
     "WorkstreamStepRun",
+    "Project",
+    "ProjectOrchestration",
+    "ProjectWorkstream",
+    "ProjectNotificationPreference",
     "UsageLedger",
     "PushSubscription",
+    "WorkforceMessage",
+    "CustomTable",
+    "CustomField",
+    "CustomRecord",
+    "CustomView",
+    "CustomRecordActivity",
+    "CustomRecordComment",
 ]

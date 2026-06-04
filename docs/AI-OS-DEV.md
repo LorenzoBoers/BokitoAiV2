@@ -24,13 +24,31 @@ pip install -e ".[dev]"
 pytest
 ```
 
+## Verification (P9)
+
+Fast checks (no browser):
+
+```bash
+npm run verify:bokito
+```
+
+Runs API pytest (mock LLM), dashboard `vite build`, and messenger build — same as CI `api`, `dashboard`, and `messenger` jobs.
+
 ## Frontend e2e (Playwright)
+
+Starts API (seeded SQLite), dashboard (`VITE_API_MODE=bokito`), and messenger dev servers automatically unless they are already running locally.
 
 ```bash
 npm install
 npx playwright install chromium
-npm run test:e2e
+npm run verify:bokito:e2e
 ```
+
+Playwright uses isolated ports by default (so it does not clash with a running dev stack): API `8008`, dashboard `5184`, messenger `5185`. Override with `PLAYWRIGHT_API_PORT`, `PLAYWRIGHT_DASHBOARD_PORT`, `PLAYWRIGHT_MESSENGER_PORT`.
+
+When not in CI, Playwright reuses servers already listening on those URLs (`reuseExistingServer`).
+
+Credentials: `admin@bokito.ai` / `bokito-test-password`
 
 ## Environment
 

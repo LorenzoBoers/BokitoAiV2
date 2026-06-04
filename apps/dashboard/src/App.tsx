@@ -58,9 +58,12 @@ import HomeDashboard from './pages/HomeDashboard'
 import Cockpit from './pages/Cockpit'
 import OrchestraPage from './pages/OrchestraPage'
 import AgendaPage from './pages/AgendaPage'
+import DatabasePage from './pages/DatabasePage'
+import DatabaseRouteLayout from './components/layout/DatabaseRouteLayout'
 import { useIsAdmin } from './hooks/useIsAdmin'
+import { isBokitoMode } from './lib/bokito-mode'
 
-const USE_BOKITO_API = import.meta.env.VITE_API_MODE === 'bokito'
+const USE_BOKITO_API = isBokitoMode()
 
 function LegacyProjectPoRedirect() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -299,8 +302,18 @@ export default function App() {
           <Route path="/company-config" element={<Navigate to="/settings/company" replace />} />
           <Route path="/workforce/*" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
           <Route path="/analytics" element={<Navigate to="/projects" replace />} />
-          <Route path="/database" element={<Navigate to="/projects" replace />} />
-          <Route path="/database/*" element={<Navigate to="/projects" replace />} />
+          {USE_BOKITO_API ? (
+            <Route element={<DatabaseRouteLayout />}>
+              <Route path="/database" element={<DatabasePage />} />
+              <Route path="/database/:tableSlug" element={<DatabasePage />} />
+              <Route path="/database/:tableSlug/record/:recordId" element={<DatabasePage />} />
+            </Route>
+          ) : (
+            <>
+              <Route path="/database" element={<Navigate to="/projects" replace />} />
+              <Route path="/database/*" element={<Navigate to="/projects" replace />} />
+            </>
+          )}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>

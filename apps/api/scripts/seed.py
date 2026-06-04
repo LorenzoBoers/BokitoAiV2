@@ -3,6 +3,7 @@
 import asyncio
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -18,6 +19,8 @@ from app.models.inbox import InboxSettings
 from app.models.inbox_threads import InboxEvent, InboxMessage, InboxThread
 from app.models.integration import McpServer
 from app.models.policy import ActionPolicy, AssistantPersona
+from app.models.project import Project, ProjectOrchestration
+from app.models.workforce_message import WorkforceMessage
 from app.services.auth import hash_password
 from app.services.agent.rag import upsert_index_chunk
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
@@ -109,6 +112,8 @@ async def _seed_tenant_data(session, tenant):
                 tenant_id=tenant.id,
                 name="Bokito Assistant",
                 role="assistant",
+                slug="assistant",
+                runtime_status="standby",
                 system_prompt="You are the Bokito AI OS assistant.",
             )
         )
@@ -117,6 +122,8 @@ async def _seed_tenant_data(session, tenant):
                 tenant_id=tenant.id,
                 name="Orchestrator",
                 role="orchestrator",
+                slug="manager",
+                runtime_status="standby",
                 system_prompt="You are the PM orchestrator.",
             )
         )
@@ -163,6 +170,99 @@ async def _seed_tenant_data(session, tenant):
         session.add(McpServer(tenant_id=tenant.id, name="mock-tools", server_url="mock://local", auth_json="{}"))
 
     await _seed_inbox_threads(session, tenant)
+    await _seed_demo_project(session, tenant)
+
+
+async def _seed_demo_project(session, tenant):
+    result = await session.execute(select(Project).where(Project.tenant_id == tenant.id))
+    if result.scalar_one_or_none():
+        return
+    po_result = await session.execute(
+        select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "po")
+    )
+    po = po_result.scalar_one_or_none()
+    if not po:
+        po = Agent(
+            tenant_id=tenant.id,
+            name="Platform PO",
+            role="po",
+            slug="po",
+            runtime_status="standby",
+            system_prompt="You are the product owner for the Bokito platform demo project.",
+        )
+        session.add(po)
+        await session.flush()
+    project = Project(
+        tenant_id=tenant.id,
+        name="Bokito Platform",
+        slug="bokito-platform",
+        description="Demo project for local development.",
+        autonomous_scope="Maintain and improve the Bokito AI OS platform for multichannel support and agent workflows.",
+        github_repo_full_name="bokito/platform",
+        github_default_branch="main",
+        repo_source="github_oauth",
+        repo_index_status="ready",
+        po_agent_id=po.id,
+    )
+    session.add(project)
+    await session.flush()
+    session.add(ProjectOrchestration(tenant_id=tenant.id, project_id=project.id))
+    await _seed_workforce_demo(session, tenant, project, po)
+
+
+async def _seed_workforce_demo(session, tenant, project, po_agent):
+    from app.models.agent import AgentRun
+    from app.services.workforce_runtime import ensure_run_events
+
+    msg_exists = await session.execute(
+        select(WorkforceMessage).where(WorkforceMessage.tenant_id == tenant.id).limit(1)
+    )
+    if not msg_exists.scalar_one_or_none():
+        thread_id = str(project.id)
+        session.add(
+            WorkforceMessage(
+                tenant_id=tenant.id,
+                thread_id=thread_id,
+                project_id=project.id,
+                subject="Goedkeuring: inbox routing rule",
+                body="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
+                message_type="decision_request",
+                channel="workforce",
+                status="awaiting_human",
+                payload_json=json.dumps({"proposal_type": "routing_rule"}),
+            )
+        )
+        session.add(
+            WorkforceMessage(
+                tenant_id=tenant.id,
+                thread_id=f"{thread_id}-2",
+                project_id=project.id,
+                subject="Status: repository index gereed",
+                body="De repository index voor bokito/platform is voltooid.",
+                message_type="status_update",
+                channel="workforce",
+                status="done",
+            )
+        )
+
+    run_exists = await session.execute(
+        select(AgentRun).where(AgentRun.tenant_id == tenant.id, AgentRun.project_id == project.id).limit(1)
+    )
+    if not run_exists.scalar_one_or_none():
+        completed = AgentRun(
+            tenant_id=tenant.id,
+            agent_id=po_agent.id,
+            project_id=project.id,
+            status="completed",
+            trigger_type="seed",
+            subject="PO wake: review platform backlog",
+            tokens_input=240,
+            tokens_output=120,
+            completed_at=datetime.utcnow(),
+        )
+        session.add(completed)
+        await session.flush()
+        await ensure_run_events(session, completed)
 
 
 async def _seed_inbox_threads(session, tenant):
