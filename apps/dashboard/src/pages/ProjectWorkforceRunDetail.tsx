@@ -8,7 +8,7 @@ export default function ProjectWorkforceRunDetail() {
   const { projectId, workLogId } = useParams<{ projectId: string; workLogId: string }>()
 
   if (!projectId || !workLogId) {
-    return <Navigate to="/projects" replace />
+    return <Navigate to="/os" replace />
   }
 
   return (

@@ -26,6 +26,7 @@ export const API_GROUP_WORKFORCE = import.meta.env.VITE_API_GROUP_WORKFORCE || '
 export const API_GROUP_LIVECHAT = import.meta.env.VITE_API_GROUP_LIVECHAT || 'livechat'
 export const API_GROUP_LOGS = import.meta.env.VITE_API_GROUP_LOGS || 'logs'
 export const API_GROUP_BAKERMAT = import.meta.env.VITE_API_GROUP_BAKERMAT || 'bakermat'
+export const API_GROUP_AGENDA = import.meta.env.VITE_API_GROUP_AGENDA || 'agenda'
 
 export const APP_API_BASE = xanoApiBase(API_GROUP_APP)
 export const AUTH_API_BASE = xanoApiBase(API_GROUP_AUTH)
@@ -34,6 +35,7 @@ export const WORKFORCE_API_BASE = xanoApiBase(API_GROUP_WORKFORCE)
 export const LIVECHAT_API_BASE = xanoApiBase(API_GROUP_LIVECHAT)
 export const LOGS_API_BASE = xanoApiBase(API_GROUP_LOGS)
 export const BAKERMAT_API_BASE = xanoApiBase(API_GROUP_BAKERMAT)
+export const AGENDA_API_BASE = xanoApiBase(API_GROUP_AGENDA)
 
 export const PUBLIC_API_URL = import.meta.env.VITE_PUBLIC_API_URL || DEFAULT_PUBLIC_API_URL
 

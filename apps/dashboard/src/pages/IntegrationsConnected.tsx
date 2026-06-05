@@ -244,7 +244,7 @@ export default function IntegrationsConnected() {
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/projects">{t('integrations.connected.openProjects')}</Link>
+                    <Link to="/os">{t('integrations.connected.openProjects')}</Link>
                   </Button>
                   <Button size="sm" onClick={() => void addGithubAccount()}>
                     {github.length === 0

@@ -12,8 +12,18 @@ import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
 import App from './App'
 import { readPublishedDashboardUser } from './lib/widget-bridge'
-import './i18n'
+import i18n from './i18n'
+import { isBokitoMode } from './lib/bokito-mode'
 import './index.css'
+
+if (isBokitoMode()) {
+  void i18n.changeLanguage('en')
+  try {
+    localStorage.setItem('bokito-language', 'en')
+  } catch {
+    // ignore
+  }
+}
 import { DASHBOARD_CHAT_AGENT_SLUG, CHAT_WIDGET_SCRIPT_PATH_INTERNAL, livechatWidgetHttpOrigin } from './lib/api.config'
 
 const DASHBOARD_AUTH_TOKEN_KEY = 'bokito_access_token_session'

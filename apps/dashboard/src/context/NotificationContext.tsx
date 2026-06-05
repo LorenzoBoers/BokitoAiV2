@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Notification, NotificationType } from '../types/custom-db';
+import { isBokitoMode } from '../lib/bokito-mode';
 
 interface NotificationContextValue {
   notifications: Notification[];
@@ -58,7 +59,9 @@ const mockNotifications: Notification[] = [
 ];
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>(
+    isBokitoMode() ? [] : mockNotifications,
+  );
 
   const unreadCount = notifications.filter(n => !n.read).length;
 

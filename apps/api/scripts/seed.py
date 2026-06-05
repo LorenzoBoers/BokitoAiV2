@@ -3,7 +3,7 @@
 import asyncio
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -11,7 +11,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select
 
 from app.db.session import async_session_factory, init_db
+from app.models.agenda import AgendaEvent
 from app.models.agent import Agent
+from app.models.orchestra import Task
 from app.models.auth import Membership, Tenant, User
 from app.models.blueprint import BlueprintBlock, BlueprintDoc, BlueprintPage
 from app.models.email import EmailAccount
@@ -20,7 +22,6 @@ from app.models.inbox_threads import InboxEvent, InboxMessage, InboxThread
 from app.models.integration import McpServer
 from app.models.policy import ActionPolicy, AssistantPersona
 from app.models.project import Project, ProjectOrchestration
-from app.models.workforce_message import WorkforceMessage
 from app.services.auth import hash_password
 from app.services.agent.rag import upsert_index_chunk
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
@@ -102,6 +103,63 @@ async def seed() -> None:
         print(f"Staff={STAFF_EMAIL} demo={DEMO_EMAIL} password={DEMO_PASSWORD}")
 
 
+DEFAULT_ORCHESTRATOR_SCOPES = [
+    "platform:read",
+    "platform:graph:edit",
+    "platform:workstream:create",
+    "platform:workstream:update",
+    "platform:blueprint:write",
+    "platform:edge:connect",
+]
+
+DEFAULT_ORCHESTRATOR_APPLY_MODES = {
+    "blueprint_block": "draft",
+    "canvas_node": "yolo",
+    "canvas_edge": "yolo",
+}
+
+
+async def _seed_signals(session, tenant):
+    from app.models.signal import Signal, SignalEvent, SignalMessage
+
+    existing = await session.execute(select(Signal).where(Signal.tenant_id == tenant.id).limit(1))
+    if existing.scalar_one_or_none():
+        return
+    sig = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="mock",
+        subject="Vraag over onboarding",
+        contact_email="prospect@example.com",
+        contact_name="Prospect",
+        priority="normal",
+        status="open",
+    )
+    session.add(sig)
+    await session.flush()
+    session.add(
+        SignalMessage(
+            signal_id=sig.id,
+            tenant_id=tenant.id,
+            direction="inbound",
+            body_text="Hoe start ik met jullie platform?",
+            body_preview="Hoe start ik met jullie platform?",
+        )
+    )
+    session.add(SignalEvent(signal_id=sig.id, tenant_id=tenant.id, event_type="signal_created"))
+
+
+async def _ensure_orchestrator_passport(session, tenant):
+    result = await session.execute(
+        select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "orchestrator")
+    )
+    for agent in result.scalars().all():
+        if not json.loads(agent.permission_scopes_json or "[]"):
+            agent.permission_scopes_json = json.dumps(DEFAULT_ORCHESTRATOR_SCOPES)
+        if not json.loads(agent.apply_modes_json or "{}"):
+            agent.apply_modes_json = json.dumps(DEFAULT_ORCHESTRATOR_APPLY_MODES)
+
+
 async def _seed_tenant_data(session, tenant):
     agent_result = await session.execute(
         select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
@@ -170,7 +228,68 @@ async def _seed_tenant_data(session, tenant):
         session.add(McpServer(tenant_id=tenant.id, name="mock-tools", server_url="mock://local", auth_json="{}"))
 
     await _seed_inbox_threads(session, tenant)
+    await _seed_signals(session, tenant)
+    await _ensure_orchestrator_passport(session, tenant)
+    await _seed_agenda(session, tenant)
     await _seed_demo_project(session, tenant)
+
+
+async def _seed_agenda(session, tenant):
+    from app.services.agenda import ensure_system_calendars, init_orchestrator_schedule
+
+    existing = await session.execute(
+        select(AgendaEvent).where(AgendaEvent.tenant_id == tenant.id).limit(1)
+    )
+    if existing.scalar_one_or_none():
+        return
+
+    calendars = await ensure_system_calendars(session, tenant.id)
+    user_cal = next((c for c in calendars if c.kind == "user"), None)
+    orch_cal = next((c for c in calendars if c.kind == "orchestrator"), None)
+    if not user_cal or not orch_cal:
+        return
+
+    now = datetime.utcnow()
+    session.add(
+        AgendaEvent(
+            tenant_id=tenant.id,
+            calendar_id=user_cal.id,
+            kind="user",
+            title="Team standup",
+            description="Weekly sync",
+            starts_at=now + timedelta(days=1, hours=9),
+            ends_at=now + timedelta(days=1, hours=9, minutes=30),
+        )
+    )
+    wake = AgendaEvent(
+        tenant_id=tenant.id,
+        calendar_id=orch_cal.id,
+        kind="orchestrator",
+        title="Orchestrator heartbeat",
+        description="Recurring platform scan",
+        prompt="Scan tenant blueprint and suggest improvements or missing integrations.",
+        starts_at=now + timedelta(hours=1),
+        ends_at=now + timedelta(hours=1, minutes=15),
+        recurrence_freq="daily",
+        recurrence_interval=1,
+        enabled=True,
+    )
+    init_orchestrator_schedule(wake)
+    session.add(wake)
+
+    task_exists = await session.execute(select(Task).where(Task.tenant_id == tenant.id).limit(1))
+    if not task_exists.scalar_one_or_none():
+        session.add(
+            Task(
+                tenant_id=tenant.id,
+                name="Review implementation backlog",
+                instructions="Review orchestra task queue and update priorities.",
+                schedule_kind="interval",
+                schedule_expr="1d",
+                enabled=True,
+                next_run_at=now + timedelta(days=2),
+            )
+        )
 
 
 async def _seed_demo_project(session, tenant):
@@ -212,36 +331,41 @@ async def _seed_demo_project(session, tenant):
 
 async def _seed_workforce_demo(session, tenant, project, po_agent):
     from app.models.agent import AgentRun
+    from app.models.notification import DecisionRequest, Notification
     from app.services.workforce_runtime import ensure_run_events
 
-    msg_exists = await session.execute(
-        select(WorkforceMessage).where(WorkforceMessage.tenant_id == tenant.id).limit(1)
+    dec_exists = await session.execute(
+        select(DecisionRequest).where(DecisionRequest.tenant_id == tenant.id).limit(1)
     )
-    if not msg_exists.scalar_one_or_none():
-        thread_id = str(project.id)
-        session.add(
-            WorkforceMessage(
-                tenant_id=tenant.id,
-                thread_id=thread_id,
-                project_id=project.id,
-                subject="Goedkeuring: inbox routing rule",
-                body="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
-                message_type="decision_request",
-                channel="workforce",
-                status="awaiting_human",
-                payload_json=json.dumps({"proposal_type": "routing_rule"}),
-            )
+    if not dec_exists.scalar_one_or_none():
+        notification = Notification(
+            tenant_id=tenant.id,
+            kind="decision_request",
+            title="Goedkeuring: inbox routing rule",
+            body="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
+            payload_json=json.dumps({"proposal_type": "routing_rule"}),
         )
+        session.add(notification)
+        await session.flush()
         session.add(
-            WorkforceMessage(
+            DecisionRequest(
                 tenant_id=tenant.id,
-                thread_id=f"{thread_id}-2",
+                notification_id=notification.id,
                 project_id=project.id,
-                subject="Status: repository index gereed",
-                body="De repository index voor bokito/platform is voltooid.",
-                message_type="status_update",
-                channel="workforce",
-                status="done",
+                title="Goedkeuring: inbox routing rule",
+                summary="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
+                status="awaiting_human",
+                options_json=json.dumps(
+                    [
+                        {
+                            "id": "approve",
+                            "label": "Approve",
+                            "action_type": "create_task",
+                            "payload": {"title": "Apply routing rule", "project_id": str(project.id)},
+                        },
+                        {"id": "reject", "label": "Reject", "action_type": "reject"},
+                    ]
+                ),
             )
         )
 

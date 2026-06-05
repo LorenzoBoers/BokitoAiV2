@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -15,6 +16,7 @@ from app.exceptions import (
 )
 from app.middleware.tenant import TenantHostMiddleware
 from app.routers import (
+    agenda,
     auth,
     blueprint,
     chat,
@@ -23,6 +25,7 @@ from app.routers import (
     custom_db,
     email,
     github_integrations,
+    govern,
     health,
     inbox,
     inbox_threads,
@@ -32,11 +35,14 @@ from app.routers import (
     projects,
     push,
     settings_orchestra,
+    signals,
+    learning,
     widget,
     workforce,
     workforce_doc,
 )
 from app.routers.settings_orchestra import orchestra_router
+from app.services.agenda_scheduler import agenda_scheduler_enabled, agenda_scheduler_loop
 
 settings = get_settings()
 
@@ -44,7 +50,18 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    yield
+    scheduler_task: asyncio.Task | None = None
+    if agenda_scheduler_enabled():
+        scheduler_task = asyncio.create_task(agenda_scheduler_loop())
+    try:
+        yield
+    finally:
+        if scheduler_task:
+            scheduler_task.cancel()
+            try:
+                await scheduler_task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -78,10 +95,14 @@ app.include_router(inbox_threads.router, prefix=api_prefix)
 app.include_router(cockpit.router, prefix=api_prefix)
 app.include_router(settings_orchestra.router, prefix=api_prefix)
 app.include_router(orchestra_router, prefix=api_prefix)
+app.include_router(agenda.router, prefix=api_prefix)
 app.include_router(widget.router, prefix=api_prefix)
 app.include_router(livechat.router, prefix=api_prefix)
 app.include_router(workforce_doc.router, prefix=api_prefix)
 app.include_router(projects.router, prefix=api_prefix)
 app.include_router(workforce.router, prefix=api_prefix)
+app.include_router(govern.router, prefix=api_prefix)
+app.include_router(signals.router, prefix=api_prefix)
+app.include_router(learning.router, prefix=api_prefix)
 app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
 app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")

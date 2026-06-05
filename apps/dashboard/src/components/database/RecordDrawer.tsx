@@ -291,7 +291,7 @@ function CommentThread({ recordId, workspaceUsers }: CommentThreadProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-medium text-text-primary">
-                {comment.user_name || 'Onbekend'}
+                {comment.user_name || 'Unknown'}
               </span>
               <span className="text-xs text-text-muted">
                 {formatDateTime(comment.created_at)}

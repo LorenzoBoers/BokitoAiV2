@@ -365,7 +365,7 @@ export default function CompanyConfig() {
 
   const handleSave = async () => {
     if (!token || !currentWorkspace?.id) {
-      setSaveError('Geen actieve workspace of sessie gevonden.')
+      setSaveError('No active workspace or session found.')
       return
     }
     const normalizedSubdomain = subdomain.trim().toLowerCase()
@@ -399,7 +399,7 @@ export default function CompanyConfig() {
       })
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Onbekende fout' }))
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }))
         throw new Error(typeof err?.message === 'string' ? err.message : `HTTP ${res.status}`)
       }
 

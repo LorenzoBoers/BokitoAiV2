@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import RunEvent
 from app.models.chat import Conversation, ConversationMessage
 from app.models.inbox import MessageFeedback
+from app.models.learning import EvalScore
 from app.models.notification import DecisionRequest
 from app.models.orchestra import WorkstreamStepRun
 from app.models.usage import UsageLedger
@@ -78,6 +79,15 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
     autonomy_rate = round((auto_msgs / total_ai_msgs * 100) if total_ai_msgs else 0, 1)
     time_saved_minutes = auto_msgs * 5  # heuristic: 5 min per autonomously handled item
 
+    latest_eval = (
+        await session.execute(
+            select(EvalScore)
+            .where(EvalScore.tenant_id == tenant_id, EvalScore.metric == "autonomy_rate")
+            .order_by(EvalScore.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
     return {
         "volume_week": conv_count,
         "open_decisions": open_decisions,
@@ -86,6 +96,8 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         "tokens_month": int(usage_month[0] or 0),
         "cost_cents_month": int(usage_month[1] or 0),
         "time_saved_minutes_week": time_saved_minutes,
+        "learning_autonomy_rate": latest_eval.value if latest_eval else autonomy_rate,
+        "learning_sample_size": latest_eval.sample_size if latest_eval else 0,
     }
 
 

@@ -21,13 +21,13 @@ function formatRelativeTime(iso: string | null): string {
   const now = Date.now()
   const diff = now - date.getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'Nu'
+  if (minutes < 1) return 'Now'
   if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}u`
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d`
-  return date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -75,7 +75,7 @@ export default function ThreadListItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1 mb-0.5">
             <span className={cn('text-sm font-medium truncate', thread.hasUnread ? 'text-text-heading' : 'text-text-primary')}>
-              {thread.contactName || thread.contactEmail || 'Onbekende afzender'}
+              {thread.contactName || thread.contactEmail || 'Unknown sender'}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -86,8 +86,8 @@ export default function ThreadListItem({
                   onDelete(thread.id)
                 }}
                 onKeyDown={(e) => e.stopPropagation()}
-                title="Verwijderen"
-                aria-label="Thread verwijderen"
+                title="Delete"
+                aria-label="Delete thread"
                 className={cn(
                   'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
                   'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
@@ -106,7 +106,7 @@ export default function ThreadListItem({
           </div>
           {thread.assignedToUserId ? (
             <div className="flex items-center gap-1">
-              <span className="text-xs text-text-muted">Toegewezen</span>
+              <span className="text-xs text-text-muted">Assigned</span>
             </div>
           ) : null}
           {thread.tags.length > 0 ? (

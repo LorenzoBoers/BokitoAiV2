@@ -21,7 +21,7 @@ const FILTERS: Array<{
 }> = [
   { id: 'all', labelKey: 'listFilters.all', defaultLabel: 'Alles' },
   { id: 'unread', labelKey: 'listFilters.unread', defaultLabel: 'Ongelezen', icon: Mail },
-  { id: 'pinned', labelKey: 'listFilters.pinned', defaultLabel: 'Gepind', icon: Pin },
+  { id: 'pinned', labelKey: 'listFilters.pinned', defaultLabel: 'Pinned', icon: Pin },
 ]
 
 export default function ThreadListQuickFilters({ value, onChange, counts }: Props) {

@@ -19,6 +19,7 @@ import {
   resolveTenantSubdomainFromHost,
 } from '../lib/host-routing';
 import { publishDashboardUserToWidget } from '../lib/widget-bridge';
+import { isBokitoMode } from '../lib/bokito-mode';
 
 const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
 /** When set, the Xano auth group returned 404 for POST /refresh; skip further refresh calls until logout. */
@@ -238,7 +239,7 @@ function normalizeAuthUser(raw: unknown): User {
 
   return {
     id: toNumber(payload.id) ?? 0,
-    name: toString(payload.name, 'Onbekende gebruiker'),
+    name: toString(payload.name, isBokitoMode() ? 'Unknown user' : 'Onbekende gebruiker'),
     email: toString(payload.email),
     jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,
     avatarUrl: avatarUrl || null,
@@ -250,7 +251,7 @@ function normalizeAuthUser(raw: unknown): User {
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
-      name: toString(tenantRaw.name, 'Onbekend'),
+      name: toString(tenantRaw.name, isBokitoMode() ? 'Unknown' : 'Onbekend'),
       logo: resolveTenantLogo(payload, tenantRaw),
     },
     memberships,
@@ -328,7 +329,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const applySession = useCallback((session: AuthSessionResponse) => {
     const nextToken = session.authToken ?? session.access_token;
-    if (!nextToken) throw new Error('Geen access token ontvangen');
+    if (!nextToken) throw new Error(isBokitoMode() ? 'No access token received' : 'Geen access token ontvangen');
     try {
       sessionStorage.setItem(ACCESS_TOKEN_FALLBACK_KEY, nextToken);
     } catch {

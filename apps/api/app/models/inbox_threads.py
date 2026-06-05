@@ -29,7 +29,7 @@ class InboxThread(SQLModel, table=True):
     organisation_id: str = Field(default="", index=True)
     email_connection_id: Optional[int] = None
     graph_conversation_id: str = ""
-    email_subject: str = "(Geen onderwerp)"
+    email_subject: str = "(No subject)"
     contact_email: str = ""
     contact_name: str = ""
     contact_phone: str = ""

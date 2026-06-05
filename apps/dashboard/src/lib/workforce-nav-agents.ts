@@ -36,8 +36,8 @@ export function filterPoAgents(agents: RuntimeAgent[]): RuntimeAgent[] {
 /** PO sidebar target: single agent detail, multi-agent list page, or null when none. */
 export function resolvePoNavTarget(agents: RuntimeAgent[]): string | null {
   const poAgents = filterPoAgents(agents)
-  if (poAgents.length === 1) return `/ai/agents/${poAgents[0].id}`
-  if (poAgents.length > 1) return '/workforce/po'
+  if (poAgents.length === 1) return `/os/agents/${poAgents[0].id}`
+  if (poAgents.length > 1) return '/os/agents'
   return null
 }
 
@@ -45,10 +45,25 @@ export function sortAgentsByUpdated(agents: RuntimeAgent[]): RuntimeAgent[] {
   return [...agents].sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0))
 }
 
+export function isAiOsRoute(pathname: string): boolean {
+  if (pathname === '/projects/new' || pathname.startsWith('/projects/new/')) return false
+  return (
+    pathname.startsWith('/os') ||
+    pathname === '/orchestra' ||
+    pathname.startsWith('/orchestra/') ||
+    pathname.startsWith('/projects') ||
+    pathname.startsWith('/project/') ||
+    pathname.startsWith('/workforce') ||
+    pathname.startsWith('/ai/agents') ||
+    pathname.startsWith('/admin/runs')
+  )
+}
+
 export function isWorkforceRoute(pathname: string): boolean {
   return (
     pathname.startsWith('/workforce') ||
     pathname.startsWith('/ai/') ||
-    pathname.startsWith('/admin/runs')
+    pathname.startsWith('/admin/runs') ||
+    pathname.startsWith('/os')
   )
 }

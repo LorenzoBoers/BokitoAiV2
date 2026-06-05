@@ -19,7 +19,7 @@ import CompanyConfig from './pages/CompanyConfig'
 import MemberManagement from './pages/MemberManagement'
 import MessengerSettings from './pages/MessengerSettings'
 import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
-import { WORKFORCE_DEFAULT_PATH, projectOrchestratorPath } from './components/layout/portal-nav'
+import { AI_OS_DEFAULT_PATH, WORKFORCE_DEFAULT_PATH, projectOrchestratorPath } from './components/layout/portal-nav'
 import HelpCentersSettings from './pages/HelpCentersSettings'
 import CreateProject from './pages/CreateProject'
 import ProjectHubShell from './components/layout/ProjectHubShell'
@@ -39,7 +39,7 @@ import ConnectProjectRepo from './pages/ConnectProjectRepo'
 import AdminRunLegacyRedirect from './pages/AdminRunLegacyRedirect'
 import AiAgents from './pages/AiAgents'
 import AiAgentDetail from './pages/AiAgentDetail'
-import WorkforceOverview from './pages/WorkforceOverview'
+import AiOsCanvas from './pages/AiOsCanvas'
 import ProjectWorkforceRunDetail from './pages/ProjectWorkforceRunDetail'
 import WorkforcePoAgents from './pages/WorkforcePoAgents'
 import AiCommunicationSettings from './pages/AiCommunicationSettings'
@@ -56,6 +56,7 @@ import IntegrationsApi from './pages/IntegrationsApi'
 import IntegrationsDocs from './pages/IntegrationsDocs'
 import HomeDashboard from './pages/HomeDashboard'
 import Cockpit from './pages/Cockpit'
+import GovernPage from './pages/GovernPage'
 import OrchestraPage from './pages/OrchestraPage'
 import AgendaPage from './pages/AgendaPage'
 import DatabasePage from './pages/DatabasePage'
@@ -68,7 +69,7 @@ const USE_BOKITO_API = isBokitoMode()
 
 function LegacyProjectPoRedirect() {
   const { projectId } = useParams<{ projectId: string }>()
-  if (!projectId) return <Navigate to="/projects" replace />
+  if (!projectId) return <Navigate to="/os" replace />
   return <Navigate to={projectOrchestratorPath(projectId)} replace />
 }
 
@@ -201,7 +202,9 @@ export default function App() {
           {USE_BOKITO_API ? (
             <>
               <Route path="/orchestra" element={<OrchestraPage />} />
-              <Route path="/agenda" element={<AgendaPage />} />
+              <Route path="/agenda" element={<Navigate to="/agenda/month" replace />} />
+              <Route path="/agenda/:view" element={<AgendaPage />} />
+              <Route path="/govern" element={<GovernPage />} />
             </>
           ) : null}
           <Route path="/support/inbox/:queue" element={<Communication />} />
@@ -211,9 +214,9 @@ export default function App() {
           <Route path="/support/customization" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/support/settings/general" element={<Navigate to="/settings/inbox" replace />} />
 
-          <Route path="/users/:tab" element={<Navigate to="/projects" replace />} />
-          <Route path="/data/sources" element={<Navigate to="/projects" replace />} />
-          <Route path="/data/imports-exports" element={<Navigate to="/projects" replace />} />
+          <Route path="/users/:tab" element={<Navigate to="/os" replace />} />
+          <Route path="/data/sources" element={<Navigate to="/os" replace />} />
+          <Route path="/data/imports-exports" element={<Navigate to="/os" replace />} />
 
           <Route path="/settings/profile" element={<ProfileSettings />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
@@ -228,10 +231,10 @@ export default function App() {
           <Route path="/settings/access-security" element={<ProfileSettings />} />
           <Route path="/settings/inbox" element={<InboxSettings />} />
           <Route path="/settings/company" element={<CompanyConfig />} />
-          <Route path="/settings/data/users" element={<Navigate to="/projects" replace />} />
-          <Route path="/settings/data/companies" element={<Navigate to="/projects" replace />} />
-          <Route path="/settings/data/conversations" element={<Navigate to="/projects" replace />} />
-          <Route path="/settings/data/imports-exports" element={<Navigate to="/projects" replace />} />
+          <Route path="/settings/data/users" element={<Navigate to="/os" replace />} />
+          <Route path="/settings/data/companies" element={<Navigate to="/os" replace />} />
+          <Route path="/settings/data/conversations" element={<Navigate to="/os" replace />} />
+          <Route path="/settings/data/imports-exports" element={<Navigate to="/os" replace />} />
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
           <Route path="/settings/integrations" element={<Navigate to="/integrations/connected" replace />} />
           <Route path="/settings/mcp" element={<Navigate to="/integrations/mcp" replace />} />
@@ -246,36 +249,47 @@ export default function App() {
             <Route path="/integrations/mcp" element={<IntegrationsMcp />} />
             <Route path="/integrations/docs" element={<IntegrationsDocs />} />
             <Route path="/integrations/api" element={<IntegrationsApi />} />
-            <Route path="/integrations/sources" element={<Navigate to="/projects" replace />} />
+            <Route path="/integrations/sources" element={<Navigate to="/os" replace />} />
           </Route>
 
-          <Route path="/communication" element={<Navigate to="/support/inbox/mine?hub=decisions" replace />} />
-          <Route path="/messages" element={<Navigate to="/support/inbox/mine?hub=decisions" replace />} />
+          <Route path="/support/inbox/mine/t/:threadId" element={<Navigate to="/support/inbox/my/t/:threadId" replace />} />
+          <Route path="/support/inbox/mine" element={<Navigate to="/support/inbox/my" replace />} />
+          <Route path="/communication" element={<Navigate to="/support/inbox/my?hub=decisions" replace />} />
+          <Route path="/messages" element={<Navigate to="/support/inbox/my?hub=decisions" replace />} />
+          <Route path="/os" element={<AiOsCanvas />} />
+          <Route path="/os/agents" element={<AiAgents />} />
+          <Route path="/os/agents/:agentId" element={<AiAgentDetail />} />
+          <Route path="/os/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
+          <Route path="/os/communication" element={<ProjectHubCommunication />} />
+          <Route path="/os/docs" element={<ProjectHubDocs />} />
+          <Route path="/os/docs/:pageSlug" element={<ProjectHubDocs />} />
+          <Route path="/os/project/:projectId" element={<Navigate to="/os" replace />} />
           <Route path="/projects/new" element={<CreateProject />} />
           <Route path="/projects/new/:projectId/connect" element={<ConnectProjectRepo />} />
+          <Route path="/projects" element={<Navigate to="/os" replace />} />
+          <Route path="/projects/list" element={<Navigate to="/os" replace />} />
+          <Route path="/projects/communication" element={<Navigate to="/os/communication" replace />} />
+          <Route path="/projects/docs" element={<Navigate to="/os/docs" replace />} />
+          <Route path="/projects/docs/:pageSlug" element={<Navigate to="/os/docs/:pageSlug" replace />} />
           <Route element={<ProjectHubShell />}>
-            <Route path="/projects" element={<ProjectHubOverview />} />
-            <Route path="/projects/docs" element={<ProjectHubDocs />} />
-            <Route path="/projects/docs/:pageSlug" element={<ProjectHubDocs />} />
-            <Route path="/projects/list" element={<Navigate to="/projects" replace />} />
-            <Route path="/projects/communication" element={<ProjectHubCommunication />} />
+            <Route path="/projects/overview-legacy" element={<ProjectHubOverview />} />
           </Route>
           <Route element={<ProjectLayout />}>
             <Route path="/project/:projectId" element={<Navigate to="overview" replace />} />
             <Route path="/project/:projectId/overview" element={<ProjectOverview />} />
             <Route
               path="/project/:projectId/pkb"
-              element={<Navigate to="/projects/docs" replace />}
+              element={<Navigate to="/os/docs" replace />}
             />
             <Route
               path="/project/:projectId/doc"
-              element={<Navigate to="/projects/docs" replace />}
+              element={<Navigate to="/os/docs" replace />}
             />
             <Route
               path="/project/:projectId/doc/:pageSlug"
-              element={<Navigate to="/projects/docs" replace />}
+              element={<Navigate to="/os/docs" replace />}
             />
-            <Route path="/project/:projectId/request" element={<Navigate to="/projects/docs" replace />} />
+            <Route path="/project/:projectId/request" element={<Navigate to="/os/docs" replace />} />
             <Route
               path="/project/:projectId/messages"
               element={<Navigate to="communication" replace />}
@@ -295,32 +309,31 @@ export default function App() {
           </Route>
           <Route path="/admin/runs/:workLogId" element={<AdminRunLegacyRedirect />} />
           <Route path="/admin/runs" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
-          <Route path="/workforce" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
-          <Route path="/workforce/overview" element={<WorkforceOverview />} />
-          <Route path="/workforce/agents" element={<AiAgents />} />
-          <Route path="/workforce/po" element={<WorkforcePoAgents />} />
-          <Route path="/ai/agents" element={<AiAgents />} />
+          <Route path="/workforce" element={<Navigate to={AI_OS_DEFAULT_PATH} replace />} />
+          <Route path="/workforce/overview" element={<Navigate to={AI_OS_DEFAULT_PATH} replace />} />
+          <Route path="/workforce/agents" element={<Navigate to="/os/agents" replace />} />
+          <Route path="/workforce/po" element={<Navigate to="/os/agents" replace />} />
+          <Route path="/ai/agents" element={<Navigate to="/os/agents" replace />} />
           <Route path="/ai/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/ai/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
           <Route path="/cloud-agent" element={<Navigate to="/home" replace />} />
-          <Route path="/datasources" element={<Navigate to="/projects" replace />} />
+          <Route path="/datasources" element={<Navigate to="/os" replace />} />
           <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
           <Route path="/ai/communicatie" element={<AiCommunicationSettings />} />
-          <Route path="/ai" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
+          <Route path="/ai" element={<Navigate to={AI_OS_DEFAULT_PATH} replace />} />
           <Route path="/company-config" element={<Navigate to="/settings/company" replace />} />
-          <Route path="/workforce/*" element={<Navigate to={WORKFORCE_DEFAULT_PATH} replace />} />
-          <Route path="/analytics" element={<Navigate to="/projects" replace />} />
+          <Route path="/workforce/*" element={<Navigate to={AI_OS_DEFAULT_PATH} replace />} />
+          <Route path="/analytics" element={<Navigate to="/os" replace />} />
           {USE_BOKITO_API ? (
-            <Route element={<DatabaseRouteLayout />}>
-              <Route path="/database" element={<DatabasePage />} />
-              <Route path="/database/:tableSlug" element={<DatabasePage />} />
-              <Route path="/database/:tableSlug/record/:recordId" element={<DatabasePage />} />
-            </Route>
+            <>
+              <Route path="/database" element={<Navigate to="/os" replace />} />
+              <Route path="/database/*" element={<Navigate to="/os" replace />} />
+            </>
           ) : (
             <>
-              <Route path="/database" element={<Navigate to="/projects" replace />} />
-              <Route path="/database/*" element={<Navigate to="/projects" replace />} />
+              <Route path="/database" element={<Navigate to="/os" replace />} />
+              <Route path="/database/*" element={<Navigate to="/os" replace />} />
             </>
           )}
           <Route path="*" element={<Navigate to="/" replace />} />

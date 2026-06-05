@@ -1,5 +1,13 @@
 import { authRoutes } from '../api/routes/auth.routes';
-import { APP_API_BASE, AUTH_API_BASE, INTEGRATIONS_API_BASE, WORKFORCE_API_BASE, XANO_BASE_URL, xanoApiBase } from './api.config';
+import {
+  AGENDA_API_BASE,
+  APP_API_BASE,
+  AUTH_API_BASE,
+  INTEGRATIONS_API_BASE,
+  WORKFORCE_API_BASE,
+  XANO_BASE_URL,
+  xanoApiBase,
+} from './api.config';
 
 const DEFAULT_ACCESS_TOKEN_TTL_S = 3600;
 const DEFAULT_REFRESH_TOKEN_TTL_S = 30 * 24 * 60 * 60;
@@ -66,7 +74,7 @@ export function buildAuthHeaders(token?: string, includeJson = true): Record<str
 
 function formatXanoHttpError(path: string, body: unknown): string {
   const o = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
-  const msg = typeof o.message === 'string' ? o.message : 'Onbekende fout'
+  const msg = typeof o.message === 'string' ? o.message : 'Unknown error'
   const payload = o.payload && typeof o.payload === 'object' ? (o.payload as Record<string, unknown>) : null
   const param = payload && typeof payload.param === 'string' ? payload.param : null
   const hint = param ? ` (${param})` : ''
@@ -75,7 +83,7 @@ function formatXanoHttpError(path: string, body: unknown): string {
 
 async function readJsonResponse<T>(res: Response, path: string): Promise<T> {
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }));
     throw new Error(`HTTP ${res.status} ${formatXanoHttpError(path, err)}`);
   }
   return res.json() as Promise<T>;
@@ -169,7 +177,7 @@ export async function xanoDelete<T = unknown>(path: string, token?: string): Pro
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }));
     throw new Error(err.message || `HTTP ${res.status}`);
   }
 
@@ -196,7 +204,7 @@ export async function xanoPatch<T>(path: string, body: object, token?: string): 
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }))
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }))
     throw new Error(err.message || `HTTP ${res.status}`)
   }
 
@@ -266,7 +274,7 @@ export async function xanoDeleteIntegrations<T = unknown>(path: string, token?: 
     credentials: 'include',
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }));
     throw new Error(err.message || `HTTP ${res.status}`);
   }
   const text = await res.text();
@@ -292,7 +300,7 @@ export async function xanoPut<T>(path: string, body: object, token?: string): Pr
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }))
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }))
     throw new Error(err.message || `HTTP ${res.status}`)
   }
 
@@ -387,7 +395,7 @@ export async function authLogout(token?: string): Promise<void> {
     body: JSON.stringify({}),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }));
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }));
     throw new Error(formatXanoHttpError(authRoutes.errorContext.logout, err));
   }
 }
@@ -425,6 +433,58 @@ export async function xanoPatchWorkforce<T>(path: string, body: object, token?: 
     body: JSON.stringify(body),
   });
   return readJsonResponse<T>(res, path);
+}
+
+async function agendaFetch<T>(
+  path: string,
+  init: RequestInit,
+  token?: string,
+): Promise<T> {
+  const headers = buildAuthHeaders(token, init.body != null);
+  if (!headers.Authorization) {
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
+  }
+  const res = await fetch(`${AGENDA_API_BASE}${path}`, {
+    ...init,
+    headers: { ...headers, ...(init.headers as Record<string, string> | undefined) },
+    credentials: 'include',
+  });
+  return readJsonResponse<T>(res, path);
+}
+
+export async function xanoGetAgenda<T>(path: string, token?: string): Promise<T> {
+  return agendaFetch<T>(path, { method: 'GET' }, token);
+}
+
+export async function xanoPostAgenda<T>(path: string, body: object, token?: string): Promise<T> {
+  return agendaFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }, token);
+}
+
+export async function xanoPatchAgenda<T>(path: string, body: object, token?: string): Promise<T> {
+  return agendaFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }, token);
+}
+
+export async function xanoDeleteAgenda<T = unknown>(path: string, token?: string): Promise<T | void> {
+  const headers = buildAuthHeaders(token, false);
+  if (!headers.Authorization) {
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
+  }
+  const res = await fetch(`${AGENDA_API_BASE}${path}`, {
+    method: 'DELETE',
+    headers,
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }));
+    throw new Error(formatXanoHttpError(path, err));
+  }
+  const text = await res.text();
+  if (!text.trim()) return undefined;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function xanoDeleteWorkforce<T = unknown>(

@@ -92,7 +92,7 @@ export default function AiAgentDetail() {
     return (
       <PageContent width="xl" className="space-y-4 py-1">
         <Link
-          to={`/ai/agents/${agentId}`}
+          to={`/os/agents/${agentId}`}
           className="text-sm text-accent hover:underline"
         >
           {t('workforce.agents.backToAgent', { defaultValue: 'Back to agent' })}

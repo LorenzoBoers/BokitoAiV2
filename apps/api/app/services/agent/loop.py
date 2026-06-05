@@ -9,7 +9,11 @@ from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.policy import AssistantPersona
 from app.services.agent.llm import get_llm_provider
 from app.services.agent.rag import build_core_summary, search_index
-from app.services.agent.tools import execute_tool, get_tool_definitions
+from app.services.agent.tools import (
+    execute_tool,
+    filter_tools_for_agent,
+    get_tool_definitions,
+)
 
 
 class AgentLoop:
@@ -27,7 +31,8 @@ class AgentLoop:
         self.agent = agent
         self.run = run
         self.llm = get_llm_provider()
-        self.tools = get_tool_definitions()
+        # Passport: an agent only sees the tools it is permitted to use.
+        self.tools = filter_tools_for_agent(get_tool_definitions(), agent)
         self.max_loops = agent.max_loops if agent else 15
 
     async def _log_event(self, event_type: str, message: str, payload: dict | None = None) -> None:
@@ -109,6 +114,9 @@ class AgentLoop:
                     self.user_id,
                     tool_use["name"],
                     tool_use.get("input", {}),
+                    conversation_id=None,
+                    agent=self.agent,
+                    run_id=self.run.id if self.run else None,
                 )
                 tool_results.append(
                     {

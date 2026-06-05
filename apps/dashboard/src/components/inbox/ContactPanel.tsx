@@ -184,7 +184,7 @@ export default function ContactPanel({ thread, onClose }: Props) {
   const displayName =
     thread.contactName && thread.contactName.trim().length > 0
       ? thread.contactName
-      : thread.contactEmail || 'Onbekend contact'
+      : thread.contactEmail || 'Unknown contact'
   const showSecondaryEmail =
     !!thread.contactEmail && thread.contactEmail !== displayName
 
@@ -305,13 +305,13 @@ export default function ContactPanel({ thread, onClose }: Props) {
         </div>
 
         <div className="px-4 py-3 border-b border-border/40">
-          <SectionHeading title="Eerdere threads" hint="Binnenkort" />
+          <SectionHeading title="Previous threads" hint="Coming soon" />
           <PlaceholderItem label="Nog geen eerdere conversaties" />
         </div>
 
         <div className="px-4 py-3">
-          <SectionHeading title="Taken" hint="Binnenkort" />
-          <PlaceholderItem label="Geen gekoppelde taken" />
+          <SectionHeading title="Tasks" hint="Coming soon" />
+          <PlaceholderItem label="No linked tasks" />
         </div>
       </div>
     </aside>

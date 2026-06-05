@@ -20,10 +20,10 @@ function formatTimeAgo(timestamp: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMins < 1) return 'Nu';
-  if (diffMins < 60) return `${diffMins}m geleden`;
-  if (diffHours < 24) return `${diffHours}u geleden`;
-  return `${diffDays}d geleden`;
+  if (diffMins < 1) return 'Now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
 }
 
 export default function NotificationDropdown() {
@@ -33,10 +33,7 @@ export default function NotificationDropdown() {
     if (!notification.read) {
       markAsRead(notification.id);
     }
-    
-    // Navigate to record if available
     if (notification.recordId && notification.tableName) {
-      // In a real app, this would navigate to /database/${tableName}/record/${recordId}
       console.log(`Navigate to record ${notification.recordId} in table ${notification.tableName}`);
     }
   };
@@ -46,7 +43,7 @@ export default function NotificationDropdown() {
       variant="ghost"
       size="icon"
       className="relative"
-      aria-label="Meldingen"
+      aria-label="Notifications"
     >
       <Bell size={16} />
       {unreadCount > 0 && (
@@ -62,7 +59,7 @@ export default function NotificationDropdown() {
       <div className="p-3">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-sm text-text-heading">
-            Meldingen
+            Notifications
           </h3>
           {unreadCount > 0 && (
             <Button
@@ -71,7 +68,7 @@ export default function NotificationDropdown() {
               onClick={markAllAsRead}
               className="text-xs h-6 px-2"
             >
-              Alles markeren
+              Mark all read
             </Button>
           )}
         </div>
@@ -79,7 +76,7 @@ export default function NotificationDropdown() {
         <div className="space-y-1 max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="text-center py-6 text-text-muted text-sm">
-              Geen meldingen
+              No notifications
             </div>
           ) : (
             notifications.map((notification) => {
@@ -98,26 +95,18 @@ export default function NotificationDropdown() {
                   <div className="flex gap-3">
                     <div className={`
                       w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
-                      ${notification.type === 'webhook_failure' ? 'bg-red-100 text-red-600' : 'bg-accent/10 text-accent'}
+                      ${!notification.read ? 'bg-accent/10 text-accent' : 'bg-bg-muted text-text-muted'}
                     `}>
                       <IconComponent size={14} />
                     </div>
-                    
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-medium text-sm text-text-heading leading-tight">
-                          {notification.title}
-                        </h4>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-accent rounded-full flex-shrink-0 mt-1" />
-                        )}
-                      </div>
-                      
-                      <p className="text-xs text-text-muted mt-1 line-clamp-2">
+                      <p className={`text-sm ${!notification.read ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
+                        {notification.title}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
-                      
-                      <p className="text-xs text-text-muted mt-2">
+                      <p className="text-xs text-text-muted mt-1">
                         {formatTimeAgo(notification.timestamp)}
                       </p>
                     </div>
@@ -127,14 +116,6 @@ export default function NotificationDropdown() {
             })
           )}
         </div>
-
-        {notifications.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-border">
-            <Button variant="ghost" size="sm" className="w-full text-xs h-8">
-              Alle meldingen bekijken
-            </Button>
-          </div>
-        )}
       </div>
     </Dropdown>
   );

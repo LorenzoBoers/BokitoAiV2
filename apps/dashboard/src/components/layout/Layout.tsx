@@ -14,7 +14,7 @@ import SectionSidebar from './SectionSidebar'
  */
 function MaybeWorkspaceDocs({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
-  if (pathname.startsWith('/projects')) {
+  if (pathname.startsWith('/projects') || pathname.startsWith('/os')) {
     return <WorkspaceDocNavProvider>{children}</WorkspaceDocNavProvider>
   }
   return <>{children}</>

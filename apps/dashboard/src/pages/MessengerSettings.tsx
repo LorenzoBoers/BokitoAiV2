@@ -392,7 +392,7 @@ function MessengerSettingsContent({
 
   const handleSave = async () => {
     if (!token || !currentWorkspace?.id) {
-      setSaveError('Geen actieve workspace of sessie.')
+      setSaveError('No active workspace or session.')
       return
     }
     setSaving(true)
@@ -415,7 +415,7 @@ function MessengerSettingsContent({
         body: form,
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Onbekende fout' }))
+        const err = await res.json().catch(() => ({ message: 'Unknown error' }))
         throw new Error(typeof err?.message === 'string' ? err.message : `HTTP ${res.status}`)
       }
 

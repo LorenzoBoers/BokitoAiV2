@@ -209,7 +209,7 @@ export default function EmailSettings() {
 
   const tenantLine = useMemo(() => {
     const name = user?.tenant?.name?.trim()
-    if (!name || name === 'Onbekend') return null
+    if (!name || name === 'Unknown' || name === 'Onbekend') return null
     return `Koppelingen gelden voor workspace: ${name}`
   }, [user?.tenant?.name])
 

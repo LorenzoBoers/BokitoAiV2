@@ -57,7 +57,7 @@ export default function SyncStatusPanel({ className }: Props) {
       {error ? (
         <p className="text-xs text-status-error">{error}</p>
       ) : statuses.length === 0 && !loading ? (
-        <p className="text-xs text-text-muted">Geen mailboxen gevonden.</p>
+        <p className="text-xs text-text-muted">No mailboxes found.</p>
       ) : (
         statuses.map((conn) => (
           <div key={conn.id} className="rounded-lg border border-border/50 p-3 space-y-2">

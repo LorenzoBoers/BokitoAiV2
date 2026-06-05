@@ -1,6 +1,12 @@
+"""MCP tool client with mock and HTTP JSON transport."""
+
+from __future__ import annotations
+
+import json
 from typing import Any
 from uuid import UUID
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,9 +27,8 @@ async def call_mcp_tool(
     )
     server = result.scalar_one_or_none()
     if not server:
-        return {"error": f"MCP server {server_name} not found", "mock": True}
+        return {"error": f"MCP server {server_name} not found"}
 
-    # Mock MCP response for local dev; real MCP SDK integration hook for production
     if server.server_url.startswith("mock://"):
         return {
             "server": server_name,
@@ -31,13 +36,31 @@ async def call_mcp_tool(
             "result": {"ok": True, "echo": arguments, "message": "Mock MCP tool executed"},
         }
 
+    payload = {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "tools/call",
+        "params": {"name": tool_name, "arguments": arguments or {}},
+    }
+    auth = json.loads(server.auth_json or "{}")
+    headers = {"Content-Type": "application/json"}
+    if auth.get("bearer_token"):
+        headers["Authorization"] = f"Bearer {auth['bearer_token']}"
+
     try:
-        # Placeholder for real MCP client - returns structured mock when unreachable
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(server.server_url, json=payload, headers=headers)
+            response.raise_for_status()
+            body = response.json()
+            return {
+                "server": server_name,
+                "tool": tool_name,
+                "result": body.get("result", body),
+            }
+    except Exception as exc:
         return {
             "server": server_name,
             "tool": tool_name,
-            "result": {"status": "delegated", "url": server.server_url},
-            "note": "Wire mcp Python SDK transport here for live servers",
+            "error": str(exc),
+            "fallback": {"status": "unreachable", "url": server.server_url},
         }
-    except Exception as exc:
-        return {"error": str(exc)}

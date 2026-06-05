@@ -32,7 +32,16 @@ async def is_action_allowed(
     tenant_id: UUID,
     action_type: str,
     payload: dict[str, Any] | None = None,
+    *,
+    agent: Any | None = None,
 ) -> tuple[bool, str]:
+    # Per-agent autonomy (passport) overrides the tenant policy when set.
+    if agent is not None:
+        level = getattr(agent, "autonomy_level", "approval")
+        if level == "auto":
+            return True, "agent_auto"
+        if level == "manual":
+            return False, "agent_manual"
     policy = await get_or_create_policy(session, tenant_id)
     if policy.mode == "yolo":
         return True, "yolo"

@@ -11,7 +11,7 @@ export default function AdminRunLegacyRedirect() {
 
   useEffect(() => {
     if (!workLogId) {
-      setTarget('/projects')
+      setTarget('/os')
       return
     }
     let cancelled = false
@@ -22,11 +22,11 @@ export default function AdminRunLegacyRedirect() {
         if (run?.project_id) {
           setTarget(projectWorkforceRunUrl(run.project_id, workLogId))
         } else {
-          setTarget('/projects')
+          setTarget('/os')
         }
       })
       .catch(() => {
-        if (!cancelled) setTarget('/projects')
+        if (!cancelled) setTarget('/os')
       })
     return () => {
       cancelled = true

@@ -33,18 +33,19 @@ import { useAuth } from '../../context/AuthContext'
 import {
   getDataSidebarGroups,
   getIntegrationsSidebarGroups,
-  getProjectHubSidebarGroups,
+  getAiOsSidebarGroups,
   getSettingsSidebarGroups,
-  getWorkforceSidebarGroups,
   type SidebarGroup,
   type SidebarLink,
 } from './portal-nav'
 import WorkforceSidebarNav from './WorkforceSidebarNav'
-import { isWorkforceRoute } from '../../lib/workforce-nav-agents'
+import { isAiOsRoute } from '../../lib/workforce-nav-agents'
 import InboxSidebarNav from '../inbox/InboxSidebarNav'
+import AgendaSidebar from '../agenda/AgendaSidebar'
 import NavCountBadge from './NavCountBadge'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
 import { useNavBadges } from '../../context/NavBadgeContext'
+import { isBokitoMode } from '../../lib/bokito-mode'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
 import ProjectHubBackgroundWorkersNav from './ProjectHubBackgroundWorkersNav'
 import { isProjectHubRoute, useOptionalProjectHubNav } from '../../context/ProjectHubNavContext'
@@ -85,7 +86,7 @@ function iconForLink(to: string) {
   if (to.includes('/settings/data/companies')) return Building
   if (to.includes('/settings/data/conversations')) return MessageSquare
   if (to.includes('/settings/data/imports-exports')) return Database
-  if (to === '/projects') return LayoutDashboard
+  if (to === '/os' || to === '/projects') return LayoutDashboard
   if (to === '/projects/docs' || to.startsWith('/projects/docs/')) return BookOpen
   if (to === '/projects/list') return FolderKanban
   if (to === '/projects/communication') return MessageSquare
@@ -120,15 +121,23 @@ function iconForLink(to: string) {
 }
 
 function isLinkActive(to: string, pathname: string, exact?: boolean): boolean {
-  if (exact) return pathname === to
+  if (exact) {
+    if (to === '/os') {
+      return pathname === '/os' || pathname.startsWith('/os/project/')
+    }
+    return pathname === to
+  }
   // Doc link should remain active for any /doc or /doc/:slug nested route.
   const docMatch = to.match(/^(\/project\/[^/]+\/doc)$/)
   if (docMatch) {
     return pathname === docMatch[1] || pathname.startsWith(`${docMatch[1]}/`)
   }
   // Workspace docs link stays active for child page slugs.
-  if (to === '/projects/docs') {
-    return pathname === '/projects/docs' || pathname.startsWith('/projects/docs/')
+  if (to === '/os/docs' || to === '/projects/docs') {
+    return pathname === to || pathname.startsWith(`${to}/`)
+  }
+  if (to === '/orchestra') {
+    return pathname === '/orchestra' || pathname.startsWith('/orchestra/')
   }
   return pathname === to
 }
@@ -177,7 +186,7 @@ function SidebarGroupBlock({
                 )
               }
             >
-              {item.to === '/support/inbox/my' ? (
+              {item.to === '/support/inbox/my' || item.to === '/support/inbox/mine' ? (
                 <UserAvatar name={user?.name ?? '?'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={20} />
               ) : (
                 (() => {
@@ -205,7 +214,7 @@ function resolveGroups(pathname: string, t: TFunction<'nav'>): SidebarGroup[] {
   if (pathname === '/home' || pathname.startsWith('/home/')) return []
   // Wizard routes have their own full-bleed layout — no sidebar groups.
   if (pathname === '/projects/new' || pathname.startsWith('/projects/new/')) return []
-  if (isProjectHubRoute(pathname)) return getProjectHubSidebarGroups(t)
+  if (isAiOsRoute(pathname)) return getAiOsSidebarGroups(t)
   if (pathname.startsWith('/integrations')) return getIntegrationsSidebarGroups(t)
   if (pathname.startsWith('/settings')) return getSettingsSidebarGroups(t)
   if (
@@ -215,25 +224,22 @@ function resolveGroups(pathname: string, t: TFunction<'nav'>): SidebarGroup[] {
   ) {
     return getDataSidebarGroups(t)
   }
-  if (isWorkforceRoute(pathname)) return getWorkforceSidebarGroups(t)
   return []
 }
 
 function resolveTitle(pathname: string, t: TFunction<['nav']>): string {
-  if (pathname === '/home' || pathname.startsWith('/home/')) return t('nav:sectionTitle.home', { defaultValue: 'Home' })
-  if (pathname === '/orchestra' || pathname.startsWith('/orchestra/')) {
-    return t('nav:sectionTitle.orchestra', { defaultValue: 'Orchestra' })
+  if (pathname === '/home' || pathname.startsWith('/home/')) {
+    return t('nav:sectionTitle.home', { defaultValue: isBokitoMode() ? 'Cockpit' : 'Home' })
   }
   if (pathname === '/agenda' || pathname.startsWith('/agenda/')) {
     return t('nav:sectionTitle.agenda', { defaultValue: 'Agenda' })
   }
-  if (isProjectHubRoute(pathname)) return t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
+  if (isAiOsRoute(pathname)) return t('nav:sectionTitle.aiOs', { defaultValue: 'AI OS' })
   if (pathname.startsWith('/users') || pathname.startsWith('/database') || pathname.startsWith('/data/')) {
     return t('nav:sectionTitle.data')
   }
   if (pathname.startsWith('/integrations')) return t('nav:sectionTitle.integrations')
   if (pathname.startsWith('/settings')) return t('nav:sectionTitle.settings')
-  if (isWorkforceRoute(pathname)) return t('nav:sectionTitle.workforce', { defaultValue: 'Workforce' })
   if (pathname.startsWith('/support') || pathname.startsWith('/communication')) {
     return t('nav:sectionTitle.inbox')
   }
@@ -256,24 +262,26 @@ export default function SectionSidebar() {
     return null
   }
 
-  const onProjectHub = isProjectHubRoute(pathname)
-  const onWorkforce = isWorkforceRoute(pathname)
+  const onAiOs = isAiOsRoute(pathname)
+  const onProjectHub = onAiOs
   const hubProjects = projectHubNav?.projects ?? []
   const selectedProjectId = projectHubNav?.selectedProjectId ?? null
 
-  const workforceGroups = onWorkforce ? getWorkforceSidebarGroups(t as TFunction<'nav'>) : []
-  const groups = onWorkforce ? [] : resolveGroups(pathname, t as TFunction<'nav'>)
+  const groups = resolveGroups(pathname, t as TFunction<'nav'>)
   const title = resolveTitle(pathname, t)
 
   const isInbox = pathname.startsWith('/support') || pathname.startsWith('/communication')
-  const hideSectionSidebar =
-    pathname === '/orchestra' ||
-    pathname.startsWith('/orchestra/') ||
-    pathname === '/agenda' ||
-    pathname.startsWith('/agenda/')
+  const isAgenda = pathname === '/agenda' || pathname.startsWith('/agenda/')
 
-  if (hideSectionSidebar) {
-    return null
+  if (isAgenda) {
+    return (
+      <aside className="flex h-full w-[248px] shrink-0 flex-col border-r border-border/55 bg-bg-sidebar px-3 py-3">
+        <h2 className="px-3 pb-3 text-[22px] font-semibold leading-none text-text-heading">{title}</h2>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <AgendaSidebar />
+        </div>
+      </aside>
+    )
   }
 
   return (
@@ -306,7 +314,7 @@ export default function SectionSidebar() {
                 return
               }
               projectHubNav?.setSelectedProjectId(projectId)
-              void navigate(`/project/${projectId}/overview`)
+              void navigate(`/os/project/${projectId}`)
             }}
           >
             <SelectTrigger className="h-8 bg-bg-sidebar px-2.5 text-xs [&>span]:max-w-[150px] [&>span]:truncate">
@@ -343,32 +351,21 @@ export default function SectionSidebar() {
           <InboxSidebarNav />
         ) : (
           <div className="space-y-4">
-            {onWorkforce ? (
+            {onAiOs ? (
               <>
-                {workforceGroups[0] ? (
-                  <SidebarGroupBlock
-                    key={workforceGroups[0].label}
-                    group={workforceGroups[0]}
-                    user={user ?? null}
-                    pathname={pathname}
-                  />
-                ) : null}
+                {groups.map((group) => (
+                  <SidebarGroupBlock key={group.label} group={group} user={user ?? null} pathname={pathname} />
+                ))}
                 <WorkforceSidebarNav />
-                {workforceGroups[1] ? (
-                  <SidebarGroupBlock
-                    key={workforceGroups[1].label}
-                    group={workforceGroups[1]}
-                    user={user ?? null}
-                    pathname={pathname}
-                  />
-                ) : null}
               </>
             ) : (
               groups.map((group) => (
                 <SidebarGroupBlock key={group.label} group={group} user={user ?? null} pathname={pathname} />
               ))
             )}
-            {onProjectHub ? <ProjectHubBackgroundWorkersNav /> : null}
+            {onProjectHub && (pathname.startsWith('/os/project/') || pathname.startsWith('/project/')) ? (
+              <ProjectHubBackgroundWorkersNav />
+            ) : null}
           </div>
         )}
       </div>

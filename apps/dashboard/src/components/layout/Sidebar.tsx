@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { getRailItems, type NavBadgeSlot, WORKFORCE_DEFAULT_PATH } from './portal-nav'
+import { AI_OS_DEFAULT_PATH, getRailItems, type NavBadgeSlot, WORKFORCE_DEFAULT_PATH } from './portal-nav'
 import { isWorkforceRoute } from '../../lib/workforce-nav-agents'
 import NavCountBadge from './NavCountBadge'
 import { useNavBadges } from '../../context/NavBadgeContext'
@@ -55,10 +55,18 @@ export default function Sidebar() {
     const badgeCount = countForBadgeSlot(counts, slot)
     if (badgeCount <= 0) return label
     if (slot === 'inbox' || slot === 'messages') {
-      return `${label}. ${t('nav:badges.ariaInbox', { count: badgeCount })}`
+      const suffix =
+        badgeCount === 1
+          ? t('nav:badges.ariaInboxOne', { defaultValue: '1 unread message' })
+          : t('nav:badges.ariaInbox', { count: badgeCount })
+      return `${label}. ${suffix}`
     }
     if (slot === 'agents' || slot === 'projectsAttention') {
-      return `${label}. ${t('nav:badges.ariaAgents', { count: badgeCount })}`
+      const suffix =
+        badgeCount === 1
+          ? t('nav:badges.ariaAgentsOne', { defaultValue: '1 item needs action' })
+          : t('nav:badges.ariaAgents', { count: badgeCount })
+      return `${label}. ${suffix}`
     }
     return label
   }
@@ -76,20 +84,24 @@ export default function Sidebar() {
     if (path === '/home') {
       return location.pathname === '/home' || location.pathname.startsWith('/home/')
     }
-    if (path === '/orchestra') {
-      return location.pathname === '/orchestra' || location.pathname.startsWith('/orchestra/')
-    }
     if (path === '/agenda') {
       return location.pathname === '/agenda' || location.pathname.startsWith('/agenda/')
     }
-    if (path === '/support/inbox/mine' || path === '/support/inbox/all') {
+    if (path === '/support/inbox/my' || path === '/support/inbox/mine' || path === '/support/inbox/all') {
       return location.pathname.startsWith('/support') || location.pathname.startsWith('/communication')
     }
     if (path === '/integrations/connected' || path === '/integrations') {
       return location.pathname.startsWith('/integrations')
     }
-    if (path === WORKFORCE_DEFAULT_PATH) {
-      return isWorkforceRoute(location.pathname)
+    if (path === AI_OS_DEFAULT_PATH || path === WORKFORCE_DEFAULT_PATH) {
+      return (
+        location.pathname.startsWith('/os') ||
+        location.pathname === '/orchestra' ||
+        location.pathname.startsWith('/orchestra/') ||
+        location.pathname.startsWith('/projects') ||
+        location.pathname.startsWith('/project/') ||
+        isWorkforceRoute(location.pathname)
+      )
     }
     if (path === '/database') {
       return (
@@ -98,17 +110,8 @@ export default function Sidebar() {
         location.pathname.startsWith('/data/')
       )
     }
-    if (path === '/projects') {
-      return (
-        location.pathname.startsWith('/projects') ||
-        location.pathname.startsWith('/project/')
-      )
-    }
     if (path === '/messages') {
       return location.pathname === '/messages' || location.pathname === '/communication'
-    }
-    if (path.startsWith('/project/') || path === '/projects') {
-      return location.pathname.startsWith('/project/') || location.pathname.startsWith('/projects')
     }
     if (path === '/users/attributes') {
       return location.pathname.startsWith('/users')

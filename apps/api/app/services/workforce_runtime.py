@@ -11,8 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
+from app.models.notification import DecisionRequest
 from app.models.project import Project
-from app.models.workforce_message import WorkforceMessage
 
 ROLE_SLUG_MAP = {
     "po": "po",
@@ -246,19 +246,10 @@ async def ensure_run_events(session: AsyncSession, run: AgentRun) -> None:
         )
 
 
-def serialize_message(row: WorkforceMessage) -> dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "thread_id": row.thread_id,
-        "project_id": str(row.project_id) if row.project_id else None,
-        "subject": row.subject or None,
-        "body": row.body,
-        "message_type": row.message_type,
-        "channel": row.channel,
-        "status": row.status,
-        "payload": _parse_json(row.payload_json),
-        "created_at": row.created_at.isoformat() if row.created_at else datetime.utcnow().isoformat(),
-    }
+def serialize_message(row: DecisionRequest) -> dict[str, Any]:
+    from app.services.decisions import serialize_decision_as_message
+
+    return serialize_decision_as_message(row)
 
 
 async def list_messages(
@@ -271,23 +262,17 @@ async def list_messages(
     thread_id: str | None = None,
     project_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    query = select(WorkforceMessage).where(WorkforceMessage.tenant_id == tenant_id)
-    if status:
-        query = query.where(WorkforceMessage.status == status)
-    if message_type:
-        query = query.where(WorkforceMessage.message_type == message_type)
-    if channel:
-        query = query.where(WorkforceMessage.channel == channel)
-    if thread_id:
-        query = query.where(WorkforceMessage.thread_id == thread_id)
-    if project_id:
-        try:
-            query = query.where(WorkforceMessage.project_id == UUID(project_id))
-        except ValueError:
-            return []
-    query = query.order_by(WorkforceMessage.created_at.desc()).limit(200)
-    result = await session.execute(query)
-    return [serialize_message(m) for m in result.scalars().all()]
+    from app.services.decisions import list_decision_messages
+
+    return await list_decision_messages(
+        session,
+        tenant_id,
+        status=status,
+        message_type=message_type,
+        channel=channel,
+        thread_id=thread_id,
+        project_id=project_id,
+    )
 
 
 async def resolve_message(
@@ -296,20 +281,18 @@ async def resolve_message(
     message_id: UUID,
     *,
     new_status: str,
+    user_id: UUID | None = None,
 ) -> None:
-    result = await session.execute(
-        select(WorkforceMessage).where(
-            WorkforceMessage.id == message_id,
-            WorkforceMessage.tenant_id == tenant_id,
-        )
+    from app.services.decisions import resolve_decision_message
+
+    action_map = {"done": "approved", "rejected": "rejected", "deferred": "deferred"}
+    await resolve_decision_message(
+        session,
+        tenant_id,
+        message_id,
+        action=action_map.get(new_status, new_status),
+        user_id=user_id,
     )
-    row = result.scalar_one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Message not found")
-    row.status = new_status
-    row.resolved_at = datetime.utcnow()
-    session.add(row)
-    await session.commit()
 
 
 def default_workforce_config(tenant_id: UUID) -> dict[str, Any]:

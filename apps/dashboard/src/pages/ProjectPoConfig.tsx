@@ -222,7 +222,7 @@ export default function ProjectPoConfig() {
                       </div>
                     </div>
                     <Button variant="secondary" size="sm" asChild>
-                      <Link to={`/ai/agents/${poAgent.id}`}>
+                      <Link to={`/os/agents/${poAgent.id}`}>
                         <Bot size={14} className="mr-1.5" />
                         {t('project.po.advancedProfile', { defaultValue: 'Advanced agent profile' })}
                         <ArrowUpRight size={14} className="ml-1" />

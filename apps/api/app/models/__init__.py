@@ -1,4 +1,5 @@
 from app.models.agent import Agent, AgentRun, RunEvent
+from app.models.audit import AuditEvent
 from app.models.auth import Invite, Membership, Session, Tenant, User
 from app.models.blueprint import (
     BlockRevision,
@@ -17,8 +18,12 @@ from app.models.inbox_threads import (
     InboxThreadPin,
 )
 from app.models.index import IndexChunk
+from app.models.learning import EvalScore, Feedback
+from app.models.platform_change import PlatformChange
+from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
+from app.models.agenda import AgendaCalendar, AgendaEvent
 from app.models.orchestra import (
     AgentProfile,
     Task,
@@ -44,7 +49,7 @@ from app.models.project import (
     ProjectOrchestration,
     ProjectWorkstream,
 )
-from app.models.workforce_message import WorkforceMessage
+from app.models.os_graph import OsCanvasEdge, OsCanvasNode
 
 __all__ = [
     "Tenant",
@@ -71,6 +76,7 @@ __all__ = [
     "Agent",
     "AgentRun",
     "RunEvent",
+    "AuditEvent",
     "IndexChunk",
     "StaffAccessLog",
     "InboxSettings",
@@ -83,6 +89,8 @@ __all__ = [
     "ActionPolicy",
     "ActionWhitelistEntry",
     "AssistantPersona",
+    "AgendaCalendar",
+    "AgendaEvent",
     "Task",
     "AgentProfile",
     "Workstream",
@@ -95,11 +103,18 @@ __all__ = [
     "ProjectNotificationPreference",
     "UsageLedger",
     "PushSubscription",
-    "WorkforceMessage",
     "CustomTable",
     "CustomField",
     "CustomRecord",
     "CustomView",
     "CustomRecordActivity",
     "CustomRecordComment",
+    "OsCanvasNode",
+    "OsCanvasEdge",
+    "Signal",
+    "SignalMessage",
+    "SignalEvent",
+    "Feedback",
+    "EvalScore",
+    "PlatformChange",
 ]

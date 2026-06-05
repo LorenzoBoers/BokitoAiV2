@@ -206,7 +206,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     organisationId: asString(raw.organisation_id),
     emailConnectionId: raw.email_connection_id == null || raw.email_connection_id === 0 ? null : asNumber(raw.email_connection_id),
     graphConversationId: asString(raw.graph_conversation_id),
-    emailSubject: asString(raw.email_subject, '(Geen onderwerp)'),
+    emailSubject: asString(raw.email_subject, '(No subject)'),
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),

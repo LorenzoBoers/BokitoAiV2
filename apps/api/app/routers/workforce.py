@@ -10,6 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.services import workforce_runtime as svc
+from app.services.os_graph import (
+    build_canvas_graph,
+    build_project_graph,
+    build_workspace_graph,
+    create_canvas_edge,
+    create_canvas_node,
+    delete_canvas_edge,
+    delete_canvas_node,
+    patch_canvas_node,
+)
 
 router = APIRouter(prefix="/workforce", tags=["workforce"])
 
@@ -44,6 +54,126 @@ class WorkforceConfigPatch(BaseModel):
 
 class DeferBody(BaseModel):
     days: int = 7
+
+
+class OsNodeCreateBody(BaseModel):
+    node_type: str
+    ref_id: str
+    x: float = 200.0
+    y: float = 200.0
+    label: str | None = None
+
+
+class OsNodePatchBody(BaseModel):
+    x: float | None = None
+    y: float | None = None
+    label: str | None = None
+
+
+class OsEdgeCreateBody(BaseModel):
+    source_node_id: str
+    target_node_id: str
+    relation: str
+
+
+# --- AI OS graph ---
+
+
+@router.get("/os/graph")
+async def os_workspace_graph(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await build_canvas_graph(session, auth.tenant.id)
+
+
+@router.get("/os/graph/legacy")
+async def os_workspace_graph_legacy(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await build_workspace_graph(session, auth.tenant.id)
+
+
+@router.post("/os/nodes")
+async def os_create_node(
+    body: OsNodeCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await create_canvas_node(
+        session,
+        auth.tenant.id,
+        node_type=body.node_type,
+        ref_id=UUID(body.ref_id),
+        x=body.x,
+        y=body.y,
+        label=body.label,
+    )
+
+
+@router.patch("/os/nodes/{node_id}")
+async def os_patch_node(
+    node_id: UUID,
+    body: OsNodePatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await patch_canvas_node(
+        session,
+        auth.tenant.id,
+        node_id,
+        x=body.x,
+        y=body.y,
+        label=body.label,
+    )
+
+
+@router.delete("/os/nodes/{node_id}")
+async def os_delete_node(
+    node_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await delete_canvas_node(session, auth.tenant.id, node_id)
+    return {"ok": True}
+
+
+@router.post("/os/edges")
+async def os_create_edge(
+    body: OsEdgeCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await create_canvas_edge(
+        session,
+        auth.tenant.id,
+        source_node_id=UUID(body.source_node_id),
+        target_node_id=UUID(body.target_node_id),
+        relation=body.relation,
+    )
+
+
+@router.delete("/os/edges/{edge_id}")
+async def os_delete_edge(
+    edge_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await delete_canvas_edge(session, auth.tenant.id, edge_id)
+    return {"ok": True}
+
+
+@router.get("/os/graph/{project_id}")
+async def os_project_graph(
+    project_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.projects import get_project_row
+
+    await get_project_row(session, auth.tenant.id, project_id)
+    return await build_project_graph(session, auth.tenant.id, project_id)
 
 
 # --- Work logs ---
@@ -154,7 +284,9 @@ async def approve_message(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    await svc.resolve_message(session, auth.tenant.id, message_id, new_status="done")
+    await svc.resolve_message(
+        session, auth.tenant.id, message_id, new_status="done", user_id=auth.user.id
+    )
     return {"ok": True}
 
 
@@ -166,7 +298,9 @@ async def defer_message(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     del body
-    await svc.resolve_message(session, auth.tenant.id, message_id, new_status="deferred")
+    await svc.resolve_message(
+        session, auth.tenant.id, message_id, new_status="deferred", user_id=auth.user.id
+    )
     return {"ok": True}
 
 
@@ -176,7 +310,9 @@ async def reject_message(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    await svc.resolve_message(session, auth.tenant.id, message_id, new_status="rejected")
+    await svc.resolve_message(
+        session, auth.tenant.id, message_id, new_status="rejected", user_id=auth.user.id
+    )
     return {"ok": True}
 
 

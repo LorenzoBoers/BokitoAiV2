@@ -64,13 +64,13 @@ export default function Login() {
       const target = resolvePostLoginTarget();
       await redirectToTarget(target, accessToken);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Inloggen mislukt';
+      const message = err instanceof Error ? err.message : 'Sign in failed';
       setError(
         message.includes('Invalid') ||
         message.includes('401') ||
         message.includes('password') ||
         message.toLowerCase().includes('valid integer')
-        ? 'E-mailadres of wachtwoord is onjuist.'
+        ? 'Incorrect email or password.'
         : message
       );
     } finally {
@@ -95,7 +95,7 @@ export default function Login() {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">Inloggen op je dashboard</span>
+          <span className="text-sm text-text-secondary mt-1">Sign in to your dashboard</span>
         </div>
 
         {/* Card */}
@@ -104,7 +104,7 @@ export default function Login() {
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1.5">
-                E-mailadres
+                Email
               </label>
               <input
                 id="email"
@@ -114,14 +114,14 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
-                placeholder="jouw@email.nl"
+                placeholder="you@company.com"
               />
             </div>
 
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Wachtwoord
+                Password
               </label>
               <div className="relative">
                 <input
@@ -161,10 +161,10 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Bezig met inloggen...
+                  Signing in...
                 </>
               ) : (
-                'Inloggen'
+                'Sign in'
               )}
             </button>
           </form>
@@ -175,13 +175,13 @@ export default function Login() {
               to="/forgot-password"
               className="text-sm text-accent hover:text-accent-hover transition-colors"
             >
-              Wachtwoord vergeten?
+              Forgot password?
             </Link>
           </div>
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · Alle rechten voorbehouden
+          © {new Date().getFullYear()} Bokito.ai · All rights reserved
         </p>
         <p className="text-center text-[10px] text-text-muted/80 mt-1">
           build: {APP_VERSION}

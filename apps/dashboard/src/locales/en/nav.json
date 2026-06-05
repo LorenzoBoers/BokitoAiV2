@@ -1,7 +1,9 @@
 {
   "comingSoon": "Coming soon",
   "rail": {
-    "home": "Home",
+    "home": "Cockpit",
+    "orchestra": "Orchestra",
+    "agenda": "Agenda",
     "support": "Inbox",
     "updates": "AI",
     "assistent": "Assistant",
@@ -12,12 +14,16 @@
     "users": "Users",
     "settings": "Settings",
     "projects": "Projects",
+    "aiOs": "AI OS",
     "pkb": "Project",
     "changeRequest": "Request",
-    "messages": "Messages"
+    "messages": "Messages",
+    "govern": "Govern"
   },
   "sectionTitle": {
-    "home": "Home",
+    "home": "Cockpit",
+    "orchestra": "Orchestra",
+    "agenda": "Agenda",
     "users": "Users",
     "settings": "Settings",
     "inbox": "Inbox",
@@ -29,7 +35,9 @@
     "data": "Data",
     "project": "Project",
     "projects": "Projects",
-    "projectHub": "Project hub"
+    "projectHub": "Project hub",
+    "aiOs": "AI OS",
+    "govern": "Govern"
   },
   "repoStatus": {
     "notConnected": "Not connected",
@@ -117,7 +125,9 @@
     "railHome": "Home ({{count}})",
     "railMessages": "Messages ({{count}} unread)",
     "ariaInbox": "{{count}} unread messages",
+    "ariaInboxOne": "1 unread message",
     "ariaAgents": "{{count}} items need action",
+    "ariaAgentsOne": "1 item needs action",
     "queue": {
       "all": "{{count}} unread open",
       "my": "{{count}} unread assigned to you",
@@ -182,7 +192,8 @@
       "overview": "Overview",
       "docs": "Blueprint",
       "projects": "Projects",
-      "communication": "Communication"
+      "communication": "Communication",
+      "decisions": "Decisions"
     },
     "quick": {
       "newProject": "New project",
@@ -271,13 +282,23 @@
     "group": {
       "inbox": "Inbox"
     },
+    "allChannels": "All channels",
+    "mailboxes": "Mailboxes",
     "links": {
       "myInbox": "My inbox",
       "allMessages": "Open",
+      "pinned": "Pinned",
       "unassigned": "Unassigned",
       "pending": "Pending",
       "closed": "Closed",
       "createdByMe": "Created by me"
+    },
+    "channelViews": {
+      "open": "Open",
+      "mine": "Mine",
+      "unassigned": "Unassigned",
+      "outbound": "Outbound",
+      "closed": "Closed"
     }
   },
   "users": {
@@ -605,6 +626,19 @@
         "categorySchema": "Schema",
         "categoryData": "Data"
       }
+    }
+  },
+  "aiOs": {
+    "group": {
+      "nav": "AI OS"
+    },
+    "links": {
+      "canvas": "Canvas",
+      "orchestra": "Orchestra",
+      "agents": "Agent library",
+      "decisions": "Decisions",
+      "docs": "Blueprint",
+      "govern": "Govern"
     }
   },
   "workforce": {

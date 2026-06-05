@@ -70,7 +70,10 @@ export function ProjectHubNavProvider({ children }: { children: ReactNode }) {
     [user?.tenant?.id, user?.tenant?.slug],
   )
 
-  const activeProjectIdFromRoute = pathname.match(/^\/project\/([^/]+)/)?.[1] ?? null
+  const activeProjectIdFromRoute =
+    pathname.match(/^\/project\/([^/]+)/)?.[1] ??
+    pathname.match(/^\/os\/project\/([^/]+)/)?.[1] ??
+    null
 
   const setSelectedProjectId = useCallback(
     (projectId: string) => {
@@ -250,5 +253,12 @@ export function useOptionalProjectHubNav(): ProjectHubNavValue | null {
 
 export function isProjectHubRoute(pathname: string): boolean {
   if (pathname === '/projects/new' || pathname.startsWith('/projects/new/')) return false
-  return pathname.startsWith('/projects') || pathname.startsWith('/project/')
+  return (
+    pathname.startsWith('/projects') ||
+    pathname.startsWith('/project/') ||
+    pathname.startsWith('/os') ||
+    pathname === '/orchestra' ||
+    pathname.startsWith('/orchestra/') ||
+    pathname.startsWith('/workforce')
+  )
 }

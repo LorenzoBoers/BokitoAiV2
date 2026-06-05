@@ -73,29 +73,44 @@ export default function AppHeader() {
     }
   }
 
+  const onAiOsHub =
+    pathname === '/os' ||
+    pathname === '/os/communication' ||
+    pathname === '/os/docs' ||
+    pathname.startsWith('/os/docs/') ||
+    pathname.startsWith('/os/project/')
   const onProjectHub =
+    onAiOsHub ||
     pathname === '/projects' ||
     pathname === '/projects/communication' ||
     pathname === '/projects/docs' ||
     pathname.startsWith('/projects/docs/')
   let projectHubTitle: string | null = null
   if (onProjectHub) {
+    const osProjectId = pathname.match(/^\/os\/project\/([^/]+)/)?.[1] ?? null
     const tabKey =
-      pathname === '/projects'
+      pathname === '/os' || pathname === '/projects' || osProjectId
         ? 'overview'
-        : pathname === '/projects/communication'
-          ? 'communication'
+        : pathname === '/os/communication' || pathname === '/projects/communication'
+          ? 'decisions'
           : 'docs'
     let docPageTitle: string | null = null
     if (tabKey === 'docs') {
-      const slug = pathname.match(/^\/projects\/docs\/([^/]+)/)?.[1] ?? null
+      const slug =
+        pathname.match(/^\/os\/docs\/([^/]+)/)?.[1] ??
+        pathname.match(/^\/projects\/docs\/([^/]+)/)?.[1] ??
+        null
       if (slug && workspaceDocNav?.pages?.length) {
         const match = workspaceDocNav.pages.find((p) => p.slug === slug)
         if (match) docPageTitle = match.title
       }
     }
-    const hubLabel = t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
-    const tabLabel = t(`nav:projectHub.tabs.${tabKey}`)
+    const hubLabel = onAiOsHub
+      ? t('nav:sectionTitle.aiOs', { defaultValue: 'AI OS' })
+      : t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
+    const osProjectName =
+      osProjectId && hubNav?.projects.find((p) => p.id === osProjectId)?.name
+    const tabLabel = osProjectName ?? t(`nav:projectHub.tabs.${tabKey}`)
     const parts = [hubLabel, tabLabel, docPageTitle].filter(
       (s): s is string => Boolean(s && s.trim()),
     )
@@ -109,7 +124,7 @@ export default function AppHeader() {
       : pathname === '/home' || pathname.startsWith('/home/')
       ? t('nav:home.title')
       : pathname === '/orchestra' || pathname.startsWith('/orchestra/')
-        ? t('nav:orchestra.title', { defaultValue: 'Orchestra' })
+        ? `${t('nav:sectionTitle.aiOs', { defaultValue: 'AI OS' })} / ${t('nav:orchestra.title', { defaultValue: 'Orchestra' })}`
         : pathname === '/agenda' || pathname.startsWith('/agenda/')
           ? t('nav:agenda.title', { defaultValue: 'Agenda' })
           : pathname.startsWith('/support/inbox/')
@@ -133,8 +148,10 @@ export default function AppHeader() {
                   ? t('nav:projects.header.connect', { defaultValue: 'Connect your code' })
                   : pathname.startsWith('/projects/new')
                     ? t('nav:projects.header.new', { defaultValue: 'Create project' })
-                    : pathname.startsWith('/projects')
-                      ? t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
+                    : pathname.startsWith('/os')
+                      ? t('nav:sectionTitle.aiOs', { defaultValue: 'AI OS' })
+                      : pathname.startsWith('/projects')
+                        ? t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
                       : pathname.startsWith('/integrations')
                         ? integrationsPageMeta[integrationsSlug]?.title ?? t('nav:sectionTitle.integrations')
                         : pathname.startsWith('/admin/runs')

@@ -24,15 +24,20 @@ import {
   LayoutDashboard,
   CalendarDays,
   Sparkles,
+  Network,
+  ShieldCheck,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
 import { isBokitoMode } from '../../lib/bokito-mode'
 
-/** Default landing for the merged Workforce rail item. */
-export const WORKFORCE_DEFAULT_PATH = '/workforce/overview' as const
+/** Default landing for the unified AI OS section. */
+export const AI_OS_DEFAULT_PATH = '/os' as const
 
-export const WORKFORCE_PO_PATH = '/workforce/po' as const
+/** @deprecated Use AI_OS_DEFAULT_PATH */
+export const WORKFORCE_DEFAULT_PATH = AI_OS_DEFAULT_PATH
+
+export const WORKFORCE_PO_PATH = '/os/agents' as const
 
 export type NavBadgeSlot =
   | 'inbox'
@@ -102,41 +107,29 @@ export const getEndUserRailItems = (t: TFunction<'nav'>, projectId?: string): Ra
 export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
   { label: t('rail.home', { defaultValue: 'Home' }), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
   {
-    label: t('rail.projects', { defaultValue: 'Projects' }),
-    to: '/projects',
-    icon: FolderKanban,
+    label: t('rail.aiOs', { defaultValue: 'AI OS' }),
+    to: AI_OS_DEFAULT_PATH,
+    icon: Network,
     badgeSlot: 'projectsAttention',
   },
-  { label: t('rail.support'), to: '/support/inbox/mine', icon: MessageSquare, badgeSlot: 'inbox' },
-  {
-    label: t('rail.workforce', { defaultValue: 'Workforce' }),
-    to: WORKFORCE_DEFAULT_PATH,
-    icon: Bot,
-    badgeSlot: 'agents',
-  },
+  { label: t('rail.support'), to: '/support/inbox/my', icon: MessageSquare, badgeSlot: 'inbox' },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
 
 /** Bokito AI OS: surfaces backed by FastAPI in `VITE_API_MODE=bokito`. */
 export const getBokitoAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
-  { label: t('rail.home', { defaultValue: 'Cockpit' }), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
-  { label: t('rail.orchestra', { defaultValue: 'Orchestra' }), to: '/orchestra', icon: Sparkles },
+  { label: t('rail.home'), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
+  { label: t('rail.support'), to: '/support/inbox/my', icon: MessageSquare, badgeSlot: 'inbox' },
   { label: t('rail.agenda', { defaultValue: 'Agenda' }), to: '/agenda', icon: CalendarDays },
   {
-    label: t('rail.projects', { defaultValue: 'Projects' }),
-    to: '/projects',
-    icon: FolderKanban,
+    label: t('rail.aiOs', { defaultValue: 'AI OS' }),
+    to: AI_OS_DEFAULT_PATH,
+    icon: Network,
     badgeSlot: 'projectsAttention',
   },
-  { label: t('rail.support'), to: '/support/inbox/mine', icon: MessageSquare, badgeSlot: 'inbox' },
-  {
-    label: t('rail.workforce', { defaultValue: 'Workforce' }),
-    to: WORKFORCE_DEFAULT_PATH,
-    icon: Bot,
-    badgeSlot: 'agents',
-  },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
+  { label: t('rail.govern', { defaultValue: 'Govern' }), to: '/govern', icon: ShieldCheck },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
 
@@ -168,7 +161,7 @@ export const getWorkforceSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] =
       { label: t('workforce.links.overview', { defaultValue: 'Overview' }), to: WORKFORCE_DEFAULT_PATH },
       {
         label: t('workforce.links.agents', { defaultValue: 'Agent library' }),
-        to: '/workforce/agents',
+        to: '/os/agents',
         badgeSlot: 'agents',
       },
     ],
@@ -209,28 +202,54 @@ export const getIntegrationsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[
   },
 ]
 
-/** Project hub: workspace-level cockpit tabs rendered in the contextual sidebar. */
-export const getProjectHubSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
+/** AI OS workspace sidebar links (canvas, agents, blueprint, communication). */
+export const getAiOsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
   {
-    label: t('projectHub.group.nav', { defaultValue: 'Project hub' }),
+    label: t('aiOs.group.nav', { defaultValue: 'AI OS' }),
     links: [
       {
-        label: t('projectHub.tabs.overview', { defaultValue: 'Overview' }),
-        to: '/projects',
+        label: t('aiOs.links.canvas', { defaultValue: 'Canvas' }),
+        to: AI_OS_DEFAULT_PATH,
         exact: true,
       },
       {
-        label: t('projectHub.tabs.communication', { defaultValue: 'Communication' }),
-        to: '/projects/communication',
+        label: t('aiOs.links.orchestra', { defaultValue: 'Orchestra' }),
+        to: '/orchestra',
+      },
+      {
+        label: t('aiOs.links.agents', { defaultValue: 'Agent library' }),
+        to: '/os/agents',
+        badgeSlot: 'agents',
+      },
+      {
+        label: t('aiOs.links.decisions', { defaultValue: 'Decisions' }),
+        to: '/os/communication',
         badgeSlot: 'projectsAttention',
       },
       {
-        label: t('projectHub.tabs.docs', { defaultValue: 'Blueprint' }),
-        to: '/projects/docs',
+        label: t('aiOs.links.docs', { defaultValue: 'Blueprint' }),
+        to: '/os/docs',
+      },
+      {
+        label: t('aiOs.links.govern', { defaultValue: 'Govern' }),
+        to: '/govern',
+      },
+    ],
+  },
+  {
+    label: t('workforce.group.platform', { defaultValue: 'Platform agents' }),
+    links: [
+      { label: t('workforce.links.assistant', { defaultValue: 'Assistant agent' }), to: ASSISTENT_DEFAULT_PATH },
+      {
+        label: t('workforce.links.communication', { defaultValue: 'Communication agent' }),
+        to: '/ai/communicatie',
       },
     ],
   },
 ]
+
+/** @deprecated Use getAiOsSidebarGroups */
+export const getProjectHubSidebarGroups = getAiOsSidebarGroups
 
 /** Per-project orchestrator setup (sidebar entry; not a horizontal tab). */
 export function projectOrchestratorPath(projectId: string): string {

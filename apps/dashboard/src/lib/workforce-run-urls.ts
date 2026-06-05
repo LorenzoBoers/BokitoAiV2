@@ -5,7 +5,7 @@ export function projectWorkforceRunUrl(projectId: string, workLogId: string): st
 
 /** Run detail in AI agent context. */
 export function agentWorkforceRunUrl(agentId: string, workLogId: string): string {
-  return `/ai/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(workLogId)}`
+  return `/os/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(workLogId)}`
 }
 
 export function workLogDetailUrl(run: {
@@ -19,7 +19,7 @@ export function workLogDetailUrl(run: {
   if (run.agent_id) {
     return agentWorkforceRunUrl(run.agent_id, run.id)
   }
-  return '/projects'
+  return '/os'
 }
 
 export function messageWorkLogUrl(
@@ -29,5 +29,5 @@ export function messageWorkLogUrl(
 ): string {
   if (projectId) return projectWorkforceRunUrl(projectId, workLogId)
   if (agentId) return agentWorkforceRunUrl(agentId, workLogId)
-  return '/projects'
+  return '/os'
 }

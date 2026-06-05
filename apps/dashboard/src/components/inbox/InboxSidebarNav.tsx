@@ -19,20 +19,20 @@ function navLinkClass(isActive: boolean) {
 
 const GLOBAL_VIEWS = [
   { labelKey: 'support.links.allMessages', queue: 'all', defaultLabel: 'Open' },
-  { labelKey: 'support.links.myInbox', queue: 'my', defaultLabel: 'Toegewezen aan mij' },
-  { labelKey: 'support.links.pinned', queue: 'pinned', defaultLabel: 'Gepind' },
-  { labelKey: 'support.links.unassigned', queue: 'unassigned', defaultLabel: 'Niet toegewezen' },
-  { labelKey: 'support.links.pending', queue: 'pending', defaultLabel: 'In behandeling' },
-  { labelKey: 'support.links.closed', queue: 'closed', defaultLabel: 'Gesloten' },
+  { labelKey: 'support.links.myInbox', queue: 'my', defaultLabel: 'My inbox' },
+  { labelKey: 'support.links.pinned', queue: 'pinned', defaultLabel: 'Pinned' },
+  { labelKey: 'support.links.unassigned', queue: 'unassigned', defaultLabel: 'Unassigned' },
+  { labelKey: 'support.links.pending', queue: 'pending', defaultLabel: 'Pending' },
+  { labelKey: 'support.links.closed', queue: 'closed', defaultLabel: 'Closed' },
 ] as const
 
 const CHANNEL_VIEWS = [
-  { label: 'Open', queue: 'all' },
-  { label: 'Mijn', queue: 'my' },
-  { label: 'Niet toegewezen', queue: 'unassigned' },
-  { label: 'Uitgaand', queue: 'out' },
-  { label: 'Gesloten', queue: 'closed' },
-]
+  { labelKey: 'support.channelViews.open', queue: 'all', defaultLabel: 'Open' },
+  { labelKey: 'support.channelViews.mine', queue: 'my', defaultLabel: 'Mine' },
+  { labelKey: 'support.channelViews.unassigned', queue: 'unassigned', defaultLabel: 'Unassigned' },
+  { labelKey: 'support.channelViews.outbound', queue: 'out', defaultLabel: 'Outbound' },
+  { labelKey: 'support.channelViews.closed', queue: 'closed', defaultLabel: 'Closed' },
+] as const
 
 const STORAGE_KEY = 'inbox_channel_expanded'
 
@@ -60,7 +60,13 @@ type ChannelSectionProps = {
   currentChannelId?: string
 }
 
-function ChannelSection({ connectionId, label, email, currentChannelId }: ChannelSectionProps) {
+function ChannelSection({
+  connectionId,
+  label,
+  email,
+  currentChannelId,
+  t,
+}: ChannelSectionProps & { t: (key: string, opts?: { defaultValue?: string }) => string }) {
   const idStr = String(connectionId)
   const isCurrentChannel = currentChannelId === idStr
 
@@ -106,7 +112,7 @@ function ChannelSection({ connectionId, label, email, currentChannelId }: Channe
               to={`/support/inbox/ch/${connectionId}/${v.queue}`}
               className={({ isActive }) => navLinkClass(isActive)}
             >
-              <span>{v.label}</span>
+              <span>{t(v.labelKey, { defaultValue: v.defaultLabel })}</span>
             </NavLink>
           ))}
         </div>
@@ -130,7 +136,7 @@ export default function InboxSidebarNav() {
     <div className="space-y-4">
       <section className="space-y-1">
         <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-          Alle kanalen
+          {t('support.allChannels', { defaultValue: 'All channels' })}
         </p>
         <div className="space-y-0.5">
           {GLOBAL_VIEWS.map((v) => {
@@ -165,7 +171,7 @@ export default function InboxSidebarNav() {
       {!loading && enabledConnections.length > 0 && (
         <section className="space-y-1">
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            Mailboxen
+            {t('support.mailboxes', { defaultValue: 'Mailboxes' })}
           </p>
           <div className="space-y-0.5">
             {enabledConnections.map((conn) => (
@@ -175,6 +181,7 @@ export default function InboxSidebarNav() {
                 label={conn.displayName}
                 email={conn.mailboxEmail}
                 currentChannelId={channelId}
+                t={t}
               />
             ))}
           </div>

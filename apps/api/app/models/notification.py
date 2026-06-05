@@ -44,5 +44,7 @@ class DecisionRequest(SQLModel, table=True):
     chosen_option_id: Optional[str] = None
     source_type: str = Field(default="agent")  # agent | email | system
     source_id: Optional[str] = None
+    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
+    platform_change_id: Optional[uuid.UUID] = Field(default=None, foreign_key="platform_changes.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     resolved_at: Optional[datetime] = None

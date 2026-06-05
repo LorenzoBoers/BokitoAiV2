@@ -216,7 +216,7 @@ function normalizeMessage(row: unknown): EmailMessage | null {
     id,
     connectionId: asNumber(raw.connection_id),
     graphMessageId: asString(raw.graph_message_id),
-    subject: asString(raw.subject, 'Geen onderwerp'),
+    subject: asString(raw.subject, '(No subject)'),
     fromAddress: asString(raw.from_address),
     receivedAt: asNullableString(raw.received_at),
     bodyPreview: asString(raw.body_preview),

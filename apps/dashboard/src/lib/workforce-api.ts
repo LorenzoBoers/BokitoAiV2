@@ -136,7 +136,7 @@ function buildHeaders(token?: string): Record<string, string> {
 
 async function readResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }))
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }))
     throw new Error(err.message || `HTTP ${res.status}`)
   }
   return res.json() as Promise<T>

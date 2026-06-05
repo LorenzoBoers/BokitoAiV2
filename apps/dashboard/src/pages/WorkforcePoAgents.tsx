@@ -80,7 +80,7 @@ export default function WorkforcePoAgents() {
             {poAgents.map((agent) => (
               <li key={agent.id}>
                 <Link
-                  to={`/ai/agents/${agent.id}`}
+                  to={`/os/agents/${agent.id}`}
                   className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-bg-hover/50"
                 >
                   <div className="min-w-0">

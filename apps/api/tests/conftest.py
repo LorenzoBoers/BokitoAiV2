@@ -10,6 +10,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("AGENDA_SCHEDULER_ENABLED", "false")
+os.environ.setdefault("BOKITO_MOCK_EXECUTION", "true")
 
 from app.db.session import get_session  # noqa: E402
 from app.main import app  # noqa: E402
@@ -71,6 +73,16 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             slug="assistant",
             runtime_status="standby",
             system_prompt="Test assistant",
+        )
+    )
+    session_override.add(
+        Agent(
+            tenant_id=tenant.id,
+            name="Test Orchestra",
+            role="orchestra",
+            slug="orchestra",
+            runtime_status="standby",
+            system_prompt="Test orchestra agent",
         )
     )
     session_override.add(

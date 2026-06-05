@@ -1,0 +1,51 @@
+{
+  "title": "Agenda",
+  "subtitle": "Unified calendar for your work, orchestrator wakes, and implementation tasks",
+  "views": {
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "list": "List"
+  },
+  "nav": {
+    "today": "Today",
+    "prev": "Previous",
+    "next": "Next",
+    "calendars": "Calendars",
+    "newCalendar": "New calendar",
+    "connectGoogle": "Connect Google",
+    "connectOutlook": "Connect Outlook",
+    "calendarName": "Calendar name"
+  },
+  "empty": {
+    "noEvents": "No events in this range",
+    "noCalendars": "No calendars"
+  },
+  "event": {
+    "new": "New event",
+    "edit": "Edit event",
+    "title": "Title",
+    "description": "Description",
+    "location": "Location",
+    "calendar": "Calendar",
+    "starts": "Starts",
+    "ends": "Ends",
+    "allDay": "All day",
+    "recurrence": "Recurrence",
+    "recurrenceNone": "Does not repeat",
+    "recurrenceHourly": "Hourly",
+    "recurrenceDaily": "Daily",
+    "recurrenceWeekly": "Weekly",
+    "recurrenceMonthly": "Monthly",
+    "interval": "Every",
+    "until": "Until",
+    "prompt": "Orchestrator prompt",
+    "enabled": "Wake enabled",
+    "runNow": "Run wake now",
+    "save": "Save",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "readOnly": "Read-only (projected from Orchestra)"
+  },
+  "loading": "Loading agenda..."
+}

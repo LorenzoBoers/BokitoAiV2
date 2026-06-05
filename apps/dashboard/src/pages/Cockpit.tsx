@@ -70,21 +70,21 @@ export default function Cockpit() {
       title: 'Conversations (7d)',
       value: formatNumber(summary.volume_week),
       icon: MessageSquare,
-      to: '/support/inbox/mine',
+      to: '/support/inbox/my',
       hint: emptyHint(summary.volume_week > 0, 'Connect a mailbox to start tracking conversations.'),
     },
     {
       title: 'Open decisions',
       value: formatNumber(summary.open_decisions),
       icon: Inbox,
-      to: '/support/inbox/mine?hub=decisions',
+      to: '/support/inbox/my?hub=decisions',
       hint: emptyHint(summary.open_decisions > 0, 'Agent decisions appear here when the assistant needs approval.'),
     },
     {
       title: 'Autonomy rate',
       value: `${formatNumber(summary.autonomy_rate_pct)}%`,
       icon: Gauge,
-      to: '/workforce/overview',
+      to: '/os',
       hint: emptyHint(summary.autonomy_rate_pct > 0, 'Runs and approvals build autonomy metrics over time.'),
     },
     {
@@ -98,7 +98,7 @@ export default function Cockpit() {
       title: 'Time saved (7d)',
       value: `${formatNumber(summary.time_saved_minutes_week)} min`,
       icon: Timer,
-      to: '/workforce/overview',
+      to: '/os',
       hint: emptyHint(summary.time_saved_minutes_week > 0, 'Estimated time saved grows as agents complete work.'),
     },
     {

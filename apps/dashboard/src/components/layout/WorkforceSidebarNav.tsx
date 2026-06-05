@@ -35,7 +35,7 @@ function rowClass(isActive: boolean) {
 }
 
 function isAgentDetailActive(pathname: string, agentId: string): boolean {
-  const prefix = `/ai/agents/${agentId}`
+  const prefix = `/os/agents/${agentId}`
   return pathname === prefix || pathname.startsWith(`${prefix}/`)
 }
 
@@ -93,7 +93,7 @@ function AgentSection({
         ) : (
           <>
             {visibleAgents.map((agent) => {
-              const to = `/ai/agents/${agent.id}`
+              const to = `/os/agents/${agent.id}`
               const isActive = isAgentDetailActive(pathname, agent.id)
               const linkedProject =
                 showProjectHint && projects

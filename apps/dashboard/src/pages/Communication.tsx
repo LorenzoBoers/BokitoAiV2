@@ -108,7 +108,7 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
 export default function Communication() {
   const location = useLocation()
   if (location.pathname === '/messages' || location.pathname === '/communication') {
-    return <Navigate to="/support/inbox/mine?hub=decisions" replace />
+    return <Navigate to="/support/inbox/my?hub=decisions" replace />
   }
   return <InboxCommunication />
 }
@@ -347,7 +347,7 @@ function InboxCommunication() {
     async (id: number, subject?: string) => {
       if (!token) return
       const label = subject?.trim() || `thread #${id}`
-      if (!window.confirm(`Weet je zeker dat je "${label}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) {
+      if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) {
         return
       }
 
@@ -364,7 +364,7 @@ function InboxCommunication() {
         }
         void refreshNavBadges()
       } catch (err) {
-        window.alert(err instanceof Error ? err.message : 'Verwijderen mislukt.')
+        window.alert(err instanceof Error ? err.message : 'Delete failed.')
       } finally {
         setDeletingThreadId(null)
       }

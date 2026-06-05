@@ -71,7 +71,7 @@ export default function ProjectSettings() {
       await projectHubNav?.refresh()
       setShowDeleteDialog(false)
       setDeleteConfirmation('')
-      void navigate('/projects')
+      void navigate('/os')
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : t('project.settings.danger.deleteError'))
     } finally {

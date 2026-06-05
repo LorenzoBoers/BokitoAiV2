@@ -61,9 +61,9 @@ function asRole(value: unknown): MemberRole {
 }
 
 function toDateLabel(value: string | null): string {
-  if (!value) return 'Onbekend'
+  if (!value) return 'Unknown'
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return 'Onbekend'
+  if (Number.isNaN(parsed.getTime())) return 'Unknown'
   return parsed.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -186,7 +186,7 @@ export default function MemberManagement() {
                   id: String(id),
                   email,
                   role: asRole(row.role),
-                  invitedBy: typeof row.invited_by_name === 'string' ? row.invited_by_name : typeof row.invited_by === 'string' ? row.invited_by : 'Onbekend',
+                  invitedBy: typeof row.invited_by_name === 'string' ? row.invited_by_name : typeof row.invited_by === 'string' ? row.invited_by : 'Unknown',
                   invitedAt: typeof row.invited_at === 'string' ? row.invited_at : null,
                 } satisfies Invite
               })
@@ -249,7 +249,7 @@ export default function MemberManagement() {
                 id: String(id),
                 email,
                 role: asRole(row.role),
-                invitedBy: typeof row.invited_by_name === 'string' ? row.invited_by_name : typeof row.invited_by === 'string' ? row.invited_by : 'Onbekend',
+                invitedBy: typeof row.invited_by_name === 'string' ? row.invited_by_name : typeof row.invited_by === 'string' ? row.invited_by : 'Unknown',
                 invitedAt: typeof row.invited_at === 'string' ? row.invited_at : null,
               } satisfies Invite
             })
@@ -420,11 +420,11 @@ export default function MemberManagement() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-sm text-text-muted">Laden...</TableCell>
+                <TableCell colSpan={6} className="text-sm text-text-muted">Loading...</TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-sm text-text-muted">Geen resultaten.</TableCell>
+                <TableCell colSpan={6} className="text-sm text-text-muted">No results.</TableCell>
               </TableRow>
             ) : (
               filteredRows.map((row) => {
@@ -503,12 +503,12 @@ export default function MemberManagement() {
                     <p className="text-sm font-medium text-text-heading">{team.name}</p>
                     <p className="text-xs text-text-muted truncate">
                       {team.memberIds.length === 0
-                        ? 'Geen leden'
-                        : team.memberIds.map((id) => memberNameById[id] ?? 'Onbekend').join(', ')}
+                        ? 'No members'
+                        : team.memberIds.map((id) => memberNameById[id] ?? 'Unknown').join(', ')}
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => removeTeam(team.id)} aria-label="Verwijder team">
+                <Button variant="ghost" size="icon" onClick={() => removeTeam(team.id)} aria-label="Remove team">
                   <Trash2 size={13} />
                 </Button>
               </div>

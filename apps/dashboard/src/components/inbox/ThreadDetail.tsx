@@ -403,13 +403,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   type="button"
                   disabled={saving || deleting}
                   onClick={() => void onDelete()}
-                  aria-label="Verwijderen"
+                  aria-label="Delete"
                   className={`${HEADER_ICON} hover:text-status-error`}
                 >
                   <Trash2 size={14} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Verwijderen</TooltipContent>
+              <TooltipContent side="bottom">Delete</TooltipContent>
             </Tooltip>
           ) : null}
           {onTogglePin ? (
@@ -460,7 +460,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <div ref={contentRef}>
         {groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-xs text-text-muted">
-            <p>Geen berichten in deze thread.</p>
+            <p>No messages in this thread.</p>
             <p className="mt-1 text-[11px] opacity-70">De berichten worden bij de volgende synchronisatie geladen.</p>
           </div>
         ) : (

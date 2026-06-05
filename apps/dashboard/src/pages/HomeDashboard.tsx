@@ -221,7 +221,7 @@ export default function HomeDashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-semibold">{t('home.recentProjects.title')}</CardTitle>
             <Button asChild variant="ghost" size="sm">
-              <Link to="/projects">{t('home.recentProjects.viewAll')}</Link>
+              <Link to="/os">{t('home.recentProjects.viewAll')}</Link>
             </Button>
           </CardHeader>
           <CardContent>

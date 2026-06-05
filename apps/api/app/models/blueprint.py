@@ -9,7 +9,7 @@ class BlueprintDoc(SQLModel, table=True):
     __tablename__ = "blueprint_docs"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True, unique=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     title: str = "Blueprint"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -14,8 +14,8 @@ export default function ForgotPassword() {
     { email },
     {
       email: [
-        ValidationRules.required('E-mailadres'),
-        ValidationRules.email('E-mailadres'),
+        ValidationRules.required('Email'),
+        ValidationRules.email('Email'),
       ],
     }
   );
@@ -61,11 +61,11 @@ export default function ForgotPassword() {
           <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
-              E-mail verzonden!
+              Email sent
             </h1>
             <p className="text-text-secondary mb-6">
-              We hebben een link om je wachtwoord te resetten naar <strong>{email}</strong> gestuurd.
-              Controleer je inbox en spam folder.
+              We sent a password reset link to <strong>{email}</strong>.
+              Check your inbox and spam folder.
             </p>
             
             <Link
@@ -73,12 +73,12 @@ export default function ForgotPassword() {
               className="inline-flex items-center gap-2 text-accent hover:text-accent-hover transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Terug naar inloggen
+              Back to sign in
             </Link>
           </div>
 
           <p className="text-center text-xs text-text-muted mt-6">
-            © {new Date().getFullYear()} Bokito.ai · Alle rechten voorbehouden
+            © {new Date().getFullYear()} Bokito.ai · All rights reserved
           </p>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function ForgotPassword() {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">Wachtwoord vergeten</span>
+          <span className="text-sm text-text-secondary mt-1">Forgot password</span>
         </div>
 
         {/* Card */}
@@ -110,21 +110,21 @@ export default function ForgotPassword() {
           <div className="text-center mb-6">
             <Mail className="w-12 h-12 text-accent mx-auto mb-3" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
-              Wachtwoord resetten
+              Reset password
             </h1>
             <p className="text-sm text-text-secondary">
-              Voer je e-mailadres in en we sturen je een link om je wachtwoord te resetten.
+              Enter your email and we will send you a link to reset your password.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <ValidatedInput
-              label="E-mailadres"
+              label="Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              error={validation.errors.find(e => e.field === 'email')?.message}
-              placeholder="jouw@email.nl"
+              error={validation.errors.find(e => e.fieldSlug === 'email')?.message}
+              placeholder="you@company.com"
               required
               autoFocus
             />
@@ -134,7 +134,7 @@ export default function ForgotPassword() {
               disabled={isLoading || !validation.isValid}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
-              {isLoading ? 'Bezig...' : 'Reset link versturen'}
+              {isLoading ? 'Sending...' : 'Send reset link'}
             </button>
           </form>
 
@@ -144,13 +144,13 @@ export default function ForgotPassword() {
               className="inline-flex items-center gap-2 text-sm text-accent hover:text-accent-hover transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Terug naar inloggen
+              Back to sign in
             </Link>
           </div>
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · Alle rechten voorbehouden
+          © {new Date().getFullYear()} Bokito.ai · All rights reserved
         </p>
       </div>
     </div>

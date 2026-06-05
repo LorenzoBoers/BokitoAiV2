@@ -51,11 +51,11 @@ export default function ThreadList({
       <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
         {threads.length === 0 ? (
           loading ? (
-            <div className="py-8 text-center text-xs text-text-muted">Laden...</div>
+            <div className="py-8 text-center text-xs text-text-muted">Loading...</div>
           ) : error ? (
             <div className="py-4 px-3 text-xs text-status-error">{error}</div>
           ) : (
-            <div className="py-8 text-center text-xs text-text-muted">Geen threads gevonden.</div>
+            <div className="py-8 text-center text-xs text-text-muted">No threads found.</div>
           )
         ) : (
           threads.map((thread) => (

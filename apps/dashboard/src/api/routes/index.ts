@@ -1,3 +1,4 @@
+export { agendaRoutes } from './agenda.routes'
 export { appRoutes } from './app.routes'
 export { authRoutes } from './auth.routes'
 export { integrationsRoutes } from './integrations.routes'

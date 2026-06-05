@@ -43,4 +43,12 @@ export const workforceRoutes = {
     timeline: '/timeline',
     status: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/status`,
   },
+  os: {
+    graph: '/os/graph',
+    projectGraph: (projectId: string) => `/os/graph/${encodeURIComponent(projectId)}`,
+    nodes: '/os/nodes',
+    node: (nodeId: string) => `/os/nodes/${encodeURIComponent(nodeId)}`,
+    edges: '/os/edges',
+    edge: (edgeId: string) => `/os/edges/${encodeURIComponent(edgeId)}`,
+  },
 } as const

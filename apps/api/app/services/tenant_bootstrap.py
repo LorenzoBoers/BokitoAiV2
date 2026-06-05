@@ -124,6 +124,15 @@ def default_tenant_settings() -> dict:
             "anonymous": ["qa"],
             "member": ["qa", "capture", "actions", "handoff"],
         },
+        "platform_apply_modes": {
+            "agent": "draft",
+            "workstream": "draft",
+            "blueprint_block": "draft",
+            "integration": "draft",
+            "mcp_server": "draft",
+            "canvas_node": "yolo",
+            "canvas_edge": "yolo",
+        },
     }
 
 

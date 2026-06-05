@@ -220,7 +220,7 @@ export default function InboxSettings() {
     try {
       const url = await startOAuthConnection(token, connectProvider)
       if (!url.trim()) {
-        setConnectError('Geen authorize-URL ontvangen van de server.')
+        setConnectError('No authorize URL received from the server.')
         return
       }
       window.location.assign(url)
@@ -560,7 +560,7 @@ export default function InboxSettings() {
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-1 min-h-0 mb-4">
                   {folders.length === 0 ? (
-                    <p className="text-xs text-text-muted py-4 text-center">Geen mappen gevonden.</p>
+                    <p className="text-xs text-text-muted py-4 text-center">No folders found.</p>
                   ) : (
                     folders.map((folder) => (
                       <label
