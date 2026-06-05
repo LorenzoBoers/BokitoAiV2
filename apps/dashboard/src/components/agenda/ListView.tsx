@@ -1,4 +1,7 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Plus } from 'lucide-react'
+import { Button } from '../ui/button'
 import { formatTime } from '../../lib/agenda-dates'
 import type { AgendaCalendar, AgendaEvent } from '../../lib/agenda-api'
 
@@ -6,9 +9,11 @@ type ListViewProps = {
   events: AgendaEvent[]
   calendars: AgendaCalendar[]
   onSelectEvent: (event: AgendaEvent) => void
+  onCreateEvent?: () => void
 }
 
-export default function ListView({ events, calendars, onSelectEvent }: ListViewProps) {
+export default function ListView({ events, calendars, onSelectEvent, onCreateEvent }: ListViewProps) {
+  const { t } = useTranslation('agenda')
   const calColor = useMemo(() => new Map(calendars.map((c) => [c.id, c.color])), [calendars])
   const sorted = useMemo(
     () => [...events].sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
@@ -17,9 +22,15 @@ export default function ListView({ events, calendars, onSelectEvent }: ListViewP
 
   if (sorted.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-text-muted" data-testid="agenda-list-empty">
-        No events in this range
-      </p>
+      <div className="flex flex-col items-center gap-3 py-12 text-center" data-testid="agenda-list-empty">
+        <p className="text-sm text-text-muted">{t('empty.noEvents')}</p>
+        {onCreateEvent ? (
+          <Button type="button" size="sm" variant="outline" onClick={onCreateEvent}>
+            <Plus className="mr-1 h-4 w-4" aria-hidden />
+            {t('event.new')}
+          </Button>
+        ) : null}
+      </div>
     )
   }
 

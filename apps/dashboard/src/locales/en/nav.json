@@ -404,7 +404,10 @@
       "viewInConnected": "View in Connected",
       "addAccount": "Add account",
       "comingSoon": "Coming soon",
-      "disconnect": "Disconnect"
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Remove this connection? You can reconnect from the marketplace.",
+      "disconnected": "Connection removed",
+      "disconnectFailed": "Could not disconnect"
     },
     "filters": {
       "all": "All integrations",

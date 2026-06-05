@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Network, ShieldCheck } from 'lucide-react'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { Button } from '../components/ui/button'
@@ -156,6 +157,22 @@ export default function AiAgentDetail() {
                 </Link>
               </div>
             ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to="/os">
+                  <Network size={14} className="mr-1.5" aria-hidden />
+                  {t('workforce.agents.openCanvas', { defaultValue: 'AI OS canvas' })}
+                </Link>
+              </Button>
+              {(agent.role_slug === 'orchestrator' || agent.role_slug === 'po' || agent.role_slug === 'orchestra') ? (
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link to="/govern">
+                    <ShieldCheck size={14} className="mr-1.5" aria-hidden />
+                    {t('workforce.agents.openGovern', { defaultValue: 'Govern' })}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
           </Card>
 
           <div className="space-y-2">

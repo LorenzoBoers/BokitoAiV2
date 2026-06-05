@@ -46,6 +46,7 @@ type AgentSectionProps = {
   loading: boolean
   error: string | null
   emptyLabel: string
+  emptyLink?: { to: string; label: string }
   loadingLabel: string
   pathname: string
   projects?: ProjectRow[]
@@ -61,6 +62,7 @@ function AgentSection({
   loading,
   error,
   emptyLabel,
+  emptyLink,
   loadingLabel,
   pathname,
   projects,
@@ -89,7 +91,14 @@ function AgentSection({
         ) : error ? (
           <p className="px-3 py-1 text-xs text-status-error">{error}</p>
         ) : agents.length === 0 ? (
-          <p className="px-3 py-1 text-xs text-text-muted">{emptyLabel}</p>
+          <div className="px-3 py-1">
+            <p className="text-xs text-text-muted">{emptyLabel}</p>
+            {emptyLink ? (
+              <NavLink to={emptyLink.to} className="mt-1 inline-block text-xs text-accent hover:underline">
+                {emptyLink.label}
+              </NavLink>
+            ) : null}
+          </div>
         ) : (
           <>
             {visibleAgents.map((agent) => {
@@ -238,6 +247,7 @@ export default function WorkforceSidebarNav() {
         loading={loading}
         error={error}
         emptyLabel={t('workforce.agents.empty')}
+        emptyLink={{ to: '/os/agents', label: t('workforce.agents.viewLibrary', { defaultValue: 'Browse agent library' }) }}
         loadingLabel={t('workforce.agents.sidebar.loading')}
         pathname={pathname}
         showAll={showAllWorkers}

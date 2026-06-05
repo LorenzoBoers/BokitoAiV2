@@ -19,8 +19,8 @@ const FILTERS: Array<{
   defaultLabel: string
   icon?: typeof Mail
 }> = [
-  { id: 'all', labelKey: 'listFilters.all', defaultLabel: 'Alles' },
-  { id: 'unread', labelKey: 'listFilters.unread', defaultLabel: 'Ongelezen', icon: Mail },
+  { id: 'all', labelKey: 'listFilters.all', defaultLabel: 'All' },
+  { id: 'unread', labelKey: 'listFilters.unread', defaultLabel: 'Unread', icon: Mail },
   { id: 'pinned', labelKey: 'listFilters.pinned', defaultLabel: 'Pinned', icon: Pin },
 ]
 

@@ -1,0 +1,33 @@
+{
+  "title": "Govern",
+  "subtitle": "Review platform drafts, audit agent self-maintenance, and manage apply modes.",
+  "openCanvas": "Open AI OS canvas",
+  "loading": "Loading govern data...",
+  "refresh": "Refresh",
+  "tabs": {
+    "drafts": "Pending drafts",
+    "policy": "Apply modes",
+    "history": "Version history",
+    "passports": "Agent passports",
+    "audit": "Recent audit"
+  },
+  "drafts": {
+    "empty": "No pending platform changes. Agents can propose edits from the AI OS canvas or workforce tools.",
+    "viewDiff": "View changes",
+    "accept": "Accept",
+    "reject": "Reject",
+    "acceptConfirm": "Apply this change to your workspace?",
+    "accepted": "Change accepted and applied",
+    "rejected": "Change rejected"
+  },
+  "history": {
+    "empty": "No accepted changes yet."
+  },
+  "audit": {
+    "empty": "No audit events yet."
+  },
+  "applyModes": {
+    "intro": "Choose how agent-proposed changes are applied per resource type.",
+    "saved": "Apply mode updated"
+  }
+}

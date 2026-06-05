@@ -60,7 +60,10 @@ export default function AiAgents() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <p className="text-sm text-text-muted">{t('workforce.agents.listDescription')}</p>
+      <header>
+        <h1 className="text-2xl font-semibold text-text-heading">{t('workforce.agents.title', { defaultValue: 'Agent library' })}</h1>
+        <p className="text-sm text-text-muted mt-1">{t('workforce.agents.listDescription')}</p>
+      </header>
 
       {loading ? (
         <LoadingBlock label={t('workforce.agents.loading')} />
@@ -138,7 +141,9 @@ export default function AiAgents() {
           </div>
           <ul>
             {workerAgents.length === 0 ? (
-              <li className="px-4 py-3 text-sm text-text-muted">{t('workforce.agents.empty')}</li>
+              <li className="px-4 py-3 text-sm text-text-muted">
+                {t('workforce.agents.workersEmpty', { defaultValue: 'No worker agents yet. They appear when you add assistants or specialists to projects.' })}
+              </li>
             ) : (
               workerAgents.map((agent) => (
                 <li key={agent.id}>

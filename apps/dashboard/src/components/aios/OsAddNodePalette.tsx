@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -33,6 +35,17 @@ type Props = {
 }
 
 const NODE_TYPES: OsNodeType[] = ['orchestrator', 'workstream', 'repo', 'tool', 'blueprint']
+
+const EMPTY_HINTS: Partial<Record<OsNodeType, { message: string; link?: { to: string; label: string } }>> = {
+  tool: {
+    message: 'Connect an MCP server or integration first, then add it to the canvas.',
+    link: { to: '/integrations/connected', label: 'Open integrations' },
+  },
+  blueprint: {
+    message: 'Blueprint is added automatically when your workspace has blueprint pages.',
+    link: { to: '/os/docs', label: 'Open Blueprint' },
+  },
+}
 
 async function loadEntities(
   nodeType: OsNodeType,
@@ -111,6 +124,7 @@ export default function OsAddNodePalette({
         },
         token,
       )
+      toast.success(t('palette.added', { defaultValue: 'Added to canvas' }))
       onAdded()
       onOpenChange(false)
     } finally {
@@ -145,7 +159,28 @@ export default function OsAddNodePalette({
             {loading ? (
               <p className="text-sm text-text-muted">{t('palette.loading')}</p>
             ) : entities.length === 0 ? (
-              <p className="text-sm text-text-muted">{t('palette.empty')}</p>
+              <div className="space-y-2 rounded-lg border border-dashed border-border/60 p-3">
+                <p className="text-sm text-text-muted">
+                  {EMPTY_HINTS[nodeType]?.message ?? t('palette.empty')}
+                </p>
+                {EMPTY_HINTS[nodeType]?.link ? (
+                  <Link
+                    to={EMPTY_HINTS[nodeType]!.link!.to}
+                    className="text-sm text-accent hover:underline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    {EMPTY_HINTS[nodeType]!.link!.label}
+                  </Link>
+                ) : nodeType === 'workstream' ? (
+                  <Link
+                    to="/projects/new"
+                    className="text-sm text-accent hover:underline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    {t('palette.createProject', { defaultValue: 'Create a project' })}
+                  </Link>
+                ) : null}
+              </div>
             ) : (
               <Select value={refId} onValueChange={setRefId}>
                 <SelectTrigger>

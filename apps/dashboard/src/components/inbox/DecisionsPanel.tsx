@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { RefreshCw } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+import { Button } from '../ui/button'
 import { AutonomousProposalCard } from './AutonomousProposalCard'
 import { RunStatusIndicator } from './RunStatusIndicator'
 import { listMessages, type MessageRow } from '../../lib/messages-api'
@@ -74,9 +76,15 @@ export function DecisionsPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-border/60 px-4 py-3">
-        <h1 className="text-lg font-semibold text-text-primary">Messages</h1>
-        <p className="text-sm text-text-muted">Decisions from your AI team and project updates.</p>
+      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+        <div>
+          <h1 className="text-lg font-semibold text-text-primary">Messages</h1>
+          <p className="text-sm text-text-muted">Decisions from your AI team and project updates.</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+          <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+          Refresh
+        </Button>
       </div>
       <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-4 mt-3">
@@ -88,7 +96,17 @@ export function DecisionsPanel() {
           {loading ? (
             <p className="text-sm text-text-muted">Loading...</p>
           ) : decisions.length === 0 ? (
-            <p className="text-sm text-text-muted">No open decisions right now.</p>
+            <div className="space-y-3 pt-2">
+              <p className="text-sm text-text-muted">No open decisions right now.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link to="/govern">Review platform drafts</Link>
+                </Button>
+                <Button type="button" size="sm" variant="ghost" asChild>
+                  <Link to="/os">Open AI OS canvas</Link>
+                </Button>
+              </div>
+            </div>
           ) : (
             <ul className="space-y-4 pt-2">
               {decisions.map((message) => {

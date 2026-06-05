@@ -10,12 +10,14 @@ import {
 } from 'lucide-react'
 import NodeCard, { type OsNodeKind } from './NodeCard'
 import type { OsCanvasNode, OsNodeType } from '../../lib/os-api'
+import { cn } from '../../lib/utils'
 
 export type OsFlowNodeData = {
   node: OsCanvasNode
   selected: boolean
   onSelect: (node: OsCanvasNode) => void
   pendingDraft?: boolean
+  dimmed?: boolean
 }
 
 const TYPE_META: Record<
@@ -42,11 +44,11 @@ function statusTone(
 
 function OsFlowNodeComponent({ data }: NodeProps) {
   const payload = data as OsFlowNodeData
-  const { node, selected, onSelect, pendingDraft } = payload
+  const { node, selected, onSelect, pendingDraft, dimmed } = payload
   const meta = TYPE_META[node.node_type]
 
   return (
-    <div className="relative">
+    <div className={cn('relative transition-opacity duration-200', dimmed && 'opacity-30')}>
       {pendingDraft ? (
         <span className="absolute -top-2 right-0 z-10 rounded bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
           Draft

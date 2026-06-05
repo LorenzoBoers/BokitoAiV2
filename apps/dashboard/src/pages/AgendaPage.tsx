@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { LoadingBlock } from '../components/ui/loading-block'
@@ -26,6 +27,7 @@ import {
 import type { AgendaEvent, AgendaView } from '../lib/agenda-api'
 import { completeExternalCalendarConnect } from '../lib/agenda-api'
 import { useAuth } from '../context/AuthContext'
+import { cn } from '../lib/utils'
 
 const VIEWS: AgendaView[] = ['month', 'week', 'day', 'list']
 
@@ -73,6 +75,7 @@ export default function AgendaPage() {
     if (provider !== 'google' && provider !== 'outlook') return
     void completeExternalCalendarConnect(provider, token).then(() => {
       refreshCalendars()
+      toast.success(t('nav.calendarConnected', { defaultValue: 'Calendar connected' }))
       const next = new URLSearchParams(searchParams)
       next.delete('oauth_provider')
       next.delete('oauth_status')
@@ -145,6 +148,10 @@ export default function AgendaPage() {
           <Link to="/orchestra" className="text-sm text-accent hover:underline">
             Orchestra
           </Link>
+          <Button type="button" size="sm" variant="outline" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={cn('h-4 w-4 mr-1', loading && 'animate-spin')} aria-hidden />
+            {t('refresh', { defaultValue: 'Refresh' })}
+          </Button>
           <Button type="button" size="sm" onClick={() => openNew()}>
             <Plus size={14} className="mr-1" />
             {t('event.new')}
@@ -180,11 +187,7 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {error ? <ApiErrorBanner message={error} /> : null}
-
-      <div className="flex min-h-0 flex-1 gap-0 lg:hidden">
-        <p className="text-xs text-text-muted">Use the section sidebar for calendars on wide screens.</p>
-      </div>
+      {error ? <ApiErrorBanner message={error} onRetry={handleRefresh} /> : null}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/60 bg-bg">
         {loading ? (
@@ -202,7 +205,7 @@ export default function AgendaPage() {
         ) : view === 'day' ? (
           <DayView anchor={anchor} events={events} calendars={calendars} onSelectEvent={openEvent} />
         ) : (
-          <ListView events={events} calendars={calendars} onSelectEvent={openEvent} />
+          <ListView events={events} calendars={calendars} onSelectEvent={openEvent} onCreateEvent={() => openNew()} />
         )}
       </div>
 

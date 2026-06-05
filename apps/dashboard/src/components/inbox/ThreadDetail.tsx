@@ -54,7 +54,7 @@ type Props = {
 const HEADER_ICON =
   'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
 
-const DAY_FORMATTER = new Intl.DateTimeFormat('nl-NL', {
+const DAY_FORMATTER = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'long',
   year: 'numeric',
@@ -74,8 +74,8 @@ function makeDayLabel(date: Date): string {
   yesterday.setDate(now.getDate() - 1)
   const yesterdayKey = makeDayKey(yesterday)
   const key = makeDayKey(date)
-  if (key === todayKey) return 'Vandaag'
-  if (key === yesterdayKey) return 'Gisteren'
+  if (key === todayKey) return 'Today'
+  if (key === yesterdayKey) return 'Yesterday'
   return DAY_FORMATTER.format(date)
 }
 
@@ -353,7 +353,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   if (!detail) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-text-muted">Selecteer een thread om te bekijken.</p>
+        <p className="text-sm text-text-muted">Select a thread to view.</p>
       </div>
     )
   }

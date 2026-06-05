@@ -8,6 +8,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   type Connection,
   type Edge,
   type Node,
@@ -20,9 +21,13 @@ import {
   ExternalLink,
   FolderGit2,
   GitBranch,
+  LayoutGrid,
+  Maximize2,
   Plug,
+  Plus,
   Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { ApiErrorBanner } from '../components/ui/ApiErrorBanner'
@@ -43,6 +48,7 @@ import {
   type OsCanvasNode,
   type OsEdgeRelation,
 } from '../lib/os-api'
+import { cn } from '../lib/utils'
 
 const nodeTypes: NodeTypes = {
   osNode: OsFlowNode,
@@ -64,11 +70,33 @@ const PIPELINE_LANES = [
   { id: 'govern', label: 'Govern' },
 ] as const
 
+/** Comfortable margin around nodes for fit-view (fraction of viewport). */
+const CANVAS_FIT_VIEW_PADDING = 0.32
+const CANVAS_FIT_VIEW_OPTIONS = { padding: CANVAS_FIT_VIEW_PADDING, duration: 280 } as const
+
 function nodeLane(nodeType: OsCanvasNode['node_type']): string {
   if (nodeType === 'orchestrator' || nodeType === 'workstream') return 'orchestration'
   if (nodeType === 'tool' || nodeType === 'repo') return 'integration'
   if (nodeType === 'blueprint') return 'interpretation'
   return 'orchestration'
+}
+
+function FitViewOnLoad({ nodeCount }: { nodeCount: number }) {
+  const { fitView } = useReactFlow()
+  useEffect(() => {
+    if (nodeCount <= 0) return
+    const timer = window.setTimeout(() => {
+      void fitView(CANVAS_FIT_VIEW_OPTIONS)
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [nodeCount, fitView])
+  return null
+}
+
+const LANE_COLUMNS: Record<string, number> = {
+  interpretation: 0,
+  orchestration: 1,
+  integration: 2,
 }
 
 export default function AiOsCanvas() {
@@ -82,10 +110,12 @@ export default function AiOsCanvas() {
 function AiOsCanvasInner() {
   const { t } = useTranslation('aios')
   const { token } = useAuth()
+  const { fitView } = useReactFlow()
   const { graph, loading, error, degraded, refresh } = useOsGraph()
   const [pendingChanges, setPendingChanges] = useState<PlatformChangeRow[]>([])
   const [selected, setSelected] = useState<OsCanvasNode | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [activeLane, setActiveLane] = useState<string | null>(null)
 
   useEffect(() => {
     listGovernChanges('pending_review')
@@ -118,10 +148,11 @@ function AiOsCanvasInner() {
         selected: selected?.id === node.id,
         onSelect: onSelectNode,
         pendingDraft: pendingRefIds.has(node.ref_id),
+        dimmed: Boolean(activeLane && nodeLane(node.node_type) !== activeLane),
       } satisfies OsFlowNodeData,
       draggable: true,
     }))
-  }, [graph, selected?.id, onSelectNode, pendingRefIds])
+  }, [graph, selected?.id, onSelectNode, pendingRefIds, activeLane])
 
   const flowEdges: Edge[] = useMemo(() => {
     if (!graph) return []
@@ -161,13 +192,49 @@ function AiOsCanvasInner() {
       if (!resolved) return
       try {
         await createCanvasEdge(resolved, token)
+        toast.success(t('actions.connectionCreated', { defaultValue: 'Connection created' }))
         void refresh()
       } catch {
-        // invalid connection silently ignored; API validates
+        toast.error(t('actions.connectionFailed', { defaultValue: 'Could not create that connection' }))
       }
     },
-    [token, graph, degraded, refresh],
+    [token, graph, degraded, refresh, t],
   )
+
+  const handleFitView = useCallback(() => {
+    void fitView(CANVAS_FIT_VIEW_OPTIONS)
+  }, [fitView])
+
+  const handleOrganizeLayout = useCallback(async () => {
+    if (!graph || !token || degraded) return
+    const buckets: Record<string, OsCanvasNode[]> = {}
+    for (const node of graph.nodes) {
+      const lane = nodeLane(node.node_type)
+      if (!buckets[lane]) buckets[lane] = []
+      buckets[lane].push(node)
+    }
+    const colWidth = 260
+    const rowHeight = 132
+    const startX = 48
+    const startY = 48
+    const updates: Promise<unknown>[] = []
+    for (const [lane, colIndex] of Object.entries(LANE_COLUMNS)) {
+      const nodes = buckets[lane] ?? []
+      nodes.forEach((node, idx) => {
+        updates.push(
+          patchCanvasNode(
+            node.id,
+            { x: startX + colIndex * colWidth, y: startY + idx * rowHeight },
+            token,
+          ),
+        )
+      })
+    }
+    await Promise.all(updates)
+    toast.success(t('actions.layoutOrganized', { defaultValue: 'Canvas layout organized' }))
+    void refresh()
+    window.setTimeout(() => void fitView(CANVAS_FIT_VIEW_OPTIONS), 120)
+  }, [graph, token, degraded, refresh, fitView, t])
 
   const panel = useMemo<NodeDetailPanelProps | null>(() => {
     if (!selected || !graph) return null
@@ -196,7 +263,17 @@ function AiOsCanvasInner() {
       icon: Trash2,
       onClick: async () => {
         if (!token) return
+        if (
+          !window.confirm(
+            t('panel.removeConfirm', {
+              defaultValue: 'Remove this node from the canvas? The underlying item is not deleted.',
+            }),
+          )
+        ) {
+          return
+        }
         await deleteCanvasNode(selected.id, token)
+        toast.success(t('panel.removedFromCanvas', { defaultValue: 'Removed from canvas' }))
         close()
         void refresh()
       },
@@ -316,7 +393,7 @@ function AiOsCanvasInner() {
   }, [selected, graph, token, refresh, t])
 
   return (
-    <PageContent width="full" className="relative flex min-h-0 flex-1 flex-col gap-4">
+    <PageContent width="full" className="relative flex h-full min-h-0 flex-1 flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-text-heading">{t('title')}</h1>
@@ -324,6 +401,20 @@ function AiOsCanvasInner() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <OsAddNodeTrigger onClick={() => setPaletteOpen(true)} />
+          <Button type="button" variant="outline" size="sm" onClick={handleFitView} disabled={!graph?.nodes.length}>
+            <Maximize2 size={14} className="mr-1.5" aria-hidden />
+            {t('actions.fitView', { defaultValue: 'Fit view' })}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleOrganizeLayout()}
+            disabled={!graph?.nodes.length || degraded}
+          >
+            <LayoutGrid size={14} className="mr-1.5" aria-hidden />
+            {t('actions.organizeLayout', { defaultValue: 'Organize' })}
+          </Button>
           <Button type="button" variant="outline" size="sm" asChild>
             <Link to="/os/communication">{t('nodes.communication')}</Link>
           </Button>
@@ -352,24 +443,43 @@ function AiOsCanvasInner() {
         <LoadingBlock label={t('loading')} />
       ) : (
         <div
-          className="aios-canvas-shell min-h-[560px] flex-1"
+          className="aios-canvas-shell min-h-0 flex-1"
           data-testid="os-workspace-canvas"
         >
-          <div className="aios-pipeline-lanes mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            {PIPELINE_LANES.map((lane) => (
-              <div
+          <div className="aios-pipeline-lanes mb-1 grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {PIPELINE_LANES.map((lane) => {
+              const count = graph?.nodes.filter((n) => nodeLane(n.node_type) === lane.id).length ?? 0
+              const isActive = activeLane === lane.id
+              return (
+              <button
                 key={lane.id}
-                className="rounded-lg border border-border/60 bg-bg-surface/40 px-2 py-1.5 text-center"
+                type="button"
+                onClick={() => setActiveLane(isActive ? null : lane.id)}
+                className={cn(
+                  'rounded-lg border px-2 py-1.5 text-center transition-colors',
+                  isActive
+                    ? 'border-accent/50 bg-accent/10'
+                    : 'border-border/60 bg-bg-surface/40 hover:border-border hover:bg-bg-hover/40',
+                )}
               >
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{lane.label}</p>
-                <p className="text-xs text-text-heading">
-                  {graph?.nodes.filter((n) => nodeLane(n.node_type) === lane.id).length ?? 0}
-                </p>
-              </div>
-            ))}
+                <p className="text-xs text-text-heading">{count}</p>
+              </button>
+            )})}
           </div>
-          <p className="aios-canvas-hint">{t('flowHint')}</p>
-          <div className="aios-canvas-stage h-[min(72vh,720px)]">
+          <p className="mb-2 shrink-0 text-[11px] text-text-muted">
+            {t('pipelineFilterHint', { defaultValue: 'Click a lane to highlight matching nodes. Click again to show all.' })}
+          </p>
+          <div className="aios-canvas-stage min-h-0 flex-1">
+            {graph?.nodes.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <p className="text-sm text-text-muted">{t('emptyCanvas', { defaultValue: 'No nodes on the canvas yet.' })}</p>
+                <Button type="button" size="sm" onClick={() => setPaletteOpen(true)}>
+                  <Plus size={14} className="mr-1.5" aria-hidden />
+                  {t('palette.addNode')}
+                </Button>
+              </div>
+            ) : (
             <ReactFlow
               nodes={flowNodes}
               edges={flowEdges}
@@ -377,12 +487,14 @@ function AiOsCanvasInner() {
               onNodeDragStop={onNodeDragStop}
               onConnect={onConnect}
               fitView
-              fitViewOptions={{ padding: 0.2 }}
-              minZoom={0.3}
+              fitViewOptions={{ padding: CANVAS_FIT_VIEW_PADDING }}
+              minZoom={0.25}
               maxZoom={1.5}
               proOptions={{ hideAttribution: true }}
               className="aios-flow-canvas rounded-xl"
+              style={{ width: '100%', height: '100%' }}
             >
+              <FitViewOnLoad nodeCount={flowNodes.length} />
               <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(148,163,184,0.12)" />
               <Controls showInteractive={false} className="!border-border/50 !bg-bg-surface/90" />
               <MiniMap
@@ -391,6 +503,12 @@ function AiOsCanvasInner() {
                 maskColor="rgba(0,0,0,0.55)"
               />
             </ReactFlow>
+            )}
+            {graph && graph.nodes.length > 0 ? (
+            <p className="pointer-events-none absolute bottom-3 left-1/2 z-10 max-w-lg -translate-x-1/2 rounded-full border border-border/50 bg-bg-surface/90 px-3 py-1 text-center text-[11px] text-text-muted backdrop-blur-sm">
+              {t('flowHint')}
+            </p>
+            ) : null}
           </div>
         </div>
       )}

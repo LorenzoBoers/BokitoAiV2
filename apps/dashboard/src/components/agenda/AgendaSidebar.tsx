@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAgendaCalendars } from '../../hooks/useAgendaCalendars'
 import {
   completeExternalCalendarConnect,
@@ -81,7 +82,10 @@ export default function AgendaSidebar({ onVisibilityChange }: AgendaSidebarProps
     try {
       await createCalendar(newName.trim(), token)
       setNewName('')
+      toast.success(t('nav.calendarCreated', { defaultValue: 'Calendar created' }))
       await refresh()
+    } catch {
+      toast.error(t('nav.calendarCreateFailed', { defaultValue: 'Could not create calendar' }))
     } finally {
       setBusy(false)
     }

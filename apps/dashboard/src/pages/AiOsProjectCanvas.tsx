@@ -391,9 +391,14 @@ export default function AiOsProjectCanvas() {
           </div>
         </div>
         {projectId ? (
-          <Button type="button" variant="outline" size="sm" asChild>
-            <Link to={overviewHref}>{t('actions.openOverview')}</Link>
-          </Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
+              {t('actions.refresh')}
+            </Button>
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link to={overviewHref}>{t('actions.openOverview')}</Link>
+            </Button>
+          </div>
         ) : null}
       </header>
 

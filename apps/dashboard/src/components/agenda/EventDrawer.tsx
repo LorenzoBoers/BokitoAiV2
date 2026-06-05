@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import {
   createEvent,
   deleteEvent,
@@ -132,11 +133,15 @@ export default function EventDrawer({
       }
       if (isNew) {
         await createEvent(body, token)
+        toast.success(t('event.saved', { defaultValue: 'Event created' }))
       } else if (masterId && !masterId.startsWith('implementation:')) {
         await patchEvent(masterId, body, token)
+        toast.success(t('event.updated', { defaultValue: 'Event updated' }))
       }
       onSaved()
       onOpenChange(false)
+    } catch {
+      toast.error(t('event.saveFailed', { defaultValue: 'Could not save event' }))
     } finally {
       setBusy(false)
     }
@@ -144,11 +149,15 @@ export default function EventDrawer({
 
   const handleDelete = async () => {
     if (!token || !masterId || readOnly || isNew) return
+    if (!window.confirm(t('event.deleteConfirm', { defaultValue: 'Delete this event?' }))) return
     setBusy(true)
     try {
       await deleteEvent(masterId, token)
+      toast.success(t('event.deleted', { defaultValue: 'Event deleted' }))
       onSaved()
       onOpenChange(false)
+    } catch {
+      toast.error(t('event.deleteFailed', { defaultValue: 'Could not delete event' }))
     } finally {
       setBusy(false)
     }
@@ -159,7 +168,10 @@ export default function EventDrawer({
     setBusy(true)
     try {
       await runOrchestratorEvent(masterId, token)
+      toast.success(t('event.runStarted', { defaultValue: 'Orchestrator wake started' }))
       onSaved()
+    } catch {
+      toast.error(t('event.runFailed', { defaultValue: 'Could not run wake' }))
     } finally {
       setBusy(false)
     }

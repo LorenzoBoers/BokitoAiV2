@@ -15,8 +15,12 @@
     "newCalendar": "New calendar",
     "connectGoogle": "Connect Google",
     "connectOutlook": "Connect Outlook",
-    "calendarName": "Calendar name"
+    "calendarName": "Calendar name",
+    "calendarCreated": "Calendar created",
+    "calendarCreateFailed": "Could not create calendar",
+    "calendarConnected": "Calendar connected"
   },
+  "refresh": "Refresh",
   "empty": {
     "noEvents": "No events in this range",
     "noCalendars": "No calendars"
@@ -45,7 +49,15 @@
     "save": "Save",
     "delete": "Delete",
     "cancel": "Cancel",
-    "readOnly": "Read-only (projected from Orchestra)"
+    "readOnly": "Read-only (projected from Orchestra)",
+    "saved": "Event created",
+    "updated": "Event updated",
+    "deleted": "Event deleted",
+    "saveFailed": "Could not save event",
+    "deleteConfirm": "Delete this event?",
+    "deleteFailed": "Could not delete event",
+    "runStarted": "Orchestrator wake started",
+    "runFailed": "Could not run wake"
   },
   "loading": "Loading agenda..."
 }

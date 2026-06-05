@@ -9,6 +9,7 @@ import communicationEn from '../locales/en/communication.json'
 import workspacesEn from '../locales/en/workspaces.json'
 import agendaEn from '../locales/en/agenda.json'
 import aiosEn from '../locales/en/aios.json'
+import governEn from '../locales/en/govern.json'
 import commonNl from '../locales/nl/common.json'
 import navNl from '../locales/nl/nav.json'
 import profileNl from '../locales/nl/profile.json'
@@ -26,6 +27,7 @@ const resources = {
     workspaces: workspacesEn,
     agenda: agendaEn,
     aios: aiosEn,
+    govern: governEn,
   },
   nl: {
     common: commonNl,
@@ -45,7 +47,7 @@ i18n
     fallbackLng: 'en',
     supportedLngs: ['en', 'nl'],
     defaultNS: 'common',
-    ns: ['common', 'nav', 'profile', 'workspace', 'communication', 'workspaces', 'agenda', 'aios'],
+    ns: ['common', 'nav', 'profile', 'workspace', 'communication', 'workspaces', 'agenda', 'aios', 'govern'],
     interpolation: {
       escapeValue: false,
     },

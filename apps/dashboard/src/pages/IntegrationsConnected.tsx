@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Link2, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
@@ -110,6 +111,40 @@ export default function IntegrationsConnected() {
     const returnUrl = `${window.location.origin}/integrations/connected`
     const { authorize_url } = await startGithubOAuth(returnUrl)
     window.location.href = authorize_url
+  }
+
+  const handleDisconnectGithub = async (connectionId: string) => {
+    if (
+      !window.confirm(
+        t('integrations.actions.disconnectConfirm', { defaultValue: 'Disconnect this account?' }),
+      )
+    ) {
+      return
+    }
+    try {
+      await revokeIntegrationConnection(connectionId)
+      toast.success(t('integrations.actions.disconnected', { defaultValue: 'Connection removed' }))
+      await refresh()
+    } catch {
+      toast.error(t('integrations.actions.disconnectFailed', { defaultValue: 'Could not disconnect' }))
+    }
+  }
+
+  const handleDisconnectMcp = async (connectionId: string) => {
+    if (
+      !window.confirm(
+        t('integrations.actions.disconnectConfirm', { defaultValue: 'Disconnect this server?' }),
+      )
+    ) {
+      return
+    }
+    try {
+      await revokeMcpConnection(connectionId)
+      toast.success(t('integrations.actions.disconnected', { defaultValue: 'Connection removed' }))
+      await refresh()
+    } catch {
+      toast.error(t('integrations.actions.disconnectFailed', { defaultValue: 'Could not disconnect' }))
+    }
   }
 
   return (
@@ -273,7 +308,7 @@ export default function IntegrationsConnected() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => void revokeIntegrationConnection(c.id).then(refresh)}
+                        onClick={() => void handleDisconnectGithub(c.id)}
                       >
                         {t('integrations.actions.disconnect')}
                       </Button>
@@ -334,7 +369,7 @@ export default function IntegrationsConnected() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => void revokeMcpConnection(row.id).then(refresh)}
+                        onClick={() => void handleDisconnectMcp(row.id)}
                       >
                         {t('integrations.actions.disconnect')}
                       </Button>

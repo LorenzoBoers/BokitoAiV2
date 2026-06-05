@@ -42,7 +42,13 @@
   "actions": {
     "newProject": "New project",
     "retry": "Retry",
-    "openOverview": "Open workstreams"
+    "refresh": "Refresh",
+    "openOverview": "Open workstreams",
+    "fitView": "Fit view",
+    "organizeLayout": "Organize",
+    "layoutOrganized": "Canvas layout organized",
+    "connectionCreated": "Connection created",
+    "connectionFailed": "Could not create that connection"
   },
   "palette": {
     "addNode": "Add node",
@@ -51,7 +57,9 @@
     "entity": "Link existing",
     "loading": "Loading...",
     "empty": "No available items of this type, or all are already on the canvas.",
-    "add": "Add to canvas"
+    "add": "Add to canvas",
+    "added": "Added to canvas",
+    "createProject": "Create a project"
   },
   "panel": {
     "orchestra": {
@@ -90,6 +98,8 @@
     "connections": "Connections",
     "connectionsEmpty": "No connections yet. Draw a line between node handles to link them.",
     "removeFromCanvas": "Remove from canvas",
+    "removeConfirm": "Remove this node from the canvas? The underlying item is not deleted.",
+    "removedFromCanvas": "Removed from canvas",
     "workstream": {
       "desc": "A workstream is a repeatable flow of agent steps for this project.",
       "open": "Open workstream"
@@ -118,6 +128,7 @@
     }
   },
   "emptyProjects": "No projects yet. Create one to add it to the map.",
+  "emptyCanvas": "No nodes on the canvas yet. Add orchestrators, workstreams, sources, or tools to get started.",
   "loading": "Loading AI OS canvas...",
   "backToWorkspace": "Back to workspace",
   "projectCanvas": "Project backbone"

@@ -230,10 +230,6 @@ export const getAiOsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
         label: t('aiOs.links.docs', { defaultValue: 'Blueprint' }),
         to: '/os/docs',
       },
-      {
-        label: t('aiOs.links.govern', { defaultValue: 'Govern' }),
-        to: '/govern',
-      },
     ],
   },
   {

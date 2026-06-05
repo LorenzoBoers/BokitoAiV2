@@ -27,6 +27,8 @@ import { formatWorkLogSubject } from '../lib/work-log-labels'
 import { displayNameOrFallback, humanizeSnakeCase, looksLikeUuid } from '../lib/display-name'
 import { repoStatusLabelKey, repoStatusVariant } from '../lib/repo-status'
 import { Badge } from '../components/ui/badge'
+import { isBokitoMode } from '../lib/bokito-mode'
+import { Network, ShieldCheck } from 'lucide-react'
 
 function formatWhen(value?: string | number | null): string {
   if (value == null || value === '' || value === 0) return '-'
@@ -189,7 +191,7 @@ export default function HomeDashboard() {
     <PageContent width="xl" className="space-y-6">
       <p className="text-sm text-text-muted">{t('home.description')}</p>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Button asChild variant="secondary" size="sm" className="h-auto justify-start gap-2 py-3">
           <Link to="/projects/new">
             <Plus size={16} />
@@ -214,6 +216,22 @@ export default function HomeDashboard() {
             {t('home.quick.assistent')}
           </Link>
         </Button>
+        {isBokitoMode() ? (
+          <>
+            <Button asChild variant="secondary" size="sm" className="h-auto justify-start gap-2 py-3">
+              <Link to="/os">
+                <Network size={16} />
+                {t('home.quick.aiOs', { defaultValue: 'AI OS canvas' })}
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm" className="h-auto justify-start gap-2 py-3">
+              <Link to="/govern">
+                <ShieldCheck size={16} />
+                {t('home.quick.govern', { defaultValue: 'Govern' })}
+              </Link>
+            </Button>
+          </>
+        ) : null}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
