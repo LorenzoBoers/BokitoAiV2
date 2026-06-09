@@ -48,7 +48,7 @@ export default function TableSettingsDropdown({ table }: { table: CustomTable })
               <Input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setEditing(false)}>Annuleren</Button>
-                <Button type="submit">Opslaan</Button>
+                <Button type="submit">Save</Button>
               </div>
             </form>
           </CardContent>
@@ -115,7 +115,7 @@ export default function TableSettingsDropdown({ table }: { table: CustomTable })
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-status-error hover:bg-status-error/10"
                 onClick={() => { setOpen(false); setConfirmDelete(true) }}
               >
-                <Trash2 size={12} /> Verwijderen
+                <Trash2 size={12} /> Delete
               </button>
             )}
           </div>

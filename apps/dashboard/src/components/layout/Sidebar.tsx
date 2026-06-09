@@ -111,7 +111,11 @@ export default function Sidebar() {
       )
     }
     if (path === '/messages') {
-      return location.pathname === '/messages' || location.pathname === '/communication'
+      return (
+        location.pathname === '/messages' ||
+        location.pathname === '/communication' ||
+        location.pathname.startsWith('/support/inbox')
+      )
     }
     if (path === '/users/attributes') {
       return location.pathname.startsWith('/users')

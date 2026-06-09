@@ -849,7 +849,7 @@ export default function GridView({ semanticSearchResults }: { semanticSearchResu
             {semanticSearchResults && semanticSearchResults.length === 0 && (
               <tr>
                 <td colSpan={fields.length + 5} className="py-6 text-center text-text-muted text-xs">
-                  Geen zoekresultaten gevonden voor je zoekopdracht.
+                  No search results found for your query.
                 </td>
               </tr>
             )}
@@ -920,12 +920,12 @@ export default function GridView({ semanticSearchResults }: { semanticSearchResu
                 {bulkDeleting ? (
                   <>
                     <Loader2 size={12} className="animate-spin" />
-                    Verwijderen...
+                    Deleting...
                   </>
                 ) : (
                   <>
                     <Trash2 size={12} />
-                    {isTrashMode ? 'Permanent verwijder' : 'Verwijder'}
+                    {isTrashMode ? 'Delete permanently' : 'Delete'}
                   </>
                 )}
               </Button>
@@ -1070,14 +1070,14 @@ function FieldSettingsDialog({
                 onClick={() => setConfirmDelete(true)}
                 disabled={saving || deleting}
               >
-                {deleting ? 'Verwijderen...' : 'Verwijderen'}
+                {deleting ? 'Deleting...' : 'Delete'}
               </Button>
               <div className="flex items-center gap-2">
                 <Button type="button" variant="ghost" onClick={onClose} disabled={saving || deleting}>
                   Annuleren
                 </Button>
                 <Button type="submit" disabled={saving || deleting || !name.trim()}>
-                  {saving ? 'Opslaan...' : 'Opslaan'}
+                  {saving ? 'Saving...' : 'Save'}
                 </Button>
               </div>
             </div>
@@ -1129,7 +1129,7 @@ function FieldSettingsDialog({
             }}
           >
             <Trash2 size={12} />
-            Verwijderen
+            Delete
           </button>
         </div>
       )}

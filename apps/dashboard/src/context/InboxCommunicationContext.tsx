@@ -13,7 +13,7 @@ type InboxCommunicationContextValue = {
 const InboxCommunicationContext = createContext<InboxCommunicationContextValue | null>(null)
 
 export function isInboxCommunicationRoute(pathname: string): boolean {
-  return pathname.startsWith('/support/inbox/')
+  return pathname.startsWith('/messages/') || pathname.startsWith('/support/inbox/')
 }
 
 export function InboxCommunicationProvider({ children }: { children: ReactNode }) {

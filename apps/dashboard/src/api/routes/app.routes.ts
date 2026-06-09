@@ -1,3 +1,5 @@
+import { withQuery } from '../url'
+
 /**
  * Relative paths on the app API group base (`APP_API_BASE`).
  * Reconstructed from `origin/master` string literals in workspace, backlog, custom-db, and projects.
@@ -59,5 +61,33 @@ export const appRoutes = {
   },
   workspaceUsers: {
     list: '/workspace-users',
+  },
+  signals: {
+    threadsQuery: (params: URLSearchParams) => withQuery('/signals', params),
+    thread: (threadId: string) => `/signals/${threadId}`,
+    threadDelete: (threadId: string) => `/signals/${threadId}`,
+    threadMarkRead: (threadId: string) => `/signals/${threadId}/mark-read`,
+    threadMarkUnread: (threadId: string) => `/signals/${threadId}/mark-unread`,
+    threadPin: (threadId: string) => `/signals/${threadId}/pin`,
+    threadReply: (threadId: string) => `/signals/${threadId}/reply`,
+    threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
+    messageResolve: (threadId: string, messageId: string) =>
+      `/signals/${threadId}/messages/${messageId}/resolve`,
+    pins: '/signals/pins',
+    members: '/signals/members',
+    syncStatus: '/signals/sync-status',
+  },
+  orchestration: {
+    runtimeProfiles: '/orchestration/runtime-profiles',
+    tasks: '/orchestration/tasks',
+    task: (id: string) => `/orchestration/tasks/${id}`,
+    taskCancel: (id: string) => `/orchestration/tasks/${id}/cancel`,
+    taskResume: (id: string) => `/orchestration/tasks/${id}/resume`,
+    taskArtifacts: (id: string) => `/orchestration/tasks/${id}/artifacts`,
+    workstreamRun: (id: string) => `/orchestration/workstreams/${id}/run`,
+    workstreamSteps: (id: string) => `/orchestration/workstreams/${id}/steps`,
+    runEvents: (runId: string) => `/orchestration/runs/${runId}/events`,
+    runEventsStream: (runId: string) => `/orchestration/runs/${runId}/events/stream`,
+    automationTemplates: '/orchestration/automation-templates',
   },
 } as const

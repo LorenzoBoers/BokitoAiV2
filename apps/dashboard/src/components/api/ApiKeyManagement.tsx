@@ -181,7 +181,7 @@ function DeleteKeyDialog({ apiKey, open, onOpenChange }: DeleteKeyDialogProps) {
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-text-secondary">
-            Weet je zeker dat je de API sleutel "{apiKey.name}" wilt intrekken?
+            Are you sure you want to revoke the API key "{apiKey.name}"?
             Deze actie kan niet ongedaan worden gemaakt.
           </p>
           <div className="flex justify-end space-x-2">
@@ -251,7 +251,7 @@ export default function ApiKeyManagement() {
           <div className="w-12 h-12 mx-auto mb-4 bg-bg-subtle rounded-lg flex items-center justify-center">
             <Plus size={24} className="text-text-muted" />
           </div>
-          <h3 className="text-lg font-medium text-text-heading mb-2">Geen API sleutels</h3>
+          <h3 className="text-lg font-medium text-text-heading mb-2">No API keys</h3>
           <p className="text-text-secondary mb-4">
             Maak je eerste API sleutel aan om toegang te krijgen tot de API
           </p>

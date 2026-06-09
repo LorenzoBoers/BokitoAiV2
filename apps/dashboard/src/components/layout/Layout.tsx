@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { NavBadgeProvider } from '../../context/NavBadgeContext'
+import { AgendaCalendarProvider } from '../../context/AgendaCalendarContext'
 import { InboxCommunicationProvider } from '../../context/InboxCommunicationContext'
 import { ProjectHubNavProvider, isProjectHubRoute } from '../../context/ProjectHubNavContext'
 import { WorkspaceDocNavProvider } from '../../context/WorkspaceDocNavContext'
@@ -28,12 +29,21 @@ function MaybeProjectHubNav({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+function MaybeAgendaCalendar({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  if (pathname === '/agenda' || pathname.startsWith('/agenda/')) {
+    return <AgendaCalendarProvider>{children}</AgendaCalendarProvider>
+  }
+  return <>{children}</>
+}
+
 export default function Layout() {
   return (
     <NavBadgeProvider>
       <InboxCommunicationProvider>
       <MaybeProjectHubNav>
         <MaybeWorkspaceDocs>
+        <MaybeAgendaCalendar>
         <div className="flex h-screen gap-3 bg-bg p-3">
           <Sidebar />
           <div className="flex-1 min-w-0">
@@ -48,6 +58,7 @@ export default function Layout() {
             </div>
           </div>
         </div>
+        </MaybeAgendaCalendar>
         </MaybeWorkspaceDocs>
       </MaybeProjectHubNav>
       </InboxCommunicationProvider>

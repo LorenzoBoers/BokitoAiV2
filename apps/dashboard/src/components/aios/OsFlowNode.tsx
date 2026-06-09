@@ -18,6 +18,7 @@ export type OsFlowNodeData = {
   onSelect: (node: OsCanvasNode) => void
   pendingDraft?: boolean
   dimmed?: boolean
+  focusActive?: boolean
 }
 
 const TYPE_META: Record<
@@ -44,11 +45,17 @@ function statusTone(
 
 function OsFlowNodeComponent({ data }: NodeProps) {
   const payload = data as OsFlowNodeData
-  const { node, selected, onSelect, pendingDraft, dimmed } = payload
+  const { node, selected, onSelect, pendingDraft, dimmed, focusActive } = payload
   const meta = TYPE_META[node.node_type]
 
   return (
-    <div className={cn('relative transition-opacity duration-200', dimmed && 'opacity-30')}>
+    <div
+      className={cn(
+        'relative transition-all duration-200 ease-out',
+        dimmed && (focusActive ? 'opacity-[0.16]' : 'opacity-30'),
+        selected && focusActive && 'z-10 scale-[1.02]',
+      )}
+    >
       {pendingDraft ? (
         <span className="absolute -top-2 right-0 z-10 rounded bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
           Draft
@@ -65,7 +72,9 @@ function OsFlowNodeComponent({ data }: NodeProps) {
         icon={meta.icon}
         accentColor={meta.accent}
         onClick={() => onSelect(node)}
-        className={selected ? 'ring-2 ring-accent/50' : undefined}
+        className={cn(
+          selected && (focusActive ? 'ring-2 ring-accent shadow-lg shadow-accent/20' : 'ring-2 ring-accent/50'),
+        )}
         data-testid={`os-flow-node-${node.id}`}
       />
       <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !border-accent/40 !bg-accent/30" />

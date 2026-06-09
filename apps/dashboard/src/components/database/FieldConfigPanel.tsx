@@ -45,7 +45,7 @@ function DefaultValueEditor({ value, onChange, fieldType }: {
       <Input
         value={value as string ?? ''}
         onChange={(e) => onChange(e.target.value || undefined)}
-        placeholder="Geen standaardwaarde"
+        placeholder="No default value"
         className="text-xs"
       />
     </div>

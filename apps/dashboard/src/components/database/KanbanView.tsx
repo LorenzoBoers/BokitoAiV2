@@ -57,7 +57,7 @@ export default function KanbanView() {
 
     const result = opts.map((o) => ({ ...o, records: buckets.get(o.value)! }))
     if (uncategorized.length > 0) {
-      result.push({ value: '__none__', label: 'Geen status', color: '#64748b', records: uncategorized })
+      result.push({ value: '__none__', label: 'No status', color: '#64748b', records: uncategorized })
     }
     return result
   }, [groupField, filteredRecords])

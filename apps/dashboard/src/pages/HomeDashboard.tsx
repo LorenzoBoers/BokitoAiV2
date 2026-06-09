@@ -27,6 +27,7 @@ import { formatWorkLogSubject } from '../lib/work-log-labels'
 import { displayNameOrFallback, humanizeSnakeCase, looksLikeUuid } from '../lib/display-name'
 import { repoStatusLabelKey, repoStatusVariant } from '../lib/repo-status'
 import { Badge } from '../components/ui/badge'
+import { messagesHubPath } from '../components/layout/portal-nav'
 import { isBokitoMode } from '../lib/bokito-mode'
 import { Network, ShieldCheck } from 'lucide-react'
 
@@ -189,7 +190,14 @@ export default function HomeDashboard() {
 
   return (
     <PageContent width="xl" className="space-y-6">
-      <p className="text-sm text-text-muted">{t('home.description')}</p>
+      {isBokitoMode() ? (
+        <header className="space-y-1">
+          <h1 className="text-2xl font-semibold text-text-heading">{t('home.headline')}</h1>
+          <p className="text-sm text-text-muted max-w-3xl">{t('home.tagline')}</p>
+        </header>
+      ) : (
+        <p className="text-sm text-text-muted">{t('home.description')}</p>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Button asChild variant="secondary" size="sm" className="h-auto justify-start gap-2 py-3">
@@ -199,7 +207,7 @@ export default function HomeDashboard() {
           </Link>
         </Button>
         <Button asChild variant="secondary" size="sm" className="h-auto justify-start gap-2 py-3">
-          <Link to="/support/inbox/all">
+          <Link to={messagesHubPath({ folder: 'external', queue: 'all' })}>
             <Inbox size={16} />
             {t('home.quick.openInbox')}
           </Link>
@@ -290,19 +298,19 @@ export default function HomeDashboard() {
           <CardContent className="space-y-2">
             <p className="text-sm text-text-muted">{t('home.inbox.description')}</p>
             <Button asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
-              <Link to="/support/inbox/unassigned">
+              <Link to={messagesHubPath({ folder: 'external', queue: 'unassigned' })}>
                 <MessageSquare size={14} />
                 {t('support.links.unassigned')}
               </Link>
             </Button>
             <Button asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
-              <Link to="/support/inbox/my">
+              <Link to={messagesHubPath({ folder: 'external', queue: 'my' })}>
                 <Inbox size={14} />
                 {t('support.links.myInbox')}
               </Link>
             </Button>
             <Button asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
-              <Link to="/support/inbox/all">
+              <Link to={messagesHubPath({ folder: 'external', queue: 'all' })}>
                 <MessageSquare size={14} />
                 {t('support.links.allMessages')}
               </Link>

@@ -43,7 +43,8 @@ export default function AgendaPage() {
   const navigate = useNavigate()
   const { token } = useAuth()
   const view = normalizeView(viewParam)
-  const anchor = parseAgendaDate(searchParams.get('date'))
+  const dateParam = searchParams.get('date')
+  const anchor = useMemo(() => parseAgendaDate(dateParam), [dateParam])
 
   const { calendars, refresh: refreshCalendars } = useAgendaCalendars()
   const [visibilityTick, setVisibilityTick] = useState(0)

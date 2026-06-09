@@ -8,8 +8,8 @@ export type OAuthProviderConfig = {
 }
 
 export const OAUTH_PROVIDERS: OAuthProviderConfig[] = [
-  { id: 'outlook', connectLabel: 'Outlook koppelen' },
-  { id: 'gmail', connectLabel: 'Gmail koppelen' },
+  { id: 'outlook', connectLabel: 'Connect Outlook' },
+  { id: 'gmail', connectLabel: 'Connect Gmail' },
 ]
 
 export const PROVIDER_LABEL: Record<Provider, string> = {
@@ -86,44 +86,44 @@ export function logOAuthRedirectDebugInDev(searchParams: URLSearchParams, callba
   )
 }
 
-/** Short user-facing Dutch text for OAuth redirect errors. Show `result.detail` separately (e.g. in `OauthRedirectAlert`). */
+/** Short user-facing text for OAuth redirect errors. Show `result.detail` separately (e.g. in `OauthRedirectAlert`). */
 export function describeOAuthCallbackSummary(result: OAuthCallbackResult): string {
   const code = result.error ?? ''
-  const who = result.provider ? providerFriendlyName(result.provider) : 'De provider'
+  const who = result.provider ? providerFriendlyName(result.provider) : 'The provider'
 
   if (code === 'token_exchange') {
-    return `${who} weigerde de token-stap na autorisatie. Meestal: redirect-URI in de identity-provider-app en in Xano staat niet exact op dezelfde waarde, of het client secret is onjuist of verlopen.`
+    return `${who} rejected the token step after authorization. Usually: redirect URI in the identity provider app and in Xano do not match exactly, or the client secret is wrong or expired.`
   }
 
   const byCode: Record<string, string> = {
     microsoft_oauth_token:
-      'Microsoft heeft geen geldig token afgegeven. Controleer client-id, geheim en redirect-URI in Azure en in Xano.',
+      'Microsoft did not return a valid token. Check client ID, secret, and redirect URI in Azure and Xano.',
     no_refresh_token:
-      'Er is geen vernieuwingstoken ontvangen. Koppel opnieuw en verleen opnieuw toestemming (eventueel admin consent voor de tenant).',
-    missing_oauth_env: 'De server mist OAuth-configuratie (Microsoft-omgevingsvariabelen).',
+      'No refresh token was received. Reconnect and grant consent again (admin consent for the tenant may be required).',
+    missing_oauth_env: 'The server is missing OAuth configuration (Microsoft environment variables).',
     unauthorized_client:
-      'De Microsoft-app staat dit type account niet toe. Controleer ondersteunde accounttypen in Entra (inclusief consumeraccounts indien nodig).',
+      'The Microsoft app does not allow this account type. Check supported account types in Entra (including consumer accounts if needed).',
     invalid_grant:
-      'Autorisatiecode ongeldig of verlopen. Start de koppeling opnieuw.',
-    consent_required: 'De gebruiker moet opnieuw toestemming geven. Probeer de koppeling opnieuw.',
+      'Authorization code is invalid or expired. Start the connection again.',
+    consent_required: 'The user must grant consent again. Try connecting again.',
     google_oauth_token:
-      'Google gaf geen geldig token terug. Controleer in Google Cloud en Xano de client-id, client secret en exact dezelfde redirect-URI.',
+      'Google did not return a valid token. Check client ID, client secret, and matching redirect URI in Google Cloud and Xano.',
     google_profile:
-      'Google-profiel kon niet worden opgehaald met het toegangstoken. Controleer of de scopes en consent-screen correct zijn ingesteld.',
+      'Could not fetch Google profile with the access token. Check scopes and consent screen configuration.',
     no_google_id:
-      'Google heeft geen stabiel gebruikers-id teruggegeven. Controleer de OAuth-scopes (openid/email/profile) en probeer opnieuw.',
+      'Google did not return a stable user ID. Check OAuth scopes (openid/email/profile) and try again.',
     no_mailbox_email:
-      'Google gaf geen mailboxadres terug. Controleer of e-mailtoegang is toegestaan in de consent flow.',
+      'Google did not return a mailbox address. Check that email access is allowed in the consent flow.',
     redirect_uri_mismatch:
-      'De redirect-URI in Google Cloud komt niet exact overeen met de redirect-URI in Xano.',
+      'The redirect URI in Google Cloud does not exactly match the redirect URI in Xano.',
     access_denied:
-      'De gebruiker heeft de Google-toestemming geweigerd of geannuleerd.',
+      'The user denied or cancelled Google consent.',
   }
 
   if (code && byCode[code]) return byCode[code]
 
-  if (code) return `${who} koppelen mislukt (foutcode ${code}).`
-  return `${who} koppelen mislukt.`
+  if (code) return `Failed to connect ${who} (error code ${code}).`
+  return `Failed to connect ${who}.`
 }
 
 /** @deprecated Use `describeOAuthCallbackSummary` and show `result.detail` in the UI. */

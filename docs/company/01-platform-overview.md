@@ -2,7 +2,7 @@
 
 Last updated: May 2026
 
-Bokito is an AI platform that helps small and medium businesses deploy AI agents for day-to-day operations: customer communication, project orchestration, documentation, and integrations with external tools.
+Bokito is the **unified operational flow** for AI-driven SMBs: customer signals, agent orchestration, and human approvals in one system — with **governed autonomy** you can dial from manual oversight toward AI running operations with humans at the exception layer. See [`docs/POSITIONING.md`](../POSITIONING.md) for market framing.
 
 ## Applications
 

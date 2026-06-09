@@ -11,6 +11,7 @@ import NodeCard from '../components/aios/NodeCard'
 import NodeDetailPanel, { type NodeDetailPanelProps } from '../components/aios/NodeDetailPanel'
 import DecisionsInline from '../components/aios/DecisionsInline'
 import { useOsGraph } from '../hooks/useOsGraph'
+import { messagesHubPath } from '../components/layout/portal-nav'
 import { cn } from '../lib/utils'
 
 type SelectedNode =
@@ -194,7 +195,7 @@ export default function AiOsWorkspaceCanvas() {
           <DecisionsInline showProjectContext projectNameById={projectNameById} onResolved={() => void refresh()} />
         ),
         actions: [
-          { id: 'open', label: t('panel.decisions.openThread'), to: '/os/communication', variant: 'outline' },
+          { id: 'open', label: t('panel.decisions.openInMessages', { defaultValue: 'Open in Messages' }), to: messagesHubPath({ folder: 'internal', queue: 'awaiting-decision' }), variant: 'outline' },
         ],
       }
     }
@@ -258,7 +259,7 @@ export default function AiOsWorkspaceCanvas() {
           label: t('panel.project.openMap'),
           onClick: () => {
             close()
-            navigate(`/os/project/${project.id}`)
+            navigate(`/project/${project.id}/overview`)
           },
           variant: 'primary',
           icon: MapIcon,
@@ -314,7 +315,7 @@ export default function AiOsWorkspaceCanvas() {
             value={graph.backbone.projectCount}
             onClick={() => {
               const first = graph.projects[0]
-              if (first) navigate(`/os/project/${first.id}`)
+              if (first) navigate(`/project/${first.id}/overview`)
             }}
           />
         </div>

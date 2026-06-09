@@ -12,6 +12,7 @@ import { useAuth } from './AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listThreads } from '../lib/inbox-api'
 import { listMessages } from '../lib/messages-api'
+import { isBokitoMode } from '../lib/bokito-mode'
 
 const POLL_MS = 45_000
 const PER_PAGE = 50
@@ -41,27 +42,61 @@ type NavBadgeContextValue = {
 const NavBadgeContext = createContext<NavBadgeContextValue | null>(null)
 
 async function fetchNavBadgeCounts(token: string, isAdmin: boolean): Promise<NavBadgeCounts> {
-  const [myResult, unassignedResult, allResult, messagesResult] = await Promise.all([
-    listThreads(token, { view: 'mine', perPage: PER_PAGE }),
-    listThreads(token, { view: 'unassigned', perPage: PER_PAGE }),
-    listThreads(token, { view: 'all_open', perPage: PER_PAGE }),
-    isAdmin ? listMessages({ status: 'awaiting_human' }) : Promise.resolve([]),
-  ])
+  const useSignals = isBokitoMode()
 
-  const myUnread = countUnread(myResult.items)
-  const unassignedUnread = countUnread(unassignedResult.items)
-  const allUnread = countUnread(allResult.items)
+  const [externalMine, externalUnassigned, externalAll, internalMine, internalUnassigned, agentsAttention] =
+    await Promise.all([
+      listThreads(token, {
+        view: 'mine',
+        folder: useSignals ? 'external' : undefined,
+        perPage: PER_PAGE,
+      }),
+      listThreads(token, {
+        view: 'unassigned',
+        folder: useSignals ? 'external' : undefined,
+        perPage: PER_PAGE,
+      }),
+      listThreads(token, {
+        view: 'all_open',
+        folder: useSignals ? 'external' : undefined,
+        perPage: PER_PAGE,
+      }),
+      useSignals
+        ? listThreads(token, { view: 'mine', folder: 'internal', perPage: PER_PAGE })
+        : Promise.resolve({ items: [], total: 0 }),
+      useSignals
+        ? listThreads(token, { view: 'unassigned', folder: 'internal', perPage: PER_PAGE })
+        : Promise.resolve({ items: [], total: 0 }),
+      isAdmin
+        ? useSignals
+          ? listThreads(token, { view: 'awaiting_decision', folder: 'internal', perPage: PER_PAGE }).then(
+              (result) => result.items.length,
+            )
+          : listMessages({ status: 'awaiting_human' }).then((rows) => rows.length)
+        : Promise.resolve(0),
+    ])
 
-  const unreadIds = new Set<number>()
-  for (const thread of myResult.items) {
-    if (thread.hasUnread) unreadIds.add(thread.id)
+  const myUnread = countUnread(externalMine.items)
+  const unassignedUnread = countUnread(externalUnassigned.items)
+  const allUnread = countUnread(externalAll.items)
+
+  const unreadIds = new Set<string>()
+  for (const thread of externalMine.items) {
+    if (thread.hasUnread) unreadIds.add(String(thread.id))
   }
-  for (const thread of unassignedResult.items) {
-    if (thread.hasUnread) unreadIds.add(thread.id)
+  for (const thread of externalUnassigned.items) {
+    if (thread.hasUnread) unreadIds.add(String(thread.id))
+  }
+  if (useSignals) {
+    for (const thread of internalMine.items) {
+      if (thread.hasUnread) unreadIds.add(String(thread.id))
+    }
+    for (const thread of internalUnassigned.items) {
+      if (thread.hasUnread) unreadIds.add(String(thread.id))
+    }
   }
 
   const inboxUnread = unreadIds.size
-  const agentsAttention = messagesResult.length
 
   return {
     inboxUnread,

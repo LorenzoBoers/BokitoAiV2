@@ -77,12 +77,12 @@ export default function TableDescriptionDialog({ table, onClose }: TableDescript
                 {saving ? (
                   <>
                     <Save size={12} className="mr-1" />
-                    Opslaan...
+                    Saving...
                   </>
                 ) : (
                   <>
                     <Save size={12} className="mr-1" />
-                    Opslaan
+                    Save
                   </>
                 )}
               </Button>

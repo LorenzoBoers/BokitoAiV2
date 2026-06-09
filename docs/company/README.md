@@ -21,6 +21,8 @@ English handbook for the Bokito platform: products, tenancy, infrastructure, and
 
 | Doc | Summary |
 |-----|---------|
+| [Core intent](../CORE_INTENT.md) | Product north star, Intelligence Stack principles, agent checklist |
+| [Positioning](../POSITIONING.md) | Category, ICP, competitors, land-and-expand |
 | [01 – Platform overview](01-platform-overview.md) | What Bokito is, four apps, tech stack, repo layout |
 | [02 – Tenant and hosting](02-tenant-and-hosting.md) | Multi-tenancy, `bokito` tenant, auth, Cloudflare workers, troubleshooting |
 | [03 – Dashboard product](03-dashboard-product.md) | Portal navigation, modules, i18n, frontend API pattern |
@@ -37,6 +39,8 @@ English handbook for the Bokito platform: products, tenancy, infrastructure, and
 
 | Path | Purpose |
 |------|---------|
+| [`docs/CORE_INTENT.md`](../CORE_INTENT.md) | Product north star and feature-alignment checklist for engineers and agents |
+| [`docs/POSITIONING.md`](../POSITIONING.md) | Market category, ICP, competitors, messaging |
 | [`apps/dashboard/docs/NAVIGATION.md`](../../apps/dashboard/docs/NAVIGATION.md) | Portal IA, rail, sidebars, redirects |
 | [`apps/dashboard/docs/API.md`](../../apps/dashboard/docs/API.md) | Frontend API env and route pattern |
 | [`apps/dashboard/docs/INTEGRATIONS.md`](../../apps/dashboard/docs/INTEGRATIONS.md) | Integrations developer checklist |

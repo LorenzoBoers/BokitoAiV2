@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { messagesHubPath } from '../components/layout/portal-nav'
 import { useTranslation } from 'react-i18next'
 import {
   Background,
@@ -137,35 +138,51 @@ function AiOsCanvasInner() {
     return ids
   }, [pendingChanges])
 
+  const focusNodeId = selected?.id ?? null
+
   const flowNodes: Node[] = useMemo(() => {
     if (!graph) return []
-    return graph.nodes.map((node) => ({
-      id: node.id,
-      type: 'osNode',
-      position: { x: node.x, y: node.y },
-      data: {
-        node,
-        selected: selected?.id === node.id,
-        onSelect: onSelectNode,
-        pendingDraft: pendingRefIds.has(node.ref_id),
-        dimmed: Boolean(activeLane && nodeLane(node.node_type) !== activeLane),
-      } satisfies OsFlowNodeData,
-      draggable: true,
-    }))
-  }, [graph, selected?.id, onSelectNode, pendingRefIds, activeLane])
+    return graph.nodes.map((node) => {
+      const laneDimmed = Boolean(activeLane && nodeLane(node.node_type) !== activeLane)
+      const focusDimmed = Boolean(focusNodeId && node.id !== focusNodeId)
+      const isSelected = focusNodeId === node.id
+      return {
+        id: node.id,
+        type: 'osNode',
+        position: { x: node.x, y: node.y },
+        zIndex: isSelected ? 1000 : 1,
+        data: {
+          node,
+          selected: isSelected,
+          onSelect: onSelectNode,
+          pendingDraft: pendingRefIds.has(node.ref_id),
+          dimmed: focusDimmed || (laneDimmed && !focusNodeId),
+          focusActive: Boolean(focusNodeId),
+        } satisfies OsFlowNodeData,
+        draggable: true,
+      }
+    })
+  }, [graph, focusNodeId, onSelectNode, pendingRefIds, activeLane])
 
   const flowEdges: Edge[] = useMemo(() => {
     if (!graph) return []
+    const dimEdges = Boolean(focusNodeId)
     return graph.edges.map((edge) => ({
       id: edge.id,
       source: edge.source_node_id,
       target: edge.target_node_id,
       label: RELATION_LABELS[edge.relation] ?? edge.relation,
       type: 'smoothstep',
-      animated: edge.relation === 'routed_by',
-      style: { stroke: 'rgba(99, 102, 241, 0.45)', strokeWidth: 1.5 },
+      animated: edge.relation === 'routed_by' && !dimEdges,
+      style: {
+        stroke: 'rgba(99, 102, 241, 0.45)',
+        strokeWidth: 1.5,
+        opacity: dimEdges ? 0.12 : 1,
+        transition: 'opacity 0.2s ease',
+      },
+      labelStyle: dimEdges ? { opacity: 0.15 } : undefined,
     }))
-  }, [graph])
+  }, [graph, focusNodeId])
 
   const onNodeDragStop = useCallback(
     async (_: unknown, node: Node) => {
@@ -416,7 +433,9 @@ function AiOsCanvasInner() {
             {t('actions.organizeLayout', { defaultValue: 'Organize' })}
           </Button>
           <Button type="button" variant="outline" size="sm" asChild>
-            <Link to="/os/communication">{t('nodes.communication')}</Link>
+            <Link to={messagesHubPath({ folder: 'internal', queue: 'awaiting-decision' })}>
+              {t('nodes.openInMessages', { defaultValue: 'Open in Messages' })}
+            </Link>
           </Button>
           <Button type="button" variant="outline" size="sm" asChild>
             <Link to="/projects/new">{t('actions.newProject')}</Link>
@@ -470,7 +489,7 @@ function AiOsCanvasInner() {
           <p className="mb-2 shrink-0 text-[11px] text-text-muted">
             {t('pipelineFilterHint', { defaultValue: 'Click a lane to highlight matching nodes. Click again to show all.' })}
           </p>
-          <div className="aios-canvas-stage min-h-0 flex-1">
+          <div className={cn('aios-canvas-stage min-h-0 flex-1', focusNodeId && 'aios-canvas-stage--focus')}>
             {graph?.nodes.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
                 <p className="text-sm text-text-muted">{t('emptyCanvas', { defaultValue: 'No nodes on the canvas yet.' })}</p>
@@ -486,12 +505,13 @@ function AiOsCanvasInner() {
               nodeTypes={nodeTypes}
               onNodeDragStop={onNodeDragStop}
               onConnect={onConnect}
+              onPaneClick={() => setSelected(null)}
               fitView
               fitViewOptions={{ padding: CANVAS_FIT_VIEW_PADDING }}
               minZoom={0.25}
               maxZoom={1.5}
               proOptions={{ hideAttribution: true }}
-              className="aios-flow-canvas rounded-xl"
+              className={cn('aios-flow-canvas rounded-xl', focusNodeId && 'aios-flow-canvas--focus')}
               style={{ width: '100%', height: '100%' }}
             >
               <FitViewOnLoad nodeCount={flowNodes.length} />

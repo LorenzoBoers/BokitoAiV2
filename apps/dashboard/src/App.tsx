@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import WorkspaceHubLayout from './components/layout/WorkspaceHubLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -19,17 +19,15 @@ import CompanyConfig from './pages/CompanyConfig'
 import MemberManagement from './pages/MemberManagement'
 import MessengerSettings from './pages/MessengerSettings'
 import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
-import { AI_OS_DEFAULT_PATH, WORKFORCE_DEFAULT_PATH, projectOrchestratorPath } from './components/layout/portal-nav'
+import { AI_OS_DEFAULT_PATH, WORKFORCE_DEFAULT_PATH, projectOrchestratorPath, messagesHubPath } from './components/layout/portal-nav'
 import HelpCentersSettings from './pages/HelpCentersSettings'
 import CreateProject from './pages/CreateProject'
 import ProjectHubShell from './components/layout/ProjectHubShell'
 import ProjectHubOverview from './pages/ProjectHubOverview'
 import ProjectHubDocs from './pages/ProjectHubDocs'
-import ProjectHubCommunication from './pages/ProjectHubCommunication'
 import ProjectLayout from './components/layout/ProjectLayout'
 import ProjectOverview from './pages/ProjectOverview'
 import ProjectSettings from './pages/ProjectSettings'
-import ProjectCommunication from './pages/ProjectCommunication'
 import ProjectOrchestration from './pages/ProjectOrchestration'
 import ProjectPoConfig from './pages/ProjectPoConfig'
 import ProjectNotifications from './pages/ProjectNotifications'
@@ -67,10 +65,48 @@ import { useAuth } from './context/AuthContext'
 
 const USE_BOKITO_API = isBokitoMode()
 
+function LegacyInboxRedirect() {
+  const { queue, threadId, channelId } = useParams<{
+    queue?: string
+    threadId?: string
+    channelId?: string
+  }>()
+  const location = useLocation()
+  let target: string
+  if (channelId && queue) {
+    target = threadId
+      ? `/messages/ch/${channelId}/${queue}/t/${threadId}`
+      : `/messages/ch/${channelId}/${queue}`
+  } else if (queue) {
+    target = threadId ? `/messages/${queue}/t/${threadId}` : `/messages/${queue}`
+  } else {
+    target = messagesHubPath({ folder: 'internal' })
+  }
+  return <Navigate to={`${target}${location.search}`} replace />
+}
+
+function LegacyOsProjectRedirect() {
+  const { projectId } = useParams<{ projectId: string }>()
+  if (!projectId) return <Navigate to="/os" replace />
+  return <Navigate to={`/project/${projectId}/overview`} replace />
+}
+
 function LegacyProjectPoRedirect() {
   const { projectId } = useParams<{ projectId: string }>()
   if (!projectId) return <Navigate to="/os" replace />
   return <Navigate to={projectOrchestratorPath(projectId)} replace />
+}
+
+function ProjectInboxRedirect() {
+  const { projectId } = useParams<{ projectId: string }>()
+  if (!projectId) return <Navigate to={messagesHubPath({ folder: 'internal' })} replace />
+  return <Navigate to={messagesHubPath({ folder: 'internal', queue: 'all', projectId })} replace />
+}
+
+function ProjectCommunicationRedirect() {
+  const { projectId } = useParams<{ projectId: string }>()
+  if (!projectId) return <Navigate to={messagesHubPath({ folder: 'internal' })} replace />
+  return <Navigate to={messagesHubPath({ folder: 'internal', queue: 'my', projectId })} replace />
 }
 
 type ProjectRedirect =
@@ -207,10 +243,14 @@ export default function App() {
               <Route path="/govern" element={<GovernPage />} />
             </>
           ) : null}
-          <Route path="/support/inbox/:queue" element={<Communication />} />
-          <Route path="/support/inbox/:queue/t/:threadId" element={<Communication />} />
-          <Route path="/support/inbox/ch/:channelId/:queue" element={<Communication />} />
-          <Route path="/support/inbox/ch/:channelId/:queue/t/:threadId" element={<Communication />} />
+          <Route path="/messages/:queue" element={<Communication />} />
+          <Route path="/messages/:queue/t/:threadId" element={<Communication />} />
+          <Route path="/messages/ch/:channelId/:queue" element={<Communication />} />
+          <Route path="/messages/ch/:channelId/:queue/t/:threadId" element={<Communication />} />
+          <Route path="/support/inbox/:queue" element={<LegacyInboxRedirect />} />
+          <Route path="/support/inbox/:queue/t/:threadId" element={<LegacyInboxRedirect />} />
+          <Route path="/support/inbox/ch/:channelId/:queue" element={<LegacyInboxRedirect />} />
+          <Route path="/support/inbox/ch/:channelId/:queue/t/:threadId" element={<LegacyInboxRedirect />} />
           <Route path="/support/customization" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
           <Route path="/support/settings/general" element={<Navigate to="/settings/inbox" replace />} />
 
@@ -254,21 +294,24 @@ export default function App() {
 
           <Route path="/support/inbox/mine/t/:threadId" element={<Navigate to="/support/inbox/my/t/:threadId" replace />} />
           <Route path="/support/inbox/mine" element={<Navigate to="/support/inbox/my" replace />} />
-          <Route path="/communication" element={<Navigate to="/support/inbox/my?hub=decisions" replace />} />
-          <Route path="/messages" element={<Navigate to="/support/inbox/my?hub=decisions" replace />} />
+          <Route path="/communication" element={<Navigate to={messagesHubPath({ folder: 'internal' })} replace />} />
+          <Route path="/messages" element={<Navigate to={messagesHubPath({ folder: 'internal' })} replace />} />
           <Route path="/os" element={<AiOsCanvas />} />
           <Route path="/os/agents" element={<AiAgents />} />
           <Route path="/os/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/os/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
-          <Route path="/os/communication" element={<ProjectHubCommunication />} />
+          <Route
+            path="/os/communication"
+            element={<Navigate to={messagesHubPath({ folder: 'internal', queue: 'awaiting-decision' })} replace />}
+          />
           <Route path="/os/docs" element={<ProjectHubDocs />} />
           <Route path="/os/docs/:pageSlug" element={<ProjectHubDocs />} />
-          <Route path="/os/project/:projectId" element={<Navigate to="/os" replace />} />
+          <Route path="/os/project/:projectId" element={<LegacyOsProjectRedirect />} />
           <Route path="/projects/new" element={<CreateProject />} />
           <Route path="/projects/new/:projectId/connect" element={<ConnectProjectRepo />} />
           <Route path="/projects" element={<Navigate to="/os" replace />} />
           <Route path="/projects/list" element={<Navigate to="/os" replace />} />
-          <Route path="/projects/communication" element={<Navigate to="/os/communication" replace />} />
+          <Route path="/projects/communication" element={<Navigate to={messagesHubPath({ folder: 'internal', queue: 'awaiting-decision' })} replace />} />
           <Route path="/projects/docs" element={<Navigate to="/os/docs" replace />} />
           <Route path="/projects/docs/:pageSlug" element={<Navigate to="/os/docs/:pageSlug" replace />} />
           <Route element={<ProjectHubShell />}>
@@ -292,9 +335,9 @@ export default function App() {
             <Route path="/project/:projectId/request" element={<Navigate to="/os/docs" replace />} />
             <Route
               path="/project/:projectId/messages"
-              element={<Navigate to="communication" replace />}
+              element={<ProjectInboxRedirect />}
             />
-            <Route path="/project/:projectId/communication" element={<ProjectCommunication />} />
+            <Route path="/project/:projectId/communication" element={<ProjectCommunicationRedirect />} />
             <Route path="/project/:projectId/orchestration" element={<ProjectOrchestration />} />
             <Route path="/project/:projectId/orchestrator" element={<ProjectPoConfig />} />
             <Route path="/project/:projectId/po" element={<LegacyProjectPoRedirect />} />

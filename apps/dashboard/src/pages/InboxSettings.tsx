@@ -162,7 +162,7 @@ export default function InboxSettings() {
     } else if (callback.error) {
       setPageAlert({
         kind: 'oauth_error',
-        title: `${providerFriendlyName(callback.provider ?? 'outlook')} koppelen mislukt`,
+        title: `Failed to connect ${providerFriendlyName(callback.provider ?? 'outlook')}`,
         summary: describeOAuthCallbackSummary(callback),
         code: callback.error,
         detail: callback.detail,
@@ -189,7 +189,7 @@ export default function InboxSettings() {
       } catch (err) {
         setPageAlert({
           kind: 'simple_error',
-          message: err instanceof Error ? err.message : 'Mailbox-instellingen opslaan mislukt.',
+          message: err instanceof Error ? err.message : 'Failed to save mailbox settings.',
         })
       } finally {
         setMailboxSavingId(null)
@@ -225,7 +225,7 @@ export default function InboxSettings() {
       }
       window.location.assign(url)
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : 'Mailbox koppelen mislukt.')
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect mailbox.')
     }
   }, [token, connectProvider])
 
@@ -304,7 +304,7 @@ export default function InboxSettings() {
         const result = await listMailboxFolders(token, mailbox.id)
         setFolders(result)
       } catch (err) {
-        setFoldersError(err instanceof Error ? err.message : 'Mappen laden mislukt.')
+        setFoldersError(err instanceof Error ? err.message : 'Failed to load folders.')
       } finally {
         setFoldersLoading(false)
       }
@@ -328,7 +328,7 @@ export default function InboxSettings() {
       )
       setFolderDialogOpen(false)
     } catch (err) {
-      setFoldersError(err instanceof Error ? err.message : 'Mappen opslaan mislukt.')
+      setFoldersError(err instanceof Error ? err.message : 'Failed to save folders.')
     } finally {
       setFoldersSaving(false)
     }
@@ -401,7 +401,7 @@ export default function InboxSettings() {
               {!loading && mailboxes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-10 text-center text-sm text-text-muted">
-                    Nog geen inbox gekoppeld
+                    No inbox connected yet
                   </TableCell>
                 </TableRow>
               ) : (
@@ -599,7 +599,7 @@ export default function InboxSettings() {
                   Annuleren
                 </Button>
                 <Button onClick={() => void handleSaveFolders()} disabled={foldersLoading || foldersSaving}>
-                  {foldersSaving ? 'Opslaan...' : 'Opslaan'}
+                  {foldersSaving ? 'Saving...' : 'Save'}
                 </Button>
               </div>
             </Dialog.Content>

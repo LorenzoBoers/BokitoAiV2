@@ -41,7 +41,7 @@ export default function TableListSidebar() {
           </div>
         ) : tables.length === 0 ? (
           <div className="text-center py-8 text-text-muted text-xs">
-            <p>Nog geen tabellen.</p>
+            <p>No tables yet.</p>
             <button
               type="button"
               onClick={() => setShowCreate(true)}

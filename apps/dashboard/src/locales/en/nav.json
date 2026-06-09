@@ -4,12 +4,12 @@
     "home": "Cockpit",
     "orchestra": "Orchestra",
     "agenda": "Agenda",
-    "support": "Inbox",
+    "support": "Messages",
     "updates": "AI",
     "assistent": "Assistant",
     "integrations": "Integrations",
     "data": "Data",
-    "workforce": "Workforce",
+    "workforce": "Agents",
     "agents": "Agents",
     "users": "Users",
     "settings": "Settings",
@@ -26,11 +26,11 @@
     "agenda": "Agenda",
     "users": "Users",
     "settings": "Settings",
-    "inbox": "Inbox",
+    "inbox": "Messages",
     "ai": "AI",
     "assistent": "Assistant",
     "integrations": "Integrations",
-    "workforce": "Workforce",
+    "workforce": "Agents",
     "agents": "Agents",
     "data": "Data",
     "project": "Project",
@@ -49,15 +49,19 @@
   },
   "home": {
     "title": "Home",
-    "description": "Workspace overview: recent projects, inbox, and combined activity.",
+    "headline": "The inbox, the agents, and the approvals — in one system",
+    "tagline": "Customer signals, agent work, and human decisions flow through one operational hub. Dial autonomy in Govern when you are ready.",
+    "description": "Workspace overview: Messages, recent projects, and combined activity.",
     "group": {
       "overview": "Overview"
     },
     "quick": {
       "newProject": "New project",
-      "openInbox": "Open inbox",
+      "openInbox": "Open Messages",
       "integrations": "Integrations",
-      "assistent": "Assistant"
+      "assistent": "Assistant",
+      "aiOs": "AI OS canvas",
+      "govern": "Govern"
     },
     "recentProjects": {
       "title": "Recent projects",
@@ -65,8 +69,8 @@
       "empty": "No projects yet."
     },
     "inbox": {
-      "title": "Inbox",
-      "description": "Jump to your main queues."
+      "title": "Messages",
+      "description": "External and internal threads with inline approvals."
     },
     "agentRuns": {
       "title": "Recent agent runs",
@@ -113,7 +117,7 @@
   "inbox": {
     "configureGroup": "Configure",
     "configureAssistent": "Assistant settings",
-    "configureInbox": "Inbox settings"
+    "configureInbox": "Messages settings"
   },
   "badges": {
     "unreadInbox": "{{count}} unread in inbox",
@@ -280,13 +284,24 @@
   },
   "support": {
     "group": {
-      "inbox": "Inbox"
+      "inbox": "Queues",
+      "agentOps": "Agent ops"
     },
     "allChannels": "All channels",
-    "mailboxes": "Mailboxes",
+    "allMessages": "All",
+    "folderExternal": "Customer",
+    "folderInternal": "Agents",
+    "segmentCustomer": "Customer",
+    "segmentAgents": "Agents",
+    "moreQueues": "More",
+    "agentOpsHint": "Decisions appear inline in threads",
+    "mailboxes": "Channels",
     "links": {
-      "myInbox": "My inbox",
+      "myInbox": "Assigned to me",
       "allMessages": "Open",
+      "awaitingDecision": "Awaiting decision",
+      "updates": "Updates",
+      "results": "Results",
       "pinned": "Pinned",
       "unassigned": "Unassigned",
       "pending": "Pending",
@@ -488,7 +503,7 @@
       "browseInbox": "Browse Communication in Marketplace",
       "browseRepository": "Connect GitHub in Marketplace",
       "browseMcp": "Browse MCP in Marketplace",
-      "openProjects": "Open projects",
+      "openProjects": "Open AI OS",
       "manageMcp": "Manage MCP",
       "mcpHint": "External MCP servers installed for this workspace.",
       "viewAll": "View connected integrations"
@@ -646,7 +661,7 @@
   },
   "workforce": {
     "group": {
-      "workforce": "Workforce",
+      "workforce": "Agents",
       "platform": "Platform agents",
       "operations": "Operations",
       "yourAgents": "Your agents",
@@ -831,8 +846,8 @@
       "po": "Orchestrator",
       "knowledge": "Blueprint",
       "orchestration": "Orchestration",
-      "communication": "Communication",
-      "workforce": "Workforce history",
+      "communication": "Messages",
+      "workforce": "Agent runs",
       "usage": "Token usage",
       "notifications": "Notifications",
       "request": "Request a change",
@@ -1220,7 +1235,8 @@
     "links": {
       "profile": "Profile",
       "notifications": "Notifications",
-      "inbox": "Mailboxes",
+      "inbox": "Messages and channels",
+      "mailboxes": "Mailboxes",
       "emailSettings": "Email settings",
       "messenger": "Assistant",
       "helpCenters": "Knowledge base",
@@ -1238,7 +1254,7 @@
   "settingsPageMeta": {
     "profile": { "title": "Profile", "description": "Manage your personal profile information and account preferences." },
     "notifications": { "title": "Notifications", "description": "Configure personal and team notification defaults." },
-    "support": { "title": "Inbox", "description": "Configure inbox behavior and channels." },
+    "support": { "title": "Messages", "description": "Configure Messages behavior and channels." },
     "messenger": { "title": "Assistant", "description": "Configure assistant widget behavior and preview settings." },
     "helpCenters": { "title": "Knowledge base", "description": "Manage knowledge base content and visibility." },
     "general": { "title": "General", "description": "Set workspace-level defaults and product behavior." },
@@ -1256,10 +1272,10 @@
     "importsExports": { "title": "Imports & exports", "description": "Move data into and out of your workspace safely." }
   },
   "supportPageMeta": {
-    "my": { "title": "My inbox", "description": "Assigned conversations and requests." },
-    "all": { "title": "All messages", "description": "All incoming support messages." },
-    "created": { "title": "Created by me", "description": "Tickets and threads started by you." },
-    "unassigned": { "title": "Unassigned", "description": "Messages that need first ownership." }
+    "my": { "title": "My Messages", "description": "Threads assigned to you — customer and agent work in one place." },
+    "all": { "title": "All messages", "description": "Every signal across external and internal channels." },
+    "created": { "title": "Created by me", "description": "Threads and requests you started." },
+    "unassigned": { "title": "Unassigned", "description": "Signals waiting for first ownership." }
   },
   "fallbackTitles": {
     "supportInbox": "Support Inbox",
@@ -1269,7 +1285,7 @@
     "database": "Database",
     "workspaces": "Workspaces",
     "documents": "Documents",
-    "workforce": "Workforce",
+    "workforce": "Agents",
     "settings": "Settings",
     "portal": "Portal"
   }

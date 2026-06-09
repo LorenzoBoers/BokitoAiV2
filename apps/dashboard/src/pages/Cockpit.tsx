@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Activity, Gauge, Inbox, MessageSquare, RefreshCw, ShieldCheck, Sparkles, Timer } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
+import { messagesHubPath } from '../components/layout/portal-nav'
 import { useAuth } from '../context/AuthContext'
 import { bokitoGetCockpitSummary, type CockpitSummary } from '../lib/bokito-api'
+import { getPosture, type AutonomyPostureId } from '../lib/govern-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { cn } from '../lib/utils'
 
@@ -18,25 +21,42 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
 }
 
-const QUICK_LINKS = [
-  { label: 'AI OS canvas', to: '/os' },
-  { label: 'Decisions', to: '/os/communication' },
-  { label: 'Govern', to: '/govern' },
-  { label: 'Integrations', to: '/integrations/connected' },
-] as const
+const POSTURE_LABELS: Record<AutonomyPostureId, string> = {
+  manual: 'Manual',
+  assisted: 'Assisted',
+  autonomous: 'Autonomous',
+}
 
 export default function Cockpit() {
+  const { t } = useTranslation(['nav', 'govern'])
   const { token } = useAuth()
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
+  const [posture, setPosture] = useState<AutonomyPostureId | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const messagesMine = messagesHubPath({ folder: 'internal', queue: 'my' })
+  const awaitingDecision = messagesHubPath({ folder: 'internal', queue: 'awaiting-decision' })
+
+  const quickLinks = [
+    { label: t('nav:home.quick.openInbox', { defaultValue: 'Messages' }), to: messagesMine },
+    { label: t('nav:sectionTitle.aiOs', { defaultValue: 'AI OS' }), to: '/os' },
+    { label: t('nav:sectionTitle.govern', { defaultValue: 'Govern' }), to: '/govern' },
+    { label: t('nav:sectionTitle.integrations', { defaultValue: 'Integrations' }), to: '/integrations/connected' },
+  ] as const
 
   const load = useCallback(() => {
     if (!token) return
     setLoading(true)
     setError(null)
-    bokitoGetCockpitSummary(token)
-      .then(setSummary)
+    Promise.all([
+      bokitoGetCockpitSummary(token),
+      getPosture().then((resp) => resp.posture).catch(() => null),
+    ])
+      .then(([summaryResp, postureResp]) => {
+        setSummary(summaryResp)
+        setPosture(postureResp)
+      })
       .catch((err) => setError(formatApiErrorMessage(err, 'Could not load cockpit metrics.')))
       .finally(() => setLoading(false))
   }, [token])
@@ -45,12 +65,17 @@ export default function Cockpit() {
     load()
   }, [load])
 
+  const tagline = t('nav:home.tagline', {
+    defaultValue:
+      'Customer signals, agent work, and human decisions flow through one operational hub. Dial autonomy in Govern when you are ready.',
+  })
+
   if (loading) {
     return (
       <PageContent width="xl" className="space-y-6">
         <header>
           <h1 className="text-2xl font-semibold text-text-heading">Cockpit</h1>
-          <p className="text-sm text-text-muted mt-1">AI OS performance at a glance</p>
+          <p className="text-sm text-text-muted mt-1">{tagline}</p>
         </header>
         <LoadingBlock label="Loading cockpit metrics..." />
       </PageContent>
@@ -79,17 +104,17 @@ export default function Cockpit() {
       title: 'Conversations (7d)',
       value: formatNumber(summary.volume_week),
       icon: MessageSquare,
-      to: '/support/inbox/my',
-      hint: emptyHint(summary.volume_week > 0, 'Connect a mailbox to start tracking conversations.'),
+      to: messagesMine,
+      hint: emptyHint(summary.volume_week > 0, 'Connect a channel to start tracking conversations.'),
     },
     {
-      title: 'Open decisions',
+      title: 'Awaiting decision',
       value: formatNumber(summary.open_decisions),
       icon: Inbox,
-      to: '/os/communication',
+      to: awaitingDecision,
       hint: emptyHint(
         summary.open_decisions > 0,
-        'Decisions appear when agents need human approval. Review them in Decisions.',
+        'Decision requests appear inline in Messages when agents need human approval.',
       ),
     },
     {
@@ -103,8 +128,8 @@ export default function Cockpit() {
       title: 'Avg feedback',
       value: summary.avg_feedback_score > 0 ? formatNumber(summary.avg_feedback_score) : '-',
       icon: Sparkles,
-      to: '/support/inbox/my',
-      hint: emptyHint(summary.avg_feedback_score > 0, 'Feedback scores appear after inbox interactions.'),
+      to: messagesMine,
+      hint: emptyHint(summary.avg_feedback_score > 0, 'Feedback scores appear after message interactions.'),
     },
     {
       title: 'Time saved (7d)',
@@ -128,7 +153,7 @@ export default function Cockpit() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-text-heading">Cockpit</h1>
-          <p className="text-sm text-text-muted mt-1">AI OS performance at a glance</p>
+          <p className="text-sm text-text-muted mt-1">{tagline}</p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={load}>
           <RefreshCw className="h-4 w-4 mr-1.5" aria-hidden />
@@ -137,7 +162,7 @@ export default function Cockpit() {
       </header>
 
       <div className="flex flex-wrap gap-2">
-        {QUICK_LINKS.map((link) => (
+        {quickLinks.map((link) => (
           <Link
             key={link.to}
             to={link.to}
@@ -177,7 +202,7 @@ export default function Cockpit() {
             Intelligence Stack health
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
           <div>
             <p className="text-text-muted text-xs uppercase tracking-wide">Learning sample</p>
             <p className="font-medium text-text-heading mt-0.5">
@@ -189,6 +214,18 @@ export default function Cockpit() {
             <p className="font-medium text-text-heading mt-0.5">
               {formatNumber((summary as CockpitSummary & { learning_autonomy_rate?: number }).learning_autonomy_rate ?? 0)}%
             </p>
+          </div>
+          <div>
+            <p className="text-text-muted text-xs uppercase tracking-wide">Autonomy posture</p>
+            {posture ? (
+              <Link to="/govern" className={cn('font-medium mt-0.5 inline-block text-accent hover:underline')}>
+                {POSTURE_LABELS[posture] ?? posture}
+              </Link>
+            ) : (
+              <Link to="/govern" className={cn('font-medium mt-0.5 inline-block text-accent hover:underline')}>
+                Review in Govern
+              </Link>
+            )}
           </div>
           <div>
             <p className="text-text-muted text-xs uppercase tracking-wide">Govern</p>

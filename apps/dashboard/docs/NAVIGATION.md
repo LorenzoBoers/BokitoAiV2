@@ -2,109 +2,78 @@
 
 The dashboard uses a two-layer shell: **primary rail** (icons) + **context sidebar** (text links). Configuration lives in [`src/components/layout/portal-nav.ts`](../src/components/layout/portal-nav.ts).
 
-## Admin rail order
+## Bokito admin rail order (`VITE_API_MODE=bokito`)
 
 | Rail | Route | Purpose |
 |------|-------|---------|
-| Home | `/home` | Workspace overview (projects, inbox links, recent agent runs) |
-| Inbox | `/support/inbox/all` | Team inbox queues |
-| Workspace | `/projects` | Overview, Communication; Blueprint section with page tree; Background projects list |
-| Workforce | `/workforce/overview` | Hybrid cockpit: overview, orchestrator coverage, platform agents, and agent library |
+| Cockpit | `/home` | Ops command center: volume, awaiting decisions, autonomy metrics |
+| Messages | `/messages` | Unified signals hub (external + internal); inline decision requests |
+| Agenda | `/agenda` | Calendar and scheduled work |
+| AI OS | `/os` | Canvas, Orchestra, agent library, Blueprint |
 | Integrations | `/integrations/connected` | Connected apps, marketplace, MCP, API keys |
-| Data | `/database` | Coming soon (rail disabled; routes redirect to `/projects`) |
-| Settings (footer) | `/settings/profile` | Personal and workspace settings only |
+| Govern | `/govern` | Structural drafts, apply modes, Autonomy Posture |
+| Settings (footer) | `/settings/profile` | Personal and workspace settings |
 
-Assistant and Agents are **no longer separate rail items**. Widget settings, AI communication, and agent management live under **Workforce** (Bot icon).
+**Decisions** are not a separate rail or sidebar item. They appear as inline `DecisionRequest` cards inside Messages threads and in the **Awaiting decision** queue (`/messages/awaiting-decision?folder=internal`).
 
 ## Landing
 
-- **Tenant admin** (`/` on subdomain): redirects to `/home`.
+- **Tenant admin** (`/` on subdomain): redirects to `/home` (Cockpit in bokito mode).
 - **Tenant end-user** (`/`): project-aware redirect (0 → create, 1 → project overview, many → `/home`).
 - **Control plane** (`/` without tenant): workspace hub.
 
-## Context sidebars
+## Messages (`/messages/*`)
 
-- **Home**: no context sidebar (navigation is on the dashboard cards and quick actions).
-- **Project hub** (`/projects`, `/projects/communication`, `/projects/docs[/:slug]`, `/project/:id/*`): context sidebar renders hub links — Overview, Communication, and Blueprint — from [`getProjectHubSidebarGroups`](../src/components/layout/portal-nav.ts), then **Workstreams** ([`ProjectHubBackgroundWorkersNav`](../src/components/layout/ProjectHubBackgroundWorkersNav.tsx)) with per-project operational status from [`ProjectHubNavContext`](../src/context/ProjectHubNavContext.tsx) and [`project-worker-status.ts`](../src/lib/project-worker-status.ts). Footer link **Project settings** (`/project/:selectedId/settings`) appears when a project is selected in the hub selector. Blueprint page tree lives in the main content on [`ProjectHubDocs`](../src/pages/ProjectHubDocs.tsx) (`PageTree` `variant="minimal"`). On `/project/:id/*`, [`WorkerStatusStrip`](../src/components/workers/WorkerStatusStrip.tsx) appears above project tabs in [`ProjectShell`](../src/components/project/ProjectShell.tsx).
-- **Per-project cockpit** (`/project/:id/*`): same hub sidebar (including workstream-status project list with the active project highlighted). Section navigation (Workstreams, Orchestrator, Orchestration, Communication, Workforce history, Token usage, Notifications, Request a change, Settings) is horizontal in-page via [`ProjectTabNav`](../src/components/project/ProjectTabNav.tsx) inside [`ProjectShell`](../src/components/project/ProjectShell.tsx).
-- **Inbox**: `InboxSidebarNav` + footer **Configure** (assistant + inbox settings).
-- **Workforce** (`/workforce/*`, `/ai/*`, legacy `/admin/runs`): sidebar from [`getWorkforceSidebarGroups`](../src/components/layout/portal-nav.ts) plus [`WorkforceSidebarNav`](../src/components/layout/WorkforceSidebarNav.tsx). **Workforce group:** `/workforce/overview` + `/workforce/agents` (agent library). **Dynamic agent sections:** Orchestrators and Worker agents (from `GET /agents`), each linking to `/ai/agents/:id`; orchestrator rows may show linked project name. **Platform agents:** Assistant (`/ai/assistent/...`) and Communication (`/ai/communicatie`). Agent detail and live run logs stay at `/ai/agents/:agentId` and `/ai/agents/:agentId/runs/:workLogId`. Default landing: `/workforce/overview`. Orchestrator setup stays in the Project hub sidebar, not Workforce.
-- **Integrations**: Connected, marketplace, MCP, **Documentation** (`/integrations/docs`), API (no sources here).
-- **Data**: Unified links for `/database`, `/users/*`, `/data/sources`, `/data/imports-exports`; table list appears on `/database` routes.
-- **Settings**: Personal + Workspace groups only.
+Canonical paths:
 
-## Agent runs (where to find them)
+- `/messages/:queue` — queue view with optional `?folder=external|internal|all`
+- `/messages/:queue/t/:threadId` — thread detail
+- `/messages/ch/:channelId/:queue` — channel-scoped queue
 
-There is **no** global “all runs” page. Runs appear in three places:
+Legacy `/support/inbox/*` redirects to the equivalent `/messages/*` URL (query string preserved).
 
-1. **Per agent** — `/ai/agents/:agentId` (filtered history) and `/ai/agents/:agentId/runs/:workLogId` (live event stream via [`LiveWorkLog`](../src/components/observability/LiveWorkLog.tsx)).
-2. **Per project** — `/project/:id/workforce` (project-scoped list) and `/project/:id/workforce/:workLogId` (run detail in [`ProjectWorkforceRunDetail`](../src/pages/ProjectWorkforceRunDetail.tsx)).
-3. **Project hub overview** — `/projects` shows recent runs across projects; each link opens the project-scoped run detail URL.
+Context sidebar: [`InboxSidebarNav`](../src/components/inbox/InboxSidebarNav.tsx). Footer: **Messages settings** → `/settings/inbox`.
 
-Admin-only pages: [`AiAgents`](../src/pages/AiAgents.tsx), [`AiAgentDetail`](../src/pages/AiAgentDetail.tsx).
+## AI OS (`/os`)
 
-## Project hub IA
+Context sidebar from [`getAiOsSidebarGroups`](../src/components/layout/portal-nav.ts):
 
-The `/projects` rail item opens the **Project hub**, a single landing surface
-that pulls workspace-wide work into one place. Hub sections live in the context
-sidebar; background projects are a collapsible list below them.
+- Canvas (`/os`)
+- Orchestra (`/orchestra`)
+- Agent library (`/os/agents`)
+- Blueprint (`/os/docs`)
 
-- **Overview** (`/projects`) — active projects, pending agent decisions, recent
-  agent runs (links to `/project/:projectId/workforce/:workLogId`), and quick actions.
-  The sidebar link uses `exact: true` so it deactivates as soon as the user
-  navigates into another hub section.
-- **Blueprint** (`/projects/docs[/:slug]`) — tenant-wide workspace planning surface
-  (Notion-style page tree + block editor). Navigation lives in its own sidebar section (not a top hub tab):
-  section label **Blueprint** plus [`PageTree`](../src/components/doc/PageTree.tsx) with page CRUD.
-  [`WorkspaceDocNavContext`](../src/context/WorkspaceDocNavContext.tsx) loads `GET /workspace/doc` and seeds
-  eight default chapters when the tree is empty. Users can queue agent edits via **Ask agent**
-  (`POST /workspace/doc/change-requests`).
-- **Workstreams** (sidebar) — for the selected project in the hub selector: **Orchestrator** row (linked agent or "Set up orchestrator" CTA) opens `/project/:id/orchestrator`. Below that, persisted workstreams for the project; each opens `/project/:id/overview?stream={slug}`. Default streams auto-seed on first API load when empty.
-- **Orchestrator** (`/project/:id/orchestrator`) — dedicated setup page (sidebar entry only; not a horizontal project tab): orchestrator identity, create or link an exclusive orchestrator agent, orchestration settings (wake cadence, autonomy, HITL, continuous). Uses a focused layout without project context bar, worker strip, or tab row. Required before workstreams overview and orchestration tab are usable (setup gate + hub banner when missing). Legacy `/project/:id/po` redirects here.
-- **Communication** (`/projects/communication`) — pending agent messages
-  (`status: 'awaiting_human'`) across all projects, deep-linking into each
-  project's communication thread. Shows a `projectsAttention` badge.
+No **Decisions** link in the AI OS sidebar — use Messages **Awaiting decision** instead.
 
-Per-project pages no longer host Blueprint editing; they focus on workstream execution,
-agent orchestration (orchestrator wake cadence, HITL sensitivity, autonomy mode), notification
-preferences, workforce history, token usage, and project-scoped communication (with optional stream filter).
-Legacy `/project/:id/doc[/:slug]` and `/project/:id/pkb` paths redirect to
-`/projects/docs`; `/project/:id/messages` redirects to `/project/:id/communication`.
+Project selector in the AI OS sidebar navigates to `/project/:id/overview` (not `/os/project/:id`).
 
-## Legacy redirects
+## Govern (`/govern`)
+
+Full-bleed page (no context sidebar title). Tabs: Drafts, Policy (Autonomy Posture + apply modes), Passports, Audit.
+
+## Per-project cockpit (`/project/:id/*`)
+
+Horizontal tabs via [`ProjectTabNav`](../src/components/project/ProjectTabNav.tsx):
+
+- Overview, Orchestration, **Messages** (project-scoped Messages hub), **Agent runs**, Token usage, Notifications, Request a change, Settings
+
+## Legacy redirects (selected)
 
 | Old path | New path |
 |----------|----------|
-| `/integrations/sources` | `/data/sources` |
-| `/datasources` | `/data/sources` |
-| `/settings/data/*` | `/users/*`, `/database`, or `/data/imports-exports` |
-| `/settings/messenger` | Assistant default path |
-| `/admin/runs` | `/workforce/overview` |
-| `/admin/runs/:workLogId` | Resolved via [`AdminRunLegacyRedirect`](../src/pages/AdminRunLegacyRedirect.tsx) to project run detail when possible, else `/projects` |
-| `/workforce` | `/workforce/overview` |
-| `/workforce/*` (unknown) | `/workforce/overview` |
-| `/project/:id/doc[/:slug]` | `/projects/docs` (central docs) |
-| `/project/:id/pkb` | `/projects/docs` |
-| `/project/:id/po` | `/project/:id/orchestrator` |
-| `/project/:id/messages` | `/project/:id/communication` |
-| `/projects/list` | `/projects` |
+| `/support/inbox/:queue` | `/messages/:queue` |
+| `/os/communication` | `/messages/awaiting-decision?folder=internal` |
+| `/os/project/:projectId` | `/project/:projectId/overview` |
+| `/communication` | `/messages?folder=internal` |
+| `/database`, `/users/*`, `/data/*` | `/os` (bokito mode) |
+| `/workforce/overview` | `/os` |
 
-## Navigation badges
+## Agent runs
 
-Counts are loaded by [`NavBadgeContext`](../src/context/NavBadgeContext.tsx) (poll every 45s while the tab is visible; manual refresh after inbox read/unread actions).
+1. **Per agent** — `/os/agents/:agentId` and run detail URLs.
+2. **Per project** — `/project/:id/workforce`.
+3. **AI OS canvas** — node detail panels link back to Messages when human approval is needed.
 
-| Surface | Badge meaning |
-|---------|----------------|
-| Rail **Inbox** | Unread threads in **mine** + **unassigned** (deduplicated by thread id) |
-| Assistant sidebar **Agents** | Workforce messages with `status: awaiting_human` (admin only; `agentsAttention`) |
-| Rail **Workforce** | Workforce messages with `status: awaiting_human` (same count as former Agents rail badge) |
-| Rail **Workspace** | Pending agent messages (`awaiting_human`), reused from the agents count |
-| Rail **Messages** (end-user) | Same as inbox unread |
-| Inbox submenu **Open / Mijn / Niet toegewezen** | Unread count per queue view |
-| Project hub **Communication** tab | Same as Project hub rail badge |
+## Settings sidebar
 
-UI: [`NavCountBadge`](../src/components/layout/NavCountBadge.tsx) on rail icons (absolute) and inbox links (inline pill). Cap display at `99+`.
-
-## i18n
-
-Labels: `apps/dashboard/src/locales/{en,nl}/nav.json` (`rail.*`, `sectionTitle.*`, `home.*`, `data.*`, `ai.agents.*`, `ai.group.agents`, `ai.links.agents`, `badges.*`, `projectHub.*`, `project.links.*`, `project.{communication,orchestration,notifications,workforce,usage}.*`, `workforce.runs.*`).
+Personal + Workspace groups. Workspace includes **Messages and channels** (`/settings/inbox`). Billing remains routable at `/settings/billing` but is not duplicated in the sidebar (company settings covers billing UI).

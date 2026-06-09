@@ -20,7 +20,7 @@ from app.models.inbox_threads import (
 from app.models.index import IndexChunk
 from app.models.learning import EvalScore, Feedback
 from app.models.platform_change import PlatformChange
-from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.models.signal import Signal, SignalEvent, SignalMessage, SignalThreadPin
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
 from app.models.agenda import AgendaCalendar, AgendaEvent
@@ -48,6 +48,13 @@ from app.models.project import (
     ProjectNotificationPreference,
     ProjectOrchestration,
     ProjectWorkstream,
+)
+from app.models.orchestration import (
+    AgentTask,
+    AutomationTemplate,
+    EvalCheckpoint,
+    RuntimeProfile,
+    TaskArtifact,
 )
 from app.models.os_graph import OsCanvasEdge, OsCanvasNode
 
@@ -114,7 +121,13 @@ __all__ = [
     "Signal",
     "SignalMessage",
     "SignalEvent",
+    "SignalThreadPin",
     "Feedback",
     "EvalScore",
     "PlatformChange",
+    "RuntimeProfile",
+    "AgentTask",
+    "EvalCheckpoint",
+    "TaskArtifact",
+    "AutomationTemplate",
 ]

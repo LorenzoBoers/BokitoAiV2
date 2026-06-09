@@ -415,24 +415,34 @@ async def trigger_agent(
         )
         p = proj.scalar_one_or_none()
         project_id = p.id if p else None
-    run = AgentRun(
-        tenant_id=tenant_id,
-        agent_id=agent.id,
+
+    from app.services.orchestration.dispatcher import create_agent_task
+    from app.services.orchestration.queue import enqueue_agent_task_segment
+    from app.services.orchestration.runner import run_agent_task_segment
+
+    task = await create_agent_task(
+        session,
+        tenant_id,
+        title=instruction[:200] if instruction else f"{agent.name} run",
+        description=instruction,
         project_id=project_id,
-        status="running",
+        agent_id=agent.id,
         trigger_type="manual",
-        subject=instruction[:500] if instruction else "Triggered run",
+        auto_start=False,
     )
-    session.add(run)
     agent.runtime_status = "active"
     agent.current_activity_summary = instruction[:200] if instruction else "Running"
     agent.updated_at = datetime.utcnow()
     session.add(agent)
-    await session.flush()
-    await ensure_run_events(session, run)
     await session.commit()
-    await session.refresh(run)
-    return {"ok": True, "run_id": str(run.id), "activity_id": str(run.id)}
+
+    if not await enqueue_agent_task_segment(str(tenant_id), str(task.id)):
+        await run_agent_task_segment(session, tenant_id, task.id)
+        await session.refresh(task)
+
+    ctx = _parse_json(task.context_json)
+    run_id = ctx.get("active_run_id")
+    return {"ok": True, "run_id": run_id, "task_id": str(task.id), "activity_id": run_id or str(task.id)}
 
 
 async def complete_activity(

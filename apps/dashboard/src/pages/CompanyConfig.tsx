@@ -60,7 +60,7 @@ async function convertSvgToPng(file: File): Promise<File> {
     canvas.width = width
     canvas.height = height
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Kan geen canvas context maken')
+    if (!ctx) throw new Error('Could not create canvas context')
     ctx.clearRect(0, 0, width, height)
     ctx.drawImage(img, 0, 0, width, height)
     const pngBlob = await new Promise<Blob>((resolve, reject) => {
@@ -334,7 +334,7 @@ export default function CompanyConfig() {
       reader.onload = (ev) => setLogoSrc(ev.target?.result as string)
       reader.readAsDataURL(uploadFile)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'SVG upload mislukt')
+      setSaveError(error instanceof Error ? error.message : 'SVG upload failed')
     }
   }
 
@@ -353,7 +353,7 @@ export default function CompanyConfig() {
       reader.onload = (ev) => setFaviconSrc(ev.target?.result as string)
       reader.readAsDataURL(uploadFile)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'SVG upload mislukt')
+      setSaveError(error instanceof Error ? error.message : 'SVG upload failed')
     }
   }
 
@@ -410,7 +410,7 @@ export default function CompanyConfig() {
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2500)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Opslaan mislukt')
+      setSaveError(error instanceof Error ? error.message : 'Save failed')
     } finally {
       setSaving(false)
     }
@@ -456,7 +456,7 @@ export default function CompanyConfig() {
                       }}
                       className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
-                      Verwijderen
+                      Delete
                     </button>
                   ) : (
                     <button
@@ -489,7 +489,7 @@ export default function CompanyConfig() {
                       }}
                       className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
-                      Verwijderen
+                      Delete
                     </button>
                   ) : (
                     <button
@@ -567,7 +567,7 @@ export default function CompanyConfig() {
                   : 'bg-accent text-white hover:bg-accent-hover shadow-[0_4px_14px_rgba(70,82,242,0.3)]'
               }`}
             >
-              {saving ? <><Loader2 size={14} className="animate-spin" />Opslaan...</> : saved ? <><CheckCircle2 size={14} />Opgeslagen</> : 'Opslaan'}
+              {saving ? <><Loader2 size={14} className="animate-spin" />Saving...</> : saved ? <><CheckCircle2 size={14} />Saved</> : 'Save'}
             </button>
           </div>
 

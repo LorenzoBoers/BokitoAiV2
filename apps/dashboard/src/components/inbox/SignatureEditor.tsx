@@ -66,16 +66,16 @@ export default function SignatureEditor({
 
   const defaultTemplates = [
     {
-      name: 'Standaard zakelijk',
-      html: `<p>Met vriendelijke groet,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: +31 20 123 4567</p>`
+      name: 'Standard business',
+      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: +31 20 123 4567</p>`
     },
     {
-      name: 'Kort & bondig',
-      html: `<p>Groet,<br><strong>{{name}}</strong></p>`
+      name: 'Short',
+      html: `<p>Regards,<br><strong>{{name}}</strong></p>`
     },
     {
-      name: 'Uitgebreid',
-      html: `<p>Met vriendelijke groet,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${mailboxEmail}<br>T: {{phone}}<br>W: {{website}}</p>`
+      name: 'Extended',
+      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${mailboxEmail}<br>T: {{phone}}<br>W: {{website}}</p>`
     }
   ];
 
@@ -86,7 +86,7 @@ export default function SignatureEditor({
         <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[800px] max-w-[95vw] max-h-[90vh] bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <Dialog.Title className="text-lg font-semibold text-text-heading">
-              E-mail handtekening bewerken
+              Edit email signature
             </Dialog.Title>
             <Dialog.Close asChild>
               <Button variant="ghost" size="icon">
@@ -97,18 +97,18 @@ export default function SignatureEditor({
 
           <div className="p-4 space-y-4 max-h-[calc(90vh-120px)] overflow-y-auto">
             <div className="text-sm text-text-secondary">
-              Voor mailbox: <strong>{mailboxEmail}</strong>
+              For mailbox: <strong>{mailboxEmail}</strong>
             </div>
 
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'edit' | 'preview')}>
               <TabsList>
                 <TabsTrigger value="edit" className="flex items-center gap-2">
                   <Type size={14} />
-                  Bewerken
+                  Edit
                 </TabsTrigger>
                 <TabsTrigger value="preview" className="flex items-center gap-2">
                   <Eye size={14} />
-                  Voorbeeld
+                  Preview
                 </TabsTrigger>
               </TabsList>
 
@@ -120,7 +120,7 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCommand('bold')}
-                    title="Vetgedrukt"
+                    title="Bold"
                   >
                     <Bold size={14} />
                   </Button>
@@ -129,7 +129,7 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCommand('italic')}
-                    title="Cursief"
+                    title="Italic"
                   >
                     <Italic size={14} />
                   </Button>
@@ -138,7 +138,7 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCommand('underline')}
-                    title="Onderstreept"
+                    title="Underline"
                   >
                     <Underline size={14} />
                   </Button>
@@ -150,10 +150,10 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      const url = prompt('Voer URL in:');
+                      const url = prompt('Enter URL:');
                       if (url) handleCommand('createLink', url);
                     }}
-                    title="Link toevoegen"
+                    title="Add link"
                   >
                     <Link size={14} />
                   </Button>
@@ -174,7 +174,7 @@ export default function SignatureEditor({
 
                 {/* Templates */}
                 <div>
-                  <h4 className="text-sm font-medium text-text-heading mb-2">Sjablonen</h4>
+                  <h4 className="text-sm font-medium text-text-heading mb-2">Templates</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {defaultTemplates.map((template) => (
                       <Button
@@ -197,8 +197,8 @@ export default function SignatureEditor({
                 </div>
 
                 <div className="text-xs text-text-muted space-y-1">
-                  <p><strong>Tip:</strong> Gebruik variabelen zoals {'{{name}}'}, {'{{company}}'}, {'{{function}}'} voor dynamische content.</p>
-                  <p>Deze worden automatisch vervangen bij het versturen van e-mails.</p>
+                  <p><strong>Tip:</strong> Use variables like {'{{name}}'}, {'{{company}}'}, {'{{function}}'} for dynamic content.</p>
+                  <p>These are replaced automatically when sending emails.</p>
                 </div>
               </TabsContent>
 
@@ -217,7 +217,7 @@ export default function SignatureEditor({
                   />
                 </div>
                 <p className="text-xs text-text-muted">
-                  Dit is hoe je handtekening eruit ziet met voorbeeldgegevens.
+                  This is how your signature looks with sample data.
                 </p>
               </TabsContent>
             </Tabs>
@@ -225,11 +225,11 @@ export default function SignatureEditor({
 
           <div className="flex items-center justify-end gap-2 p-4 border-t border-border bg-bg-elevated">
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Annuleren
+              Cancel
             </Button>
             <Button onClick={handleSave}>
               <Save size={14} />
-              Opslaan
+              Save
             </Button>
           </div>
         </Dialog.Content>

@@ -1,21 +1,18 @@
-"""Unified SENSING endpoints (Signal model)."""
+"""Unified SENSING endpoints (Signal model) with inbox-parity for Messages hub."""
 
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
+from app.models.inbox_threads import user_numeric_id
+from app.services import signal_threads as svc
 from app.services.interpretation import triage_signal
-from app.services.signals import (
-    create_inbound_signal,
-    get_signal_detail,
-    list_signals,
-    serialize_signal,
-)
+from app.services.signals import create_inbound_signal, serialize_signal
 
 router = APIRouter(prefix="/signals", tags=["signals"])
 
@@ -30,35 +27,29 @@ class InboundSignalBody(BaseModel):
     external_id: str = ""
 
 
-@router.get("")
-async def list_signal_threads(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    status: str | None = None,
-    channel: str | None = None,
-    priority: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
-):
-    rows = await list_signals(
-        session,
-        auth.tenant.id,
-        status=status,
-        channel=channel,
-        priority=priority,
-        limit=limit,
-        offset=offset,
-    )
-    return {"items": [serialize_signal(r) for r in rows]}
+class ThreadPatch(BaseModel):
+    status: str | None = None
+    assigned_to_user_id: int | None = None
+    tags: list[str] | None = None
+    priority: str | None = None
 
 
-@router.get("/{signal_id}")
-async def get_signal(
-    signal_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await get_signal_detail(session, auth.tenant.id, signal_id)
+class ReplyBody(BaseModel):
+    body_text: str
+    body_html: str | None = None
+    action: str = "send"
+
+
+class NoteBody(BaseModel):
+    body_text: str
+
+
+class ResolveBody(BaseModel):
+    action: str
+
+
+def _num(auth: AuthContext) -> int:
+    return user_numeric_id(auth.user.id)
 
 
 @router.post("/inbound")
@@ -79,6 +70,220 @@ async def ingest_inbound_signal(
         external_id=body.external_id,
     )
     return serialize_signal(signal)
+
+
+@router.get("/pins")
+async def list_pins(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.list_pins(session, auth.tenant.id, auth.user.id)
+
+
+@router.get("/members")
+async def list_members(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.list_members(session, auth.tenant.id)
+
+
+@router.get("/sync-status")
+async def sync_status(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.sync_status(session, auth.tenant.id)
+
+
+@router.get("")
+async def list_signal_threads(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    view: str = Query("all_open"),
+    folder: str | None = Query(None),
+    search: str | None = Query(None),
+    assignee_id: int | None = Query(None),
+    tag: str | None = Query(None),
+    connection_id: str | None = Query(None),
+    email_connection_id: int | None = Query(None),
+    project_id: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(30, ge=1, le=100),
+):
+    return await svc.list_threads(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        _num(auth),
+        view=view,
+        folder=folder,
+        search=search,
+        assignee_id=assignee_id,
+        tag=tag,
+        connection_id=connection_id,
+        email_connection_id=email_connection_id,
+        project_id=project_id,
+        page=page,
+        per_page=per_page,
+    )
+
+
+@router.get("/{signal_id}")
+async def get_signal(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    detail = await svc.get_thread(session, auth.tenant.id, auth.user.id, signal_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return detail
+
+
+@router.patch("/{signal_id}")
+async def patch_signal(
+    signal_id: UUID,
+    body: ThreadPatch,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    thread = await svc.patch_thread(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        _num(auth),
+        signal_id,
+        status=body.status,
+        assigned_to_user_id=body.assigned_to_user_id,
+        tags=body.tags,
+        priority=body.priority,
+    )
+    if not thread:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return thread
+
+
+@router.delete("/{signal_id}")
+async def delete_signal(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ok = await svc.delete_thread(session, auth.tenant.id, signal_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return {"ok": True}
+
+
+@router.patch("/{signal_id}/mark-read")
+async def mark_read(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    thread = await svc.set_read(
+        session, auth.tenant.id, auth.user.id, _num(auth), signal_id, read=True
+    )
+    if not thread:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return thread
+
+
+@router.patch("/{signal_id}/mark-unread")
+async def mark_unread(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    thread = await svc.set_read(
+        session, auth.tenant.id, auth.user.id, _num(auth), signal_id, read=False
+    )
+    if not thread:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return thread
+
+
+@router.post("/{signal_id}/reply")
+async def reply(
+    signal_id: UUID,
+    body: ReplyBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    message = await svc.reply_to_thread(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        _num(auth),
+        signal_id,
+        body_text=body.body_text,
+        body_html=body.body_html,
+        action=body.action,
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return message
+
+
+@router.post("/{signal_id}/notes")
+async def add_note(
+    signal_id: UUID,
+    body: NoteBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    message = await svc.reply_to_thread(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        _num(auth),
+        signal_id,
+        body_text=body.body_text,
+        direction="internal",
+        kind="internal_note",
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return message
+
+
+@router.post("/{signal_id}/pin")
+async def pin_signal(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await svc.pin_thread(session, auth.tenant.id, auth.user.id, signal_id)
+    return {"ok": True}
+
+
+@router.delete("/{signal_id}/pin")
+async def unpin_signal(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await svc.unpin_thread(session, auth.tenant.id, auth.user.id, signal_id)
+    return {"ok": True}
+
+
+@router.post("/{signal_id}/messages/{message_id}/resolve")
+async def resolve_decision(
+    signal_id: UUID,
+    message_id: UUID,
+    body: ResolveBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.resolve_message_decision(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        signal_id,
+        message_id,
+        action=body.action,
+    )
 
 
 @router.post("/{signal_id}/triage")

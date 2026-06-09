@@ -11,6 +11,7 @@ from app.models.inbox import InboxSettings
 from app.models.policy import ActionPolicy, AssistantPersona
 from app.models.project import Project, ProjectOrchestration
 from app.services.agent.rag import upsert_index_chunk
+from app.services.apply_mode import posture_to_settings
 
 
 ONBOARDING_SYSTEM_PROMPT = """You are the Bokito onboarding assistant. Interview the user about their organization:
@@ -72,6 +73,15 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
         "Organization blueprint - to be filled during onboarding.",
     )
     await seed_demo_project(session, tenant_id)
+    from app.services.orchestration.bootstrap import (
+        seed_demo_workstream,
+        seed_global_automation_templates,
+        seed_tenant_runtime_profiles,
+    )
+
+    await seed_global_automation_templates(session)
+    await seed_tenant_runtime_profiles(session, tenant_id)
+    await seed_demo_workstream(session, tenant_id)
 
 
 async def seed_demo_project(session: AsyncSession, tenant_id: UUID) -> None:
@@ -110,7 +120,7 @@ async def seed_demo_project(session: AsyncSession, tenant_id: UUID) -> None:
 
 
 def default_tenant_settings() -> dict:
-    return {
+    base = {
         "appearance": {
             "main_color": "#00FF99",
             "welcome_title": "Welcome",
@@ -124,16 +134,9 @@ def default_tenant_settings() -> dict:
             "anonymous": ["qa"],
             "member": ["qa", "capture", "actions", "handoff"],
         },
-        "platform_apply_modes": {
-            "agent": "draft",
-            "workstream": "draft",
-            "blueprint_block": "draft",
-            "integration": "draft",
-            "mcp_server": "draft",
-            "canvas_node": "yolo",
-            "canvas_edge": "yolo",
-        },
     }
+    base.update(posture_to_settings("assisted"))
+    return base
 
 
 def serialize_settings(settings: dict) -> str:

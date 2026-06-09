@@ -263,7 +263,7 @@ function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialogProps) 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-medium text-text-primary">
-                      Velden koppelen
+                      Map fields
                     </h3>
                     <Badge variant="secondary">
                       {csvPreview.rows.length} rijen
@@ -303,7 +303,7 @@ function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialogProps) 
                             }}
                             className="w-full px-3 py-2 rounded-md bg-bg-input border border-border text-text-primary text-sm focus:outline-none focus:border-border-focus"
                           >
-                            <option value="">Niet koppelen</option>
+                            <option value="">Do not map</option>
                             {fields.map(field => (
                               <option key={field.id} value={field.id}>
                                 {field.name} {field.required && '*'}

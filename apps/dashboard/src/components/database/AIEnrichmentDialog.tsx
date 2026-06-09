@@ -126,7 +126,7 @@ export default function AIEnrichmentDialog({ record, onClose, onSave }: AIEnrich
               
               {enrichableFields.length === 0 ? (
                 <div className="text-sm text-text-muted p-4 bg-bg-muted rounded-md">
-                  Geen lege velden beschikbaar om te verrijken
+                  No empty fields available to enrich
                 </div>
               ) : (
                 <div className="space-y-2">

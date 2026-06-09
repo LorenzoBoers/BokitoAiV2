@@ -14,6 +14,8 @@ class Task(SQLModel, table=True):
     instructions: str = ""
     schedule_kind: str = Field(default="on_demand")  # cron | interval | on_demand
     schedule_expr: str = ""
+    action_type: str = Field(default="start_task")  # start_task | start_workstream | wake_agent
+    action_config_json: str = Field(default="{}")
     enabled: bool = True
     last_run_at: Optional[datetime] = None
     next_run_at: Optional[datetime] = None
@@ -55,11 +57,21 @@ class WorkstreamStep(SQLModel, table=True):
     workstream_id: uuid.UUID = Field(foreign_key="workstreams.id", index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     order: int = 0
-    agent_profile_id: uuid.UUID = Field(foreign_key="agent_profiles.id")
+    agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    agent_profile_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_profiles.id")
+    runtime_profile_id: Optional[uuid.UUID] = Field(default=None, foreign_key="runtime_profiles.id")
     name: str
+    step_kind: str = Field(default="agent")  # agent | eval | human_gate | tool
+    prompt_template: str = ""
+    handoff_template: str = ""
+    input_from_steps_json: str = Field(default="[]")
+    success_criteria_json: str = Field(default="{}")
+    eval_kind: str = Field(default="rubric")
     on_success_step: Optional[uuid.UUID] = None
     on_fail_step: Optional[uuid.UUID] = None
+    on_eval_fail_step: Optional[uuid.UUID] = None
     max_iterations: int = 3
+    max_retries: int = 2
     config_json: str = Field(default="{}")
 
 

@@ -259,7 +259,7 @@ export default function MemberManagement() {
       setInviteEmail('')
       setInviteRole('member')
     } catch (inviteError) {
-      const message = inviteError instanceof Error ? inviteError.message : 'Uitnodiging versturen mislukt'
+      const message = inviteError instanceof Error ? inviteError.message : 'Failed to send invitation'
       setError(message)
     } finally {
       setInviteLoading(false)
@@ -483,7 +483,7 @@ export default function MemberManagement() {
               <Users size={18} className="text-text-muted" />
             </div>
             <div>
-              <p className="text-sm font-medium text-text-heading">Nog geen teams</p>
+              <p className="text-sm font-medium text-text-heading">No teams yet</p>
               <p className="text-xs text-text-secondary mt-0.5">Maak een team aan om leden te groeperen.</p>
             </div>
             <Button size="sm" variant="secondary" onClick={() => { setTeamName(''); setTeamDescription(''); setSelectedTeamMemberIds([]); setTeamDialogOpen(true) }}>

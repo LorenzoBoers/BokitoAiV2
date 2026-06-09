@@ -40,6 +40,7 @@ from app.routers import (
     widget,
     workforce,
     workforce_doc,
+    orchestration,
 )
 from app.routers.settings_orchestra import orchestra_router
 from app.services.agenda_scheduler import agenda_scheduler_enabled, agenda_scheduler_loop
@@ -104,5 +105,6 @@ app.include_router(workforce.router, prefix=api_prefix)
 app.include_router(govern.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
+app.include_router(orchestration.router, prefix=api_prefix)
 app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
 app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")

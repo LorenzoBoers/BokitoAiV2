@@ -51,7 +51,7 @@ const mockNotifications: Notification[] = [
     id: 4,
     type: 'webhook_failure',
     title: 'Webhook fout',
-    message: 'Webhook naar Slack is mislukt (3 pogingen)',
+    message: 'Webhook to Slack failed (3 attempts)',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(), // 8 hours ago
     read: false,
     userId: 1

@@ -1,16 +1,16 @@
 import { Trash2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import type { InboxThread } from '../../lib/inbox-api'
+import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import ThreadIndicatorMenu from './ThreadIndicatorMenu'
 
 type Props = {
   thread: InboxThread
   isSelected: boolean
-  onSelect: (id: number) => void
-  onMarkRead: (id: number) => void
-  onMarkUnread: (id: number) => void
-  onTogglePin: (id: number, currentPinned: boolean) => void
-  onDelete: (id: number) => void
+  onSelect: (id: ThreadId) => void
+  onMarkRead: (id: ThreadId) => void
+  onMarkUnread: (id: ThreadId) => void
+  onTogglePin: (id: ThreadId, currentPinned: boolean) => void
+  onDelete: (id: ThreadId) => void
   deleting?: boolean
 }
 

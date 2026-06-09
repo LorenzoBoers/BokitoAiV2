@@ -89,7 +89,7 @@ export default function HelpCentersSettings() {
                 })()
               }
             >
-              Toevoegen
+              Add
             </Button>
           </div>
         </Card>

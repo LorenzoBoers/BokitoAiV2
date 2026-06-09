@@ -494,8 +494,7 @@ export interface OnboardingStep1Data {
 }
 
 export interface OnboardingStep2Data {
-  table_template: string;
-  table_name: string;
+  first_surface: 'channel' | 'project' | 'skip'
 }
 
 export interface OnboardingStep3Data {

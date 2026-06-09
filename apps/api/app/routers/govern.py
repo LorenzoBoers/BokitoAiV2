@@ -13,7 +13,16 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth, tenant_settings
 from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.services.apply_mode import DEFAULT_PLATFORM_APPLY_MODES, tenant_platform_apply_modes
+from app.services.apply_mode import (
+    DEFAULT_PLATFORM_APPLY_MODES,
+    AUTONOMY_POSTURES,
+    posture_policy_mode,
+    posture_to_settings,
+    resolve_posture,
+    serialize_posture_catalog,
+    tenant_platform_apply_modes,
+)
+from app.services.audit import record_audit
 from app.services.audit import search_audit, serialize_audit
 from app.services.platform_changes import (
     accept_platform_change,
@@ -29,6 +38,75 @@ router = APIRouter(prefix="/govern", tags=["govern"])
 
 class ApplyModesUpdate(BaseModel):
     platform_apply_modes: dict[str, str]
+
+
+class PostureUpdate(BaseModel):
+    posture: str
+
+
+@router.get("/posture")
+async def get_posture(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    policy = await get_or_create_policy(session, auth.tenant.id)
+    posture = resolve_posture(auth.tenant)
+    return {
+        "posture": posture,
+        "policy_mode": policy.mode,
+        "platform_apply_modes": tenant_platform_apply_modes(auth.tenant),
+        "presets": serialize_posture_catalog(),
+    }
+
+
+@router.put("/posture")
+async def update_posture(
+    body: PostureUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    if body.posture not in AUTONOMY_POSTURES:
+        raise HTTPException(status_code=400, detail=f"Invalid posture: {body.posture}")
+
+    previous_posture = resolve_posture(auth.tenant)
+    derived = posture_to_settings(body.posture)  # type: ignore[arg-type]
+
+    settings = tenant_settings(auth.tenant)
+    settings["autonomy_posture"] = derived["autonomy_posture"]
+    settings["platform_apply_modes"] = derived["platform_apply_modes"]
+
+    result = await session.execute(select(Tenant).where(Tenant.id == auth.tenant.id))
+    tenant = result.scalar_one()
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+
+    policy = await get_or_create_policy(session, auth.tenant.id)
+    policy.mode = posture_policy_mode(body.posture)  # type: ignore[arg-type]
+    session.add(policy)
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:posture_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(auth.tenant.id),
+        outcome="applied",
+        summary=f"Autonomy posture changed from {previous_posture} to {body.posture}",
+        before={"posture": previous_posture},
+        after={"posture": body.posture, "policy_mode": policy.mode},
+        commit=False,
+    )
+    await session.commit()
+
+    return {
+        "posture": body.posture,
+        "policy_mode": policy.mode,
+        "platform_apply_modes": tenant_platform_apply_modes(tenant),
+        "presets": serialize_posture_catalog(),
+    }
 
 
 @router.get("/audit")

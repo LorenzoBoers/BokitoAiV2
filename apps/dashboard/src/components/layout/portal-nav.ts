@@ -39,6 +39,22 @@ export const WORKFORCE_DEFAULT_PATH = AI_OS_DEFAULT_PATH
 
 export const WORKFORCE_PO_PATH = '/os/agents' as const
 
+export type MessagesHubOptions = {
+  folder?: 'external' | 'internal' | 'all'
+  queue?: string
+  projectId?: string
+}
+
+/** Canonical URL for the unified Messages hub (Signal threads). */
+export function messagesHubPath(options: MessagesHubOptions = {}): string {
+  const queue = options.queue ?? 'my'
+  const params = new URLSearchParams()
+  if (options.folder && options.folder !== 'all') params.set('folder', options.folder)
+  if (options.projectId) params.set('project_id', options.projectId)
+  const query = params.toString()
+  return `/messages/${queue}${query ? `?${query}` : ''}`
+}
+
 export type NavBadgeSlot =
   | 'inbox'
   | 'agents'
@@ -112,7 +128,7 @@ export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
     icon: Network,
     badgeSlot: 'projectsAttention',
   },
-  { label: t('rail.support'), to: '/support/inbox/my', icon: MessageSquare, badgeSlot: 'inbox' },
+  { label: t('rail.support', { defaultValue: 'Messages' }), to: '/messages', icon: MessageSquare, badgeSlot: 'inbox' },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
@@ -120,13 +136,12 @@ export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
 /** Bokito AI OS: surfaces backed by FastAPI in `VITE_API_MODE=bokito`. */
 export const getBokitoAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
   { label: t('rail.home'), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
-  { label: t('rail.support'), to: '/support/inbox/my', icon: MessageSquare, badgeSlot: 'inbox' },
+  { label: t('rail.support', { defaultValue: 'Messages' }), to: '/messages', icon: MessageSquare, badgeSlot: 'inbox' },
   { label: t('rail.agenda', { defaultValue: 'Agenda' }), to: '/agenda', icon: CalendarDays },
   {
     label: t('rail.aiOs', { defaultValue: 'AI OS' }),
     to: AI_OS_DEFAULT_PATH,
     icon: Network,
-    badgeSlot: 'projectsAttention',
   },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
   { label: t('rail.govern', { defaultValue: 'Govern' }), to: '/govern', icon: ShieldCheck },
@@ -222,11 +237,6 @@ export const getAiOsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
         badgeSlot: 'agents',
       },
       {
-        label: t('aiOs.links.decisions', { defaultValue: 'Decisions' }),
-        to: '/os/communication',
-        badgeSlot: 'projectsAttention',
-      },
-      {
         label: t('aiOs.links.docs', { defaultValue: 'Blueprint' }),
         to: '/os/docs',
       },
@@ -259,9 +269,10 @@ export function projectOverviewPath(projectId: string, streamSlug?: string | nul
 }
 
 export function projectCommunicationPath(projectId: string, streamSlug?: string | null): string {
-  const base = `/project/${projectId}/communication`
+  const base = messagesHubPath({ folder: 'internal', queue: 'all', projectId })
   if (!streamSlug?.trim()) return base
-  return `${base}?stream=${encodeURIComponent(streamSlug.trim())}`
+  const separator = base.includes('?') ? '&' : '?'
+  return `${base}${separator}stream=${encodeURIComponent(streamSlug.trim())}`
 }
 
 /** Per-project cockpit tabs rendered in the main canvas (not the hub sidebar). */
@@ -272,11 +283,11 @@ export const getProjectTabLinks = (t: TFunction<'nav'>, projectId: string): Side
     to: `/project/${projectId}/orchestration`,
   },
   {
-    label: t('project.links.communication', { defaultValue: 'Communication' }),
-    to: `/project/${projectId}/communication`,
+    label: t('project.links.communication', { defaultValue: 'Messages' }),
+    to: messagesHubPath({ folder: 'internal', queue: 'my', projectId }),
   },
   {
-    label: t('project.links.workforce', { defaultValue: 'Workforce history' }),
+    label: t('project.links.workforce', { defaultValue: 'Agent runs' }),
     to: `/project/${projectId}/workforce`,
   },
   {
@@ -315,7 +326,7 @@ export const getSettingsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] =>
       { label: t('settings.links.general'), to: '/settings/general' },
       { label: t('settings.links.branding'), to: '/settings/branding' },
       { label: t('settings.links.membersTeams'), to: '/settings/members' },
-      { label: t('settings.links.billing'), to: '/settings/billing' },
+      { label: t('settings.links.inbox', { defaultValue: 'Messages and channels' }), to: '/settings/inbox' },
       { label: t('settings.links.accessSecurity'), to: '/settings/access-security' },
     ],
   },
@@ -482,9 +493,9 @@ export const getWorkforcePageMeta = (
   t: TFunction<'nav'>,
 ): Record<string, { title: string; description: string; icon: LucideIcon }> => ({
   overview: {
-    title: t('workforce.pageMeta.overview.title', { defaultValue: 'Workforce overview' }),
+    title: t('workforce.pageMeta.overview.title', { defaultValue: 'AI OS overview' }),
     description: t('workforce.pageMeta.overview.description', {
-      defaultValue: 'Operational overview of orchestrator coverage and agent activity.',
+      defaultValue: 'Live map of how intelligence flows through your workspace.',
     }),
     icon: Bot,
   },

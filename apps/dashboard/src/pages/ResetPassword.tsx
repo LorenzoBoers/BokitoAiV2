@@ -213,7 +213,7 @@ export default function ResetPassword() {
               disabled={isLoading || !validation.isValid}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
-              {isLoading ? 'Bezig...' : 'Wachtwoord wijzigen'}
+              {isLoading ? 'Saving...' : 'Change password'}
             </button>
           </form>
 

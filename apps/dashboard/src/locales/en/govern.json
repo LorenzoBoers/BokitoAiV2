@@ -1,12 +1,12 @@
 {
   "title": "Govern",
-  "subtitle": "Review platform drafts, audit agent self-maintenance, and manage apply modes.",
+  "subtitle": "Review platform drafts, set autonomy posture, and manage how agent changes apply.",
   "openCanvas": "Open AI OS canvas",
   "loading": "Loading govern data...",
   "refresh": "Refresh",
   "tabs": {
     "drafts": "Pending drafts",
-    "policy": "Apply modes",
+    "policy": "Policy",
     "history": "Version history",
     "passports": "Agent passports",
     "audit": "Recent audit"
@@ -17,6 +17,7 @@
     "accept": "Accept",
     "reject": "Reject",
     "acceptConfirm": "Apply this change to your workspace?",
+    "rejectConfirm": "Reject this change? It will not be applied.",
     "accepted": "Change accepted and applied",
     "rejected": "Change rejected"
   },
@@ -26,8 +27,27 @@
   "audit": {
     "empty": "No audit events yet."
   },
+  "posture": {
+    "title": "Autonomy posture",
+    "intro": "Choose how much AI can run without human review. You can fine-tune individual resource types below.",
+    "saved": "Autonomy posture updated",
+    "current": "Current posture",
+    "manual": {
+      "label": "Manual",
+      "summary": "Humans review every agent action and structural change before it applies."
+    },
+    "assisted": {
+      "label": "Assisted",
+      "summary": "Routine whitelisted actions run automatically. Structural changes queue in Govern."
+    },
+    "autonomous": {
+      "label": "Autonomous",
+      "summary": "AI runs operations. Integrations always require human approval."
+    }
+  },
   "applyModes": {
-    "intro": "Choose how agent-proposed changes are applied per resource type.",
+    "title": "Advanced overrides",
+    "intro": "Override how agent-proposed changes apply per resource type.",
     "saved": "Apply mode updated"
   }
 }

@@ -463,6 +463,13 @@ async def _dispatch_tool(
         )
         session.add(notification)
         await session.flush()
+        project_uuid = None
+        raw_project = tool_input.get("project_id")
+        if raw_project:
+            try:
+                project_uuid = UUID(str(raw_project))
+            except ValueError:
+                project_uuid = None
         decision = DecisionRequest(
             tenant_id=tenant_id,
             notification_id=notification.id,
@@ -471,6 +478,7 @@ async def _dispatch_tool(
             summary=tool_input.get("summary", ""),
             options_json=json.dumps(tool_input.get("options", [])),
             status="awaiting_human",
+            project_id=project_uuid,
         )
         session.add(decision)
         await session.flush()
@@ -486,6 +494,17 @@ async def _dispatch_tool(
                 metadata_json=json.dumps({"decision_request_id": str(decision.id)}),
             )
             session.add(msg)
+        from app.services.signal_decisions import ingest_decision_request
+
+        agent_uuid = agent.id if agent else None
+        await ingest_decision_request(
+            session,
+            tenant_id,
+            notification,
+            decision,
+            user_id=user_id,
+            agent_id=agent_uuid,
+        )
         await session.commit()
         return {"decision_request_id": str(decision.id), "status": "awaiting_human"}
 

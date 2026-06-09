@@ -329,7 +329,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const applySession = useCallback((session: AuthSessionResponse) => {
     const nextToken = session.authToken ?? session.access_token;
-    if (!nextToken) throw new Error(isBokitoMode() ? 'No access token received' : 'Geen access token ontvangen');
+    if (!nextToken) throw new Error('No access token received');
     try {
       sessionStorage.setItem(ACCESS_TOKEN_FALLBACK_KEY, nextToken);
     } catch {

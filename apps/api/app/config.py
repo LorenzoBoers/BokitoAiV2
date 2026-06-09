@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     worker_inbound_secret: str = "dev-worker-secret"
     orchestra_enabled: bool = False
     orchestra_interval_minutes: int = 60
+    use_signal_inbox: bool = True
 
     cors_origins: str = "http://127.0.0.1:5174,http://127.0.0.1:5175,http://localhost:5174,http://localhost:5175"
 

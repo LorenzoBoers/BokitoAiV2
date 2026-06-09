@@ -254,7 +254,7 @@ function TableEndpointsCard({ table, fields, workspaceId }: TableEndpointsCardPr
                 </code>
               </div>
               <div className="text-right">
-                <div className="text-sm text-text-secondary">Velden: {fields.length}</div>
+                <div className="text-sm text-text-secondary">Fields: {fields.length}</div>
                 <div className="text-xs text-text-muted">
                   {fields.map(f => f.name).join(', ')}
                 </div>
@@ -296,7 +296,7 @@ export default function EndpointDocumentation() {
           <div className="w-12 h-12 mx-auto mb-4 bg-bg-subtle rounded-lg flex items-center justify-center">
             <Code size={24} className="text-text-muted" />
           </div>
-          <h3 className="text-lg font-medium text-text-heading mb-2">Geen tabellen</h3>
+          <h3 className="text-lg font-medium text-text-heading mb-2">No tables</h3>
           <p className="text-text-secondary mb-4">
             Maak eerst tabellen aan om API endpoints te genereren
           </p>

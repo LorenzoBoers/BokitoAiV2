@@ -332,7 +332,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
                     className={getFieldError('inviteEmail') ? 'border-status-error' : ''}
                   />
                   <Button onClick={addInvite} variant="secondary">
-                    Toevoegen
+                    Add
                   </Button>
                 </div>
                 {getFieldError('inviteEmail') && (
@@ -355,7 +355,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
                             variant="ghost"
                             onClick={() => removeInvite(email)}
                           >
-                            Verwijder
+                            Remove
                           </Button>
                         </div>
                       ))}

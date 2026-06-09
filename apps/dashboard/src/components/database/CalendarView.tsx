@@ -258,7 +258,7 @@ export default function CalendarView() {
                   </div>
                   <div className="space-y-1">
                     {day.records.length === 0 ? (
-                      <div className="text-[10px] text-text-muted">Geen items</div>
+                      <div className="text-[10px] text-text-muted">No items</div>
                     ) : day.records.map((rec) => (
                       <div
                         key={rec.id}
@@ -278,7 +278,7 @@ export default function CalendarView() {
               {currentDate.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
             {dayRecords.length === 0 ? (
-              <div className="text-xs text-text-muted">Geen items op deze dag.</div>
+              <div className="text-xs text-text-muted">No items on this day.</div>
             ) : (
               <div className="space-y-1.5">
                 {dayRecords

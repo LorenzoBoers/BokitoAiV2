@@ -30,6 +30,9 @@ export function countForInboxQueue(
       return counts.inboxByQueue.unassigned
     case 'all':
       return counts.inboxByQueue.all
+    case 'awaiting-decision':
+    case 'awaiting_decision':
+      return counts.agentsAttention
     default:
       return 0
   }

@@ -105,7 +105,7 @@ function normalizeConnections(payload: unknown): EmailConnection[] {
 function statusLabel(status: ConnectionStatus): string {
   if (status === 'active') return 'Verbonden'
   if (status === 'error') return 'Fout'
-  return 'Verwijderd'
+  return 'Deleted'
 }
 
 function statusBadgeVariant(status: ConnectionStatus): 'success' | 'error' | 'neutral' {
@@ -252,7 +252,7 @@ export default function EmailSettings() {
     } else if (callback.handled && callback.error) {
       setBanner({
         mode: 'oauth_error',
-        title: `${providerFriendlyName(callback.provider ?? 'outlook')} koppelen mislukt`,
+        title: `Failed to connect ${providerFriendlyName(callback.provider ?? 'outlook')}`,
         summary: describeOAuthCallbackSummary(callback),
         code: callback.error,
         detail: callback.detail,
@@ -309,11 +309,11 @@ export default function EmailSettings() {
       }
 
       const url = data.authorize_url ?? data.authorizeUrl
-      if (!url) throw new Error('Geen authorize-URL ontvangen van de server.')
+      if (!url) throw new Error('No authorize URL received from the server.')
       if (provider === 'outlook') ensureOutlookAuthorizeUrlHasClientId(url)
       window.location.assign(url)
     } catch (err) {
-      const message = err instanceof Error ? err.message : `${PROVIDER_LABEL[provider]} OAuth start mislukt.`
+      const message = err instanceof Error ? err.message : `Failed to start ${PROVIDER_LABEL[provider]} OAuth.`
       setBanner({ mode: 'simple', variant: 'error', text: message })
       setOauthLoading((prev) => ({ ...prev, [provider]: false }))
     }
@@ -325,7 +325,7 @@ export default function EmailSettings() {
       await xanoDeleteIntegrations(integrationsRoutes.email.connections.byId(id), token)
       setOauthConnections((prev) => prev.filter((c) => c.id !== id))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Verwijderen mislukt.'
+      const message = err instanceof Error ? err.message : 'Delete failed.'
       setBanner({ mode: 'simple', variant: 'error', text: message })
     }
   }
@@ -469,7 +469,7 @@ export default function EmailSettings() {
                   <Dialog.Overlay className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" />
                   <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[760px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border/70 bg-bg-surface p-4 shadow-[0_20px_60px_rgba(5,8,18,0.4)]">
                     <div className="mb-3 flex items-center justify-between">
-                      <Dialog.Title className="text-sm font-semibold text-text-heading">Account koppelen</Dialog.Title>
+                      <Dialog.Title className="text-sm font-semibold text-text-heading">Connect account</Dialog.Title>
                       <Dialog.Close asChild>
                         <button type="button" className="rounded p-1 text-text-muted hover:text-text-primary">
                           <X size={14} />
@@ -547,7 +547,7 @@ export default function EmailSettings() {
                       </>
                     ) : (
                       <div className="rounded-lg border border-border/60 bg-bg-input/70 px-3 py-2 text-xs text-text-secondary">
-                        Je gaat {PROVIDER_LABEL[modalProvider]} koppelen via OAuth. Na klikken word je doorgestuurd naar de provider login/consent.
+                        You will connect {PROVIDER_LABEL[modalProvider]} via OAuth. After clicking, you will be redirected to the provider login/consent screen.
                       </div>
                     )}
 
@@ -559,7 +559,7 @@ export default function EmailSettings() {
                       </Button>
                       <Button size="sm" onClick={() => void handleModalSubmit()} disabled={modalOAuthLoading || !token}>
                         <Plus size={13} />
-                        {isSmtp ? 'Toevoegen' : modalOAuthLoading ? 'Bezig…' : `${PROVIDER_LABEL[modalProvider]} koppelen`}
+                        {isSmtp ? 'Add' : modalOAuthLoading ? 'Connecting...' : `Connect ${PROVIDER_LABEL[modalProvider]}`}
                       </Button>
                     </div>
                   </Dialog.Content>
@@ -603,7 +603,7 @@ export default function EmailSettings() {
                     <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => void handleDeleteOAuth(connection.id)}>
                         <Trash2 size={13} />
-                        Ontkoppelen
+                        Disconnect
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -628,7 +628,7 @@ export default function EmailSettings() {
                     <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => setLocalSmtpAccounts((prev) => prev.filter((item) => item.id !== account.id))}>
                         <Trash2 size={13} />
-                        Verwijderen
+                        Delete
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -644,7 +644,7 @@ export default function EmailSettings() {
                   <span className="text-text-muted">+</span>
                   <ProviderLogo provider="smtp_imap" className="h-7 w-7 object-contain" />
                 </div>
-                <p className="text-sm font-medium text-text-heading">Nog geen e-mailaccounts gekoppeld</p>
+                <p className="text-sm font-medium text-text-heading">No email accounts connected yet</p>
                 <p className="mt-1 text-xs text-text-secondary">Gebruik hierboven Add provider om te starten.</p>
               </div>
             ) : null}
@@ -668,7 +668,7 @@ export default function EmailSettings() {
             </div>
             <div className="rounded-lg border border-border/70 bg-bg-input/50 p-3">
               {ignoredAddresses.length === 0 ? (
-                <p className="text-sm text-text-muted">Nog geen adressen toegevoegd.</p>
+                <p className="text-sm text-text-muted">No addresses added yet.</p>
               ) : (
                 <div className="space-y-2">
                   {ignoredAddresses.map((address) => (
@@ -753,7 +753,7 @@ export default function EmailSettings() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Voorbeeld (met testdata)</label>
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Preview (with sample data)</label>
                 <div className="min-h-[260px] rounded-lg border border-border/60 bg-white p-5 overflow-auto">
                   {/* eslint-disable-next-line react/no-danger */}
                   <div dangerouslySetInnerHTML={{ __html: signaturePreview }} />
@@ -770,7 +770,7 @@ export default function EmailSettings() {
                     <tr className="border-b border-border/55 bg-bg-elevated/40">
                       <th className="px-4 py-2 text-left font-semibold text-text-muted">Placeholder</th>
                       <th className="px-4 py-2 text-left font-semibold text-text-muted">Beschrijving</th>
-                      <th className="px-4 py-2 text-left font-semibold text-text-muted">Voorbeeld</th>
+                      <th className="px-4 py-2 text-left font-semibold text-text-muted">Preview</th>
                       <th className="px-4 py-2 w-10" />
                     </tr>
                   </thead>
@@ -805,7 +805,7 @@ export default function EmailSettings() {
 
             <div className="flex justify-end">
               <Button size="sm" onClick={() => saveDraftUx('signatures')}>
-                Opslaan
+                Save
               </Button>
             </div>
           </TabsContent>

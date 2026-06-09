@@ -185,7 +185,7 @@ export function TableBuilder({ isOpen, onClose, tableId }: TableBuilderProps) {
 
     if (!field.id) return;
 
-    if (confirm('Weet je zeker dat je dit veld wilt verwijderen?')) {
+    if (confirm('Are you sure you want to delete this field?')) {
       try {
         await removeField(field.id);
         
@@ -412,7 +412,7 @@ function SortableFieldItem({
             </Button>
             <Button size="sm" onClick={onSave}>
               <Check size={14} />
-              Opslaan
+              Save
             </Button>
           </div>
         </div>

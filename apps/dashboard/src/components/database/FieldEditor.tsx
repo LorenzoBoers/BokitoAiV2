@@ -101,7 +101,7 @@ export default function FieldEditor() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-text-heading uppercase tracking-wide">Velden</span>
+        <span className="text-xs font-semibold text-text-heading uppercase tracking-wide">Fields</span>
         <Button size="sm" variant="ghost" className="h-6 text-xs gap-1" onClick={() => setShowAdd(true)}>
           <Plus size={12} /> Veld
         </Button>
@@ -273,7 +273,7 @@ function AddFieldDialog({ onClose }: { onClose: () => void }) {
                 <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>Annuleren</Button>
                 <Button type="submit" disabled={saving || !name.trim()}>
                   {saving && <Loader2 size={14} className="animate-spin mr-1" />}
-                  Toevoegen
+                  Add
                 </Button>
               </div>
             </form>

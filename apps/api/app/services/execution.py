@@ -1,9 +1,10 @@
-"""Workstream execution environment (AgentLoop-backed)."""
+"""Workstream execution environment (AgentLoop-backed with runtime profiles)."""
 
 from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -11,9 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun
-from app.models.orchestra import AgentProfile
+from app.models.orchestra import WorkstreamStep
 from app.models.usage import UsageLedger
 from app.services.agent.loop import AgentLoop
+from app.services.orchestration.profiles import apply_snapshot_to_agent, resolve_runtime_snapshot
 
 
 class ExecutionEnvironment:
@@ -24,6 +26,8 @@ class ExecutionEnvironment:
         step_name: str,
         instructions: str,
         config: dict[str, Any],
+        *,
+        step: WorkstreamStep | None = None,
     ) -> dict[str, Any]:
         raise NotImplementedError
 
@@ -36,6 +40,8 @@ class MockExecutionEnvironment(ExecutionEnvironment):
         step_name: str,
         instructions: str,
         config: dict[str, Any],
+        *,
+        step: WorkstreamStep | None = None,
     ) -> dict[str, Any]:
         return {
             "status": "success",
@@ -47,9 +53,20 @@ class MockExecutionEnvironment(ExecutionEnvironment):
 
 class AgentLoopExecutionEnvironment(ExecutionEnvironment):
     async def _resolve_agent(
-        self, session: AsyncSession, tenant_id: UUID, config: dict[str, Any]
+        self, session: AsyncSession, tenant_id: UUID, config: dict[str, Any], step: WorkstreamStep | None
     ) -> Agent:
-        profile_id = config.get("agent_profile_id")
+        if step and step.agent_id:
+            agent = (
+                await session.execute(
+                    select(Agent).where(Agent.id == step.agent_id, Agent.tenant_id == tenant_id)
+                )
+            ).scalar_one_or_none()
+            if agent:
+                return agent
+
+        from app.models.orchestra import AgentProfile
+
+        profile_id = config.get("agent_profile_id") or (step.agent_profile_id if step else None)
         if profile_id:
             profile = (
                 await session.execute(
@@ -105,57 +122,68 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
         step_name: str,
         instructions: str,
         config: dict[str, Any],
+        *,
+        step: WorkstreamStep | None = None,
     ) -> dict[str, Any]:
-        agent = await self._resolve_agent(session, tenant_id, config)
-        if agent.id is None:
-            session.add(agent)
+        agent = await self._resolve_agent(session, tenant_id, config, step)
+        snapshot = await resolve_runtime_snapshot(
+            session,
+            tenant_id,
+            agent=agent,
+            step_runtime_profile_id=step.runtime_profile_id if step else None,
+            legacy_agent_profile_id=step.agent_profile_id if step else config.get("agent_profile_id"),
+        )
+        runtime_agent = apply_snapshot_to_agent(agent, snapshot)
+
+        if runtime_agent.id is None:
+            session.add(runtime_agent)
             await session.flush()
 
         run = AgentRun(
             tenant_id=tenant_id,
-            agent_id=agent.id,
+            agent_id=runtime_agent.id,
             status="running",
             trigger_type="workstream",
             subject=step_name,
+            step_id=step.id if step else None,
+            runtime_snapshot_json=json.dumps(snapshot),
         )
         session.add(run)
         await session.flush()
 
-        loop = AgentLoop(session, tenant_id, None, agent, run)
-        try:
-            text, tokens = await loop.run_chat(
-                [{"role": "user", "content": instructions or f"Execute workstream step: {step_name}"}]
-            )
-            from datetime import datetime
+        prompt = step.prompt_template or step.handoff_template if step else None
+        prompt = prompt or instructions or f"Execute workstream step: {step_name}"
 
+        loop = AgentLoop(session, tenant_id, None, runtime_agent, run)
+        try:
+            text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
             run.status = "completed"
             run.completed_at = datetime.utcnow()
-            run.tokens_input = tokens.get("input", 0)
-            run.tokens_output = tokens.get("output", 0)
+            run.tokens_input = tokens.get("input_tokens", 0)
+            run.tokens_output = tokens.get("output_tokens", 0)
             run.result_json = json.dumps({"text": text[:2000]})
             session.add(
                 UsageLedger(
                     tenant_id=tenant_id,
                     scope="workstream",
                     scope_id=str(run.id),
-                    provider=agent.provider,
-                    model=agent.model,
-                    tokens_in=tokens.get("input", 0),
-                    tokens_out=tokens.get("output", 0),
-                    cost_cents=max(1, (tokens.get("input", 0) + tokens.get("output", 0)) // 100),
+                    provider=runtime_agent.provider,
+                    model=runtime_agent.model,
+                    tokens_in=tokens.get("input_tokens", 0),
+                    tokens_out=tokens.get("output_tokens", 0),
+                    cost_cents=max(1, (tokens.get("input_tokens", 0) + tokens.get("output_tokens", 0)) // 100),
                 )
             )
             await session.commit()
             return {
                 "status": "success",
                 "output": text,
-                "tokens_in": tokens.get("input", 0),
-                "tokens_out": tokens.get("output", 0),
+                "tokens_in": tokens.get("input_tokens", 0),
+                "tokens_out": tokens.get("output_tokens", 0),
                 "run_id": str(run.id),
+                "model": snapshot.get("model"),
             }
         except Exception as exc:
-            from datetime import datetime
-
             run.status = "failed"
             run.completed_at = datetime.utcnow()
             await session.commit()

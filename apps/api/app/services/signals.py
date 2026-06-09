@@ -11,7 +11,18 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.email import EmailAccount
 from app.models.signal import Signal, SignalEvent, SignalMessage
+
+
+async def _primary_email_account_id(session: AsyncSession, tenant_id: UUID) -> UUID | None:
+    result = await session.execute(
+        select(EmailAccount)
+        .where(EmailAccount.tenant_id == tenant_id, EmailAccount.is_enabled.is_(True))
+        .limit(1)
+    )
+    account = result.scalar_one_or_none()
+    return account.id if account else None
 
 
 def serialize_signal(row: Signal) -> dict[str, Any]:
@@ -52,6 +63,8 @@ def serialize_message(row: SignalMessage) -> dict[str, Any]:
         "subject": row.subject,
         "body_text": row.body_text,
         "body_preview": row.body_preview or row.body_text[:200],
+        "kind": row.kind,
+        "decision_id": str(row.decision_id) if row.decision_id else None,
         "send_status": row.send_status,
         "created_at": row.created_at.isoformat(),
     }
@@ -124,6 +137,9 @@ async def create_inbound_signal(
     contact_name: str = "",
     external_id: str = "",
 ) -> Signal:
+    email_account_id = None
+    if channel == "email":
+        email_account_id = await _primary_email_account_id(session, tenant_id)
     signal = Signal(
         tenant_id=tenant_id,
         channel=channel,
@@ -132,6 +148,7 @@ async def create_inbound_signal(
         contact_email=contact_email,
         contact_name=contact_name,
         external_id=external_id,
+        email_account_id=email_account_id,
         status="open",
         priority="normal",
         has_unread=True,
@@ -143,6 +160,7 @@ async def create_inbound_signal(
         SignalMessage(
             signal_id=signal.id,
             tenant_id=tenant_id,
+            kind="user_message",
             direction="inbound",
             body_text=body_text,
             body_preview=body_text[:200],

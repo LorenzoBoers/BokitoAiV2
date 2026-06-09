@@ -11,7 +11,10 @@ from app.db.session import async_session_factory, init_db
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.blueprint import BlueprintChangeRequest
 from app.models.email import EmailMessage
+from app.services.orchestration.dispatcher import create_agent_task, trigger_automation_task
+from app.services.orchestration.queue import enqueue_agent_task_segment
 from app.services.agent.loop import AgentLoop
+from app.services.orchestration.runner import run_agent_task_segment, start_workstream_as_task
 
 settings = get_settings()
 
@@ -111,7 +114,10 @@ async def orchestra_tick(ctx, tenant_id: str):
     """V2 skeleton: periodic proactive scan for improvements and integration suggestions."""
     async with async_session_factory() as session:
         agent_result = await session.execute(
-            select(Agent).where(Agent.tenant_id == UUID(tenant_id), Agent.role == "orchestra").limit(1)
+            select(Agent).where(
+                Agent.tenant_id == UUID(tenant_id),
+                Agent.role.in_(("orchestra", "orchestrator")),
+            ).limit(1)
         )
         agent = agent_result.scalar_one_or_none()
         if not agent:
@@ -174,8 +180,66 @@ async def coding_agent_run(ctx, tenant_id: str, task_subject: str, repo_path: st
         return {"coding_run": str(run.id)}
 
 
+async def run_workstream_orchestrated(ctx, tenant_id: str, workstream_id: str, trigger_type: str = "manual"):
+    async with async_session_factory() as session:
+        task = await start_workstream_as_task(
+            session, UUID(tenant_id), UUID(workstream_id), trigger_type=trigger_type
+        )
+        max_segments = 20
+        for _ in range(max_segments):
+            result = await run_agent_task_segment(session, UUID(tenant_id), task.id)
+            if result.get("completed") or result.get("failed") or result.get("paused"):
+                break
+            await session.refresh(task)
+            if task.status in ("completed", "failed", "cancelled", "awaiting_decision"):
+                break
+        return {"task_id": str(task.id), "status": task.status}
+
+
+async def run_agent_task_segment_job(ctx, tenant_id: str, task_id: str):
+    async with async_session_factory() as session:
+        return await run_agent_task_segment(session, UUID(tenant_id), UUID(task_id))
+
+
+async def process_due_automations(ctx):
+    from app.models.orchestra import Task as AutomationTask
+
+    async with async_session_factory() as session:
+        now = datetime.utcnow()
+        result = await session.execute(
+            select(AutomationTask).where(
+                AutomationTask.enabled.is_(True),
+                AutomationTask.schedule_kind.in_(("interval", "cron")),
+                AutomationTask.next_run_at <= now,
+            )
+        )
+        count = 0
+        for auto in result.scalars().all():
+            await trigger_automation_task(session, auto.id, auto.tenant_id)
+            if auto.schedule_kind == "interval":
+                try:
+                    minutes = int(auto.schedule_expr or "60")
+                except ValueError:
+                    minutes = 60
+                from datetime import timedelta
+
+                auto.next_run_at = now + timedelta(minutes=minutes)
+            session.add(auto)
+            count += 1
+        await session.commit()
+        return {"automations_run": count}
+
+
 class WorkerSettings:
-    functions = [process_inbound_email, process_change_request, orchestra_tick, coding_agent_run]
+    functions = [
+        process_inbound_email,
+        process_change_request,
+        orchestra_tick,
+        coding_agent_run,
+        run_agent_task_segment_job,
+        run_workstream_orchestrated,
+        process_due_automations,
+    ]
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
 

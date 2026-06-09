@@ -50,3 +50,4 @@ async def test_signal_roundtrip(session_override):
         )
     ).scalars().all()
     assert len(msgs) == 1
+    assert msgs[0].kind == "user_message"

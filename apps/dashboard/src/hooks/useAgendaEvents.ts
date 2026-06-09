@@ -17,32 +17,42 @@ export function useAgendaEvents({ start, end, calendarIds, pollMs = 30_000 }: Us
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const rangeKey = `${start.toISOString()}|${end.toISOString()}|${(calendarIds ?? []).join(',')}`
+  const startKey = start.toISOString()
+  const endKey = end.toISOString()
+  const calendarKey = (calendarIds ?? []).join(',')
 
   const refresh = useCallback(async () => {
-    if (!token) return
+    if (!token) {
+      setEvents([])
+      setLoading(false)
+      setError(null)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const { start: s, end: e } = toIsoRange(start, end)
-      const rows = await listEvents({ start: s, end: e, calendarIds }, token)
+      const rangeStart = new Date(startKey)
+      const rangeEnd = new Date(endKey)
+      const { start: s, end: e } = toIsoRange(rangeStart, rangeEnd)
+      const ids = calendarKey ? calendarKey.split(',').filter(Boolean) : undefined
+      const rows = await listEvents({ start: s, end: e, calendarIds: ids }, token)
       setEvents(rows)
     } catch (err) {
       setError(formatApiErrorMessage(err))
     } finally {
       setLoading(false)
     }
-  }, [token, start, end, calendarIds])
+  }, [token, startKey, endKey, calendarKey])
 
   useEffect(() => {
     void refresh()
-  }, [refresh, rangeKey])
+  }, [refresh])
 
   useEffect(() => {
     if (!token || pollMs <= 0) return
     const id = window.setInterval(() => void refresh(), pollMs)
     return () => window.clearInterval(id)
-  }, [refresh, pollMs, token, rangeKey])
+  }, [refresh, pollMs, token])
 
   return { events, loading, error, refresh }
 }

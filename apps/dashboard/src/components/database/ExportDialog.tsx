@@ -68,7 +68,7 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
       onClose();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Onbekende fout';
-      toast.error(`Export mislukt: ${message}`);
+      toast.error(`Export failed: ${message}`);
     } finally {
       setIsExporting(false);
     }
@@ -177,7 +177,7 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-text-secondary">
-                Velden selecteren
+                Select fields
               </label>
               <button
                 type="button"
@@ -218,7 +218,7 @@ export default function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
                 <span className="ml-2 font-medium">{recordCount.toLocaleString()}</span>
               </div>
               <div>
-                <span className="text-text-muted">Velden:</span>
+                <span className="text-text-muted">Fields:</span>
                 <span className="ml-2 font-medium">{fieldCount}</span>
               </div>
               <div>

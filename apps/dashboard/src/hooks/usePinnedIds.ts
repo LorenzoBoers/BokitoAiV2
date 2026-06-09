@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { listPinnedThreadIds } from '../lib/inbox-api'
+import { listPinnedThreadIds, type ThreadId } from '../lib/inbox-api'
 
 /**
  * Tracks the set of thread IDs the current user has pinned. Used by the
@@ -13,7 +13,7 @@ import { listPinnedThreadIds } from '../lib/inbox-api'
  */
 export function usePinnedIds() {
   const { token } = useAuth()
-  const [pinnedIds, setPinnedIds] = useState<number[]>([])
+  const [pinnedIds, setPinnedIds] = useState<ThreadId[]>([])
   const [loaded, setLoaded] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -37,11 +37,11 @@ export function usePinnedIds() {
     void refresh()
   }, [refresh])
 
-  const addPin = useCallback((threadId: number) => {
+  const addPin = useCallback((threadId: ThreadId) => {
     setPinnedIds((prev) => (prev.includes(threadId) ? prev : [...prev, threadId]))
   }, [])
 
-  const removePin = useCallback((threadId: number) => {
+  const removePin = useCallback((threadId: ThreadId) => {
     setPinnedIds((prev) => prev.filter((id) => id !== threadId))
   }, [])
 

@@ -13,14 +13,18 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import {
   acceptGovernChange,
   getApplyModes,
+  getPosture,
   listAcceptedChanges,
   listAgentPassports,
   listGovernAudit,
   listGovernChanges,
   rejectGovernChange,
+  setPosture,
   updateApplyModes,
   type AuditEventRow,
+  type AutonomyPostureId,
   type PlatformChangeRow,
+  type PosturePreset,
 } from '../lib/govern-api'
 import {
   APPLY_MODE_LABELS,
@@ -30,9 +34,18 @@ import {
   summarizeDiff,
 } from '../lib/govern-labels'
 import { cn } from '../lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
 
 const APPLY_MODE_OPTIONS = ['draft', 'yolo', 'decision'] as const
 const RESOURCE_TYPES = ['agent', 'workstream', 'blueprint_block', 'integration', 'mcp_server', 'canvas_node'] as const
+const POSTURE_ORDER: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending_review: 'secondary',
@@ -63,11 +76,17 @@ export default function GovernPage() {
   const [audit, setAudit] = useState<AuditEventRow[]>([])
   const [passports, setPassports] = useState<Array<Record<string, unknown>>>([])
   const [applyModes, setApplyModes] = useState<Record<string, string>>({})
+  const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
+  const [posturePresets, setPosturePresets] = useState<PosturePreset[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [savingModes, setSavingModes] = useState(false)
+  const [savingPosture, setSavingPosture] = useState(false)
+  const [pendingConfirm, setPendingConfirm] = useState<
+    { type: 'accept' | 'reject'; change: PlatformChangeRow } | null
+  >(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -78,13 +97,16 @@ export default function GovernPage() {
       listGovernAudit(),
       listAgentPassports(),
       getApplyModes(),
+      getPosture(),
     ])
-      .then(([changeResp, historyResp, auditResp, passportResp, modesResp]) => {
+      .then(([changeResp, historyResp, auditResp, passportResp, modesResp, postureResp]) => {
         setChanges(changeResp.items)
         setHistory(historyResp.items)
         setAudit(auditResp.items)
         setPassports(passportResp.items)
         setApplyModes(modesResp.tenant_modes ?? modesResp.defaults ?? {})
+        setPostureState(postureResp.posture)
+        setPosturePresets(postureResp.presets)
       })
       .catch((err) => setError(formatApiErrorMessage(err, 'Could not load govern data.')))
       .finally(() => setLoading(false))
@@ -95,7 +117,6 @@ export default function GovernPage() {
   }, [load])
 
   async function handleAccept(change: PlatformChangeRow) {
-    if (!window.confirm(t('drafts.acceptConfirm'))) return
     setBusyId(change.id)
     try {
       await acceptGovernChange(change.id)
@@ -105,6 +126,7 @@ export default function GovernPage() {
       setError(formatApiErrorMessage(err, 'Accept failed.'))
     } finally {
       setBusyId(null)
+      setPendingConfirm(null)
     }
   }
 
@@ -118,6 +140,41 @@ export default function GovernPage() {
       setError(formatApiErrorMessage(err, 'Reject failed.'))
     } finally {
       setBusyId(null)
+      setPendingConfirm(null)
+    }
+  }
+
+  function requestAccept(change: PlatformChangeRow) {
+    setPendingConfirm({ type: 'accept', change })
+  }
+
+  function requestReject(change: PlatformChangeRow) {
+    setPendingConfirm({ type: 'reject', change })
+  }
+
+  function confirmPendingAction() {
+    if (!pendingConfirm) return
+    if (pendingConfirm.type === 'accept') {
+      void handleAccept(pendingConfirm.change)
+    } else {
+      void handleReject(pendingConfirm.change.id)
+    }
+  }
+
+  async function handlePostureChange(next: AutonomyPostureId) {
+    if (next === posture || savingPosture) return
+    setSavingPosture(true)
+    try {
+      const resp = await setPosture(next)
+      setPostureState(resp.posture)
+      setApplyModes(resp.platform_apply_modes)
+      setPosturePresets(resp.presets)
+      toast.success(t('posture.saved'))
+    } catch (err) {
+      setError(formatApiErrorMessage(err, 'Could not update autonomy posture.'))
+      load()
+    } finally {
+      setSavingPosture(false)
     }
   }
 
@@ -215,7 +272,7 @@ export default function GovernPage() {
                           <Button
                             size="sm"
                             disabled={busyId === change.id}
-                            onClick={() => void handleAccept(change)}
+                            onClick={() => requestAccept(change)}
                           >
                             <Check className="h-4 w-4 mr-1" aria-hidden />
                             {t('drafts.accept')}
@@ -224,7 +281,7 @@ export default function GovernPage() {
                             size="sm"
                             variant="outline"
                             disabled={busyId === change.id}
-                            onClick={() => void handleReject(change.id)}
+                            onClick={() => requestReject(change)}
                           >
                             <X className="h-4 w-4 mr-1" aria-hidden />
                             {t('drafts.reject')}
@@ -238,10 +295,51 @@ export default function GovernPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="policy" className="mt-4">
+          <TabsContent value="policy" className="mt-4 space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>{t('tabs.policy')}</CardTitle>
+                <CardTitle>{t('posture.title')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-text-muted">{t('posture.intro')}</p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {POSTURE_ORDER.map((id) => {
+                    const preset = posturePresets.find((p) => p.id === id)
+                    const active = posture === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={savingPosture}
+                        onClick={() => void handlePostureChange(id)}
+                        className={cn(
+                          'rounded-lg border p-4 text-left transition-colors',
+                          active
+                            ? 'border-accent bg-accent/5 ring-1 ring-accent/30'
+                            : 'border-border/60 hover:border-border hover:bg-bg-muted/40',
+                        )}
+                      >
+                        <p className="text-sm font-medium text-text-heading">
+                          {preset?.label ?? t(`posture.${id}.label`)}
+                        </p>
+                        <p className="mt-1 text-xs text-text-muted leading-relaxed">
+                          {preset?.summary ?? t(`posture.${id}.summary`)}
+                        </p>
+                        {active ? (
+                          <Badge variant="default" className="mt-2 text-[10px]">
+                            {t('posture.current')}
+                          </Badge>
+                        ) : null}
+                      </button>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('applyModes.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-xs text-text-muted">{t('applyModes.intro')}</p>
@@ -341,6 +439,34 @@ export default function GovernPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      <Dialog open={pendingConfirm !== null} onOpenChange={(open) => !open && setPendingConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingConfirm?.type === 'accept' ? t('drafts.acceptTitle', { defaultValue: 'Accept change' }) : t('drafts.rejectTitle', { defaultValue: 'Reject change' })}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingConfirm?.type === 'accept'
+                ? t('drafts.acceptConfirm')
+                : t('drafts.rejectConfirm', { defaultValue: 'Reject this change? It will not be applied.' })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setPendingConfirm(null)} disabled={busyId !== null}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={pendingConfirm?.type === 'reject' ? 'destructive' : 'default'}
+              disabled={busyId !== null}
+              onClick={confirmPendingAction}
+            >
+              {pendingConfirm?.type === 'accept' ? t('drafts.acceptAction', { defaultValue: 'Accept' }) : t('drafts.rejectAction', { defaultValue: 'Reject' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContent>
   )
 }

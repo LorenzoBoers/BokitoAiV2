@@ -72,9 +72,30 @@ export function buildAuthHeaders(token?: string, includeJson = true): Record<str
   return headers;
 }
 
+function parseApiErrorBody(body: unknown): string {
+  const o = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+  if (typeof o.message === 'string' && o.message.trim()) return o.message.trim()
+  const detail = o.detail
+  if (typeof detail === 'string' && detail.trim()) return detail.trim()
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object') {
+          const row = item as Record<string, unknown>
+          if (typeof row.msg === 'string') return row.msg
+        }
+        return null
+      })
+      .filter((part): part is string => Boolean(part))
+    if (parts.length) return parts.join('; ')
+  }
+  return 'Unknown error'
+}
+
 function formatXanoHttpError(path: string, body: unknown): string {
   const o = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
-  const msg = typeof o.message === 'string' ? o.message : 'Unknown error'
+  const msg = parseApiErrorBody(body)
   const payload = o.payload && typeof o.payload === 'object' ? (o.payload as Record<string, unknown>) : null
   const param = payload && typeof payload.param === 'string' ? payload.param : null
   const hint = param ? ` (${param})` : ''
@@ -138,7 +159,7 @@ export async function xanoPostAuth<T>(path: string, body: object, token?: string
 export async function xanoPatchAuth<T>(path: string, body: object, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
   const res = await fetch(`${XANO_AUTH_API}${path}`, {
     method: 'PATCH',
@@ -152,7 +173,7 @@ export async function xanoPatchAuth<T>(path: string, body: object, token?: strin
 export async function xanoGet<T>(path: string, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token, false);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
 
   const res = await fetch(`${XANO_APP_API}${path}`, {
@@ -167,7 +188,7 @@ export async function xanoGet<T>(path: string, token?: string): Promise<T> {
 export async function xanoDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
   const headers = buildAuthHeaders(token, false);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
 
   const res = await fetch(`${XANO_APP_API}${path}`, {
@@ -193,7 +214,7 @@ export async function xanoDelete<T = unknown>(path: string, token?: string): Pro
 export async function xanoPatch<T>(path: string, body: object, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
 
   const res = await fetch(`${XANO_APP_API}${path}`, {
@@ -214,7 +235,7 @@ export async function xanoPatch<T>(path: string, body: object, token?: string): 
 export async function xanoGetIntegrations<T>(path: string, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token, false);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
   const res = await fetch(`${XANO_INTEGRATIONS_API}${path}`, {
     method: 'GET',
@@ -238,7 +259,7 @@ export async function xanoPostIntegrations<T>(path: string, body: object, token?
 export async function xanoPatchIntegrations<T>(path: string, body: object, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
   const res = await fetch(`${XANO_INTEGRATIONS_API}${path}`, {
     method: 'PATCH',
@@ -252,7 +273,7 @@ export async function xanoPatchIntegrations<T>(path: string, body: object, token
 export async function xanoPutIntegrations<T>(path: string, body: object, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
   const res = await fetch(`${XANO_INTEGRATIONS_API}${path}`, {
     method: 'PUT',
@@ -266,7 +287,7 @@ export async function xanoPutIntegrations<T>(path: string, body: object, token?:
 export async function xanoDeleteIntegrations<T = unknown>(path: string, token?: string): Promise<T | void> {
   const headers = buildAuthHeaders(token, false);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
   const res = await fetch(`${XANO_INTEGRATIONS_API}${path}`, {
     method: 'DELETE',
@@ -289,7 +310,7 @@ export async function xanoDeleteIntegrations<T = unknown>(path: string, token?: 
 export async function xanoPut<T>(path: string, body: object, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
 
   const res = await fetch(`${XANO_APP_API}${path}`, {
@@ -403,7 +424,7 @@ export async function authLogout(token?: string): Promise<void> {
 export async function xanoGetWorkforce<T>(path: string, token?: string): Promise<T> {
   const headers = buildAuthHeaders(token, false);
   if (!headers.Authorization) {
-    throw new Error(formatXanoHttpError(path, { message: 'Niet geauthenticeerd' }));
+    throw new Error(formatXanoHttpError(path, { message: 'Not authenticated' }));
   }
   const res = await fetch(`${WORKFORCE_API_BASE}${path}`, {
     method: 'GET',

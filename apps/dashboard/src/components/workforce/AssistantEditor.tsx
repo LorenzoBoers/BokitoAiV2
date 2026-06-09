@@ -161,7 +161,7 @@ export default function AssistantEditor({
               onClick={onSave}
               className="h-8 px-3 rounded-md bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors"
             >
-              Opslaan
+              Save
             </button>
           </div>
         </div>
@@ -399,7 +399,7 @@ export default function AssistantEditor({
             className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-accent text-white hover:bg-accent-hover transition-colors"
           >
             <Save size={11} />
-            Opslaan
+            Save
           </button>
         </div>
       </div>

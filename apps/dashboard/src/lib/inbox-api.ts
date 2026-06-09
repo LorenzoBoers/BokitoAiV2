@@ -1,10 +1,12 @@
 import { integrationsRoutes } from '../api/routes/integrations.routes'
+import { appRoutes } from '../api/routes/app.routes'
 import {
   xanoGetIntegrations,
   xanoPostIntegrations,
   xanoPatchIntegrations,
   xanoPutIntegrations,
   xanoDeleteIntegrations,
+  xanoGet as xanoGetApp,
 } from './xano'
 
 const xanoGet = xanoGetIntegrations
@@ -22,8 +24,12 @@ export type ThreadPriority = 'normal' | 'high' | 'urgent'
 export type MessageDirection = 'inbound' | 'outbound' | 'internal' | 'system'
 export type SendStatus = 'sending' | 'sent' | 'failed'
 
+export type ThreadId = string | number
+
+export type MessageFolder = 'external' | 'internal' | 'all'
+
 export type InboxThread = {
-  id: number
+  id: ThreadId
   organisationId: string
   emailConnectionId: number | null
   graphConversationId: string
@@ -39,17 +45,22 @@ export type InboxThread = {
   hasUnread: boolean
   isPinned: boolean
   createdAt: string
+  channel?: string
+  folder?: MessageFolder | string
+  projectId?: string | null
 }
 
 export type InboxMessage = {
-  id: number
-  threadId: number
+  id: ThreadId
+  threadId: ThreadId
   connectionId: number | null
+  kind?: string
   direction: MessageDirection
   fromAddress: string
   toAddresses: string
   subject: string
   bodyPreview: string
+  bodyText?: string
   bodyHtml: string | null
   graphMessageId: string
   inReplyTo: string | null
@@ -57,13 +68,15 @@ export type InboxMessage = {
   isRead: boolean
   sendStatus: SendStatus | null
   attachments: unknown[] | null
+  decisionId?: string | null
+  payload?: Record<string, unknown>
   receivedAt: string | null
   createdAt: string
 }
 
 export type InboxEvent = {
-  id: number
-  threadId: number
+  id: ThreadId
+  threadId: ThreadId
   eventType: string
   actorUserId: number | null
   payload: Record<string, unknown>
@@ -100,7 +113,22 @@ export type ThreadDetail = {
 }
 
 export type ThreadFilters = {
-  view?: 'all_open' | 'unassigned' | 'mine' | 'pending' | 'closed' | 'spam' | 'outbound' | 'pinned'
+  view?:
+    | 'all_open'
+    | 'unassigned'
+    | 'mine'
+    | 'pending'
+    | 'closed'
+    | 'spam'
+    | 'outbound'
+    | 'pinned'
+    | 'awaiting_decision'
+    | 'updates'
+    | 'results'
+    | 'external'
+    | 'internal'
+  folder?: 'external' | 'internal' | 'all'
+  projectId?: string
   tag?: string
   assigneeId?: number
   search?: string
@@ -194,8 +222,10 @@ function asNullableTimestampString(value: unknown): string | null {
 function normalizeThread(row: unknown): InboxThread | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
-  const id = asNumber(raw.id, NaN)
-  if (!Number.isFinite(id) || id === 0) return null
+  const stringId = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : null
+  const numId = asNumber(raw.id, NaN)
+  const id: ThreadId | null = stringId ?? (Number.isFinite(numId) && numId > 0 ? numId : null)
+  if (id == null) return null
   const statusValue = asString(raw.status)
   const status: ThreadStatus =
     statusValue === 'pending' ? 'pending' : statusValue === 'closed' ? 'closed' : statusValue === 'spam' ? 'spam' : 'open'
@@ -225,8 +255,15 @@ function normalizeThread(row: unknown): InboxThread | null {
 function normalizeMessage(row: unknown): InboxMessage | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
-  const id = asNumber(raw.id, NaN)
-  if (!Number.isFinite(id) || id === 0) return null
+  const stringId = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : null
+  const numId = asNumber(raw.id, NaN)
+  const id: ThreadId | null = stringId ?? (Number.isFinite(numId) && numId > 0 ? numId : null)
+  if (id == null) return null
+  const threadRaw = raw.thread_id
+  const threadStringId = typeof threadRaw === 'string' && threadRaw.length > 0 ? threadRaw : null
+  const threadNumId = asNumber(threadRaw, NaN)
+  const threadId: ThreadId =
+    threadStringId ?? (Number.isFinite(threadNumId) && threadNumId > 0 ? threadNumId : 0)
   const directionValue = asString(raw.direction)
   const direction: MessageDirection =
     directionValue === 'outbound'
@@ -241,7 +278,7 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     sendStatusValue === 'sending' ? 'sending' : sendStatusValue === 'sent' ? 'sent' : sendStatusValue === 'failed' ? 'failed' : null
   return {
     id,
-    threadId: asNumber(raw.thread_id),
+    threadId,
     connectionId: raw.connection_id == null || raw.connection_id === 0 ? null : asNumber(raw.connection_id),
     direction,
     fromAddress: asString(raw.from_address),
@@ -263,11 +300,18 @@ function normalizeMessage(row: unknown): InboxMessage | null {
 function normalizeEvent(row: unknown): InboxEvent | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
-  const id = asNumber(raw.id, NaN)
-  if (!Number.isFinite(id) || id === 0) return null
+  const stringId = typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : null
+  const numId = asNumber(raw.id, NaN)
+  const id: ThreadId | null = stringId ?? (Number.isFinite(numId) && numId > 0 ? numId : null)
+  if (id == null) return null
+  const threadRaw = raw.thread_id
+  const threadStringId = typeof threadRaw === 'string' && threadRaw.length > 0 ? threadRaw : null
+  const threadNumId = asNumber(threadRaw, NaN)
+  const threadId: ThreadId =
+    threadStringId ?? (Number.isFinite(threadNumId) && threadNumId > 0 ? threadNumId : 0)
   return {
     id,
-    threadId: asNumber(raw.thread_id),
+    threadId,
     eventType: asString(raw.event_type),
     actorUserId: raw.actor_user_id == null || raw.actor_user_id === 0 ? null : asNumber(raw.actor_user_id),
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
@@ -330,11 +374,29 @@ export async function saveMailboxFolders(
   await xanoPut(integrationsRoutes.email.connections.folders(connectionId), { folders }, token)
 }
 
+import {
+  USE_SIGNAL_INBOX,
+  addNoteToSignalThread,
+  deleteSignalThread,
+  getSignalThread,
+  listSignalMembers,
+  listSignalPinnedThreadIds,
+  listSignalThreads,
+  markSignalThreadRead,
+  markSignalThreadUnread,
+  patchSignalThread,
+  pinSignalThread,
+  replyToSignalThread,
+  resolveSignalDecision,
+  unpinSignalThread,
+} from './signals-api'
+
 // ---------------------------------------------------------------------------
-// Threads
+// Threads (delegates to Signal API in bokito mode)
 // ---------------------------------------------------------------------------
 
 export async function listThreads(token: string, filters: ThreadFilters = {}): Promise<PagedThreadResult> {
+  if (USE_SIGNAL_INBOX) return listSignalThreads(token, filters)
   const params = new URLSearchParams()
   if (filters.view) params.set('view', filters.view)
   if (filters.tag) params.set('tag', filters.tag)
@@ -354,7 +416,8 @@ export async function listThreads(token: string, filters: ThreadFilters = {}): P
   }
 }
 
-export async function getThread(token: string, threadId: number): Promise<ThreadDetail | null> {
+export async function getThread(token: string, threadId: ThreadId): Promise<ThreadDetail | null> {
+  if (USE_SIGNAL_INBOX) return getSignalThread(token, String(threadId))
   const payload = await xanoGet<{ thread?: unknown; messages?: unknown[]; events?: unknown[] }>(
     integrationsRoutes.inbox.thread(threadId),
     token,
@@ -368,11 +431,13 @@ export async function getThread(token: string, threadId: number): Promise<Thread
   }
 }
 
-export async function deleteThread(token: string, threadId: number): Promise<void> {
+export async function deleteThread(token: string, threadId: ThreadId): Promise<void> {
+  if (USE_SIGNAL_INBOX) return deleteSignalThread(token, String(threadId))
   await xanoDelete<unknown>(integrationsRoutes.inbox.threadDelete(threadId), token)
 }
 
-export async function patchThread(token: string, threadId: number, patch: PatchThreadInput): Promise<InboxThread | null> {
+export async function patchThread(token: string, threadId: ThreadId, patch: PatchThreadInput): Promise<InboxThread | null> {
+  if (USE_SIGNAL_INBOX) return patchSignalThread(token, String(threadId), patch)
   const body: Record<string, unknown> = {}
   if (patch.status !== undefined) body.status = patch.status
   if (patch.assignedToUserId !== undefined) body.assigned_to_user_id = patch.assignedToUserId
@@ -390,7 +455,8 @@ export async function patchThread(token: string, threadId: number, patch: PatchT
  * Mark a thread as read for the team. Called silently from the dashboard when
  * a user opens a thread; the UI updates optimistically before this resolves.
  */
-export async function markThreadRead(token: string, threadId: number): Promise<InboxThread | null> {
+export async function markThreadRead(token: string, threadId: ThreadId): Promise<InboxThread | null> {
+  if (USE_SIGNAL_INBOX) return markSignalThreadRead(token, String(threadId))
   const payload = await xanoPatch<unknown>(integrationsRoutes.inbox.threadMarkRead(threadId), {}, token)
   return normalizeThread(payload)
 }
@@ -399,7 +465,8 @@ export async function markThreadRead(token: string, threadId: number): Promise<I
  * Manually flip a thread back to unread (e.g. via the "Markeer als ongelezen"
  * button in the thread detail header).
  */
-export async function markThreadUnread(token: string, threadId: number): Promise<InboxThread | null> {
+export async function markThreadUnread(token: string, threadId: ThreadId): Promise<InboxThread | null> {
+  if (USE_SIGNAL_INBOX) return markSignalThreadUnread(token, String(threadId))
   const payload = await xanoPatch<unknown>(integrationsRoutes.inbox.threadMarkUnread(threadId), {}, token)
   return normalizeThread(payload)
 }
@@ -418,7 +485,8 @@ export async function markThreadUnread(token: string, threadId: number): Promise
  * uses this to decorate thread items with `isPinned` and to sort pinned
  * threads to the top of every list view.
  */
-export async function listPinnedThreadIds(token: string): Promise<number[]> {
+export async function listPinnedThreadIds(token: string): Promise<ThreadId[]> {
+  if (USE_SIGNAL_INBOX) return listSignalPinnedThreadIds(token)
   const payload = await xanoGet<{ thread_ids?: unknown[] } | unknown[]>(integrationsRoutes.inbox.pins, token)
   const source = Array.isArray(payload)
     ? payload
@@ -428,23 +496,21 @@ export async function listPinnedThreadIds(token: string): Promise<number[]> {
   return source.map((v) => asNumber(v, NaN)).filter((n) => Number.isFinite(n) && n > 0)
 }
 
-/**
- * Pin a thread for the current user. Idempotent on the backend.
- * Pinned threads always appear at the top of any list view they match, plus
- * are listed in the dedicated "Gepind" view.
- */
-export async function pinThread(token: string, threadId: number): Promise<void> {
+export async function pinThread(token: string, threadId: ThreadId): Promise<void> {
+  if (USE_SIGNAL_INBOX) return pinSignalThread(token, String(threadId))
   await xanoPost<unknown>(integrationsRoutes.inbox.threadPin(threadId), {}, token)
 }
 
 /**
  * Unpin a thread for the current user. Idempotent on the backend.
  */
-export async function unpinThread(token: string, threadId: number): Promise<void> {
+export async function unpinThread(token: string, threadId: ThreadId): Promise<void> {
+  if (USE_SIGNAL_INBOX) return unpinSignalThread(token, String(threadId))
   await xanoDelete<unknown>(integrationsRoutes.inbox.threadPin(threadId), token)
 }
 
-export async function replyToThread(token: string, threadId: number, input: ReplyInput): Promise<InboxMessage | null> {
+export async function replyToThread(token: string, threadId: ThreadId, input: ReplyInput): Promise<InboxMessage | null> {
+  if (USE_SIGNAL_INBOX) return replyToSignalThread(token, String(threadId), input)
   const body: Record<string, unknown> = {
     body_text: input.bodyText,
     action: input.action ?? 'send',
@@ -454,9 +520,22 @@ export async function replyToThread(token: string, threadId: number, input: Repl
   return normalizeMessage(payload)
 }
 
-export async function addNoteToThread(token: string, threadId: number, bodyText: string): Promise<InboxMessage | null> {
+export async function addNoteToThread(token: string, threadId: ThreadId, bodyText: string): Promise<InboxMessage | null> {
+  if (USE_SIGNAL_INBOX) return addNoteToSignalThread(token, String(threadId), bodyText)
   const payload = await xanoPost<unknown>(integrationsRoutes.inbox.threadNotes(threadId), { body_text: bodyText }, token)
   return normalizeMessage(payload)
+}
+
+export async function resolveThreadDecision(
+  token: string,
+  threadId: ThreadId,
+  messageId: ThreadId,
+  action: 'approve' | 'defer' | 'reject',
+): Promise<void> {
+  if (USE_SIGNAL_INBOX) {
+    return resolveSignalDecision(token, String(threadId), String(messageId), action)
+  }
+  throw new Error('Decision resolution is not available for this inbox mode.')
 }
 
 // ---------------------------------------------------------------------------
@@ -464,6 +543,7 @@ export async function addNoteToThread(token: string, threadId: number, bodyText:
 // ---------------------------------------------------------------------------
 
 export async function listInboxMembers(token: string): Promise<InboxMember[]> {
+  if (USE_SIGNAL_INBOX) return listSignalMembers(token)
   const payload = await xanoGet<unknown>(integrationsRoutes.inbox.members, token)
   const source = Array.isArray(payload)
     ? payload
@@ -491,7 +571,8 @@ export async function listInboxMembers(token: string): Promise<InboxMember[]> {
 // ---------------------------------------------------------------------------
 
 export async function getSyncStatus(token: string): Promise<SyncConnectionStatus[]> {
-  const payload = await xanoGet<unknown>(integrationsRoutes.inbox.syncStatus, token)
+  const path = USE_SIGNAL_INBOX ? appRoutes.signals.syncStatus : integrationsRoutes.inbox.syncStatus
+  const payload = USE_SIGNAL_INBOX ? await xanoGetApp<unknown>(path, token) : await xanoGet<unknown>(path, token)
   const source = Array.isArray(payload) ? payload : []
   return source
     .map((row) => {

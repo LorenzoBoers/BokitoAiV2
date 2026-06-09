@@ -179,7 +179,7 @@ function ActivityLog({ recordId }: ActivityLogProps) {
               disabled={!newNote.trim() || addingNote}
               className="h-7 px-2 text-xs"
             >
-              {addingNote ? 'Bezig...' : 'Opslaan'}
+              {addingNote ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </div>
@@ -192,7 +192,7 @@ function ActivityLog({ recordId }: ActivityLogProps) {
           </div>
         ) : activities.length === 0 ? (
           <div className="text-xs text-text-muted text-center py-4">
-            Nog geen activiteiten
+            No activity yet
           </div>
         ) : (
           activities.map(renderActivityItem)
@@ -268,7 +268,7 @@ function CommentThread({ recordId, workspaceUsers }: CommentThreadProps) {
   };
 
   const handleDeleteComment = async (commentId: number) => {
-    if (!confirm('Weet je zeker dat je deze reactie wilt verwijderen?')) return;
+    if (!confirm('Are you sure you want to delete this comment?')) return;
     
     try {
       await api.deleteRecordComment(commentId);
@@ -325,7 +325,7 @@ function CommentThread({ recordId, workspaceUsers }: CommentThreadProps) {
                     onClick={() => handleEditComment(comment.id)}
                     className="h-6 px-2 text-xs"
                   >
-                    Opslaan
+                    Save
                   </Button>
                 </div>
               </div>
@@ -350,14 +350,14 @@ function CommentThread({ recordId, workspaceUsers }: CommentThreadProps) {
                     }}
                     className="text-xs text-text-muted hover:text-text-primary"
                   >
-                    Bewerken
+                    Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDeleteComment(comment.id)}
                     className="text-xs text-status-error hover:text-status-error/80"
                   >
-                    Verwijderen
+                    Delete
                   </button>
                 </div>
               </>
@@ -412,7 +412,7 @@ function CommentThread({ recordId, workspaceUsers }: CommentThreadProps) {
               className="h-7 px-2 text-xs"
             >
               <Send size={12} className="mr-1" />
-              {addingComment ? 'Bezig...' : 'Versturen'}
+              {addingComment ? 'Sending...' : 'Send'}
             </Button>
           </div>
         </div>
@@ -425,7 +425,7 @@ function CommentThread({ recordId, workspaceUsers }: CommentThreadProps) {
           </div>
         ) : topLevelComments.length === 0 ? (
           <div className="text-xs text-text-muted text-center py-4">
-            Nog geen reacties
+            No comments yet
           </div>
         ) : (
           topLevelComments.map(renderComment)
@@ -484,7 +484,7 @@ function OwnerAssignment({ record, onUpdate }: { record: CustomRecord; onUpdate?
         ) : (
           <div className="flex items-center gap-2 text-text-muted">
             <User size={16} />
-            <span className="text-xs">Niet toegewezen</span>
+            <span className="text-xs">Unassigned</span>
           </div>
         )}
       </div>
@@ -496,7 +496,7 @@ function OwnerAssignment({ record, onUpdate }: { record: CustomRecord; onUpdate?
           disabled={loading || updating}
           className="w-full p-2 text-xs border border-border rounded-md bg-bg-elevated focus:outline-none focus:ring-2 focus:ring-accent/20"
         >
-          <option value="">Niet toegewezen</option>
+          <option value="">Unassigned</option>
           {users.map(user => (
             <option key={user.id} value={user.id}>
               {user.name}

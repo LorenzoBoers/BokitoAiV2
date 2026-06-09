@@ -3,7 +3,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.auth import Tenant
-from app.models.signal import Signal
+from app.models.signal import Signal, SignalMessage
 from app.services.interpretation import triage_signal
 from app.services.platform_access import agent_has_scope, effective_scopes
 from app.models.agent import Agent
@@ -31,7 +31,7 @@ async def test_signals_api_list_and_inbound(client: AsyncClient, session_overrid
         },
     )
     assert ingest.status_code == 200
-    listed = await client.get("/api/signals", headers=headers)
+    listed = await client.get("/api/signals?view=all_open", headers=headers)
     assert listed.status_code == 200
     assert len(listed.json()["items"]) >= 1
 
@@ -56,6 +56,89 @@ async def test_triage_signal_mock_llm(client: AsyncClient, session_override):
         await session_override.execute(select(Signal).where(Signal.id == signal.id))
     ).scalar_one()
     assert row.triaged_at is not None
+
+
+@pytest.mark.asyncio
+async def test_email_connection_id_filter(client: AsyncClient, session_override):
+    from app.models.auth import Tenant
+    from app.models.email import EmailAccount
+    from app.models.inbox_threads import user_numeric_id
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    account = (
+        await session_override.execute(select(EmailAccount).where(EmailAccount.tenant_id == tenant.id))
+    ).scalar_one()
+
+    linked = await client.post(
+        "/api/signals/inbound",
+        headers=headers,
+        json={
+            "channel": "email",
+            "source": "mock",
+            "subject": "Mailbox scoped",
+            "body_text": "Only this mailbox",
+            "contact_email": "scoped@test.com",
+        },
+    )
+    assert linked.status_code == 200
+
+    numeric_id = user_numeric_id(account.id)
+    filtered = await client.get(
+        f"/api/signals?view=all_open&folder=external&email_connection_id={numeric_id}",
+        headers=headers,
+    )
+    assert filtered.status_code == 200
+    subjects = [item["email_subject"] for item in filtered.json()["items"]]
+    assert "Mailbox scoped" in subjects
+
+    other = await client.get(
+        "/api/signals?view=all_open&folder=external&email_connection_id=999999999",
+        headers=headers,
+    )
+    assert other.status_code == 200
+    assert other.json()["itemsTotal"] == 0
+
+
+@pytest.mark.asyncio
+async def test_outbound_view(client: AsyncClient, session_override):
+    from app.models.auth import Tenant
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+    sig = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="Outbound queue",
+        status="open",
+    )
+    session_override.add(sig)
+    await session_override.flush()
+    session_override.add(
+        SignalMessage(
+            signal_id=sig.id,
+            tenant_id=tenant.id,
+            kind="agent_message",
+            direction="outbound",
+            body_text="We replied",
+            body_preview="We replied",
+        )
+    )
+    await session_override.commit()
+
+    listed = await client.get("/api/signals?view=outbound&folder=external", headers=headers)
+    assert listed.status_code == 200
+    subjects = [item["email_subject"] for item in listed.json()["items"]]
+    assert "Outbound queue" in subjects
+
+
+@pytest.mark.asyncio
+async def test_signals_sync_status(client: AsyncClient):
+    headers = await _auth_headers(client)
+    resp = await client.get("/api/signals/sync-status", headers=headers)
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
 
 
 @pytest.mark.asyncio

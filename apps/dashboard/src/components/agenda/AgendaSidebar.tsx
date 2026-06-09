@@ -35,11 +35,18 @@ function saveVisibility(state: Record<string, boolean>) {
 }
 
 export function getVisibleCalendarIds(calendars: AgendaCalendar[]): string[] {
+  if (calendars.length === 0) return []
   const stored = loadVisibility()
-  const visible = calendars.filter((c) => stored[c.id] !== false).map((c) => c.id)
-  if (visible.length === 0 && calendars.length > 0) {
-    return calendars.map((c) => c.id)
+  const currentIds = new Set(calendars.map((c) => c.id))
+  const pruned: Record<string, boolean> = {}
+  for (const [id, value] of Object.entries(stored)) {
+    if (currentIds.has(id)) pruned[id] = value
   }
+  if (Object.keys(pruned).length !== Object.keys(stored).length) {
+    saveVisibility(pruned)
+  }
+  const visible = calendars.filter((c) => pruned[c.id] !== false).map((c) => c.id)
+  if (visible.length === 0) return calendars.map((c) => c.id)
   return visible
 }
 

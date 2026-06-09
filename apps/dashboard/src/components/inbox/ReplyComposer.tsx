@@ -92,7 +92,7 @@ export default function ReplyComposer({ onReply, onNote, saving, disabled }: Pro
             className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300/70 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/40 dark:border-yellow-700/40"
           >
             <StickyNote size={13} />
-            {saving ? 'Opslaan...' : 'Notitie toevoegen'}
+            {saving ? 'Saving...' : 'Add note'}
           </Button>
         )}
       </div>

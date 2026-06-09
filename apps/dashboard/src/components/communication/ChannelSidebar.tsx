@@ -78,7 +78,7 @@ export default function ChannelSidebar({
           ) : (
             <div className="px-2.5 py-2 text-xs text-text-muted flex items-center gap-1.5">
               <Mail size={12} />
-              Geen actieve mailboxen
+              No active mailboxes
             </div>
           )}
         </Section>

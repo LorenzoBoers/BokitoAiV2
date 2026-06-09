@@ -113,7 +113,7 @@ function TableContent() {
         <div className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[1px] flex items-center justify-center p-4">
           <Card className="w-full max-w-2xl max-h-[85vh] overflow-y-auto">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Velden beheren</CardTitle>
+              <CardTitle>Manage fields</CardTitle>
               <button
                 type="button"
                 onClick={() => setShowFieldEditorModal(false)}

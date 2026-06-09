@@ -163,7 +163,7 @@ export default function TableSearch({ records, fields, onClose, onHighlight }: T
         <div className="flex items-center justify-between text-xs text-text-muted">
           <span>
             {matches.length === 0 
-              ? 'Geen resultaten' 
+              ? 'No results' 
               : `${currentMatchIndex + 1} van ${matches.length}`
             }
           </span>

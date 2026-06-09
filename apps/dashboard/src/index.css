@@ -373,6 +373,7 @@
       linear-gradient(90deg, rgb(var(--color-border) / 0.38) 1px, transparent 1px);
     background-size: 20px 20px;
     background-position: 0 0;
+    transition: opacity 0.2s ease;
   }
 
   .aios-canvas-stage::after {
@@ -385,6 +386,21 @@
       radial-gradient(ellipse 80% 55% at 50% 42%, rgb(var(--color-accent) / 0.06), transparent 68%),
       linear-gradient(to right, rgb(var(--color-bg-root)) 0%, rgb(var(--color-bg-root) / 0) 52px),
       linear-gradient(to left, rgb(var(--color-bg-root)) 0%, rgb(var(--color-bg-root) / 0) 52px);
+    transition: opacity 0.2s ease;
+  }
+
+  .aios-canvas-stage--focus::before {
+    opacity: 0.18;
+  }
+
+  .aios-canvas-stage--focus::after {
+    opacity: 0.28;
+  }
+
+  .aios-canvas-stage--focus .react-flow__controls,
+  .aios-canvas-stage--focus .react-flow__minimap {
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
   }
 
   .aios-canvas-map {
@@ -403,6 +419,11 @@
     height: 100%;
     min-height: 0;
     background: transparent;
+  }
+
+  .aios-flow-canvas--focus .react-flow__background {
+    opacity: 0.2;
+    transition: opacity 0.2s ease;
   }
 
   .aios-flow-canvas .react-flow__edge-text {

@@ -135,7 +135,7 @@ export default function Workspaces() {
                         window.location.assign(handoffUrl)
                       }
                     } catch (openError) {
-                      const message = openError instanceof Error ? openError.message : 'Tenant openen mislukt'
+                      const message = openError instanceof Error ? openError.message : 'Failed to open tenant'
                       setError(message)
                     }
                   }}

@@ -179,7 +179,7 @@ export default function CSVImportDialog({ isOpen, onClose }: CSVImportDialogProp
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Onbekende fout';
-      toast.error(`Import mislukt: ${message}`);
+      toast.error(`Import failed: ${message}`);
       setStep('mapping');
     } finally {
       setIsImporting(false);
@@ -291,7 +291,7 @@ export default function CSVImportDialog({ isOpen, onClose }: CSVImportDialogProp
                             <SelectValue placeholder="Selecteer veld..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Niet importeren</SelectItem>
+                            <SelectItem value="">Do not import</SelectItem>
                             {fields.map(field => (
                               <SelectItem key={field.id} value={field.slug}>
                                 {field.name} ({field.field_type})
@@ -319,7 +319,7 @@ export default function CSVImportDialog({ isOpen, onClose }: CSVImportDialogProp
           {step === 'importing' && (
             <div className="text-center py-8">
               <Loader2 size={48} className="mx-auto animate-spin text-accent mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Bezig met importeren...</h3>
+              <h3 className="text-lg font-semibold mb-2">Importing...</h3>
               <p className="text-text-muted">Dit kan even duren</p>
             </div>
           )}

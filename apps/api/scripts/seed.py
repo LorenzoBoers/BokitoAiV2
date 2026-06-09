@@ -18,7 +18,6 @@ from app.models.auth import Membership, Tenant, User
 from app.models.blueprint import BlueprintBlock, BlueprintDoc, BlueprintPage
 from app.models.email import EmailAccount
 from app.models.inbox import InboxSettings
-from app.models.inbox_threads import InboxEvent, InboxMessage, InboxThread
 from app.models.integration import McpServer
 from app.models.policy import ActionPolicy, AssistantPersona
 from app.models.project import Project, ProjectOrchestration
@@ -125,28 +124,92 @@ async def _seed_signals(session, tenant):
     existing = await session.execute(select(Signal).where(Signal.tenant_id == tenant.id).limit(1))
     if existing.scalar_one_or_none():
         return
-    sig = Signal(
-        tenant_id=tenant.id,
-        channel="email",
-        source="mock",
-        subject="Vraag over onboarding",
-        contact_email="prospect@example.com",
-        contact_name="Prospect",
-        priority="normal",
-        status="open",
+
+    account_result = await session.execute(
+        select(EmailAccount).where(EmailAccount.tenant_id == tenant.id).limit(1)
     )
-    session.add(sig)
-    await session.flush()
-    session.add(
-        SignalMessage(
-            signal_id=sig.id,
+    email_account = account_result.scalar_one_or_none()
+
+    samples = [
+        {
+            "subject": "Vraag over facturatie",
+            "name": "Sanne de Vries",
+            "email": "sanne@klant.nl",
+            "status": "open",
+            "priority": "high",
+            "channel": "email",
+            "body": "Hoi, ik heb een vraag over mijn laatste factuur. Klopt het bedrag wel?",
+        },
+        {
+            "subject": "Live chat: product demo",
+            "name": "Website bezoeker",
+            "email": "visitor@web",
+            "status": "open",
+            "priority": "normal",
+            "channel": "widget",
+            "body": "Kan ik een demo krijgen van het platform?",
+        },
+        {
+            "subject": "Bedankt voor de snelle hulp",
+            "name": "Mark Jansen",
+            "email": "mark@bedrijf.com",
+            "status": "closed",
+            "priority": "normal",
+            "channel": "email",
+            "body": "Top geregeld, bedankt!",
+            "outbound_reply": "Graag gedaan! Laat het weten als we nog iets kunnen doen.",
+        },
+        {
+            "subject": "Vraag over onboarding",
+            "name": "Prospect",
+            "email": "prospect@example.com",
+            "status": "open",
+            "priority": "normal",
+            "channel": "email",
+            "body": "Hoe start ik met jullie platform?",
+        },
+    ]
+
+    for sample in samples:
+        sig = Signal(
             tenant_id=tenant.id,
-            direction="inbound",
-            body_text="Hoe start ik met jullie platform?",
-            body_preview="Hoe start ik met jullie platform?",
+            channel=sample["channel"],
+            source=sample["channel"],
+            subject=sample["subject"],
+            contact_email=sample["email"],
+            contact_name=sample["name"],
+            priority=sample["priority"],
+            status=sample["status"],
+            has_unread=sample["status"] == "open",
+            email_account_id=email_account.id if email_account and sample["channel"] == "email" else None,
         )
-    )
-    session.add(SignalEvent(signal_id=sig.id, tenant_id=tenant.id, event_type="signal_created"))
+        session.add(sig)
+        await session.flush()
+        session.add(
+            SignalMessage(
+                signal_id=sig.id,
+                tenant_id=tenant.id,
+                kind="user_message",
+                direction="inbound",
+                body_text=sample["body"],
+                body_preview=sample["body"][:200],
+                from_address=sample["email"],
+                subject=sample["subject"],
+            )
+        )
+        if sample.get("outbound_reply"):
+            session.add(
+                SignalMessage(
+                    signal_id=sig.id,
+                    tenant_id=tenant.id,
+                    kind="agent_message",
+                    direction="outbound",
+                    body_text=sample["outbound_reply"],
+                    body_preview=sample["outbound_reply"][:200],
+                    subject=f"Re: {sample['subject']}",
+                )
+            )
+        session.add(SignalEvent(signal_id=sig.id, tenant_id=tenant.id, event_type="signal_created"))
 
 
 async def _ensure_orchestrator_passport(session, tenant):
@@ -227,7 +290,6 @@ async def _seed_tenant_data(session, tenant):
     if not (await session.execute(select(McpServer).where(McpServer.tenant_id == tenant.id))).scalar_one_or_none():
         session.add(McpServer(tenant_id=tenant.id, name="mock-tools", server_url="mock://local", auth_json="{}"))
 
-    await _seed_inbox_threads(session, tenant)
     await _seed_signals(session, tenant)
     await _ensure_orchestrator_passport(session, tenant)
     await _seed_agenda(session, tenant)
@@ -347,27 +409,30 @@ async def _seed_workforce_demo(session, tenant, project, po_agent):
         )
         session.add(notification)
         await session.flush()
-        session.add(
-            DecisionRequest(
-                tenant_id=tenant.id,
-                notification_id=notification.id,
-                project_id=project.id,
-                title="Goedkeuring: inbox routing rule",
-                summary="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
-                status="awaiting_human",
-                options_json=json.dumps(
-                    [
-                        {
-                            "id": "approve",
-                            "label": "Approve",
-                            "action_type": "create_task",
-                            "payload": {"title": "Apply routing rule", "project_id": str(project.id)},
-                        },
-                        {"id": "reject", "label": "Reject", "action_type": "reject"},
-                    ]
-                ),
-            )
+        decision = DecisionRequest(
+            tenant_id=tenant.id,
+            notification_id=notification.id,
+            project_id=project.id,
+            title="Goedkeuring: inbox routing rule",
+            summary="De agent stelt voor een nieuwe routing rule aan te maken voor high-priority e-mail.",
+            status="awaiting_human",
+            options_json=json.dumps(
+                [
+                    {
+                        "id": "approve",
+                        "label": "Approve",
+                        "action_type": "create_task",
+                        "payload": {"title": "Apply routing rule", "project_id": str(project.id)},
+                    },
+                    {"id": "reject", "label": "Reject", "action_type": "reject"},
+                ]
+            ),
         )
+        session.add(decision)
+        await session.flush()
+        from app.services.signal_decisions import ingest_decision_request
+
+        await ingest_decision_request(session, tenant.id, notification, decision, agent_id=po_agent.id)
 
     run_exists = await session.execute(
         select(AgentRun).where(AgentRun.tenant_id == tenant.id, AgentRun.project_id == project.id).limit(1)
@@ -387,75 +452,6 @@ async def _seed_workforce_demo(session, tenant, project, po_agent):
         session.add(completed)
         await session.flush()
         await ensure_run_events(session, completed)
-
-
-async def _seed_inbox_threads(session, tenant):
-    existing = await session.execute(select(InboxThread).where(InboxThread.tenant_id == tenant.id))
-    if existing.first():
-        return
-    samples = [
-        {
-            "subject": "Vraag over facturatie",
-            "name": "Sanne de Vries",
-            "email": "sanne@klant.nl",
-            "status": "open",
-            "priority": "high",
-            "channel": "email",
-            "body": "Hoi, ik heb een vraag over mijn laatste factuur. Klopt het bedrag wel?",
-        },
-        {
-            "subject": "Live chat: product demo",
-            "name": "Website bezoeker",
-            "email": "visitor@web",
-            "status": "open",
-            "priority": "normal",
-            "channel": "customer_widget",
-            "body": "Kan ik een demo krijgen van het platform?",
-        },
-        {
-            "subject": "Bedankt voor de snelle hulp",
-            "name": "Mark Jansen",
-            "email": "mark@bedrijf.com",
-            "status": "closed",
-            "priority": "normal",
-            "channel": "email",
-            "body": "Top geregeld, bedankt!",
-        },
-    ]
-    for sample in samples:
-        thread = InboxThread(
-            tenant_id=tenant.id,
-            organisation_id=str(tenant.id),
-            email_subject=sample["subject"],
-            contact_name=sample["name"],
-            contact_email=sample["email"],
-            status=sample["status"],
-            priority=sample["priority"],
-            channel=sample["channel"],
-            has_unread=sample["status"] == "open",
-        )
-        session.add(thread)
-        await session.flush()
-        session.add(
-            InboxMessage(
-                thread_id=thread.id,
-                tenant_id=tenant.id,
-                direction="inbound",
-                from_address=sample["email"],
-                to_addresses="support@bokito.ai",
-                subject=sample["subject"],
-                body_preview=sample["body"][:200],
-                body_html=f"<p>{sample['body']}</p>",
-            )
-        )
-        session.add(
-            InboxEvent(
-                thread_id=thread.id,
-                tenant_id=tenant.id,
-                event_type="thread_created",
-                payload_json=json.dumps({"channel": sample["channel"]}),
-            )
-        )
 
 
 if __name__ == "__main__":

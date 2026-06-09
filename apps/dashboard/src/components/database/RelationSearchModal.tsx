@@ -118,7 +118,7 @@ export default function RelationSearchModal({
               </div>
             ) : filteredRecords.length === 0 ? (
               <div className="text-center py-8 text-text-muted text-xs">
-                {searchTerm ? 'Geen records gevonden' : 'Geen records beschikbaar'}
+                {searchTerm ? 'No records found' : 'No records available'}
               </div>
             ) : (
               filteredRecords.map((record) => (

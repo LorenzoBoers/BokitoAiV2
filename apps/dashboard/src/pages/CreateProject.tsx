@@ -50,7 +50,7 @@ export default function CreateProject() {
         autonomous_scope: scope.trim(),
       })
       toast.success(t('projects.create.success', { defaultValue: 'Project created' }))
-      navigate(`/os/project/${project.id}`)
+      navigate(`/project/${project.id}/overview`)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('projects.create.error'))
     } finally {

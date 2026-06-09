@@ -63,7 +63,7 @@ function sectionClass(isActive: boolean) {
 }
 
 function iconForLink(to: string) {
-  if (to.includes('/support/inbox')) return Inbox
+  if (to.includes('/support/inbox') || to.includes('/messages')) return Inbox
   if (to.includes('/support/customization')) return Sparkles
   if (to.includes('/support/settings')) return Mail
   if (to.includes('/users/attributes')) return UserCircle2
@@ -123,7 +123,7 @@ function iconForLink(to: string) {
 function isLinkActive(to: string, pathname: string, exact?: boolean): boolean {
   if (exact) {
     if (to === '/os') {
-      return pathname === '/os' || pathname.startsWith('/os/project/')
+      return pathname === '/os'
     }
     return pathname === to
   }
@@ -240,8 +240,13 @@ function resolveTitle(pathname: string, t: TFunction<['nav']>): string {
   }
   if (pathname.startsWith('/integrations')) return t('nav:sectionTitle.integrations')
   if (pathname.startsWith('/settings')) return t('nav:sectionTitle.settings')
-  if (pathname.startsWith('/support') || pathname.startsWith('/communication')) {
-    return t('nav:sectionTitle.inbox')
+  if (pathname.startsWith('/govern')) return t('nav:sectionTitle.govern', { defaultValue: 'Govern' })
+  if (
+    pathname.startsWith('/support') ||
+    pathname.startsWith('/communication') ||
+    pathname.startsWith('/messages')
+  ) {
+    return t('nav:sectionTitle.inbox', { defaultValue: 'Messages' })
   }
   return t('nav:sectionTitle.home', { defaultValue: 'Home' })
 }
@@ -254,6 +259,10 @@ export default function SectionSidebar() {
   const projectHubNav = useOptionalProjectHubNav()
 
   if (pathname === '/home' || pathname.startsWith('/home/')) {
+    return null
+  }
+
+  if (pathname === '/govern' || pathname.startsWith('/govern/')) {
     return null
   }
 
@@ -270,7 +279,10 @@ export default function SectionSidebar() {
   const groups = resolveGroups(pathname, t as TFunction<'nav'>)
   const title = resolveTitle(pathname, t)
 
-  const isInbox = pathname.startsWith('/support') || pathname.startsWith('/communication')
+  const isInbox =
+    pathname.startsWith('/support') ||
+    pathname.startsWith('/communication') ||
+    pathname.startsWith('/messages')
   const isAgenda = pathname === '/agenda' || pathname.startsWith('/agenda/')
 
   if (isAgenda) {
@@ -314,7 +326,7 @@ export default function SectionSidebar() {
                 return
               }
               projectHubNav?.setSelectedProjectId(projectId)
-              void navigate(`/os/project/${projectId}`)
+              void navigate(`/project/${projectId}/overview`)
             }}
           >
             <SelectTrigger className="h-8 bg-bg-sidebar px-2.5 text-xs [&>span]:max-w-[150px] [&>span]:truncate">
@@ -385,7 +397,7 @@ export default function SectionSidebar() {
           </NavLink>
           <NavLink to="/settings/inbox" className={({ isActive }) => sectionClass(isActive)}>
             <Mail size={14} className="text-text-muted" />
-            <span>{t('nav:inbox.configureInbox', { defaultValue: 'Inbox settings' })}</span>
+            <span>{t('nav:inbox.configureInbox', { defaultValue: 'Messages settings' })}</span>
           </NavLink>
         </div>
       )}

@@ -95,7 +95,7 @@ export default function OnboardingStep1({ data, onChange }: OnboardingStep1Props
       {/* Preview */}
       {data.workspace_name && (
         <div className="p-4 bg-bg-muted rounded-lg border border-border">
-          <p className="text-sm text-text-secondary mb-1">Voorbeeld:</p>
+          <p className="text-sm text-text-secondary mb-1">Example:</p>
           <p className="font-medium text-text-primary">{data.workspace_name}</p>
           <p className="text-xs text-text-muted">
             Tijdzone: {COMMON_TIMEZONES.find(tz => tz.value === data.timezone)?.label}

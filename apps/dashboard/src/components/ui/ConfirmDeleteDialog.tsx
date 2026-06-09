@@ -34,18 +34,18 @@ export default function ConfirmDeleteDialog({
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-text-secondary">
-            Typ de naam van {itemLabel} om te bevestigen: <strong className="text-text-primary">{itemName}</strong>
+            Type the name of {itemLabel} to confirm: <strong className="text-text-primary">{itemName}</strong>
           </p>
           {impactText ? <p className="text-xs text-text-muted">{impactText}</p> : null}
           <Input
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
-            placeholder={`Typ exact: ${itemName}`}
+            placeholder={`Type exactly: ${itemName}`}
             autoFocus
           />
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" onClick={onCancel} disabled={isDeleting}>
-              Annuleren
+              Cancel
             </Button>
             <Button
               type="button"
@@ -53,7 +53,7 @@ export default function ConfirmDeleteDialog({
               disabled={!matches || isDeleting}
               onClick={() => void onConfirm()}
             >
-              {isDeleting ? 'Verwijderen...' : 'Verwijderen'}
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           </div>
         </CardContent>

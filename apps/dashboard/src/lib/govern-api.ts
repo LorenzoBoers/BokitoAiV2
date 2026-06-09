@@ -27,6 +27,21 @@ export type AuditEventRow = {
   created_at: string
 }
 
+export type AutonomyPostureId = 'manual' | 'assisted' | 'autonomous'
+
+export type PosturePreset = {
+  id: AutonomyPostureId
+  label: string
+  summary: string
+}
+
+export type PostureResponse = {
+  posture: AutonomyPostureId
+  policy_mode: string
+  platform_apply_modes: Record<string, string>
+  presets: PosturePreset[]
+}
+
 async function governFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = requireAccessToken()
   const res = await fetch(path, {
@@ -82,6 +97,17 @@ export async function updateApplyModes(platform_apply_modes: Record<string, stri
   return governFetch<{ tenant_modes: Record<string, string> }>('/api/govern/apply-modes', {
     method: 'PUT',
     body: JSON.stringify({ platform_apply_modes }),
+  })
+}
+
+export async function getPosture() {
+  return governFetch<PostureResponse>('/api/govern/posture')
+}
+
+export async function setPosture(posture: AutonomyPostureId) {
+  return governFetch<PostureResponse>('/api/govern/posture', {
+    method: 'PUT',
+    body: JSON.stringify({ posture }),
   })
 }
 

@@ -6,8 +6,10 @@ import {
   type ThreadDetail as ThreadDetailType,
   type PatchThreadInput,
   type InboxMember,
+  type ThreadId,
 } from '../../lib/inbox-api'
 import { MessageTimelineItem, EventTimelineItem, formatHourMinute } from './TimelineItem'
+import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
 import { Button } from '../ui/button'
@@ -38,7 +40,7 @@ type Props = {
    * `error`) to show the failure message including the threadId so users
    * can identify which thread failed to load.
    */
-  threadId: number | null
+  threadId: ThreadId | null
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
   onReply: (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => Promise<void>
@@ -49,6 +51,7 @@ type Props = {
   deleting?: boolean
   onToggleContact?: () => void
   contactOpen?: boolean
+  onDecisionResolved?: () => void
 }
 
 const HEADER_ICON =
@@ -95,7 +98,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onDelete, deleting = false, onToggleContact, contactOpen }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved }: Props) {
   const { token } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -179,7 +182,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // flag so the ResizeObserver below keeps re-pinning as email iframes finish
   // measuring their height (often hundreds of ms after the initial render).
   useLayoutEffect(() => {
-    if (loading || threadId == null || loadedThreadId !== threadId || groups.length === 0) {
+    if (loading || threadId == null || String(loadedThreadId) !== String(threadId) || groups.length === 0) {
       if (loadedThreadId == null) anchorToBottomRef.current = false
       return
     }
@@ -419,7 +422,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   type="button"
                   disabled={saving || loading}
                   onClick={() => void onTogglePin()}
-                  aria-label={thread.isPinned ? 'Pin verwijderen' : 'Pinnen'}
+                  aria-label={thread.isPinned ? 'Unpin thread' : 'Pin thread'}
                   aria-pressed={thread.isPinned}
                   className={`${HEADER_ICON}${thread.isPinned ? ' text-accent' : ''}`}
                 >
@@ -427,7 +430,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {thread.isPinned ? 'Pin verwijderen' : 'Pinnen'}
+                {thread.isPinned ? 'Unpin thread' : 'Pin thread'}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -437,7 +440,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <button
                   type="button"
                   onClick={onToggleContact}
-                  aria-label={contactOpen ? 'Verberg contactpaneel' : 'Contactpaneel'}
+                  aria-label={contactOpen ? 'Hide contact panel' : 'Show contact panel'}
                   aria-pressed={contactOpen}
                   className={`${HEADER_ICON}${contactOpen ? ' text-accent' : ''}`}
                 >
@@ -445,7 +448,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {contactOpen ? 'Verberg contactpaneel' : 'Contactpaneel'}
+                {contactOpen ? 'Hide contact panel' : 'Show contact panel'}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -479,13 +482,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     </span>
                   </div>
                   {entry.kind === 'message' ? (
-                    <MessageTimelineItem
-                      message={entry.data}
-                      contactName={thread.contactName}
-                      contactEmail={thread.contactEmail}
-                      contactPhone={thread.contactPhone}
-                      membersById={membersById}
-                    />
+                    entry.data.kind === 'decision_request' ? (
+                      <DecisionRequestMessage
+                        message={entry.data}
+                        threadId={thread.id}
+                        events={detail.events}
+                        onResolved={onDecisionResolved}
+                      />
+                    ) : (
+                      <MessageTimelineItem
+                        message={entry.data}
+                        contactName={thread.contactName}
+                        contactEmail={thread.contactEmail}
+                        contactPhone={thread.contactPhone}
+                        membersById={membersById}
+                      />
+                    )
                   ) : (
                     <EventTimelineItem
                       event={entry.data}

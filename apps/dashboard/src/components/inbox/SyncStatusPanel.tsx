@@ -48,7 +48,7 @@ export default function SyncStatusPanel({ className }: Props) {
           onClick={() => void load()}
           disabled={loading}
           className="text-text-muted hover:text-text-primary transition-colors disabled:opacity-40"
-          title="Vernieuwen"
+          title="Refresh"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>

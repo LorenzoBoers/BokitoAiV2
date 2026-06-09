@@ -276,6 +276,8 @@ async def list_events(
     if window_end <= window_start:
         raise HTTPException(status_code=400, detail="end must be after start")
     ids = _parse_calendar_ids(calendar_ids)
+    await ensure_system_calendars(session, auth.tenant.id)
+    await session.commit()
     items = await list_events_in_range(session, auth.tenant.id, window_start, window_end, ids)
     return {"items": items}
 

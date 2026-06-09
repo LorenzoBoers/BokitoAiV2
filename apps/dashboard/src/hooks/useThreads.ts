@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { listThreads, type InboxThread, type ThreadFilters } from '../lib/inbox-api'
+import { listThreads, type InboxThread, type ThreadFilters, type ThreadId } from '../lib/inbox-api'
 
 function buildFilterKey(filters: ThreadFilters): string {
   return [
     filters.view ?? '',
+    filters.folder ?? '',
+    filters.projectId ?? '',
     filters.tag ?? '',
     String(filters.assigneeId ?? ''),
     filters.search ?? '',
@@ -16,12 +18,14 @@ function buildFilterKey(filters: ThreadFilters): string {
 
 export function useThreads(
   filters: ThreadFilters = {},
-  pinnedIds: number[] = [],
+  pinnedIds: ThreadId[] = [],
   pollMs = 30000,
 ) {
   const { token } = useAuth()
   const filterKey = useMemo(() => buildFilterKey(filters), [
     filters.view,
+    filters.folder,
+    filters.projectId,
     filters.tag,
     filters.assigneeId,
     filters.search,
@@ -71,6 +75,8 @@ export function useThreads(
     token,
     filterKey,
     filters.view,
+    filters.folder,
+    filters.projectId,
     filters.tag,
     filters.assigneeId,
     filters.search,
@@ -96,8 +102,8 @@ export function useThreads(
   // current page. Within each group the list keeps the server-side order
   // (last_message_at DESC).
   const threads = useMemo<InboxThread[]>(() => {
-    const pinSet = new Set(pinnedIds)
-    const decorated = rawThreads.map((t) => ({ ...t, isPinned: pinSet.has(t.id) }))
+    const pinSet = new Set(pinnedIds.map((id) => String(id)))
+    const decorated = rawThreads.map((t) => ({ ...t, isPinned: pinSet.has(String(t.id)) }))
     const toMillis = (iso: string | null) => (iso ? new Date(iso).getTime() : 0)
     return [...decorated].sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
@@ -110,12 +116,14 @@ export function useThreads(
   // Optimistic read/unread state update for the in-memory list. Lets the UI
   // toggle the unread dot instantly when a user opens a thread or manually
   // flips it back to unread, without waiting for the next poll.
-  const setThreadReadState = useCallback((threadId: number, hasUnread: boolean) => {
-    setRawThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, hasUnread } : t)))
+  const setThreadReadState = useCallback((threadId: ThreadId, hasUnread: boolean) => {
+    setRawThreads((prev) =>
+      prev.map((t) => (String(t.id) === String(threadId) ? { ...t, hasUnread } : t)),
+    )
   }, [])
 
-  const removeThread = useCallback((threadId: number) => {
-    setRawThreads((prev) => prev.filter((t) => t.id !== threadId))
+  const removeThread = useCallback((threadId: ThreadId) => {
+    setRawThreads((prev) => prev.filter((t) => String(t.id) !== String(threadId)))
     setTotal((prev) => (prev != null && prev > 0 ? prev - 1 : prev))
   }, [])
 

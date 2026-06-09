@@ -144,7 +144,7 @@ export default function RecordContextMenu({
           className="w-full px-3 py-2 text-left text-sm hover:bg-bg-hover transition-colors flex items-center gap-2 text-status-error"
         >
           <Trash2 size={14} />
-          {record.is_deleted ? 'Permanent verwijderen' : 'Verwijderen'}
+          {record.is_deleted ? 'Delete permanently' : 'Delete'}
         </button>
       )}
     </div>

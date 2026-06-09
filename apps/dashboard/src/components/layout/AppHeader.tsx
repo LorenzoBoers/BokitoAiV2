@@ -19,7 +19,11 @@ export default function AppHeader() {
   const supportPageMeta = getSupportPageMeta(t)
   const integrationsSlug = pathname.startsWith('/integrations/') ? pathname.split('/')[2] ?? 'marketplace' : ''
 
-  const supportQueue = pathname.split('/')[3] ?? 'all'
+  const supportQueue = pathname.startsWith('/messages/ch/')
+    ? pathname.split('/')[4] ?? 'all'
+    : pathname.startsWith('/messages/')
+      ? pathname.split('/')[2] ?? 'all'
+      : pathname.split('/')[3] ?? 'all'
   const settingsSlug = pathname.split('/')[2] ?? ''
   const settingsDataSlug = pathname.startsWith('/settings/data/') ? pathname.split('/')[3] ?? '' : ''
   const userSlug = pathname.split('/')[2] ?? ''
@@ -39,9 +43,9 @@ export default function AppHeader() {
         : projectSection === 'orchestration'
           ? t('project.links.orchestration', { defaultValue: 'Orchestration' })
           : projectSection === 'communication'
-            ? t('project.links.communication', { defaultValue: 'Communication' })
+            ? t('project.links.communication', { defaultValue: 'Messages' })
             : projectSection === 'workforce'
-              ? t('project.links.workforce', { defaultValue: 'Workforce history' })
+              ? t('project.links.workforce', { defaultValue: 'Agent runs' })
               : projectSection === 'usage'
                 ? t('project.links.usage', { defaultValue: 'Token usage' })
                 : projectSection === 'notifications'
@@ -75,25 +79,17 @@ export default function AppHeader() {
 
   const onAiOsHub =
     pathname === '/os' ||
-    pathname === '/os/communication' ||
     pathname === '/os/docs' ||
-    pathname.startsWith('/os/docs/') ||
-    pathname.startsWith('/os/project/')
+    pathname.startsWith('/os/docs/')
   const onProjectHub =
     onAiOsHub ||
     pathname === '/projects' ||
-    pathname === '/projects/communication' ||
     pathname === '/projects/docs' ||
     pathname.startsWith('/projects/docs/')
   let projectHubTitle: string | null = null
   if (onProjectHub) {
-    const osProjectId = pathname.match(/^\/os\/project\/([^/]+)/)?.[1] ?? null
     const tabKey =
-      pathname === '/os' || pathname === '/projects' || osProjectId
-        ? 'overview'
-        : pathname === '/os/communication' || pathname === '/projects/communication'
-          ? 'decisions'
-          : 'docs'
+      pathname === '/os' || pathname === '/projects' ? 'overview' : 'docs'
     let docPageTitle: string | null = null
     if (tabKey === 'docs') {
       const slug =
@@ -108,9 +104,7 @@ export default function AppHeader() {
     const hubLabel = onAiOsHub
       ? t('nav:sectionTitle.aiOs', { defaultValue: 'AI OS' })
       : t('nav:sectionTitle.projectHub', { defaultValue: 'Project hub' })
-    const osProjectName =
-      osProjectId && hubNav?.projects.find((p) => p.id === osProjectId)?.name
-    const tabLabel = osProjectName ?? t(`nav:projectHub.tabs.${tabKey}`)
+    const tabLabel = t(`nav:projectHub.tabs.${tabKey}`)
     const parts = [hubLabel, tabLabel, docPageTitle].filter(
       (s): s is string => Boolean(s && s.trim()),
     )
@@ -127,8 +121,12 @@ export default function AppHeader() {
         ? `${t('nav:sectionTitle.aiOs', { defaultValue: 'AI OS' })} / ${t('nav:orchestra.title', { defaultValue: 'Orchestra' })}`
         : pathname === '/agenda' || pathname.startsWith('/agenda/')
           ? t('nav:agenda.title', { defaultValue: 'Agenda' })
+          : pathname === '/govern' || pathname.startsWith('/govern/')
+            ? t('nav:sectionTitle.govern', { defaultValue: 'Govern' })
+          : pathname.startsWith('/messages/')
+            ? supportPageMeta[supportQueue ?? 'all']?.title ?? t('nav:sectionTitle.inbox', { defaultValue: 'Messages' })
           : pathname.startsWith('/support/inbox/')
-    ? supportPageMeta[supportQueue ?? 'all']?.title ?? t('nav:fallbackTitles.supportInbox')
+    ? supportPageMeta[supportQueue ?? 'all']?.title ?? t('nav:sectionTitle.inbox', { defaultValue: 'Messages' })
     : pathname.startsWith('/support/customization')
       ? t('nav:settingsPageMeta.messenger.title')
       : pathname.startsWith('/support/settings')

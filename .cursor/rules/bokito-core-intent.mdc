@@ -1,0 +1,75 @@
+---
+description: Bokito product north star and Intelligence Stack alignment for all coding tasks
+alwaysApply: true
+---
+
+# Bokito Core Intent
+
+Before implementing any feature, align with the product north star. Full detail: [`docs/CORE_INTENT.md`](docs/CORE_INTENT.md). Market positioning: [`docs/POSITIONING.md`](docs/POSITIONING.md).
+
+## Why we exist
+
+**The inbox, the agents, and the approvals — finally in one system.**
+
+Traditional companies coordinate through human layers: managers route work, inboxes fragment attention, and software mirrors org charts. Bokito unifies customer signals, agent orchestration, and human judgment in one operational flow — with **governed autonomy** you can dial from manual oversight toward *AI runs operations, humans at the exception layer*.
+
+Long-term: an operational **digital twin** the business can run on, observe (Cockpit, Govern), and improve through feedback.
+
+## What we are building
+
+A **node-based agentic OS** for AI-driven SMBs. Canonical entities in this repo:
+
+- **Sensing:** `Signal` / `SignalMessage` — unified Messages hub (external + internal threads)
+- **Orchestration:** `Agent`, `Workstream`, Orchestra, Agenda scheduler; AI OS canvas at `/os`
+- **Knowledge:** `BlueprintBlock`, canvas graph overlay (`os_canvas_nodes` / `os_canvas_edges`)
+- **Decisions:** `DecisionRequest` as messages **in** threads, not a separate list UI
+- **Govern:** `PlatformChange`, `AuditEvent`, apply modes (`draft` | `yolo` | `decision`), **Autonomy Posture** (`manual` | `assisted` | `autonomous`)
+- **Learning:** `Feedback`, `EvalScore`, `ActionPolicy` (heuristic V1)
+
+**V1 track:** FastAPI `apps/api` + dashboard bokito mode. Prefer Signal and stack APIs over new parallel Xano/inbox stacks.
+
+Intelligence Stack layers are **conceptual lanes**, not separate rail nav items. Map: [`docs/architecture.md`](docs/architecture.md).
+
+## Build phase
+
+The product is in the **initial building phase**. Prefer the cleanest design over backward-compatibility shims. Breaking changes to frontend, backend, and database schema are acceptable when they align with the north star. Do not add migration layers or dual APIs unless explicitly requested.
+
+## Principles
+
+| Principle | In practice |
+|-----------|-------------|
+| **Unified ops flow** | Land via Messages; expand to canvas and Govern — one thread model, one decision object |
+| **Node-first** | Extend canonical entities; avoid parallel inbox/decision/graph stacks |
+| **Intelligence flow** | Connect features to sensing → … → learning; avoid isolated CRUD |
+| **Governed autonomy** | Tenant **Autonomy Posture** presets dial policy + apply modes; per-resource overrides in Govern |
+| **Learning by default** | Record outcomes (feedback, eval, policy) where feasible |
+| **Human at exceptions** | Inline decisions in Messages; structural review on `/govern` |
+
+## Design constraints
+
+- **Simplicity** — smallest schema/UI that fits the node model
+- **Minimalist UI** — calm, obvious; shared primitives; no emoji in copy
+- **Scalability** — tenant isolation; composable graph
+- **Alignment test** — if it is not nodes + flow + optional human gate, redesign first
+
+## Pre-flight checklist (state before coding)
+
+1. **Layer** — Sensing / Interpretation / Orchestration / Integration / Learning / Govern?
+2. **Nodes** — Which entities? New type justified?
+3. **Flow** — Trigger and next step in the loop?
+4. **Human gate** — none | inline decision | Govern draft | manual-only
+5. **Autonomy posture** — Does this respect tenant posture and apply modes?
+6. **Learning hook** — What outcome is captured?
+7. **Trust** — Permissions, audit, rollback for agent mutations?
+8. **UI surface** — Messages, `/os`, `/govern`, Cockpit, or settings — not a duplicate comms/agent hub
+
+## Anti-patterns
+
+- Parallel inbox/decision APIs for the same mental model
+- Rail tabs per Intelligence Stack layer
+- Agent writes bypassing govern / apply modes / posture
+- Results with no learning or audit hook
+- Hardcoded API paths outside `apps/dashboard/src/api/routes/`
+- Back-compat shims that duplicate mental models during initial build phase
+
+Operational facts discovered while coding → update [`BOKITO_KNOWLEDGE.md`](BOKITO_KNOWLEDGE.md) (see `bokito-platform-knowledge.mdc`).

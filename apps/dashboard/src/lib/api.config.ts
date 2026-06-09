@@ -28,18 +28,25 @@ export const API_GROUP_LOGS = import.meta.env.VITE_API_GROUP_LOGS || 'logs'
 export const API_GROUP_BAKERMAT = import.meta.env.VITE_API_GROUP_BAKERMAT || 'bakermat'
 export const API_GROUP_AGENDA = import.meta.env.VITE_API_GROUP_AGENDA || 'agenda'
 
-export const APP_API_BASE = xanoApiBase(API_GROUP_APP)
+const USE_BOKITO_API = import.meta.env.VITE_API_MODE === 'bokito'
+
+/**
+ * App-group API base. In bokito mode FastAPI mounts most portal routes on `/api/*`
+ * (signals, govern, etc.); custom-db stays under `/api/app/*`.
+ */
+export const APP_API_BASE = USE_BOKITO_API ? '/api' : xanoApiBase(API_GROUP_APP)
+
+/** Custom tables / workspace CRUD — always under the app scope. */
+export const APP_SCOPED_API_BASE = USE_BOKITO_API ? '/api/app' : xanoApiBase(API_GROUP_APP)
 export const AUTH_API_BASE = xanoApiBase(API_GROUP_AUTH)
 export const INTEGRATIONS_API_BASE = xanoApiBase(API_GROUP_INTEGRATIONS)
 export const WORKFORCE_API_BASE = xanoApiBase(API_GROUP_WORKFORCE)
 export const LIVECHAT_API_BASE = xanoApiBase(API_GROUP_LIVECHAT)
 export const LOGS_API_BASE = xanoApiBase(API_GROUP_LOGS)
 export const BAKERMAT_API_BASE = xanoApiBase(API_GROUP_BAKERMAT)
-export const AGENDA_API_BASE = xanoApiBase(API_GROUP_AGENDA)
+export const AGENDA_API_BASE = USE_BOKITO_API ? '/api' : xanoApiBase(API_GROUP_AGENDA)
 
 export const PUBLIC_API_URL = import.meta.env.VITE_PUBLIC_API_URL || DEFAULT_PUBLIC_API_URL
-
-const USE_BOKITO_API = import.meta.env.VITE_API_MODE === 'bokito'
 
 /**
  * Origin for `bokito-chat` `data-api-url` (widget appends `/api:livechat/...`).

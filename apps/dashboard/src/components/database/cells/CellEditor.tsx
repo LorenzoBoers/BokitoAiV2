@@ -453,7 +453,7 @@ function LongTextEditor({
           Annuleren
         </Button>
         <Button type="button" size="sm" onClick={() => onSave(draft)}>
-          Opslaan
+          Save
         </Button>
       </div>
       <div className="text-[10px] text-text-muted mt-1">

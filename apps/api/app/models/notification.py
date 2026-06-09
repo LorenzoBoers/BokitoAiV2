@@ -36,7 +36,8 @@ class DecisionRequest(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     notification_id: Optional[uuid.UUID] = Field(default=None, foreign_key="notifications.id")
     conversation_id: Optional[uuid.UUID] = Field(default=None, foreign_key="conversations.id")
-    message_id: Optional[uuid.UUID] = Field(default=None, foreign_key="conversation_messages.id")
+    message_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     title: str
     summary: str = ""
     status: str = Field(default="awaiting_human")  # awaiting_human | approved | rejected | deferred

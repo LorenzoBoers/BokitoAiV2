@@ -131,7 +131,7 @@ export default function UsageChart() {
         <div className="w-12 h-12 mx-auto mb-4 bg-bg-subtle rounded-lg flex items-center justify-center">
           <BarChart3 size={24} className="text-text-muted" />
         </div>
-        <h3 className="text-lg font-medium text-text-heading mb-2">Geen API sleutels</h3>
+        <h3 className="text-lg font-medium text-text-heading mb-2">No API keys</h3>
         <p className="text-text-secondary">
           Maak eerst API sleutels aan om gebruik statistieken te bekijken
         </p>
@@ -251,7 +251,7 @@ export default function UsageChart() {
         {stats.length === 0 ? (
           <div className="text-center py-12">
             <BarChart3 size={48} className="mx-auto text-text-muted mb-4" />
-            <p className="text-text-secondary">Nog geen gebruiksdata beschikbaar</p>
+            <p className="text-text-secondary">No usage data available yet</p>
           </div>
         ) : (
           <div className="flex items-end justify-between space-x-1 h-40">

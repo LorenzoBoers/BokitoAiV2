@@ -1,6 +1,6 @@
 import { appRoutes } from '../api/routes/app.routes';
 import { withQuery } from '../api/url';
-import { APP_API_BASE } from './api.config';
+import { APP_SCOPED_API_BASE } from './api.config';
 import { requireAccessToken } from './xano';
 import type {
   CustomTable, CustomField, CustomRecord, CustomView,
@@ -8,7 +8,7 @@ import type {
   ActivityLogEntry, RecordComment, BulkAction, DefaultValue,
 } from '../types/custom-db';
 
-const API_BASE = APP_API_BASE;
+const API_BASE = APP_SCOPED_API_BASE;
 
 /** After a 404 on standard-tables routes, skip further HTTP calls for this tab (StrictMode + navigation). Clear via sessionStorage.removeItem(...) to retry after backend deploy. */
 const STANDARD_TABLES_UNAVAILABLE_KEY = 'bokito_standard_tables_api_unavailable';

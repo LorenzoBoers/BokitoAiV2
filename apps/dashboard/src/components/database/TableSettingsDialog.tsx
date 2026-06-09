@@ -137,7 +137,7 @@ export default function TableSettingsDialog({ table, onClose }: TableSettingsDia
             <h3 className="text-sm font-medium text-text-heading mb-2">Algemeen</h3>
             <div className="text-sm text-text-secondary">
               <p><span className="font-medium">Naam:</span> {table.name}</p>
-              <p><span className="font-medium">Beschrijving:</span> {table.description || 'Geen beschrijving'}</p>
+              <p><span className="font-medium">Description:</span> {table.description || 'No description'}</p>
               <p><span className="font-medium">Aangemaakt:</span> {new Date(table.created_at).toLocaleDateString('nl-NL')}</p>
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function TableSettingsDialog({ table, onClose }: TableSettingsDia
                   
                   {indexableFields.length === 0 ? (
                     <div className="text-xs text-text-muted p-3 bg-bg-muted rounded-md">
-                      Geen tekstvelden beschikbaar om te indexeren
+                      No text fields available to index
                     </div>
                   ) : (
                     <div className="space-y-2">

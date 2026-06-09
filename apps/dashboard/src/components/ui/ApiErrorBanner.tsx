@@ -27,6 +27,8 @@ export function formatApiErrorMessage(err: unknown, fallback = 'Something went w
   if (err instanceof Error) {
     const msg = err.message.trim()
     if (!msg) return fallback
+    const parsed = msg.match(/^HTTP \d+\s+(.+?)\s*\[[^\]]+\]$/)
+    if (parsed?.[1]) return parsed[1]
     if (/^HTTP \d+/i.test(msg) || msg.includes('[/') || msg.includes('/api/')) {
       return fallback
     }

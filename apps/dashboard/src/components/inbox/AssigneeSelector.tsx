@@ -70,7 +70,7 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
           onSelect={() => onChange(null)}
           className={cn('text-xs', currentAssigneeId == null && 'bg-bg-hover/80')}
         >
-          Niet toegewezen
+          Unassigned
         </DropdownMenuItem>
         {members.map((m) => (
           <DropdownMenuItem

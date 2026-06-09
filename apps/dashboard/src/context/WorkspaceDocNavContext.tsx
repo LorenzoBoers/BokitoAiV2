@@ -46,7 +46,7 @@ export function WorkspaceDocNavProvider({ children }: { children: ReactNode }) {
       setDoc(null)
       setPages([])
       setLoading(authLoading)
-      setError(authLoading ? null : 'Niet geauthenticeerd [/workspace/doc]')
+      setError(authLoading ? null : 'Not authenticated [/workspace/doc]')
       return
     }
 

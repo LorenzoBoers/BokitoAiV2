@@ -14,8 +14,8 @@ type Props = {
 
 const STATUS_LABELS: Record<InboxThread['status'], string> = {
   open: 'Open',
-  pending: 'In behandeling',
-  closed: 'Gesloten',
+  pending: 'Pending',
+  closed: 'Closed',
   spam: 'Spam',
 }
 
@@ -27,8 +27,8 @@ const STATUS_DOT: Record<InboxThread['status'], string> = {
 }
 
 const PRIORITY_LABELS: Record<InboxThread['priority'], string> = {
-  normal: 'Normaal',
-  high: 'Hoog',
+  normal: 'Normal',
+  high: 'High',
   urgent: 'Urgent',
 }
 
@@ -38,7 +38,7 @@ const PRIORITY_COLORS: Record<InboxThread['priority'], string> = {
   urgent: 'text-status-error',
 }
 
-const FULL_DATE_FORMATTER = new Intl.DateTimeFormat('nl-NL', {
+const FULL_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'long',
   year: 'numeric',
@@ -57,12 +57,12 @@ function formatRelative(iso: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return '—'
   const diffMs = Date.now() - date.getTime()
   const minutes = Math.round(diffMs / 60000)
-  if (minutes < 1) return 'zojuist'
-  if (minutes < 60) return `${minutes}m geleden`
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}u geleden`
+  if (hours < 24) return `${hours}h ago`
   const days = Math.round(hours / 24)
-  if (days < 7) return `${days}d geleden`
+  if (days < 7) return `${days}d ago`
   return FULL_DATE_FORMATTER.format(date)
 }
 
@@ -196,8 +196,8 @@ export default function ContactPanel({ thread, onClose }: Props) {
           type="button"
           onClick={onClose}
           className="text-text-muted hover:text-text-primary rounded-sm p-0.5 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
-          aria-label="Sluit contactpaneel"
-          title="Sluiten"
+          aria-label="Close contact panel"
+          title="Close"
         >
           <X size={14} />
         </button>
@@ -233,16 +233,16 @@ export default function ContactPanel({ thread, onClose }: Props) {
                 className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-surface-hover px-2 py-1 text-[11px] text-text-primary hover:border-accent/60 hover:text-accent"
               >
                 <Phone size={11} />
-                Bellen
+                Call
               </a>
             ) : null}
           </div>
         </div>
 
         <div className="px-4 py-3 border-b border-border/40">
-          <SectionHeading title="Contactgegevens" />
+          <SectionHeading title="Contact details" />
           <div className="divide-y divide-border/30">
-            <MetaRow icon={<Mail size={13} />} label="E-mail">
+            <MetaRow icon={<Mail size={13} />} label="Email">
               {thread.contactEmail ? (
                 <a
                   href={`mailto:${thread.contactEmail}`}
@@ -254,7 +254,7 @@ export default function ContactPanel({ thread, onClose }: Props) {
                 <span className="text-text-muted">—</span>
               )}
             </MetaRow>
-            <MetaRow icon={<Phone size={13} />} label="Telefoon">
+            <MetaRow icon={<Phone size={13} />} label="Phone">
               {thread.contactPhone ? (
                 <a
                   href={`tel:${thread.contactPhone}`}
@@ -263,7 +263,7 @@ export default function ContactPanel({ thread, onClose }: Props) {
                   {thread.contactPhone}
                 </a>
               ) : (
-                <span className="text-text-muted">Niet bekend</span>
+                <span className="text-text-muted">Unknown</span>
               )}
             </MetaRow>
           </div>
@@ -278,7 +278,7 @@ export default function ContactPanel({ thread, onClose }: Props) {
                 <span className="text-text-primary">{STATUS_LABELS[thread.status]}</span>
               </span>
             </MetaRow>
-            <MetaRow icon={<Hash size={13} />} label="Prioriteit">
+            <MetaRow icon={<Hash size={13} />} label="Priority">
               <span className={cn('font-medium', PRIORITY_COLORS[thread.priority])}>
                 {PRIORITY_LABELS[thread.priority]}
               </span>
@@ -290,14 +290,14 @@ export default function ContactPanel({ thread, onClose }: Props) {
                 <span className="text-text-muted">—</span>
               )}
             </MetaRow>
-            <MetaRow icon={<Calendar size={13} />} label="Aangemaakt">
+            <MetaRow icon={<Calendar size={13} />} label="Created">
               <span className="text-text-primary">{formatFullDate(thread.createdAt)}</span>
             </MetaRow>
-            <MetaRow icon={<Clock size={13} />} label="Laatste bericht">
+            <MetaRow icon={<Clock size={13} />} label="Last message">
               <span className="text-text-primary">{formatRelative(thread.lastMessageAt)}</span>
             </MetaRow>
             {assigneeName ? (
-              <MetaRow icon={<Hash size={13} />} label="Toegewezen aan">
+              <MetaRow icon={<Hash size={13} />} label="Assigned to">
                 <span className="text-text-primary">{assigneeName}</span>
               </MetaRow>
             ) : null}
@@ -306,7 +306,7 @@ export default function ContactPanel({ thread, onClose }: Props) {
 
         <div className="px-4 py-3 border-b border-border/40">
           <SectionHeading title="Previous threads" hint="Coming soon" />
-          <PlaceholderItem label="Nog geen eerdere conversaties" />
+          <PlaceholderItem label="No previous conversations" />
         </div>
 
         <div className="px-4 py-3">

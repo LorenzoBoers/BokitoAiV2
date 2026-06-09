@@ -235,7 +235,7 @@ function EditWebhookDialog({ webhook, open, onOpenChange }: EditWebhookDialogPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Webhook Bewerken</DialogTitle>
+          <DialogTitle>Edit webhook</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -333,7 +333,7 @@ function EditWebhookDialog({ webhook, open, onOpenChange }: EditWebhookDialogPro
               Annuleren
             </Button>
             <Button type="submit" disabled={loading.webhooks}>
-              {loading.webhooks ? 'Opslaan...' : 'Opslaan'}
+              {loading.webhooks ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </form>
@@ -365,11 +365,11 @@ function DeleteWebhookDialog({ webhook, open, onOpenChange }: DeleteWebhookDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Webhook Verwijderen</DialogTitle>
+          <DialogTitle>Delete webhook</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-text-secondary">
-            Weet je zeker dat je de webhook voor "{webhook.tableName}" wilt verwijderen?
+            Are you sure you want to delete the webhook for "{webhook.tableName}"?
             Deze actie kan niet ongedaan worden gemaakt.
           </p>
           <div className="flex justify-end space-x-2">
@@ -384,7 +384,7 @@ function DeleteWebhookDialog({ webhook, open, onOpenChange }: DeleteWebhookDialo
               onClick={handleDelete}
               disabled={loading.webhooks}
             >
-              {loading.webhooks ? 'Verwijderen...' : 'Verwijderen'}
+              {loading.webhooks ? 'Deleting...' : 'Delete'}
             </Button>
           </div>
         </div>
@@ -462,7 +462,7 @@ export default function WebhookConfiguration() {
           <div className="w-12 h-12 mx-auto mb-4 bg-bg-subtle rounded-lg flex items-center justify-center">
             <Globe size={24} className="text-text-muted" />
           </div>
-          <h3 className="text-lg font-medium text-text-heading mb-2">Geen webhooks</h3>
+          <h3 className="text-lg font-medium text-text-heading mb-2">No webhooks</h3>
           <p className="text-text-secondary mb-4">
             Maak je eerste webhook aan om notificaties te ontvangen
           </p>

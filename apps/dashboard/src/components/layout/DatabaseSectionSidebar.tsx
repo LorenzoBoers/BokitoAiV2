@@ -48,7 +48,7 @@ function TableList({
   onSelectTable: (table: CustomTable) => void
 }) {
   if (tables.length === 0) {
-    return <p className="px-3 py-1 text-xs text-text-muted">Geen tabellen.</p>
+    return <p className="px-3 py-1 text-xs text-text-muted">No tables.</p>
   }
 
   return (

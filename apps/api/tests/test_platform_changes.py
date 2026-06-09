@@ -82,11 +82,18 @@ async def test_yolo_policy_applies_immediately(client: AsyncClient, session_over
     await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     from app.models.policy import ActionPolicy
+    from app.dependencies import tenant_settings
 
     policy = (
         await session_override.execute(select(ActionPolicy).where(ActionPolicy.tenant_id == tenant.id))
     ).scalar_one()
     policy.mode = "yolo"
+    settings = tenant_settings(tenant)
+    settings["platform_apply_modes"] = {
+        **settings.get("platform_apply_modes", {}),
+        "blueprint_block": "yolo",
+    }
+    tenant.settings_json = json.dumps(settings)
     await session_override.commit()
 
     from app.models.blueprint import BlueprintDoc

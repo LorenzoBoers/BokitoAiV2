@@ -25,7 +25,7 @@ export default function StaffTenantBar() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Tenants laden mislukt')
+          setError(err instanceof Error ? err.message : 'Failed to load tenants')
           setTenants([])
         }
       })
@@ -46,7 +46,7 @@ export default function StaffTenantBar() {
         await switchStaffTenant(nextId)
         window.location.reload()
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Tenant wisselen mislukt')
+        setError(err instanceof Error ? err.message : 'Failed to switch tenant')
         setSwitching(false)
       }
     },

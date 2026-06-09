@@ -1,11 +1,10 @@
 import { Mail } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import ContactPanel from '../components/inbox/ContactPanel'
-import { DecisionsPanel } from '../components/inbox/DecisionsPanel'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
 import {
@@ -25,6 +24,7 @@ import {
   type InboxThread,
   type PatchThreadInput,
   type ThreadFilters,
+  type ThreadId,
 } from '../lib/inbox-api'
 
 type View = NonNullable<ThreadFilters['view']>
@@ -42,10 +42,12 @@ const QUEUE_TO_VIEW: Record<string, View> = {
   outbound: 'outbound',
   pinned: 'pinned',
   created: 'mine',
+  'awaiting-decision': 'awaiting_decision',
+  awaiting_decision: 'awaiting_decision',
+  updates: 'updates',
+  results: 'results',
 }
 
-// Inverse mapping so we can build canonical redirect URLs from a View back to
-// the short URL segment used in routes ("all", "my", ...).
 const VIEW_TO_QUEUE: Record<View, string> = {
   all_open: 'all',
   mine: 'my',
@@ -55,11 +57,15 @@ const VIEW_TO_QUEUE: Record<View, string> = {
   spam: 'spam',
   outbound: 'out',
   pinned: 'pinned',
+  awaiting_decision: 'awaiting-decision',
+  updates: 'updates',
+  results: 'results',
+  external: 'all',
+  internal: 'all',
 }
 
-// Whether a thread (in its current state) belongs in the given queue view.
-// Used to decide whether a deep-linked URL is still valid or needs a stale
-// redirect. Mirrors the server-side queue filters as closely as practical.
+const INTERNAL_ONLY_VIEWS: View[] = ['awaiting_decision', 'updates', 'results']
+
 function isThreadInQueue(thread: InboxThread, view: View, userId: number | null): boolean {
   switch (view) {
     case 'all_open':
@@ -78,14 +84,17 @@ function isThreadInQueue(thread: InboxThread, view: View, userId: number | null)
       return true
     case 'pinned':
       return thread.isPinned
+    case 'awaiting_decision':
+    case 'updates':
+    case 'results':
+    case 'external':
+    case 'internal':
+      return true
     default:
       return true
   }
 }
 
-// Canonical queue for a thread based on its current state. When a shared URL
-// references a stale view, the user is silently redirected to the canonical
-// view here so the thread is always reachable.
 function getCanonicalView(thread: InboxThread): View {
   if (thread.status === 'closed') return 'closed'
   if (thread.status === 'spam') return 'spam'
@@ -104,56 +113,14 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
   }
 }
 
+function parseFolder(value: string | null): ThreadFilters['folder'] | undefined {
+  if (value === 'external' || value === 'internal' || value === 'all') return value
+  return undefined
+}
 
 export default function Communication() {
-  const location = useLocation()
-  if (location.pathname === '/messages' || location.pathname === '/communication') {
-    return <Navigate to="/support/inbox/my?hub=decisions" replace />
-  }
-  return <InboxCommunication />
-}
-
-function InboxHubTabs({
-  hub,
-  onHubChange,
-}: {
-  hub: 'conversations' | 'decisions'
-  onHubChange: (next: 'conversations' | 'decisions') => void
-}) {
-  const tabClass = (active: boolean) =>
-    `px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-      active
-        ? 'border-border/70 bg-bg-hover text-text-heading'
-        : 'border-transparent text-text-muted hover:text-text-primary'
-    }`
-  return (
-    <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2 shrink-0">
-      <button type="button" className={tabClass(hub === 'conversations')} onClick={() => onHubChange('conversations')}>
-        Conversations
-      </button>
-      <button type="button" className={tabClass(hub === 'decisions')} onClick={() => onHubChange('decisions')}>
-        Decisions
-      </button>
-    </div>
-  )
-}
-
-function InboxCommunication() {
   const { t } = useTranslation('communication')
-  const [searchParams, setSearchParams] = useSearchParams()
-  const hub: 'conversations' | 'decisions' =
-    searchParams.get('hub') === 'decisions' ? 'decisions' : 'conversations'
-  const setHub = (next: 'conversations' | 'decisions') => {
-    setSearchParams(
-      (prev) => {
-        const params = new URLSearchParams(prev)
-        if (next === 'decisions') params.set('hub', 'decisions')
-        else params.delete('hub')
-        return params
-      },
-      { replace: true },
-    )
-  }
+  const [searchParams] = useSearchParams()
   const { queue, channelId, threadId: threadIdParam } = useParams<{
     queue: string
     channelId?: string
@@ -164,17 +131,27 @@ function InboxCommunication() {
   const { refresh: refreshNavBadges } = useNavBadges()
   const currentUserId = user?.id ?? null
 
+  const folder = parseFolder(searchParams.get('folder'))
+  const projectId = searchParams.get('project_id')?.trim() || undefined
+
+  const inboxQuery = useMemo(() => {
+    const params = new URLSearchParams()
+    if (folder) params.set('folder', folder)
+    if (projectId) params.set('project_id', projectId)
+    const query = params.toString()
+    return query ? `?${query}` : ''
+  }, [folder, projectId])
+
   useEffect(() => {
     void refreshNavBadges()
   }, [refreshNavBadges])
 
-  // URL is the single source of truth for the current view AND selected thread
   const view: View = (queue ? QUEUE_TO_VIEW[queue] : undefined) ?? 'all_open'
   const connectionId = channelId ? Number(channelId) : undefined
-  const selectedThreadId = threadIdParam ? Number(threadIdParam) : null
+  const selectedThreadId: ThreadId | null = threadIdParam ?? null
 
   const { search, setSearch, quickFilter, setQuickFilter, resetQuickFilter } = useInboxCommunication()
-  const [deletingThreadId, setDeletingThreadId] = useState<number | null>(null)
+  const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   const [showContactPanel, setShowContactPanel] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
     const stored = window.localStorage.getItem('inbox.contactPanel.open')
@@ -200,7 +177,6 @@ function InboxCommunication() {
     needsOrganisation,
   } = useMailboxConnections()
 
-  // Show inbox if there's at least one enabled connection (active or error — not revoked)
   const enabledConnections = connections.filter(
     (c) => c.status !== 'revoked' && c.isEnabled !== false,
   )
@@ -215,9 +191,9 @@ function InboxCommunication() {
     refresh: refreshThreads,
     setThreadReadState,
     removeThread,
-  } = useThreads({ view, search, connectionId }, pinnedIds)
+  } = useThreads({ view, search, connectionId, folder, projectId }, pinnedIds)
 
-  const listContextKey = `${channelId ?? 'all'}:${queue ?? 'all'}`
+  const listContextKey = `${channelId ?? 'all'}:${queue ?? 'all'}:${folder ?? ''}:${projectId ?? ''}`
 
   useEffect(() => {
     setSearch('')
@@ -248,23 +224,17 @@ function InboxCommunication() {
   }, [detail?.thread?.id, detail?.thread?.hasUnread, refreshNavBadges])
 
   const handleSelectThread = useCallback(
-    (id: number, replace = false) => {
-      // Optimistic: clear the unread dot in the list as soon as the user
-      // clicks. The detail hook then fires the server-side mark-read call
-      // silently. If anything fails the next 30s poll reconciles state.
+    (id: ThreadId, replace = false) => {
       setThreadReadState(id, false)
       const base = channelId
-        ? `/support/inbox/ch/${channelId}/${queue ?? 'all'}`
-        : `/support/inbox/${queue ?? 'all'}`
-      navigate(`${base}/t/${id}`, replace ? { replace: true } : undefined)
+        ? `/messages/ch/${channelId}/${queue ?? 'all'}`
+        : `/messages/${queue ?? 'all'}`
+      navigate(`${base}/t/${encodeURIComponent(String(id))}${inboxQuery}`, replace ? { replace: true } : undefined)
       void refreshNavBadges()
     },
-    [channelId, queue, navigate, setThreadReadState, refreshNavBadges],
+    [channelId, queue, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
 
-  // When opening or switching inbox queue/folder without a thread in the URL,
-  // auto-select the most recent thread (first row). Skip when `/t/:id` is
-  // present so deep links and canonical queue redirects are not overridden.
   const firstThreadInView =
     filteredThreads.find((t) => isThreadInQueue(t, view, currentUserId)) ?? null
   const firstThreadId = firstThreadInView?.id ?? null
@@ -274,11 +244,8 @@ function InboxCommunication() {
     handleSelectThread(firstThreadId, true)
   }, [threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
 
-  // Handlers triggered from the indicator dropdown on a list row. They keep
-  // the list state in sync without forcing a full reload, mirroring the modern
-  // pattern in HelpScout / Linear.
   const handleListMarkRead = useCallback(
-    async (id: number) => {
+    async (id: ThreadId) => {
       if (!token) return
       setThreadReadState(id, false)
       try {
@@ -292,7 +259,7 @@ function InboxCommunication() {
   )
 
   const handleListMarkUnread = useCallback(
-    async (id: number) => {
+    async (id: ThreadId) => {
       if (!token) return
       setThreadReadState(id, true)
       try {
@@ -306,11 +273,9 @@ function InboxCommunication() {
   )
 
   const handleListTogglePin = useCallback(
-    async (id: number, currentPinned: boolean) => {
+    async (id: ThreadId, currentPinned: boolean) => {
       if (!token) return
       const next = !currentPinned
-      // Optimistic update of the shared pin set (used by both the list and
-      // the open detail view to derive isPinned).
       if (next) addPin(id)
       else removePin(id)
       try {
@@ -327,8 +292,6 @@ function InboxCommunication() {
     [token, addPin, removePin],
   )
 
-  // Pin/unpin from the detail header. Mirrors handleListTogglePin so both
-  // entry points share the optimistic flow.
   const handleDetailTogglePin = useCallback(async () => {
     if (selectedThreadId == null || !detail) return
     const current = detail.thread.isPinned
@@ -344,7 +307,7 @@ function InboxCommunication() {
   }, [selectedThreadId, detail, togglePin, addPin, removePin])
 
   const handleDeleteThread = useCallback(
-    async (id: number, subject?: string) => {
+    async (id: ThreadId, subject?: string) => {
       if (!token) return
       const label = subject?.trim() || `thread #${id}`
       if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) {
@@ -355,12 +318,12 @@ function InboxCommunication() {
       try {
         await apiDeleteThread(token, id)
         removeThread(id)
-        if (pinnedIds.includes(id)) removePin(id)
-        if (selectedThreadId === id) {
+        if (pinnedIds.some((pinnedId) => String(pinnedId) === String(id))) removePin(id)
+        if (String(selectedThreadId) === String(id)) {
           const base = channelId
-            ? `/support/inbox/ch/${channelId}/${queue ?? 'all'}`
-            : `/support/inbox/${queue ?? 'all'}`
-          navigate(base)
+            ? `/messages/ch/${channelId}/${queue ?? 'all'}`
+            : `/messages/${queue ?? 'all'}`
+          navigate(`${base}${inboxQuery}`)
         }
         void refreshNavBadges()
       } catch (err) {
@@ -369,7 +332,7 @@ function InboxCommunication() {
         setDeletingThreadId(null)
       }
     },
-    [token, removeThread, pinnedIds, removePin, selectedThreadId, channelId, queue, navigate, refreshNavBadges],
+    [token, removeThread, pinnedIds, removePin, selectedThreadId, channelId, queue, navigate, refreshNavBadges, inboxQuery],
   )
 
   const handleDetailDelete = useCallback(async () => {
@@ -377,28 +340,17 @@ function InboxCommunication() {
     await handleDeleteThread(selectedThreadId, detail?.thread.emailSubject)
   }, [selectedThreadId, detail?.thread.emailSubject, handleDeleteThread])
 
-  // Canonical URL redirect: if the loaded thread no longer fits the queue or
-  // channel context in the URL (e.g. it has been closed since the URL was
-  // shared), silently replace the URL with the canonical one so the thread is
-  // always reachable. Uses `replace: true` so history is not polluted.
-  //
-  // This redirect must fire only on the FIRST load of a given threadId in
-  // this session. Once the user is reading the thread, any in-session patch
-  // (close / pending / reassign) must keep the thread visible at the current
-  // URL, without auto-redirecting it to the canonical queue. The list refresh
-  // below makes the thread vanish from the list instead.
-  const redirectCheckedForThreadRef = useRef<number | null>(null)
+  const redirectCheckedForThreadRef = useRef<ThreadId | null>(null)
   useEffect(() => {
     if (selectedThreadId == null) {
       redirectCheckedForThreadRef.current = null
       return
     }
     if (!detail) return
-    if (detail.thread.id !== selectedThreadId) return
+    if (String(detail.thread.id) !== String(selectedThreadId)) return
     if (redirectCheckedForThreadRef.current === selectedThreadId) return
+    if (folder === 'internal' || INTERNAL_ONLY_VIEWS.includes(view)) return
 
-    // Mark as handled even when we don't actually redirect, so subsequent
-    // detail updates from patches/replies don't re-evaluate the URL.
     redirectCheckedForThreadRef.current = selectedThreadId
 
     const thread = detail.thread
@@ -409,14 +361,11 @@ function InboxCommunication() {
     const targetQueueSegment = VIEW_TO_QUEUE[canonical]
     const targetChannelId = channelMatches ? channelId : null
     const base = targetChannelId
-      ? `/support/inbox/ch/${targetChannelId}/${targetQueueSegment}`
-      : `/support/inbox/${targetQueueSegment}`
-    navigate(`${base}/t/${thread.id}`, { replace: true })
-  }, [detail, selectedThreadId, view, channelId, connectionId, currentUserId, navigate])
+      ? `/messages/ch/${targetChannelId}/${targetQueueSegment}`
+      : `/messages/${targetQueueSegment}`
+    navigate(`${base}/t/${encodeURIComponent(String(thread.id))}${inboxQuery}`, { replace: true })
+  }, [detail, selectedThreadId, view, channelId, connectionId, currentUserId, navigate, folder, inboxQuery])
 
-  // After any mutation on the open thread, refresh the list query so the
-  // thread disappears from its previous queue (or gets re-sorted) without
-  // touching the detail-pane URL.
   const handlePatch = useCallback(
     async (input: PatchThreadInput) => {
       await patch(input)
@@ -442,6 +391,12 @@ function InboxCommunication() {
     [addNote, refreshThreads],
   )
 
+  const handleDecisionResolved = useCallback(() => {
+    void refreshDetail()
+    void refreshThreads()
+    void refreshNavBadges()
+  }, [refreshDetail, refreshThreads, refreshNavBadges])
+
   if (connectionsLoading) {
     return <div className="h-full py-6 text-sm text-text-muted">{t('loadingMailboxes')}</div>
   }
@@ -458,7 +413,7 @@ function InboxCommunication() {
     )
   }
 
-  if (enabledConnections.length === 0) {
+  if (enabledConnections.length === 0 && folder !== 'internal') {
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
@@ -478,55 +433,44 @@ function InboxCommunication() {
     )
   }
 
-  if (hub === 'decisions') {
-    return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-        <InboxHubTabs hub={hub} onHubChange={setHub} />
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <DecisionsPanel />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-      <InboxHubTabs hub={hub} onHubChange={setHub} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-      <ThreadList
-        threads={filteredThreads}
-        allThreads={threads}
-        loading={threadsLoading}
-        error={threadsError}
-        selectedId={selectedThreadId}
-        quickFilter={quickFilter}
-        onQuickFilterChange={setQuickFilter}
-        onSelectThread={handleSelectThread}
-        onMarkRead={handleListMarkRead}
-        onMarkUnread={handleListMarkUnread}
-        onTogglePin={handleListTogglePin}
-        onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
-        deletingThreadId={deletingThreadId}
-      />
-      <ThreadDetail
-        detail={detail}
-        loading={detailLoading}
-        error={detailError}
-        saving={saving}
-        threadId={selectedThreadId}
-        onPatch={handlePatch}
-        onReply={handleReply}
-        onNote={handleNote}
-        onRefresh={refreshDetail}
-        onTogglePin={handleDetailTogglePin}
-        onDelete={detail ? handleDetailDelete : undefined}
-        deleting={deletingThreadId === selectedThreadId}
-        onToggleContact={detail ? toggleContactPanel : undefined}
-        contactOpen={showContactPanel}
-      />
-      {detail && showContactPanel ? (
-        <ContactPanel thread={detail.thread} onClose={toggleContactPanel} />
-      ) : null}
+        <ThreadList
+          threads={filteredThreads}
+          allThreads={threads}
+          loading={threadsLoading}
+          error={threadsError}
+          selectedId={selectedThreadId}
+          quickFilter={quickFilter}
+          onQuickFilterChange={setQuickFilter}
+          onSelectThread={handleSelectThread}
+          onMarkRead={handleListMarkRead}
+          onMarkUnread={handleListMarkUnread}
+          onTogglePin={handleListTogglePin}
+          onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
+          deletingThreadId={deletingThreadId}
+        />
+        <ThreadDetail
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+          saving={saving}
+          threadId={selectedThreadId}
+          onPatch={handlePatch}
+          onReply={handleReply}
+          onNote={handleNote}
+          onRefresh={refreshDetail}
+          onTogglePin={handleDetailTogglePin}
+          onDelete={detail ? handleDetailDelete : undefined}
+          deleting={String(deletingThreadId) === String(selectedThreadId)}
+          onToggleContact={detail && folder !== 'internal' ? toggleContactPanel : undefined}
+          contactOpen={showContactPanel}
+          onDecisionResolved={handleDecisionResolved}
+        />
+        {detail && showContactPanel && folder !== 'internal' ? (
+          <ContactPanel thread={detail.thread} onClose={toggleContactPanel} />
+        ) : null}
       </div>
     </div>
   )

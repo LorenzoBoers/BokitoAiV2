@@ -38,6 +38,20 @@ def test_expand_daily_recurrence():
 
 
 @pytest.mark.asyncio
+async def test_events_list_ensures_system_calendars(client: AsyncClient):
+    headers = await _auth_headers(client)
+    start = datetime.utcnow().isoformat() + "Z"
+    end = (datetime.utcnow() + timedelta(days=7)).isoformat() + "Z"
+    events = await client.get(f"/api/agenda/events?start={start}&end={end}", headers=headers)
+    assert events.status_code == 200
+    assert "items" in events.json()
+
+    cals = await client.get("/api/agenda/calendars", headers=headers)
+    assert cals.status_code == 200
+    assert any(c["name"] == "My agenda" for c in cals.json())
+
+
+@pytest.mark.asyncio
 async def test_agenda_calendars_and_events_crud(client: AsyncClient):
     headers = await _auth_headers(client)
 

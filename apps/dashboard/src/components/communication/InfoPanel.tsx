@@ -33,18 +33,18 @@ export default function InfoPanel({ selectedMessage, messages }: InfoPanelProps)
           <div className="section-label px-0">Contact info</div>
           {current ? (
             <div className="space-y-2.5 mt-1">
-              <InfoRow label="Afzender" value={current.fromAddress} />
-              <InfoRow label="E-mail" value={current.fromAddress ?? '-'} />
+              <InfoRow label="Sender" value={current.fromAddress} />
+              <InfoRow label="Email" value={current.fromAddress ?? '-'} />
               <InfoRow label="Status" value={current.conversationStatus ?? '-'} />
-              <InfoRow label="Laatste bericht" value={current.receivedAt ? new Date(current.receivedAt).toLocaleString() : '-'} />
+              <InfoRow label="Last message" value={current.receivedAt ? new Date(current.receivedAt).toLocaleString() : '-'} />
             </div>
           ) : (
-            <p className="mt-1 text-xs text-text-muted">Geen afzender geselecteerd.</p>
+            <p className="mt-1 text-xs text-text-muted">No sender selected.</p>
           )}
         </section>
 
         <section>
-          <div className="section-label px-0">Notities</div>
+          <div className="section-label px-0">Notes</div>
           {notes.length > 0 ? (
             <div className="mt-1 space-y-1.5">
               {notes.map((note, index) => (
@@ -54,7 +54,7 @@ export default function InfoPanel({ selectedMessage, messages }: InfoPanelProps)
               ))}
             </div>
           ) : (
-            <p className="mt-1 text-xs text-text-muted">Nog geen notities voor deze afzender.</p>
+            <p className="mt-1 text-xs text-text-muted">No notes for this sender yet.</p>
           )}
         </section>
 
@@ -80,7 +80,7 @@ export default function InfoPanel({ selectedMessage, messages }: InfoPanelProps)
                 <div className="flex items-start gap-2">
                   <ListTodo size={13} className="text-accent flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-text-primary leading-snug">Toegewezen aan user #{current.assignedToUserId}</p>
+                    <p className="text-xs text-text-primary leading-snug">Assigned to user #{current.assignedToUserId}</p>
                   </div>
                 </div>
               ) : null}
@@ -89,7 +89,7 @@ export default function InfoPanel({ selectedMessage, messages }: InfoPanelProps)
         )}
 
         <section>
-          <div className="section-label px-0">Eerdere berichten</div>
+          <div className="section-label px-0">Previous messages</div>
           {previousMessages.length > 0 ? (
             <div className="mt-1 space-y-1.5">
               {previousMessages.map((message) => (
@@ -98,13 +98,13 @@ export default function InfoPanel({ selectedMessage, messages }: InfoPanelProps)
                     <MessageSquareText size={11} />
                     <span>{message.receivedAt ? new Date(message.receivedAt).toLocaleString() : '-'}</span>
                   </div>
-                  <div className="text-xs font-medium text-text-primary truncate">{message.subject || 'Geen onderwerp'}</div>
+                  <div className="text-xs font-medium text-text-primary truncate">{message.subject || 'No subject'}</div>
                   <div className="text-2xs text-text-muted truncate mt-0.5">{message.bodyPreview}</div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-1 text-xs text-text-muted">Geen eerdere berichten van deze afzender.</p>
+            <p className="mt-1 text-xs text-text-muted">No previous messages from this sender.</p>
           )}
         </section>
       </div>

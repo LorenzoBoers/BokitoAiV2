@@ -31,6 +31,9 @@ class Agent(SQLModel, table=True):
     slug: str = ""
     runtime_status: str = Field(default="standby")
     parent_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    default_runtime_profile_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="runtime_profiles.id"
+    )
     current_activity_summary: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -50,6 +53,15 @@ class AgentRun(SQLModel, table=True):
     tokens_input: int = 0
     tokens_output: int = 0
     result_json: str = Field(default="{}")
+    task_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_tasks.id", index=True)
+    workstream_run_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_runs.id")
+    step_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_steps.id")
+    parent_run_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_runs.id", index=True)
+    run_role: str = Field(default="main")  # main | delegate | judge | orchestrator
+    segment_index: int = 0
+    runtime_snapshot_json: str = Field(default="{}")
+    checkpoint_json: str = Field(default="{}")
+    pause_reason: Optional[str] = None
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
 
@@ -63,4 +75,6 @@ class RunEvent(SQLModel, table=True):
     event_type: str
     message: str = ""
     payload_json: str = Field(default="{}")
+    sequence: int = 0
+    detail_level: str = Field(default="summary")  # summary | full
     created_at: datetime = Field(default_factory=datetime.utcnow)

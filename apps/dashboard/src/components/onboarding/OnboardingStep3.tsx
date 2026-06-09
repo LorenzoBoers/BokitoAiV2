@@ -157,7 +157,7 @@ export default function OnboardingStep3({ data, onChange }: OnboardingStep3Props
       {data.invites.length === 0 && (
         <div className="text-center py-8">
           <UserPlus className="w-12 h-12 text-text-muted mx-auto mb-3" />
-          <p className="text-text-secondary mb-1">Nog geen uitnodigingen</p>
+          <p className="text-text-secondary mb-1">No invitations yet</p>
           <p className="text-sm text-text-muted">
             Voeg e-mailadressen toe om teamleden uit te nodigen
           </p>

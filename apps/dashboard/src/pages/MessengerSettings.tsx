@@ -275,7 +275,7 @@ function MessengerSettingsContent({
       setInstallSnippetCopied(true)
       window.setTimeout(() => setInstallSnippetCopied(false), 2000)
     } catch {
-      toast.error('Kopiëren mislukt')
+      toast.error('Copy failed')
     }
   }, [installationHtmlSnippet])
 

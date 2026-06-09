@@ -12,6 +12,7 @@ import {
   type ThreadDetail,
   type PatchThreadInput,
   type ReplyInput,
+  type ThreadId,
 } from '../lib/inbox-api'
 
 function escapeHtml(input: string): string {
@@ -35,7 +36,7 @@ function buildReplyHtml(bodyText: string, signatureImageUrl: string): string {
   ].join('')
 }
 
-export function useThreadDetail(threadId: number | null, pinnedIds: number[] = []) {
+export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[] = []) {
   const { token, user } = useAuth()
   const [rawDetail, setRawDetail] = useState<ThreadDetail | null>(null)
   const [loading, setLoading] = useState(false)
@@ -79,7 +80,7 @@ export function useThreadDetail(threadId: number | null, pinnedIds: number[] = [
   // simple; the dashboard joins state here.
   const detail = useMemo<ThreadDetail | null>(() => {
     if (!rawDetail) return null
-    const isPinned = pinnedIds.includes(rawDetail.thread.id)
+    const isPinned = pinnedIds.some((id) => String(id) === String(rawDetail.thread.id))
     if (rawDetail.thread.isPinned === isPinned) return rawDetail
     return { ...rawDetail, thread: { ...rawDetail.thread, isPinned } }
   }, [rawDetail, pinnedIds])

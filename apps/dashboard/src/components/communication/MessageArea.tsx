@@ -23,7 +23,7 @@ function MailRow({
   onClick: () => void
 }) {
   const preview = message.bodyPreview
-  const subject = message.subject || 'Geen onderwerp'
+  const subject = message.subject || 'No subject'
   const fromName = message.fromAddress.split('@')[0] || message.fromAddress
   const timestamp = message.receivedAt ? new Date(message.receivedAt).toLocaleString() : '-'
 
@@ -99,7 +99,7 @@ function MailPreview({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[15px] font-semibold text-text-heading">
-              {message.subject || 'Geen onderwerp'}
+              {message.subject || 'No subject'}
             </div>
             <div className="text-xs text-text-muted mt-0.5">
               Van: {message.fromAddress} • {message.receivedAt ? new Date(message.receivedAt).toLocaleString() : '-'}
@@ -335,7 +335,7 @@ export default function MessageArea({
           {loading ? <div className="px-4 py-3 text-xs text-text-muted">Berichten laden...</div> : null}
           {error ? <div className="px-4 py-3 text-xs text-status-error">{error}</div> : null}
           {!loading && !error && filteredMessages.length === 0 ? (
-            <div className="px-4 py-3 text-xs text-text-muted">Geen berichten gevonden voor deze mailbox.</div>
+            <div className="px-4 py-3 text-xs text-text-muted">No messages found for this mailbox.</div>
           ) : null}
           {filteredMessages.map((msg) => (
             <MailRow

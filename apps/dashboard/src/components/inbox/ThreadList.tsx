@@ -1,5 +1,5 @@
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
-import type { InboxThread } from '../../lib/inbox-api'
+import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import ThreadListItem from './ThreadListItem'
 import ThreadListQuickFilters from './ThreadListQuickFilters'
 
@@ -8,15 +8,15 @@ type Props = {
   allThreads: InboxThread[]
   loading: boolean
   error: string | null
-  selectedId: number | null
+  selectedId: ThreadId | null
   quickFilter: InboxListQuickFilter
   onQuickFilterChange: (filter: InboxListQuickFilter) => void
-  onSelectThread: (id: number) => void
-  onMarkRead: (id: number) => void
-  onMarkUnread: (id: number) => void
-  onTogglePin: (id: number, currentPinned: boolean) => void
-  onDelete: (id: number) => void
-  deletingThreadId?: number | null
+  onSelectThread: (id: ThreadId) => void
+  onMarkRead: (id: ThreadId) => void
+  onMarkUnread: (id: ThreadId) => void
+  onTogglePin: (id: ThreadId, currentPinned: boolean) => void
+  onDelete: (id: ThreadId) => void
+  deletingThreadId?: ThreadId | null
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -62,13 +62,13 @@ export default function ThreadList({
             <ThreadListItem
               key={thread.id}
               thread={thread}
-              isSelected={thread.id === selectedId}
+              isSelected={String(thread.id) === String(selectedId)}
               onSelect={onSelectThread}
               onMarkRead={onMarkRead}
               onMarkUnread={onMarkUnread}
               onTogglePin={onTogglePin}
               onDelete={onDelete}
-              deleting={deletingThreadId === thread.id}
+              deleting={String(deletingThreadId) === String(thread.id)}
             />
           ))
         )}

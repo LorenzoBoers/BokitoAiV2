@@ -276,7 +276,7 @@ export default function CSVImport({ onClose }: CSVImportProps) {
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="p-3 bg-bg-muted border-b border-border">
                   <h4 className="text-sm font-medium text-text-secondary">
-                    Voorbeeld ({csvData.length} rijen)
+                    Preview ({csvData.length} rows)
                   </h4>
                 </div>
                 <div className="overflow-x-auto">
@@ -311,7 +311,7 @@ export default function CSVImport({ onClose }: CSVImportProps) {
                 onClick={handleMapping}
                 className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
               >
-                Volgende: Velden toewijzen
+                Next: Map fields
               </button>
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function CSVImport({ onClose }: CSVImportProps) {
           <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-lg font-semibold text-text-heading mb-2">
-                Velden toewijzen
+                Map fields
               </h3>
               <p className="text-text-secondary">
                 Koppel CSV kolommen aan je tabelvelden
@@ -337,7 +337,7 @@ export default function CSVImport({ onClose }: CSVImportProps) {
                   <div className="flex-1">
                     <p className="font-medium text-text-primary">{header}</p>
                     <p className="text-sm text-text-muted">
-                      Voorbeeld: {csvData[config.hasHeader ? 1 : 0]?.[index] || '-'}
+                      Preview: {csvData[config.hasHeader ? 1 : 0]?.[index] || '-'}
                     </p>
                   </div>
                   <div className="w-48">
@@ -351,7 +351,7 @@ export default function CSVImport({ onClose }: CSVImportProps) {
                       })}
                       className="w-full px-3 py-2 rounded-md bg-bg-input border border-border text-text-primary focus:outline-none focus:border-border-focus transition"
                     >
-                      <option value="">Niet toewijzen</option>
+                      <option value="">Do not map</option>
                       {fields.map((field) => (
                         <option key={field.id} value={field.slug}>
                           {field.name} ({field.field_type})
@@ -387,7 +387,7 @@ export default function CSVImport({ onClose }: CSVImportProps) {
             <div>
               <Upload className="w-12 h-12 text-accent mx-auto mb-4 animate-pulse" />
               <h3 className="text-lg font-semibold text-text-heading mb-2">
-                Bezig met importeren...
+                Importing...
               </h3>
               <p className="text-text-secondary">
                 Even geduld terwijl we je data importeren

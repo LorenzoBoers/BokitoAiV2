@@ -7,7 +7,9 @@ from sqlalchemy import select
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.services.agent.tools import execute_tool
+from app.services.apply_mode import resolve_apply_mode
 from app.services.audit import search_audit
+from app.services.policy import get_or_create_policy
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
@@ -100,3 +102,57 @@ async def test_audit_search_endpoint(client: AsyncClient, session_override):
     items = res.json()["items"]
     assert len(items) >= 1
     assert items[0]["action"] == "tool_call:create_task"
+
+
+@pytest.mark.asyncio
+async def test_get_posture_defaults_to_assisted(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    res = await client.get("/api/govern/posture", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["posture"] == "assisted"
+    assert data["policy_mode"] == "whitelist"
+    assert data["platform_apply_modes"]["agent"] == "draft"
+    assert data["platform_apply_modes"]["canvas_node"] == "yolo"
+    assert len(data["presets"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_set_posture_manual_updates_modes_policy_and_audit(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+    res = await client.put("/api/govern/posture", headers=headers, json={"posture": "manual"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["posture"] == "manual"
+    assert data["policy_mode"] == "manual"
+    assert data["platform_apply_modes"]["canvas_node"] == "draft"
+
+    policy = await get_or_create_policy(session_override, tenant.id)
+    assert policy.mode == "manual"
+
+    events = await search_audit(session_override, tenant.id, action="govern:posture_update")
+    assert any(e.outcome == "applied" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_set_posture_autonomous_yolo_for_agents(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+    res = await client.put("/api/govern/posture", headers=headers, json={"posture": "autonomous"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["posture"] == "autonomous"
+    assert data["platform_apply_modes"]["agent"] == "yolo"
+    assert data["platform_apply_modes"]["integration"] == "decision"
+
+    session_override.expire_all()
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+    mode = await resolve_apply_mode(session_override, tenant, None, resource_type="agent")
+    assert mode == "yolo"
+
+    integration_mode = await resolve_apply_mode(session_override, tenant, None, resource_type="integration")
+    assert integration_mode == "decision"

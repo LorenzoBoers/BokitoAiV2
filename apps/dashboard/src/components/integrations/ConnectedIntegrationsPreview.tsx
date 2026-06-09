@@ -158,7 +158,7 @@ export function ConnectedIntegrationsPreview() {
       {loading ? (
         <p className="text-xs text-text-muted">Laden...</p>
       ) : chips.length === 0 ? (
-        <p className="text-xs text-text-muted">Nog geen integraties verbonden.</p>
+        <p className="text-xs text-text-muted">No integrations connected yet.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {chips.map((chip) => (

@@ -4,6 +4,7 @@ import {
   type WorkLogEvent,
   type WorkLogStatus,
 } from '../../lib/work-logs-api'
+import { fetchRunEvents } from '../../lib/orchestration-api'
 
 type Props = {
   workLogId: string
@@ -14,13 +15,35 @@ export function LiveWorkLog({ workLogId }: Props) {
   const [status, setStatus] = useState<WorkLogStatus | null>(null)
   const [taskSubject, setTaskSubject] = useState<string | null>(null)
   const [tokensUsed, setTokensUsed] = useState<number | null>(null)
+  const [runtimeModel, setRuntimeModel] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
+
     const poll = async () => {
       try {
+        try {
+          const orch = await fetchRunEvents(workLogId)
+          if (cancelled) return
+          setEvents(
+            orch.events.map((ev) => ({
+              type: ev.type,
+              title: ev.message || ev.type,
+              body: ev.message,
+              payload: ev.payload,
+            })),
+          )
+          setStatus(orch.status as WorkLogStatus)
+          setRuntimeModel(typeof orch.runtime_snapshot?.model === 'string' ? orch.runtime_snapshot.model : null)
+          setError(null)
+          setLoading(false)
+          return
+        } catch {
+          /* fall through to workforce work log API */
+        }
+
         const data = await fetchWorkLogEvents(workLogId)
         if (cancelled) return
         setEvents(data.events ?? [])
@@ -36,6 +59,7 @@ export function LiveWorkLog({ workLogId }: Props) {
         if (!cancelled) setLoading(false)
       }
     }
+
     void poll()
     const t = setInterval(poll, 2000)
     return () => {
@@ -50,6 +74,7 @@ export function LiveWorkLog({ workLogId }: Props) {
         <p className="font-medium text-text-primary">{taskSubject || 'Agent run'}</p>
         <p className="text-text-muted">
           Status: {status || 'unknown'}
+          {runtimeModel ? ` | Model: ${runtimeModel}` : null}
           {tokensUsed != null ? ` | Tokens: ${tokensUsed}` : null}
         </p>
       </div>

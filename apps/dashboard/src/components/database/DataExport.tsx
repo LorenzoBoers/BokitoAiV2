@@ -290,7 +290,7 @@ export default function DataExport({ onClose }: DataExportProps) {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-text-secondary">
-                Velden selecteren
+                Select fields
               </h3>
               <div className="flex gap-2">
                 <button
@@ -362,7 +362,7 @@ export default function DataExport({ onClose }: DataExportProps) {
               className="flex items-center gap-2 px-6 py-2 bg-accent hover:bg-accent-hover text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Download className="w-4 h-4" />
-              {isExporting ? 'Bezig...' : 'Exporteren'}
+              {isExporting ? 'Exporting...' : 'Export'}
             </button>
           </div>
         </div>

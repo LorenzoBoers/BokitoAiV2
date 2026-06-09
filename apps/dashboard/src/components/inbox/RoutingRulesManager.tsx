@@ -188,7 +188,7 @@ export default function RoutingRulesManager({
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[900px] max-w-[95vw] max-h-[90vh] bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <Dialog.Title className="text-lg font-semibold text-text-heading">
-                Routing regels - {mailboxEmail}
+                Routing rules - {mailboxEmail}
               </Dialog.Title>
               <Dialog.Close asChild>
                 <Button variant="ghost" size="icon">
@@ -200,24 +200,24 @@ export default function RoutingRulesManager({
             <div className="p-4 space-y-4 max-h-[calc(90vh-160px)] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium text-text-heading">Routing regels</h3>
+                  <h3 className="font-medium text-text-heading">Routing rules</h3>
                   <p className="text-sm text-text-secondary">
-                    Bepaal hoe inkomende e-mails worden toegewezen en gelabeld
+                    Define how incoming emails are assigned and labeled
                   </p>
                 </div>
                 <Button onClick={handleAddRule}>
                   <Plus size={16} />
-                  Regel toevoegen
+                  Add rule
                 </Button>
               </div>
 
               <div className="bg-bg-elevated p-3 rounded-md flex items-start gap-2">
                 <Info size={16} className="text-accent mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
-                  <p className="font-medium text-text-heading mb-1">Hoe werken routing regels?</p>
+                  <p className="font-medium text-text-heading mb-1">How do routing rules work?</p>
                   <p className="text-text-secondary">
-                    Regels worden van boven naar beneden uitgevoerd. De <strong>eerste match wint</strong>.
-                    Sleep regels om de volgorde te wijzigen.
+                    Rules run top to bottom. The <strong>first match wins</strong>.
+                    Drag rules to change their order.
                   </p>
                 </div>
               </div>
@@ -225,20 +225,20 @@ export default function RoutingRulesManager({
               {sortedRules.length === 0 ? (
                 <div className="text-center py-8 text-text-muted">
                   <Tag size={32} className="mx-auto mb-2 opacity-50" />
-                  <p>Nog geen routing regels geconfigureerd</p>
-                  <p className="text-sm">Voeg je eerste regel toe om e-mails automatisch te routeren</p>
+                  <p>No routing rules configured yet</p>
+                  <p className="text-sm">Add your first rule to route emails automatically</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
-                      <TableHead>Conditie</TableHead>
-                      <TableHead>Waarde</TableHead>
-                      <TableHead>Toegewezen aan</TableHead>
+                      <TableHead>Condition</TableHead>
+                      <TableHead>Value</TableHead>
+                      <TableHead>Assigned to</TableHead>
                       <TableHead>Labels</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="w-24">Acties</TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -281,7 +281,7 @@ export default function RoutingRulesManager({
                               {assignableUsers.find(u => u.id === rule.assign_to_user_id)?.name || 'Unknown'}
                             </div>
                           ) : (
-                            <span className="text-text-muted">Niet toegewezen</span>
+                            <span className="text-text-muted">Unassigned</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -299,7 +299,7 @@ export default function RoutingRulesManager({
                             className="text-left"
                           >
                             <Badge variant={rule.active ? 'success' : 'neutral'}>
-                              {rule.active ? 'Actief' : 'Inactief'}
+                              {rule.active ? 'Active' : 'Inactive'}
                             </Badge>
                           </button>
                         </TableCell>
@@ -332,11 +332,11 @@ export default function RoutingRulesManager({
 
             <div className="flex items-center justify-end gap-2 p-4 border-t border-border bg-bg-elevated">
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
-                Annuleren
+                Cancel
               </Button>
               <Button onClick={handleSaveAll}>
                 <Save size={14} />
-                Opslaan
+                Save
               </Button>
             </div>
           </Dialog.Content>
@@ -349,14 +349,14 @@ export default function RoutingRulesManager({
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-[600px] max-w-[90vw] bg-bg-surface border border-border rounded-lg shadow-xl p-6">
             <Dialog.Title className="text-lg font-semibold text-text-heading mb-4">
-              {editingRule ? 'Regel bewerken' : 'Nieuwe regel toevoegen'}
+              {editingRule ? 'Edit rule' : 'Add new rule'}
             </Dialog.Title>
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
-                    Conditie type
+                    Condition type
                   </label>
                   <Select 
                     value={ruleForm.condition_type} 
@@ -379,7 +379,7 @@ export default function RoutingRulesManager({
 
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
-                    Waarde
+                    Value
                   </label>
                   <Input
                     value={ruleForm.condition_value}
@@ -395,7 +395,7 @@ export default function RoutingRulesManager({
 
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-2">
-                  Toewijzen aan
+                  Assign to
                 </label>
                 <Select 
                   value={ruleForm.assign_to_user_id?.toString() || ''} 
@@ -407,10 +407,10 @@ export default function RoutingRulesManager({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecteer gebruiker (optioneel)" />
+                    <SelectValue placeholder="Select user (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Niet toewijzen</SelectItem>
+                    <SelectItem value="">Do not assign</SelectItem>
                     {assignableUsers.map(user => (
                       <SelectItem key={user.id} value={user.id.toString()}>
                         {user.name} ({user.email})
@@ -451,18 +451,18 @@ export default function RoutingRulesManager({
                   className="rounded border-border"
                 />
                 <label htmlFor="active" className="text-sm text-text-primary">
-                  Regel is actief
+                  Rule is active
                 </label>
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 mt-6">
               <Button variant="secondary" onClick={() => setRuleFormOpen(false)}>
-                Annuleren
+                Cancel
               </Button>
               <Button onClick={handleSaveRule} disabled={!ruleForm.condition_value.trim()}>
                 <Save size={14} />
-                {editingRule ? 'Bijwerken' : 'Toevoegen'}
+                {editingRule ? 'Update' : 'Add'}
               </Button>
             </div>
           </Dialog.Content>

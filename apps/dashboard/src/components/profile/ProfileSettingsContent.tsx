@@ -313,7 +313,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
       setShowPasswordForm(false)
       setTimeout(() => setPwSaved(false), 3000)
     } catch (err) {
-      setPwError(err instanceof Error ? err.message : 'Wijzigen mislukt')
+      setPwError(err instanceof Error ? err.message : 'Change failed')
     } finally {
       setPwSaving(false)
     }

@@ -103,7 +103,7 @@ export default function RateLimitDisplay() {
         <div className="w-12 h-12 mx-auto mb-4 bg-bg-subtle rounded-lg flex items-center justify-center">
           <Zap size={24} className="text-text-muted" />
         </div>
-        <h3 className="text-lg font-medium text-text-heading mb-2">Geen API sleutels</h3>
+        <h3 className="text-lg font-medium text-text-heading mb-2">No API keys</h3>
         <p className="text-text-secondary">
           Maak eerst API sleutels aan om rate limits te bekijken
         </p>

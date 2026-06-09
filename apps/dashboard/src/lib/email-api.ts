@@ -262,7 +262,7 @@ export async function startOAuthConnection(
   try {
     const payload = await xanoGet<{ authorize_url?: string; authorizeUrl?: string }>(genericPath, token)
     const url = asString(payload.authorize_url ?? payload.authorizeUrl)
-    if (!url.trim()) throw new Error('Geen authorize-URL ontvangen van de server.')
+    if (!url.trim()) throw new Error('No authorize URL received from the server.')
     if (provider === 'outlook') ensureOutlookAuthorizeUrlHasClientId(url)
     return url
   } catch (error) {
@@ -272,7 +272,7 @@ export async function startOAuthConnection(
         token,
       )
       const url = asString(payload.authorize_url ?? payload.authorizeUrl)
-      if (!url.trim()) throw new Error('Geen authorize-URL ontvangen van de server.')
+      if (!url.trim()) throw new Error('No authorize URL received from the server.')
       ensureOutlookAuthorizeUrlHasClientId(url)
       return url
     }
@@ -283,7 +283,7 @@ export async function startOAuthConnection(
         token,
       )
       const url = asString(payload.authorize_url ?? payload.authorizeUrl)
-      if (!url.trim()) throw new Error('Geen authorize-URL ontvangen van de server.')
+      if (!url.trim()) throw new Error('No authorize URL received from the server.')
       return url
     }
 
