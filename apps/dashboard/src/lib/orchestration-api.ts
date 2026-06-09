@@ -1,5 +1,6 @@
+import { appRoutes } from '../api/routes/app.routes'
 import { APP_API_BASE } from '../lib/api.config'
-import { apiFetch } from '../lib/xano'
+import { xanoGet, xanoPost } from './xano'
 
 export type RuntimeProfile = {
   id: string
@@ -46,18 +47,16 @@ export type WorkstreamStep = {
   eval_kind?: string
 }
 
-const BASE = `${APP_API_BASE}/orchestration`
-
 export async function listRuntimeProfiles(): Promise<RuntimeProfile[]> {
-  return apiFetch(`${BASE}/runtime-profiles`)
+  return xanoGet<RuntimeProfile[]>(appRoutes.orchestration.runtimeProfiles)
 }
 
 export async function createRuntimeProfile(body: Partial<RuntimeProfile> & { name: string }): Promise<{ id: string }> {
-  return apiFetch(`${BASE}/runtime-profiles`, { method: 'POST', body: JSON.stringify(body) })
+  return xanoPost<{ id: string }>(appRoutes.orchestration.runtimeProfiles, body)
 }
 
 export async function listAgentTasks(): Promise<AgentTask[]> {
-  return apiFetch(`${BASE}/tasks`)
+  return xanoGet<AgentTask[]>(appRoutes.orchestration.tasks)
 }
 
 export async function createAgentTask(body: {
@@ -69,41 +68,38 @@ export async function createAgentTask(body: {
   default_runtime_profile_id?: string
   success_criteria_json?: string
 }): Promise<AgentTask> {
-  return apiFetch(`${BASE}/tasks`, { method: 'POST', body: JSON.stringify(body) })
+  return xanoPost<AgentTask>(appRoutes.orchestration.tasks, body)
 }
 
 export async function getAgentTask(taskId: string): Promise<AgentTask> {
-  return apiFetch(`${BASE}/tasks/${taskId}`)
+  return xanoGet<AgentTask>(appRoutes.orchestration.task(taskId))
 }
 
 export async function cancelAgentTask(taskId: string): Promise<AgentTask> {
-  return apiFetch(`${BASE}/tasks/${taskId}/cancel`, { method: 'POST' })
+  return xanoPost<AgentTask>(appRoutes.orchestration.taskCancel(taskId), {})
 }
 
 export async function listTaskArtifacts(taskId: string): Promise<TaskArtifact[]> {
-  return apiFetch(`${BASE}/tasks/${taskId}/artifacts`)
+  return xanoGet<TaskArtifact[]>(appRoutes.orchestration.taskArtifacts(taskId))
 }
 
 export async function runWorkstreamOrchestrated(workstreamId: string): Promise<AgentTask> {
-  return apiFetch(`${BASE}/workstreams/${workstreamId}/run`, { method: 'POST' })
+  return xanoPost<AgentTask>(appRoutes.orchestration.workstreamRun(workstreamId), {})
 }
 
 export async function listWorkstreamSteps(workstreamId: string): Promise<WorkstreamStep[]> {
-  return apiFetch(`${BASE}/workstreams/${workstreamId}/steps`)
+  return xanoGet<WorkstreamStep[]>(appRoutes.orchestration.workstreamSteps(workstreamId))
 }
 
 export async function createWorkstreamStep(
   workstreamId: string,
   body: Partial<WorkstreamStep> & { name: string; order?: number },
 ): Promise<{ id: string }> {
-  return apiFetch(`${BASE}/workstreams/${workstreamId}/steps`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
+  return xanoPost<{ id: string }>(appRoutes.orchestration.workstreamSteps(workstreamId), body)
 }
 
 export function runEventsStreamUrl(runId: string): string {
-  return `${BASE}/runs/${runId}/events/stream`
+  return `${APP_API_BASE}${appRoutes.orchestration.runEventsStream(runId)}`
 }
 
 export async function fetchRunEvents(runId: string): Promise<{
@@ -112,11 +108,11 @@ export async function fetchRunEvents(runId: string): Promise<{
   runtime_snapshot: Record<string, unknown>
   events: Array<{ type: string; message: string; payload: Record<string, unknown>; sequence: number }>
 }> {
-  return apiFetch(`${BASE}/runs/${runId}/events`)
+  return xanoGet(appRoutes.orchestration.runEvents(runId))
 }
 
 export async function listAutomationTemplates(): Promise<
   Array<{ id: string; slug: string; name: string; description: string; category: string; template: Record<string, unknown> }>
 > {
-  return apiFetch(`${BASE}/automation-templates`)
+  return xanoGet(appRoutes.orchestration.automationTemplates)
 }
