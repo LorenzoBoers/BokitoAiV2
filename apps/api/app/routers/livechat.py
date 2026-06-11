@@ -12,15 +12,21 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select as sa_select
+
 from app.db.session import get_session
 from app.models.auth import Tenant, User
+from app.models.signal import Signal
 from app.services.livechat_compat import (
     create_widget_session_token,
     decode_widget_session_token,
     resolve_tenant_for_livechat,
     session_start_payload,
 )
-from app.services.livechat_stream import widget_stream_events
+from app.services.livechat_stream import (
+    get_or_create_widget_thread,
+    widget_stream_events,
+)
 
 router = APIRouter(prefix="/livechat", tags=["livechat"])
 
@@ -112,10 +118,32 @@ async def livechat_me(
 @router.get("/user/conversations")
 async def user_conversations(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
     per_page: int = 10,
 ):
-    _tenant, _user, _token = ctx
-    return {"items": [], "conversations": [], "per_page": per_page}
+    tenant, user, _token = ctx
+    if not user:
+        return {"items": [], "conversations": [], "per_page": per_page}
+    result = await session.execute(
+        sa_select(Signal)
+        .where(
+            Signal.tenant_id == tenant.id,
+            Signal.channel == "assistant",
+            Signal.owner_user_id == user.id,
+        )
+        .order_by(Signal.updated_at.desc())
+        .limit(per_page)
+    )
+    items = [
+        {
+            "id": str(s.id),
+            "conversation_id": str(s.id),
+            "title": s.subject,
+            "updated_at": s.updated_at.isoformat(),
+        }
+        for s in result.scalars().all()
+    ]
+    return {"items": items, "conversations": items, "per_page": per_page}
 
 
 @router.get("/user/preferences")
@@ -153,10 +181,18 @@ async def patch_user_preferences(
 @router.post("/conversation")
 async def create_conversation(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
     body: dict[str, Any] | None = None,
 ):
-    _tenant, _user, token = ctx
-    conv_id = secrets.token_hex(12)
+    tenant, user, token = ctx
+    customer_id = None
+    if isinstance(body, dict):
+        customer_id = body.get("customer_id")
+    signal = await get_or_create_widget_thread(
+        session, tenant, user, customer_id=customer_id
+    )
+    await session.commit()
+    conv_id = str(signal.id)
     return {"conversation_id": conv_id, "id": conv_id, "session_token": token}
 
 
@@ -180,10 +216,14 @@ async def stream_chat(
     tenant, user, _token = ctx
     message = (body.message_content or body.message or "").strip()
     attachments = body.attachments if isinstance(body.attachments, list) else None
+    signal = await get_or_create_widget_thread(
+        session, tenant, user, conversation_id=body.conversation_id
+    )
+    await session.commit()
 
     async def event_generator():
         async for chunk in widget_stream_events(
-            session, tenant, user, message=message, attachments=attachments
+            session, tenant, user, message=message, attachments=attachments, signal=signal
         ):
             yield chunk
 
@@ -200,9 +240,15 @@ async def stream_chat_continue(
     tenant, user, _token = ctx
     page_content = (body.page_content or "").strip()
     message = page_content or "Continue with the page context provided."
+    signal = await get_or_create_widget_thread(
+        session, tenant, user, conversation_id=body.conversation_id
+    )
+    await session.commit()
 
     async def event_generator():
-        async for chunk in widget_stream_events(session, tenant, user, message=message):
+        async for chunk in widget_stream_events(
+            session, tenant, user, message=message, signal=signal
+        ):
             yield chunk
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

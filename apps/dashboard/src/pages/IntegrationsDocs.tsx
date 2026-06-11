@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { isBokitoMode } from '../lib/bokito-mode'
 import { REMOTE_MCP_PROVIDERS } from '../lib/mcp-remote-providers'
 import PageContent from '../components/layout/PageContent'
 import { Card } from '../components/ui/card'
@@ -9,36 +8,30 @@ import { Badge } from '../components/ui/badge'
 export default function IntegrationsDocs() {
   const { t } = useTranslation('nav')
 
-  const bokitoMode = isBokitoMode()
-
   return (
     <PageContent width="lg">
       <div className="space-y-8 max-w-3xl">
-        {bokitoMode ? (
-          <Card className="border-border/80 bg-bg-elevated/40 p-4 space-y-2">
-            <h2 className="text-base font-semibold text-text-heading">Bokito local API</h2>
-            <p className="text-sm text-text-secondary leading-relaxed">
-              The dashboard runs against the FastAPI backend (`VITE_API_MODE=bokito`). Start the API at
-              port 8000, seed with <code className="text-xs">uv run python scripts/seed.py</code>, and use
-              same-origin <code className="text-xs">/api/integrations</code> routes from the Vite proxy.
-            </p>
-            <p className="text-sm text-text-secondary">
-              MCP servers: open{' '}
-              <Link to="/integrations/mcp" className="text-accent hover:underline">
-                External servers
-              </Link>
-              . OAuth providers use mock fallbacks until credentials are configured.
-            </p>
-          </Card>
-        ) : null}
+        <Card className="border-border/80 bg-bg-elevated/40 p-4 space-y-2">
+          <h2 className="text-base font-semibold text-text-heading">Bokito API</h2>
+          <p className="text-sm text-text-secondary leading-relaxed">
+            The dashboard runs against the FastAPI backend. Start the API at port 8000, seed with{' '}
+            <code className="text-xs">uv run python scripts/seed.py</code>, and use same-origin{' '}
+            <code className="text-xs">/api/integrations</code> routes from the Vite proxy.
+          </p>
+          <p className="text-sm text-text-secondary">
+            MCP servers: open{' '}
+            <Link to="/integrations/mcp" className="text-accent hover:underline">
+              External servers
+            </Link>
+            . OAuth providers use mock fallbacks until credentials are configured.
+          </p>
+        </Card>
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-text-primary">
             {t('integrations.docs.overviewTitle')}
           </h2>
           <p className="text-sm text-text-secondary leading-relaxed">
-            {bokitoMode
-              ? 'Connect communication channels, repositories, and MCP tools via Integrations > Connected and Marketplace.'
-              : t('integrations.docs.overviewBody')}
+            Connect communication channels, repositories, and MCP tools via Integrations &gt; Connected and Marketplace.
           </p>
         </section>
 

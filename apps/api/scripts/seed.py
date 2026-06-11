@@ -11,18 +11,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select
 
 from app.db.session import async_session_factory, init_db
-from app.models.agenda import AgendaEvent
 from app.models.agent import Agent
-from app.models.orchestra import Task
+from app.models.trigger import Trigger
 from app.models.auth import Membership, Tenant, User
-from app.models.blueprint import BlueprintBlock, BlueprintDoc, BlueprintPage
-from app.models.email import EmailAccount
+from app.models.channel import ChannelAccount
 from app.models.inbox import InboxSettings
 from app.models.integration import McpServer
-from app.models.policy import ActionPolicy, AssistantPersona
+from app.models.policy import AssistantPersona
 from app.models.project import Project, ProjectOrchestration
 from app.services.auth import hash_password
-from app.services.agent.rag import upsert_index_chunk
+from app.services.workspace import get_doc_by_path, upsert_doc
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
 
 
@@ -107,15 +105,9 @@ DEFAULT_ORCHESTRATOR_SCOPES = [
     "platform:graph:edit",
     "platform:workstream:create",
     "platform:workstream:update",
-    "platform:blueprint:write",
+    "platform:doc:write",
     "platform:edge:connect",
 ]
-
-DEFAULT_ORCHESTRATOR_APPLY_MODES = {
-    "blueprint_block": "draft",
-    "canvas_node": "yolo",
-    "canvas_edge": "yolo",
-}
 
 
 async def _seed_signals(session, tenant):
@@ -126,7 +118,9 @@ async def _seed_signals(session, tenant):
         return
 
     account_result = await session.execute(
-        select(EmailAccount).where(EmailAccount.tenant_id == tenant.id).limit(1)
+        select(ChannelAccount)
+        .where(ChannelAccount.tenant_id == tenant.id, ChannelAccount.channel == "email")
+        .limit(1)
     )
     email_account = account_result.scalar_one_or_none()
 
@@ -181,7 +175,7 @@ async def _seed_signals(session, tenant):
             priority=sample["priority"],
             status=sample["status"],
             has_unread=sample["status"] == "open",
-            email_account_id=email_account.id if email_account and sample["channel"] == "email" else None,
+            channel_account_id=email_account.id if email_account and sample["channel"] == "email" else None,
         )
         session.add(sig)
         await session.flush()
@@ -219,8 +213,6 @@ async def _ensure_orchestrator_passport(session, tenant):
     for agent in result.scalars().all():
         if not json.loads(agent.permission_scopes_json or "[]"):
             agent.permission_scopes_json = json.dumps(DEFAULT_ORCHESTRATOR_SCOPES)
-        if not json.loads(agent.apply_modes_json or "{}"):
-            agent.apply_modes_json = json.dumps(DEFAULT_ORCHESTRATOR_APPLY_MODES)
 
 
 async def _seed_tenant_data(session, tenant):
@@ -241,11 +233,11 @@ async def _seed_tenant_data(session, tenant):
         session.add(
             Agent(
                 tenant_id=tenant.id,
-                name="Orchestrator",
+                name="Bokito Platform Orchestrator",
                 role="orchestrator",
-                slug="manager",
+                slug="orchestrator",
                 runtime_status="standby",
-                system_prompt="You are the PM orchestrator.",
+                system_prompt="You are the orchestrator for the Bokito platform project. Plan work, route agents, and keep project knowledge current.",
             )
         )
 
@@ -253,105 +245,71 @@ async def _seed_tenant_data(session, tenant):
         await session.execute(select(InboxSettings).where(InboxSettings.tenant_id == tenant.id))
     ).scalar_one_or_none():
         session.add(InboxSettings(tenant_id=tenant.id))
-        session.add(ActionPolicy(tenant_id=tenant.id))
         session.add(AssistantPersona(tenant_id=tenant.id, tone="Professional"))
 
-    doc_result = await session.execute(select(BlueprintDoc).where(BlueprintDoc.tenant_id == tenant.id))
-    doc = doc_result.scalar_one_or_none()
-    if not doc:
-        doc = BlueprintDoc(tenant_id=tenant.id, title="Bokito Blueprint")
-        session.add(doc)
-        await session.flush()
-        overview = BlueprintPage(
-            doc_id=doc.id, tenant_id=tenant.id, title="Platform Overview", slug="overview", kind="prd"
+    if not await get_doc_by_path(session, tenant.id, "company.md"):
+        await upsert_doc(
+            session,
+            tenant.id,
+            path="company.md",
+            content="# Company\n\nBokito AI OS platform overview.\n",
+            kind="doc",
+            created_by_type="system",
+            commit=False,
         )
-        session.add(overview)
-        await session.flush()
-        block = BlueprintBlock(
-            page_id=overview.id,
-            tenant_id=tenant.id,
-            block_type="paragraph",
-            content_json=json.dumps(
-                {
-                    "text": [{"text": "Bokito AI OS platform overview."}],
-                    "props": {},
-                }
-            ),
-        )
-        session.add(block)
-        await session.flush()
-        await upsert_index_chunk(session, tenant.id, "blueprint_block", str(block.id), overview.title, "Bokito AI OS")
 
     if not (
-        await session.execute(select(EmailAccount).where(EmailAccount.tenant_id == tenant.id))
+        await session.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant.id, ChannelAccount.channel == "email"
+            )
+        )
     ).scalar_one_or_none():
-        session.add(EmailAccount(tenant_id=tenant.id, email_address="support@bokito.ai", provider="mock"))
+        session.add(
+            ChannelAccount(
+                tenant_id=tenant.id, channel="email", address="support@bokito.ai", provider="mock"
+            )
+        )
 
     if not (await session.execute(select(McpServer).where(McpServer.tenant_id == tenant.id))).scalar_one_or_none():
         session.add(McpServer(tenant_id=tenant.id, name="mock-tools", server_url="mock://local", auth_json="{}"))
 
     await _seed_signals(session, tenant)
     await _ensure_orchestrator_passport(session, tenant)
-    await _seed_agenda(session, tenant)
+    await _seed_triggers(session, tenant)
     await _seed_demo_project(session, tenant)
 
 
-async def _seed_agenda(session, tenant):
-    from app.services.agenda import ensure_system_calendars, init_orchestrator_schedule
-
+async def _seed_triggers(session, tenant):
     existing = await session.execute(
-        select(AgendaEvent).where(AgendaEvent.tenant_id == tenant.id).limit(1)
+        select(Trigger).where(Trigger.tenant_id == tenant.id).limit(1)
     )
     if existing.scalar_one_or_none():
         return
 
-    calendars = await ensure_system_calendars(session, tenant.id)
-    user_cal = next((c for c in calendars if c.kind == "user"), None)
-    orch_cal = next((c for c in calendars if c.kind == "orchestrator"), None)
-    if not user_cal or not orch_cal:
-        return
-
     now = datetime.utcnow()
     session.add(
-        AgendaEvent(
+        Trigger(
             tenant_id=tenant.id,
-            calendar_id=user_cal.id,
-            kind="user",
-            title="Team standup",
-            description="Weekly sync",
-            starts_at=now + timedelta(days=1, hours=9),
-            ends_at=now + timedelta(days=1, hours=9, minutes=30),
+            name="Heartbeat",
+            kind="heartbeat",
+            interval_minutes=30,
+            agent_role="assistant",
+            enabled=False,
         )
     )
-    wake = AgendaEvent(
-        tenant_id=tenant.id,
-        calendar_id=orch_cal.id,
-        kind="orchestrator",
-        title="Orchestrator heartbeat",
-        description="Recurring platform scan",
-        prompt="Scan tenant blueprint and suggest improvements or missing integrations.",
-        starts_at=now + timedelta(hours=1),
-        ends_at=now + timedelta(hours=1, minutes=15),
-        recurrence_freq="daily",
-        recurrence_interval=1,
-        enabled=True,
-    )
-    init_orchestrator_schedule(wake)
-    session.add(wake)
-
-    task_exists = await session.execute(select(Task).where(Task.tenant_id == tenant.id).limit(1))
-    if not task_exists.scalar_one_or_none():
-        session.add(
-            Task(
-                tenant_id=tenant.id,
-                name="Review implementation backlog",
-                instructions="Review orchestra task queue and update priorities.",
-                schedule_kind="interval",
-                schedule_expr="1d",
-                enabled=True,
-                next_run_at=now + timedelta(days=2),
-            )
+    session.add(
+        Trigger(
+            tenant_id=tenant.id,
+            name="Daily platform scan",
+            kind="interval",
+            interval_minutes=1440,
+            agent_role="orchestrator",
+            instructions="Scan workspace docs and suggest improvements or missing integrations.",
+            enabled=True,
+            next_run_at=now + timedelta(days=1),
         )
+    )
 
 
 async def _seed_demo_project(session, tenant):
@@ -359,17 +317,19 @@ async def _seed_demo_project(session, tenant):
     if result.scalar_one_or_none():
         return
     po_result = await session.execute(
-        select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "po")
+        select(Agent).where(
+            Agent.tenant_id == tenant.id, Agent.role.in_(("orchestrator", "po"))
+        )
     )
-    po = po_result.scalar_one_or_none()
+    po = po_result.scalars().first()
     if not po:
         po = Agent(
             tenant_id=tenant.id,
-            name="Platform PO",
-            role="po",
-            slug="po",
+            name="Bokito Platform Orchestrator",
+            role="orchestrator",
+            slug="orchestrator",
             runtime_status="standby",
-            system_prompt="You are the product owner for the Bokito platform demo project.",
+            system_prompt="You are the orchestrator for the Bokito platform project. Plan work, route agents, and keep project knowledge current.",
         )
         session.add(po)
         await session.flush()

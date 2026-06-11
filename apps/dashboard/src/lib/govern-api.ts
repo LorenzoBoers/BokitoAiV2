@@ -1,4 +1,4 @@
-import { requireAccessToken } from './xano'
+import { requireAccessToken } from './api'
 
 export type PlatformChangeRow = {
   id: string
@@ -29,17 +29,43 @@ export type AuditEventRow = {
 
 export type AutonomyPostureId = 'manual' | 'assisted' | 'autonomous'
 
+export type AllowanceMode = 'deny' | 'ask' | 'allow'
+
 export type PosturePreset = {
   id: AutonomyPostureId
   label: string
   summary: string
+  allowances: Record<string, AllowanceMode>
 }
 
-export type PostureResponse = {
+export type AllowanceState = {
   posture: AutonomyPostureId
-  policy_mode: string
-  platform_apply_modes: Record<string, string>
+  allowances: Record<string, AllowanceMode>
+  tool_overrides: Record<string, AllowanceMode>
+  categories: string[]
   presets: PosturePreset[]
+}
+
+export type GovernToolRow = {
+  name: string
+  description: string
+  category: string
+  mutating: boolean
+  gated: boolean
+  override: AllowanceMode | null
+}
+
+export type AllowancesResponse = AllowanceState & { tools: GovernToolRow[] }
+
+export type ApiTokenRow = {
+  id: string
+  name: string
+  token_prefix: string
+  scopes: string[]
+  last_used_at: string | null
+  revoked_at: string | null
+  created_at: string
+  token?: string
 }
 
 async function governFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -87,27 +113,49 @@ export async function listAgentPassports() {
   return governFetch<{ items: Array<Record<string, unknown>> }>('/api/govern/passports')
 }
 
-export async function getApplyModes() {
-  return governFetch<{ defaults: Record<string, string>; tenant_modes: Record<string, string> }>(
-    '/api/govern/apply-modes',
-  )
+export async function getAllowances() {
+  return governFetch<AllowancesResponse>('/api/govern/allowances')
 }
 
-export async function updateApplyModes(platform_apply_modes: Record<string, string>) {
-  return governFetch<{ tenant_modes: Record<string, string> }>('/api/govern/apply-modes', {
+export async function updateAllowances(allowances: Record<string, AllowanceMode>) {
+  return governFetch<AllowanceState>('/api/govern/allowances', {
     method: 'PUT',
-    body: JSON.stringify({ platform_apply_modes }),
+    body: JSON.stringify({ allowances }),
+  })
+}
+
+export async function setToolOverride(toolName: string, mode: AllowanceMode | null) {
+  return governFetch<AllowanceState>('/api/govern/tool-overrides', {
+    method: 'PUT',
+    body: JSON.stringify({ tool_name: toolName, mode }),
   })
 }
 
 export async function getPosture() {
-  return governFetch<PostureResponse>('/api/govern/posture')
+  return governFetch<AllowanceState>('/api/govern/posture')
 }
 
 export async function setPosture(posture: AutonomyPostureId) {
-  return governFetch<PostureResponse>('/api/govern/posture', {
+  return governFetch<AllowanceState>('/api/govern/posture', {
     method: 'PUT',
     body: JSON.stringify({ posture }),
+  })
+}
+
+export async function listApiTokens() {
+  return governFetch<{ items: ApiTokenRow[] }>('/api/govern/tokens')
+}
+
+export async function createApiToken(name: string, scopes: string[] = []) {
+  return governFetch<ApiTokenRow>('/api/govern/tokens', {
+    method: 'POST',
+    body: JSON.stringify({ name, scopes }),
+  })
+}
+
+export async function revokeApiToken(tokenId: string) {
+  return governFetch<ApiTokenRow>(`/api/govern/tokens/${encodeURIComponent(tokenId)}`, {
+    method: 'DELETE',
   })
 }
 

@@ -6,10 +6,10 @@ from sqlalchemy import select
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.services.agent.tools import execute_tool
-from app.services.apply_mode import resolve_apply_mode
 from app.services.audit import search_audit
-from app.services.policy import get_or_create_policy
+from app.tools import execute_tool
+from app.tools.policy import resolve_tool_mode, tenant_allowances
+from app.tools.registry import get_tool_spec
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
@@ -43,7 +43,7 @@ async def test_passport_allowlist_denies_disallowed_tool(client: AsyncClient, se
     await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     agent = await _assistant(session_override)
-    agent.tools_json = json.dumps(["search_index", "read_blueprint"])
+    agent.tools_json = json.dumps(["search_index", "read_doc"])
     await session_override.commit()
 
     result = await execute_tool(
@@ -76,16 +76,32 @@ async def test_autonomy_auto_executes_and_audits(client: AsyncClient, session_ov
 async def test_approval_autonomy_escalates_and_audits(client: AsyncClient, session_override):
     await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    agent = await _assistant(session_override)  # default autonomy "approval", tenant policy "whitelist"
+    agent = await _assistant(session_override)  # default autonomy "approval"; agents category = ask
 
     result = await execute_tool(
         session_override, tenant.id, None, "create_task", {"title": "Maybe"}, agent=agent
     )
-    # Not whitelisted -> escalated to a human decision request.
+    # agents category is "ask" under assisted posture -> escalated to a human decision.
     assert result.get("status") == "awaiting_human"
 
     events = await search_audit(session_override, tenant.id, action="tool_call:create_task")
     assert any(e.outcome == "escalated" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_external_trust_never_auto_mutates(client: AsyncClient, session_override):
+    await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = await _assistant(session_override)
+    agent.autonomy_level = "auto"
+    await session_override.commit()
+
+    # agents category is denied entirely for external sessions.
+    result = await execute_tool(
+        session_override, tenant.id, None, "create_task", {"title": "Hack"}, agent=agent,
+        trust="external",
+    )
+    assert result.get("status") == "denied"
 
 
 @pytest.mark.asyncio
@@ -111,14 +127,13 @@ async def test_get_posture_defaults_to_assisted(client: AsyncClient, session_ove
     assert res.status_code == 200
     data = res.json()
     assert data["posture"] == "assisted"
-    assert data["policy_mode"] == "whitelist"
-    assert data["platform_apply_modes"]["agent"] == "draft"
-    assert data["platform_apply_modes"]["canvas_node"] == "yolo"
+    assert data["allowances"]["messaging"] == "allow"
+    assert data["allowances"]["agents"] == "ask"
     assert len(data["presets"]) == 3
 
 
 @pytest.mark.asyncio
-async def test_set_posture_manual_updates_modes_policy_and_audit(client: AsyncClient, session_override):
+async def test_set_posture_manual_asks_everywhere(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
 
@@ -126,33 +141,97 @@ async def test_set_posture_manual_updates_modes_policy_and_audit(client: AsyncCl
     assert res.status_code == 200
     data = res.json()
     assert data["posture"] == "manual"
-    assert data["policy_mode"] == "manual"
-    assert data["platform_apply_modes"]["canvas_node"] == "draft"
-
-    policy = await get_or_create_policy(session_override, tenant.id)
-    assert policy.mode == "manual"
+    assert all(mode == "ask" for mode in data["allowances"].values())
 
     events = await search_audit(session_override, tenant.id, action="govern:posture_update")
     assert any(e.outcome == "applied" for e in events)
 
 
 @pytest.mark.asyncio
-async def test_set_posture_autonomous_yolo_for_agents(client: AsyncClient, session_override):
+async def test_set_posture_autonomous_allows_agents(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
-    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
 
     res = await client.put("/api/govern/posture", headers=headers, json={"posture": "autonomous"})
     assert res.status_code == 200
     data = res.json()
     assert data["posture"] == "autonomous"
-    assert data["platform_apply_modes"]["agent"] == "yolo"
-    assert data["platform_apply_modes"]["integration"] == "decision"
+    assert data["allowances"]["agents"] == "allow"
+    assert data["allowances"]["integrations"] == "ask"
 
     session_override.expire_all()
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    spec = get_tool_spec("create_agent")
+    mode, _ = await resolve_tool_mode(session_override, tenant, None, spec)
+    assert mode == "allow"
+    spec = get_tool_spec("connect_integration")
+    mode, _ = await resolve_tool_mode(session_override, tenant, None, spec)
+    assert mode == "ask"
 
-    mode = await resolve_apply_mode(session_override, tenant, None, resource_type="agent")
-    assert mode == "yolo"
 
-    integration_mode = await resolve_apply_mode(session_override, tenant, None, resource_type="integration")
-    assert integration_mode == "decision"
+@pytest.mark.asyncio
+async def test_allowance_sliders_update(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+
+    res = await client.put(
+        "/api/govern/allowances", headers=headers, json={"allowances": {"agents": "allow"}}
+    )
+    assert res.status_code == 200
+    assert res.json()["allowances"]["agents"] == "allow"
+
+    session_override.expire_all()
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    assert tenant_allowances(tenant)["agents"] == "allow"
+
+    bad = await client.put(
+        "/api/govern/allowances", headers=headers, json={"allowances": {"agents": "yolo"}}
+    )
+    assert bad.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_allowances_endpoint_lists_tools(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    res = await client.get("/api/govern/allowances", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    names = {t["name"] for t in data["tools"]}
+    assert "create_agent" in names
+    assert "search_index" in names
+    assert set(data["categories"]) >= {"messaging", "agents", "integrations"}
+
+
+@pytest.mark.asyncio
+async def test_tool_override_wins_over_slider(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    res = await client.put(
+        "/api/govern/tool-overrides", headers=headers, json={"tool_name": "create_task", "mode": "allow"}
+    )
+    assert res.status_code == 200
+    assert res.json()["tool_overrides"]["create_task"] == "allow"
+
+    session_override.expire_all()
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    result = await execute_tool(session_override, tenant.id, None, "create_task", {"title": "Go"})
+    assert result.get("status") == "created"
+
+
+@pytest.mark.asyncio
+async def test_api_token_lifecycle(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    res = await client.post(
+        "/api/govern/tokens", headers=headers, json={"name": "cursor", "scopes": ["workspace"]}
+    )
+    assert res.status_code == 200
+    created = res.json()
+    assert created["token"].startswith("bok_")
+    assert created["scopes"] == ["workspace"]
+
+    listing = await client.get("/api/govern/tokens", headers=headers)
+    assert listing.status_code == 200
+    items = listing.json()["items"]
+    assert any(t["id"] == created["id"] for t in items)
+    assert all("token" not in t or not t.get("token") for t in items)
+
+    revoke = await client.delete(f"/api/govern/tokens/{created['id']}", headers=headers)
+    assert revoke.status_code == 200
+    assert revoke.json()["revoked_at"] is not None

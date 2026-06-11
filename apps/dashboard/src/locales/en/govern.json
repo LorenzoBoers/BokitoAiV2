@@ -29,25 +29,37 @@
   },
   "posture": {
     "title": "Autonomy posture",
-    "intro": "Choose how much AI can run without human review. You can fine-tune individual resource types below.",
+    "intro": "Choose how much AI can run without human review. You can fine-tune individual tool categories below.",
     "saved": "Autonomy posture updated",
     "current": "Current posture",
     "manual": {
       "label": "Manual",
-      "summary": "Humans review every agent action and structural change before it applies."
+      "summary": "Humans approve every mutating agent action before it applies."
     },
     "assisted": {
       "label": "Assisted",
-      "summary": "Routine whitelisted actions run automatically. Structural changes queue in Govern."
+      "summary": "Routine messaging and workspace edits run automatically; structural changes ask first."
     },
     "autonomous": {
       "label": "Autonomous",
-      "summary": "AI runs operations. Integrations always require human approval."
+      "summary": "AI runs operations; integrations and credentials still ask a human."
     }
   },
-  "applyModes": {
-    "title": "Advanced overrides",
-    "intro": "Override how agent-proposed changes apply per resource type.",
-    "saved": "Apply mode updated"
+  "allowances": {
+    "title": "Allowance sliders",
+    "intro": "Per tool category: deny blocks the action, ask creates an inline decision, allow runs it automatically with an audit record.",
+    "saved": "Allowance saved."
+  },
+  "tokens": {
+    "title": "API tokens (MCP access)",
+    "intro": "Connect Cursor or other MCP clients to this workspace at /api/mcp. Tokens use the same governed tools and allowance sliders as internal agents.",
+    "namePlaceholder": "Token name (e.g. Cursor)",
+    "create": "Create token",
+    "copied": "Copied.",
+    "empty": "No API tokens yet.",
+    "revoked": "Token revoked.",
+    "revokedBadge": "Revoked",
+    "allScopes": "All categories",
+    "lastUsed": "last used"
   }
 }

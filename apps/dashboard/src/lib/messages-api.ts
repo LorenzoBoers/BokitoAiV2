@@ -1,5 +1,5 @@
 import { messagesRoutes } from '../api/routes'
-import { xanoGetWorkforce, xanoPostWorkforce } from './xano'
+import { workforceGet, workforcePost } from './api'
 
 export type MessageStatus =
   | 'pending'
@@ -34,20 +34,20 @@ export async function listMessages(filters: {
   if (filters.channel) params.set('channel', filters.channel)
   if (filters.thread_id) params.set('thread_id', filters.thread_id)
   if (filters.project_id) params.set('project_id', filters.project_id)
-  const data = await xanoGetWorkforce<MessageRow[] | { items: MessageRow[] }>(
+  const data = await workforceGet<MessageRow[] | { items: MessageRow[] }>(
     messagesRoutes.listQuery(params)
   )
   return Array.isArray(data) ? data : data.items ?? []
 }
 
 export async function approveAutonomousProposal(messageId: string): Promise<void> {
-  await xanoPostWorkforce(messagesRoutes.decisionApprove(messageId), {})
+  await workforcePost(messagesRoutes.decisionApprove(messageId), {})
 }
 
 export async function deferAutonomousProposal(messageId: string, days = 7): Promise<void> {
-  await xanoPostWorkforce(messagesRoutes.decisionDefer(messageId), { days })
+  await workforcePost(messagesRoutes.decisionDefer(messageId), { days })
 }
 
 export async function rejectAutonomousProposal(messageId: string): Promise<void> {
-  await xanoPostWorkforce(messagesRoutes.decisionReject(messageId), {})
+  await workforcePost(messagesRoutes.decisionReject(messageId), {})
 }

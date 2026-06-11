@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Bokito",
+    "slug": "bokito-mobile",
+    "version": "0.1.0",
+    "scheme": "bokito",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ai.bokito.mobile"
+    },
+    "android": {
+      "package": "ai.bokito.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0b0f1a"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#6e66ff"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "http://127.0.0.1:8000"
+    }
+  }
+}

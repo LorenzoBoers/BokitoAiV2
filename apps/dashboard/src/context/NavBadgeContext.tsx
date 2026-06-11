@@ -11,10 +11,11 @@ import {
 import { useAuth } from './AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listThreads } from '../lib/inbox-api'
-import { listMessages } from '../lib/messages-api'
-import { isBokitoMode } from '../lib/bokito-mode'
+import { onGatewayEvent } from '../lib/gateway'
 
-const POLL_MS = 45_000
+// Slow fallback poll; live updates arrive over the gateway WS.
+const POLL_MS = 120_000
+const GATEWAY_DEBOUNCE_MS = 1_500
 const PER_PAGE = 50
 
 export type NavBadgeCounts = {
@@ -42,64 +43,31 @@ type NavBadgeContextValue = {
 const NavBadgeContext = createContext<NavBadgeContextValue | null>(null)
 
 async function fetchNavBadgeCounts(token: string, isAdmin: boolean): Promise<NavBadgeCounts> {
-  const useSignals = isBokitoMode()
+  const [mine, unassigned, all, agentsAttention] = await Promise.all([
+    listThreads(token, { view: 'mine', perPage: PER_PAGE }),
+    listThreads(token, { view: 'unassigned', perPage: PER_PAGE }),
+    listThreads(token, { view: 'all_open', perPage: PER_PAGE }),
+    isAdmin
+      ? listThreads(token, { view: 'awaiting_decision', perPage: PER_PAGE }).then(
+          (result) => result.items.length,
+        )
+      : Promise.resolve(0),
+  ])
 
-  const [externalMine, externalUnassigned, externalAll, internalMine, internalUnassigned, agentsAttention] =
-    await Promise.all([
-      listThreads(token, {
-        view: 'mine',
-        folder: useSignals ? 'external' : undefined,
-        perPage: PER_PAGE,
-      }),
-      listThreads(token, {
-        view: 'unassigned',
-        folder: useSignals ? 'external' : undefined,
-        perPage: PER_PAGE,
-      }),
-      listThreads(token, {
-        view: 'all_open',
-        folder: useSignals ? 'external' : undefined,
-        perPage: PER_PAGE,
-      }),
-      useSignals
-        ? listThreads(token, { view: 'mine', folder: 'internal', perPage: PER_PAGE })
-        : Promise.resolve({ items: [], total: 0 }),
-      useSignals
-        ? listThreads(token, { view: 'unassigned', folder: 'internal', perPage: PER_PAGE })
-        : Promise.resolve({ items: [], total: 0 }),
-      isAdmin
-        ? useSignals
-          ? listThreads(token, { view: 'awaiting_decision', folder: 'internal', perPage: PER_PAGE }).then(
-              (result) => result.items.length,
-            )
-          : listMessages({ status: 'awaiting_human' }).then((rows) => rows.length)
-        : Promise.resolve(0),
-    ])
-
-  const myUnread = countUnread(externalMine.items)
-  const unassignedUnread = countUnread(externalUnassigned.items)
-  const allUnread = countUnread(externalAll.items)
+  const myUnread = countUnread(mine.items)
+  const unassignedUnread = countUnread(unassigned.items)
+  const allUnread = countUnread(all.items)
 
   const unreadIds = new Set<string>()
-  for (const thread of externalMine.items) {
+  for (const thread of mine.items) {
     if (thread.hasUnread) unreadIds.add(String(thread.id))
   }
-  for (const thread of externalUnassigned.items) {
+  for (const thread of unassigned.items) {
     if (thread.hasUnread) unreadIds.add(String(thread.id))
   }
-  if (useSignals) {
-    for (const thread of internalMine.items) {
-      if (thread.hasUnread) unreadIds.add(String(thread.id))
-    }
-    for (const thread of internalUnassigned.items) {
-      if (thread.hasUnread) unreadIds.add(String(thread.id))
-    }
-  }
-
-  const inboxUnread = unreadIds.size
 
   return {
-    inboxUnread,
+    inboxUnread: unreadIds.size,
     inboxByQueue: {
       my: myUnread,
       unassigned: unassignedUnread,
@@ -162,6 +130,26 @@ export function NavBadgeProvider({ children }: { children: ReactNode }) {
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
       window.clearInterval(timer)
+    }
+  }, [token, refresh])
+
+  // Live updates: any thread/message/decision event refreshes the badges (debounced).
+  useEffect(() => {
+    if (!token) return
+    let debounceTimer: number | null = null
+    const trigger = () => {
+      if (debounceTimer !== null) return
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = null
+        void refresh()
+      }, GATEWAY_DEBOUNCE_MS)
+    }
+    const unsubThreads = onGatewayEvent('threads', trigger)
+    const unsubDecisions = onGatewayEvent('decisions', trigger)
+    return () => {
+      unsubThreads()
+      unsubDecisions()
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer)
     }
   }, [token, refresh])
 

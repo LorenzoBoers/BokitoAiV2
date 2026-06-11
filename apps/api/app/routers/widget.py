@@ -1,3 +1,10 @@
+"""Public embeddable widget endpoints backed by the unified Signal model.
+
+Anonymous visitors get a `Contact` (channel="widget") and a Signal thread per
+session. Messages run through the same AgentLoop as every other channel.
+"""
+
+import secrets
 from typing import Annotated
 from uuid import UUID
 
@@ -8,10 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import tenant_settings
-from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.models.chat import Conversation, ConversationMessage
+from app.models.channel import Contact
+from app.models.signal import Signal
 from app.services.agent.loop import AgentLoop
+from app.services.assistant_threads import (
+    append_signal_chat_message,
+    signal_chat_history,
+)
 
 router = APIRouter(prefix="/widget", tags=["widget"])
 
@@ -30,18 +41,31 @@ async def widget_session(
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    conv = Conversation(
+    visitor_key = f"visitor_{secrets.token_hex(8)}"
+    contact = Contact(
         tenant_id=tenant.id,
-        title="Website chat",
-        audience="external",
-        channel="customer_widget",
+        channel="widget",
+        address=visitor_key,
+        display_name="Website visitor",
+        status="approved",
     )
-    session.add(conv)
+    session.add(contact)
+    await session.flush()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="widget",
+        source="widget",
+        subject="Website chat",
+        contact_id=contact.id,
+        contact_name="Website visitor",
+        has_unread=False,
+    )
+    session.add(signal)
     await session.commit()
-    await session.refresh(conv)
+    await session.refresh(signal)
     appearance = tenant_settings(tenant).get("appearance", {})
     return {
-        "conversation_id": str(conv.id),
+        "conversation_id": str(signal.id),
         "appearance": appearance,
         "powered_by": appearance.get("powered_by", True),
     }
@@ -58,47 +82,35 @@ async def widget_message(
     tenant = tenant_result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    conv_result = await session.execute(
-        select(Conversation).where(
-            Conversation.id == conversation_id,
-            Conversation.tenant_id == tenant.id,
-            Conversation.channel == "customer_widget",
+    signal_result = await session.execute(
+        select(Signal).where(
+            Signal.id == conversation_id,
+            Signal.tenant_id == tenant.id,
+            Signal.channel == "widget",
         )
     )
-    conv = conv_result.scalar_one_or_none()
-    if not conv or conv.ai_paused:
+    signal = signal_result.scalar_one_or_none()
+    if not signal:
         raise HTTPException(status_code=404, detail="Conversation not available")
 
-    user_msg = ConversationMessage(
-        conversation_id=conversation_id,
-        tenant_id=tenant.id,
-        role="user",
-        content=body.content,
-    )
-    session.add(user_msg)
+    await append_signal_chat_message(session, signal, role="user", content=body.content)
     await session.commit()
 
-    if conv.ai_paused:
+    if signal.ai_paused:
         return {"message": {"role": "assistant", "content": "A team member will respond shortly."}}
 
-    agent_result = await session.execute(
-        select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant").limit(1)
-    )
-    agent = agent_result.scalar_one_or_none()
-    history_result = await session.execute(
-        select(ConversationMessage)
-        .where(ConversationMessage.conversation_id == conversation_id)
-        .order_by(ConversationMessage.created_at)
-    )
-    history = [{"role": m.role, "content": m.content} for m in history_result.scalars().all()]
-    loop = AgentLoop(session, tenant.id, None, agent=agent)
+    from app.services.routing import resolve_agent_for_signal
+
+    agent = await resolve_agent_for_signal(session, signal)
+    history = await signal_chat_history(session, conversation_id)
+    loop = AgentLoop(session, tenant.id, None, agent=agent, signal_id=signal.id, trust="external")
     reply_text, _tokens = await loop.run_chat(history)
-    assistant_msg = ConversationMessage(
-        conversation_id=conversation_id,
-        tenant_id=tenant.id,
+    await append_signal_chat_message(
+        session,
+        signal,
         role="assistant",
         content=reply_text,
+        author_agent_id=agent.id if agent else None,
     )
-    session.add(assistant_msg)
     await session.commit()
     return {"message": {"role": "assistant", "content": reply_text}}

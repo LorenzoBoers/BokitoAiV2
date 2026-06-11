@@ -1,7 +1,7 @@
 import { authRoutes } from '../api/routes/auth.routes'
 import { AUTH_API_BASE } from './api.config'
-import type { AuthSessionResponse } from './xano'
-import { buildAuthHeaders, requireAccessToken, xanoPostAuth } from './xano'
+import type { AuthSessionResponse } from './api'
+import { buildAuthHeaders, requireAccessToken, apiPostAuth } from './api'
 
 export interface StaffTenantOption {
   id: string
@@ -42,7 +42,7 @@ export async function listStaffTenants(token?: string): Promise<StaffTenantOptio
 }
 
 export async function switchStaffTenant(tenantId: string, token?: string): Promise<AuthSessionResponse> {
-  return xanoPostAuth<AuthSessionResponse>(
+  return apiPostAuth<AuthSessionResponse>(
     authRoutes.staff.switchTenant,
     { tenant_id: tenantId },
     token,

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import uuid
+
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.types import TypeEngine
@@ -59,25 +62,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "on_eval_fail_step": "VARCHAR",
         "max_retries": "INTEGER DEFAULT 2",
     },
-    "orchestra_tasks": {
-        "action_type": "VARCHAR DEFAULT 'start_task'",
-        "action_config_json": "VARCHAR DEFAULT '{}'",
-    },
-    "blueprint_pages": {
-        "is_pinned": "BOOLEAN DEFAULT 0",
-        "is_locked": "BOOLEAN DEFAULT 0",
-        "content_version": "INTEGER DEFAULT 0",
-        "sort_order": "INTEGER DEFAULT 0",
-        "icon": "VARCHAR",
-        "parent_id": "VARCHAR",
-        "updated_at": "DATETIME",
-    },
-    "blueprint_docs": {
-        "updated_at": "DATETIME",
-    },
-    "blueprint_blocks": {
-        "updated_at": "DATETIME",
-    },
 }
 
 
@@ -134,3 +118,516 @@ def _columns_to_add(connection: Connection) -> list[tuple[str, str, str]]:
 def apply_column_patches(connection: Connection) -> None:
     for table_name, col_name, col_type in _columns_to_add(connection):
         connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
+
+
+def _rows(connection: Connection, sql: str) -> list:
+    return list(connection.execute(text(sql)).mappings())
+
+
+def _migrate_legacy_threads_to_signals(connection: Connection) -> None:
+    """One-time migration: conversations / inbox_threads / email_threads -> signals.
+
+    Runs only while the legacy tables still exist; drops them afterwards so the
+    migration is naturally idempotent.
+    """
+    inspector = inspect(connection)
+    if not inspector.has_table("signals"):
+        return
+
+    signal_cols = {c["name"] for c in inspector.get_columns("signals")}
+    if "channel_account_id" not in signal_cols:
+        return
+
+    # --- email_accounts -> channel_accounts (preserve ids) ---
+    if inspector.has_table("email_accounts") and inspector.has_table("channel_accounts"):
+        existing_accounts = {
+            str(r["id"]) for r in _rows(connection, "SELECT id FROM channel_accounts")
+        }
+        for row in _rows(connection, "SELECT * FROM email_accounts"):
+            if str(row["id"]) in existing_accounts:
+                continue
+            connection.execute(
+                text(
+                    "INSERT INTO channel_accounts "
+                    "(id, tenant_id, connection_id, channel, provider, address, display_name,"
+                    " is_enabled, sync_cursor, credentials_json, settings_json, created_at) "
+                    "VALUES (:id, :tenant_id, :connection_id, 'email', :provider, :address, '',"
+                    " :is_enabled, :sync_cursor, '{}', '{}', :created_at)"
+                ),
+                {
+                    "id": row["id"],
+                    "tenant_id": row["tenant_id"],
+                    "connection_id": row["connection_id"],
+                    "provider": row["provider"],
+                    "address": row["email_address"],
+                    "is_enabled": row["is_enabled"],
+                    "sync_cursor": row["sync_cursor"],
+                    "created_at": row["created_at"],
+                },
+            )
+        if "email_account_id" in signal_cols:
+            connection.execute(
+                text(
+                    "UPDATE signals SET channel_account_id = email_account_id "
+                    "WHERE channel_account_id IS NULL AND email_account_id IS NOT NULL"
+                )
+            )
+
+    # --- conversations -> signals (assistant / widget threads, ids preserved) ---
+    if inspector.has_table("conversations"):
+        existing_signals = {str(r["id"]) for r in _rows(connection, "SELECT id FROM signals")}
+        for row in _rows(connection, "SELECT * FROM conversations"):
+            if str(row["id"]) in existing_signals:
+                continue
+            channel = "widget" if row["channel"] == "customer_widget" else "assistant"
+            connection.execute(
+                text(
+                    "INSERT INTO signals "
+                    "(id, tenant_id, channel, source, external_id, owner_user_id, subject,"
+                    " contact_name, contact_email, contact_phone, status, priority, tags_json,"
+                    " has_unread, ai_paused, assigned_user_id, summary,"
+                    " last_message_at, created_at, updated_at) "
+                    "VALUES (:id, :tenant_id, :channel, 'chat', '', :owner_user_id, :subject,"
+                    " '', '', '', 'open', 'normal', '[]',"
+                    " 0, :ai_paused, :assigned_user_id, '',"
+                    " :last_message_at, :created_at, :updated_at)"
+                ),
+                {
+                    "id": row["id"],
+                    "tenant_id": row["tenant_id"],
+                    "channel": channel,
+                    "owner_user_id": row["user_id"],
+                    "subject": row["title"],
+                    "ai_paused": row["ai_paused"],
+                    "assigned_user_id": row["assigned_user_id"],
+                    "last_message_at": row["last_message_at"],
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                },
+            )
+        if inspector.has_table("conversation_messages"):
+            for row in _rows(connection, "SELECT * FROM conversation_messages"):
+                role = row["role"]
+                kind = "user_message" if role == "user" else "agent_message"
+                direction = "inbound" if role == "user" else "outbound"
+                connection.execute(
+                    text(
+                        "INSERT INTO signal_messages "
+                        "(id, signal_id, tenant_id, kind, direction, role, from_address,"
+                        " to_addresses, subject, body_text, body_html, body_preview, external_id,"
+                        " attachments_json, metadata_json, certainty, auto_sent, decision_id,"
+                        " created_at) "
+                        "VALUES (:id, :signal_id, :tenant_id, :kind, :direction, :role, '',"
+                        " '[]', '', :body_text, '', :body_preview, '',"
+                        " :attachments_json, :metadata_json, :certainty, :auto_sent, :decision_id,"
+                        " :created_at)"
+                    ),
+                    {
+                        "id": row["id"],
+                        "signal_id": row["conversation_id"],
+                        "tenant_id": row["tenant_id"],
+                        "kind": kind,
+                        "direction": direction,
+                        "role": role if role in ("user", "assistant", "system") else "user",
+                        "body_text": row["content"],
+                        "body_preview": (row["content"] or "")[:200],
+                        "attachments_json": row["attachments_json"] or "[]",
+                        "metadata_json": row["metadata_json"] or "{}",
+                        "certainty": row["certainty"],
+                        "auto_sent": row["auto_sent"],
+                        "decision_id": row["decision_request_id"],
+                        "created_at": row["created_at"],
+                    },
+                )
+
+    # Decision requests created inline in chat keep their thread link.
+    if inspector.has_table("decision_requests"):
+        dr_cols = {c["name"] for c in inspector.get_columns("decision_requests")}
+        if "conversation_id" in dr_cols and "signal_id" in dr_cols:
+            connection.execute(
+                text(
+                    "UPDATE decision_requests SET signal_id = conversation_id "
+                    "WHERE signal_id IS NULL AND conversation_id IS NOT NULL"
+                )
+            )
+
+    # --- email_threads -> signals (ids preserved) ---
+    if inspector.has_table("email_threads"):
+        existing_signals = {str(r["id"]) for r in _rows(connection, "SELECT id FROM signals")}
+        for row in _rows(connection, "SELECT * FROM email_threads"):
+            if str(row["id"]) in existing_signals:
+                continue
+            connection.execute(
+                text(
+                    "INSERT INTO signals "
+                    "(id, tenant_id, channel, source, external_id, channel_account_id, subject,"
+                    " contact_name, contact_email, contact_phone, status, priority, tags_json,"
+                    " has_unread, ai_paused, summary, last_message_at, created_at, updated_at) "
+                    "VALUES (:id, :tenant_id, 'email', 'email', :external_id, :account_id, :subject,"
+                    " '', '', '', 'open', 'normal', '[]',"
+                    " :has_unread, 0, '', :updated_at, :created_at, :updated_at)"
+                ),
+                {
+                    "id": row["id"],
+                    "tenant_id": row["tenant_id"],
+                    "external_id": row["external_id"] or "",
+                    "account_id": row["account_id"],
+                    "subject": row["subject"] or "(No subject)",
+                    "has_unread": row["has_unread"],
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                },
+            )
+        if inspector.has_table("email_messages"):
+            for row in _rows(connection, "SELECT * FROM email_messages"):
+                connection.execute(
+                    text(
+                        "INSERT INTO signal_messages "
+                        "(id, signal_id, tenant_id, kind, direction, role, from_address,"
+                        " to_addresses, subject, body_text, body_html, body_preview, external_id,"
+                        " attachments_json, metadata_json, auto_sent, created_at) "
+                        "VALUES (:id, :signal_id, :tenant_id, 'user_message', :direction, :role,"
+                        " :from_address, :to_addresses, :subject, :body_text, :body_html,"
+                        " :body_preview, :external_id, '[]', '{}', 0, :created_at)"
+                    ),
+                    {
+                        "id": row["id"],
+                        "signal_id": row["thread_id"],
+                        "tenant_id": row["tenant_id"],
+                        "direction": row["direction"],
+                        "role": "user" if row["direction"] == "inbound" else "assistant",
+                        "from_address": row["from_address"] or "",
+                        "to_addresses": row["to_addresses"] or "[]",
+                        "subject": row["subject"] or "",
+                        "body_text": row["body_text"] or "",
+                        "body_html": row["body_html"] or "",
+                        "body_preview": (row["body_text"] or "")[:200],
+                        "external_id": row["external_id"] or "",
+                        "created_at": row["created_at"],
+                    },
+                )
+
+    # --- inbox_threads -> signals (integer pks; new uuids) ---
+    if inspector.has_table("inbox_threads"):
+        for row in _rows(connection, "SELECT * FROM inbox_threads"):
+            new_id = str(uuid.uuid4())
+            connection.execute(
+                text(
+                    "INSERT INTO signals "
+                    "(id, tenant_id, channel, source, external_id, subject, contact_name,"
+                    " contact_email, contact_phone, status, priority, tags_json, has_unread,"
+                    " ai_paused, summary, last_message_at, created_at, updated_at) "
+                    "VALUES (:id, :tenant_id, :channel, 'inbox', :external_id, :subject,"
+                    " :contact_name, :contact_email, :contact_phone, :status, :priority,"
+                    " :tags_json, :has_unread, 0, '', :last_message_at, :created_at, :created_at)"
+                ),
+                {
+                    "id": new_id,
+                    "tenant_id": row["tenant_id"],
+                    "channel": row["channel"] or "email",
+                    "external_id": row["graph_conversation_id"] or "",
+                    "subject": row["email_subject"] or "(No subject)",
+                    "contact_name": row["contact_name"] or "",
+                    "contact_email": row["contact_email"] or "",
+                    "contact_phone": row["contact_phone"] or "",
+                    "status": row["status"] or "open",
+                    "priority": row["priority"] or "normal",
+                    "tags_json": row["tags_json"] or "[]",
+                    "has_unread": row["has_unread"],
+                    "last_message_at": row["last_message_at"],
+                    "created_at": row["created_at"],
+                },
+            )
+            if inspector.has_table("inbox_messages"):
+                for msg in _rows(
+                    connection,
+                    f"SELECT * FROM inbox_messages WHERE thread_id = {int(row['id'])}",
+                ):
+                    connection.execute(
+                        text(
+                            "INSERT INTO signal_messages "
+                            "(id, signal_id, tenant_id, kind, direction, role, from_address,"
+                            " to_addresses, subject, body_text, body_html, body_preview,"
+                            " external_id, attachments_json, metadata_json, auto_sent,"
+                            " send_status, received_at, created_at) "
+                            "VALUES (:id, :signal_id, :tenant_id, :kind, :direction, :role,"
+                            " :from_address, :to_addresses, :subject, :body_text, :body_html,"
+                            " :body_preview, :external_id, :attachments_json, '{}', 0,"
+                            " :send_status, :received_at, :created_at)"
+                        ),
+                        {
+                            "id": str(uuid.uuid4()),
+                            "signal_id": new_id,
+                            "tenant_id": msg["tenant_id"],
+                            "kind": "internal_note" if msg["direction"] == "internal" else "user_message",
+                            "direction": msg["direction"] or "inbound",
+                            "role": "user" if msg["direction"] == "inbound" else "assistant",
+                            "from_address": msg["from_address"] or "",
+                            "to_addresses": json.dumps([msg["to_addresses"]]) if msg["to_addresses"] else "[]",
+                            "subject": msg["subject"] or "",
+                            "body_text": msg["body_preview"] or "",
+                            "body_html": msg["body_html"] or "",
+                            "body_preview": (msg["body_preview"] or "")[:200],
+                            "external_id": msg["graph_message_id"] or "",
+                            "attachments_json": msg["attachments_json"] or "[]",
+                            "send_status": msg["send_status"],
+                            "received_at": msg["received_at"],
+                            "created_at": msg["created_at"],
+                        },
+                    )
+
+    # --- drop legacy tables ---
+    cascade = " CASCADE" if connection.dialect.name == "postgresql" else ""
+    for table in (
+        "conversation_messages",
+        "conversations",
+        "inbox_messages",
+        "inbox_events",
+        "inbox_thread_pins",
+        "inbox_threads",
+        "email_messages",
+        "email_threads",
+        "email_accounts",
+        "feedback_queue_items",
+        "message_feedback",
+    ):
+        if inspector.has_table(table):
+            connection.execute(text(f"DROP TABLE {table}{cascade}"))
+
+
+def _drop_legacy_policy_tables(connection: Connection) -> None:
+    """Phase 3: ActionPolicy/whitelist replaced by allowance sliders in tenant settings."""
+    inspector = inspect(connection)
+    cascade = " CASCADE" if connection.dialect.name == "postgresql" else ""
+    for table in ("action_whitelist_entries", "action_policies"):
+        if inspector.has_table(table):
+            connection.execute(text(f"DROP TABLE {table}{cascade}"))
+
+
+def _block_markdown(content_json: str | None) -> str:
+    try:
+        content = json.loads(content_json or "{}")
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(content, dict):
+        return ""
+    runs = content.get("text")
+    if isinstance(runs, list):
+        joined = "".join(
+            run.get("text", "") for run in runs if isinstance(run, dict)
+        ).strip()
+        if joined:
+            return joined
+    for key in ("markdown", "plain"):
+        val = content.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return ""
+
+
+def _migrate_blueprint_to_workspace_docs(connection: Connection) -> None:
+    """Phase 4: Blueprint pages/blocks become markdown WorkspaceDocs, then drop the stack.
+
+    Chunks are rebuilt on next doc save; content migration is the durable part.
+    """
+    inspector = inspect(connection)
+    if inspector.has_table("blueprint_pages") and inspector.has_table("workspace_docs"):
+        existing_paths = {
+            (str(r["tenant_id"]), r["path"])
+            for r in _rows(connection, "SELECT tenant_id, path FROM workspace_docs")
+        }
+        for page in _rows(connection, "SELECT * FROM blueprint_pages"):
+            slug = page["slug"] or "page"
+            path = f"docs/{slug}.md"
+            if (str(page["tenant_id"]), path) in existing_paths:
+                continue
+            lines = [f"# {page['title']}"]
+            if inspector.has_table("blueprint_blocks"):
+                for block in _rows(
+                    connection,
+                    f"SELECT * FROM blueprint_blocks WHERE page_id = '{page['id']}' ORDER BY sort_order",
+                ):
+                    text_md = _block_markdown(block["content_json"])
+                    if not text_md:
+                        continue
+                    block_type = block["block_type"] or "paragraph"
+                    if block_type.startswith("heading"):
+                        lines.append(f"## {text_md}")
+                    elif block_type in ("bulleted_list_item", "list_item"):
+                        lines.append(f"- {text_md}")
+                    else:
+                        lines.append(text_md)
+            connection.execute(
+                text(
+                    "INSERT INTO workspace_docs "
+                    "(id, tenant_id, path, kind, title, content, frontmatter_json,"
+                    " is_pinned, sort_order, created_by_type, created_by_id, created_at, updated_at) "
+                    "VALUES (:id, :tenant_id, :path, 'doc', :title, :content, '{}',"
+                    " 0, :sort_order, 'system', '', :created_at, :created_at)"
+                ),
+                {
+                    "id": str(uuid.uuid4()),
+                    "tenant_id": page["tenant_id"],
+                    "path": path,
+                    "title": page["title"] or slug,
+                    "content": "\n\n".join(lines),
+                    "sort_order": page.get("sort_order") or 0,
+                    "created_at": page["created_at"],
+                },
+            )
+
+    cascade = " CASCADE" if connection.dialect.name == "postgresql" else ""
+    for table in (
+        "block_revisions",
+        "blueprint_change_requests",
+        "blueprint_blocks",
+        "blueprint_pages",
+        "blueprint_docs",
+        "index_chunks",
+    ):
+        if inspector.has_table(table):
+            connection.execute(text(f"DROP TABLE {table}{cascade}"))
+
+    # Scope rename: platform:blueprint:write -> platform:doc:write on agent passports.
+    if inspector.has_table("agents"):
+        agent_cols = {col["name"] for col in inspector.get_columns("agents")}
+        if "permission_scopes_json" in agent_cols:
+            connection.execute(
+                text(
+                    "UPDATE agents SET permission_scopes_json = "
+                    "REPLACE(permission_scopes_json, 'platform:blueprint:write', 'platform:doc:write')"
+                )
+            )
+
+
+def _migrate_schedules_to_triggers(connection: Connection) -> None:
+    """Phase 5: orchestra_tasks / agenda wake events / automation_templates -> triggers."""
+    inspector = inspect(connection)
+    if not inspector.has_table("triggers"):
+        return
+
+    if inspector.has_table("orchestra_tasks"):
+        existing = {
+            (str(r["tenant_id"]), r["name"])
+            for r in _rows(connection, "SELECT tenant_id, name FROM triggers")
+        }
+        for row in _rows(
+            connection,
+            "SELECT * FROM orchestra_tasks WHERE enabled = 1 AND schedule_kind IN ('interval', 'cron')",
+        ):
+            if (str(row["tenant_id"]), row["name"]) in existing:
+                continue
+            kind = "cron" if row["schedule_kind"] == "cron" else "interval"
+            interval = 0
+            if kind == "interval":
+                expr = (row["schedule_expr"] or "60").strip().lower()
+                try:
+                    interval = int(expr.rstrip("d").rstrip("h").rstrip("m") or "60")
+                except ValueError:
+                    interval = 60
+                if expr.endswith("d"):
+                    interval *= 1440
+                elif expr.endswith("h"):
+                    interval *= 60
+            connection.execute(
+                text(
+                    "INSERT INTO triggers "
+                    "(id, tenant_id, name, kind, cron_expr, interval_minutes, agent_role,"
+                    " instructions, webhook_secret, enabled, next_run_at, last_status,"
+                    " created_at, updated_at) "
+                    "VALUES (:id, :tenant_id, :name, :kind, :cron_expr, :interval_minutes,"
+                    " 'orchestra', :instructions, '', 1, :next_run_at, '', :created_at, :created_at)"
+                ),
+                {
+                    "id": str(uuid.uuid4()),
+                    "tenant_id": row["tenant_id"],
+                    "name": row["name"],
+                    "kind": kind,
+                    "cron_expr": row["schedule_expr"] if kind == "cron" else "",
+                    "interval_minutes": interval,
+                    "instructions": row["instructions"] or "",
+                    "next_run_at": row["next_run_at"],
+                    "created_at": row["created_at"],
+                },
+            )
+
+    if inspector.has_table("agenda_events"):
+        existing = {
+            (str(r["tenant_id"]), r["name"])
+            for r in _rows(connection, "SELECT tenant_id, name FROM triggers")
+        }
+        for row in _rows(
+            connection,
+            "SELECT * FROM agenda_events WHERE kind = 'orchestrator' AND enabled = 1 "
+            "AND recurrence_freq != ''",
+        ):
+            if (str(row["tenant_id"]), row["title"]) in existing:
+                continue
+            freq = row["recurrence_freq"]
+            interval_units = {"hourly": 60, "daily": 1440, "weekly": 10080, "monthly": 43200}
+            minutes = interval_units.get(freq, 1440) * max(1, row["recurrence_interval"] or 1)
+            connection.execute(
+                text(
+                    "INSERT INTO triggers "
+                    "(id, tenant_id, name, kind, cron_expr, interval_minutes, agent_role,"
+                    " instructions, webhook_secret, enabled, next_run_at, last_status,"
+                    " created_at, updated_at) "
+                    "VALUES (:id, :tenant_id, :name, 'interval', '', :interval_minutes,"
+                    " :agent_role, :instructions, '', 1, :next_run_at, '', :created_at, :created_at)"
+                ),
+                {
+                    "id": str(uuid.uuid4()),
+                    "tenant_id": row["tenant_id"],
+                    "name": row["title"],
+                    "interval_minutes": minutes,
+                    "agent_role": row["agent_role"] or "orchestra",
+                    "instructions": row["prompt"] or "",
+                    "next_run_at": row["next_run_at"],
+                    "created_at": row["created_at"],
+                },
+            )
+
+    cascade = " CASCADE" if connection.dialect.name == "postgresql" else ""
+    for table in ("agenda_events", "agenda_calendars", "orchestra_tasks", "automation_templates"):
+        if inspector.has_table(table):
+            connection.execute(text(f"DROP TABLE {table}{cascade}"))
+
+
+def apply_data_repairs(connection: Connection) -> None:
+    """Idempotent data fixes that ALTER cannot express (legacy role cleanup)."""
+    _migrate_legacy_threads_to_signals(connection)
+    _drop_legacy_policy_tables(connection)
+    _migrate_blueprint_to_workspace_docs(connection)
+    _migrate_schedules_to_triggers(connection)
+    inspector = inspect(connection)
+    if not inspector.has_table("agents"):
+        return
+    agent_cols = {col["name"] for col in inspector.get_columns("agents")}
+
+    # Legacy "po" role is now the canonical "orchestrator" role.
+    connection.execute(text("UPDATE agents SET role='orchestrator' WHERE role='po'"))
+    if "slug" in agent_cols:
+        connection.execute(
+            text("UPDATE agents SET slug='orchestrator' WHERE slug IN ('po', 'manager')")
+        )
+
+    # Remove orphan tenant-level orchestrators (no project link, no runs) in
+    # tenants that already have a project-linked orchestrator.
+    if inspector.has_table("projects") and inspector.has_table("agent_runs"):
+        connection.execute(
+            text(
+                """
+                DELETE FROM agents
+                WHERE role = 'orchestrator'
+                  AND id NOT IN (
+                    SELECT po_agent_id FROM projects WHERE po_agent_id IS NOT NULL
+                  )
+                  AND tenant_id IN (
+                    SELECT tenant_id FROM projects WHERE po_agent_id IS NOT NULL
+                  )
+                  AND id NOT IN (
+                    SELECT agent_id FROM agent_runs WHERE agent_id IS NOT NULL
+                  )
+                """
+            )
+        )

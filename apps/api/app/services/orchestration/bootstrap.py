@@ -1,4 +1,4 @@
-"""Seed global automation templates and tenant orchestration defaults."""
+"""Seed tenant orchestration defaults (runtime profiles, demo workstream)."""
 
 from __future__ import annotations
 
@@ -9,63 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.orchestration import AutomationTemplate, RuntimeProfile
+from app.models.orchestration import RuntimeProfile
 from app.models.orchestra import Workstream, WorkstreamStep
-
-GLOBAL_TEMPLATES = [
-    {
-        "slug": "inbound-triage",
-        "name": "Inbound Signal Triage",
-        "description": "Every weekday morning, triage open signals and draft routing recommendations.",
-        "category": "ops",
-        "template_json": {
-            "triggerType": "scheduler",
-            "triggerConfig": {"schedule": {"time": "08:00", "daysOfWeek": [1, 2, 3, 4, 5]}},
-            "actionType": "start_task",
-            "actionConfig": {
-                "taskName": "Morning inbox triage",
-                "taskDescription": "Review open signals, classify priority, and propose assignee or workstream.",
-            },
-        },
-    },
-    {
-        "slug": "weekly-ops-summary",
-        "name": "Weekly Operations Summary",
-        "description": "Generate a weekly summary of agent runs, decisions, and open threads.",
-        "category": "ops",
-        "template_json": {
-            "triggerType": "scheduler",
-            "triggerConfig": {"schedule": {"time": "09:00", "daysOfWeek": [1]}},
-            "actionType": "start_task",
-            "actionConfig": {
-                "taskName": "Weekly ops summary",
-                "taskDescription": "Summarize completed agent tasks, pending decisions, and recommend follow-ups.",
-            },
-        },
-    },
-]
-
-
-async def seed_global_automation_templates(session: AsyncSession) -> None:
-    for tpl in GLOBAL_TEMPLATES:
-        existing = await session.execute(
-            select(AutomationTemplate).where(
-                AutomationTemplate.slug == tpl["slug"], AutomationTemplate.is_global.is_(True)
-            )
-        )
-        if existing.scalar_one_or_none():
-            continue
-        session.add(
-            AutomationTemplate(
-                tenant_id=None,
-                slug=tpl["slug"],
-                name=tpl["name"],
-                description=tpl["description"],
-                category=tpl["category"],
-                template_json=json.dumps(tpl["template_json"]),
-                is_global=True,
-            )
-        )
 
 
 async def seed_tenant_runtime_profiles(session: AsyncSession, tenant_id: UUID) -> dict[str, RuntimeProfile]:

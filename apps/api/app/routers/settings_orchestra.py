@@ -9,19 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth, tenant_settings
-from app.models.inbox import FeedbackQueueItem, InboxSettings, MessageFeedback
+from app.models.inbox import InboxSettings
+from app.models.learning import Feedback
 from app.models.orchestra import (
     AgentProfile,
-    Task,
     Workstream,
     WorkstreamRun,
     WorkstreamStepRun,
 )
 from app.models.notification import UserNotificationPreference
-from app.models.policy import ActionPolicy, ActionWhitelistEntry, AssistantPersona
-from app.services.orchestra_runner import run_workstream_mock, trigger_task
+from app.models.policy import AssistantPersona
+from app.services.orchestra_runner import run_workstream_mock
 
-router = APIRouter(tags=["orchestra-settings", "inbox-settings", "policy"])
+router = APIRouter(tags=["orchestra-settings", "inbox-settings"])
 
 
 class InboxSettingsUpdate(BaseModel):
@@ -40,18 +40,6 @@ class PersonaUpdate(BaseModel):
     tone: str | None = None
     do_text: str | None = None
     dont_text: str | None = None
-
-
-class PolicyUpdate(BaseModel):
-    mode: str
-
-
-class TaskCreate(BaseModel):
-    name: str
-    instructions: str = ""
-    schedule_kind: str = "on_demand"
-    schedule_expr: str = ""
-    enabled: bool = True
 
 
 class AgentProfileCreate(BaseModel):
@@ -117,56 +105,17 @@ async def create_feedback(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    fb = MessageFeedback(
+    fb = Feedback(
         tenant_id=auth.tenant.id,
-        message_id=message_id,
+        subject_type="message",
+        subject_id=str(message_id),
         score=body.score,
         comment=body.comment,
-        author_user_id=auth.user.id,
+        user_id=auth.user.id,
     )
     session.add(fb)
-    await session.flush()
-    session.add(
-        FeedbackQueueItem(tenant_id=auth.tenant.id, message_feedback_id=fb.id, status="pending")
-    )
     await session.commit()
     return {"id": str(fb.id)}
-
-
-@router.get("/policy")
-async def get_policy(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    result = await session.execute(select(ActionPolicy).where(ActionPolicy.tenant_id == auth.tenant.id))
-    policy = result.scalar_one_or_none()
-    wl = await session.execute(
-        select(ActionWhitelistEntry).where(ActionWhitelistEntry.tenant_id == auth.tenant.id)
-    )
-    return {
-        "mode": policy.mode if policy else "whitelist",
-        "whitelist": [
-            {"id": str(e.id), "action_type": e.action_type, "scope_signature": e.scope_signature}
-            for e in wl.scalars().all()
-        ],
-    }
-
-
-@router.put("/policy")
-async def update_policy(
-    body: PolicyUpdate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    if body.mode not in ("manual", "whitelist", "yolo"):
-        raise HTTPException(status_code=400, detail="Invalid mode")
-    result = await session.execute(select(ActionPolicy).where(ActionPolicy.tenant_id == auth.tenant.id))
-    policy = result.scalar_one_or_none() or ActionPolicy(tenant_id=auth.tenant.id)
-    policy.mode = body.mode
-    session.add(policy)
-    await session.commit()
-    return {"ok": True}
 
 
 DEFAULT_NOTIFICATION_ROWS = [
@@ -276,47 +225,6 @@ async def orchestra_settings(auth: Annotated[AuthContext, Depends(get_current_au
         "orchestra_enabled": settings.get("orchestra_enabled", False),
         "monthly_budget_cents": settings.get("monthly_budget_cents", 0),
     }
-
-
-@orchestra_router.get("/tasks")
-async def list_tasks(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    result = await session.execute(select(Task).where(Task.tenant_id == auth.tenant.id))
-    return [
-        {
-            "id": str(t.id),
-            "name": t.name,
-            "schedule_kind": t.schedule_kind,
-            "enabled": t.enabled,
-        }
-        for t in result.scalars().all()
-    ]
-
-
-@orchestra_router.post("/tasks")
-async def create_task(
-    body: TaskCreate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    task = Task(tenant_id=auth.tenant.id, **body.model_dump())
-    session.add(task)
-    await session.commit()
-    await session.refresh(task)
-    return {"id": str(task.id)}
-
-
-@orchestra_router.post("/tasks/{task_id}/run")
-async def run_task(
-    task_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    await trigger_task(session, task_id, auth.tenant.id)
-    return {"ok": True}
 
 
 @orchestra_router.get("/agent-profiles")

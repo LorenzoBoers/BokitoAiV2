@@ -3,10 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 const reuseExisting = !process.env.CI
 const apiPort = process.env.PLAYWRIGHT_API_PORT || '8008'
 const dashboardPort = process.env.PLAYWRIGHT_DASHBOARD_PORT || '5184'
-const messengerPort = process.env.PLAYWRIGHT_MESSENGER_PORT || '5185'
 const apiBase = `http://127.0.0.1:${apiPort}`
 const dashboardBase = `http://127.0.0.1:${dashboardPort}`
-const messengerBase = `http://127.0.0.1:${messengerPort}`
 
 const apiCommand =
   process.platform === 'win32'
@@ -34,14 +32,6 @@ export default defineConfig({
         baseURL: process.env.PLAYWRIGHT_DASHBOARD_URL || dashboardBase,
       },
     },
-    {
-      name: 'messenger',
-      testMatch: 'messenger.spec.ts',
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: process.env.PLAYWRIGHT_MESSENGER_URL || messengerBase,
-      },
-    },
   ],
   webServer: [
     {
@@ -57,16 +47,6 @@ export default defineConfig({
     {
       command: `npm run dev -w bokito-dashboard -- --host 127.0.0.1 --port ${dashboardPort}`,
       url: dashboardBase,
-      reuseExistingServer: reuseExisting,
-      timeout: 120000,
-      env: {
-        VITE_API_MODE: 'bokito',
-        VITE_BOKITO_API_URL: apiBase,
-      },
-    },
-    {
-      command: `npm run dev -w bokito-messenger -- --host 127.0.0.1 --port ${messengerPort}`,
-      url: messengerBase,
       reuseExistingServer: reuseExisting,
       timeout: 120000,
       env: {

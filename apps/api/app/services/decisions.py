@@ -37,7 +37,7 @@ def serialize_decision_as_message(row: DecisionRequest) -> dict[str, Any]:
             payload.update({k: v for k, v in opt_payload.items() if k not in payload})
     return {
         "id": str(row.id),
-        "thread_id": str(row.conversation_id or row.id),
+        "thread_id": str(row.signal_id or row.id),
         "project_id": str(row.project_id) if row.project_id else payload.get("project_id"),
         "subject": row.title,
         "body": row.summary or row.title,
@@ -72,8 +72,8 @@ async def list_decision_messages(
             query = query.where(DecisionRequest.status == status)
     if thread_id:
         try:
-            conv_id = UUID(thread_id)
-            query = query.where(DecisionRequest.conversation_id == conv_id)
+            sig_id = UUID(thread_id)
+            query = query.where(DecisionRequest.signal_id == sig_id)
         except ValueError:
             pass
     if project_id:

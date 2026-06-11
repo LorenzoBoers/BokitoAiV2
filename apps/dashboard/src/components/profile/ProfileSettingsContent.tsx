@@ -5,7 +5,7 @@ import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { authRoutes } from '../../api/routes/auth.routes'
-import { xanoPatchAuth, xanoPostAuth, XANO_AUTH_API, buildAuthHeaders } from '../../lib/xano'
+import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders } from '../../lib/api'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 
@@ -251,7 +251,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
       const form = new FormData()
       form.append('avatar', file)
       const headers = buildAuthHeaders(token, false) // no Content-Type — browser sets multipart boundary
-      const sendAvatar = async (path: string) => fetch(`${XANO_AUTH_API}${path}`, {
+      const sendAvatar = async (path: string) => fetch(`${AUTH_API_BASE}${path}`, {
         method: 'POST',
         headers,
         credentials: 'include',
@@ -286,19 +286,19 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
 
   const saveName = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatchAuth(authRoutes.profile.patch, { name: next }, token)
+    await apiPatchAuth(authRoutes.profile.patch, { name: next }, token)
     patchLocalUser({ name: next })
   }, [token, patchLocalUser])
 
   const saveEmail = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatchAuth(authRoutes.profile.patch, { email: next }, token)
+    await apiPatchAuth(authRoutes.profile.patch, { email: next }, token)
     patchLocalUser({ email: next })
   }, [token, patchLocalUser])
 
   const saveJobTitle = useCallback(async (next: string) => {
     if (!token) return
-    await xanoPatchAuth(authRoutes.profile.patch, { job_title: next }, token)
+    await apiPatchAuth(authRoutes.profile.patch, { job_title: next }, token)
     patchLocalUser({ jobTitle: next || null })
   }, [token, patchLocalUser])
 
@@ -307,7 +307,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
     if (!token) return
     setPwSaving(true); setPwError(null)
     try {
-      await xanoPostAuth(authRoutes.profile.changePassword, { current_password: currentPw, new_password: newPw }, token)
+      await apiPostAuth(authRoutes.profile.changePassword, { current_password: currentPw, new_password: newPw }, token)
       setPwSaved(true)
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
       setShowPasswordForm(false)

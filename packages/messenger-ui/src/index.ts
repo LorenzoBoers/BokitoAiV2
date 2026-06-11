@@ -210,10 +210,23 @@ export async function rejectDecision(config: ApiConfig, id: string, optionId: st
 
 export async function listInbox(config: ApiConfig, options?: { channel?: string; limit?: number }) {
   const params = new URLSearchParams()
-  if (options?.channel) params.set('channel', options.channel)
-  if (options?.limit) params.set('limit', String(options.limit))
-  const query = params.toString()
-  return apiFetch<InboxItem[]>(config, `/api/inbox${query ? `?${query}` : ''}`)
+  params.set('view', 'all_open')
+  if (options?.limit) params.set('per_page', String(options.limit))
+  const payload = await apiFetch<{ items?: Array<Record<string, unknown>> }>(
+    config,
+    `/api/signals?${params.toString()}`,
+  )
+  const items = Array.isArray(payload.items) ? payload.items : []
+  return items
+    .filter((row) => !options?.channel || row.channel === options.channel)
+    .map<InboxItem>((row) => ({
+      kind: 'conversation',
+      id: String(row.id ?? ''),
+      channel: String(row.channel ?? ''),
+      title: String(row.email_subject ?? '(No subject)'),
+      updated_at: String(row.last_message_at ?? row.created_at ?? ''),
+      conversation_id: String(row.id ?? ''),
+    }))
 }
 
 export async function submitFeedback(

@@ -10,8 +10,6 @@ export function countForBadgeSlot(counts: NavBadgeCounts, slot: NavBadgeSlot | u
       return counts.agentsAttention
     case 'messages':
       return counts.inboxUnread
-    case 'projectsAttention':
-      return counts.agentsAttention
     default:
       return 0
   }

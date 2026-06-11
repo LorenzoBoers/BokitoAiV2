@@ -1,5 +1,5 @@
 import { appRoutes } from '../api/routes/app.routes'
-import { xanoDelete, xanoGet, xanoPatch, xanoPost } from './xano'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import type {
   InboxEvent,
   InboxMember,
@@ -12,7 +12,9 @@ import type {
   ThreadFilters,
 } from './inbox-api'
 
-export const USE_SIGNAL_INBOX = import.meta.env.VITE_API_MODE === 'bokito'
+// Signal is the only thread model (Phase 1 of the Bokito OS restructure);
+// the legacy Xano inbox path is gone.
+export const USE_SIGNAL_INBOX = true
 
 function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
@@ -152,7 +154,7 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.connectionId && filters.connectionId > 0) {
     params.set('email_connection_id', String(filters.connectionId))
   }
-  const payload = await xanoGet<unknown>(appRoutes.signals.threadsQuery(params), token)
+  const payload = await apiGet<unknown>(appRoutes.signals.threadsQuery(params), token)
   const data = payload as Record<string, unknown>
   const itemsSource = Array.isArray(data.items) ? data.items : []
   return {
@@ -164,7 +166,7 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
 }
 
 export async function getSignalThread(token: string, threadId: string): Promise<ThreadDetail | null> {
-  const payload = await xanoGet<{ thread?: unknown; messages?: unknown[]; events?: unknown[] }>(
+  const payload = await apiGet<{ thread?: unknown; messages?: unknown[]; events?: unknown[] }>(
     appRoutes.signals.thread(threadId),
     token,
   )
@@ -187,36 +189,36 @@ export async function patchSignalThread(
   if (patch.assignedToUserId !== undefined) body.assigned_to_user_id = patch.assignedToUserId
   if (patch.tags !== undefined) body.tags = patch.tags
   if (patch.priority !== undefined) body.priority = patch.priority
-  const payload = await xanoPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
+  const payload = await apiPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
   return normalizeSignalThread(payload)
 }
 
 export async function deleteSignalThread(token: string, threadId: string): Promise<void> {
-  await xanoDelete<unknown>(appRoutes.signals.threadDelete(threadId), token)
+  await apiDelete<unknown>(appRoutes.signals.threadDelete(threadId), token)
 }
 
 export async function markSignalThreadRead(token: string, threadId: string): Promise<InboxThread | null> {
-  const payload = await xanoPatch<unknown>(appRoutes.signals.threadMarkRead(threadId), {}, token)
+  const payload = await apiPatch<unknown>(appRoutes.signals.threadMarkRead(threadId), {}, token)
   return normalizeSignalThread(payload)
 }
 
 export async function markSignalThreadUnread(token: string, threadId: string): Promise<InboxThread | null> {
-  const payload = await xanoPatch<unknown>(appRoutes.signals.threadMarkUnread(threadId), {}, token)
+  const payload = await apiPatch<unknown>(appRoutes.signals.threadMarkUnread(threadId), {}, token)
   return normalizeSignalThread(payload)
 }
 
 export async function listSignalPinnedThreadIds(token: string): Promise<string[]> {
-  const payload = await xanoGet<{ thread_ids?: unknown[] }>(appRoutes.signals.pins, token)
+  const payload = await apiGet<{ thread_ids?: unknown[] }>(appRoutes.signals.pins, token)
   const source = Array.isArray(payload.thread_ids) ? payload.thread_ids : []
   return source.map((v) => asString(v)).filter((s) => s.length > 0)
 }
 
 export async function pinSignalThread(token: string, threadId: string): Promise<void> {
-  await xanoPost<unknown>(appRoutes.signals.threadPin(threadId), {}, token)
+  await apiPost<unknown>(appRoutes.signals.threadPin(threadId), {}, token)
 }
 
 export async function unpinSignalThread(token: string, threadId: string): Promise<void> {
-  await xanoDelete<unknown>(appRoutes.signals.threadPin(threadId), token)
+  await apiDelete<unknown>(appRoutes.signals.threadPin(threadId), token)
 }
 
 export async function replyToSignalThread(
@@ -229,7 +231,7 @@ export async function replyToSignalThread(
     action: input.action ?? 'send',
   }
   if (input.bodyHtml) body.body_html = input.bodyHtml
-  const payload = await xanoPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
+  const payload = await apiPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
   return normalizeSignalMessage(payload)
 }
 
@@ -238,7 +240,7 @@ export async function addNoteToSignalThread(
   threadId: string,
   bodyText: string,
 ): Promise<InboxMessage | null> {
-  const payload = await xanoPost<unknown>(
+  const payload = await apiPost<unknown>(
     appRoutes.signals.threadNotes(threadId),
     { body_text: bodyText },
     token,
@@ -254,7 +256,7 @@ export async function resolveSignalDecision(
 ): Promise<void> {
   const backendAction =
     action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'deferred'
-  await xanoPost<unknown>(
+  await apiPost<unknown>(
     appRoutes.signals.messageResolve(threadId, messageId),
     { action: backendAction },
     token,
@@ -262,10 +264,10 @@ export async function resolveSignalDecision(
 }
 
 export async function listSignalMembers(token: string): Promise<InboxMember[]> {
-  const payload = await xanoGet<unknown>(appRoutes.signals.members, token)
+  const payload = await apiGet<unknown>(appRoutes.signals.members, token)
   const source = Array.isArray(payload) ? payload : []
   return source
-    .map((row) => {
+    .map((row): InboxMember | null => {
       if (!row || typeof row !== 'object') return null
       const raw = row as Record<string, unknown>
       const id = asNumber(raw.id, NaN)
@@ -275,7 +277,7 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
         name: asString(raw.name, `User ${id}`),
         email: asString(raw.email),
         avatarUrl: null,
-      } satisfies InboxMember
+      }
     })
     .filter((m): m is InboxMember => m !== null)
 }

@@ -19,12 +19,25 @@ function getCurrentProtocol(): string {
   return window.location.protocol || 'https:'
 }
 
+/**
+ * Loopback IP hosts (e.g. `127.0.0.1`, `::1`, `0.0.0.0`). The local Vite dev server is
+ * commonly opened on `http://127.0.0.1:5174`, which must be treated as local dev — otherwise
+ * the control-plane/login redirect falls back to the production host (`app.bokito.ai`).
+ */
+export function isLoopbackHostname(hostname: string): boolean {
+  const h = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '')
+  if (!h) return false
+  if (h === '::1' || h === '0.0.0.0') return true
+  if (h === '127.0.0.1' || h.startsWith('127.')) return true
+  return false
+}
+
 export function isLocalHostname(hostname: string): boolean {
-  return hostname === 'localhost' || hostname.endsWith('.localhost')
+  return hostname === 'localhost' || hostname.endsWith('.localhost') || isLoopbackHostname(hostname)
 }
 
 function isBareLocalHostname(hostname: string): boolean {
-  return hostname === 'localhost'
+  return hostname === 'localhost' || isLoopbackHostname(hostname)
 }
 
 export function isAppHostname(hostname: string): boolean {
@@ -37,6 +50,12 @@ function resolveTenantRootDomain(hostname: string): string {
 
 function buildAppOriginForHostname(hostname: string, protocol: string, port?: string): string {
   if (APP_CONTROL_PLANE_URL) return APP_CONTROL_PLANE_URL
+  // Loopback dev: the control plane is the same origin the user is already on
+  // (e.g. 127.0.0.1:5174). Do not rewrite to app.localhost or the prod host.
+  if (isLoopbackHostname(hostname)) {
+    const effectivePort = port && port.trim() ? `:${port.trim()}` : ''
+    return `${protocol}//${hostname}${effectivePort}`
+  }
   if (isLocalHostname(hostname)) {
     const effectivePort = port && port.trim() ? `:${port.trim()}` : ''
     return `${protocol}//${DEV_APP_HOSTNAME}${effectivePort}`
@@ -73,7 +92,8 @@ export function resolveTenantSubdomainFromHost(): string | null {
 
 export function buildAppLoginUrl(returnToAbsoluteUrl: string): string | null {
   const hostname = getCurrentHostname()
-  if (!hostname || isAppHostname(hostname)) return null
+  // On the app host or loopback dev, stay on the local SPA /login route (no cross-host redirect).
+  if (!hostname || isAppHostname(hostname) || isLoopbackHostname(hostname)) return null
   try {
     const target = new URL(returnToAbsoluteUrl)
     const appBase = buildAppOriginForHostname(target.hostname.toLowerCase(), target.protocol, target.port)
@@ -205,7 +225,7 @@ export function buildTenantOrigin(subdomain: string): string | null {
   const protocol = getCurrentProtocol()
   const port = getCurrentPort()
 
-  if (import.meta.env.VITE_API_MODE === 'bokito' && isLocalHostname(hostname) && typeof window !== 'undefined') {
+  if (isLocalHostname(hostname) && typeof window !== 'undefined') {
     return window.location.origin
   }
 

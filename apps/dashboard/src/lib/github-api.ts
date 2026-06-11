@@ -1,5 +1,5 @@
 import { githubRoutes, integrationsRoutes } from '../api/routes'
-import { xanoDeleteIntegrations, xanoGetIntegrations } from './xano'
+import { apiDelete, apiGet } from './api'
 import { revokeIntegrationConnection } from './integrations-api'
 
 export interface GithubConnectionRow {
@@ -19,7 +19,7 @@ export interface GithubRepoRow {
 }
 
 export async function startGithubOAuth(returnUrl: string, projectId?: string): Promise<{ authorize_url: string }> {
-  return xanoGetIntegrations<{ authorize_url: string }>(
+  return apiGet<{ authorize_url: string }>(
     githubRoutes.oauth.start(returnUrl, projectId),
   )
 }
@@ -51,7 +51,7 @@ function normalizeGithubConnectionRow(
 /** GET /github/connection — must not call listGithubConnections (avoids recursion). */
 async function fetchGithubConnectionSingular(): Promise<GithubConnectionRow | null> {
   try {
-    const data = await xanoGetIntegrations<
+    const data = await apiGet<
       GithubConnectionRow | null | { connection: GithubConnectionRow | null }
     >(githubRoutes.connection)
     if (data == null) return null
@@ -67,7 +67,7 @@ async function fetchGithubConnectionSingular(): Promise<GithubConnectionRow | nu
 
 export async function listGithubConnections(): Promise<GithubConnectionRow[]> {
   try {
-    const data = await xanoGetIntegrations<{ connections: GithubConnectionRow[] }>(githubRoutes.connections)
+    const data = await apiGet<{ connections: GithubConnectionRow[] }>(githubRoutes.connections)
     if (Array.isArray(data.connections)) return data.connections
   } catch {
     // fall through to legacy singular endpoint
@@ -93,17 +93,17 @@ export async function disconnectGithubConnection(connectionId?: string): Promise
     await revokeIntegrationConnection(list[0].id)
     return
   }
-  await xanoDeleteIntegrations(githubRoutes.connection)
+  await apiDelete(githubRoutes.connection)
 }
 
 export async function listGithubRepos(connectionId?: string): Promise<GithubRepoRow[]> {
   const path = githubRoutes.repos(connectionId)
   try {
-    const data = await xanoGetIntegrations<GithubRepoRow[] | { items: GithubRepoRow[] }>(path)
+    const data = await apiGet<GithubRepoRow[] | { items: GithubRepoRow[] }>(path)
     return Array.isArray(data) ? data : data.items ?? []
   } catch {
     if (connectionId) {
-      const res = await xanoGetIntegrations<{ items: GithubRepoRow[] }>(
+      const res = await apiGet<{ items: GithubRepoRow[] }>(
         integrationsRoutes.platform.connectionResources(connectionId),
       )
       const items = (res as { items?: GithubRepoRow[] }).items
@@ -118,7 +118,7 @@ export async function listGithubBranches(
   repo: string,
   connectionId?: string,
 ): Promise<string[]> {
-  const data = await xanoGetIntegrations<string[] | { branches: string[] }>(
+  const data = await apiGet<string[] | { branches: string[] }>(
     githubRoutes.branches(owner, repo, connectionId),
   )
   if (Array.isArray(data)) return data

@@ -1,5 +1,5 @@
 import { projectsRoutes } from '../api/routes'
-import { xanoGetWorkforce, xanoPatchWorkforce, xanoPostWorkforce } from './xano'
+import { workforceGet, workforcePatch, workforcePost } from './api'
 
 export type WorkstreamStatus = 'active' | 'draft' | 'paused'
 
@@ -51,7 +51,7 @@ function normalizeItems<T>(data: T[] | { items?: T[] | { items?: T[] } } | undef
 }
 
 export async function listProjectWorkstreams(projectId: string): Promise<ProjectWorkstreamsResponse> {
-  const data = await xanoGetWorkforce<ProjectWorkstreamsResponse | ProjectWorkstreamRow[]>(
+  const data = await workforceGet<ProjectWorkstreamsResponse | ProjectWorkstreamRow[]>(
     projectsRoutes.workstreams(projectId),
   )
   if (Array.isArray(data)) {
@@ -75,7 +75,7 @@ export async function createProjectWorkstream(
     position?: number
   },
 ): Promise<ProjectWorkstreamRow> {
-  return xanoPostWorkforce<ProjectWorkstreamRow>(projectsRoutes.workstreams(projectId), input)
+  return workforcePost<ProjectWorkstreamRow>(projectsRoutes.workstreams(projectId), input)
 }
 
 export async function patchProjectWorkstream(
@@ -88,7 +88,7 @@ export async function patchProjectWorkstream(
     >
   >,
 ): Promise<ProjectWorkstreamRow> {
-  return xanoPatchWorkforce<ProjectWorkstreamRow>(
+  return workforcePatch<ProjectWorkstreamRow>(
     projectsRoutes.workstreamById(projectId, workstreamId),
     patch,
   )
@@ -98,5 +98,5 @@ export async function linkProjectPoAgent(
   projectId: string,
   poAgentId: string,
 ): Promise<{ project_id: string; po_agent_id: string; po_agent: ProjectPoAgent }> {
-  return xanoPatchWorkforce(projectsRoutes.poAgent(projectId), { po_agent_id: poAgentId })
+  return workforcePatch(projectsRoutes.poAgent(projectId), { po_agent_id: poAgentId })
 }

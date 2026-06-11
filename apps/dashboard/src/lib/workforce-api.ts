@@ -1,6 +1,6 @@
 import { workforceRoutes } from '../api/routes/workforce.routes'
 import { WORKFORCE_API_BASE } from './api.config'
-import { requireAccessToken } from './xano'
+import { requireAccessToken } from './api'
 
 const AGENT_RUNTIME_API_BASE = WORKFORCE_API_BASE
 
@@ -220,7 +220,9 @@ export async function forceRescanWorkforce(token: string | undefined, pipelineId
 
 export async function pauseWorkforce(token?: string): Promise<{ ok: boolean }> {
   const agents = await getAgents(token).catch(() => [])
-  const manager = agents.find((agent) => agent.role_slug === 'manager')
+  const manager = agents.find(
+    (agent) => agent.role_slug === 'orchestrator' || agent.role_slug === 'manager',
+  )
   if (manager) {
     const updated = await updateAgentStatus(token, manager.id, 'standby')
     return { ok: updated.ok }

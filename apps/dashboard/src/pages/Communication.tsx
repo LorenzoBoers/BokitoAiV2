@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
-import ContactPanel from '../components/inbox/ContactPanel'
+import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
 import {
@@ -113,11 +113,6 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
   }
 }
 
-function parseFolder(value: string | null): ThreadFilters['folder'] | undefined {
-  if (value === 'external' || value === 'internal' || value === 'all') return value
-  return undefined
-}
-
 export default function Communication() {
   const { t } = useTranslation('communication')
   const [searchParams] = useSearchParams()
@@ -131,16 +126,14 @@ export default function Communication() {
   const { refresh: refreshNavBadges } = useNavBadges()
   const currentUserId = user?.id ?? null
 
-  const folder = parseFolder(searchParams.get('folder'))
   const projectId = searchParams.get('project_id')?.trim() || undefined
 
   const inboxQuery = useMemo(() => {
     const params = new URLSearchParams()
-    if (folder) params.set('folder', folder)
     if (projectId) params.set('project_id', projectId)
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [folder, projectId])
+  }, [projectId])
 
   useEffect(() => {
     void refreshNavBadges()
@@ -191,9 +184,9 @@ export default function Communication() {
     refresh: refreshThreads,
     setThreadReadState,
     removeThread,
-  } = useThreads({ view, search, connectionId, folder, projectId }, pinnedIds)
+  } = useThreads({ view, search, connectionId, projectId }, pinnedIds)
 
-  const listContextKey = `${channelId ?? 'all'}:${queue ?? 'all'}:${folder ?? ''}:${projectId ?? ''}`
+  const listContextKey = `${channelId ?? 'all'}:${queue ?? 'all'}:${projectId ?? ''}`
 
   useEffect(() => {
     setSearch('')
@@ -349,7 +342,7 @@ export default function Communication() {
     if (!detail) return
     if (String(detail.thread.id) !== String(selectedThreadId)) return
     if (redirectCheckedForThreadRef.current === selectedThreadId) return
-    if (folder === 'internal' || INTERNAL_ONLY_VIEWS.includes(view)) return
+    if (INTERNAL_ONLY_VIEWS.includes(view)) return
 
     redirectCheckedForThreadRef.current = selectedThreadId
 
@@ -364,7 +357,7 @@ export default function Communication() {
       ? `/messages/ch/${targetChannelId}/${targetQueueSegment}`
       : `/messages/${targetQueueSegment}`
     navigate(`${base}/t/${encodeURIComponent(String(thread.id))}${inboxQuery}`, { replace: true })
-  }, [detail, selectedThreadId, view, channelId, connectionId, currentUserId, navigate, folder, inboxQuery])
+  }, [detail, selectedThreadId, view, channelId, connectionId, currentUserId, navigate, inboxQuery])
 
   const handlePatch = useCallback(
     async (input: PatchThreadInput) => {
@@ -413,7 +406,7 @@ export default function Communication() {
     )
   }
 
-  if (enabledConnections.length === 0 && folder !== 'internal') {
+  if (enabledConnections.length === 0 && threadsReady && threads.length === 0) {
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
@@ -464,12 +457,12 @@ export default function Communication() {
           onTogglePin={handleDetailTogglePin}
           onDelete={detail ? handleDetailDelete : undefined}
           deleting={String(deletingThreadId) === String(selectedThreadId)}
-          onToggleContact={detail && folder !== 'internal' ? toggleContactPanel : undefined}
+          onToggleContact={detail ? toggleContactPanel : undefined}
           contactOpen={showContactPanel}
           onDecisionResolved={handleDecisionResolved}
         />
-        {detail && showContactPanel && folder !== 'internal' ? (
-          <ContactPanel thread={detail.thread} onClose={toggleContactPanel} />
+        {detail && showContactPanel ? (
+          <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} />
         ) : null}
       </div>
     </div>

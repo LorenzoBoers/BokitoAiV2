@@ -123,7 +123,7 @@ export default function ForgotPassword() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              error={validation.errors.find(e => e.fieldSlug === 'email')?.message}
+              error={validation.errors.find(e => e.field === 'email')?.message}
               placeholder="you@company.com"
               required
               autoFocus

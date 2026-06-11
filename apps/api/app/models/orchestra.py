@@ -5,23 +5,6 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 
-class Task(SQLModel, table=True):
-    __tablename__ = "orchestra_tasks"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    name: str
-    instructions: str = ""
-    schedule_kind: str = Field(default="on_demand")  # cron | interval | on_demand
-    schedule_expr: str = ""
-    action_type: str = Field(default="start_task")  # start_task | start_workstream | wake_agent
-    action_config_json: str = Field(default="{}")
-    enabled: bool = True
-    last_run_at: Optional[datetime] = None
-    next_run_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 class AgentProfile(SQLModel, table=True):
     __tablename__ = "agent_profiles"
 

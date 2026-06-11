@@ -53,7 +53,12 @@ class MockExecutionEnvironment(ExecutionEnvironment):
 
 class AgentLoopExecutionEnvironment(ExecutionEnvironment):
     async def _resolve_agent(
-        self, session: AsyncSession, tenant_id: UUID, config: dict[str, Any], step: WorkstreamStep | None
+        self,
+        session: AsyncSession,
+        tenant_id: UUID,
+        config: dict[str, Any],
+        step: WorkstreamStep | None,
+        instructions: str = "",
     ) -> Agent:
         if step and step.agent_id:
             agent = (
@@ -125,7 +130,7 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
         *,
         step: WorkstreamStep | None = None,
     ) -> dict[str, Any]:
-        agent = await self._resolve_agent(session, tenant_id, config, step)
+        agent = await self._resolve_agent(session, tenant_id, config, step, instructions)
         snapshot = await resolve_runtime_snapshot(
             session,
             tenant_id,

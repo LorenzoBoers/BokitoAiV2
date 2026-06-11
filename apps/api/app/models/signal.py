@@ -11,7 +11,16 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-SIGNAL_CHANNELS = ("email", "chat", "widget", "webhook", "integration", "internal")
+SIGNAL_CHANNELS = (
+    "email",
+    "chat",
+    "widget",
+    "slack",
+    "webhook",
+    "integration",
+    "internal",
+    "assistant",
+)
 SIGNAL_STATUSES = ("open", "pending", "closed", "spam", "archived")
 SIGNAL_PRIORITIES = ("low", "normal", "high", "urgent")
 SIGNAL_MESSAGE_KINDS = (
@@ -23,11 +32,11 @@ SIGNAL_MESSAGE_KINDS = (
     "system_event",
     "internal_note",
 )
-EXTERNAL_CHANNELS = ("email", "chat", "widget", "webhook", "integration")
+EXTERNAL_CHANNELS = ("email", "chat", "widget", "slack", "webhook", "integration")
 
 
 def is_internal_channel(channel: str) -> bool:
-    return channel == "internal"
+    return channel in ("internal", "assistant")
 
 
 class Signal(SQLModel, table=True):
@@ -39,9 +48,11 @@ class Signal(SQLModel, table=True):
     source: str = Field(default="", index=True)
     external_id: str = Field(default="", index=True)
     connection_id: Optional[uuid.UUID] = Field(default=None, foreign_key="integration_connections.id")
-    email_account_id: Optional[uuid.UUID] = Field(default=None, foreign_key="email_accounts.id", index=True)
+    channel_account_id: Optional[uuid.UUID] = Field(default=None, foreign_key="channel_accounts.id", index=True)
+    contact_id: Optional[uuid.UUID] = Field(default=None, foreign_key="contacts.id", index=True)
+    # Owner for personal assistant threads (channel="assistant").
+    owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
-    legacy_inbox_thread_id: Optional[int] = Field(default=None, index=True)
 
     subject: str = Field(default="(No subject)")
     contact_name: str = ""
@@ -63,6 +74,11 @@ class Signal(SQLModel, table=True):
     summary: str = ""
     certainty: Optional[int] = None
     triaged_at: Optional[datetime] = None
+
+    # History compaction: rolling summary of the oldest `compacted_count`
+    # LLM-eligible messages; durable facts are flushed to the memory doc first.
+    compact_summary: str = ""
+    compacted_count: int = 0
 
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -89,6 +105,8 @@ class SignalMessage(SQLModel, table=True):
     body_preview: str = ""
     external_id: str = Field(default="", index=True)
     attachments_json: str = Field(default="[]")
+    metadata_json: str = Field(default="{}")
+    certainty: Optional[int] = None
     send_status: Optional[str] = None
     auto_sent: bool = False
     decision_id: Optional[uuid.UUID] = Field(default=None, foreign_key="decision_requests.id")

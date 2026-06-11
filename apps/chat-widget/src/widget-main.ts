@@ -7,7 +7,7 @@
  *           defer></script>
  */
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
-import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatHttpUrl, normalizeLivechatApiBase, realtimeWebSocketUrl, xanoApiGroupUrl } from './api/livechat-url'
+import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, gatewayWebSocketUrl, livechatHttpUrl, normalizeLivechatApiBase, xanoApiGroupUrl } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
 import {
   appendWorkLogEvent,
@@ -222,25 +222,31 @@ class ApiClient {
   }
 }
 
-/* ── Realtime client ────────────────────────────────────────── */
+/* ── Realtime client (gateway WebSocket protocol) ───────────── */
 class RealtimeClient {
-  #url; #channelName; #token; #onEvent; #socket = null;
+  #url; #topics; #token; #onEvent; #socket = null;
   #reconnectAttempts = 0; #maxReconnectDelay = 30000; #reconnectTimer = null; #onReconnect;
 
-  constructor({ url, channelName, token, onEvent, onReconnect }) {
-    this.#url = url; this.#channelName = channelName; this.#token = token;
+  constructor({ url, topics, token, onEvent, onReconnect }) {
+    this.#url = url; this.#topics = topics; this.#token = token;
     this.#onEvent = onEvent; this.#onReconnect = onReconnect;
   }
 
   connect() {
     try {
-      const params = new URLSearchParams({ channel: this.#channelName });
-      if (this.#token) params.set('token', this.#token);
+      const params = new URLSearchParams({ device: 'widget' });
+      if (this.#token) params.set('access_token', this.#token);
       this.#socket = new WebSocket(`${this.#url}?${params}`);
-      this.#socket.onmessage = e => { try { this.#onEvent(JSON.parse(e.data)); } catch {} };
+      this.#socket.onmessage = e => {
+        try {
+          const frame = JSON.parse(e.data);
+          if (frame?.type === 'event') this.#onEvent(frame);
+        } catch {}
+      };
       this.#socket.onopen = () => {
         const w = this.#reconnectAttempts > 0;
         this.#reconnectAttempts = 0;
+        this.#socket?.send(JSON.stringify({ type: 'sub', topics: this.#topics }));
         if (w && this.#onReconnect) this.#onReconnect();
       };
       this.#socket.onclose = () => this.#scheduleReconnect();
@@ -260,6 +266,26 @@ class RealtimeClient {
     this.#socket?.close();
     this.#socket = null;
   }
+}
+
+/**
+ * Map a gateway `message` event frame onto the legacy widget realtime shape
+ * (`{ event_type, object }`) so the existing render pipeline keeps working.
+ */
+function gatewayFrameToWidgetEvent(frame) {
+  if (frame?.event !== 'message') return null;
+  const m = frame.data?.message || {};
+  if (m.role !== 'assistant') return null;
+  return {
+    event_type: 'message',
+    object: {
+      id: m.id,
+      sender_type: 'ai',
+      status: 'sent',
+      message_content: m.body_text || '',
+      created_at: m.created_at,
+    },
+  };
 }
 
 /* ── Page context manager ───────────────────────────────────── */
@@ -3702,10 +3728,13 @@ class BokitoChatWidget extends HTMLElement {
   #connectRealtime() {
     if (!this.#conversationId) return;
     this.#realtime = new RealtimeClient({
-      url: realtimeWebSocketUrl(this.#apiUrl),
-      channelName: `conversation/${this.#conversationId}`,
-      token: null,
-      onEvent: (data) => this.#handleRealtimeEvent(data),
+      url: gatewayWebSocketUrl(this.#apiUrl),
+      topics: [`signal:${this.#conversationId}`],
+      token: this.#sessionToken || null,
+      onEvent: (frame) => {
+        const legacy = gatewayFrameToWidgetEvent(frame);
+        if (legacy) this.#handleRealtimeEvent(legacy);
+      },
       onReconnect: () => this.#onRealtimeReconnect(),
     });
     this.#realtime.connect();
@@ -3982,10 +4011,18 @@ class BokitoChatWidget extends HTMLElement {
     this.#workLogRealtime?.disconnect?.();
     this.#ensureWorkLogStack();
     this.#workLogRealtime = new RealtimeClient({
-      url: realtimeWebSocketUrl(this.#apiUrl),
-      channelName: `work_log/${workLogId}`,
+      url: gatewayWebSocketUrl(this.#apiUrl),
+      topics: [`run:${workLogId}`],
       token: this.#hostAuthToken || this.#sessionToken || null,
-      onEvent: (data) => this.#handleWorkLogRealtimeEvent(data),
+      onEvent: (frame) => {
+        if (frame?.event !== 'agent.run') return;
+        const d = frame.data || {};
+        const finished = ['completed', 'failed', 'cancelled'].includes(String(d.status || ''));
+        this.#handleWorkLogRealtimeEvent({
+          type: 'log',
+          title: finished ? 'Run finished' : String(d.message || d.type || ''),
+        });
+      },
       onReconnect: () => {},
     });
     this.#workLogRealtime.connect();

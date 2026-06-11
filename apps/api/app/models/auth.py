@@ -5,6 +5,15 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 
+def user_numeric_id(user_id: uuid.UUID) -> int:
+    """Derive a stable positive integer id from a UUID.
+
+    The dashboard inbox contract uses numeric user ids for assignee/members.
+    This mapping is stable for a given UUID across requests.
+    """
+    return int(user_id.hex[:8], 16)
+
+
 class Tenant(SQLModel, table=True):
     __tablename__ = "tenants"
 

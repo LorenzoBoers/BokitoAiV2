@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Building2, Loader2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { isBokitoMode } from '../../lib/bokito-mode'
 import { listStaffTenants, type StaffTenantOption } from '../../lib/staff-api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 
@@ -15,7 +14,7 @@ export default function StaffTenantBar() {
   const activeTenantId = user?.organisationId ?? ''
 
   useEffect(() => {
-    if (!isBokitoMode() || !isStaff || !token) return
+    if (!isStaff || !token) return
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -53,7 +52,7 @@ export default function StaffTenantBar() {
     [activeTenantId, switchStaffTenant, switching],
   )
 
-  if (!isBokitoMode() || !isStaff) return null
+  if (!isStaff) return null
 
   const label = tenants.find((t) => t.id === activeTenantId)?.name ?? user?.tenant?.name ?? 'Tenant'
 

@@ -4,7 +4,6 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
-import { isBokitoMode } from '../lib/bokito-mode'
 import {
   createKbCollection,
   deleteKbDocument,
@@ -51,15 +50,13 @@ export default function HelpCentersSettings() {
 
   return (
     <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-4 py-1">
-      {isBokitoMode() ? (
-        <Card className="border-border/80 bg-bg-elevated/40 p-4">
-          <p className="text-sm font-medium text-text-heading">Coming soon</p>
-          <p className="mt-1 text-sm text-text-secondary">
-            Help center collections and document indexing will ship in a follow-up release. The UI below is
-            a preview of the planned workflow.
-          </p>
-        </Card>
-      ) : null}
+      <Card className="border-border/80 bg-bg-elevated/40 p-4">
+        <p className="text-sm font-medium text-text-heading">Coming soon</p>
+        <p className="mt-1 text-sm text-text-secondary">
+          Help center collections and document indexing will ship in a follow-up release. The UI below is
+          a preview of the planned workflow.
+        </p>
+      </Card>
       <p className="text-sm text-text-secondary">
         Manage collection sources for AI context and document indexing.
       </p>

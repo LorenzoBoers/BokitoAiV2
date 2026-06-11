@@ -4,7 +4,7 @@ import { ArrowRight, CheckCircle2, Globe, Image, Loader2, MessageSquare, Sparkle
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
-import { XANO_AUTH_API } from '../lib/xano'
+import { AUTH_API_BASE } from '../lib/api'
 import { ASSISTENT_DEFAULT_PATH } from '../lib/assistent-settings-path'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -389,7 +389,7 @@ export default function CompanyConfig() {
         form.append('favicon', faviconFile)
       }
 
-      const res = await fetch(`${XANO_AUTH_API}${authRoutes.workspaceBranding(currentWorkspace.id)}`, {
+      const res = await fetch(`${AUTH_API_BASE}${authRoutes.workspaceBranding(currentWorkspace.id)}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

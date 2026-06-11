@@ -39,7 +39,9 @@ export const integrationsRoutes = {
   },
   email: {
     connections: {
-      list: '/email/connections',
+      // FastAPI serves email channel accounts (numeric id matches the
+      // `email_connection_id` filter on /api/signals).
+      list: '/email/accounts',
       byId: (connectionId: number) => `/email/connections/${connectionId}`,
       folders: (connectionId: number) => `/email/connections/${connectionId}/folders`,
       mailboxSettings: (connectionId: number) => `/email/connections/${connectionId}/mailbox-settings`,

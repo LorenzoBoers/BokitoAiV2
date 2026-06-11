@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.auth import Membership, User
-from app.models.email import EmailAccount
-from app.models.inbox_threads import user_numeric_id
+from app.gateway.publish import publish_signal_message, publish_thread_update
+from app.models.auth import Membership, User, user_numeric_id
+from app.models.channel import ChannelAccount
 from app.models.notification import DecisionRequest
 from app.models.signal import (
     EXTERNAL_CHANNELS,
@@ -47,7 +47,11 @@ async def resolve_email_account_by_numeric_id(
     tenant_id: UUID,
     numeric_id: int,
 ) -> UUID | None:
-    result = await session.execute(select(EmailAccount).where(EmailAccount.tenant_id == tenant_id))
+    result = await session.execute(
+        select(ChannelAccount).where(
+            ChannelAccount.tenant_id == tenant_id, ChannelAccount.channel == "email"
+        )
+    )
     for account in result.scalars().all():
         if user_numeric_id(account.id) == numeric_id:
             return account.id
@@ -61,7 +65,7 @@ def serialize_thread(
     user_num: int | None = None,
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
-    email_conn_id = user_numeric_id(signal.email_account_id) if signal.email_account_id else None
+    email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
     folder = "internal" if is_internal_channel(signal.channel) else "external"
     return {
         "id": str(signal.id),
@@ -83,7 +87,6 @@ def serialize_thread(
         "channel": signal.channel,
         "folder": folder,
         "project_id": str(signal.project_id) if signal.project_id else None,
-        "legacy_inbox_thread_id": signal.legacy_inbox_thread_id,
         "created_at": _iso(signal.created_at),
     }
 
@@ -270,7 +273,7 @@ async def list_threads(
     if email_connection_id is not None:
         account_id = await resolve_email_account_by_numeric_id(session, tenant_id, email_connection_id)
         if account_id:
-            query = query.where(Signal.email_account_id == account_id)
+            query = query.where(Signal.channel_account_id == account_id)
         else:
             query = query.where(Signal.id.is_(None))
 
@@ -369,6 +372,7 @@ async def patch_thread(
     )
     await session.commit()
     await session.refresh(signal)
+    await publish_thread_update(signal)
     pinned = await _pinned_ids(session, tenant_id, user_id)
     return serialize_thread(signal, is_pinned=signal_id in pinned, user_num=user_num)
 
@@ -423,6 +427,13 @@ async def reply_to_thread(
     if not signal:
         return None
     now = datetime.utcnow()
+    send_status = None
+    if direction == "outbound":
+        from app.channels import deliver_outbound
+
+        send_status = await deliver_outbound(session, signal, body_text=body_text)
+        if send_status == "skipped":
+            send_status = "sent"
     message = SignalMessage(
         signal_id=signal_id,
         tenant_id=tenant_id,
@@ -436,7 +447,7 @@ async def reply_to_thread(
         body_text=body_text,
         body_preview=body_text[:200],
         body_html=body_html or f"<p>{body_text}</p>",
-        send_status="sent" if direction == "outbound" else None,
+        send_status=send_status,
         received_at=now,
     )
     session.add(message)
@@ -459,6 +470,7 @@ async def reply_to_thread(
     )
     await session.commit()
     await session.refresh(message)
+    await publish_signal_message(signal, message)
     return serialize_message(message)
 
 

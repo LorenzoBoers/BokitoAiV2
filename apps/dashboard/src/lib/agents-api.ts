@@ -1,9 +1,9 @@
 import { agentsRoutes } from '../api/routes'
 import type { RuntimeAgent } from './workforce-api'
-import { xanoGetWorkforce } from './xano'
+import { workforceGet } from './api'
 
 export async function listAgents(): Promise<RuntimeAgent[]> {
-  const data = await xanoGetWorkforce<{ items?: RuntimeAgent[] } | RuntimeAgent[]>(
+  const data = await workforceGet<{ items?: RuntimeAgent[] } | RuntimeAgent[]>(
     agentsRoutes.list,
   )
   if (Array.isArray(data)) return data

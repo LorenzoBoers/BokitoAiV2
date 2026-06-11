@@ -1,7 +1,6 @@
 """LEARNING endpoints."""
 
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field

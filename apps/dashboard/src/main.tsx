@@ -6,23 +6,19 @@ import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { ValidationProvider } from './context/ValidationContext'
-import { UndoRedoProvider } from './context/UndoRedoContext'
 import { WorkspaceProvider } from './context/WorkspaceContext'
 import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
 import App from './App'
 import { readPublishedDashboardUser } from './lib/widget-bridge'
 import i18n from './i18n'
-import { isBokitoMode } from './lib/bokito-mode'
 import './index.css'
 
-if (isBokitoMode()) {
-  void i18n.changeLanguage('en')
-  try {
-    localStorage.setItem('bokito-language', 'en')
-  } catch {
-    // ignore
-  }
+void i18n.changeLanguage('en')
+try {
+  localStorage.setItem('bokito-language', 'en')
+} catch {
+  // ignore
 }
 import { DASHBOARD_CHAT_AGENT_SLUG, CHAT_WIDGET_SCRIPT_PATH_INTERNAL, livechatWidgetHttpOrigin } from './lib/api.config'
 
@@ -71,10 +67,8 @@ createRoot(document.getElementById('root')!).render(
               <IntegrationBrandProvider>
                 <NotificationProvider>
                   <ValidationProvider>
-                    <UndoRedoProvider>
-                      <App />
-                      <Toaster richColors closeButton position="top-right" />
-                    </UndoRedoProvider>
+                    <App />
+                    <Toaster richColors closeButton position="top-right" />
                   </ValidationProvider>
                 </NotificationProvider>
               </IntegrationBrandProvider>

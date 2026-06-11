@@ -16,12 +16,10 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { AI_OS_DEFAULT_PATH, getRailItems, type NavBadgeSlot, WORKFORCE_DEFAULT_PATH } from './portal-nav'
-import { isWorkforceRoute } from '../../lib/workforce-nav-agents'
+import { AGENTS_DEFAULT_PATH, getRailItems, type NavBadgeSlot } from './portal-nav'
 import NavCountBadge from './NavCountBadge'
 import { useNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
-import { useIsAdmin } from '../../hooks/useIsAdmin'
 
 export default function Sidebar() {
   const { t } = useTranslation(['nav', 'common'])
@@ -31,11 +29,8 @@ export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const displayName = user?.name ?? t('common:account')
-  const isAdmin = useIsAdmin()
-  const projectMatch = location.pathname.match(/^\/project\/([^/]+)/)
-  const projectId = projectMatch?.[1]
   const { counts } = useNavBadges()
-  const railItems = getRailItems(t, isAdmin, projectId)
+  const railItems = getRailItems(t)
   const mainRailItems = railItems.filter((item) => item.to !== '/settings/profile')
 
   const railTooltip = (label: string, slot?: NavBadgeSlot) => {
@@ -45,9 +40,6 @@ export default function Sidebar() {
     if (slot === 'agents') return t('nav:badges.railAgents', { count: badgeCount })
     if (slot === 'home') return t('nav:badges.railHome', { count: badgeCount })
     if (slot === 'messages') return t('nav:badges.railMessages', { count: badgeCount })
-    if (slot === 'projectsAttention') {
-      return t('nav:badges.railProjects', { count: badgeCount })
-    }
     return label
   }
 
@@ -61,7 +53,7 @@ export default function Sidebar() {
           : t('nav:badges.ariaInbox', { count: badgeCount })
       return `${label}. ${suffix}`
     }
-    if (slot === 'agents' || slot === 'projectsAttention') {
+    if (slot === 'agents') {
       const suffix =
         badgeCount === 1
           ? t('nav:badges.ariaAgentsOne', { defaultValue: '1 item needs action' })
@@ -84,44 +76,26 @@ export default function Sidebar() {
     if (path === '/home') {
       return location.pathname === '/home' || location.pathname.startsWith('/home/')
     }
-    if (path === '/agenda') {
-      return location.pathname === '/agenda' || location.pathname.startsWith('/agenda/')
-    }
-    if (path === '/support/inbox/my' || path === '/support/inbox/mine' || path === '/support/inbox/all') {
-      return location.pathname.startsWith('/support') || location.pathname.startsWith('/communication')
-    }
     if (path === '/integrations/connected' || path === '/integrations') {
       return location.pathname.startsWith('/integrations')
     }
-    if (path === AI_OS_DEFAULT_PATH || path === WORKFORCE_DEFAULT_PATH) {
-      return (
-        location.pathname.startsWith('/os') ||
-        location.pathname === '/orchestra' ||
-        location.pathname.startsWith('/orchestra/') ||
-        location.pathname.startsWith('/projects') ||
-        location.pathname.startsWith('/project/') ||
-        isWorkforceRoute(location.pathname)
-      )
+    if (path === AGENTS_DEFAULT_PATH) {
+      return location.pathname.startsWith('/agents') || location.pathname.startsWith('/ai/')
     }
-    if (path === '/database') {
-      return (
-        location.pathname.startsWith('/database') ||
-        location.pathname.startsWith('/users') ||
-        location.pathname.startsWith('/data/')
-      )
+    if (path === '/workspace') {
+      return location.pathname.startsWith('/workspace')
+    }
+    if (path === '/automations') {
+      return location.pathname.startsWith('/automations')
+    }
+    if (path === '/govern') {
+      return location.pathname.startsWith('/govern')
     }
     if (path === '/messages') {
-      return (
-        location.pathname === '/messages' ||
-        location.pathname === '/communication' ||
-        location.pathname.startsWith('/support/inbox')
-      )
-    }
-    if (path === '/users/attributes') {
-      return location.pathname.startsWith('/users')
+      return location.pathname === '/messages' || location.pathname.startsWith('/messages/')
     }
     if (path === '/settings/profile') {
-      return location.pathname.startsWith('/settings') || location.pathname.startsWith('/company-config')
+      return location.pathname.startsWith('/settings')
     }
     return false
   }

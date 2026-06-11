@@ -165,7 +165,8 @@ export async function listMcpIntegrationRows(
         endpoint: endpointForRow(provider, connection, bindingConfig),
         authLabel: authTypeFromMetadata(connection.metadata, provider.auth_type),
         status: connection.status,
-        mcpServerId: mcpServerId != null ? mcpServerId : undefined,
+        mcpServerId:
+          typeof mcpServerId === 'string' || typeof mcpServerId === 'number' ? mcpServerId : undefined,
         createdAt: connection.created_at,
         logoUrl: brand.logoUrl,
         logoDarkUrl: brand.logoDarkUrl,

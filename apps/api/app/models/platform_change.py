@@ -1,6 +1,6 @@
 """Draft/versioning layer for platform self-maintenance.
 
-Every structural mutation (agent, workstream, blueprint, integration, graph)
+Every structural mutation (agent, workstream, workspace doc, integration, graph)
 can be proposed as a PlatformChange. Users accept or reject drafts unless
 yolo mode applies (direct apply without draft queue).
 """
@@ -15,8 +15,7 @@ PLATFORM_RESOURCE_TYPES = frozenset(
     {
         "agent",
         "workstream",
-        "blueprint_page",
-        "blueprint_block",
+        "workspace_doc",
         "integration",
         "mcp_server",
         "canvas_node",

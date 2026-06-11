@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.gateway.publish import publish_decision, publish_signal_message
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
 
@@ -67,6 +68,7 @@ async def append_decision_to_signal(
     user_id: UUID | None = None,
     agent_id: UUID | None = None,
     project_id: UUID | None = None,
+    signal_id: UUID | None = None,
 ) -> SignalMessage:
     signal = await get_or_create_internal_thread(
         session,
@@ -74,6 +76,7 @@ async def append_decision_to_signal(
         project_id=project_id or decision.project_id,
         subject=decision.title,
         assigned_user_id=user_id,
+        existing_signal_id=signal_id,
     )
     message = SignalMessage(
         signal_id=signal.id,
@@ -106,6 +109,14 @@ async def append_decision_to_signal(
         )
     )
     await session.flush()
+    await publish_signal_message(signal, message)
+    await publish_decision(
+        tenant_id,
+        decision_id=decision.id,
+        status=decision.status,
+        title=decision.title,
+        signal_id=signal.id,
+    )
     return message
 
 
@@ -144,6 +155,7 @@ async def append_workforce_message(
     signal.has_unread = True
     session.add(signal)
     await session.flush()
+    await publish_signal_message(signal, message)
     return message
 
 
@@ -155,6 +167,7 @@ async def ingest_decision_request(
     *,
     user_id: UUID | None = None,
     agent_id: UUID | None = None,
+    signal_id: UUID | None = None,
 ) -> SignalMessage:
     return await append_decision_to_signal(
         session,
@@ -163,4 +176,5 @@ async def ingest_decision_request(
         user_id=user_id or notification.user_id,
         agent_id=agent_id,
         project_id=decision.project_id,
+        signal_id=signal_id,
     )

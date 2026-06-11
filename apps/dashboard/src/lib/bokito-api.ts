@@ -3,7 +3,6 @@ import type {
   ChatMessage,
   CockpitSummary,
   Conversation,
-  InboxItem,
   PushSubscriptionPayload,
   TenantAppearance,
 } from '@bokito/messenger-ui'
@@ -14,13 +13,12 @@ export type {
   ChatMessage,
   CockpitSummary,
   Conversation,
-  InboxItem,
   PushSubscriptionPayload,
   TenantAppearance,
 }
 
 function resolveBaseUrl(): string {
-  if (import.meta.env.VITE_API_MODE === 'bokito' && import.meta.env.DEV) {
+  if (import.meta.env.DEV) {
     return ''
   }
   const configured = (import.meta.env.VITE_BOKITO_API_URL || '').replace(/\/$/, '')
@@ -55,14 +53,6 @@ export async function bokitoLogin(email: string, password: string) {
 
 export async function bokitoMe(token: string) {
   return bokitoFetch<AuthMeResponse>('/api/auth/me', token)
-}
-
-export async function bokitoListInbox(token: string, options?: { channel?: string; limit?: number }) {
-  const params = new URLSearchParams()
-  if (options?.channel) params.set('channel', options.channel)
-  if (options?.limit) params.set('limit', String(options.limit))
-  const query = params.toString()
-  return bokitoFetch<InboxItem[]>(`/api/inbox${query ? `?${query}` : ''}`, token)
 }
 
 export async function bokitoGetCockpitSummary(token: string) {

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.orchestration import AgentTask, TaskArtifact
-from app.models.orchestra import Task as AutomationTask, Workstream
+from app.models.orchestra import Workstream
 from app.services.signal_decisions import get_or_create_internal_thread
 
 
@@ -175,50 +175,6 @@ async def resume_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
     await enqueue_agent_task_segment(str(tenant_id), str(task.id))
     await session.refresh(task)
     return task
-
-
-async def trigger_automation_task(session: AsyncSession, automation_id: UUID, tenant_id: UUID) -> None:
-    result = await session.execute(
-        select(AutomationTask).where(
-            AutomationTask.id == automation_id,
-            AutomationTask.tenant_id == tenant_id,
-            AutomationTask.enabled.is_(True),
-        )
-    )
-    auto = result.scalar_one_or_none()
-    if not auto:
-        return
-
-    config = _parse_json(auto.action_config_json)
-    action = auto.action_type or "start_task"
-
-    if action == "start_workstream" and config.get("workstream_id"):
-        await create_agent_task(
-            session,
-            tenant_id,
-            title=config.get("task_name") or auto.name,
-            description=config.get("task_description") or auto.instructions,
-            workstream_id=UUID(str(config["workstream_id"])),
-            trigger_type="automation",
-            trigger_id=str(auto.id),
-            auto_start=True,
-        )
-    else:
-        await create_agent_task(
-            session,
-            tenant_id,
-            title=config.get("task_name") or auto.name,
-            description=config.get("task_description") or auto.instructions,
-            agent_id=UUID(str(config["agent_id"])) if config.get("agent_id") else None,
-            workstream_id=UUID(str(config["workstream_id"])) if config.get("workstream_id") else None,
-            trigger_type="automation",
-            trigger_id=str(auto.id),
-            auto_start=True,
-        )
-
-    auto.last_run_at = datetime.utcnow()
-    session.add(auto)
-    await session.commit()
 
 
 async def add_task_artifact(

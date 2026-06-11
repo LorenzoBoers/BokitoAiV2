@@ -18,11 +18,11 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
 async def _seed_project(session_override, tenant_id) -> Project:
     po = Agent(
         tenant_id=tenant_id,
-        name="Test PO",
-        role="po",
-        slug="po",
+        name="Test Orchestrator",
+        role="orchestrator",
+        slug="orchestrator",
         runtime_status="standby",
-        system_prompt="PO",
+        system_prompt="Orchestrator",
     )
     session_override.add(po)
     await session_override.flush()

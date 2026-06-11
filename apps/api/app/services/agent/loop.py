@@ -2,18 +2,16 @@ import json
 from typing import Any, AsyncGenerator
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
-from app.models.policy import AssistantPersona
 from app.services.agent.llm import get_llm_provider
-from app.services.agent.rag import build_core_summary, search_index
 from app.services.agent.tools import (
     execute_tool,
     filter_tools_for_agent,
     get_tool_definitions,
 )
+from app.services.workspace import build_workspace_context, hybrid_search
 
 
 class AgentLoop:
@@ -24,12 +22,16 @@ class AgentLoop:
         user_id: UUID | None,
         agent: Agent | None = None,
         run: AgentRun | None = None,
+        signal_id: UUID | None = None,
+        trust: str = "operator",
     ):
         self.session = session
         self.tenant_id = tenant_id
         self.user_id = user_id
         self.agent = agent
         self.run = run
+        self.signal_id = signal_id
+        self.trust = trust
         self.llm = get_llm_provider()
         # Passport: an agent only sees the tools it is permitted to use.
         self.tools = filter_tools_for_agent(get_tool_definitions(), agent)
@@ -47,26 +49,34 @@ class AgentLoop:
         )
         self.session.add(event)
         await self.session.commit()
+        from app.gateway.publish import publish_run_event
+
+        await publish_run_event(
+            self.tenant_id,
+            self.run.id,
+            event_type=event_type,
+            message=message,
+            payload=payload or {},
+            status=self.run.status,
+        )
 
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
-        core = await build_core_summary(self.session, self.tenant_id)
+        # Persona doc + long-term memory + compact skills list (bodies on demand).
+        workspace = await build_workspace_context(self.session, self.tenant_id)
         rag_context = ""
         if user_query:
-            hits = await search_index(self.session, self.tenant_id, user_query, top_k=5)
+            hits = await hybrid_search(self.session, self.tenant_id, user_query, top_k=5)
             if hits:
                 rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
-        persona_result = await self.session.execute(
-            select(AssistantPersona).where(AssistantPersona.tenant_id == self.tenant_id)
-        )
-        persona = persona_result.scalar_one_or_none()
-        persona_text = ""
-        if persona:
-            persona_text = f"Tone: {persona.tone}\nDo: {persona.do_text}\nDon't: {persona.dont_text}"
         base = self.agent.system_prompt if self.agent else "You are the Bokito AI OS assistant."
-        return (
-            f"{base}\n\n## Persona\n{persona_text}\n\n## Core summary\n{core}\n\n"
-            f"## Relevant context\n{rag_context}\n\n{extra_context}"
-        ).strip()
+        parts = [base]
+        if workspace:
+            parts.append(workspace)
+        if rag_context:
+            parts.append(f"## Relevant context\n{rag_context}")
+        if extra_context:
+            parts.append(extra_context)
+        return "\n\n".join(parts).strip()
 
     async def run_chat(
         self,
@@ -114,9 +124,10 @@ class AgentLoop:
                     self.user_id,
                     tool_use["name"],
                     tool_use.get("input", {}),
-                    conversation_id=None,
+                    signal_id=self.signal_id,
                     agent=self.agent,
                     run_id=self.run.id if self.run else None,
+                    trust=self.trust,
                 )
                 tool_results.append(
                     {

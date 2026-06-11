@@ -1,6 +1,6 @@
 /**
- * Relative paths on the auth API group base (`AUTH_API_BASE` / `XANO_AUTH_API`).
- * Mirrors previous literals in `lib/xano.ts` and profile/workspace calls.
+ * Relative paths on the auth API group base (`AUTH_API_BASE` / `AUTH_API_BASE`).
+ * Mirrors previous literals in `lib/api.ts` and profile/workspace calls.
  */
 export const authRoutes = {
   session: {

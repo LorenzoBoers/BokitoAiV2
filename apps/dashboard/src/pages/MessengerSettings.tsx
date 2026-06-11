@@ -28,8 +28,7 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
 import { policyRoutes } from '../api/routes/policy.routes'
-import { isBokitoMode } from '../lib/bokito-mode'
-import { XANO_AUTH_API } from '../lib/xano'
+import { AUTH_API_BASE } from '../lib/api'
 import {
   CHAT_WIDGET_SCRIPT_PATH_EXTERNAL,
   CHAT_WIDGET_SCRIPT_PATH_INTERNAL,
@@ -291,7 +290,7 @@ function MessengerSettingsContent({
   }, [currentWorkspace?.id, JSON.stringify(currentWorkspace?.messengerAppearance ?? null)])
 
   useEffect(() => {
-    if (!token || !isBokitoMode()) return
+    if (!token) return
     fetch(`/api${policyRoutes.persona()}`, {
       headers: { Authorization: `Bearer ${token}` },
       credentials: 'include',
@@ -408,7 +407,7 @@ function MessengerSettingsContent({
         form.append('widget_favicon', widgetFaviconFile)
       }
 
-      const res = await fetch(`${XANO_AUTH_API}${authRoutes.workspaceBranding(currentWorkspace.id)}`, {
+      const res = await fetch(`${AUTH_API_BASE}${authRoutes.workspaceBranding(currentWorkspace.id)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include',
@@ -427,23 +426,21 @@ function MessengerSettingsContent({
       })
       setSaved({ ...draft })
       setDraft({ ...draft })
-      if (isBokitoMode()) {
-        const personaRes = await fetch(`/api${policyRoutes.persona()}`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            tone: personaTone,
-            do_text: personaDo,
-            dont_text: personaDont,
-          }),
-        })
-        if (!personaRes.ok) {
-          throw new Error('Could not save agent persona')
-        }
+      const personaRes = await fetch(`/api${policyRoutes.persona()}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          tone: personaTone,
+          do_text: personaDo,
+          dont_text: personaDont,
+        }),
+      })
+      if (!personaRes.ok) {
+        throw new Error('Could not save agent persona')
       }
 
       setSaveOk(true)
@@ -655,8 +652,7 @@ function MessengerSettingsContent({
 
             {section === 'agent' ? (
               <div className="space-y-4">
-                {isBokitoMode() ? (
-                  <FoldableSection title="Assistant persona" defaultOpen>
+                <FoldableSection title="Assistant persona" defaultOpen>
                     <div className="space-y-3 pt-1">
                       <div>
                         <p className="text-sm font-medium text-text-heading">Tone</p>
@@ -687,12 +683,7 @@ function MessengerSettingsContent({
                         Saved with the Save button (same as customization). Advanced model options below are not persisted yet.
                       </p>
                     </div>
-                  </FoldableSection>
-                ) : (
-                  <p className="text-xs text-text-secondary">
-                    Persona API is available in Bokito API mode only. The live widget preview is hidden on this tab.
-                  </p>
-                )}
+                </FoldableSection>
 
                 <div>
                   <p className="mb-2 text-sm font-medium text-text-heading">Model</p>

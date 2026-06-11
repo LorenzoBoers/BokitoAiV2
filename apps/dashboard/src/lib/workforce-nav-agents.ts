@@ -1,24 +1,31 @@
 import type { RuntimeAgent } from './workforce-api'
 
 /** Roles treated as platform agents (excluded from "Your agents" sidebar list). */
-export const PLATFORM_ROLE_SLUGS = new Set(['po', 'assistant', 'communication', 'manager'])
-const PO_ROLE_SLUGS = new Set(['po', 'manager', 'product-owner', 'product_owner'])
+export const PLATFORM_ROLE_SLUGS = new Set([
+  'orchestrator',
+  'po',
+  'manager',
+  'assistant',
+  'communication',
+])
+/** Slugs that identify an orchestrator (canonical + legacy po/manager). */
+const ORCHESTRATOR_ROLE_SLUGS = new Set(['orchestrator', 'po', 'manager'])
 
 export function normalizeRoleSlug(agent: RuntimeAgent): string {
   return (agent.role_slug ?? '').toLowerCase()
 }
 
-export type AgentType = 'po' | 'worker'
+export type AgentType = 'orchestrator' | 'worker'
 
-export function isPoAgent(agent: RuntimeAgent): boolean {
+export function isOrchestratorAgent(agent: RuntimeAgent): boolean {
   const slug = normalizeRoleSlug(agent)
-  if (PO_ROLE_SLUGS.has(slug)) return true
+  if (ORCHESTRATOR_ROLE_SLUGS.has(slug)) return true
   const roleName = (agent.role_name ?? '').toLowerCase()
-  return roleName.includes('product owner') || roleName === 'po'
+  return roleName === 'orchestrator' || roleName.includes('product owner')
 }
 
 export function agentType(agent: RuntimeAgent): AgentType {
-  return isPoAgent(agent) ? 'po' : 'worker'
+  return isOrchestratorAgent(agent) ? 'orchestrator' : 'worker'
 }
 
 export function isPlatformAgent(agent: RuntimeAgent): boolean {
@@ -29,15 +36,15 @@ export function filterUserAgents(agents: RuntimeAgent[]): RuntimeAgent[] {
   return agents.filter((agent) => !isPlatformAgent(agent))
 }
 
-export function filterPoAgents(agents: RuntimeAgent[]): RuntimeAgent[] {
-  return agents.filter(isPoAgent)
+export function filterOrchestratorAgents(agents: RuntimeAgent[]): RuntimeAgent[] {
+  return agents.filter(isOrchestratorAgent)
 }
 
-/** PO sidebar target: single agent detail, multi-agent list page, or null when none. */
-export function resolvePoNavTarget(agents: RuntimeAgent[]): string | null {
-  const poAgents = filterPoAgents(agents)
-  if (poAgents.length === 1) return `/os/agents/${poAgents[0].id}`
-  if (poAgents.length > 1) return '/os/agents'
+/** Orchestrator sidebar target: single agent detail, multi-agent list page, or null when none. */
+export function resolveOrchestratorNavTarget(agents: RuntimeAgent[]): string | null {
+  const orchestrators = filterOrchestratorAgents(agents)
+  if (orchestrators.length === 1) return `/os/agents/${orchestrators[0].id}`
+  if (orchestrators.length > 1) return '/os/agents'
   return null
 }
 

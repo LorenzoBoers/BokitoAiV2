@@ -1,8 +1,8 @@
 {
   "title": "AI OS",
-  "subtitle": "Workspace map: orchestra, blueprint, projects, and live activity",
-  "canvasSubtitle": "Connect orchestrators, workstreams, sources, tools, and blueprints on one workspace canvas.",
-  "flowHint": "Drag nodes to arrange. Draw connections between handles to link workstreams, repos, tools, and blueprints.",
+  "subtitle": "Workspace map: orchestra, workspace docs, projects, and live activity",
+  "canvasSubtitle": "Connect orchestrators, workstreams, sources, and tools on one workspace canvas.",
+  "flowHint": "Drag nodes to arrange. Draw connections between handles to link workstreams, repos, and tools.",
   "canvasHint": "Click any node to see details and quick actions. Scroll to see the full map.",
   "projectCanvasHint": "Click any node for details. Sources feed the orchestrator and the workstreams they power.",
   "degradedNotice": "Read-only preview: restart the API server to save positions and connections. Drag and connect still work once the canvas API is live.",
@@ -14,12 +14,12 @@
   },
   "nodes": {
     "orchestra": "Orchestra",
-    "blueprint": "Blueprint",
+    "workspace": "Workspace",
     "project": "Project",
     "orchestrator": "Orchestrator",
     "assistant": "Assistant",
     "assistantHint": "Your in-app helper",
-    "blueprintHint": "Shared knowledge base",
+    "workspaceHint": "Shared memory and docs",
     "workstream": "Workstream",
     "repo": "Repository",
     "source": "Source",
@@ -33,7 +33,7 @@
     "notConfigured": "Not configured",
     "notLinked": "Not linked",
     "notConnected": "Not connected",
-    "pageCount": "{{count}} pages",
+    "docCount": "{{count}} docs",
     "workstreamCount": "{{count}} workstreams",
     "recentRuns": "{{count}} recent",
     "pending": "{{count}} pending",
@@ -66,10 +66,10 @@
       "desc": "The workspace orchestrator coordinates agents and schedules recurring work across all projects.",
       "open": "Open Orchestra"
     },
-    "blueprint": {
-      "desc": "Your workspace knowledge base. Agents read the Blueprint to understand context, rules, and goals.",
-      "pagesLabel": "Pages",
-      "open": "Open Blueprint"
+    "workspace": {
+      "desc": "Markdown memory, persona, skills, and docs your agents read and write.",
+      "docsLabel": "Docs",
+      "open": "Open workspace"
     },
     "project": {
       "workstreams": "Workstreams",

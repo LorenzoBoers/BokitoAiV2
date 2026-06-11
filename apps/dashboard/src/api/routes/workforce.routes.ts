@@ -24,10 +24,6 @@ export const workforceRoutes = {
     status: (workLogId: string) => `/runs/${encodeURIComponent(workLogId)}/status`,
     events: (workLogId: string) => `/work_logs/${encodeURIComponent(workLogId)}/events`,
   },
-  index: {
-    search: '/index/search',
-    chunks: '/index/chunks',
-  },
   workforce: {
     config: '/workforce/config',
     statusQuery: (params: URLSearchParams) => withQuery('/workforce/status', params),

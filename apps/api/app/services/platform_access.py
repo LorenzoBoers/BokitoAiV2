@@ -21,7 +21,7 @@ PLATFORM_SCOPES = frozenset(
         "platform:agent:update",
         "platform:workstream:create",
         "platform:workstream:update",
-        "platform:blueprint:write",
+        "platform:doc:write",
         "platform:integration:propose",
         "platform:integration:create",
         "platform:mcp:register",
@@ -30,13 +30,13 @@ PLATFORM_SCOPES = frozenset(
 )
 
 ROLE_DEFAULT_SCOPES: dict[str, list[str]] = {
-    "assistant": ["platform:read", "platform:blueprint:write"],
+    "assistant": ["platform:read", "platform:doc:write"],
     "orchestrator": [
         "platform:read",
         "platform:graph:edit",
         "platform:workstream:create",
         "platform:workstream:update",
-        "platform:blueprint:write",
+        "platform:doc:write",
         "platform:edge:connect",
         "platform:integration:propose",
         "platform:mcp:register",
@@ -45,11 +45,11 @@ ROLE_DEFAULT_SCOPES: dict[str, list[str]] = {
         "platform:read",
         "platform:workstream:create",
         "platform:workstream:update",
-        "platform:blueprint:write",
+        "platform:doc:write",
         "platform:edge:connect",
     ],
     "coding": ["platform:read"],
-    "orchestra": ["platform:read", "platform:blueprint:write", "platform:integration:propose"],
+    "orchestra": ["platform:read", "platform:doc:write", "platform:integration:propose"],
 }
 
 

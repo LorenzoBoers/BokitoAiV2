@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.email import EmailAccount
+from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDERS, PROVIDER_BY_SLUG, provider_id
 
@@ -66,9 +66,13 @@ async def connection_counts(session: AsyncSession, tenant_id: UUID) -> dict[str,
             by_provider[pid] = by_provider.get(pid, 0) + 1
 
     email_result = await session.execute(
-        select(EmailAccount.provider, func.count())
-        .where(EmailAccount.tenant_id == tenant_id, EmailAccount.is_enabled.is_(True))
-        .group_by(EmailAccount.provider)
+        select(ChannelAccount.provider, func.count())
+        .where(
+            ChannelAccount.tenant_id == tenant_id,
+            ChannelAccount.channel == "email",
+            ChannelAccount.is_enabled.is_(True),
+        )
+        .group_by(ChannelAccount.provider)
     )
     outlook = 0
     gmail = 0
@@ -337,11 +341,12 @@ async def ensure_email_account(
     tenant_id: UUID,
     provider: str,
     email: str,
-) -> EmailAccount:
+) -> ChannelAccount:
     result = await session.execute(
-        select(EmailAccount).where(
-            EmailAccount.tenant_id == tenant_id,
-            EmailAccount.email_address == email,
+        select(ChannelAccount).where(
+            ChannelAccount.tenant_id == tenant_id,
+            ChannelAccount.channel == "email",
+            ChannelAccount.address == email,
         )
     )
     existing = result.scalar_one_or_none()
@@ -352,9 +357,10 @@ async def ensure_email_account(
         await session.commit()
         await session.refresh(existing)
         return existing
-    account = EmailAccount(
+    account = ChannelAccount(
         tenant_id=tenant_id,
-        email_address=email,
+        channel="email",
+        address=email,
         provider=provider,
         is_enabled=True,
     )

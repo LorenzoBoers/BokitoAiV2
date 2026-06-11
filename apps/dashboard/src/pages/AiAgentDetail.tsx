@@ -15,10 +15,10 @@ import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import type { RuntimeAgent } from '../lib/workforce-api'
-import { WORKFORCE_DEFAULT_PATH, projectOrchestratorPath } from '../components/layout/portal-nav'
+import { AGENTS_DEFAULT_PATH } from '../components/layout/portal-nav'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { cn } from '../lib/utils'
-import { isPoAgent } from '../lib/workforce-nav-agents'
+import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
 
 const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
   active: 'text-status-success',
@@ -86,7 +86,7 @@ export default function AiAgentDetail() {
   }
 
   if (!agentId) {
-    return <Navigate to={WORKFORCE_DEFAULT_PATH} replace />
+    return <Navigate to={AGENTS_DEFAULT_PATH} replace />
   }
 
   if (workLogId) {
@@ -105,7 +105,7 @@ export default function AiAgentDetail() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <Link to={WORKFORCE_DEFAULT_PATH} className="text-sm text-accent hover:underline">
+      <Link to={AGENTS_DEFAULT_PATH} className="text-sm text-accent hover:underline">
         {t('workforce.agents.backToList')}
       </Link>
 
@@ -144,26 +144,15 @@ export default function AiAgentDetail() {
             {agent.current_activity_summary ? (
               <p className="mt-2 text-sm text-text-secondary">{agent.current_activity_summary}</p>
             ) : null}
-            {isPoAgent(agent) && linkedProject ? (
+            {isOrchestratorAgent(agent) && linkedProject ? (
               <div className="mt-3 rounded-lg border border-border/60 bg-bg-input/35 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
                   {t('project.po.title', { defaultValue: 'Orchestrator' })}
                 </p>
-                <Link
-                  to={projectOrchestratorPath(linkedProject.id)}
-                  className="mt-1 block text-sm font-medium text-accent hover:underline"
-                >
-                  {linkedProject.name}
-                </Link>
+                <p className="mt-1 text-sm font-medium text-text-heading">{linkedProject.name}</p>
               </div>
             ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" asChild>
-                <Link to="/os">
-                  <Network size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.openCanvas', { defaultValue: 'AI OS canvas' })}
-                </Link>
-              </Button>
               {(agent.role_slug === 'orchestrator' || agent.role_slug === 'po' || agent.role_slug === 'orchestra') ? (
                 <Button type="button" size="sm" variant="outline" asChild>
                   <Link to="/govern">

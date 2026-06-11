@@ -1,6 +1,5 @@
 import { appRoutes } from '../api/routes/app.routes'
-import { APP_API_BASE } from '../lib/api.config'
-import { xanoGet, xanoPost } from './xano'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 export type RuntimeProfile = {
   id: string
@@ -48,15 +47,18 @@ export type WorkstreamStep = {
 }
 
 export async function listRuntimeProfiles(): Promise<RuntimeProfile[]> {
-  return xanoGet<RuntimeProfile[]>(appRoutes.orchestration.runtimeProfiles)
+  return apiGet<RuntimeProfile[]>(appRoutes.orchestration.runtimeProfiles)
 }
 
 export async function createRuntimeProfile(body: Partial<RuntimeProfile> & { name: string }): Promise<{ id: string }> {
-  return xanoPost<{ id: string }>(appRoutes.orchestration.runtimeProfiles, body)
+  return apiPost<{ id: string }>(appRoutes.orchestration.runtimeProfiles, body)
 }
 
-export async function listAgentTasks(): Promise<AgentTask[]> {
-  return xanoGet<AgentTask[]>(appRoutes.orchestration.tasks)
+export async function listAgentTasks(opts?: { signalId?: string }): Promise<AgentTask[]> {
+  const path = opts?.signalId
+    ? `${appRoutes.orchestration.tasks}?signal_id=${encodeURIComponent(opts.signalId)}`
+    : appRoutes.orchestration.tasks
+  return apiGet<AgentTask[]>(path)
 }
 
 export async function createAgentTask(body: {
@@ -68,38 +70,38 @@ export async function createAgentTask(body: {
   default_runtime_profile_id?: string
   success_criteria_json?: string
 }): Promise<AgentTask> {
-  return xanoPost<AgentTask>(appRoutes.orchestration.tasks, body)
+  return apiPost<AgentTask>(appRoutes.orchestration.tasks, body)
 }
 
 export async function getAgentTask(taskId: string): Promise<AgentTask> {
-  return xanoGet<AgentTask>(appRoutes.orchestration.task(taskId))
+  return apiGet<AgentTask>(appRoutes.orchestration.task(taskId))
 }
 
 export async function cancelAgentTask(taskId: string): Promise<AgentTask> {
-  return xanoPost<AgentTask>(appRoutes.orchestration.taskCancel(taskId), {})
+  return apiPost<AgentTask>(appRoutes.orchestration.taskCancel(taskId), {})
+}
+
+export async function resumeAgentTask(taskId: string): Promise<AgentTask> {
+  return apiPost<AgentTask>(appRoutes.orchestration.taskResume(taskId), {})
 }
 
 export async function listTaskArtifacts(taskId: string): Promise<TaskArtifact[]> {
-  return xanoGet<TaskArtifact[]>(appRoutes.orchestration.taskArtifacts(taskId))
+  return apiGet<TaskArtifact[]>(appRoutes.orchestration.taskArtifacts(taskId))
 }
 
 export async function runWorkstreamOrchestrated(workstreamId: string): Promise<AgentTask> {
-  return xanoPost<AgentTask>(appRoutes.orchestration.workstreamRun(workstreamId), {})
+  return apiPost<AgentTask>(appRoutes.orchestration.workstreamRun(workstreamId), {})
 }
 
 export async function listWorkstreamSteps(workstreamId: string): Promise<WorkstreamStep[]> {
-  return xanoGet<WorkstreamStep[]>(appRoutes.orchestration.workstreamSteps(workstreamId))
+  return apiGet<WorkstreamStep[]>(appRoutes.orchestration.workstreamSteps(workstreamId))
 }
 
 export async function createWorkstreamStep(
   workstreamId: string,
   body: Partial<WorkstreamStep> & { name: string; order?: number },
 ): Promise<{ id: string }> {
-  return xanoPost<{ id: string }>(appRoutes.orchestration.workstreamSteps(workstreamId), body)
-}
-
-export function runEventsStreamUrl(runId: string): string {
-  return `${APP_API_BASE}${appRoutes.orchestration.runEventsStream(runId)}`
+  return apiPost<{ id: string }>(appRoutes.orchestration.workstreamSteps(workstreamId), body)
 }
 
 export async function fetchRunEvents(runId: string): Promise<{
@@ -108,11 +110,55 @@ export async function fetchRunEvents(runId: string): Promise<{
   runtime_snapshot: Record<string, unknown>
   events: Array<{ type: string; message: string; payload: Record<string, unknown>; sequence: number }>
 }> {
-  return xanoGet(appRoutes.orchestration.runEvents(runId))
+  return apiGet(appRoutes.orchestration.runEvents(runId))
 }
 
-export async function listAutomationTemplates(): Promise<
-  Array<{ id: string; slug: string; name: string; description: string; category: string; template: Record<string, unknown> }>
-> {
-  return xanoGet(appRoutes.orchestration.automationTemplates)
+export type Trigger = {
+  id: string
+  name: string
+  kind: 'cron' | 'interval' | 'heartbeat' | 'webhook'
+  cron_expr: string
+  interval_minutes: number
+  agent_id: string | null
+  agent_role: string
+  workstream_id: string | null
+  instructions: string
+  has_webhook_secret: boolean
+  enabled: boolean
+  last_run_at: string | null
+  next_run_at: string | null
+  last_status: string
+  created_at: string | null
+  webhook_secret?: string
+}
+
+export async function listTriggers(): Promise<Trigger[]> {
+  const res = await apiGet<{ triggers: Trigger[] }>(appRoutes.triggers.list)
+  return res.triggers ?? []
+}
+
+export async function createTrigger(body: {
+  name: string
+  kind: Trigger['kind']
+  cron_expr?: string
+  interval_minutes?: number
+  agent_id?: string
+  agent_role?: string
+  workstream_id?: string
+  instructions?: string
+  enabled?: boolean
+}): Promise<Trigger> {
+  return apiPost<Trigger>(appRoutes.triggers.list, body)
+}
+
+export async function updateTrigger(triggerId: string, body: Partial<Trigger>): Promise<Trigger> {
+  return apiPatch<Trigger>(appRoutes.triggers.byId(triggerId), body)
+}
+
+export async function deleteTrigger(triggerId: string): Promise<void> {
+  await apiDelete(appRoutes.triggers.byId(triggerId))
+}
+
+export async function runTrigger(triggerId: string): Promise<{ status: string }> {
+  return apiPost(appRoutes.triggers.run(triggerId), {})
 }

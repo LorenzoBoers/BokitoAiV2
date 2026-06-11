@@ -440,7 +440,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <button
                   type="button"
                   onClick={onToggleContact}
-                  aria-label={contactOpen ? 'Hide contact panel' : 'Show contact panel'}
+                  aria-label={contactOpen ? 'Hide orchestration panel' : 'Show orchestration panel'}
                   aria-pressed={contactOpen}
                   className={`${HEADER_ICON}${contactOpen ? ' text-accent' : ''}`}
                 >
@@ -448,7 +448,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {contactOpen ? 'Hide contact panel' : 'Show contact panel'}
+                {contactOpen ? 'Hide orchestration panel' : 'Show orchestration panel'}
               </TooltipContent>
             </Tooltip>
           ) : null}

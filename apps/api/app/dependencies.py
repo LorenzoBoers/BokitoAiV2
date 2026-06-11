@@ -44,9 +44,13 @@ async def get_current_auth(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> AuthContext:
     auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
+    if auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ").strip()
+    else:
+        # EventSource (SSE) cannot set custom headers, so allow a query token fallback.
+        token = request.query_params.get("access_token", "").strip()
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
-    token = auth_header.removeprefix("Bearer ").strip()
     try:
         payload = decode_access_token(token)
         user_id = UUID(payload["sub"])

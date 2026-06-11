@@ -94,8 +94,64 @@ async def test_workstream_steps(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_automation_templates(client: AsyncClient):
+async def test_triggers_crud_and_bindings(client: AsyncClient):
     headers = await _login(client)
-    resp = await client.get(f"{API}/automation-templates", headers=headers)
-    assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+
+    created = await client.post(
+        "/api/triggers",
+        headers=headers,
+        json={
+            "name": "Nightly scan",
+            "kind": "interval",
+            "interval_minutes": 1440,
+            "agent_role": "orchestra",
+            "instructions": "Scan open threads.",
+        },
+    )
+    assert created.status_code == 200
+    trigger = created.json()
+    assert trigger["kind"] == "interval"
+    assert trigger["next_run_at"]
+
+    listed = await client.get("/api/triggers", headers=headers)
+    assert listed.status_code == 200
+    assert any(t["id"] == trigger["id"] for t in listed.json()["triggers"])
+
+    updated = await client.patch(
+        f"/api/triggers/{trigger['id']}", headers=headers, json={"enabled": False}
+    )
+    assert updated.status_code == 200
+    assert updated.json()["enabled"] is False
+    assert updated.json()["next_run_at"] is None
+
+    webhook = await client.post(
+        "/api/triggers",
+        headers=headers,
+        json={"name": "Inbound hook", "kind": "webhook", "instructions": "Handle the payload."},
+    )
+    assert webhook.status_code == 200
+    secret = webhook.json().get("webhook_secret")
+    assert secret
+
+    bad = await client.post(f"/api/hooks/{webhook.json()['id']}?secret=wrong")
+    assert bad.status_code == 403
+
+    deleted = await client.delete(f"/api/triggers/{trigger['id']}", headers=headers)
+    assert deleted.status_code == 200
+
+    agents = await client.get("/api/workforce/agents", headers=headers)
+    agent_id = agents.json()["items"][0]["id"]
+    binding = await client.post(
+        "/api/channels/bindings",
+        headers=headers,
+        json={"channel": "widget", "agent_id": agent_id},
+    )
+    assert binding.status_code == 200
+    binding_id = binding.json()["id"]
+
+    bindings = await client.get("/api/channels/bindings", headers=headers)
+    assert bindings.status_code == 200
+    assert any(b["id"] == binding_id for b in bindings.json()["bindings"])
+
+    removed = await client.delete(f"/api/channels/bindings/{binding_id}", headers=headers)
+    assert removed.status_code == 200

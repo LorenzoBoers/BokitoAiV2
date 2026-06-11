@@ -2,21 +2,20 @@ import { workforceRoutes } from '../api/routes/workforce.routes'
 import { listProjects } from './projects-api'
 import { listProjectWorkstreams } from './workstreams-api'
 import {
-  xanoDeleteWorkforce,
-  xanoGetWorkforce,
-  xanoPatchWorkforce,
-  xanoPostWorkforce,
-} from './xano'
+  workforceDelete,
+  workforceGet,
+  workforcePatch,
+  workforcePost,
+} from './api'
 
-export type OsNodeType = 'orchestrator' | 'workstream' | 'repo' | 'tool' | 'blueprint'
+export type OsNodeType = 'orchestrator' | 'workstream' | 'repo' | 'tool'
 
-export type OsEdgeRelation = 'routed_by' | 'uses_repo' | 'uses_tool' | 'reads_blueprint'
+export type OsEdgeRelation = 'routed_by' | 'uses_repo' | 'uses_tool'
 
 export const OS_ALLOWED_EDGES: Record<OsEdgeRelation, [OsNodeType, OsNodeType]> = {
   routed_by: ['workstream', 'orchestrator'],
   uses_repo: ['workstream', 'repo'],
   uses_tool: ['workstream', 'tool'],
-  reads_blueprint: ['orchestrator', 'blueprint'],
 }
 
 export type OsCanvasNode = {
@@ -170,7 +169,7 @@ async function buildCanvasGraphFallback(): Promise<OsCanvasGraph> {
 
 export async function getCanvasGraph(token?: string): Promise<OsGraphLoadResult> {
   try {
-    const raw = await xanoGetWorkforce<OsCanvasGraph>(workforceRoutes.os.graph, token)
+    const raw = await workforceGet<OsCanvasGraph>(workforceRoutes.os.graph, token)
     return {
       graph: {
         nodes: raw.nodes ?? [],
@@ -199,7 +198,7 @@ export async function createCanvasNode(
   },
   token?: string,
 ): Promise<OsCanvasNode> {
-  return xanoPostWorkforce<OsCanvasNode>(workforceRoutes.os.nodes, body, token)
+  return workforcePost<OsCanvasNode>(workforceRoutes.os.nodes, body, token)
 }
 
 export async function patchCanvasNode(
@@ -207,22 +206,22 @@ export async function patchCanvasNode(
   body: { x?: number; y?: number; label?: string },
   token?: string,
 ): Promise<OsCanvasNode> {
-  return xanoPatchWorkforce<OsCanvasNode>(workforceRoutes.os.node(nodeId), body, token)
+  return workforcePatch<OsCanvasNode>(workforceRoutes.os.node(nodeId), body, token)
 }
 
 export async function deleteCanvasNode(nodeId: string, token?: string): Promise<void> {
-  await xanoDeleteWorkforce(workforceRoutes.os.node(nodeId), token)
+  await workforceDelete(workforceRoutes.os.node(nodeId), undefined, token)
 }
 
 export async function createCanvasEdge(
   body: { source_node_id: string; target_node_id: string; relation: OsEdgeRelation },
   token?: string,
 ): Promise<OsCanvasEdge> {
-  return xanoPostWorkforce<OsCanvasEdge>(workforceRoutes.os.edges, body, token)
+  return workforcePost<OsCanvasEdge>(workforceRoutes.os.edges, body, token)
 }
 
 export async function deleteCanvasEdge(edgeId: string, token?: string): Promise<void> {
-  await xanoDeleteWorkforce(workforceRoutes.os.edge(edgeId), token)
+  await workforceDelete(workforceRoutes.os.edge(edgeId), undefined, token)
 }
 
 /** @deprecated Use getCanvasGraph */

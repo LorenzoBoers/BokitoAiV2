@@ -15,8 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.email import EmailAccount
-from app.models.inbox_threads import user_numeric_id
+from app.models.auth import user_numeric_id
+from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDER_BY_SLUG
 from app.services.integrations_platform import (
@@ -273,7 +273,11 @@ async def list_email_connections(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    result = await session.execute(select(EmailAccount).where(EmailAccount.tenant_id == auth.tenant.id))
+    result = await session.execute(
+        select(ChannelAccount).where(
+            ChannelAccount.tenant_id == auth.tenant.id, ChannelAccount.channel == "email"
+        )
+    )
     connections = []
     for index, account in enumerate(result.scalars().all()):
         provider = account.provider if account.provider in ("gmail", "outlook") else "gmail"
@@ -281,8 +285,8 @@ async def list_email_connections(
             {
                 "id": _account_numeric_id(account.id),
                 "provider": provider,
-                "mailbox_email": account.email_address,
-                "display_name": account.email_address,
+                "mailbox_email": account.address,
+                "display_name": account.display_name or account.address,
                 "status": "active",
                 "last_sync_at": None,
                 "last_error": None,

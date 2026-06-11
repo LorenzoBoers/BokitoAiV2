@@ -186,6 +186,12 @@ export default function Login() {
         <p className="text-center text-[10px] text-text-muted/80 mt-1">
           build: {APP_VERSION}
         </p>
+        {import.meta.env.DEV ? (
+          <p className="text-center text-[11px] text-text-muted mt-3 max-w-sm mx-auto leading-relaxed">
+            Local dev: sign in with <span className="font-mono">admin@bokito.ai</span> /{' '}
+            <span className="font-mono">bokito-test-password</span>. Requires the FastAPI API on port 8000.
+          </p>
+        ) : null}
       </div>
     </div>
   );

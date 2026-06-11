@@ -8,11 +8,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import RunEvent
-from app.models.chat import Conversation, ConversationMessage
-from app.models.inbox import MessageFeedback
-from app.models.learning import EvalScore
+from app.models.learning import EvalScore, Feedback
 from app.models.notification import DecisionRequest
 from app.models.orchestra import WorkstreamStepRun
+from app.models.signal import Signal, SignalMessage
 from app.models.usage import UsageLedger
 
 
@@ -22,9 +21,9 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
 
     conv_count = (
         await session.execute(
-            select(func.count()).select_from(Conversation).where(
-                Conversation.tenant_id == tenant_id,
-                Conversation.created_at >= since_week,
+            select(func.count()).select_from(Signal).where(
+                Signal.tenant_id == tenant_id,
+                Signal.created_at >= since_week,
             )
         )
     ).scalar_one()
@@ -40,29 +39,30 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
 
     auto_msgs = (
         await session.execute(
-            select(func.count()).select_from(ConversationMessage).where(
-                ConversationMessage.tenant_id == tenant_id,
-                ConversationMessage.auto_sent.is_(True),
-                ConversationMessage.created_at >= since_week,
+            select(func.count()).select_from(SignalMessage).where(
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.auto_sent.is_(True),
+                SignalMessage.created_at >= since_week,
             )
         )
     ).scalar_one()
 
     total_ai_msgs = (
         await session.execute(
-            select(func.count()).select_from(ConversationMessage).where(
-                ConversationMessage.tenant_id == tenant_id,
-                ConversationMessage.role == "assistant",
-                ConversationMessage.created_at >= since_week,
+            select(func.count()).select_from(SignalMessage).where(
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.role == "assistant",
+                SignalMessage.created_at >= since_week,
             )
         )
     ).scalar_one()
 
     avg_feedback = (
         await session.execute(
-            select(func.avg(MessageFeedback.score)).where(
-                MessageFeedback.tenant_id == tenant_id,
-                MessageFeedback.created_at >= since_month,
+            select(func.avg(Feedback.score)).where(
+                Feedback.tenant_id == tenant_id,
+                Feedback.score.is_not(None),
+                Feedback.created_at >= since_month,
             )
         )
     ).scalar_one()

@@ -35,7 +35,6 @@ class DecisionRequest(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     notification_id: Optional[uuid.UUID] = Field(default=None, foreign_key="notifications.id")
-    conversation_id: Optional[uuid.UUID] = Field(default=None, foreign_key="conversations.id")
     message_id: Optional[uuid.UUID] = Field(default=None, index=True)
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     title: str

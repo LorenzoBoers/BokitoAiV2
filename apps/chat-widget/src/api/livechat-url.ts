@@ -33,9 +33,14 @@ export function xanoApiGroupUrl(
   return `${root}/api:${group}${segment}`
 }
 
-export function realtimeWebSocketUrl(xanoBase: string, channel: string): string {
-  const http = String(xanoBase ?? '').trim().replace(/\/+$/, '')
-  const wsBase = http.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:')
-  const ch = channel.replace(/^\/+/, '')
-  return `${wsBase}/rt/${ch}`
+/**
+ * Gateway WebSocket endpoint derived from the livechat API base.
+ * `https://host/api:livechat` -> `wss://host/api/ws`.
+ */
+export function gatewayWebSocketUrl(apiBase: string): string {
+  const base = String(apiBase ?? '').trim().replace(/\/+$/, '')
+  const idx = base.indexOf('/api:')
+  const origin = idx >= 0 ? base.slice(0, idx) : base
+  const wsOrigin = origin.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:')
+  return `${wsOrigin}/api/ws`
 }

@@ -1,3 +1,11 @@
+"""Assistant chat API backed by the unified Signal thread model.
+
+An assistant conversation is a `Signal` with channel="assistant" owned by the
+requesting user. The URL contract is kept compatible with the dashboard chat
+client; the storage layer is the same one used by Messages, email, and the
+widget.
+"""
+
 import json
 from datetime import datetime
 from typing import Annotated
@@ -11,11 +19,18 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.agent import Agent, AgentRun
-from app.models.chat import Conversation, ConversationMessage
+from app.models.agent import AgentRun
+from app.models.signal import Signal, SignalMessage
 from app.services.agent.loop import AgentLoop
+from app.services.assistant_threads import (
+    append_signal_chat_message,
+    serialize_chat_message,
+    signal_chat_history,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+ASSISTANT_CHANNELS = ("assistant", "widget")
 
 
 class ConversationCreate(BaseModel):
@@ -33,31 +48,37 @@ class MessageCreate(BaseModel):
     attachments: list[dict] = []
 
 
+def _serialize_conversation(signal: Signal) -> dict:
+    return {
+        "id": str(signal.id),
+        "title": signal.subject,
+        "channel": signal.channel,
+        "audience": "internal" if signal.channel == "assistant" else "external",
+        "ai_paused": signal.ai_paused,
+        "updated_at": signal.updated_at.isoformat(),
+    }
+
+
 @router.get("/conversations")
 async def list_conversations(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     channel: str | None = None,
 ):
-    query = select(Conversation).where(Conversation.tenant_id == auth.tenant.id)
+    query = select(Signal).where(Signal.tenant_id == auth.tenant.id)
     if channel:
-        query = query.where(Conversation.channel == channel)
+        query = query.where(Signal.channel == channel)
+        if channel == "assistant":
+            query = query.where(
+                (Signal.owner_user_id == auth.user.id) | (Signal.owner_user_id.is_(None))
+            )
     else:
         query = query.where(
-            (Conversation.user_id == auth.user.id) | (Conversation.user_id.is_(None))
+            Signal.channel == "assistant",
+            (Signal.owner_user_id == auth.user.id) | (Signal.owner_user_id.is_(None)),
         )
-    result = await session.execute(query.order_by(Conversation.updated_at.desc()))
-    return [
-        {
-            "id": str(c.id),
-            "title": c.title,
-            "channel": c.channel,
-            "audience": c.audience,
-            "ai_paused": c.ai_paused,
-            "updated_at": c.updated_at.isoformat(),
-        }
-        for c in result.scalars().all()
-    ]
+    result = await session.execute(query.order_by(Signal.updated_at.desc()))
+    return [_serialize_conversation(s) for s in result.scalars().all()]
 
 
 @router.post("/conversations")
@@ -66,17 +87,19 @@ async def create_conversation(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    conv = Conversation(
+    signal = Signal(
         tenant_id=auth.tenant.id,
-        user_id=auth.user.id,
-        title=body.title,
-        audience=body.audience,
-        channel=body.channel,
+        channel="assistant",
+        source="chat",
+        subject=body.title,
+        owner_user_id=auth.user.id,
+        contact_name=auth.user.display_name or auth.user.email,
+        has_unread=False,
     )
-    session.add(conv)
+    session.add(signal)
     await session.commit()
-    await session.refresh(conv)
-    return {"id": str(conv.id), "title": conv.title, "channel": conv.channel}
+    await session.refresh(signal)
+    return {"id": str(signal.id), "title": signal.subject, "channel": signal.channel}
 
 
 @router.patch("/conversations/{conversation_id}")
@@ -86,11 +109,11 @@ async def update_conversation(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    conv = await _get_conv(session, conversation_id, auth.tenant.id)
-    conv.title = body.title
-    conv.updated_at = datetime.utcnow()
+    signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    signal.subject = body.title
+    signal.updated_at = datetime.utcnow()
     await session.commit()
-    return {"id": str(conv.id), "title": conv.title}
+    return {"id": str(signal.id), "title": signal.subject}
 
 
 @router.delete("/conversations/{conversation_id}")
@@ -99,9 +122,11 @@ async def delete_conversation(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    conv = await _get_conv(session, conversation_id, auth.tenant.id)
-    await session.delete(conv)
-    await session.commit()
+    from app.services import signal_threads as threads_svc
+
+    ok = await threads_svc.delete_thread(session, auth.tenant.id, conversation_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Conversation not found")
     return {"ok": True}
 
 
@@ -112,9 +137,9 @@ async def takeover(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    conv = await _get_conv(session, conversation_id, auth.tenant.id)
-    conv.ai_paused = True
-    conv.assigned_user_id = auth.user.id
+    signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    signal.ai_paused = True
+    signal.assigned_user_id = auth.user.id
     await session.commit()
     return {"ai_paused": True}
 
@@ -126,9 +151,9 @@ async def release(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    conv = await _get_conv(session, conversation_id, auth.tenant.id)
-    conv.ai_paused = False
-    conv.assigned_user_id = None
+    signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    signal.ai_paused = False
+    signal.assigned_user_id = None
     await session.commit()
     return {"ai_paused": False}
 
@@ -139,28 +164,16 @@ async def list_messages(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    await _get_conv(session, conversation_id, auth.tenant.id)
+    await _get_thread(session, conversation_id, auth.tenant.id)
     result = await session.execute(
-        select(ConversationMessage)
+        select(SignalMessage)
         .where(
-            ConversationMessage.conversation_id == conversation_id,
-            ConversationMessage.tenant_id == auth.tenant.id,
+            SignalMessage.signal_id == conversation_id,
+            SignalMessage.tenant_id == auth.tenant.id,
         )
-        .order_by(ConversationMessage.created_at)
+        .order_by(SignalMessage.created_at)
     )
-    return [
-        {
-            "id": str(m.id),
-            "role": m.role,
-            "content": m.content,
-            "attachments": json.loads(m.attachments_json or "[]"),
-            "certainty": m.certainty,
-            "auto_sent": m.auto_sent,
-            "decision_request_id": str(m.decision_request_id) if m.decision_request_id else None,
-            "created_at": m.created_at.isoformat(),
-        }
-        for m in result.scalars().all()
-    ]
+    return [serialize_chat_message(m) for m in result.scalars().all()]
 
 
 @router.post("/conversations/{conversation_id}/messages")
@@ -170,38 +183,37 @@ async def send_message(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    conv = await _get_conv(session, conversation_id, auth.tenant.id)
-    user_msg = ConversationMessage(
-        conversation_id=conversation_id,
-        tenant_id=auth.tenant.id,
+    signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    await append_signal_chat_message(
+        session,
+        signal,
         role="user",
         content=body.content,
-        attachments_json=json.dumps(body.attachments),
+        author_user_id=auth.user.id,
+        attachments=body.attachments,
     )
-    session.add(user_msg)
-    conv.last_message_at = datetime.utcnow()
-    conv.updated_at = datetime.utcnow()
     await session.commit()
 
-    if conv.ai_paused:
+    if signal.ai_paused:
         return {"message": {"role": "assistant", "content": ""}, "ai_paused": True}
 
-    agent, run = await _agent_run(session, auth, conv, body.content)
-    history = await _history(session, conversation_id)
-    loop = AgentLoop(session, auth.tenant.id, auth.user.id, agent=agent, run=run)
+    agent, run = await _agent_run(session, auth, body.content)
+    history = await signal_chat_history(session, conversation_id)
+    loop = AgentLoop(
+        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id
+    )
     reply_text, tokens = await loop.run_chat(history, attachments=body.attachments)
 
-    assistant_msg = ConversationMessage(
-        conversation_id=conversation_id,
-        tenant_id=auth.tenant.id,
+    assistant_msg = await append_signal_chat_message(
+        session,
+        signal,
         role="assistant",
         content=reply_text,
-        metadata_json=json.dumps({"usage": tokens}),
+        author_agent_id=agent.id if agent else None,
+        metadata={"usage": tokens},
     )
-    session.add(assistant_msg)
-    if conv.title == "New conversation":
-        conv.title = body.content[:60]
-    conv.last_message_at = datetime.utcnow()
+    if signal.subject == "New conversation":
+        signal.subject = body.content[:60]
     await session.commit()
     await session.refresh(assistant_msg)
     return {
@@ -221,20 +233,20 @@ async def stream_message(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    conv = await _get_conv(session, conversation_id, auth.tenant.id)
-    user_msg = ConversationMessage(
-        conversation_id=conversation_id,
-        tenant_id=auth.tenant.id,
+    signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    await append_signal_chat_message(
+        session,
+        signal,
         role="user",
         content=body.content,
-        attachments_json=json.dumps(body.attachments),
+        author_user_id=auth.user.id,
+        attachments=body.attachments,
     )
-    session.add(user_msg)
     await session.commit()
 
-    agent, _run = await _agent_run(session, auth, conv, body.content)
-    history = await _history(session, conversation_id)
-    loop = AgentLoop(session, auth.tenant.id, auth.user.id, agent=agent)
+    agent, _run = await _agent_run(session, auth, body.content)
+    history = await signal_chat_history(session, conversation_id)
+    loop = AgentLoop(session, auth.tenant.id, auth.user.id, agent=agent, signal_id=signal.id)
 
     async def event_generator():
         full_text = ""
@@ -243,35 +255,38 @@ async def stream_message(
                 full_text += event["text"]
                 yield {"event": "delta", "data": json.dumps({"text": event["text"]})}
             elif event["type"] == "done":
-                assistant_msg = ConversationMessage(
-                    conversation_id=conversation_id,
-                    tenant_id=auth.tenant.id,
+                final = event.get("text", full_text)
+                await append_signal_chat_message(
+                    session,
+                    signal,
                     role="assistant",
-                    content=event.get("text", full_text),
+                    content=final,
+                    author_agent_id=agent.id if agent else None,
                 )
-                session.add(assistant_msg)
-                conv.last_message_at = datetime.utcnow()
                 await session.commit()
-                yield {"event": "done", "data": json.dumps({"text": event.get("text", full_text)})}
+                yield {"event": "done", "data": json.dumps({"text": final})}
 
     return EventSourceResponse(event_generator())
 
 
-async def _get_conv(session: AsyncSession, conversation_id: UUID, tenant_id: UUID) -> Conversation:
+async def _get_thread(session: AsyncSession, conversation_id: UUID, tenant_id: UUID) -> Signal:
     result = await session.execute(
-        select(Conversation).where(Conversation.id == conversation_id, Conversation.tenant_id == tenant_id)
+        select(Signal).where(
+            Signal.id == conversation_id,
+            Signal.tenant_id == tenant_id,
+            Signal.channel.in_(ASSISTANT_CHANNELS),
+        )
     )
-    conv = result.scalar_one_or_none()
-    if not conv:
+    signal = result.scalar_one_or_none()
+    if not signal:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return conv
+    return signal
 
 
-async def _agent_run(session, auth, conv, content: str):
-    agent_result = await session.execute(
-        select(Agent).where(Agent.tenant_id == auth.tenant.id, Agent.role == "assistant").limit(1)
-    )
-    agent = agent_result.scalar_one_or_none()
+async def _agent_run(session, auth, content: str):
+    from app.services.routing import resolve_agent_for_channel
+
+    agent = await resolve_agent_for_channel(session, auth.tenant.id, "assistant")
     run = None
     if agent:
         run = AgentRun(
@@ -284,15 +299,3 @@ async def _agent_run(session, auth, conv, content: str):
         await session.commit()
         await session.refresh(run)
     return agent, run
-
-
-async def _history(session, conversation_id):
-    history_result = await session.execute(
-        select(ConversationMessage)
-        .where(ConversationMessage.conversation_id == conversation_id)
-        .order_by(ConversationMessage.created_at)
-    )
-    return [
-        {"role": m.role if m.role != "tool" else "user", "content": m.content}
-        for m in history_result.scalars().all()
-    ]

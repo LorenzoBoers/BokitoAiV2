@@ -9,38 +9,24 @@ import {
   Bell,
   Landmark,
   Building2,
-  Database,
   BookOpen,
   Building,
   Bot,
-  Upload,
-  FileText,
-  PenLine,
-  FolderKanban,
   Link2,
   KeyRound,
   Zap,
   Blocks,
   LayoutDashboard,
-  CalendarDays,
-  Sparkles,
-  Network,
+  FileText,
   ShieldCheck,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
-import { isBokitoMode } from '../../lib/bokito-mode'
 
-/** Default landing for the unified AI OS section. */
-export const AI_OS_DEFAULT_PATH = '/os' as const
-
-/** @deprecated Use AI_OS_DEFAULT_PATH */
-export const WORKFORCE_DEFAULT_PATH = AI_OS_DEFAULT_PATH
-
-export const WORKFORCE_PO_PATH = '/os/agents' as const
+/** Default landing for the Agents section. */
+export const AGENTS_DEFAULT_PATH = '/agents' as const
 
 export type MessagesHubOptions = {
-  folder?: 'external' | 'internal' | 'all'
   queue?: string
   projectId?: string
 }
@@ -49,19 +35,12 @@ export type MessagesHubOptions = {
 export function messagesHubPath(options: MessagesHubOptions = {}): string {
   const queue = options.queue ?? 'my'
   const params = new URLSearchParams()
-  if (options.folder && options.folder !== 'all') params.set('folder', options.folder)
   if (options.projectId) params.set('project_id', options.projectId)
   const query = params.toString()
   return `/messages/${queue}${query ? `?${query}` : ''}`
 }
 
-export type NavBadgeSlot =
-  | 'inbox'
-  | 'agents'
-  | 'home'
-  | 'messages'
-  /** Project hub rail badge: items awaiting admin action across projects. */
-  | 'projectsAttention'
+export type NavBadgeSlot = 'inbox' | 'agents' | 'home' | 'messages'
 
 export type RailItem = {
   label: string
@@ -77,11 +56,7 @@ export type SidebarLink = {
   comingSoon?: boolean
   /** Optional NavCountBadge slot rendered on the right of the link. */
   badgeSlot?: NavBadgeSlot
-  /**
-   * When true, link is considered active only on an exact pathname match.
-   * Used for parent paths whose children belong to sibling sidebar links
-   * (e.g. `/projects` vs `/projects/docs`).
-   */
+  /** When true, link is considered active only on an exact pathname match. */
   exact?: boolean
 }
 
@@ -90,93 +65,34 @@ export type SidebarGroup = {
   links: SidebarLink[]
 }
 
-/** End-user navigation: PKB, change request, messages, settings only (Phase 3.1).
- * When no project is active in the URL, the Project link falls back to the
- * project list (/projects) and the Change Request link is hidden.
+/**
+ * Consolidated portal navigation: Home, Messages, Agents, Workspace,
+ * Automations, Integrations, Govern, Settings.
  */
-export const getEndUserRailItems = (t: TFunction<'nav'>, projectId?: string): RailItem[] => {
-  const projectTo = projectId ? `/project/${projectId}/overview` : '/home'
-  const items: RailItem[] = [
-    { label: t('rail.home', { defaultValue: 'Home' }), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
-    { label: t('rail.pkb', { defaultValue: 'Project' }), to: projectTo, icon: FileText },
-  ]
-  if (projectId) {
-    items.push({
-      label: t('rail.changeRequest', { defaultValue: 'Request' }),
-      to: '/projects/docs',
-      icon: PenLine,
-    })
-  }
-  items.push(
-    {
-      label: t('rail.messages', { defaultValue: 'Messages' }),
-      to: '/messages',
-      icon: MessagesSquare,
-      badgeSlot: 'inbox',
-    },
-    { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
-  )
-  return items
-}
-
-/** Admin / staff navigation (full portal surfaces). */
-export const getAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
+export const getRailItems = (t: TFunction<'nav'>): RailItem[] => [
   { label: t('rail.home', { defaultValue: 'Home' }), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
   {
-    label: t('rail.aiOs', { defaultValue: 'AI OS' }),
-    to: AI_OS_DEFAULT_PATH,
-    icon: Network,
-    badgeSlot: 'projectsAttention',
+    label: t('rail.support', { defaultValue: 'Messages' }),
+    to: '/messages',
+    icon: MessageSquare,
+    badgeSlot: 'inbox',
   },
-  { label: t('rail.support', { defaultValue: 'Messages' }), to: '/messages', icon: MessageSquare, badgeSlot: 'inbox' },
-  { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
-  { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
-]
-
-/** Bokito AI OS: surfaces backed by FastAPI in `VITE_API_MODE=bokito`. */
-export const getBokitoAdminRailItems = (t: TFunction<'nav'>): RailItem[] => [
-  { label: t('rail.home'), to: '/home', icon: LayoutDashboard, badgeSlot: 'home' },
-  { label: t('rail.support', { defaultValue: 'Messages' }), to: '/messages', icon: MessageSquare, badgeSlot: 'inbox' },
-  { label: t('rail.agenda', { defaultValue: 'Agenda' }), to: '/agenda', icon: CalendarDays },
-  {
-    label: t('rail.aiOs', { defaultValue: 'AI OS' }),
-    to: AI_OS_DEFAULT_PATH,
-    icon: Network,
-  },
+  { label: t('rail.agents', { defaultValue: 'Agents' }), to: AGENTS_DEFAULT_PATH, icon: Bot, badgeSlot: 'agents' },
+  { label: t('rail.workspace', { defaultValue: 'Workspace' }), to: '/workspace', icon: FileText },
+  { label: t('rail.automations', { defaultValue: 'Automations' }), to: '/automations', icon: Zap },
   { label: t('rail.integrations'), to: '/integrations/connected', icon: Link2 },
   { label: t('rail.govern', { defaultValue: 'Govern' }), to: '/govern', icon: ShieldCheck },
   { label: t('rail.settings'), to: '/settings/profile', icon: SlidersHorizontal },
 ]
 
-export const getRailItems = (t: TFunction<'nav'>, isAdmin = true, projectId?: string): RailItem[] => {
-  if (isAdmin && isBokitoMode()) return getBokitoAdminRailItems(t)
-  return isAdmin ? getAdminRailItems(t) : getEndUserRailItems(t, projectId)
-}
-
-export const getDataSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
+/** Agents section sidebar: library plus platform agent settings. */
+export const getAgentsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
   {
-    label: t('data.group.nav', { defaultValue: 'Data' }),
+    label: t('aiOs.group.nav', { defaultValue: 'Agents' }),
     links: [
-      { label: t('data.links.tables', { defaultValue: 'Tables' }), to: '/database' },
-      { label: t('users.links.attributes'), to: '/users/attributes' },
-      { label: t('users.links.tags'), to: '/users/tags' },
-      { label: t('users.links.segments'), to: '/users/segments' },
-      { label: t('users.links.leadQualification'), to: '/users/lead-qualification' },
-      { label: t('users.links.blocked'), to: '/users/blocked' },
-      { label: t('data.links.sources', { defaultValue: 'Knowledge sources' }), to: '/data/sources' },
-      { label: t('data.links.importsExports', { defaultValue: 'Import and export' }), to: '/data/imports-exports' },
-    ],
-  },
-]
-
-export const getWorkforceSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
-  {
-    label: t('workforce.group.workforce', { defaultValue: 'Workforce' }),
-    links: [
-      { label: t('workforce.links.overview', { defaultValue: 'Overview' }), to: WORKFORCE_DEFAULT_PATH },
       {
-        label: t('workforce.links.agents', { defaultValue: 'Agent library' }),
-        to: '/os/agents',
+        label: t('aiOs.links.agents', { defaultValue: 'Agent library' }),
+        to: AGENTS_DEFAULT_PATH,
         badgeSlot: 'agents',
       },
     ],
@@ -190,17 +106,6 @@ export const getWorkforceSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] =
         to: '/ai/communicatie',
       },
     ],
-  },
-]
-
-/** @deprecated Use getWorkforceSidebarGroups. Kept for legacy imports. */
-export const getAiSidebarGroups = getWorkforceSidebarGroups
-
-/** @deprecated Use getWorkforceSidebarGroups. */
-export const getAgentsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
-  {
-    label: t('agents.group.nav', { defaultValue: 'Agents' }),
-    links: [{ label: t('agents.links.runs', { defaultValue: 'Agent runs' }), to: WORKFORCE_DEFAULT_PATH }],
   },
 ]
 
@@ -214,101 +119,6 @@ export const getIntegrationsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[
       { label: t('integrations.links.docs'), to: '/integrations/docs' },
       { label: t('integrations.links.api'), to: '/integrations/api' },
     ],
-  },
-]
-
-/** AI OS workspace sidebar links (canvas, agents, blueprint, communication). */
-export const getAiOsSidebarGroups = (t: TFunction<'nav'>): SidebarGroup[] => [
-  {
-    label: t('aiOs.group.nav', { defaultValue: 'AI OS' }),
-    links: [
-      {
-        label: t('aiOs.links.canvas', { defaultValue: 'Canvas' }),
-        to: AI_OS_DEFAULT_PATH,
-        exact: true,
-      },
-      {
-        label: t('aiOs.links.orchestra', { defaultValue: 'Orchestra' }),
-        to: '/orchestra',
-      },
-      {
-        label: t('aiOs.links.agents', { defaultValue: 'Agent library' }),
-        to: '/os/agents',
-        badgeSlot: 'agents',
-      },
-      {
-        label: t('aiOs.links.docs', { defaultValue: 'Blueprint' }),
-        to: '/os/docs',
-      },
-    ],
-  },
-  {
-    label: t('workforce.group.platform', { defaultValue: 'Platform agents' }),
-    links: [
-      { label: t('workforce.links.assistant', { defaultValue: 'Assistant agent' }), to: ASSISTENT_DEFAULT_PATH },
-      {
-        label: t('workforce.links.communication', { defaultValue: 'Communication agent' }),
-        to: '/ai/communicatie',
-      },
-    ],
-  },
-]
-
-/** @deprecated Use getAiOsSidebarGroups */
-export const getProjectHubSidebarGroups = getAiOsSidebarGroups
-
-/** Per-project orchestrator setup (sidebar entry; not a horizontal tab). */
-export function projectOrchestratorPath(projectId: string): string {
-  return `/project/${projectId}/orchestrator`
-}
-
-export function projectOverviewPath(projectId: string, streamSlug?: string | null): string {
-  const base = `/project/${projectId}/overview`
-  if (!streamSlug?.trim()) return base
-  return `${base}?stream=${encodeURIComponent(streamSlug.trim())}`
-}
-
-export function projectCommunicationPath(projectId: string, streamSlug?: string | null): string {
-  const base = messagesHubPath({ folder: 'internal', queue: 'all', projectId })
-  if (!streamSlug?.trim()) return base
-  const separator = base.includes('?') ? '&' : '?'
-  return `${base}${separator}stream=${encodeURIComponent(streamSlug.trim())}`
-}
-
-/** Per-project cockpit tabs rendered in the main canvas (not the hub sidebar). */
-export const getProjectTabLinks = (t: TFunction<'nav'>, projectId: string): SidebarLink[] => [
-  { label: t('project.links.overview', { defaultValue: 'Overview' }), to: `/project/${projectId}/overview` },
-  {
-    label: t('project.links.orchestration', { defaultValue: 'Orchestration' }),
-    to: `/project/${projectId}/orchestration`,
-  },
-  {
-    label: t('project.links.communication', { defaultValue: 'Messages' }),
-    to: messagesHubPath({ folder: 'internal', queue: 'my', projectId }),
-  },
-  {
-    label: t('project.links.workforce', { defaultValue: 'Agent runs' }),
-    to: `/project/${projectId}/workforce`,
-  },
-  {
-    label: t('project.links.usage', { defaultValue: 'Token usage' }),
-    to: `/project/${projectId}/usage`,
-  },
-  {
-    label: t('project.links.notifications', { defaultValue: 'Notifications' }),
-    to: `/project/${projectId}/notifications`,
-  },
-  {
-    label: t('project.links.settings', { defaultValue: 'Settings' }),
-    to: `/project/${projectId}/settings`,
-  },
-]
-
-/** @deprecated Use getProjectTabLinks in the project canvas; hub sidebar uses background project list. */
-export const getProjectSidebarGroups = (t: TFunction<'nav'>, projectId: string): SidebarGroup[] => [
-  {
-    label: t('project.group.nav', { defaultValue: 'Project' }),
-    links: getProjectTabLinks(t, projectId),
   },
 ]
 
@@ -400,30 +210,10 @@ export const getSettingsPageMeta = (
     description: t('settingsPageMeta.inbox.description'),
     icon: Inbox,
   },
-  attributes: {
-    title: t('settingsPageMeta.attributes.title'),
-    description: t('settingsPageMeta.attributes.description'),
-    icon: Database,
-  },
-  users: {
-    title: t('settingsPageMeta.users.title'),
-    description: t('settingsPageMeta.users.description'),
-    icon: Users,
-  },
-  companies: {
-    title: t('settingsPageMeta.companies.title'),
-    description: t('settingsPageMeta.companies.description'),
-    icon: Building,
-  },
   conversations: {
     title: t('settingsPageMeta.conversations.title'),
     description: t('settingsPageMeta.conversations.description'),
     icon: MessagesSquare,
-  },
-  'imports-exports': {
-    title: t('settingsPageMeta.importsExports.title'),
-    description: t('settingsPageMeta.importsExports.description'),
-    icon: Upload,
   },
 })
 
@@ -440,11 +230,6 @@ export const getIntegrationsPageMeta = (
     description: t('integrations.pageMeta.marketplace.description'),
     icon: Blocks,
   },
-  connections: {
-    title: t('integrations.pageMeta.connected.title'),
-    description: t('integrations.pageMeta.connected.description'),
-    icon: Link2,
-  },
   mcp: {
     title: t('integrations.pageMeta.mcp.title'),
     description: t('integrations.pageMeta.mcp.description'),
@@ -459,11 +244,6 @@ export const getIntegrationsPageMeta = (
     title: t('integrations.pageMeta.api.title'),
     description: t('integrations.pageMeta.api.description'),
     icon: KeyRound,
-  },
-  sources: {
-    title: t('integrations.pageMeta.sources.title'),
-    description: t('integrations.pageMeta.sources.description'),
-    icon: BookOpen,
   },
 })
 
@@ -484,32 +264,6 @@ export const getAiPageMeta = (
     title: t('workforce.pageMeta.agents.title', { defaultValue: 'Your agents' }),
     description: t('workforce.pageMeta.agents.description', {
       defaultValue: 'Configured workforce agents for this workspace.',
-    }),
-    icon: Bot,
-  },
-})
-
-export const getWorkforcePageMeta = (
-  t: TFunction<'nav'>,
-): Record<string, { title: string; description: string; icon: LucideIcon }> => ({
-  overview: {
-    title: t('workforce.pageMeta.overview.title', { defaultValue: 'AI OS overview' }),
-    description: t('workforce.pageMeta.overview.description', {
-      defaultValue: 'Live map of how intelligence flows through your workspace.',
-    }),
-    icon: Bot,
-  },
-  agents: {
-    title: t('workforce.pageMeta.agents.title', { defaultValue: 'Agent library' }),
-    description: t('workforce.pageMeta.agents.description', {
-      defaultValue: 'Reusable worker agents available for project workstreams.',
-    }),
-    icon: Bot,
-  },
-  po: {
-    title: t('workforce.pageMeta.po.title', { defaultValue: 'Orchestrators' }),
-    description: t('workforce.pageMeta.po.description', {
-      defaultValue: 'Project orchestrators across the workspace.',
     }),
     icon: Bot,
   },

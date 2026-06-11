@@ -35,7 +35,7 @@ flowchart TB
     Sensing[Signal / inbound]
     Interpret[Interpretation / triage]
     Decide[DecisionRequest]
-    Orchestrate[Agent / Workstream / Orchestra / Agenda]
+    Orchestrate[Agent / Workstream / Orchestra / Triggers]
     Integrate[MCP / Integrations]
     Learn[Feedback / EvalScore]
     Assure[Audit / PlatformChange]

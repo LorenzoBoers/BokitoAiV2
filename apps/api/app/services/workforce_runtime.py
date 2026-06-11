@@ -15,9 +15,9 @@ from app.models.notification import DecisionRequest
 from app.models.project import Project
 
 ROLE_SLUG_MAP = {
-    "po": "po",
-    "orchestrator": "manager",
-    "manager": "manager",
+    "po": "orchestrator",
+    "orchestrator": "orchestrator",
+    "manager": "orchestrator",
     "assistant": "assistant",
     "communication": "communication",
     "coding": "builder",
@@ -25,9 +25,9 @@ ROLE_SLUG_MAP = {
 }
 
 ROLE_NAME_MAP = {
-    "po": "Product Owner",
-    "orchestrator": "Manager",
-    "manager": "Manager",
+    "po": "Orchestrator",
+    "orchestrator": "Orchestrator",
+    "manager": "Orchestrator",
     "assistant": "Assistant",
     "communication": "Communication",
     "coding": "Builder",

@@ -1,7 +1,7 @@
 export const RESOURCE_TYPE_LABELS: Record<string, string> = {
   agent: 'Agent',
   workstream: 'Workstream',
-  blueprint_block: 'Blueprint block',
+  workspace_doc: 'Workspace doc',
   integration: 'Integration',
   mcp_server: 'MCP server',
   canvas_node: 'Canvas node',
@@ -15,19 +15,29 @@ export const CHANGE_KIND_LABELS: Record<string, string> = {
   connect: 'Connect',
 }
 
-export const APPLY_MODE_LABELS: Record<string, { label: string; hint: string }> = {
-  draft: {
-    label: 'Review queue',
-    hint: 'Changes wait in Govern until a human accepts them.',
+export const ALLOWANCE_MODE_LABELS: Record<string, { label: string; hint: string }> = {
+  deny: {
+    label: 'Deny',
+    hint: 'Agents cannot use these tools at all.',
   },
-  yolo: {
-    label: 'Auto-apply',
-    hint: 'Changes apply immediately without review.',
+  ask: {
+    label: 'Ask first',
+    hint: 'Each action opens an inline decision for approve or reject.',
   },
-  decision: {
-    label: 'Decision required',
-    hint: 'Each change opens a decision for approve or reject.',
+  allow: {
+    label: 'Allow',
+    hint: 'Actions run automatically and are recorded in the audit log.',
   },
+}
+
+export const TOOL_CATEGORY_LABELS: Record<string, { label: string; hint: string }> = {
+  messaging: { label: 'Messaging', hint: 'Replies, decisions, and thread actions.' },
+  workspace: { label: 'Workspace', hint: 'Memory, docs, and skill edits, canvas nodes.' },
+  agents: { label: 'Agents', hint: 'Creating and updating agents, workstreams, tasks.' },
+  channels: { label: 'Channels', hint: 'Channel accounts and routing.' },
+  triggers: { label: 'Triggers', hint: 'Schedules, heartbeats, and webhooks.' },
+  integrations: { label: 'Integrations', hint: 'External connections and MCP servers.' },
+  govern: { label: 'Govern', hint: 'Policy and governance changes.' },
 }
 
 export function formatChangeMeta(resourceType: string, changeKind: string, status: string): string {
@@ -51,9 +61,9 @@ const DIFF_FIELD_LABELS: Record<string, string> = {
   provider: 'Provider',
   display_name: 'Display name',
   server_url: 'Server URL',
-  page_slug: 'Blueprint page',
-  text: 'Content',
-  block_type: 'Block type',
+  path: 'Doc path',
+  content: 'Content',
+  kind: 'Doc kind',
   agent_id: 'Agent',
   workstream_id: 'Workstream',
   node_type: 'Node type',

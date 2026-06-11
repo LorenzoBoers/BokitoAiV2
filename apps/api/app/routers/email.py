@@ -1,3 +1,7 @@
+"""Email channel API backed by ChannelAccount + the unified Signal model."""
+
+import json
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -6,10 +10,14 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.channels import deliver_outbound
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.email import EmailAccount, EmailMessage, EmailThread
-from app.workers.tasks import enqueue_email_processing
+from app.models.auth import user_numeric_id
+from app.models.channel import ChannelAccount
+from app.models.signal import Signal, SignalMessage
+from app.services.signals import create_inbound_signal
+from app.workers.tasks import enqueue_signal_processing
 
 router = APIRouter(prefix="/email", tags=["email"])
 
@@ -31,9 +39,24 @@ async def list_accounts(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    result = await session.execute(select(EmailAccount).where(EmailAccount.tenant_id == auth.tenant.id))
+    result = await session.execute(
+        select(ChannelAccount).where(
+            ChannelAccount.tenant_id == auth.tenant.id,
+            ChannelAccount.channel == "email",
+        )
+    )
     return [
-        {"id": str(a.id), "email_address": a.email_address, "provider": a.provider, "is_enabled": a.is_enabled}
+        {
+            # Numeric id matches the `email_connection_id` filter on /api/signals.
+            "id": user_numeric_id(a.id),
+            "uuid": str(a.id),
+            "email_address": a.address,
+            "mailbox_email": a.address,
+            "display_name": a.display_name or a.address,
+            "provider": a.provider,
+            "is_enabled": a.is_enabled,
+            "status": "active" if a.is_enabled else "revoked",
+        }
         for a in result.scalars().all()
     ]
 
@@ -44,16 +67,18 @@ async def list_threads(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     result = await session.execute(
-        select(EmailThread).where(EmailThread.tenant_id == auth.tenant.id).order_by(EmailThread.updated_at.desc())
+        select(Signal)
+        .where(Signal.tenant_id == auth.tenant.id, Signal.channel == "email")
+        .order_by(Signal.updated_at.desc())
     )
     return [
         {
-            "id": str(t.id),
-            "subject": t.subject,
-            "has_unread": t.has_unread,
-            "updated_at": t.updated_at.isoformat(),
+            "id": str(s.id),
+            "subject": s.subject,
+            "has_unread": s.has_unread,
+            "updated_at": s.updated_at.isoformat(),
         }
-        for t in result.scalars().all()
+        for s in result.scalars().all()
     ]
 
 
@@ -64,9 +89,9 @@ async def list_thread_messages(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     result = await session.execute(
-        select(EmailMessage)
-        .where(EmailMessage.thread_id == thread_id, EmailMessage.tenant_id == auth.tenant.id)
-        .order_by(EmailMessage.created_at)
+        select(SignalMessage)
+        .where(SignalMessage.signal_id == thread_id, SignalMessage.tenant_id == auth.tenant.id)
+        .order_by(SignalMessage.created_at)
     )
     return [
         {
@@ -88,23 +113,45 @@ async def send_email(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     thread_result = await session.execute(
-        select(EmailThread).where(EmailThread.id == body.thread_id, EmailThread.tenant_id == auth.tenant.id)
+        select(Signal).where(
+            Signal.id == body.thread_id,
+            Signal.tenant_id == auth.tenant.id,
+            Signal.channel == "email",
+        )
     )
-    thread = thread_result.scalar_one_or_none()
-    if not thread:
+    signal = thread_result.scalar_one_or_none()
+    if not signal:
         raise HTTPException(status_code=404, detail="Thread not found")
-    account_result = await session.execute(select(EmailAccount).where(EmailAccount.id == thread.account_id))
-    account = account_result.scalar_one_or_none()
-    msg = EmailMessage(
+    account = None
+    if signal.channel_account_id:
+        account_result = await session.execute(
+            select(ChannelAccount).where(ChannelAccount.id == signal.channel_account_id)
+        )
+        account = account_result.scalar_one_or_none()
+    send_status = await deliver_outbound(
+        session, signal, body_text=body.body_text, subject=body.subject or signal.subject
+    )
+    if send_status == "skipped":
+        send_status = "sent"
+    now = datetime.utcnow()
+    msg = SignalMessage(
+        signal_id=signal.id,
         tenant_id=auth.tenant.id,
-        thread_id=thread.id,
-        account_id=account.id if account else thread.account_id,
+        kind="user_message",
         direction="outbound",
-        from_address=account.email_address if account else "noreply@bokito.ai",
-        subject=body.subject or thread.subject,
+        role="user",
+        author_user_id=auth.user.id,
+        from_address=account.address if account else "noreply@bokito.ai",
+        to_addresses=json.dumps([signal.contact_email] if signal.contact_email else []),
+        subject=body.subject or signal.subject,
         body_text=body.body_text,
+        body_preview=body.body_text[:200],
+        send_status=send_status,
+        received_at=now,
     )
     session.add(msg)
+    signal.last_message_at = now
+    signal.updated_at = now
     await session.commit()
     return {"id": str(msg.id), "status": "sent"}
 
@@ -117,30 +164,24 @@ async def mock_inbound_email(
 ):
     """Dev-only: simulate inbound email and trigger AI proposal flow."""
     account_result = await session.execute(
-        select(EmailAccount).where(EmailAccount.tenant_id == auth.tenant.id).limit(1)
+        select(ChannelAccount)
+        .where(
+            ChannelAccount.tenant_id == auth.tenant.id,
+            ChannelAccount.channel == "email",
+        )
+        .limit(1)
     )
     account = account_result.scalar_one_or_none()
     if not account:
         raise HTTPException(status_code=400, detail="No email account configured")
-    thread = EmailThread(
-        tenant_id=auth.tenant.id,
-        account_id=account.id,
-        subject=body.subject,
-        has_unread=True,
-    )
-    session.add(thread)
-    await session.flush()
-    msg = EmailMessage(
-        tenant_id=auth.tenant.id,
-        thread_id=thread.id,
-        account_id=account.id,
-        direction="inbound",
-        from_address=body.from_address,
+    signal = await create_inbound_signal(
+        session,
+        auth.tenant.id,
+        channel="email",
+        source=account.provider,
         subject=body.subject,
         body_text=body.body_text,
+        contact_email=body.from_address,
     )
-    session.add(msg)
-    await session.commit()
-    await session.refresh(msg)
-    await enqueue_email_processing(str(auth.tenant.id), str(msg.id))
-    return {"thread_id": str(thread.id), "message_id": str(msg.id), "status": "queued_for_ai"}
+    await enqueue_signal_processing(str(auth.tenant.id), str(signal.id))
+    return {"thread_id": str(signal.id), "message_id": str(signal.id), "status": "queued_for_ai"}

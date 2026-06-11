@@ -6,8 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orchestra import Task, WorkstreamRun
-from app.services.orchestration.dispatcher import trigger_automation_task
+from app.models.orchestra import WorkstreamRun
 from app.services.orchestration.queue import enqueue_workstream_run
 from app.services.orchestration.runner import run_agent_task_segment, start_workstream_as_task
 
@@ -66,7 +65,3 @@ async def run_workstream_mock(
     await session.commit()
     await session.refresh(run)
     return run
-
-
-async def trigger_task(session: AsyncSession, task_id: UUID, tenant_id: UUID) -> None:
-    await trigger_automation_task(session, task_id, tenant_id)

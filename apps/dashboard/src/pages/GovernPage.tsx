@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
+import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, Trash2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -12,25 +12,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import {
   acceptGovernChange,
-  getApplyModes,
-  getPosture,
+  createApiToken,
+  getAllowances,
   listAcceptedChanges,
   listAgentPassports,
+  listApiTokens,
   listGovernAudit,
   listGovernChanges,
   rejectGovernChange,
+  revokeApiToken,
   setPosture,
-  updateApplyModes,
+  updateAllowances,
+  type AllowanceMode,
+  type ApiTokenRow,
   type AuditEventRow,
   type AutonomyPostureId,
+  type GovernToolRow,
   type PlatformChangeRow,
   type PosturePreset,
 } from '../lib/govern-api'
 import {
-  APPLY_MODE_LABELS,
+  ALLOWANCE_MODE_LABELS,
+  TOOL_CATEGORY_LABELS,
   formatChangeMeta,
   formatGovernTimestamp,
-  RESOURCE_TYPE_LABELS,
   summarizeDiff,
 } from '../lib/govern-labels'
 import { cn } from '../lib/utils'
@@ -43,8 +48,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog'
 
-const APPLY_MODE_OPTIONS = ['draft', 'yolo', 'decision'] as const
-const RESOURCE_TYPES = ['agent', 'workstream', 'blueprint_block', 'integration', 'mcp_server', 'canvas_node'] as const
+const ALLOWANCE_OPTIONS: AllowanceMode[] = ['deny', 'ask', 'allow']
 const POSTURE_ORDER: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -75,7 +79,12 @@ export default function GovernPage() {
   const [history, setHistory] = useState<PlatformChangeRow[]>([])
   const [audit, setAudit] = useState<AuditEventRow[]>([])
   const [passports, setPassports] = useState<Array<Record<string, unknown>>>([])
-  const [applyModes, setApplyModes] = useState<Record<string, string>>({})
+  const [allowances, setAllowances] = useState<Record<string, AllowanceMode>>({})
+  const [categories, setCategories] = useState<string[]>([])
+  const [tools, setTools] = useState<GovernToolRow[]>([])
+  const [tokens, setTokens] = useState<ApiTokenRow[]>([])
+  const [newTokenName, setNewTokenName] = useState('')
+  const [createdToken, setCreatedToken] = useState<string | null>(null)
   const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
   const [posturePresets, setPosturePresets] = useState<PosturePreset[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -96,17 +105,20 @@ export default function GovernPage() {
       listAcceptedChanges(),
       listGovernAudit(),
       listAgentPassports(),
-      getApplyModes(),
-      getPosture(),
+      getAllowances(),
+      listApiTokens(),
     ])
-      .then(([changeResp, historyResp, auditResp, passportResp, modesResp, postureResp]) => {
+      .then(([changeResp, historyResp, auditResp, passportResp, allowanceResp, tokenResp]) => {
         setChanges(changeResp.items)
         setHistory(historyResp.items)
         setAudit(auditResp.items)
         setPassports(passportResp.items)
-        setApplyModes(modesResp.tenant_modes ?? modesResp.defaults ?? {})
-        setPostureState(postureResp.posture)
-        setPosturePresets(postureResp.presets)
+        setAllowances(allowanceResp.allowances)
+        setCategories(allowanceResp.categories)
+        setTools(allowanceResp.tools)
+        setPostureState(allowanceResp.posture)
+        setPosturePresets(allowanceResp.presets)
+        setTokens(tokenResp.items)
       })
       .catch((err) => setError(formatApiErrorMessage(err, 'Could not load govern data.')))
       .finally(() => setLoading(false))
@@ -167,7 +179,7 @@ export default function GovernPage() {
     try {
       const resp = await setPosture(next)
       setPostureState(resp.posture)
-      setApplyModes(resp.platform_apply_modes)
+      setAllowances(resp.allowances)
       setPosturePresets(resp.presets)
       toast.success(t('posture.saved'))
     } catch (err) {
@@ -178,18 +190,43 @@ export default function GovernPage() {
     }
   }
 
-  async function handleApplyModeChange(resourceType: string, mode: string) {
-    const next = { ...applyModes, [resourceType]: mode }
-    setApplyModes(next)
+  async function handleAllowanceChange(category: string, mode: AllowanceMode) {
+    const next = { ...allowances, [category]: mode }
+    setAllowances(next)
     setSavingModes(true)
     try {
-      await updateApplyModes(next)
-      toast.success(t('applyModes.saved'))
+      await updateAllowances({ [category]: mode })
+      toast.success(t('allowances.saved', { defaultValue: 'Allowance saved.' }))
     } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not save apply modes.'))
+      setError(formatApiErrorMessage(err, 'Could not save allowances.'))
       load()
     } finally {
       setSavingModes(false)
+    }
+  }
+
+  async function handleCreateToken() {
+    const name = newTokenName.trim()
+    if (!name) return
+    try {
+      const created = await createApiToken(name)
+      setCreatedToken(created.token ?? null)
+      setNewTokenName('')
+      const refreshed = await listApiTokens()
+      setTokens(refreshed.items)
+    } catch (err) {
+      setError(formatApiErrorMessage(err, 'Could not create token.'))
+    }
+  }
+
+  async function handleRevokeToken(id: string) {
+    try {
+      await revokeApiToken(id)
+      const refreshed = await listApiTokens()
+      setTokens(refreshed.items)
+      toast.success(t('tokens.revoked', { defaultValue: 'Token revoked.' }))
+    } catch (err) {
+      setError(formatApiErrorMessage(err, 'Could not revoke token.'))
     }
   }
 
@@ -339,37 +376,146 @@ export default function GovernPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('applyModes.title')}</CardTitle>
+                <CardTitle>{t('allowances.title', { defaultValue: 'Allowance sliders' })}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-xs text-text-muted">{t('applyModes.intro')}</p>
-                {RESOURCE_TYPES.map((rt) => (
-                  <div
-                    key={rt}
-                    className="flex flex-col gap-1 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <span className="text-sm font-medium text-text-heading">
-                        {RESOURCE_TYPE_LABELS[rt] ?? rt}
-                      </span>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        {APPLY_MODE_LABELS[applyModes[rt] ?? 'draft']?.hint ?? APPLY_MODE_LABELS.draft.hint}
+                <p className="text-xs text-text-muted">
+                  {t('allowances.intro', {
+                    defaultValue:
+                      'Per tool category: deny blocks the action, ask creates an inline decision, allow runs it automatically with an audit record.',
+                  })}
+                </p>
+                {categories.map((category) => {
+                  const current = allowances[category] ?? 'ask'
+                  const categoryTools = tools.filter((tool) => tool.category === category && tool.gated)
+                  return (
+                    <div key={category} className="rounded-lg border border-border/60 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-text-heading">
+                            {TOOL_CATEGORY_LABELS[category]?.label ?? category}
+                          </span>
+                          <p className="text-xs text-text-muted mt-0.5">
+                            {TOOL_CATEGORY_LABELS[category]?.hint ?? ''}
+                          </p>
+                        </div>
+                        <div
+                          className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5"
+                          role="radiogroup"
+                          aria-label={`${category} allowance`}
+                        >
+                          {ALLOWANCE_OPTIONS.map((mode) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              role="radio"
+                              aria-checked={current === mode}
+                              disabled={savingModes}
+                              onClick={() => void handleAllowanceChange(category, mode)}
+                              className={cn(
+                                'rounded-md px-3 py-1 text-xs transition-colors',
+                                current === mode
+                                  ? mode === 'deny'
+                                    ? 'bg-destructive/10 text-destructive font-medium'
+                                    : mode === 'allow'
+                                      ? 'bg-accent/10 text-accent font-medium'
+                                      : 'bg-bg-muted text-text-heading font-medium'
+                                  : 'text-text-muted hover:text-text-heading',
+                              )}
+                            >
+                              {ALLOWANCE_MODE_LABELS[mode]?.label ?? mode}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-text-muted">
+                        {ALLOWANCE_MODE_LABELS[current]?.hint}
+                        {categoryTools.length > 0
+                          ? ` · ${categoryTools.map((tool) => tool.name).join(', ')}`
+                          : null}
                       </p>
                     </div>
-                    <select
-                      className="rounded border border-border bg-bg-surface px-2 py-1.5 text-xs min-w-[10rem]"
-                      value={applyModes[rt] ?? 'draft'}
-                      disabled={savingModes}
-                      onChange={(e) => void handleApplyModeChange(rt, e.target.value)}
+                  )
+                })}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" aria-hidden />
+                  {t('tokens.title', { defaultValue: 'API tokens (MCP access)' })}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-text-muted">
+                  {t('tokens.intro', {
+                    defaultValue:
+                      'Connect Cursor or other MCP clients to this workspace at /api/mcp. Tokens use the same governed tools and allowance sliders as internal agents.',
+                  })}
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTokenName}
+                    onChange={(e) => setNewTokenName(e.target.value)}
+                    placeholder={t('tokens.namePlaceholder', { defaultValue: 'Token name (e.g. Cursor)' })}
+                    className="flex-1 rounded border border-border bg-bg-surface px-2 py-1.5 text-xs"
+                  />
+                  <Button size="sm" onClick={() => void handleCreateToken()} disabled={!newTokenName.trim()}>
+                    {t('tokens.create', { defaultValue: 'Create token' })}
+                  </Button>
+                </div>
+                {createdToken ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 p-3">
+                    <code className="flex-1 break-all text-xs">{createdToken}</code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(createdToken)
+                        toast.success(t('tokens.copied', { defaultValue: 'Copied.' }))
+                      }}
                     >
-                      {APPLY_MODE_OPTIONS.map((mode) => (
-                        <option key={mode} value={mode}>
-                          {APPLY_MODE_LABELS[mode]?.label ?? mode}
-                        </option>
-                      ))}
-                    </select>
+                      <Copy className="h-3.5 w-3.5" aria-hidden />
+                    </Button>
                   </div>
-                ))}
+                ) : null}
+                {tokens.length === 0 ? (
+                  <p className="text-xs text-text-muted">
+                    {t('tokens.empty', { defaultValue: 'No API tokens yet.' })}
+                  </p>
+                ) : (
+                  tokens.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex items-center justify-between rounded-lg border border-border/60 p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-heading">
+                          {row.name}{' '}
+                          <span className="font-mono text-xs text-text-muted">{row.token_prefix}…</span>
+                          {row.revoked_at ? (
+                            <Badge variant="destructive" className="ml-2 text-[10px]">
+                              {t('tokens.revokedBadge', { defaultValue: 'Revoked' })}
+                            </Badge>
+                          ) : null}
+                        </p>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {row.scopes.length ? row.scopes.join(', ') : t('tokens.allScopes', { defaultValue: 'All categories' })}
+                          {row.last_used_at
+                            ? ` · ${t('tokens.lastUsed', { defaultValue: 'last used' })} ${formatGovernTimestamp(row.last_used_at)}`
+                            : null}
+                        </p>
+                      </div>
+                      {!row.revoked_at ? (
+                        <Button size="sm" variant="ghost" onClick={() => void handleRevokeToken(row.id)}>
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -1,38 +1,24 @@
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.audit import AuditEvent
 from app.models.auth import Invite, Membership, Session, Tenant, User
-from app.models.blueprint import (
-    BlockRevision,
-    BlueprintBlock,
-    BlueprintChangeRequest,
-    BlueprintDoc,
-    BlueprintPage,
-)
-from app.models.chat import Conversation, ConversationMessage
-from app.models.email import EmailAccount, EmailMessage, EmailThread
-from app.models.inbox import FeedbackQueueItem, InboxSettings, MessageFeedback
-from app.models.inbox_threads import (
-    InboxEvent,
-    InboxMessage,
-    InboxThread,
-    InboxThreadPin,
-)
-from app.models.index import IndexChunk
+from app.models.channel import ChannelAccount, ChannelBinding, Contact
+from app.models.inbox import InboxSettings
+from app.models.workspace import DocChunk, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback
 from app.models.platform_change import PlatformChange
 from app.models.signal import Signal, SignalEvent, SignalMessage, SignalThreadPin
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
-from app.models.agenda import AgendaCalendar, AgendaEvent
+from app.models.trigger import Trigger
 from app.models.orchestra import (
     AgentProfile,
-    Task,
     Workstream,
     WorkstreamRun,
     WorkstreamStep,
     WorkstreamStepRun,
 )
-from app.models.policy import ActionPolicy, ActionWhitelistEntry, AssistantPersona
+from app.models.api_token import ApiToken
+from app.models.policy import AssistantPersona
 from app.models.custom_db import (
     CustomField,
     CustomRecord,
@@ -51,7 +37,6 @@ from app.models.project import (
 )
 from app.models.orchestration import (
     AgentTask,
-    AutomationTemplate,
     EvalCheckpoint,
     RuntimeProfile,
     TaskArtifact,
@@ -64,41 +49,26 @@ __all__ = [
     "Membership",
     "Session",
     "Invite",
-    "Conversation",
-    "ConversationMessage",
     "Notification",
     "UserNotificationPreference",
     "DecisionRequest",
-    "BlueprintDoc",
-    "BlueprintPage",
-    "BlueprintBlock",
-    "BlueprintChangeRequest",
-    "BlockRevision",
+    "WorkspaceDoc",
+    "DocChunk",
     "IntegrationConnection",
     "IntegrationBinding",
     "McpServer",
-    "EmailAccount",
-    "EmailThread",
-    "EmailMessage",
+    "ChannelAccount",
+    "ChannelBinding",
+    "Contact",
     "Agent",
     "AgentRun",
     "RunEvent",
     "AuditEvent",
-    "IndexChunk",
     "StaffAccessLog",
     "InboxSettings",
-    "MessageFeedback",
-    "FeedbackQueueItem",
-    "InboxThread",
-    "InboxMessage",
-    "InboxEvent",
-    "InboxThreadPin",
-    "ActionPolicy",
-    "ActionWhitelistEntry",
+    "ApiToken",
     "AssistantPersona",
-    "AgendaCalendar",
-    "AgendaEvent",
-    "Task",
+    "Trigger",
     "AgentProfile",
     "Workstream",
     "WorkstreamStep",
@@ -129,5 +99,4 @@ __all__ = [
     "AgentTask",
     "EvalCheckpoint",
     "TaskArtifact",
-    "AutomationTemplate",
 ]

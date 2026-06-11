@@ -1,5 +1,5 @@
 import { workforceRoutes } from '../api/routes'
-import { xanoGetWorkforce } from './xano'
+import { workforceGet } from './api'
 
 export type WorkLogStatus = 'running' | 'completed' | 'failed' | string
 
@@ -36,7 +36,7 @@ export async function listWorkLogs(filters?: {
   status?: string
   limit?: number
 }): Promise<WorkLogRow[]> {
-  const data = await xanoGetWorkforce<{ items: WorkLogRow[] } | WorkLogRow[]>(
+  const data = await workforceGet<{ items: WorkLogRow[] } | WorkLogRow[]>(
     workforceRoutes.workLogs.list(filters)
   )
   if (Array.isArray(data)) return data
@@ -44,5 +44,5 @@ export async function listWorkLogs(filters?: {
 }
 
 export async function fetchWorkLogEvents(workLogId: string): Promise<WorkLogEventsResponse> {
-  return xanoGetWorkforce<WorkLogEventsResponse>(workforceRoutes.workLogs.events(workLogId))
+  return workforceGet<WorkLogEventsResponse>(workforceRoutes.workLogs.events(workLogId))
 }

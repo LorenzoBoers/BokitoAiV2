@@ -3,7 +3,6 @@
   "rail": {
     "home": "Cockpit",
     "orchestra": "Orchestra",
-    "agenda": "Agenda",
     "support": "Messages",
     "updates": "AI",
     "assistent": "Assistant",
@@ -23,7 +22,6 @@
   "sectionTitle": {
     "home": "Cockpit",
     "orchestra": "Orchestra",
-    "agenda": "Agenda",
     "users": "Users",
     "settings": "Settings",
     "inbox": "Messages",
@@ -190,18 +188,18 @@
     }
   },
   "projectHub": {
-    "description": "Central Blueprint, ongoing projects, and agent communication in one place.",
+    "description": "Workspace docs, ongoing projects, and agent communication in one place.",
     "tabsAriaLabel": "Project hub navigation",
     "tabs": {
       "overview": "Overview",
-      "docs": "Blueprint",
+      "docs": "Workspace",
       "projects": "Projects",
       "communication": "Communication",
       "decisions": "Decisions"
     },
     "quick": {
       "newProject": "New project",
-      "openDocs": "Open Blueprint",
+      "openDocs": "Open workspace",
       "openCommunication": "Open communication"
     },
     "selector": {
@@ -239,20 +237,7 @@
       }
     },
     "docs": {
-      "menuLabel": "Blueprint",
-      "group": "Pages",
-      "chaptersLabel": "Chapters",
-      "treeEmpty": "No pages yet. Refresh to seed default chapters.",
-      "emptyTitle": "No Blueprint pages",
-      "emptyDescription": "Workspace Blueprint could not be loaded or has no pages yet. Retry after the backend is deployed.",
-      "agentEdit": "Ask agent",
-      "agentEditTitle": "Request Blueprint update",
-      "agentEditDescription": "Describe the changes you want on this page. An orchestrator run will be queued.",
-      "agentEditPlaceholder": "For example: Add a section about our refund policy under Operations.",
-      "agentEditSubmit": "Send request",
-      "agentRequestTitle": "Update page: {{page}}",
-      "agentRequestSent": "Change request queued. You will be notified when the agent finishes.",
-      "agentRequestFailed": "Could not queue the change request."
+      "menuLabel": "Workspace"
     },
     "projects": {
       "description": "Continuous agent work tracks. Each project pairs a goal with the agents that keep working on it."
@@ -655,7 +640,7 @@
       "orchestra": "Orchestra",
       "agents": "Agent library",
       "decisions": "Decisions",
-      "docs": "Blueprint",
+      "docs": "Workspace",
       "govern": "Govern"
     }
   },
@@ -701,6 +686,7 @@
         "workers": "Worker agents"
       },
       "types": {
+        "orchestrator": "Orchestrator",
         "po": "Orchestrator",
         "worker": "Worker"
       },
@@ -844,7 +830,7 @@
     "links": {
       "overview": "Overview",
       "po": "Orchestrator",
-      "knowledge": "Blueprint",
+      "knowledge": "Workspace",
       "orchestration": "Orchestration",
       "communication": "Messages",
       "workforce": "Agent runs",
@@ -1124,105 +1110,7 @@
       "newProject": "New project"
     },
     "doc": {
-      "title": "Blueprint",
-      "loading": "Loading Blueprint…",
-      "loadError": "Could not load Blueprint.",
-      "loadErrorDeploy": "Blueprint backend not available yet. The platform team is rolling out the new docs API.",
-      "empty": "This page has no blocks yet.",
-      "emptyDoc": "No Blueprint pages yet",
-      "emptyDocDescription": "New projects come with a starter template once the Blueprint backend is live.",
-      "addPage": "Add page",
-      "requestChange": "Request a change",
-      "history": "History",
-      "historyTitle": "Page history",
-      "historyDescription": "Recent block-level changes on this page.",
-      "historyEmpty": "No edits yet.",
-      "historyLoadError": "Could not load history.",
-      "lastEditedByAgent": "Last edited by an agent",
-      "lastEditedByUser": "Last edited by a user",
-      "pickPage": "Select a page from the sidebar to start reading.",
-      "retry": "Retry",
-      "treeEmpty": "No pages yet.",
-      "expandChapter": "Expand section",
-      "collapseChapter": "Collapse section",
-      "lockedBadge": "Locked",
-      "lockError": "Could not update page lock.",
-      "pageKind": {
-        "overview": "Overview",
-        "vision": "Vision",
-        "features": "Features",
-        "brand": "Brand",
-        "tech": "Technology",
-        "marketing": "Marketing",
-        "operations": "Operations",
-        "roadmap": "Roadmap",
-        "log": "Log",
-        "notes": "Notes",
-        "custom": "Custom"
-      },
-      "pageCrud": {
-        "menuAria": "Page actions",
-        "addPage": "Add page",
-        "newRootPrompt": "Page title",
-        "newChildPrompt": "Child page title",
-        "newSiblingPrompt": "Sibling page title",
-        "renamePrompt": "Rename page",
-        "rename": "Rename",
-        "delete": "Delete",
-        "deleteConfirm": "Delete page \"{{title}}\"?",
-        "newChild": "New child page",
-        "newSibling": "New sibling page",
-        "lock": "Lock page",
-        "unlock": "Unlock page",
-        "newPageDefault": "Page",
-        "dragPage": "Drag page",
-        "renameInline": "Page title",
-        "newRootInline": "New page title",
-        "newChildInline": "Child page title"
-      },
-      "lockedTitle": "This page is locked",
-      "lockedHint": "Editing is disabled. Click Unlock in the header or use the page menu to make changes.",
-      "revert": "Revert",
-      "revertFailed": "Revert failed.",
-      "editor": {
-        "saving": "Saving…",
-        "saved": "Saved {{time}}",
-        "savedShort": "Saved",
-        "lastEdited": "Last edited {{time}}",
-        "saveFailed": "Could not save changes",
-        "dragBlock": "Drag block",
-        "deleteBlock": "Delete block",
-        "addBlockBelow": "Add block below",
-        "changeBlockType": "Change block type",
-        "locked": "Locked",
-        "versionConflict": "This page was updated elsewhere. Reloading latest content."
-      },
-      "blockPlaceholder": {
-        "heading_1": "Heading 1",
-        "heading_2": "Heading 2",
-        "heading_3": "Heading 3",
-        "bullet_list_item": "List item",
-        "numbered_list_item": "List item",
-        "to_do": "To-do",
-        "quote": "Quote",
-        "callout": "Callout",
-        "code": "Code",
-        "default": "Type here…",
-        "defaultHint": "Type '- ' for bullet, '1. ' for numbered, '#' for heading…"
-      },
-      "blockType": {
-        "paragraph": "Text",
-        "heading_1": "Heading 1",
-        "heading_2": "Heading 2",
-        "heading_3": "Heading 3",
-        "bullet_list_item": "Bulleted list",
-        "numbered_list_item": "Numbered list",
-        "to_do": "To-do",
-        "quote": "Quote",
-        "callout": "Callout",
-        "code": "Code",
-        "divider": "Divider"
-      }
+      "title": "Workspace"
     }
   },
   "settings": {

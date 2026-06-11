@@ -20,6 +20,7 @@ from app.services.orchestration.dispatcher import add_task_artifact
 from app.services.orchestration.eval import run_eval_checkpoint
 from app.services.orchestration.profiles import apply_snapshot_to_agent, resolve_runtime_snapshot
 from app.services.orchestration.queue import enqueue_agent_task_segment
+from app.gateway.publish import publish_run_event
 from app.services.signal_decisions import append_decision_to_signal
 
 
@@ -67,6 +68,15 @@ async def log_run_event(
         )
     )
     await session.flush()
+    await publish_run_event(
+        run.tenant_id,
+        run.id,
+        event_type=event_type,
+        message=message,
+        payload=payload or {},
+        sequence=seq,
+        status=run.status,
+    )
 
 
 def _build_handoff_prompt(step: WorkstreamStep, task: AgentTask, step_outputs: dict[str, Any]) -> str:
@@ -214,8 +224,11 @@ async def _execute_agent_segment(
     loop = AgentLoop(session, tenant_id, task.created_by, runtime_agent, run)
     text, tokens = await loop.run_chat(messages)
 
-    run.tokens_input = tokens.get("input_tokens", 0)
-    run.tokens_output = tokens.get("output_tokens", 0)
+    tokens_in = tokens.get("input_tokens", 0)
+    tokens_out = tokens.get("output_tokens", 0)
+    cost_cents = max(1, (tokens_in + tokens_out) // 100)
+    run.tokens_input = tokens_in
+    run.tokens_output = tokens_out
     run.result_json = json.dumps({"text": text[:8000]})
     run.checkpoint_json = json.dumps([*messages, {"role": "assistant", "content": text}][-40:])
     run.status = "completed"
@@ -229,10 +242,26 @@ async def _execute_agent_segment(
             scope_id=str(run.id),
             provider=runtime_agent.provider,
             model=runtime_agent.model,
-            tokens_in=tokens.get("input_tokens", 0),
-            tokens_out=tokens.get("output_tokens", 0),
-            cost_cents=max(1, (tokens.get("input_tokens", 0) + tokens.get("output_tokens", 0)) // 100),
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            cost_cents=cost_cents,
         )
+    )
+
+    context_window = max(1, int(snapshot.get("max_tokens") or runtime_agent.max_tokens or 4096))
+    context_pct = min(100, round((tokens_in + tokens_out) / context_window * 100))
+    await log_run_event(
+        session,
+        run,
+        "context_usage",
+        f"Context ~{context_pct}% | {tokens_in + tokens_out} tokens | {cost_cents} cents",
+        {
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "context_pct": context_pct,
+            "cost_cents": cost_cents,
+            "max_cost_cents": int(snapshot.get("max_cost_cents") or 0),
+        },
     )
 
     await log_run_event(session, run, "segment_completed", text[:500], {"tokens": tokens}, detail_level="full")
@@ -368,6 +397,30 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
         workstream_run=workstream_run,
         segment_index=segment_index,
     )
+
+    # Refresh context: the segment persisted active_run_id, so re-read before mutating.
+    ctx = _parse_json(task.context_json)
+
+    # Cost budget enforcement: accumulate spend per task and pause if a profile cap is exceeded.
+    snapshot = _parse_json(run.runtime_snapshot_json)
+    max_cost = int(snapshot.get("max_cost_cents") or 0)
+    spent = int(ctx.get("cost_cents") or 0) + max(1, (run.tokens_input + run.tokens_output) // 100)
+    ctx["cost_cents"] = spent
+    task.context_json = json.dumps(ctx)
+    session.add(task)
+    if max_cost > 0 and spent >= max_cost:
+        await log_run_event(
+            session,
+            run,
+            "budget_exceeded",
+            f"Cost budget reached: {spent}/{max_cost} cents",
+            {"spent_cents": spent, "max_cost_cents": max_cost},
+        )
+        task.status = "paused"
+        task.pause_reason = "budget_exceeded"
+        session.add(task)
+        await session.commit()
+        return {"paused": True, "reason": "budget_exceeded"}
 
     eval_criteria = step.success_criteria_json if step else task.success_criteria_json
     eval_kind = step.eval_kind if step else "rubric"

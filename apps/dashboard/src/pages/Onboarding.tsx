@@ -7,8 +7,6 @@ import { toast } from 'sonner'
 import OnboardingStep1 from '../components/onboarding/OnboardingStep1'
 import OnboardingStep2 from '../components/onboarding/OnboardingStep2'
 import OnboardingStep3 from '../components/onboarding/OnboardingStep3'
-import { messagesHubPath } from '../components/layout/portal-nav'
-import { isBokitoMode } from '../lib/bokito-mode'
 import type { OnboardingStep1Data, OnboardingStep2Data, OnboardingStep3Data } from '../types/custom-db'
 
 export default function Onboarding() {
@@ -57,11 +55,7 @@ export default function Onboarding() {
       })
 
       toast.success('Welcome to Bokito. Your workspace is ready.')
-      if (isBokitoMode()) {
-        navigate('/home', { replace: true })
-      } else {
-        navigate(messagesHubPath({ folder: 'internal', queue: 'my' }), { replace: true })
-      }
+      navigate('/home', { replace: true })
     } catch (error) {
       console.error('Onboarding failed:', error)
       toast.error('Something went wrong while setting up your workspace.')

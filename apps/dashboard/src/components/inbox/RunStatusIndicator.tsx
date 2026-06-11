@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { workforceRoutes } from '../../api/routes'
-import { xanoGetWorkforce } from '../../lib/xano'
+import { workforceGet } from '../../lib/api'
 
 type RunStatus = {
   state: string
@@ -26,7 +26,7 @@ export function RunStatusIndicator({ workLogId }: Props) {
     let cancelled = false
     const load = async () => {
       try {
-        const data = await xanoGetWorkforce<RunStatus>(workforceRoutes.runs.status(workLogId))
+        const data = await workforceGet<RunStatus>(workforceRoutes.runs.status(workLogId))
         if (!cancelled) setStatus(data)
       } catch {
         if (!cancelled) setStatus(null)

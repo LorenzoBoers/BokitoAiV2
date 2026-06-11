@@ -54,35 +54,20 @@ function chatWidgetDevPlugin() {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const xanoBaseUrl = env.VITE_XANO_BASE_URL || 'https://xrex-nmji-j9ur.f2.xano.io'
-  const authCanonical = env.VITE_API_GROUP_AUTH || 'auth'
   const bokitoApiUrl = env.VITE_BOKITO_API_URL || 'http://127.0.0.1:8000'
-  const useBokitoApi = env.VITE_API_MODE === 'bokito'
 
-  const proxy: Record<string, object> = useBokitoApi
-    ? {
-        '/api:livechat': {
-          target: bokitoApiUrl,
-          changeOrigin: true,
-          rewrite: (path: string) => path.replace(/^\/api:livechat/, '/api/livechat'),
-        },
-        '/api': {
-          target: bokitoApiUrl,
-          changeOrigin: true,
-        },
-      }
-    : {
-        '/api/auth': {
-          target: xanoBaseUrl,
-          changeOrigin: true,
-          rewrite: (path: string) => path.replace(/^\/api\/auth/, `/api:${authCanonical}`),
-        },
-        '/api': {
-          target: xanoBaseUrl,
-          changeOrigin: true,
-          rewrite: (path: string) => path.replace(/^\/api\/([^/]+)/, '/api:$1'),
-        },
-      }
+  const proxy: Record<string, object> = {
+    '/api:livechat': {
+      target: bokitoApiUrl,
+      changeOrigin: true,
+      rewrite: (path: string) => path.replace(/^\/api:livechat/, '/api/livechat'),
+    },
+    '/api': {
+      target: bokitoApiUrl,
+      changeOrigin: true,
+      ws: true,
+    },
+  }
 
   return {
     plugins: [react(), chatWidgetDevPlugin()],

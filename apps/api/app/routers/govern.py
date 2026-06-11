@@ -1,6 +1,9 @@
-"""GOVERN & ASSURE endpoints: audit, passports, drafts, versioning, apply modes."""
+"""GOVERN & ASSURE endpoints: posture, allowance sliders, audit, passports, changes, API tokens."""
 
+import hashlib
 import json
+import secrets
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -12,18 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth, tenant_settings
 from app.models.agent import Agent
+from app.models.api_token import ApiToken
 from app.models.auth import Tenant
-from app.services.apply_mode import (
-    DEFAULT_PLATFORM_APPLY_MODES,
-    AUTONOMY_POSTURES,
-    posture_policy_mode,
-    posture_to_settings,
-    resolve_posture,
-    serialize_posture_catalog,
-    tenant_platform_apply_modes,
-)
-from app.services.audit import record_audit
-from app.services.audit import search_audit, serialize_audit
+from app.services.audit import record_audit, search_audit, serialize_audit
 from app.services.platform_changes import (
     accept_platform_change,
     list_platform_changes,
@@ -31,32 +25,51 @@ from app.services.platform_changes import (
     rollback_platform_change,
     serialize_change,
 )
-from app.services.policy import get_or_create_policy
+from app.tools.policy import (
+    ALLOWANCE_MODES,
+    AUTONOMY_POSTURES,
+    resolve_posture,
+    serialize_posture_catalog,
+    tenant_allowances,
+    tenant_tool_overrides,
+)
+from app.tools.registry import TOOL_CATEGORIES, iter_tool_specs
 
 router = APIRouter(prefix="/govern", tags=["govern"])
-
-
-class ApplyModesUpdate(BaseModel):
-    platform_apply_modes: dict[str, str]
 
 
 class PostureUpdate(BaseModel):
     posture: str
 
 
-@router.get("/posture")
-async def get_posture(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    policy = await get_or_create_policy(session, auth.tenant.id)
-    posture = resolve_posture(auth.tenant)
+class AllowancesUpdate(BaseModel):
+    allowances: dict[str, str]
+
+
+class ToolOverrideUpdate(BaseModel):
+    tool_name: str
+    # null/empty mode clears the override
+    mode: str | None = None
+
+
+class TokenCreate(BaseModel):
+    name: str
+    scopes: list[str] = []
+
+
+def _allowance_state(tenant: Tenant) -> dict:
     return {
-        "posture": posture,
-        "policy_mode": policy.mode,
-        "platform_apply_modes": tenant_platform_apply_modes(auth.tenant),
+        "posture": resolve_posture(tenant),
+        "allowances": tenant_allowances(tenant),
+        "tool_overrides": tenant_tool_overrides(tenant),
+        "categories": list(TOOL_CATEGORIES),
         "presets": serialize_posture_catalog(),
     }
+
+
+@router.get("/posture")
+async def get_posture(auth: Annotated[AuthContext, Depends(get_current_auth)]):
+    return _allowance_state(auth.tenant)
 
 
 @router.put("/posture")
@@ -70,20 +83,15 @@ async def update_posture(
         raise HTTPException(status_code=400, detail=f"Invalid posture: {body.posture}")
 
     previous_posture = resolve_posture(auth.tenant)
-    derived = posture_to_settings(body.posture)  # type: ignore[arg-type]
-
     settings = tenant_settings(auth.tenant)
-    settings["autonomy_posture"] = derived["autonomy_posture"]
-    settings["platform_apply_modes"] = derived["platform_apply_modes"]
+    settings["autonomy_posture"] = body.posture
+    # Posture change resets explicit per-category overrides to the preset.
+    settings.pop("tool_allowances", None)
 
     result = await session.execute(select(Tenant).where(Tenant.id == auth.tenant.id))
     tenant = result.scalar_one()
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
-
-    policy = await get_or_create_policy(session, auth.tenant.id)
-    policy.mode = posture_policy_mode(body.posture)  # type: ignore[arg-type]
-    session.add(policy)
 
     await record_audit(
         session,
@@ -96,17 +104,102 @@ async def update_posture(
         outcome="applied",
         summary=f"Autonomy posture changed from {previous_posture} to {body.posture}",
         before={"posture": previous_posture},
-        after={"posture": body.posture, "policy_mode": policy.mode},
+        after={"posture": body.posture},
         commit=False,
     )
     await session.commit()
+    await session.refresh(tenant)
+    return _allowance_state(tenant)
 
-    return {
-        "posture": body.posture,
-        "policy_mode": policy.mode,
-        "platform_apply_modes": tenant_platform_apply_modes(tenant),
-        "presets": serialize_posture_catalog(),
-    }
+
+@router.get("/allowances")
+async def get_allowances(auth: Annotated[AuthContext, Depends(get_current_auth)]):
+    state = _allowance_state(auth.tenant)
+    overrides = state["tool_overrides"]
+    tools = [
+        {
+            "name": spec.name,
+            "description": spec.description,
+            "category": spec.category,
+            "mutating": spec.mutating,
+            "gated": spec.gated,
+            "override": overrides.get(spec.name),
+        }
+        for spec in iter_tool_specs()
+    ]
+    return {**state, "tools": tools}
+
+
+@router.put("/allowances")
+async def update_allowances(
+    body: AllowancesUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    for key, val in body.allowances.items():
+        if key not in TOOL_CATEGORIES:
+            raise HTTPException(status_code=400, detail=f"Unknown category: {key}")
+        if val not in ALLOWANCE_MODES:
+            raise HTTPException(status_code=400, detail=f"Invalid mode for {key}: {val}")
+
+    settings = tenant_settings(auth.tenant)
+    current = settings.get("tool_allowances") or {}
+    if not isinstance(current, dict):
+        current = {}
+    current.update(body.allowances)
+    settings["tool_allowances"] = current
+
+    result = await session.execute(select(Tenant).where(Tenant.id == auth.tenant.id))
+    tenant = result.scalar_one()
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:allowances_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(auth.tenant.id),
+        outcome="applied",
+        summary="Tool allowance sliders updated",
+        after=body.allowances,
+        commit=False,
+    )
+    await session.commit()
+    await session.refresh(tenant)
+    return _allowance_state(tenant)
+
+
+@router.put("/tool-overrides")
+async def update_tool_override(
+    body: ToolOverrideUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    if body.mode is not None and body.mode not in ALLOWANCE_MODES:
+        raise HTTPException(status_code=400, detail=f"Invalid mode: {body.mode}")
+
+    settings = tenant_settings(auth.tenant)
+    overrides = settings.get("tool_overrides") or {}
+    if not isinstance(overrides, dict):
+        overrides = {}
+    if body.mode is None:
+        overrides.pop(body.tool_name, None)
+    else:
+        overrides[body.tool_name] = body.mode
+    settings["tool_overrides"] = overrides
+
+    result = await session.execute(select(Tenant).where(Tenant.id == auth.tenant.id))
+    tenant = result.scalar_one()
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    await session.commit()
+    await session.refresh(tenant)
+    return _allowance_state(tenant)
 
 
 @router.get("/audit")
@@ -152,13 +245,6 @@ async def list_passports(
         except (json.JSONDecodeError, TypeError):
             return []
 
-    def _dict(raw: str) -> dict:
-        try:
-            value = json.loads(raw or "{}")
-            return value if isinstance(value, dict) else {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
-
     return {
         "items": [
             {
@@ -168,7 +254,6 @@ async def list_passports(
                 "autonomy_level": a.autonomy_level,
                 "allowed_tools": _list(a.tools_json),
                 "permission_scopes": _list(a.permission_scopes_json),
-                "apply_modes": _dict(a.apply_modes_json),
                 "is_active": a.is_active,
                 "runtime_status": a.runtime_status,
             }
@@ -263,37 +348,87 @@ async def restore_change(
     return serialize_change(change)
 
 
-@router.get("/apply-modes")
-async def get_apply_modes(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    policy = await get_or_create_policy(session, auth.tenant.id)
+# ── API tokens (MCP server access) ───────────────────────────────
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _serialize_token(row: ApiToken) -> dict:
     return {
-        "defaults": DEFAULT_PLATFORM_APPLY_MODES,
-        "tenant_modes": tenant_platform_apply_modes(auth.tenant),
-        "policy_mode": policy.mode,
+        "id": str(row.id),
+        "name": row.name,
+        "token_prefix": row.token_prefix,
+        "scopes": json.loads(row.scopes_json or "[]"),
+        "last_used_at": row.last_used_at.isoformat() if row.last_used_at else None,
+        "revoked_at": row.revoked_at.isoformat() if row.revoked_at else None,
+        "created_at": row.created_at.isoformat(),
     }
 
 
-@router.put("/apply-modes")
-async def update_apply_modes(
-    body: ApplyModesUpdate,
+@router.get("/tokens")
+async def list_tokens(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    result = await session.execute(
+        select(ApiToken).where(ApiToken.tenant_id == auth.tenant.id).order_by(ApiToken.created_at.desc())
+    )
+    return {"items": [_serialize_token(t) for t in result.scalars().all()]}
+
+
+@router.post("/tokens")
+async def create_token(
+    body: TokenCreate,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    for key, val in body.platform_apply_modes.items():
-        if val not in ("draft", "yolo", "decision"):
-            raise HTTPException(status_code=400, detail=f"Invalid mode for {key}: {val}")
-    settings = tenant_settings(auth.tenant)
-    settings["platform_apply_modes"] = body.platform_apply_modes
-    result = await session.execute(select(Tenant).where(Tenant.id == auth.tenant.id))
-    tenant = result.scalar_one()
-    tenant.settings_json = json.dumps(settings)
-    session.add(tenant)
+    for scope in body.scopes:
+        if scope not in TOOL_CATEGORIES:
+            raise HTTPException(status_code=400, detail=f"Unknown scope: {scope}")
+    plain = f"bok_{secrets.token_urlsafe(32)}"
+    token = ApiToken(
+        tenant_id=auth.tenant.id,
+        name=body.name,
+        token_hash=hash_token(plain),
+        token_prefix=plain[:12],
+        scopes_json=json.dumps(body.scopes),
+        created_by_user_id=auth.user.id,
+    )
+    session.add(token)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:token_create",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="api_token",
+        resource_id=str(token.id),
+        outcome="applied",
+        summary=f"API token '{body.name}' created",
+        commit=False,
+    )
     await session.commit()
-    return {
-        "tenant_modes": tenant_platform_apply_modes(tenant),
-        "platform_apply_modes": body.platform_apply_modes,
-    }
+    await session.refresh(token)
+    return {**_serialize_token(token), "token": plain}
+
+
+@router.delete("/tokens/{token_id}")
+async def revoke_token(
+    token_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    result = await session.execute(
+        select(ApiToken).where(ApiToken.id == token_id, ApiToken.tenant_id == auth.tenant.id)
+    )
+    token = result.scalar_one_or_none()
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    token.revoked_at = datetime.utcnow()
+    session.add(token)
+    await session.commit()
+    return _serialize_token(token)

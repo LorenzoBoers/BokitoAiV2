@@ -1,49 +1,14 @@
-import type { ReactNode } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import { NavBadgeProvider } from '../../context/NavBadgeContext'
-import { AgendaCalendarProvider } from '../../context/AgendaCalendarContext'
 import { InboxCommunicationProvider } from '../../context/InboxCommunicationContext'
-import { ProjectHubNavProvider, isProjectHubRoute } from '../../context/ProjectHubNavContext'
-import { WorkspaceDocNavProvider } from '../../context/WorkspaceDocNavContext'
 import Sidebar from './Sidebar'
 import AppHeader from './AppHeader'
 import SectionSidebar from './SectionSidebar'
-
-/**
- * Lift the workspace docs provider above `SectionSidebar` on hub doc
- * routes so the contextual page tree can render alongside the canvas.
- */
-function MaybeWorkspaceDocs({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation()
-  if (pathname.startsWith('/projects') || pathname.startsWith('/os')) {
-    return <WorkspaceDocNavProvider>{children}</WorkspaceDocNavProvider>
-  }
-  return <>{children}</>
-}
-
-function MaybeProjectHubNav({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation()
-  if (isProjectHubRoute(pathname)) {
-    return <ProjectHubNavProvider>{children}</ProjectHubNavProvider>
-  }
-  return <>{children}</>
-}
-
-function MaybeAgendaCalendar({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation()
-  if (pathname === '/agenda' || pathname.startsWith('/agenda/')) {
-    return <AgendaCalendarProvider>{children}</AgendaCalendarProvider>
-  }
-  return <>{children}</>
-}
 
 export default function Layout() {
   return (
     <NavBadgeProvider>
       <InboxCommunicationProvider>
-      <MaybeProjectHubNav>
-        <MaybeWorkspaceDocs>
-        <MaybeAgendaCalendar>
         <div className="flex h-screen gap-3 bg-bg p-3">
           <Sidebar />
           <div className="flex-1 min-w-0">
@@ -58,9 +23,6 @@ export default function Layout() {
             </div>
           </div>
         </div>
-        </MaybeAgendaCalendar>
-        </MaybeWorkspaceDocs>
-      </MaybeProjectHubNav>
       </InboxCommunicationProvider>
     </NavBadgeProvider>
   )

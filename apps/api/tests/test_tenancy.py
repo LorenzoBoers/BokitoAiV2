@@ -30,8 +30,8 @@ async def test_signup_and_tenant_isolation(client: AsyncClient):
     token_b = signup_b.json()["access_token"]
     headers_b = {"Authorization": f"Bearer {token_b}"}
 
-    inbox_a = await client.get("/api/inbox", headers=headers_a)
-    assert inbox_a.status_code == 200
+    signals_a = await client.get("/api/signals?view=all_open", headers=headers_a)
+    assert signals_a.status_code == 200
 
     # Tenant B cannot see tenant A conversations via wrong token (different tenant_id in JWT)
     conv_a = await client.post("/api/chat/conversations", json={"title": "Secret"}, headers=headers_a)
@@ -41,14 +41,14 @@ async def test_signup_and_tenant_isolation(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_inbox_endpoint(client: AsyncClient):
+async def test_signals_inbox_endpoint(client: AsyncClient):
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
     login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
-    resp = await client.get("/api/inbox", headers=headers)
+    resp = await client.get("/api/signals?view=all_open", headers=headers)
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    assert isinstance(resp.json()["items"], list)
 
 
 @pytest.mark.asyncio

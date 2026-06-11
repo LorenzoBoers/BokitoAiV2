@@ -87,7 +87,14 @@ export const appRoutes = {
     workstreamRun: (id: string) => `/orchestration/workstreams/${id}/run`,
     workstreamSteps: (id: string) => `/orchestration/workstreams/${id}/steps`,
     runEvents: (runId: string) => `/orchestration/runs/${runId}/events`,
-    runEventsStream: (runId: string) => `/orchestration/runs/${runId}/events/stream`,
-    automationTemplates: '/orchestration/automation-templates',
+  },
+  triggers: {
+    list: '/triggers',
+    byId: (id: string) => `/triggers/${id}`,
+    run: (id: string) => `/triggers/${id}/run`,
+  },
+  channelBindings: {
+    list: '/channels/bindings',
+    byId: (id: string) => `/channels/bindings/${id}`,
   },
 } as const

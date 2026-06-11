@@ -25,9 +25,9 @@ async def test_create_agent_tool_draft_queue(client: AsyncClient, session_overri
         )
     ).scalar_one()
     orch.permission_scopes_json = json.dumps(
-        ["platform:agent:create", "platform:workstream:create", "platform:blueprint:write"]
+        ["platform:agent:create", "platform:workstream:create", "platform:doc:write"]
     )
-    orch.tools_json = json.dumps(["create_agent", "create_workstream", "write_blueprint"])
+    orch.tools_json = json.dumps(["create_agent", "create_workstream", "write_doc"])
     await session_override.commit()
     result = await execute_tool(
         session_override,
@@ -89,7 +89,7 @@ async def test_propose_integration_routes_to_decision(client: AsyncClient, sessi
 
 
 @pytest.mark.asyncio
-async def test_govern_rollback_blueprint_change(client: AsyncClient, session_override):
+async def test_govern_rollback_change_listing(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     listed = await client.get("/api/govern/changes?status=accepted", headers=headers)
     assert listed.status_code == 200

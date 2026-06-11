@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.inbox_threads import user_numeric_id
+from app.models.auth import user_numeric_id
 from app.services import signal_threads as svc
 from app.services.interpretation import triage_signal
 from app.services.signals import create_inbound_signal, serialize_signal

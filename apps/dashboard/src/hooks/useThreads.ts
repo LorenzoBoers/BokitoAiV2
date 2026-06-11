@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { listThreads, type InboxThread, type ThreadFilters, type ThreadId } from '../lib/inbox-api'
+import { onGatewayEvent } from '../lib/gateway'
 
 function buildFilterKey(filters: ThreadFilters): string {
   return [
@@ -19,7 +20,8 @@ function buildFilterKey(filters: ThreadFilters): string {
 export function useThreads(
   filters: ThreadFilters = {},
   pinnedIds: ThreadId[] = [],
-  pollMs = 30000,
+  // Slow fallback poll; live updates arrive over the gateway WS.
+  pollMs = 90000,
 ) {
   const { token } = useAuth()
   const filterKey = useMemo(() => buildFilterKey(filters), [
@@ -96,6 +98,23 @@ export function useThreads(
     }, pollMs)
     return () => window.clearInterval(timer)
   }, [token, pollMs, fetchThreads])
+
+  // Live refresh on gateway thread/message events (debounced).
+  useEffect(() => {
+    if (!token) return
+    let debounceTimer: number | null = null
+    const unsubscribe = onGatewayEvent('threads', () => {
+      if (debounceTimer !== null) return
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = null
+        void fetchThreads()
+      }, 800)
+    })
+    return () => {
+      unsubscribe()
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer)
+    }
+  }, [token, fetchThreads])
 
   // Decorate every fetched thread with isPinned (client-side join with the
   // user's pinned thread IDs) and sort pinned threads to the top of the

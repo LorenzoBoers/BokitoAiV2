@@ -74,8 +74,12 @@ async def process_feedback_batch(session: AsyncSession, tenant_id: UUID, limit: 
 
 
 async def apply_heuristic_guardrails(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    """Adjust tenant policy hints from latest eval scores (no ML)."""
-    from app.services.policy import get_or_create_policy
+    """Adjust tenant autonomy posture from latest eval scores (no ML)."""
+    import json as _json
+
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant
+    from app.tools.policy import resolve_posture
 
     result = await session.execute(
         select(EvalScore)
@@ -85,19 +89,29 @@ async def apply_heuristic_guardrails(session: AsyncSession, tenant_id: UUID) -> 
     )
     latest = result.scalar_one_or_none()
     escalation = latest.value if latest else 0
-    policy = await get_or_create_policy(session, tenant_id)
-    updated: dict[str, Any] = {"policy_mode": policy.mode}
 
-    if escalation > 40 and policy.mode == "yolo":
-        policy.mode = "whitelist"
-        updated["policy_mode"] = "whitelist"
-        updated["reason"] = "High escalation rate; tightened from yolo to whitelist"
-    elif escalation < 10 and policy.mode == "manual":
-        policy.mode = "whitelist"
-        updated["policy_mode"] = "whitelist"
-        updated["reason"] = "Low escalation; eased from manual to whitelist"
+    tenant_result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = tenant_result.scalar_one_or_none()
+    if tenant is None:
+        return {}
+    posture = resolve_posture(tenant)
+    updated: dict[str, Any] = {"posture": posture}
 
-    session.add(policy)
+    new_posture = None
+    if escalation > 40 and posture == "autonomous":
+        new_posture = "assisted"
+        updated["reason"] = "High escalation rate; tightened from autonomous to assisted"
+    elif escalation < 10 and posture == "manual":
+        new_posture = "assisted"
+        updated["reason"] = "Low escalation; eased from manual to assisted"
+
+    if new_posture:
+        settings = tenant_settings(tenant)
+        settings["autonomy_posture"] = new_posture
+        tenant.settings_json = _json.dumps(settings)
+        session.add(tenant)
+        updated["posture"] = new_posture
+
     await session.commit()
     return updated
 

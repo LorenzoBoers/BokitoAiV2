@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { Bot, ChevronDown, ChevronRight, Inbox, Mail, Pin, Users } from 'lucide-react'
+import { Bot, ChevronDown, ChevronRight, Inbox, Mail, Pin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
@@ -9,8 +9,6 @@ import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import NavCountBadge from '../layout/NavCountBadge'
 import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
-
-type FolderSegment = 'external' | 'internal'
 
 function navLinkClass(isActive: boolean) {
   return cn(
@@ -21,19 +19,7 @@ function navLinkClass(isActive: boolean) {
   )
 }
 
-const CUSTOMER_QUEUES = [
-  { labelKey: 'support.links.allMessages', queue: 'all', defaultLabel: 'Open', icon: 'inbox' as const },
-  { labelKey: 'support.links.myInbox', queue: 'my', defaultLabel: 'Assigned to me', icon: 'user' as const },
-  { labelKey: 'support.links.unassigned', queue: 'unassigned', defaultLabel: 'Unassigned', icon: 'inbox' as const },
-  { labelKey: 'support.links.pinned', queue: 'pinned', defaultLabel: 'Pinned', icon: 'pin' as const },
-] as const
-
-const CUSTOMER_MORE_QUEUES = [
-  { labelKey: 'support.links.pending', queue: 'pending', defaultLabel: 'Pending', icon: 'inbox' as const },
-  { labelKey: 'support.links.closed', queue: 'closed', defaultLabel: 'Closed', icon: 'inbox' as const },
-] as const
-
-const AGENT_QUEUES = [
+const PRIMARY_QUEUES = [
   {
     labelKey: 'support.links.awaitingDecision',
     queue: 'awaiting-decision',
@@ -41,12 +27,17 @@ const AGENT_QUEUES = [
     icon: 'inbox' as const,
     emphasis: true,
   },
-  { labelKey: 'support.links.allMessages', queue: 'all', defaultLabel: 'All', icon: 'inbox' as const },
-  { labelKey: 'support.links.updates', queue: 'updates', defaultLabel: 'Updates', icon: 'bot' as const },
-  { labelKey: 'support.links.results', queue: 'results', defaultLabel: 'Results', icon: 'bot' as const },
+  { labelKey: 'support.links.allMessages', queue: 'all', defaultLabel: 'Open', icon: 'inbox' as const },
   { labelKey: 'support.links.myInbox', queue: 'my', defaultLabel: 'Assigned to me', icon: 'user' as const },
   { labelKey: 'support.links.unassigned', queue: 'unassigned', defaultLabel: 'Unassigned', icon: 'inbox' as const },
+  { labelKey: 'support.links.updates', queue: 'updates', defaultLabel: 'Updates', icon: 'bot' as const },
+  { labelKey: 'support.links.results', queue: 'results', defaultLabel: 'Results', icon: 'bot' as const },
   { labelKey: 'support.links.pinned', queue: 'pinned', defaultLabel: 'Pinned', icon: 'pin' as const },
+] as const
+
+const MORE_QUEUES = [
+  { labelKey: 'support.links.pending', queue: 'pending', defaultLabel: 'Pending', icon: 'inbox' as const },
+  { labelKey: 'support.links.closed', queue: 'closed', defaultLabel: 'Closed', icon: 'inbox' as const },
 ] as const
 
 const CHANNEL_VIEWS = [
@@ -77,38 +68,33 @@ function saveExpandedState(key: string, state: Record<string, boolean>) {
   }
 }
 
-function buildInboxQuery(folder: FolderSegment, extra?: URLSearchParams): string {
-  const params = new URLSearchParams(extra?.toString() ?? '')
-  params.set('folder', folder)
+/** Preserve non-folder query params (e.g. project_id) when navigating queues. */
+function buildInboxQuery(searchParams?: URLSearchParams): string {
+  const params = new URLSearchParams()
+  const projectId = searchParams?.get('project_id')
+  if (projectId) params.set('project_id', projectId)
   const query = params.toString()
   return query ? `?${query}` : ''
 }
 
-function resolveSegment(searchParams: URLSearchParams): FolderSegment {
-  const folder = searchParams.get('folder')
-  return folder === 'external' ? 'external' : 'internal'
-}
-
 type QueueLinkProps = {
   queue: string
-  folder: FolderSegment
   label: string
   badgeCount?: number
   icon?: 'inbox' | 'pin' | 'user' | 'bot'
   emphasis?: boolean
 }
 
-function QueueLink({ queue, folder, label, badgeCount = 0, icon = 'inbox', emphasis = false }: QueueLinkProps) {
+function QueueLink({ queue, label, badgeCount = 0, icon = 'inbox', emphasis = false }: QueueLinkProps) {
   const { user } = useAuth()
   const location = useLocation()
   const { queue: paramQueue, channelId } = useParams<{ queue?: string; channelId?: string }>()
   const [searchParams] = useSearchParams()
-  const to = `/messages/${queue}${buildInboxQuery(folder, searchParams)}`
+  const to = `/messages/${queue}${buildInboxQuery(searchParams)}`
   const activeQueue = paramQueue ?? 'all'
   const isActive =
     !channelId &&
     activeQueue === queue &&
-    resolveSegment(searchParams) === folder &&
     (location.pathname.startsWith('/messages/') || location.pathname.startsWith('/support/inbox/')) &&
     !location.pathname.includes('/ch/')
 
@@ -173,7 +159,7 @@ function ChannelSection({
     saveExpandedState(STORAGE_KEY, stored)
   }
 
-  const folderQuery = buildInboxQuery('external', searchParams)
+  const channelQuery = buildInboxQuery(searchParams)
 
   return (
     <div>
@@ -195,7 +181,7 @@ function ChannelSection({
           {CHANNEL_VIEWS.map((v) => (
             <NavLink
               key={v.queue}
-              to={`/messages/ch/${connectionId}/${v.queue}${folderQuery}`}
+              to={`/messages/ch/${connectionId}/${v.queue}${channelQuery}`}
               className={({ isActive }) => navLinkClass(isActive)}
             >
               <span>{t(v.labelKey, { defaultValue: v.defaultLabel })}</span>
@@ -207,55 +193,12 @@ function ChannelSection({
   )
 }
 
-function SegmentTabs({
-  segment,
-  searchParams,
-  t,
-}: {
-  segment: FolderSegment
-  searchParams: URLSearchParams
-  t: (key: string, opts?: { defaultValue?: string }) => string
-}) {
-  const tabs: { id: FolderSegment; label: string; defaultQueue: string }[] = [
-    { id: 'external', label: t('support.segmentCustomer', { defaultValue: 'Customer' }), defaultQueue: 'all' },
-    { id: 'internal', label: t('support.segmentAgents', { defaultValue: 'Agents' }), defaultQueue: 'awaiting-decision' },
-  ]
-
-  return (
-    <div className="grid grid-cols-2 gap-1 rounded-lg border border-border/60 bg-bg-muted/30 p-1">
-      {tabs.map((tab) => {
-        const isActive = segment === tab.id
-        const params = new URLSearchParams(searchParams.toString())
-        params.set('folder', tab.id)
-        const to = `/messages/${tab.defaultQueue}?${params.toString()}`
-        return (
-          <NavLink
-            key={tab.id}
-            to={to}
-            className={() =>
-              cn(
-                'rounded-md px-2 py-1.5 text-center text-[12px] font-medium transition-colors',
-                isActive
-                  ? 'bg-bg-surface text-text-heading shadow-sm'
-                  : 'text-text-muted hover:text-text-secondary',
-              )
-            }
-          >
-            {tab.label}
-          </NavLink>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function InboxSidebarNav() {
   const { t } = useTranslation('nav')
   const { counts } = useNavBadges()
   const { channelId } = useParams<{ channelId?: string }>()
   const [searchParams] = useSearchParams()
   const { connections, loading } = useMailboxConnections()
-  const segment = resolveSegment(searchParams)
 
   const [moreExpanded, setMoreExpanded] = useState<boolean>(() => {
     const stored = loadExpandedState(MORE_STORAGE_KEY)
@@ -275,91 +218,61 @@ export default function InboxSidebarNav() {
 
   return (
     <div className="space-y-4">
-      <SegmentTabs segment={segment} searchParams={searchParams} t={t} />
-
-      {segment === 'external' ? (
-        <>
-          <section className="space-y-0.5">
-            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-              {t('support.group.inbox', { defaultValue: 'Queues' })}
-            </p>
-            {CUSTOMER_QUEUES.map((v) => (
+      <section className="space-y-0.5">
+        <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+          {t('support.group.inbox', { defaultValue: 'Queues' })}
+        </p>
+        {PRIMARY_QUEUES.map((v) => (
+          <QueueLink
+            key={`queue-${v.queue}`}
+            queue={v.queue}
+            label={t(v.labelKey, { defaultValue: v.defaultLabel })}
+            badgeCount={countForInboxQueue(counts, v.queue)}
+            icon={v.icon}
+            emphasis={'emphasis' in v && v.emphasis}
+          />
+        ))}
+        <button
+          type="button"
+          onClick={toggleMore}
+          className="flex w-full items-center gap-2 px-3 py-1 text-[11px] font-medium text-text-muted hover:text-text-secondary"
+        >
+          {moreExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {t('support.moreQueues', { defaultValue: 'More' })}
+        </button>
+        {moreExpanded
+          ? MORE_QUEUES.map((v) => (
               <QueueLink
-                key={`customer-${v.queue}`}
+                key={`queue-more-${v.queue}`}
                 queue={v.queue}
-                folder="external"
                 label={t(v.labelKey, { defaultValue: v.defaultLabel })}
                 badgeCount={countForInboxQueue(counts, v.queue)}
                 icon={v.icon}
               />
-            ))}
-            <button
-              type="button"
-              onClick={toggleMore}
-              className="flex w-full items-center gap-2 px-3 py-1 text-[11px] font-medium text-text-muted hover:text-text-secondary"
-            >
-              {moreExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              {t('support.moreQueues', { defaultValue: 'More' })}
-            </button>
-            {moreExpanded
-              ? CUSTOMER_MORE_QUEUES.map((v) => (
-                  <QueueLink
-                    key={`customer-more-${v.queue}`}
-                    queue={v.queue}
-                    folder="external"
-                    label={t(v.labelKey, { defaultValue: v.defaultLabel })}
-                    badgeCount={countForInboxQueue(counts, v.queue)}
-                    icon={v.icon}
-                  />
-                ))
-              : null}
-          </section>
+            ))
+          : null}
+      </section>
 
-          {!loading && enabledConnections.length > 0 ? (
-            <section className="space-y-1">
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                {t('support.mailboxes', { defaultValue: 'Channels' })}
-              </p>
-              <div className="space-y-0.5">
-                {enabledConnections.map((conn) => (
-                  <ChannelSection
-                    key={conn.id}
-                    connectionId={conn.id}
-                    label={conn.displayName}
-                    email={conn.mailboxEmail}
-                    currentChannelId={channelId}
-                    searchParams={searchParams}
-                    t={t}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </>
-      ) : (
-        <section className="space-y-0.5">
+      {!loading && enabledConnections.length > 0 ? (
+        <section className="space-y-1">
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t('support.group.agentOps', { defaultValue: 'Agent ops' })}
+            {t('support.mailboxes', { defaultValue: 'Channels' })}
           </p>
-          {AGENT_QUEUES.map((v) => (
-            <QueueLink
-              key={`agent-${v.queue}`}
-              queue={v.queue}
-              folder="internal"
-              label={t(v.labelKey, { defaultValue: v.defaultLabel })}
-              badgeCount={countForInboxQueue(counts, v.queue)}
-              icon={v.icon}
-              emphasis={'emphasis' in v && v.emphasis}
-            />
-          ))}
-          <div className="mx-3 mt-3 rounded-lg border border-border/50 bg-bg-muted/20 px-3 py-2">
-            <p className="flex items-center gap-1.5 text-[11px] font-medium text-text-secondary">
-              <Users size={12} className="text-text-muted" />
-              {t('support.agentOpsHint', { defaultValue: 'Decisions appear inline in threads' })}
-            </p>
+          <div className="space-y-0.5">
+            {enabledConnections.map((conn) => (
+              <ChannelSection
+                key={conn.id}
+                connectionId={conn.id}
+                label={conn.displayName}
+                email={conn.mailboxEmail}
+                currentChannelId={channelId}
+                searchParams={searchParams}
+                t={t}
+              />
+            ))}
           </div>
         </section>
-      )}
+      ) : null}
     </div>
   )
 }

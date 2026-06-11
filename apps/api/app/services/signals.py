@@ -11,18 +11,62 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.email import EmailAccount
+from app.gateway.publish import publish_signal_message, publish_thread_update
+from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent, SignalMessage
 
 
-async def _primary_email_account_id(session: AsyncSession, tenant_id: UUID) -> UUID | None:
+async def _primary_channel_account_id(
+    session: AsyncSession, tenant_id: UUID, channel: str
+) -> UUID | None:
     result = await session.execute(
-        select(EmailAccount)
-        .where(EmailAccount.tenant_id == tenant_id, EmailAccount.is_enabled.is_(True))
+        select(ChannelAccount)
+        .where(
+            ChannelAccount.tenant_id == tenant_id,
+            ChannelAccount.channel == channel,
+            ChannelAccount.is_enabled.is_(True),
+        )
         .limit(1)
     )
     account = result.scalar_one_or_none()
     return account.id if account else None
+
+
+async def get_or_create_contact(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    channel: str,
+    address: str,
+    display_name: str = "",
+) -> Contact | None:
+    if not address:
+        return None
+    result = await session.execute(
+        select(Contact).where(
+            Contact.tenant_id == tenant_id,
+            Contact.channel == channel,
+            Contact.address == address,
+        )
+    )
+    contact = result.scalar_one_or_none()
+    if contact:
+        contact.last_seen_at = datetime.utcnow()
+        if display_name and not contact.display_name:
+            contact.display_name = display_name
+        session.add(contact)
+        return contact
+    contact = Contact(
+        tenant_id=tenant_id,
+        channel=channel,
+        address=address,
+        display_name=display_name,
+        status="approved",
+        last_seen_at=datetime.utcnow(),
+    )
+    session.add(contact)
+    await session.flush()
+    return contact
 
 
 def serialize_signal(row: Signal) -> dict[str, Any]:
@@ -137,9 +181,16 @@ async def create_inbound_signal(
     contact_name: str = "",
     external_id: str = "",
 ) -> Signal:
-    email_account_id = None
-    if channel == "email":
-        email_account_id = await _primary_email_account_id(session, tenant_id)
+    channel_account_id = None
+    if channel in ("email", "slack", "widget"):
+        channel_account_id = await _primary_channel_account_id(session, tenant_id, channel)
+    contact = await get_or_create_contact(
+        session,
+        tenant_id,
+        channel=channel,
+        address=contact_email,
+        display_name=contact_name,
+    )
     signal = Signal(
         tenant_id=tenant_id,
         channel=channel,
@@ -148,7 +199,8 @@ async def create_inbound_signal(
         contact_email=contact_email,
         contact_name=contact_name,
         external_id=external_id,
-        email_account_id=email_account_id,
+        channel_account_id=channel_account_id,
+        contact_id=contact.id if contact else None,
         status="open",
         priority="normal",
         has_unread=True,
@@ -156,18 +208,17 @@ async def create_inbound_signal(
     )
     session.add(signal)
     await session.flush()
-    session.add(
-        SignalMessage(
-            signal_id=signal.id,
-            tenant_id=tenant_id,
-            kind="user_message",
-            direction="inbound",
-            body_text=body_text,
-            body_preview=body_text[:200],
-            from_address=contact_email,
-            subject=subject,
-        )
+    message = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant_id,
+        kind="user_message",
+        direction="inbound",
+        body_text=body_text,
+        body_preview=body_text[:200],
+        from_address=contact_email,
+        subject=subject,
     )
+    session.add(message)
     session.add(
         SignalEvent(
             signal_id=signal.id,
@@ -178,6 +229,8 @@ async def create_inbound_signal(
     )
     await session.commit()
     await session.refresh(signal)
+    await session.refresh(message)
+    await publish_signal_message(signal, message)
     return signal
 
 
@@ -220,4 +273,5 @@ async def apply_triage(
     )
     await session.commit()
     await session.refresh(signal)
+    await publish_thread_update(signal)
     return signal

@@ -12,11 +12,12 @@ async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_o
 
 async def init_db() -> None:
     import app.models  # noqa: F401 — register all SQLModel tables before create_all
-    from app.db.schema_patch import apply_column_patches
+    from app.db.schema_patch import apply_column_patches, apply_data_repairs
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
         await conn.run_sync(apply_column_patches)
+        await conn.run_sync(apply_data_repairs)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

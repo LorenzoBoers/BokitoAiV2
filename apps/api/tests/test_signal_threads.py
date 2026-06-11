@@ -5,7 +5,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.notification import DecisionRequest
-from app.models.signal import Signal, SignalMessage, SignalThreadPin
+from app.models.signal import Signal, SignalMessage
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:

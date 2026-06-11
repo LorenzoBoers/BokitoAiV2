@@ -13,7 +13,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
-from app.models.inbox_threads import user_numeric_id
+from app.models.auth import user_numeric_id
 from app.models.staff import StaffAccessLog
 from app.services.auth import (
     authenticate_user,
@@ -145,14 +145,17 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
     await bootstrap_tenant(session, tenant.id)
-    from app.models.chat import Conversation
+    from app.models.signal import Signal
 
     session.add(
-        Conversation(
+        Signal(
             tenant_id=tenant.id,
-            user_id=user.id,
-            title="Onboarding",
+            owner_user_id=user.id,
+            subject="Onboarding",
             channel="assistant",
+            source="chat",
+            contact_name=user.display_name or user.email,
+            has_unread=False,
         )
     )
     await session.commit()

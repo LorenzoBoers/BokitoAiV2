@@ -60,14 +60,17 @@ async def test_triage_signal_mock_llm(client: AsyncClient, session_override):
 
 @pytest.mark.asyncio
 async def test_email_connection_id_filter(client: AsyncClient, session_override):
-    from app.models.auth import Tenant
-    from app.models.email import EmailAccount
-    from app.models.inbox_threads import user_numeric_id
+    from app.models.auth import Tenant, user_numeric_id
+    from app.models.channel import ChannelAccount
 
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     account = (
-        await session_override.execute(select(EmailAccount).where(EmailAccount.tenant_id == tenant.id))
+        await session_override.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant.id, ChannelAccount.channel == "email"
+            )
+        )
     ).scalar_one()
 
     linked = await client.post(
@@ -148,5 +151,5 @@ async def test_platform_access_role_defaults(client: AsyncClient, session_overri
     ).scalar_one()
     scopes = effective_scopes(agent)
     assert "platform:read" in scopes
-    assert agent_has_scope(agent, "platform:blueprint:write")
+    assert agent_has_scope(agent, "platform:doc:write")
     assert not agent_has_scope(agent, "platform:agent:create")

@@ -42,7 +42,7 @@ def serialize_po_agent(agent: Agent | None) -> dict[str, Any] | None:
         "name": agent.name,
         "slug": None,
         "role": agent.role,
-        "agent_type": "po" if agent.role == "po" else agent.role,
+        "agent_type": "orchestrator",
         "status": "active" if agent.is_active else "inactive",
     }
 
@@ -557,9 +557,10 @@ async def create_po_agent(
     project, _ = await get_project_row(session, tenant_id, project_id)
     agent = Agent(
         tenant_id=tenant_id,
-        name=name or f"{project.name} PO",
-        role="po",
-        system_prompt=f"You are the product owner for project {project.name}.",
+        name=name or f"{project.name} Orchestrator",
+        role="orchestrator",
+        slug="orchestrator",
+        system_prompt=f"You are the orchestrator for project {project.name}. Plan work, route agents, and keep project knowledge current.",
     )
     session.add(agent)
     await session.flush()
@@ -584,6 +585,10 @@ async def link_po_agent(
     agent = agent_result.scalar_one_or_none()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.role not in ("orchestrator", "po"):
+        raise HTTPException(
+            status_code=400, detail="Agent must be an orchestrator to lead a project"
+        )
     project.po_agent_id = agent.id
     project.updated_at = datetime.utcnow()
     session.add(project)

@@ -7,7 +7,7 @@ import { listAgents } from '../../lib/agents-api'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import {
-  filterPoAgents,
+  filterOrchestratorAgents,
   filterUserAgents,
   sortAgentsByUpdated,
 } from '../../lib/workforce-nav-agents'
@@ -174,7 +174,7 @@ export default function WorkforceSidebarNav() {
   const [showAllPo, setShowAllPo] = useState(false)
   const [showAllWorkers, setShowAllWorkers] = useState(false)
 
-  const poAgents = useMemo(() => sortAgentsByUpdated(filterPoAgents(agents)), [agents])
+  const poAgents = useMemo(() => sortAgentsByUpdated(filterOrchestratorAgents(agents)), [agents])
   const workerAgents = useMemo(() => sortAgentsByUpdated(filterUserAgents(agents)), [agents])
 
   const activeAgentId = pathname.match(/^\/ai\/agents\/([^/]+)/)?.[1] ?? null

@@ -176,17 +176,17 @@
     }
   },
   "projectHub": {
-    "description": "Centrale Blueprint, doorlopende projecten en agent-communicatie op een plek.",
+    "description": "Workspace-documenten, doorlopende projecten en agent-communicatie op een plek.",
     "tabsAriaLabel": "Project hub-navigatie",
     "tabs": {
       "overview": "Overzicht",
-      "docs": "Blueprint",
+      "docs": "Workspace",
       "projects": "Projecten",
       "communication": "Communicatie"
     },
     "quick": {
       "newProject": "Nieuw project",
-      "openDocs": "Open Blueprint",
+      "openDocs": "Open workspace",
       "openCommunication": "Open communicatie"
     },
     "selector": {
@@ -224,20 +224,7 @@
       }
     },
     "docs": {
-      "menuLabel": "Blueprint",
-      "group": "Pagina's",
-      "chaptersLabel": "Hoofdstukken",
-      "treeEmpty": "Nog geen pagina's. Vernieuw om standaard hoofdstukken aan te maken.",
-      "emptyTitle": "Geen Blueprint-pagina's",
-      "emptyDescription": "Workspace-Blueprint kon niet worden geladen of heeft nog geen pagina's. Probeer opnieuw nadat de backend is gedeployed.",
-      "agentEdit": "Vraag agent",
-      "agentEditTitle": "Blueprint bijwerken",
-      "agentEditDescription": "Beschrijf de wijzigingen voor deze pagina. Er wordt een orkestrator-run ingepland.",
-      "agentEditPlaceholder": "Bijvoorbeeld: Voeg een sectie over ons retourbeleid toe onder Operations.",
-      "agentEditSubmit": "Verstuur verzoek",
-      "agentRequestTitle": "Pagina bijwerken: {{page}}",
-      "agentRequestSent": "Wijzigingsverzoek ingepland. Je krijgt bericht wanneer de agent klaar is.",
-      "agentRequestFailed": "Kon het wijzigingsverzoek niet aanmaken."
+      "menuLabel": "Workspace"
     },
     "projects": {
       "description": "Continue agent-werkstromen. Elk project bundelt een doel met de agents die er continu aan werken."
@@ -649,6 +636,7 @@
         "workers": "Worker agents"
       },
       "types": {
+        "orchestrator": "Orkestrator",
         "po": "Orkestrator",
         "worker": "Worker"
       },
@@ -792,7 +780,7 @@
     "links": {
       "overview": "Overzicht",
       "po": "Orkestrator",
-      "knowledge": "Blueprint",
+      "knowledge": "Workspace",
       "orchestration": "Orchestratie",
       "communication": "Communicatie",
       "workforce": "Workforce-geschiedenis",
@@ -1072,105 +1060,7 @@
       "newProject": "Nieuw project"
     },
     "doc": {
-      "title": "Blueprint",
-      "loading": "Blueprint laden…",
-      "loadError": "Blueprint kon niet worden geladen.",
-      "loadErrorDeploy": "De Blueprint-backend is nog niet beschikbaar. Het platformteam rolt de nieuwe docs-API uit.",
-      "empty": "Deze pagina heeft nog geen blokken.",
-      "emptyDoc": "Nog geen Blueprint-pagina's",
-      "emptyDocDescription": "Nieuwe projecten krijgen een startsjabloon zodra de Blueprint-backend live is.",
-      "addPage": "Pagina toevoegen",
-      "requestChange": "Wijziging aanvragen",
-      "history": "Geschiedenis",
-      "historyTitle": "Paginageschiedenis",
-      "historyDescription": "Recente blok-wijzigingen op deze pagina.",
-      "historyEmpty": "Nog geen wijzigingen.",
-      "historyLoadError": "Kon geschiedenis niet laden.",
-      "lastEditedByAgent": "Laatst bewerkt door een agent",
-      "lastEditedByUser": "Laatst bewerkt door een gebruiker",
-      "pickPage": "Kies een pagina in de zijbalk om te lezen.",
-      "retry": "Opnieuw proberen",
-      "treeEmpty": "Nog geen pagina's.",
-      "expandChapter": "Sectie uitklappen",
-      "collapseChapter": "Sectie inklappen",
-      "lockedBadge": "Vergrendeld",
-      "lockError": "Kon paginavergrendeling niet bijwerken.",
-      "pageKind": {
-        "overview": "Overzicht",
-        "vision": "Visie",
-        "features": "Functies",
-        "brand": "Merk",
-        "tech": "Technologie",
-        "marketing": "Marketing",
-        "operations": "Operatie",
-        "roadmap": "Roadmap",
-        "log": "Log",
-        "notes": "Notities",
-        "custom": "Aangepast"
-      },
-      "pageCrud": {
-        "menuAria": "Pagina-acties",
-        "addPage": "Pagina toevoegen",
-        "newRootPrompt": "Paginatitel",
-        "newChildPrompt": "Titel subpagina",
-        "newSiblingPrompt": "Titel sibling-pagina",
-        "renamePrompt": "Pagina hernoemen",
-        "rename": "Hernoemen",
-        "delete": "Verwijderen",
-        "deleteConfirm": "Pagina \"{{title}}\" verwijderen?",
-        "newChild": "Subpagina toevoegen",
-        "newSibling": "Sibling-pagina toevoegen",
-        "lock": "Vergrendelen",
-        "unlock": "Ontgrendelen",
-        "newPageDefault": "Pagina",
-        "dragPage": "Pagina verslepen",
-        "renameInline": "Paginatitel",
-        "newRootInline": "Nieuwe paginatitel",
-        "newChildInline": "Titel subpagina"
-      },
-      "lockedTitle": "Deze pagina is vergrendeld",
-      "lockedHint": "Bewerken is uitgeschakeld. Klik op Ontgrendelen in de kop of via het paginamenu om wijzigingen te maken.",
-      "revert": "Terugdraaien",
-      "revertFailed": "Terugdraaien mislukt.",
-      "editor": {
-        "saving": "Opslaan…",
-        "saved": "Opgeslagen {{time}}",
-        "savedShort": "Opgeslagen",
-        "lastEdited": "Laatst bewerkt {{time}}",
-        "saveFailed": "Opslaan mislukt",
-        "dragBlock": "Blok verslepen",
-        "deleteBlock": "Blok verwijderen",
-        "addBlockBelow": "Blok hieronder toevoegen",
-        "changeBlockType": "Bloktype wijzigen",
-        "locked": "Vergrendeld",
-        "versionConflict": "Deze pagina is elders bijgewerkt. Laatste inhoud wordt opnieuw geladen."
-      },
-      "blockPlaceholder": {
-        "heading_1": "Kop 1",
-        "heading_2": "Kop 2",
-        "heading_3": "Kop 3",
-        "bullet_list_item": "Lijst-item",
-        "numbered_list_item": "Lijst-item",
-        "to_do": "Taak",
-        "quote": "Citaat",
-        "callout": "Aandachtsblok",
-        "code": "Code",
-        "default": "Typ hier…",
-        "defaultHint": "Typ '- ' voor bullet, '1. ' voor genummerd, '#' voor kop…"
-      },
-      "blockType": {
-        "paragraph": "Tekst",
-        "heading_1": "Kop 1",
-        "heading_2": "Kop 2",
-        "heading_3": "Kop 3",
-        "bullet_list_item": "Bullet-lijst",
-        "numbered_list_item": "Genummerde lijst",
-        "to_do": "Taak",
-        "quote": "Citaat",
-        "callout": "Aandachtsblok",
-        "code": "Code",
-        "divider": "Scheidingslijn"
-      }
+      "title": "Workspace"
     }
   },
   "settings": {

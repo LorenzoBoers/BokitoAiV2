@@ -7,8 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
-import { appendDevLocalhostCrossHostAccessHash, buildTenantOrigin, buildTenantWorkspaceUrl } from '../lib/host-routing'
-import { isBokitoMode } from '../lib/bokito-mode'
+import { buildTenantOrigin } from '../lib/host-routing'
 import { useAuth } from '../context/AuthContext'
 import {
   Dialog,
@@ -118,26 +117,8 @@ export default function Workspaces() {
                       navigate('/settings/branding')
                       return
                     }
-                    const tenantSlug = workspace.slug || ''
-                    if (isBokitoMode()) {
-                      await switchWorkspace(workspace.id)
-                      navigate('/home', { replace: true })
-                      return
-                    }
-                    const tenantUrl = buildTenantWorkspaceUrl(tenantSlug, '/home')
-                    if (!tenantUrl) {
-                      navigate('/settings/branding')
-                      return
-                    }
-                    try {
-                      if (typeof window !== 'undefined') {
-                        const handoffUrl = appendDevLocalhostCrossHostAccessHash(tenantUrl, token)
-                        window.location.assign(handoffUrl)
-                      }
-                    } catch (openError) {
-                      const message = openError instanceof Error ? openError.message : 'Failed to open tenant'
-                      setError(message)
-                    }
+                    await switchWorkspace(workspace.id)
+                    navigate('/home', { replace: true })
                   }}
                   className={`rounded-xl border p-5 text-left transition-colors ${
                     isCurrent

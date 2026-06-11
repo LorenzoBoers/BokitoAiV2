@@ -4,7 +4,7 @@ import { UserAvatar } from '../components/ui/UserAvatar'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { appRoutes } from '../api/routes/app.routes'
-import { xanoGet, xanoPost } from '../lib/xano'
+import { apiGet, apiPost } from '../lib/api'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
@@ -138,8 +138,8 @@ export default function MemberManagement() {
         }
 
         const [rawMembers, rawInvites] = await Promise.all([
-          xanoGet<unknown[]>(appRoutes.workspaces.members(workspaceId), token).catch(() => []),
-          xanoGet<unknown[]>(appRoutes.workspaces.invites(workspaceId), token).catch(() => []),
+          apiGet<unknown[]>(appRoutes.workspaces.members(workspaceId), token).catch(() => []),
+          apiGet<unknown[]>(appRoutes.workspaces.invites(workspaceId), token).catch(() => []),
         ])
 
         const mappedMembers = Array.isArray(rawMembers)
@@ -227,7 +227,7 @@ export default function MemberManagement() {
     setInviteLoading(true)
     setError(null)
     try {
-      await xanoPost(
+      await apiPost(
         appRoutes.workspaceInvites.create,
         {
           workspace_id: workspaceId,
@@ -236,7 +236,7 @@ export default function MemberManagement() {
         },
         token,
       )
-      const inviteList = await xanoGet<unknown[]>(appRoutes.workspaces.invites(workspaceId), token).catch(() => [])
+      const inviteList = await apiGet<unknown[]>(appRoutes.workspaces.invites(workspaceId), token).catch(() => [])
       const mappedInvites = Array.isArray(inviteList)
         ? inviteList
             .map((item) => {

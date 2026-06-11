@@ -1,10 +1,10 @@
 import { integrationsRoutes } from '../api/routes'
 import { attachHostsToProviders } from './integration-brand'
 import {
-  xanoDeleteIntegrations,
-  xanoGetIntegrations,
-  xanoPostIntegrations,
-} from './xano'
+  apiDelete,
+  apiGet,
+  apiPost,
+} from './api'
 
 export type IntegrationAuthType = 'oauth2' | 'api_key' | 'mcp_remote_oauth' | 'none'
 export type IntegrationProviderStatus = 'available' | 'coming_soon' | 'deprecated'
@@ -80,7 +80,7 @@ export interface McpBindingsResponse {
 }
 
 export async function listIntegrationProviders(): Promise<ProvidersListResponse> {
-  const data = await xanoGetIntegrations<ProvidersListResponse>(
+  const data = await apiGet<ProvidersListResponse>(
     integrationsRoutes.platform.providers,
   )
   const providers = attachHostsToProviders(data.providers ?? [], data.hosts ?? [])
@@ -90,7 +90,7 @@ export async function listIntegrationProviders(): Promise<ProvidersListResponse>
 export async function listIntegrationConnections(
   provider?: string,
 ): Promise<IntegrationConnectionRow[]> {
-  const data = await xanoGetIntegrations<ConnectionsListResponse>(
+  const data = await apiGet<ConnectionsListResponse>(
     integrationsRoutes.platform.connections(provider),
   )
   return data.connections ?? []
@@ -101,18 +101,18 @@ export async function startIntegrationOAuth(
   returnUrl: string,
   projectId?: string,
 ): Promise<{ authorize_url: string; provider: string }> {
-  return xanoGetIntegrations(integrationsRoutes.platform.oauthStart(provider, returnUrl, projectId))
+  return apiGet(integrationsRoutes.platform.oauthStart(provider, returnUrl, projectId))
 }
 
 export async function startMcpRemoteOAuth(
   provider: string,
   returnUrl: string,
 ): Promise<{ authorize_url: string; provider: string; state?: string }> {
-  return xanoGetIntegrations(integrationsRoutes.platform.mcpOAuthStart(provider, returnUrl))
+  return apiGet(integrationsRoutes.platform.mcpOAuthStart(provider, returnUrl))
 }
 
 export async function revokeIntegrationConnection(connectionId: string): Promise<void> {
-  await xanoDeleteIntegrations(integrationsRoutes.platform.connectionById(connectionId))
+  await apiDelete(integrationsRoutes.platform.connectionById(connectionId))
 }
 
 export async function createApiKeyConnection(input: {
@@ -120,7 +120,7 @@ export async function createApiKeyConnection(input: {
   api_key: string
   display_name?: string
 }): Promise<IntegrationConnectionRow> {
-  return xanoPostIntegrations<IntegrationConnectionRow>(
+  return apiPost<IntegrationConnectionRow>(
     integrationsRoutes.platform.connections(),
     input,
   )
@@ -134,11 +134,11 @@ export async function installMcpIntegration(input: {
   server_url?: string
   auth_type?: 'api_key' | 'bearer'
 }): Promise<{ connection: IntegrationConnectionRow; binding: { id: string; config: unknown } }> {
-  return xanoPostIntegrations(integrationsRoutes.platform.mcpInstall, input)
+  return apiPost(integrationsRoutes.platform.mcpInstall, input)
 }
 
 export async function listMcpBindings(): Promise<McpBindingsResponse> {
-  return xanoGetIntegrations<McpBindingsResponse>(integrationsRoutes.platform.mcpBindings)
+  return apiGet<McpBindingsResponse>(integrationsRoutes.platform.mcpBindings)
 }
 
 export function connectionCountForProvider(

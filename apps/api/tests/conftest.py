@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-os.environ.setdefault("AGENDA_SCHEDULER_ENABLED", "false")
+os.environ.setdefault("TRIGGER_SCHEDULER_ENABLED", "false")
 os.environ.setdefault("BOKITO_MOCK_EXECUTION", "true")
 
 from app.db.session import get_session  # noqa: E402
@@ -48,7 +48,7 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
 
     from app.models.agent import Agent
     from app.models.auth import Membership, Tenant, User
-    from app.models.email import EmailAccount
+    from app.models.channel import ChannelAccount
     from app.services.auth import hash_password
 
     tenant = Tenant(slug="test", name="Test Tenant")
@@ -60,10 +60,9 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
     await session_override.refresh(user)
     session_override.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
     from app.models.inbox import InboxSettings
-    from app.models.policy import ActionPolicy, AssistantPersona
+    from app.models.policy import AssistantPersona
 
     session_override.add(InboxSettings(tenant_id=tenant.id))
-    session_override.add(ActionPolicy(tenant_id=tenant.id))
     session_override.add(AssistantPersona(tenant_id=tenant.id))
     session_override.add(
         Agent(
@@ -86,11 +85,23 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
         )
     )
     session_override.add(
-        EmailAccount(
+        ChannelAccount(
             tenant_id=tenant.id,
-            email_address="support@test.local",
+            channel="email",
+            address="support@test.local",
             provider="mock",
         )
+    )
+    from app.services.workspace import upsert_doc
+
+    await upsert_doc(
+        session_override,
+        tenant.id,
+        path="company.md",
+        content="# Company\n\nTest tenant overview.",
+        kind="doc",
+        created_by_type="system",
+        commit=False,
     )
     await session_override.commit()
 

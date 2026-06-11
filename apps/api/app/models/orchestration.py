@@ -22,7 +22,6 @@ class RuntimeProfile(SQLModel, table=True):
     max_loops: int = 25
     tools_json: str = Field(default="[]")
     autonomy_level: str = Field(default="approval")
-    apply_modes_json: str = Field(default="{}")
     cost_aware: bool = False
     max_cost_cents: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -80,18 +79,4 @@ class TaskArtifact(SQLModel, table=True):
     name: str
     artifact_type: str = Field(default="text")  # text | json | file
     content_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class AutomationTemplate(SQLModel, table=True):
-    __tablename__ = "automation_templates"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tenants.id", index=True)
-    slug: str = Field(index=True)
-    name: str
-    description: str = ""
-    category: str = Field(default="ops")
-    template_json: str = Field(default="{}")
-    is_global: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)

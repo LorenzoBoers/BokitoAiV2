@@ -6,23 +6,45 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.blueprint import BlueprintBlock, BlueprintDoc, BlueprintPage
 from app.models.inbox import InboxSettings
-from app.models.policy import ActionPolicy, AssistantPersona
+from app.models.policy import AssistantPersona
 from app.models.project import Project, ProjectOrchestration
-from app.services.agent.rag import upsert_index_chunk
-from app.services.apply_mode import posture_to_settings
+from app.services.workspace import upsert_doc
+from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
 
 
 ONBOARDING_SYSTEM_PROMPT = """You are the Bokito onboarding assistant. Interview the user about their organization:
 what they do, who their customers are, how they operate, and their tone of voice.
-Use write_blueprint to document findings. Use suggest_integration when relevant integrations would help.
-Ask clarifying questions before making blueprint changes. Be concise and friendly."""
+Use write_doc to document findings in workspace docs (company.md, memory.md, persona.md).
+Use suggest_integration when relevant integrations would help.
+Ask clarifying questions before writing docs. Be concise and friendly."""
+
+DEFAULT_DOCS: list[tuple[str, str, str]] = [
+    (
+        "persona.md",
+        "persona",
+        "# Persona\n\nProfessional and helpful. Keep replies concise and concrete.\n",
+    ),
+    (
+        "memory.md",
+        "memory",
+        "# Long-term memory\n\nDurable facts about this organization, learned over time.\n",
+    ),
+    (
+        "company.md",
+        "doc",
+        "# Company\n\nDescribe what the organization does, who its customers are, and how it operates. Filled during onboarding.\n",
+    ),
+    (
+        "heartbeat.md",
+        "heartbeat",
+        "# Heartbeat checklist\n\n- Review open threads needing a reply\n- Check pending decisions\n",
+    ),
+]
 
 
 async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     session.add(InboxSettings(tenant_id=tenant_id))
-    session.add(ActionPolicy(tenant_id=tenant_id, mode="whitelist"))
     session.add(AssistantPersona(tenant_id=tenant_id, tone="Professional and helpful"))
     session.add(
         Agent(
@@ -34,54 +56,49 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             system_prompt=ONBOARDING_SYSTEM_PROMPT,
         )
     )
-    session.add(
-        Agent(
-            tenant_id=tenant_id,
-            name="Orchestrator",
-            role="orchestrator",
-            slug="manager",
-            runtime_status="standby",
-            system_prompt="You are the PM orchestrator. Maintain blueprint, agenda, and propose workstreams.",
+    for path, kind, content in DEFAULT_DOCS:
+        await upsert_doc(
+            session,
+            tenant_id,
+            path=path,
+            content=content,
+            kind=kind,
+            created_by_type="system",
+            commit=False,
         )
-    )
-    doc = BlueprintDoc(tenant_id=tenant_id, title="Blueprint")
-    session.add(doc)
-    await session.flush()
-    overview = BlueprintPage(
-        doc_id=doc.id,
-        tenant_id=tenant_id,
-        title="Overview",
-        slug="overview",
-        kind="overview",
-    )
-    session.add(overview)
-    await session.flush()
-    session.add(
-        BlueprintBlock(
-            page_id=overview.id,
-            tenant_id=tenant_id,
-            block_type="paragraph",
-            content_json=json.dumps({"text": [{"text": "Organization blueprint - fill during onboarding."}], "props": {}}),
-        )
-    )
-    await upsert_index_chunk(
-        session,
-        tenant_id,
-        "blueprint_summary",
-        str(doc.id),
-        "Blueprint",
-        "Organization blueprint - to be filled during onboarding.",
-    )
     await seed_demo_project(session, tenant_id)
     from app.services.orchestration.bootstrap import (
         seed_demo_workstream,
-        seed_global_automation_templates,
         seed_tenant_runtime_profiles,
     )
 
-    await seed_global_automation_templates(session)
     await seed_tenant_runtime_profiles(session, tenant_id)
     await seed_demo_workstream(session, tenant_id)
+    await seed_default_triggers(session, tenant_id)
+
+
+async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:
+    """Default heartbeat trigger so the assistant wakes proactively."""
+    from sqlalchemy import select
+
+    from app.models.trigger import Trigger
+    from app.services.triggers import compute_next_run
+
+    existing = await session.execute(
+        select(Trigger).where(Trigger.tenant_id == tenant_id, Trigger.kind == "heartbeat")
+    )
+    if existing.scalars().first():
+        return
+    trigger = Trigger(
+        tenant_id=tenant_id,
+        name="Heartbeat",
+        kind="heartbeat",
+        interval_minutes=30,
+        agent_role="assistant",
+        enabled=False,
+    )
+    trigger.next_run_at = compute_next_run(trigger)
+    session.add(trigger)
 
 
 async def seed_demo_project(session: AsyncSession, tenant_id: UUID) -> None:
@@ -91,20 +108,22 @@ async def seed_demo_project(session: AsyncSession, tenant_id: UUID) -> None:
     existing = await session.execute(select(Project).where(Project.tenant_id == tenant_id))
     if existing.scalar_one_or_none():
         return
-    po_result = await session.execute(
-        select(Agent).where(Agent.tenant_id == tenant_id, Agent.role == "po")
-    )
-    po = po_result.scalar_one_or_none()
-    if not po:
-        po = Agent(
-            tenant_id=tenant_id,
-            name="Platform PO",
-            role="po",
-            slug="po",
-            runtime_status="standby",
-            system_prompt="Product owner for the default demo project.",
+    orchestrator_result = await session.execute(
+        select(Agent).where(
+            Agent.tenant_id == tenant_id, Agent.role.in_(("orchestrator", "po"))
         )
-        session.add(po)
+    )
+    orchestrator = orchestrator_result.scalars().first()
+    if not orchestrator:
+        orchestrator = Agent(
+            tenant_id=tenant_id,
+            name="Demo Project Orchestrator",
+            role="orchestrator",
+            slug="orchestrator",
+            runtime_status="standby",
+            system_prompt="You are the orchestrator for the default demo project. Plan work, route agents, and keep project knowledge current.",
+        )
+        session.add(orchestrator)
         await session.flush()
     project = Project(
         tenant_id=tenant_id,
@@ -112,7 +131,7 @@ async def seed_demo_project(session: AsyncSession, tenant_id: UUID) -> None:
         slug="demo-project",
         description="Auto-seeded project for onboarding and local development.",
         autonomous_scope="Explore Bokito AI OS features with a starter project.",
-        po_agent_id=po.id,
+        po_agent_id=orchestrator.id,
     )
     session.add(project)
     await session.flush()
@@ -135,7 +154,7 @@ def default_tenant_settings() -> dict:
             "member": ["qa", "capture", "actions", "handoff"],
         },
     }
-    base.update(posture_to_settings("assisted"))
+    base["autonomy_posture"] = DEFAULT_AUTONOMY_POSTURE
     return base
 
 

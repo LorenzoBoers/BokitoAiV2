@@ -7,16 +7,15 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 # Node types map to domain tables via ref_id.
-OS_NODE_TYPES = frozenset({"orchestrator", "workstream", "repo", "tool", "blueprint"})
+OS_NODE_TYPES = frozenset({"orchestrator", "workstream", "repo", "tool"})
 
 # Edge relations and allowed (source_type, target_type) pairs.
-OS_EDGE_RELATIONS = frozenset({"routed_by", "uses_repo", "uses_tool", "reads_blueprint"})
+OS_EDGE_RELATIONS = frozenset({"routed_by", "uses_repo", "uses_tool"})
 
 ALLOWED_EDGES: dict[str, tuple[str, str]] = {
     "routed_by": ("workstream", "orchestrator"),
     "uses_repo": ("workstream", "repo"),
     "uses_tool": ("workstream", "tool"),
-    "reads_blueprint": ("orchestrator", "blueprint"),
 }
 
 

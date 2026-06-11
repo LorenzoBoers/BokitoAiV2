@@ -1,6 +1,8 @@
 import { projectsRoutes } from '../api/routes'
-import type { RepoIndexStatus, RepoSource } from './repo-status'
-import { xanoDeleteWorkforce, xanoGetWorkforce, xanoPatchWorkforce, xanoPostWorkforce } from './xano'
+import { workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
+
+export type RepoSource = 'github' | 'upload' | 'none'
+export type RepoIndexStatus = 'pending' | 'indexing' | 'ready' | 'error' | 'none'
 
 export interface ProjectRow {
   id: string
@@ -31,12 +33,12 @@ export interface ProjectRow {
 }
 
 export async function listProjects(): Promise<ProjectRow[]> {
-  const data = await xanoGetWorkforce<ProjectRow[] | { items: ProjectRow[] }>(projectsRoutes.list)
+  const data = await workforceGet<ProjectRow[] | { items: ProjectRow[] }>(projectsRoutes.list)
   return Array.isArray(data) ? data : data.items ?? []
 }
 
 export async function getProject(projectId: string): Promise<ProjectRow> {
-  return xanoGetWorkforce<ProjectRow>(projectsRoutes.byId(projectId))
+  return workforceGet<ProjectRow>(projectsRoutes.byId(projectId))
 }
 
 export async function createProject(input: {
@@ -45,18 +47,18 @@ export async function createProject(input: {
   autonomous_scope: string
   description?: string
 }): Promise<ProjectRow> {
-  return xanoPostWorkforce<ProjectRow>(projectsRoutes.list, input)
+  return workforcePost<ProjectRow>(projectsRoutes.list, input)
 }
 
 export async function patchProject(
   projectId: string,
   patch: Partial<Pick<ProjectRow, 'autonomous_scope' | 'name' | 'description'>>,
 ): Promise<ProjectRow> {
-  return xanoPatchWorkforce<ProjectRow>(projectsRoutes.byId(projectId), patch)
+  return workforcePatch<ProjectRow>(projectsRoutes.byId(projectId), patch)
 }
 
 export async function deleteProject(projectId: string, confirmName: string): Promise<{ deleted: boolean }> {
-  return xanoDeleteWorkforce<{ deleted: boolean }>(projectsRoutes.byId(projectId), {
+  return workforceDelete<{ deleted: boolean }>(projectsRoutes.byId(projectId), {
     confirm_name: confirmName,
   }) as Promise<{ deleted: boolean }>
 }
@@ -69,7 +71,7 @@ export async function connectProjectRepo(
     connection_id?: string
   },
 ): Promise<ProjectRow> {
-  return xanoPatchWorkforce<ProjectRow>(projectsRoutes.repo(projectId), {
+  return workforcePatch<ProjectRow>(projectsRoutes.repo(projectId), {
     repo_full_name: input.github_repo_full_name,
     github_repo_full_name: input.github_repo_full_name,
     default_branch: input.github_default_branch ?? 'main',
@@ -80,13 +82,13 @@ export async function connectProjectRepo(
 }
 
 export async function disconnectProjectRepo(projectId: string): Promise<ProjectRow> {
-  const result = await xanoDeleteWorkforce<ProjectRow>(projectsRoutes.repo(projectId))
+  const result = await workforceDelete<ProjectRow>(projectsRoutes.repo(projectId))
   if (result) return result
   return getProject(projectId)
 }
 
 export async function reindexProjectRepo(projectId: string): Promise<{ queued: boolean }> {
-  return xanoPostWorkforce<{ queued: boolean }>(projectsRoutes.repoReindex(projectId), {})
+  return workforcePost<{ queued: boolean }>(projectsRoutes.repoReindex(projectId), {})
 }
 
 export interface ProjectBudgetResponse {
@@ -99,7 +101,7 @@ export interface ProjectBudgetResponse {
 }
 
 export async function getProjectBudget(projectId: string): Promise<ProjectBudgetResponse> {
-  return xanoGetWorkforce<ProjectBudgetResponse>(projectsRoutes.usageBudget(projectId))
+  return workforceGet<ProjectBudgetResponse>(projectsRoutes.usageBudget(projectId))
 }
 
 export async function getRepoStatus(projectId: string): Promise<{
@@ -108,5 +110,5 @@ export async function getRepoStatus(projectId: string): Promise<{
   repo_last_commit_sha: string | null
   repo_index_error: string | null
 }> {
-  return xanoGetWorkforce(projectsRoutes.repoStatus(projectId))
+  return workforceGet(projectsRoutes.repoStatus(projectId))
 }

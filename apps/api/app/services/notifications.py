@@ -5,12 +5,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chat import Conversation, ConversationMessage
-from app.models.email import EmailMessage
+from app.gateway.publish import publish_decision, publish_signal_message
 from app.models.notification import DecisionRequest, Notification
+from app.models.signal import Signal, SignalMessage
 from app.services.audit import record_audit
-from app.services.policy import add_whitelist_entry
 from app.services.platform_changes import accept_platform_change
+from app.tools.policy import set_tool_override
 
 
 async def resolve_decision(
@@ -51,7 +51,7 @@ async def resolve_decision(
         action_type = chosen.get("action_type", "")
         payload = chosen.get("payload") or {}
         if always_auto and user_id and action_type:
-            await add_whitelist_entry(session, tenant_id, action_type, payload, user_id)
+            await set_tool_override(session, tenant_id, action_type, "allow")
 
         change_id = decision.platform_change_id
         platform_change_id = payload.get("platform_change_id") or chosen.get("platform_change_id")
@@ -65,7 +65,7 @@ async def resolve_decision(
             "setup_integration",
             "accept_platform_change",
         ):
-            from app.services.agent.tools import execute_tool
+            from app.tools import execute_tool
 
             tool_result = await execute_tool(
                 session,
@@ -73,6 +73,8 @@ async def resolve_decision(
                 user_id,
                 action_type,
                 payload if isinstance(payload, dict) else {},
+                signal_id=decision.signal_id,
+                approved=True,
             )
             await record_audit(
                 session,
@@ -88,32 +90,36 @@ async def resolve_decision(
                 after=tool_result if isinstance(tool_result, dict) else None,
             )
 
-        if action_type == "send_email" and decision.source_id:
-            email_result = await session.execute(
-                select(EmailMessage).where(EmailMessage.id == UUID(decision.source_id))
-            )
-            email = email_result.scalar_one_or_none()
-            if email:
-                email.processed_by_agent = True
-
-        # Continue thread when decision was inline in chat
-        if decision.conversation_id:
-            follow_up = ConversationMessage(
-                conversation_id=decision.conversation_id,
+        # Continue thread when decision was inline in a signal thread
+        if decision.signal_id:
+            follow_up = SignalMessage(
+                signal_id=decision.signal_id,
                 tenant_id=tenant_id,
+                kind="agent_message",
+                direction="outbound",
                 role="assistant",
-                content=f"Decision resolved: {chosen.get('label', option_id)}. Continuing with the approved action.",
+                body_text=f"Decision resolved: {chosen.get('label', option_id)}. Continuing with the approved action.",
+                body_preview=f"Decision resolved: {chosen.get('label', option_id)}"[:200],
                 metadata_json=json.dumps({"decision_id": str(decision.id), "option_id": option_id}),
             )
             session.add(follow_up)
-            conv_result = await session.execute(
-                select(Conversation).where(Conversation.id == decision.conversation_id)
+            sig_result = await session.execute(
+                select(Signal).where(Signal.id == decision.signal_id)
             )
-            conv = conv_result.scalar_one_or_none()
-            if conv:
-                conv.last_message_at = datetime.utcnow()
-                conv.updated_at = datetime.utcnow()
+            signal = sig_result.scalar_one_or_none()
+            if signal:
+                signal.last_message_at = datetime.utcnow()
+                signal.updated_at = datetime.utcnow()
+                await session.flush()
+                await publish_signal_message(signal, follow_up)
 
     await session.commit()
     await session.refresh(decision)
+    await publish_decision(
+        tenant_id,
+        decision_id=decision.id,
+        status=decision.status,
+        title=decision.title,
+        signal_id=decision.signal_id,
+    )
     return decision

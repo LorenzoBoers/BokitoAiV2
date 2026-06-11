@@ -5,8 +5,6 @@ import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import { policyRoutes } from '../api/routes/policy.routes'
-import { isBokitoMode } from '../lib/bokito-mode'
-
 type ChannelKey = 'desktop' | 'email' | 'mobile'
 
 type NotificationRow = {
@@ -57,13 +55,12 @@ const STORAGE_KEY = 'bokito_notification_settings_v1'
 
 export default function NotificationSettings() {
   const { token } = useAuth()
-  const useApi = isBokitoMode()
   const [rows, setRows] = useState<NotificationRow[]>(DEFAULT_ROWS)
-  const [loading, setLoading] = useState(useApi)
+  const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!useApi || !token) {
+    if (!token) {
       try {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) return
@@ -86,7 +83,7 @@ export default function NotificationSettings() {
       })
       .catch(() => setRows(DEFAULT_ROWS))
       .finally(() => setLoading(false))
-  }, [token, useApi])
+  }, [token])
 
   const summary = useMemo(() => {
     return rows.reduce(
@@ -101,7 +98,7 @@ export default function NotificationSettings() {
 
   const persistRows = useCallback(
     async (next: NotificationRow[]) => {
-      if (useApi && token) {
+      if (token) {
         setSaveError(null)
         const res = await fetch(`/api${policyRoutes.notificationPreferences()}`, {
           method: 'PATCH',
@@ -123,7 +120,7 @@ export default function NotificationSettings() {
         // ignore
       }
     },
-    [token, useApi],
+    [token],
   )
 
   function updateRow(rowId: string, channel: ChannelKey, checked: boolean) {
@@ -212,17 +209,10 @@ export default function NotificationSettings() {
 
       {loading ? <p className="text-sm text-text-muted">Loading preferences...</p> : null}
       {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
-      {!useApi ? (
-        <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
-          <Bell size={13} className="text-text-muted" />
-          Notification preferences are saved locally in this mode.
-        </div>
-      ) : (
-        <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
-          <Bell size={13} className="text-text-muted" />
-          Preferences are saved to your account.
-        </div>
-      )}
+      <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
+        <Bell size={13} className="text-text-muted" />
+        Preferences are saved to your account.
+      </div>
     </PageContent>
   )
 }

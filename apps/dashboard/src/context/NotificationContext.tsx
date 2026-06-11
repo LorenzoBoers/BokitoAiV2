@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Notification, NotificationType } from '../types/custom-db';
-import { isBokitoMode } from '../lib/bokito-mode';
 
 interface NotificationContextValue {
   notifications: Notification[];
@@ -12,56 +11,8 @@ interface NotificationContextValue {
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
-// Mock notifications data
-const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    type: 'mention',
-    title: 'Je bent genoemd in een opmerking',
-    message: 'Sarah heeft je genoemd in de "Klanten" tabel',
-    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 min ago
-    read: false,
-    recordId: 123,
-    tableName: 'klanten',
-    userId: 1
-  },
-  {
-    id: 2,
-    type: 'assignment',
-    title: 'Record toegewezen',
-    message: 'Een nieuw lead is aan jou toegewezen',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    read: false,
-    recordId: 456,
-    tableName: 'leads',
-    userId: 1
-  },
-  {
-    id: 3,
-    type: 'comment',
-    title: 'Nieuwe opmerking',
-    message: 'Mark heeft een opmerking geplaatst op jouw project',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(), // 4 hours ago
-    read: true,
-    recordId: 789,
-    tableName: 'projecten',
-    userId: 1
-  },
-  {
-    id: 4,
-    type: 'webhook_failure',
-    title: 'Webhook fout',
-    message: 'Webhook to Slack failed (3 attempts)',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(), // 8 hours ago
-    read: false,
-    userId: 1
-  }
-];
-
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(
-    isBokitoMode() ? [] : mockNotifications,
-  );
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 

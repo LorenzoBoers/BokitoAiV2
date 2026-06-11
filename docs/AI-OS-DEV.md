@@ -8,8 +8,7 @@ docker compose -f docker-compose.dev.yml up --build
 
 Services:
 - API: http://127.0.0.1:8000
-- Dashboard: http://127.0.0.1:5174 (set `VITE_API_MODE=bokito`)
-- Messenger PWA: http://127.0.0.1:5175
+- Dashboard: http://127.0.0.1:5174
 
 ## Test credentials (seed)
 
@@ -24,7 +23,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## Verification (P9)
+## Verification
 
 Fast checks (no browser):
 
@@ -32,11 +31,11 @@ Fast checks (no browser):
 npm run verify:bokito
 ```
 
-Runs API pytest (mock LLM), dashboard `vite build`, and messenger build — same as CI `api`, `dashboard`, and `messenger` jobs.
+Runs API pytest (mock LLM) and dashboard `vite build` — same as the CI `api` and `dashboard` jobs. The CI `mobile` job additionally typechecks `apps/mobile` (`npx tsc --noEmit`).
 
 ## Frontend e2e (Playwright)
 
-Starts API (seeded SQLite), dashboard (`VITE_API_MODE=bokito`), and messenger dev servers automatically unless they are already running locally.
+Starts API (seeded SQLite) and dashboard dev servers automatically unless they are already running locally.
 
 ```bash
 npm install
@@ -44,23 +43,22 @@ npx playwright install chromium
 npm run verify:bokito:e2e
 ```
 
-Playwright uses isolated ports by default (so it does not clash with a running dev stack): API `8008`, dashboard `5184`, messenger `5185`. Override with `PLAYWRIGHT_API_PORT`, `PLAYWRIGHT_DASHBOARD_PORT`, `PLAYWRIGHT_MESSENGER_PORT`.
+Playwright uses isolated ports by default (so it does not clash with a running dev stack): API `8008`, dashboard `5184`. Override with `PLAYWRIGHT_API_PORT` and `PLAYWRIGHT_DASHBOARD_PORT`.
 
 When not in CI, Playwright reuses servers already listening on those URLs (`reuseExistingServer`).
 
 Credentials: `admin@bokito.ai` / `bokito-test-password`
+
+## Mobile app (Expo)
+
+```bash
+npm run start -w bokito-mobile
+```
+
+Point `expo.extra.apiUrl` in `apps/mobile/app.json` at the machine running the API (use your LAN IP for physical devices). See `apps/mobile/README.md`.
 
 ## Environment
 
 Copy `.env.example` to `.env` and set:
 - `LLM_MODE=mock` for CI/local tests
 - `LLM_MODE=live` + `ANTHROPIC_API_KEY` for live agent tests
-
-## Strangler migration
-
-Cloudflare worker `cloudflare-workers/bokito-api-strangler` routes migrated `/api/*` paths to the Python backend while legacy paths stay on Xano.
-
-## V2 hooks
-
-- Orchestra: `app/services/orchestra.py` + `orchestra_tick` arq job
-- Coding runner: `app/services/coding_runner.py` + `coding_agent_run` arq job

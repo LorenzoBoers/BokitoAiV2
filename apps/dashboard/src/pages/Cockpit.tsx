@@ -35,8 +35,8 @@ export default function Cockpit() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const messagesMine = messagesHubPath({ folder: 'internal', queue: 'my' })
-  const awaitingDecision = messagesHubPath({ folder: 'internal', queue: 'awaiting-decision' })
+  const messagesMine = messagesHubPath({ queue: 'my' })
+  const awaitingDecision = messagesHubPath({ queue: 'awaiting-decision' })
 
   const quickLinks = [
     { label: t('nav:home.quick.openInbox', { defaultValue: 'Messages' }), to: messagesMine },

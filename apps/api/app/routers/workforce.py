@@ -356,7 +356,7 @@ async def force_wake(
 ):
     del body
     agents = await svc.list_runtime_agents(session, auth.tenant.id)
-    manager = next((a for a in agents if a.get("role_slug") == "manager"), None)
+    manager = next((a for a in agents if a.get("role_slug") in ("manager", "orchestrator")), None)
     if manager:
         return await svc.trigger_agent(
             session,
@@ -425,13 +425,3 @@ async def post_complete_activity(
 @router.post("/workforce/maintenance-run")
 async def maintenance_run():
     return {"ok": True, "stale_cleared": 0}
-
-
-@router.post("/index/search")
-async def index_search():
-    return {"items": []}
-
-
-@router.get("/index/chunks")
-async def index_chunks():
-    return {"items": []}

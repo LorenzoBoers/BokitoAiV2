@@ -15,20 +15,16 @@ from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.platform_change import (
     CHANGE_KINDS,
-    CHANGE_STATUSES,
     PLATFORM_RESOURCE_TYPES,
     PlatformChange,
 )
-from app.services.apply_mode import resolve_apply_mode
 from app.services.audit import record_audit
 from app.services.platform_access import agent_can_access_project, require_scope
 from app.services.platform_apply import apply_change_to_domain, rollback_change_to_domain
 
 RESOURCE_SCOPE: dict[tuple[str, str], str] = {
-    ("blueprint_block", "create"): "platform:blueprint:write",
-    ("blueprint_block", "update"): "platform:blueprint:write",
-    ("blueprint_page", "create"): "platform:blueprint:write",
-    ("blueprint_page", "update"): "platform:blueprint:write",
+    ("workspace_doc", "create"): "platform:doc:write",
+    ("workspace_doc", "update"): "platform:doc:write",
     ("agent", "create"): "platform:agent:create",
     ("agent", "update"): "platform:agent:update",
     ("agent", "delete"): "platform:agent:update",
@@ -119,7 +115,14 @@ async def propose_platform_change(
     run_id: UUID | None = None,
     user_id: UUID | None = None,
     tool_name: str | None = None,
+    mode: str = "apply",
 ) -> tuple[PlatformChange, dict[str, Any]]:
+    """Record (and apply or queue) a platform mutation.
+
+    The allowance policy engine already decided ``mode``:
+    - ``apply``: execute now, record an applied PlatformChange (audit + rollback)
+    - ``ask``: record a pending PlatformChange + inline DecisionRequest
+    """
     if resource_type not in PLATFORM_RESOURCE_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid resource_type: {resource_type}")
     if change_kind not in CHANGE_KINDS:
@@ -141,13 +144,10 @@ async def propose_platform_change(
                     detail="Agent cannot modify workstreams outside its own project",
                 )
 
-    mode = await resolve_apply_mode(
-        session, tenant, agent, resource_type=resource_type, tool_name=tool_name
-    )
     proposed_by_type = "agent" if agent else ("user" if user_id else "system")
     proposed_by_id = str(agent.id) if agent else (str(user_id) if user_id else "")
 
-    if mode == "yolo":
+    if mode == "apply":
         change = PlatformChange(
             tenant_id=tenant.id,
             resource_type=resource_type,
@@ -170,7 +170,7 @@ async def propose_platform_change(
         await record_audit(
             session,
             tenant.id,
-            action=f"platform_change:apply_yolo:{resource_type}",
+            action=f"platform_change:apply:{resource_type}",
             actor_type=proposed_by_type,
             actor_id=proposed_by_id,
             agent_id=agent.id if agent else None,
@@ -183,16 +183,16 @@ async def propose_platform_change(
         )
         await session.commit()
         await session.refresh(change)
-        return change, {"mode": "yolo", "applied": result}
+        return change, {"mode": "apply", "applied": result}
 
+    # mode == "ask": pending change + inline decision
     await _supersede_pending(session, tenant.id, resource_type, resource_id)
-    status = "pending_review" if mode == "draft" else "draft"
     change = PlatformChange(
         tenant_id=tenant.id,
         resource_type=resource_type,
         resource_id=resource_id,
         change_kind=change_kind,
-        status=status,
+        status="pending_review",
         summary=summary,
         before_json=json.dumps(before or {}, default=str),
         after_json=json.dumps(after, default=str),
@@ -204,41 +204,48 @@ async def propose_platform_change(
     session.add(change)
     await session.flush()
 
-    if mode == "decision":
-        from app.models.notification import DecisionRequest, Notification
+    from app.models.notification import DecisionRequest, Notification
 
-        notification = Notification(
-            tenant_id=tenant.id,
-            user_id=user_id,
-            kind="decision_request",
-            title=f"Review: {summary}",
-            body=summary,
-            payload_json=json.dumps({"platform_change_id": str(change.id)}),
-        )
-        session.add(notification)
-        await session.flush()
-        decision = DecisionRequest(
-            tenant_id=tenant.id,
-            notification_id=notification.id,
-            title=f"Review: {summary}",
-            summary=summary,
-            status="awaiting_human",
-            platform_change_id=change.id,
-            options_json=json.dumps(
-                [
-                    {
-                        "id": "approve",
-                        "label": "Approve",
-                        "action_type": "accept_platform_change",
-                        "payload": {"platform_change_id": str(change.id)},
-                    },
-                    {"id": "reject", "label": "Reject", "action_type": "reject"},
-                ]
-            ),
-        )
-        session.add(decision)
-        change.decision_id = decision.id
-        change.status = "pending_review"
+    notification = Notification(
+        tenant_id=tenant.id,
+        user_id=user_id,
+        kind="decision_request",
+        title=f"Review: {summary}",
+        body=summary,
+        payload_json=json.dumps({"platform_change_id": str(change.id)}),
+    )
+    session.add(notification)
+    await session.flush()
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        notification_id=notification.id,
+        title=f"Review: {summary}",
+        summary=summary,
+        status="awaiting_human",
+        platform_change_id=change.id,
+        options_json=json.dumps(
+            [
+                {
+                    "id": "approve",
+                    "label": "Approve",
+                    "action_type": "accept_platform_change",
+                    "payload": {"platform_change_id": str(change.id)},
+                },
+                {"id": "reject", "label": "Reject", "action_type": "reject"},
+            ]
+        ),
+    )
+    session.add(decision)
+    change.decision_id = decision.id
+    await session.flush()
+    from app.gateway.publish import publish_decision
+
+    await publish_decision(
+        tenant.id,
+        decision_id=decision.id,
+        status=decision.status,
+        title=decision.title,
+    )
 
     await record_audit(
         session,
@@ -250,14 +257,14 @@ async def propose_platform_change(
         run_id=run_id,
         resource_type=resource_type,
         resource_id=resource_id or "",
-        outcome="escalated" if mode == "decision" else "executed",
+        outcome="escalated",
         summary=summary,
         payload=after,
         commit=False,
     )
     await session.commit()
     await session.refresh(change)
-    return change, {"mode": mode, "change_id": str(change.id), "status": change.status}
+    return change, {"mode": "ask", "change_id": str(change.id), "status": change.status}
 
 
 async def accept_platform_change(

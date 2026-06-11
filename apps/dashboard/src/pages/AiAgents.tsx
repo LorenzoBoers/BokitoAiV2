@@ -13,7 +13,12 @@ import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
-import { agentType, filterPoAgents, filterUserAgents, sortAgentsByUpdated } from '../lib/workforce-nav-agents'
+import {
+  agentType,
+  filterOrchestratorAgents,
+  filterUserAgents,
+  sortAgentsByUpdated,
+} from '../lib/workforce-nav-agents'
 import { cn } from '../lib/utils'
 
 const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
@@ -37,7 +42,7 @@ export default function AiAgents() {
     setError(null)
     try {
       const [rows, projectRows] = await Promise.all([listAgents(), listProjects()])
-      setPoAgents(sortAgentsByUpdated(filterPoAgents(rows)))
+      setPoAgents(sortAgentsByUpdated(filterOrchestratorAgents(rows)))
       setWorkerAgents(sortAgentsByUpdated(filterUserAgents(rows)))
       setProjects(projectRows)
     } catch (e) {

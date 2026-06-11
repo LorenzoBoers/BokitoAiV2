@@ -21,7 +21,7 @@ class AuditEvent(SQLModel, table=True):
     actor_id: str = Field(default="", index=True)
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id", index=True)
     run_id: Optional[uuid.UUID] = Field(default=None, index=True)
-    action: str = Field(default="", index=True)  # e.g. "tool_call:write_blueprint", "decision:approve"
+    action: str = Field(default="", index=True)  # e.g. "tool_call:write_doc", "decision:approve"
     resource_type: str = Field(default="", index=True)
     resource_id: str = ""
     outcome: str = Field(default="executed", index=True)  # executed | denied | escalated | error

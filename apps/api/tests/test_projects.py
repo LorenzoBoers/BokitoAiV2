@@ -108,7 +108,7 @@ async def test_project_repo_and_po_agent(client: AsyncClient):
     po = await client.post(f"{API}/{project_id}/po-agent", headers=headers, json={"name": "Repo PO"})
     assert po.status_code == 200
     assert po.json()["setup_complete"] is True
-    assert po.json()["po_agent"]["agent_type"] == "po"
+    assert po.json()["po_agent"]["agent_type"] == "orchestrator"
 
     streams = await client.get(f"{API}/{project_id}/workstreams", headers=headers)
     assert streams.status_code == 200

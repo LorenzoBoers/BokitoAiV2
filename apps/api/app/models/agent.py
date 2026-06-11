@@ -23,10 +23,8 @@ class Agent(SQLModel, table=True):
     tools_json: str = Field(default="[]")
     # Passport: autonomy level governs how tool actions are gated.
     autonomy_level: str = Field(default="approval")  # manual | approval | auto
-    # Passport: free-form permission scopes (e.g. ["platform:blueprint:write"]).
+    # Passport: free-form permission scopes (e.g. ["platform:doc:write"]).
     permission_scopes_json: str = Field(default="[]")
-    # Per-resource apply mode overrides: {"blueprint_block": "yolo", "agent": "draft"}
-    apply_modes_json: str = Field(default="{}")
     is_active: bool = True
     slug: str = ""
     runtime_status: str = Field(default="standby")

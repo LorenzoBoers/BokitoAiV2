@@ -498,7 +498,7 @@ export interface OnboardingStep2Data {
 }
 
 export interface OnboardingStep3Data {
-  invites: string[];
+  invites: Array<{ email: string; role: 'admin' | 'member' | 'viewer' }>;
 }
 
 // Magic table config

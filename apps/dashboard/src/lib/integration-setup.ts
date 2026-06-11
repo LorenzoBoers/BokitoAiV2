@@ -50,9 +50,6 @@ export function resolveSetupConfig(
     return { mode: 'oauth2', platformSlug }
   }
   if (provider?.capabilities?.mcp_tools || provider?.capabilities?.remote_mcp) {
-    if (provider.auth_type === 'mcp_remote_oauth') {
-      return { mode: 'remote_mcp_oauth', platformSlug }
-    }
     return { mode: 'api_key', platformSlug, mcpPreset: 'custom_mcp' }
   }
   return { mode: 'oauth2', platformSlug }

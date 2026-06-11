@@ -13,10 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.blueprint import BlueprintBlock, BlueprintPage
 from app.models.integration import IntegrationConnection, McpServer
 from app.models.orchestra import Workstream
-from app.models.os_graph import ALLOWED_EDGES, OsCanvasEdge, OsCanvasNode
+from app.models.os_graph import ALLOWED_EDGES, OsCanvasNode
 from app.models.platform_change import PlatformChange
 from app.services.os_graph import create_canvas_edge, create_canvas_node
 
@@ -317,53 +316,56 @@ async def apply_canvas_edge_change(
     return {"canvas_edge_id": edge["id"], "status": "connected"}
 
 
-async def apply_blueprint_block_change(
+async def apply_workspace_doc_change(
     session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
 ) -> dict[str, Any]:
-    slug = after.get("page_slug")
-    text = after.get("text", "")
-    block_type = after.get("block_type", "paragraph")
-    if not slug:
-        raise HTTPException(status_code=400, detail="after_json missing page_slug")
-    page_result = await session.execute(
-        select(BlueprintPage).where(BlueprintPage.tenant_id == tenant_id, BlueprintPage.slug == slug)
+    from app.services.workspace import get_doc_by_path, upsert_doc
+
+    path = after.get("path")
+    content = after.get("content", "")
+    if not path:
+        raise HTTPException(status_code=400, detail="after_json missing path")
+    mode = after.get("mode", "append")
+    existing = await get_doc_by_path(session, tenant_id, path)
+    if existing and mode == "append" and existing.content.strip():
+        content = f"{existing.content.rstrip()}\n\n{content}"
+    doc = await upsert_doc(
+        session,
+        tenant_id,
+        path=path,
+        content=content,
+        kind=after.get("kind"),
+        created_by_type="agent",
+        commit=False,
     )
-    page = page_result.scalar_one_or_none()
-    if not page:
-        raise HTTPException(status_code=404, detail=f"Page {slug} not found")
-    block = BlueprintBlock(
-        page_id=page.id,
-        tenant_id=tenant_id,
-        block_type=block_type,
-        content_json=json.dumps({"text": text}),
-        sort_order=int(after.get("sort_order", 999)),
-    )
-    session.add(block)
-    await session.flush()
-    from app.services.agent.rag import upsert_index_chunk
-
-    await upsert_index_chunk(session, tenant_id, "blueprint_block", str(block.id), page.title, text)
-    return {"block_id": str(block.id), "status": "written"}
+    return {"doc_id": str(doc.id), "path": doc.path, "status": "written"}
 
 
-async def rollback_blueprint_block(
+async def rollback_workspace_doc(
     session: AsyncSession, tenant_id: UUID, before: dict[str, Any], after: dict[str, Any], change_kind: str
 ) -> dict[str, Any]:
+    from app.services.workspace import delete_doc, get_doc_by_path, upsert_doc
+
+    path = after.get("path") or before.get("path")
+    if not path:
+        return {"status": "noop"}
     if change_kind == "create":
-        block_id = after.get("block_id")
-        if block_id:
-            block = (
-                await session.execute(
-                    select(BlueprintBlock).where(
-                        BlueprintBlock.id == UUID(str(block_id)),
-                        BlueprintBlock.tenant_id == tenant_id,
-                    )
-                )
-            ).scalar_one_or_none()
-            if block:
-                await session.delete(block)
-                await session.flush()
-                return {"block_id": block_id, "status": "removed"}
+        doc = await get_doc_by_path(session, tenant_id, path)
+        if doc:
+            await delete_doc(session, tenant_id, doc.id)
+            return {"path": path, "status": "removed"}
+        return {"status": "noop"}
+    if before.get("content") is not None:
+        doc = await upsert_doc(
+            session,
+            tenant_id,
+            path=path,
+            content=before["content"],
+            kind=before.get("kind"),
+            created_by_type="agent",
+            commit=False,
+        )
+        return {"doc_id": str(doc.id), "path": path, "status": "restored"}
     return {"status": "noop"}
 
 
@@ -375,8 +377,8 @@ async def apply_change_to_domain(
     rt = change.resource_type
     ck = change.change_kind
 
-    if rt == "blueprint_block":
-        return await apply_blueprint_block_change(session, tenant_id, after)
+    if rt == "workspace_doc":
+        return await apply_workspace_doc_change(session, tenant_id, after)
     if rt == "agent":
         return await apply_agent_change(session, tenant_id, ck, after, before)
     if rt == "workstream":
@@ -400,8 +402,8 @@ async def rollback_change_to_domain(
     rt = change.resource_type
     ck = change.change_kind
 
-    if rt == "blueprint_block":
-        return await rollback_blueprint_block(session, tenant_id, before, after, ck)
+    if rt == "workspace_doc":
+        return await rollback_workspace_doc(session, tenant_id, before, after, ck)
     if rt == "agent" and ck == "create" and after.get("agent_id"):
         return await apply_agent_change(
             session, tenant_id, "delete", {"agent_id": after["agent_id"]}, before

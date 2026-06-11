@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import UUID
 
@@ -11,7 +10,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.blueprint import BlueprintDoc, BlueprintPage
 from app.models.integration import IntegrationConnection, McpServer
 from app.models.os_graph import (
     ALLOWED_EDGES,
@@ -22,6 +20,7 @@ from app.models.os_graph import (
 )
 from app.models.project import Project, ProjectWorkstream
 from app.services.projects import serialize_po_agent
+from app.services.workforce_runtime import role_slug
 
 NODE_W = 200.0
 NODE_H = 88.0
@@ -54,7 +53,7 @@ async def _node_key_exists(
 
 
 async def ensure_canvas_seeded(session: AsyncSession, tenant_id: UUID) -> None:
-    """Idempotent seed from projects, workstreams, repos, blueprints, orchestrators."""
+    """Idempotent seed from projects, workstreams, repos, orchestrators."""
     existing = await session.execute(
         select(func.count()).select_from(OsCanvasNode).where(OsCanvasNode.tenant_id == tenant_id)
     )
@@ -66,29 +65,8 @@ async def ensure_canvas_seeded(session: AsyncSession, tenant_id: UUID) -> None:
     )
     projects = list(projects_result.scalars().all())
 
-    docs_result = await session.execute(
-        select(BlueprintDoc).where(BlueprintDoc.tenant_id == tenant_id).order_by(BlueprintDoc.updated_at)
-    )
-    blueprints = list(docs_result.scalars().all())
-
     orchestrator_nodes: dict[UUID, OsCanvasNode] = {}
     repo_nodes: dict[UUID, OsCanvasNode] = {}
-    blueprint_nodes: dict[UUID, OsCanvasNode] = {}
-
-    # Top row: blueprints spread horizontally
-    bp_start_x = 80.0
-    for i, doc in enumerate(blueprints):
-        node = OsCanvasNode(
-            tenant_id=tenant_id,
-            node_type="blueprint",
-            ref_id=doc.id,
-            x=bp_start_x + i * (NODE_W + COL_GAP),
-            y=40.0,
-            label=doc.title,
-        )
-        session.add(node)
-        await session.flush()
-        blueprint_nodes[doc.id] = node
 
     # Per project column: orchestrator, workstreams, repo
     col = 0
@@ -115,17 +93,6 @@ async def ensure_canvas_seeded(session: AsyncSession, tenant_id: UUID) -> None:
             session.add(orch_node)
             await session.flush()
             orchestrator_nodes[po_agent.id] = orch_node
-            # Link orchestrator to first blueprint if any
-            if blueprint_nodes:
-                first_bp = next(iter(blueprint_nodes.values()))
-                session.add(
-                    OsCanvasEdge(
-                        tenant_id=tenant_id,
-                        source_node_id=orch_node.id,
-                        target_node_id=first_bp.id,
-                        relation="reads_blueprint",
-                    )
-                )
 
         ws_result = await session.execute(
             select(ProjectWorkstream)
@@ -238,7 +205,7 @@ async def _resolve_node_summary(
         )
         agent = result.scalar_one_or_none()
         base["title"] = agent.name if agent else node.label or "Orchestrator"
-        base["subtitle"] = agent.role if agent else ""
+        base["subtitle"] = role_slug(agent) if agent else "orchestrator"
         base["status"] = (agent.runtime_status if agent else "unknown") or "standby"
         base["href"] = f"/os/agents/{node.ref_id}" if agent else None
         return base
@@ -299,25 +266,6 @@ async def _resolve_node_summary(
         base["subtitle"] = "MCP server" if mcp else ""
         base["status"] = "active" if mcp and mcp.is_active else "inactive"
         base["href"] = "/integrations/connected"
-        return base
-
-    if node.node_type == "blueprint":
-        result = await session.execute(
-            select(BlueprintDoc).where(
-                BlueprintDoc.id == node.ref_id, BlueprintDoc.tenant_id == tenant_id
-            )
-        )
-        doc = result.scalar_one_or_none()
-        page_count = 0
-        if doc:
-            pc = await session.execute(
-                select(func.count()).select_from(BlueprintPage).where(BlueprintPage.doc_id == doc.id)
-            )
-            page_count = int(pc.scalar_one() or 0)
-        base["title"] = doc.title if doc else node.label or "Blueprint"
-        base["subtitle"] = f"{page_count} pages"
-        base["status"] = "ready" if doc else "empty"
-        base["href"] = f"/os/docs" if doc else "/os/docs"
         return base
 
     base["title"] = node.label or node.node_type
@@ -575,10 +523,12 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
         select(Agent).where(Agent.tenant_id == tenant_id, Agent.role == "orchestra").limit(1)
     )
     orchestra_agent = orchestra_result.scalar_one_or_none()
-    doc_result = await session.execute(
-        select(BlueprintDoc).where(BlueprintDoc.tenant_id == tenant_id).limit(1)
+    from app.models.workspace import WorkspaceDoc
+
+    doc_count_result = await session.execute(
+        select(func.count()).select_from(WorkspaceDoc).where(WorkspaceDoc.tenant_id == tenant_id)
     )
-    doc = doc_result.scalar_one_or_none()
+    doc_count = int(doc_count_result.scalar_one() or 0)
 
     return {
         **graph,
@@ -587,11 +537,9 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
             "agent": serialize_po_agent(orchestra_agent) if orchestra_agent else None,
             "href": "/orchestra",
         },
-        "blueprint": {
-            "present": doc is not None,
-            "doc_id": str(doc.id) if doc else None,
-            "title": doc.title if doc else None,
-            "page_count": 0,
+        "workspace": {
+            "present": doc_count > 0,
+            "doc_count": doc_count,
             "href": "/os/docs",
         },
         "projects": project_nodes,

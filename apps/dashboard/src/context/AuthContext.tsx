@@ -10,7 +10,7 @@ import {
   resetPassword as resetPasswordRequest,
   setAccessTokenProvider,
   type AuthSessionResponse,
-} from '../lib/xano';
+} from '../lib/api';
 import { switchStaffTenant as switchStaffTenantRequest } from '../lib/staff-api';
 import { UserRole, PermissionAction } from '../types/custom-db';
 import {
@@ -19,8 +19,6 @@ import {
   resolveTenantSubdomainFromHost,
 } from '../lib/host-routing';
 import { publishDashboardUserToWidget } from '../lib/widget-bridge';
-import { isBokitoMode } from '../lib/bokito-mode';
-
 const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
 /** When set, the Xano auth group returned 404 for POST /refresh; skip further refresh calls until logout. */
 const SKIP_SERVER_AUTH_REFRESH_KEY = 'bokito_skip_server_auth_refresh';
@@ -239,7 +237,7 @@ function normalizeAuthUser(raw: unknown): User {
 
   return {
     id: toNumber(payload.id) ?? 0,
-    name: toString(payload.name, isBokitoMode() ? 'Unknown user' : 'Onbekende gebruiker'),
+    name: toString(payload.name, 'Unknown user'),
     email: toString(payload.email),
     jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,
     avatarUrl: avatarUrl || null,
@@ -251,7 +249,7 @@ function normalizeAuthUser(raw: unknown): User {
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
-      name: toString(tenantRaw.name, isBokitoMode() ? 'Unknown' : 'Onbekend'),
+      name: toString(tenantRaw.name, 'Unknown'),
       logo: resolveTenantLogo(payload, tenantRaw),
     },
     memberships,
@@ -260,7 +258,7 @@ function normalizeAuthUser(raw: unknown): User {
 
 function buildFallbackUserFromLogin(loginPayload: AuthTokens, loginEmail: string): User {
   const guessedName = loginEmail.includes('@') ? loginEmail.split('@')[0] : loginEmail;
-  const lp = loginPayload as Record<string, unknown>;
+  const lp = loginPayload as unknown as Record<string, unknown>;
   return normalizeAuthUser({
     id: loginPayload.user_id ?? loginPayload.id ?? 0,
     name: loginPayload.name ?? guessedName,

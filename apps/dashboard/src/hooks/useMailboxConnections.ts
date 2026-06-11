@@ -52,7 +52,7 @@ export function useMailboxConnections() {
   const loadingState = loading || (Boolean(token) && authLoading)
 
   const needsOrganisation =
-    !authLoading && Boolean(token) && Boolean(user) && user.organisationId == null
+    !authLoading && Boolean(token) && user != null && user.organisationId == null
 
   return {
     connections,
