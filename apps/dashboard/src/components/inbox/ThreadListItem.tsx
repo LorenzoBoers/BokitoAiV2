@@ -1,5 +1,6 @@
-import { Trash2 } from 'lucide-react'
+import { Bot, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { isInternalThread, threadCounterpartyName, threadSecondaryLine } from '../../lib/message-composer'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import ThreadIndicatorMenu from './ThreadIndicatorMenu'
 
@@ -12,6 +13,7 @@ type Props = {
   onTogglePin: (id: ThreadId, currentPinned: boolean) => void
   onDelete: (id: ThreadId) => void
   deleting?: boolean
+  variant?: 'customer' | 'direct'
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -45,8 +47,21 @@ export default function ThreadListItem({
   onTogglePin,
   onDelete,
   deleting = false,
+  variant = 'customer',
 }: Props) {
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
+  const isDirect = variant === 'direct' || thread.channel === 'assistant'
+  const isAgentThread = isInternalThread(thread)
+  const primaryLabel = isDirect
+    ? thread.emailSubject || 'Untitled chat'
+    : isAgentThread
+      ? threadCounterpartyName(thread)
+      : thread.contactName || thread.contactEmail || 'Unknown sender'
+  const secondaryLabel = isDirect
+    ? thread.agentName ?? (thread.agentKind === 'company' ? 'Company agent' : 'Assistant')
+    : isAgentThread
+      ? threadSecondaryLine(thread)
+      : thread.emailSubject
 
   return (
     <div
@@ -75,7 +90,14 @@ export default function ThreadListItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1 mb-0.5">
             <span className={cn('text-sm font-medium truncate', thread.hasUnread ? 'text-text-heading' : 'text-text-primary')}>
-              {thread.contactName || thread.contactEmail || 'Unknown sender'}
+              {isDirect ? (
+                <span className="inline-flex items-center gap-1.5 min-w-0">
+                  <Bot size={12} className="shrink-0 text-text-muted" />
+                  <span className="truncate">{primaryLabel}</span>
+                </span>
+              ) : (
+                primaryLabel
+              )}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -101,10 +123,10 @@ export default function ThreadListItem({
             </div>
           </div>
           <div className="flex items-center gap-1 mb-1">
-            {priorityDot ? <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot)} /> : null}
-            <span className="text-xs font-medium text-text-secondary truncate">{thread.emailSubject}</span>
+            {priorityDot && !isDirect ? <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot)} /> : null}
+            <span className="text-xs font-medium text-text-secondary truncate">{secondaryLabel}</span>
           </div>
-          {thread.assignedToUserId ? (
+          {thread.assignedToUserId && !isDirect ? (
             <div className="flex items-center gap-1">
               <span className="text-xs text-text-muted">Assigned</span>
             </div>

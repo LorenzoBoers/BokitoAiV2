@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels import ingest_inbound
@@ -17,6 +17,8 @@ from app.channels.base import BlockedContactError, account_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.channel import CHANNEL_ACCOUNT_CHANNELS, CONTACT_STATUSES, ChannelAccount, Contact
+from app.models.signal import Signal
+from app.services.signal_threads import serialize_thread
 from app.workers.tasks import enqueue_signal_processing
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -112,23 +114,47 @@ async def delete_account(
     return {"ok": True}
 
 
-# ── contacts (pairing / allowlist) ───────────────────────────────────
+# ── contacts (CRM + pairing / allowlist) ─────────────────────────────
 
 
 class ContactUpdateBody(BaseModel):
-    status: str
+    status: str | None = None
+    display_name: str | None = None
+    company: str | None = None
+    title: str | None = None
+    phone: str | None = None
+    notes: str | None = None
 
 
-def _serialize_contact(row: Contact) -> dict:
-    return {
+def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict:
+    data = {
         "id": str(row.id),
         "channel": row.channel,
         "address": row.address,
         "display_name": row.display_name,
         "status": row.status,
+        "company": row.company,
+        "title": row.title,
+        "phone": row.phone,
+        "notes": row.notes,
         "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
         "created_at": row.created_at.isoformat(),
     }
+    if thread_count is not None:
+        data["thread_count"] = thread_count
+    return data
+
+
+async def _contact_or_404(
+    session: AsyncSession, tenant_id: UUID, contact_id: UUID
+) -> Contact:
+    result = await session.execute(
+        select(Contact).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
+    )
+    contact = result.scalar_one_or_none()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return contact
 
 
 @router.get("/contacts")
@@ -137,15 +163,77 @@ async def list_contacts(
     session: Annotated[AsyncSession, Depends(get_session)],
     status: str | None = None,
     channel: str | None = None,
+    search: str | None = None,
 ):
     stmt = select(Contact).where(Contact.tenant_id == auth.tenant.id)
     if status:
         stmt = stmt.where(Contact.status == status)
     if channel:
         stmt = stmt.where(Contact.channel == channel)
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.where(
+            Contact.display_name.ilike(like)
+            | Contact.address.ilike(like)
+            | Contact.company.ilike(like)
+        )
     stmt = stmt.order_by(Contact.last_seen_at.desc()).limit(200)
     result = await session.execute(stmt)
-    return {"contacts": [_serialize_contact(c) for c in result.scalars().all()]}
+    contacts = list(result.scalars().all())
+
+    counts: dict[UUID, int] = {}
+    if contacts:
+        count_result = await session.execute(
+            select(Signal.contact_id, func.count(Signal.id))
+            .where(
+                Signal.tenant_id == auth.tenant.id,
+                Signal.contact_id.in_([c.id for c in contacts]),
+            )
+            .group_by(Signal.contact_id)
+        )
+        counts = {row[0]: row[1] for row in count_result.all()}
+    return {
+        "contacts": [
+            _serialize_contact(c, thread_count=counts.get(c.id, 0)) for c in contacts
+        ]
+    }
+
+
+@router.get("/contacts/{contact_id}")
+async def get_contact(
+    contact_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    count_result = await session.execute(
+        select(func.count(Signal.id)).where(
+            Signal.tenant_id == auth.tenant.id, Signal.contact_id == contact_id
+        )
+    )
+    return _serialize_contact(contact, thread_count=count_result.scalar_one())
+
+
+@router.get("/contacts/{contact_id}/threads")
+async def list_contact_threads(
+    contact_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = 20,
+):
+    contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    conditions = [Signal.contact_id == contact_id]
+    # Older threads may predate the contact link; match on denormalized email too.
+    if contact.channel == "email" and contact.address:
+        conditions.append(Signal.contact_email == contact.address)
+    result = await session.execute(
+        select(Signal)
+        .where(Signal.tenant_id == auth.tenant.id, or_(*conditions))
+        .order_by(Signal.last_message_at.desc())
+        .limit(max(1, min(limit, 100)))
+    )
+    threads = [serialize_thread(s) for s in result.scalars().all()]
+    return {"threads": threads}
 
 
 @router.patch("/contacts/{contact_id}")
@@ -155,16 +243,23 @@ async def update_contact(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    auth.require_role("owner", "admin")
-    if body.status not in CONTACT_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}")
-    result = await session.execute(
-        select(Contact).where(Contact.id == contact_id, Contact.tenant_id == auth.tenant.id)
-    )
-    contact = result.scalar_one_or_none()
-    if not contact:
-        raise HTTPException(status_code=404, detail="Contact not found")
-    contact.status = body.status
+    if body.status is not None:
+        auth.require_role("owner", "admin")
+        if body.status not in CONTACT_STATUSES:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}")
+    contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    if body.status is not None:
+        contact.status = body.status
+    if body.display_name is not None:
+        contact.display_name = body.display_name
+    if body.company is not None:
+        contact.company = body.company
+    if body.title is not None:
+        contact.title = body.title
+    if body.phone is not None:
+        contact.phone = body.phone
+    if body.notes is not None:
+        contact.notes = body.notes
     session.add(contact)
     await session.commit()
     return _serialize_contact(contact)

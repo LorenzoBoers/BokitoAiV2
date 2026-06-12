@@ -24,7 +24,13 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;')
 }
 
-function buildReplyHtml(bodyText: string, signatureImageUrl: string): string {
+function buildPlainReplyHtml(bodyText: string): string {
+  const text = bodyText.trim()
+  const content = escapeHtml(text).replace(/\n/g, '<br/>')
+  return `<div>${content || '&nbsp;'}</div>`
+}
+
+function buildEmailReplyHtml(bodyText: string, signatureImageUrl: string): string {
   const text = bodyText.trim()
   const content = escapeHtml(text).replace(/\n/g, '<br/>')
   const safeUrl = escapeHtml(signatureImageUrl)
@@ -106,14 +112,19 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
       if (!token || !threadId) return
       setSaving(true)
       try {
-        const signatureImageUrl =
-          user?.signatureUrl?.trim() ||
-          user?.tenant?.logo?.trim() ||
-          '/bokito-logo.svg'
-        const bodyHtml =
-          input.bodyHtml && input.bodyHtml.trim()
-            ? input.bodyHtml
-            : buildReplyHtml(input.bodyText, signatureImageUrl)
+        const useEmailFormat = input.format === 'email'
+        let bodyHtml = input.bodyHtml?.trim() ? input.bodyHtml : undefined
+        if (!bodyHtml) {
+          if (useEmailFormat) {
+            const signatureImageUrl =
+              user?.signatureUrl?.trim() ||
+              user?.tenant?.logo?.trim() ||
+              '/bokito-logo.svg'
+            bodyHtml = buildEmailReplyHtml(input.bodyText, signatureImageUrl)
+          } else {
+            bodyHtml = buildPlainReplyHtml(input.bodyText)
+          }
+        }
         const msg = await replyToThread(token, threadId, { ...input, bodyHtml })
         if (msg) {
           setRawDetail((prev) =>

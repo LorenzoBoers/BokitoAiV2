@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_decision, publish_signal_message
+from app.models.agent import Agent
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
 
@@ -22,6 +23,7 @@ async def get_or_create_internal_thread(
     project_id: UUID | None = None,
     subject: str,
     contact_name: str = "Agent",
+    agent_id: UUID | None = None,
     assigned_user_id: UUID | None = None,
     existing_signal_id: UUID | None = None,
 ) -> Signal:
@@ -31,6 +33,10 @@ async def get_or_create_internal_thread(
         )
         existing = result.scalar_one_or_none()
         if existing:
+            if agent_id and not existing.agent_id:
+                existing.agent_id = agent_id
+            if contact_name and contact_name != "Agent" and existing.contact_name in ("", "Agent"):
+                existing.contact_name = contact_name
             return existing
 
     signal = Signal(
@@ -39,6 +45,7 @@ async def get_or_create_internal_thread(
         source="workforce",
         subject=subject or "(No subject)",
         contact_name=contact_name,
+        agent_id=agent_id,
         status="open",
         priority="normal",
         has_unread=True,
@@ -70,14 +77,28 @@ async def append_decision_to_signal(
     project_id: UUID | None = None,
     signal_id: UUID | None = None,
 ) -> SignalMessage:
+    agent_name = "Agent"
+    if agent_id:
+        agent_row = (
+            await session.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id))
+        ).scalar_one_or_none()
+        if agent_row:
+            agent_name = agent_row.name
+
     signal = await get_or_create_internal_thread(
         session,
         tenant_id,
         project_id=project_id or decision.project_id,
         subject=decision.title,
+        contact_name=agent_name,
+        agent_id=agent_id,
         assigned_user_id=user_id,
         existing_signal_id=signal_id,
     )
+    if agent_id and not signal.agent_id:
+        signal.agent_id = agent_id
+        if agent_name != "Agent":
+            signal.contact_name = agent_name
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=tenant_id,
@@ -131,12 +152,21 @@ async def append_workforce_message(
     agent_id: UUID | None = None,
     payload: dict[str, Any] | None = None,
 ) -> SignalMessage:
+    agent_name = "Agent"
+    if agent_id:
+        agent_row = (
+            await session.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id))
+        ).scalar_one_or_none()
+        if agent_row:
+            agent_name = agent_row.name
+
     signal = await get_or_create_internal_thread(
         session,
         tenant_id,
         project_id=project_id,
         subject=subject,
-        contact_name="Agent",
+        contact_name=agent_name,
+        agent_id=agent_id,
     )
     message = SignalMessage(
         signal_id=signal.id,

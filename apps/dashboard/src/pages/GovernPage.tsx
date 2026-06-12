@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, Trash2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
@@ -234,16 +233,11 @@ export default function GovernPage() {
     <PageContent width="xl" className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-text-heading flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6" aria-hidden />
-            {t('title')}
+          <h1 className="text-xl font-semibold text-text-heading flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" aria-hidden />
+            {t('autonomyTitle', { defaultValue: 'Autonomy & approvals' })}
           </h1>
-          <p className="text-sm text-text-muted mt-1">
-            {t('subtitle')}{' '}
-            <Link to="/os" className="text-accent hover:underline">
-              {t('openCanvas')}
-            </Link>
-          </p>
+          <p className="text-sm text-text-muted mt-1">{t('subtitle')}</p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={load} disabled={loading}>
           <RefreshCw className={cn('h-4 w-4 mr-1.5', loading && 'animate-spin')} aria-hidden />

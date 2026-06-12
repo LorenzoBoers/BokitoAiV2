@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
+from app.config import get_settings, validate_production_settings
 from app.db.session import init_db
 from sqlalchemy.exc import OperationalError
 
@@ -29,6 +29,7 @@ from app.routers import (
     livechat,
     integrations,
     mcp,
+    me,
     notifications,
     projects,
     push,
@@ -51,6 +52,12 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    config_errors = validate_production_settings(settings)
+    if config_errors:
+        raise RuntimeError(
+            "Refusing to start in production with unsafe configuration:\n  - "
+            + "\n  - ".join(config_errors)
+        )
     await init_db()
     await event_bus.start()
     scheduler_task: asyncio.Task | None = None
@@ -89,6 +96,7 @@ app.include_router(gateway_router, prefix=api_prefix)
 app.include_router(health.router, prefix=api_prefix)
 app.include_router(auth.router, prefix=api_prefix)
 app.include_router(chat.router, prefix=api_prefix)
+app.include_router(me.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(integrations.router, prefix=api_prefix)
 app.include_router(github_integrations.router, prefix=api_prefix)

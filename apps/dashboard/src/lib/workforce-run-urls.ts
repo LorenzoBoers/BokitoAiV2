@@ -1,11 +1,6 @@
-/** Run detail in project workforce context. */
-export function projectWorkforceRunUrl(projectId: string, workLogId: string): string {
-  return `/project/${encodeURIComponent(projectId)}/workforce/${encodeURIComponent(workLogId)}`
-}
-
-/** Run detail in AI agent context. */
+/** Run detail on the agent detail page. */
 export function agentWorkforceRunUrl(agentId: string, workLogId: string): string {
-  return `/os/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(workLogId)}`
+  return `/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(workLogId)}`
 }
 
 export function workLogDetailUrl(run: {
@@ -13,21 +8,17 @@ export function workLogDetailUrl(run: {
   project_id: string
   agent_id?: string | null
 }): string {
-  if (run.project_id) {
-    return projectWorkforceRunUrl(run.project_id, run.id)
-  }
   if (run.agent_id) {
     return agentWorkforceRunUrl(run.agent_id, run.id)
   }
-  return '/os'
+  return '/activity'
 }
 
 export function messageWorkLogUrl(
   workLogId: string,
-  projectId?: string | null,
+  _projectId?: string | null,
   agentId?: string | null,
 ): string {
-  if (projectId) return projectWorkforceRunUrl(projectId, workLogId)
   if (agentId) return agentWorkforceRunUrl(agentId, workLogId)
-  return '/os'
+  return '/activity'
 }

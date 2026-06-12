@@ -24,6 +24,12 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "current_activity_summary": "VARCHAR DEFAULT ''",
         "updated_at": "DATETIME",
         "default_runtime_profile_id": "VARCHAR",
+        "kind": "VARCHAR DEFAULT 'company'",
+        "owner_user_id": "VARCHAR",
+        "chat_access": "VARCHAR DEFAULT 'nobody'",
+    },
+    "signals": {
+        "agent_id": "VARCHAR",
     },
     "agent_runs": {
         "tenant_id": "VARCHAR",
@@ -115,9 +121,27 @@ def _columns_to_add(connection: Connection) -> list[tuple[str, str, str]]:
     return unique
 
 
+def _dialect_ddl(col_type: str, is_postgres: bool) -> str:
+    """Translate SQLite-flavored column DDL fragments to Postgres equivalents.
+
+    These patches only run as ADD COLUMN on pre-existing tables that are missing
+    a column; on a fresh database create_all already builds every column so they
+    are no-ops. The translation keeps them safe if ever executed on Postgres
+    (e.g. `BOOLEAN DEFAULT 0` is invalid there)."""
+    if not is_postgres:
+        return col_type
+    return (
+        col_type.replace("BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT false")
+        .replace("BOOLEAN DEFAULT 1", "BOOLEAN DEFAULT true")
+        .replace("DATETIME", "TIMESTAMP")
+    )
+
+
 def apply_column_patches(connection: Connection) -> None:
+    is_postgres = connection.dialect.name == "postgresql"
     for table_name, col_name, col_type in _columns_to_add(connection):
-        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
+        ddl = _dialect_ddl(col_type, is_postgres)
+        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {ddl}"))
 
 
 def _rows(connection: Connection, sql: str) -> list:
@@ -593,12 +617,91 @@ def _migrate_schedules_to_triggers(connection: Connection) -> None:
             connection.execute(text(f"DROP TABLE {table}{cascade}"))
 
 
+def _backfill_contacts_from_signals(connection: Connection) -> None:
+    """Create Contact rows for external signals that predate contact linking."""
+    inspector = inspect(connection)
+    if not inspector.has_table("signals") or not inspector.has_table("contacts"):
+        return
+    signal_cols = {c["name"] for c in inspector.get_columns("signals")}
+    if "contact_id" not in signal_cols:
+        return
+
+    rows = _rows(
+        connection,
+        "SELECT DISTINCT tenant_id, channel, contact_email, contact_name FROM signals "
+        "WHERE contact_id IS NULL AND contact_email != '' "
+        "AND channel NOT IN ('assistant', 'internal')",
+    )
+    for row in rows:
+        existing = list(
+            connection.execute(
+                text(
+                    "SELECT id FROM contacts WHERE tenant_id = :tenant_id "
+                    "AND channel = :channel AND address = :address"
+                ),
+                {
+                    "tenant_id": row["tenant_id"],
+                    "channel": row["channel"],
+                    "address": row["contact_email"],
+                },
+            ).mappings()
+        )
+        if existing:
+            contact_id = existing[0]["id"]
+        else:
+            contact_id = str(uuid.uuid4())
+            connection.execute(
+                text(
+                    "INSERT INTO contacts (id, tenant_id, channel, address, display_name,"
+                    " status, company, title, phone, notes, metadata_json, created_at) "
+                    "VALUES (:id, :tenant_id, :channel, :address, :display_name,"
+                    " 'approved', '', '', '', '', '{}', CURRENT_TIMESTAMP)"
+                ),
+                {
+                    "id": contact_id,
+                    "tenant_id": row["tenant_id"],
+                    "channel": row["channel"],
+                    "address": row["contact_email"],
+                    "display_name": row["contact_name"] or "",
+                },
+            )
+        connection.execute(
+            text(
+                "UPDATE signals SET contact_id = :contact_id "
+                "WHERE tenant_id = :tenant_id AND channel = :channel "
+                "AND contact_email = :address AND contact_id IS NULL"
+            ),
+            {
+                "contact_id": contact_id,
+                "tenant_id": row["tenant_id"],
+                "channel": row["channel"],
+                "address": row["contact_email"],
+            },
+        )
+
+
+def _normalize_agent_chat_columns(connection: Connection) -> None:
+    """Existing agents predate kind/chat_access: they are company agents."""
+    inspector = inspect(connection)
+    if not inspector.has_table("agents"):
+        return
+    agent_cols = {col["name"] for col in inspector.get_columns("agents")}
+    if "kind" in agent_cols:
+        connection.execute(text("UPDATE agents SET kind = 'company' WHERE kind IS NULL"))
+    if "chat_access" in agent_cols:
+        connection.execute(
+            text("UPDATE agents SET chat_access = 'nobody' WHERE chat_access IS NULL")
+        )
+
+
 def apply_data_repairs(connection: Connection) -> None:
     """Idempotent data fixes that ALTER cannot express (legacy role cleanup)."""
     _migrate_legacy_threads_to_signals(connection)
     _drop_legacy_policy_tables(connection)
     _migrate_blueprint_to_workspace_docs(connection)
     _migrate_schedules_to_triggers(connection)
+    _backfill_contacts_from_signals(connection)
+    _normalize_agent_chat_columns(connection)
     inspector = inspect(connection)
     if not inspector.has_table("agents"):
         return

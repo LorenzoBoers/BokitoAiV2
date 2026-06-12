@@ -1,23 +1,30 @@
+import Constants, { ExecutionEnvironment } from 'expo-constants'
 import * as Device from 'expo-device'
-import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import { subscribePush } from './api'
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: false,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-})
+function isExpoGo(): boolean {
+  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+}
 
 /**
  * Register this device for push notifications and store the Expo push token
- * on the backend. No-ops on simulators or when permission is denied.
+ * on the backend. Skips Expo Go (push is not supported there since SDK 53),
+ * simulators, and when permission is denied.
  */
 export async function registerForPush(): Promise<string | null> {
-  if (!Device.isDevice) return null
+  if (isExpoGo() || !Device.isDevice) return null
+
+  const Notifications = await import('expo-notifications')
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: false,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  })
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {

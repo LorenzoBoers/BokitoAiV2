@@ -253,6 +253,112 @@ async def patch_agent_status(
     return await svc.update_agent_runtime_status(session, auth.tenant.id, agent_id, body.status)
 
 
+# --- Chat access (who may DM this company agent) ---
+
+
+class ChatAccessBody(BaseModel):
+    mode: str  # everyone | selected | nobody
+    user_ids: list[UUID] = []
+
+
+async def _company_agent_or_404(session: AsyncSession, tenant_id: UUID, agent_id: UUID):
+    from fastapi import HTTPException
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+
+    result = await session.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent or agent.kind != "company":
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return agent
+
+
+async def _chat_access_payload(session: AsyncSession, tenant_id: UUID, agent) -> dict:
+    from sqlalchemy import select
+
+    from app.models.agent import AgentChatUser
+    from app.models.auth import Membership, User
+
+    selected_result = await session.execute(
+        select(AgentChatUser.user_id).where(
+            AgentChatUser.tenant_id == tenant_id, AgentChatUser.agent_id == agent.id
+        )
+    )
+    selected_ids = {u for u in selected_result.scalars().all()}
+    members_result = await session.execute(
+        select(User, Membership.role)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
+    )
+    members = [
+        {
+            "id": str(user.id),
+            "name": user.display_name or user.email,
+            "email": user.email,
+            "role": role,
+            "selected": user.id in selected_ids,
+        }
+        for user, role in members_result.all()
+    ]
+    return {"agent_id": str(agent.id), "mode": agent.chat_access, "members": members}
+
+
+@router.get("/agents/{agent_id}/chat-access")
+async def get_agent_chat_access(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    agent = await _company_agent_or_404(session, auth.tenant.id, agent_id)
+    return await _chat_access_payload(session, auth.tenant.id, agent)
+
+
+@router.patch("/agents/{agent_id}/chat-access")
+async def patch_agent_chat_access(
+    agent_id: UUID,
+    body: ChatAccessBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from datetime import datetime
+
+    from fastapi import HTTPException
+    from sqlalchemy import delete, select
+
+    from app.models.agent import AgentChatUser
+    from app.models.auth import Membership
+
+    auth.require_role("owner", "admin")
+    if body.mode not in ("everyone", "selected", "nobody"):
+        raise HTTPException(status_code=400, detail="Invalid chat access mode")
+    agent = await _company_agent_or_404(session, auth.tenant.id, agent_id)
+    agent.chat_access = body.mode
+    agent.updated_at = datetime.utcnow()
+
+    await session.execute(
+        delete(AgentChatUser).where(
+            AgentChatUser.tenant_id == auth.tenant.id, AgentChatUser.agent_id == agent.id
+        )
+    )
+    if body.mode == "selected" and body.user_ids:
+        member_result = await session.execute(
+            select(Membership.user_id).where(
+                Membership.tenant_id == auth.tenant.id,
+                Membership.user_id.in_(body.user_ids),
+            )
+        )
+        for user_id in member_result.scalars().all():
+            session.add(
+                AgentChatUser(tenant_id=auth.tenant.id, agent_id=agent.id, user_id=user_id)
+            )
+    await session.commit()
+    return await _chat_access_payload(session, auth.tenant.id, agent)
+
+
 # --- Messages / decisions ---
 
 

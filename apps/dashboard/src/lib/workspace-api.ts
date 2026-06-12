@@ -1,10 +1,5 @@
 import { workspaceRoutes } from '../api/routes'
-import {
-  workforceDelete,
-  workforceGet,
-  workforcePatch,
-  workforcePost,
-} from './api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 export type WorkspaceDocKind = 'doc' | 'memory' | 'persona' | 'skill' | 'daily_log' | 'heartbeat'
 
@@ -32,12 +27,12 @@ export interface WorkspaceSearchHit {
 }
 
 export async function listWorkspaceDocs(kind?: string): Promise<WorkspaceDocRow[]> {
-  const res = await workforceGet<{ docs: WorkspaceDocRow[] }>(workspaceRoutes.docs(kind))
+  const res = await apiGet<{ docs: WorkspaceDocRow[] }>(workspaceRoutes.docs(kind))
   return res.docs
 }
 
 export async function getWorkspaceDoc(docId: string): Promise<WorkspaceDocRow> {
-  return workforceGet<WorkspaceDocRow>(workspaceRoutes.doc(docId))
+  return apiGet<WorkspaceDocRow>(workspaceRoutes.doc(docId))
 }
 
 export async function createWorkspaceDoc(input: {
@@ -46,22 +41,22 @@ export async function createWorkspaceDoc(input: {
   kind?: WorkspaceDocKind
   title?: string
 }): Promise<WorkspaceDocRow> {
-  return workforcePost<WorkspaceDocRow>(workspaceRoutes.docs(), input)
+  return apiPost<WorkspaceDocRow>(workspaceRoutes.docs(), input)
 }
 
 export async function updateWorkspaceDoc(
   docId: string,
   patch: { content?: string; kind?: WorkspaceDocKind; title?: string; is_pinned?: boolean },
 ): Promise<WorkspaceDocRow> {
-  return workforcePatch<WorkspaceDocRow>(workspaceRoutes.doc(docId), patch)
+  return apiPatch<WorkspaceDocRow>(workspaceRoutes.doc(docId), patch)
 }
 
 export async function deleteWorkspaceDoc(docId: string): Promise<void> {
-  await workforceDelete(workspaceRoutes.doc(docId))
+  await apiDelete(workspaceRoutes.doc(docId))
 }
 
 export async function searchWorkspace(query: string, topK = 8): Promise<WorkspaceSearchHit[]> {
-  const res = await workforcePost<{ results: WorkspaceSearchHit[] }>(workspaceRoutes.search(), {
+  const res = await apiPost<{ results: WorkspaceSearchHit[] }>(workspaceRoutes.search(), {
     query,
     top_k: topK,
   })

@@ -5,6 +5,7 @@ import { getDomainFaviconUrl } from '../../lib/domain-favicon'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import { useTheme } from '../../context/ThemeContext'
 import type { InboxEvent, InboxMessage, InboxMember } from '../../lib/inbox-api'
 
 type MessageItemProps = {
@@ -139,9 +140,26 @@ function ContactAvatar({
   )
 }
 
+function isSimpleMessageHtml(html: string): boolean {
+  const trimmed = html.trim()
+  if (!trimmed) return true
+  if (/<(?:table|style|link|script|iframe|object|embed|form|meta)\b/i.test(trimmed)) return false
+  if (/\bbackground(?:-color)?\s*:/i.test(trimmed)) return false
+  return true
+}
+
+function SimpleMessageHtml({ html }: { html: string }) {
+  return (
+    <div
+      className="text-xs text-text-primary leading-relaxed break-words [&_img]:mt-4 [&_img]:block [&_img]:max-w-[260px] [&_img]:h-auto"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
 // Renders email HTML inside a sandboxed iframe so the email's <style> tags,
 // link colors and other global rules do not bleed into the host app.
-function EmailHtmlFrame({ html }: { html: string }) {
+function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = useState(80)
 
@@ -180,12 +198,22 @@ function EmailHtmlFrame({ html }: { html: string }) {
     return () => window.clearTimeout(id)
   }, [measure, html])
 
+  const textColor = isDark ? '#e2e8f0' : '#1f2937'
+  const linkColor = isDark ? '#60a5fa' : '#2563eb'
+  const darkBgReset = isDark
+    ? `body, div, p, span, td, th, table, tbody, thead, tr {
+  background-color: transparent !important;
+  background-image: none !important;
+}`
+    : ''
+
   const wrappedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>
-html, body { margin: 0; padding: 0; background: transparent; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; }
+html, body { margin: 0; padding: 0; background: transparent !important; color: ${textColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; }
 body { padding: 2px 0; }
 img { max-width: 100%; height: auto; }
 table { max-width: 100% !important; }
-a { color: #2563eb; }
+a { color: ${linkColor}; }
+${darkBgReset}
 </style></head><body>${html}</body></html>`
 
   return (
@@ -195,10 +223,23 @@ a { color: #2563eb; }
       srcDoc={wrappedHtml}
       onLoad={handleLoad}
       title="Email content"
-      className="block w-full"
-      style={{ height: `${height}px`, border: 0, background: 'transparent' }}
+      className="block w-full bg-transparent"
+      style={{
+        height: `${height}px`,
+        border: 0,
+        background: 'transparent',
+        colorScheme: isDark ? 'dark' : 'light',
+      }}
     />
   )
+}
+
+function MessageHtmlBody({ html }: { html: string }) {
+  const { isDark } = useTheme()
+  if (isSimpleMessageHtml(html)) {
+    return <SimpleMessageHtml html={html} />
+  }
+  return <EmailHtmlFrame html={html} isDark={isDark} />
 }
 
 const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName?: string) => string> = {
@@ -230,7 +271,7 @@ export function MessageTimelineItem({ message, contactName, contactEmail, contac
   const inboundName = contactName || inboundEmail || 'Afzender'
 
   const bubbleBody = message.bodyHtml ? (
-    <EmailHtmlFrame html={message.bodyHtml} />
+    <MessageHtmlBody html={message.bodyHtml} />
   ) : (
     <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">{message.bodyPreview}</p>
   )
@@ -265,7 +306,7 @@ export function MessageTimelineItem({ message, contactName, contactEmail, contac
           'w-full max-w-3xl min-w-0 rounded-2xl rounded-br-sm border px-3 py-2',
           isInternal
             ? 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30'
-            : 'bg-accent/10 border-accent/30',
+            : 'bg-bg-surface border-border/50 ring-1 ring-accent/10 dark:ring-accent/15',
         )}
       >
         <div className="flex items-center gap-1.5 mb-1 min-w-0">

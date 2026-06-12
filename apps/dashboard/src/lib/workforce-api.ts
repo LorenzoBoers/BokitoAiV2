@@ -308,3 +308,48 @@ export async function updateAgentStatus(
   })
   return readResponse<{ ok: boolean; agent: RuntimeAgent }>(res)
 }
+
+// --- Chat access (who may DM a company agent) ---
+
+export type ChatAccessMode = 'everyone' | 'selected' | 'nobody'
+
+export type ChatAccessMember = {
+  id: string
+  name: string
+  email: string
+  role: string
+  selected: boolean
+}
+
+export type AgentChatAccess = {
+  agent_id: string
+  mode: ChatAccessMode
+  members: ChatAccessMember[]
+}
+
+export async function getAgentChatAccess(
+  token: string | undefined,
+  agentId: string,
+): Promise<AgentChatAccess> {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.chatAccess(agentId)}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: buildHeaders(token),
+  })
+  return readResponse<AgentChatAccess>(res)
+}
+
+export async function updateAgentChatAccess(
+  token: string | undefined,
+  agentId: string,
+  mode: ChatAccessMode,
+  userIds: string[] = [],
+): Promise<AgentChatAccess> {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.chatAccess(agentId)}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: buildHeaders(token),
+    body: JSON.stringify({ mode, user_ids: userIds }),
+  })
+  return readResponse<AgentChatAccess>(res)
+}

@@ -1,5 +1,7 @@
-"""Triggers API: cron/interval/heartbeat/webhook wakes + channel bindings."""
+"""Triggers API: scheduled wakes (cron/interval/heartbeat/webhook/once/event),
+agenda calendar occurrences, and channel bindings."""
 
+from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -17,6 +19,15 @@ from app.services import triggers as svc
 router = APIRouter(tags=["triggers"])
 
 
+def _naive_utc(value: datetime | None) -> datetime | None:
+    """Normalize possibly tz-aware input to the naive-UTC convention used in the DB."""
+    if value is None or value.tzinfo is None:
+        return value
+    from datetime import timezone
+
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 class TriggerCreateBody(BaseModel):
     name: str
     kind: str
@@ -27,6 +38,7 @@ class TriggerCreateBody(BaseModel):
     workstream_id: UUID | None = None
     instructions: str = ""
     enabled: bool = True
+    run_at: datetime | None = None
 
 
 class TriggerUpdateBody(BaseModel):
@@ -38,6 +50,29 @@ class TriggerUpdateBody(BaseModel):
     workstream_id: UUID | None = None
     instructions: str | None = None
     enabled: bool | None = None
+    run_at: datetime | None = None
+
+
+@router.get("/agenda")
+async def agenda(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    from_: datetime | None = Query(None, alias="from"),
+    to: datetime | None = Query(None),
+    agent_id: UUID | None = Query(None),
+):
+    """Calendar occurrences: planned trigger expansions + run history in a window."""
+    now = datetime.utcnow()
+    start = _naive_utc(from_) or now - timedelta(days=1)
+    end = _naive_utc(to) or now + timedelta(days=14)
+    if end <= start:
+        raise HTTPException(status_code=400, detail="`to` must be after `from`")
+    if end - start > timedelta(days=92):
+        raise HTTPException(status_code=400, detail="Window too large (max 92 days)")
+    items = await svc.agenda_occurrences(
+        session, auth.tenant.id, start=start, end=end, agent_id=agent_id
+    )
+    return {"items": items, "from": start.isoformat(), "to": end.isoformat()}
 
 
 @router.get("/triggers")
@@ -75,6 +110,7 @@ async def create_trigger(
         workstream_id=body.workstream_id,
         instructions=body.instructions,
         enabled=body.enabled,
+        run_at=_naive_utc(body.run_at),
     )
     data = svc.serialize_trigger(trigger)
     # The webhook secret is only revealed once, at creation time.
@@ -93,11 +129,17 @@ async def update_trigger(
     auth.require_role("owner", "admin")
     trigger = await svc.get_trigger(session, auth.tenant.id, trigger_id)
     updates = body.model_dump(exclude_unset=True)
+    run_at = _naive_utc(updates.pop("run_at", None))
     for field, value in updates.items():
         setattr(trigger, field, value)
     if trigger.kind == "cron" and svc.next_cron_run(trigger.cron_expr, trigger.created_at) is None:
         raise HTTPException(status_code=400, detail="Invalid cron expression")
-    trigger.next_run_at = svc.compute_next_run(trigger)
+    if trigger.kind in ("once", "event"):
+        # One-shots keep their scheduled moment unless explicitly rescheduled.
+        if run_at is not None:
+            trigger.next_run_at = run_at
+    else:
+        trigger.next_run_at = svc.compute_next_run(trigger)
     session.add(trigger)
     await session.commit()
     await session.refresh(trigger)

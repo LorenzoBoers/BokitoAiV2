@@ -1,0 +1,6 @@
+# Ensure deploy/runtime files use LF so they work on the Linux VPS.
+*.sh text eol=lf
+Caddyfile text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+docker-compose*.yml text eol=lf

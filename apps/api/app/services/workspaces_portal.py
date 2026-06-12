@@ -158,6 +158,9 @@ async def create_workspace(
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
     await bootstrap_tenant(session, tenant.id)
+    from app.services.personal_agents import get_or_create_personal_agent
+
+    await get_or_create_personal_agent(session, tenant.id, user, commit=False)
     await session.commit()
     await session.refresh(tenant)
     return workspace_payload(tenant, "owner")

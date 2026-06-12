@@ -55,7 +55,7 @@ export default function Onboarding() {
       })
 
       toast.success('Welcome to Bokito. Your workspace is ready.')
-      navigate('/home', { replace: true })
+      navigate('/communication/inbox/all', { replace: true })
     } catch (error) {
       console.error('Onboarding failed:', error)
       toast.error('Something went wrong while setting up your workspace.')

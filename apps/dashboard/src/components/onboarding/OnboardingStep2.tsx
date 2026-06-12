@@ -13,14 +13,14 @@ const SURFACE_OPTIONS = [
     name: 'Connect a channel',
     description: 'Link email or chat so customer signals land in Messages.',
     icon: Link2,
-    href: '/settings/inbox',
+    href: '/settings/channels',
   },
   {
     id: 'project' as const,
-    name: 'Create your first project',
-    description: 'Set up an AI OS project with orchestration and agent runs.',
+    name: 'Set up your agents',
+    description: 'Review your agent team and configure automations and triggers.',
     icon: FolderKanban,
-    href: '/projects/new',
+    href: '/agents',
   },
   {
     id: 'skip' as const,
@@ -85,7 +85,7 @@ export default function OnboardingStep2({ data, onChange }: OnboardingStep2Props
       </div>
 
       <p className="text-xs text-text-muted text-center">
-        New workspaces start on the Assisted autonomy posture. Adjust trust levels anytime in Govern.
+        New workspaces start on the Assisted autonomy posture. Adjust trust levels anytime in Settings &gt; Autonomy &amp; approvals.
       </p>
     </div>
   )

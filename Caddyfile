@@ -1,0 +1,26 @@
+# Bokito MVP single-origin reverse proxy.
+# Serves the built dashboard SPA and proxies /api (REST + WebSocket) to FastAPI.
+# TLS certificates are provisioned automatically by Caddy for {$BOKITO_DOMAIN}.
+
+{$BOKITO_DOMAIN} {
+	encode zstd gzip
+
+	# API + WebSocket gateway -> FastAPI (Caddy upgrades /api/ws automatically).
+	@api path /api/*
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	# Webchat widget static bundle.
+	handle_path /chat-widget/* {
+		root * /srv/chat-widget
+		file_server
+	}
+
+	# Dashboard SPA with client-side routing fallback.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -2,7 +2,7 @@
   "comingSoon": "Binnenkort",
   "rail": {
     "home": "Home",
-    "support": "Inbox",
+    "support": "Communicatie",
     "updates": "AI",
     "assistent": "Assistent",
     "integrations": "Integraties",
@@ -20,7 +20,7 @@
     "home": "Home",
     "users": "Gebruikers",
     "settings": "Instellingen",
-    "inbox": "Inbox",
+    "inbox": "Communicatie",
     "ai": "AI",
     "assistent": "Assistent",
     "integrations": "Integraties",
@@ -258,13 +258,71 @@
     "group": {
       "inbox": "Inbox"
     },
+    "newChat": "Nieuwe chat",
+    "inbox": {
+      "all": "Alles",
+      "mine": "Van mij",
+      "open": "Open",
+      "unassigned": "Niet toegewezen",
+      "closed": "Gesloten"
+    },
+    "section": {
+      "inbox": "Inbox",
+      "assistant": "Assistent",
+      "views": "Weergaven",
+      "channels": "Kanalen",
+      "agents": "Agents",
+      "labels": "Labels",
+      "settings": "Instellingen"
+    },
+    "views": {
+      "support": "Support",
+      "sales": "Sales",
+      "operations": "Operations",
+      "partners": "Partnercommunicatie",
+      "agent-handoffs": "Agent-overdrachten",
+      "custom": "Eigen weergaven..."
+    },
+    "channels": {
+      "loading": "Kanalen laden...",
+      "webchat": "Webchat",
+      "internal": "Interne chat",
+      "agent": "Agentberichten"
+    },
+    "agents": {
+      "loading": "Agents laden...",
+      "empty": "Geen agents beschikbaar voor chat.",
+      "runs": "Agent-runs"
+    },
+    "labels": {
+      "urgent": "Urgent",
+      "vip": "VIP",
+      "follow-up": "Opvolgen",
+      "billing": "Facturatie",
+      "custom": "Eigen labels..."
+    },
+    "settings": {
+      "channels": "Kanaalinstellingen",
+      "assistant": "Assistent-instellingen"
+    },
+    "customize": {
+      "title": "Zijbalk aanpassen",
+      "description": "Sleep secties om ze te herschikken, verberg wat je niet gebruikt en kies welke standaard ingeklapt starten.",
+      "visible": "Tonen",
+      "collapsed": "Inklappen",
+      "reset": "Standaard herstellen"
+    },
     "links": {
       "myInbox": "Toegewezen aan mij",
       "allMessages": "Open",
       "unassigned": "Niet toegewezen",
       "pending": "In behandeling",
       "closed": "Gesloten",
-      "createdByMe": "Door mij gemaakt"
+      "createdByMe": "Door mij gemaakt",
+      "agentAll": "Alle activiteit",
+      "updates": "Updates",
+      "results": "Resultaten",
+      "agentDecisions": "Beslissingen"
     }
   },
   "users": {

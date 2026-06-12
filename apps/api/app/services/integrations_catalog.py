@@ -33,6 +33,7 @@ HOSTS: list[dict[str, Any]] = [
     {"id": host_id("sentry"), "slug": "sentry", "name": "Sentry", "brand_color": "#362d59", "initials": "SE"},
     {"id": host_id("stripe"), "slug": "stripe", "name": "Stripe", "brand_color": "#635bff", "initials": "ST"},
     {"id": host_id("shopify"), "slug": "shopify", "name": "Shopify", "brand_color": "#96bf48", "initials": "SH"},
+    {"id": host_id("higgsfield"), "slug": "higgsfield", "name": "Higgsfield", "brand_color": "#111111", "initials": "HF"},
 ]
 
 HOST_BY_SLUG = {h["slug"]: h for h in HOSTS}
@@ -261,6 +262,19 @@ PROVIDERS: list[dict[str, Any]] = [
         status="coming_soon",
         sort_order=29,
         mcp_remote_url="https://mcp.svc.cloud.microsoft/enterprise",
+        mcp_transport="streamable_http",
+    ),
+    _provider(
+        "higgsfield_mcp",
+        "Higgsfield",
+        "AI-beeld- en videogeneratie via de hosted Higgsfield MCP-server.",
+        "Productiviteit",
+        "mcp_remote_oauth",
+        host_slug="higgsfield",
+        capabilities={"mcp_tools": True},
+        status="coming_soon",
+        sort_order=30,
+        mcp_remote_url="https://mcp.higgsfield.ai/mcp",
         mcp_transport="streamable_http",
     ),
 ]

@@ -97,4 +97,15 @@ export const appRoutes = {
     list: '/channels/bindings',
     byId: (id: string) => `/channels/bindings/${id}`,
   },
+  channelAccounts: {
+    list: '/channels/accounts',
+  },
+  contacts: {
+    listQuery: (params: URLSearchParams) => withQuery('/channels/contacts', params),
+    byId: (id: string) => `/channels/contacts/${id}`,
+    threads: (id: string) => `/channels/contacts/${id}/threads`,
+  },
+  agenda: {
+    occurrencesQuery: (params: URLSearchParams) => withQuery('/agenda', params),
+  },
 } as const

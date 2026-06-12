@@ -28,7 +28,7 @@ Live providers (from `integration_providers` seed):
 | Gmail | Communication | OAuth (Google) |
 | Bjorn Lunden MCP | MCP | API key + platform MCP server |
 | Custom MCP | MCP | URL + auth metadata |
-| Notion, Linear, Atlassian, Slack, Asana, ClickUp, Sentry, Stripe, GitHub MCP, Microsoft Graph MCP | MCP | Remote MCP OAuth (`mcp_remote_oauth`) |
+| Notion, Linear, Atlassian, Slack, Asana, ClickUp, Sentry, Stripe, GitHub MCP, Microsoft Graph MCP, Higgsfield | MCP | Remote MCP OAuth (`mcp_remote_oauth`) |
 
 Catalog: `GET /integrations/providers`. Fallback metadata in `integrations-data.ts` when API unavailable.
 

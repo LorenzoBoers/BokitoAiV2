@@ -19,6 +19,7 @@ const STATIC_HOST_SLUG: Record<string, string> = {
   shopify: 'shopify',
   'github-mcp': 'github',
   'microsoft-graph-mcp': 'microsoft',
+  higgsfield: 'higgsfield',
 }
 
 const REMOTE_LOGO_META: Record<string, { initials: string; color: string }> = {
@@ -33,6 +34,7 @@ const REMOTE_LOGO_META: Record<string, { initials: string; color: string }> = {
   shopify: { initials: 'SH', color: '#96BF48' },
   'github-mcp': { initials: 'GH', color: '#24292E' },
   'microsoft-graph-mcp': { initials: 'MG', color: '#0078D4' },
+  higgsfield: { initials: 'HF', color: '#111111' },
 }
 
 /** Business categories kept for API rows; marketplace filters by IntegrationKind instead. */

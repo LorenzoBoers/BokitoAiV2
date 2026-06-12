@@ -7,6 +7,7 @@ function buildFilterKey(filters: ThreadFilters): string {
   return [
     filters.view ?? '',
     filters.folder ?? '',
+    filters.channel ?? '',
     filters.projectId ?? '',
     filters.tag ?? '',
     String(filters.assigneeId ?? ''),
@@ -14,6 +15,7 @@ function buildFilterKey(filters: ThreadFilters): string {
     String(filters.page ?? ''),
     String(filters.perPage ?? ''),
     String(filters.connectionId ?? ''),
+    filters.agentId ?? '',
   ].join('\0')
 }
 
@@ -27,6 +29,7 @@ export function useThreads(
   const filterKey = useMemo(() => buildFilterKey(filters), [
     filters.view,
     filters.folder,
+    filters.channel,
     filters.projectId,
     filters.tag,
     filters.assigneeId,
@@ -34,6 +37,7 @@ export function useThreads(
     filters.page,
     filters.perPage,
     filters.connectionId,
+    filters.agentId,
   ])
 
   const [rawThreads, setRawThreads] = useState<InboxThread[]>([])
@@ -78,6 +82,7 @@ export function useThreads(
     filterKey,
     filters.view,
     filters.folder,
+    filters.channel,
     filters.projectId,
     filters.tag,
     filters.assigneeId,
@@ -85,6 +90,7 @@ export function useThreads(
     filters.page,
     filters.perPage,
     filters.connectionId,
+    filters.agentId,
   ])
 
   useEffect(() => {

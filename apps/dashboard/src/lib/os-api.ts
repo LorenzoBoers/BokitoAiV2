@@ -106,7 +106,7 @@ async function buildCanvasGraphFallback(): Promise<OsCanvasGraph> {
         title: po.name,
         subtitle: po.role ?? 'orchestrator',
         status: po.status ?? 'standby',
-        href: `/os/agents/${po.id}`,
+        href: `/agents/${po.id}`,
       })
     }
 

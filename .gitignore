@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # Logs and debug
 npm-debug.log*
@@ -40,6 +41,9 @@ apps/api/e2e-dev.db
 test-results/
 playwright-report/
 apps/api/dev.db
+apps/api/dev-local.db
+apps/api/_reset_check.db
+apps/mobile/expo-dev-qr.png
 
 # Cursor MCP (may contain API tokens — use mcp.json.example)
 .cursor/mcp.json

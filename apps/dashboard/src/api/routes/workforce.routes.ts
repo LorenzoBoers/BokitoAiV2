@@ -38,6 +38,7 @@ export const workforceRoutes = {
     list: '/agents',
     timeline: '/timeline',
     status: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/status`,
+    chatAccess: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/chat-access`,
   },
   os: {
     graph: '/os/graph',

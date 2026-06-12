@@ -17,6 +17,7 @@ Used when Xano `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/
 | `logo-outlook.svg` | Outlook product icon (existing repo asset; optional dark variant for Microsoft host) |
 | `logo-bjorn-lunden.svg` | Official SVG from [bjornlunden.com](https://bjornlunden.com/wp-content/uploads/Bjorn-Lunden-logo.svg) |
 | `logo-custom.svg` | [Model Context Protocol](https://modelcontextprotocol.io/) mark via `cdn.simpleicons.org` (neutral host for custom MCP URLs) |
+| `logo-higgsfield.svg` | Higgsfield wordmark-style mark (Bokito fallback; dark tile + accent) |
 | `logo-smtp-imap.svg` | Neutral mail icon (Bokito) |
 
 Upload higher-resolution or wordmark variants in Xano when brand guidelines require hosted files instead of these fallbacks.

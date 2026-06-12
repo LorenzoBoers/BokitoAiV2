@@ -74,6 +74,10 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
     name: 'Custom MCP',
     description: 'Any external MCP server by URL with API key or bearer token.',
   },
+  higgsfield: {
+    name: 'Higgsfield',
+    description: 'AI image and video generation via the hosted Higgsfield MCP server.',
+  },
 }
 
 export function hostSlugForOffer(integration: Integration, provider?: IntegrationProviderRow): string {

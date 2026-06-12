@@ -14,12 +14,13 @@ from app.db.session import async_session_factory, init_db
 from app.models.agent import Agent
 from app.models.trigger import Trigger
 from app.models.auth import Membership, Tenant, User
-from app.models.channel import ChannelAccount
+from app.models.channel import ChannelAccount, Contact
 from app.models.inbox import InboxSettings
 from app.models.integration import McpServer
 from app.models.policy import AssistantPersona
 from app.models.project import Project, ProjectOrchestration
 from app.services.auth import hash_password
+from app.services.personal_agents import get_or_create_personal_agent
 from app.services.workspace import get_doc_by_path, upsert_doc
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
 
@@ -94,7 +95,9 @@ async def seed() -> None:
             await session.flush()
             session.add(Membership(tenant_id=demo.id, user_id=demo_user.id, role="owner"))
             await bootstrap_tenant(session, demo.id)
+            await get_or_create_personal_agent(session, demo.id, demo_user, commit=False)
 
+        await get_or_create_personal_agent(session, tenant.id, user, commit=False)
         await session.commit()
         print(f"Seeded tenant={tenant.slug} user={TEST_EMAIL} password={TEST_PASSWORD}")
         print(f"Staff={STAFF_EMAIL} demo={DEMO_EMAIL} password={DEMO_PASSWORD}")
@@ -129,6 +132,8 @@ async def _seed_signals(session, tenant):
             "subject": "Vraag over facturatie",
             "name": "Sanne de Vries",
             "email": "sanne@klant.nl",
+            "company": "Klant B.V.",
+            "title": "Finance manager",
             "status": "open",
             "priority": "high",
             "channel": "email",
@@ -147,6 +152,8 @@ async def _seed_signals(session, tenant):
             "subject": "Bedankt voor de snelle hulp",
             "name": "Mark Jansen",
             "email": "mark@bedrijf.com",
+            "company": "Bedrijf & Co",
+            "title": "Operations lead",
             "status": "closed",
             "priority": "normal",
             "channel": "email",
@@ -165,11 +172,32 @@ async def _seed_signals(session, tenant):
     ]
 
     for sample in samples:
+        contact_result = await session.execute(
+            select(Contact).where(
+                Contact.tenant_id == tenant.id,
+                Contact.channel == sample["channel"],
+                Contact.address == sample["email"],
+            )
+        )
+        contact = contact_result.scalar_one_or_none()
+        if not contact:
+            contact = Contact(
+                tenant_id=tenant.id,
+                channel=sample["channel"],
+                address=sample["email"],
+                display_name=sample["name"],
+                company=sample.get("company", ""),
+                title=sample.get("title", ""),
+                last_seen_at=datetime.utcnow(),
+            )
+            session.add(contact)
+            await session.flush()
         sig = Signal(
             tenant_id=tenant.id,
             channel=sample["channel"],
             source=sample["channel"],
             subject=sample["subject"],
+            contact_id=contact.id,
             contact_email=sample["email"],
             contact_name=sample["name"],
             priority=sample["priority"],
@@ -226,6 +254,7 @@ async def _seed_tenant_data(session, tenant):
                 name="Bokito Assistant",
                 role="assistant",
                 slug="assistant",
+                chat_access="everyone",
                 runtime_status="standby",
                 system_prompt="You are the Bokito AI OS assistant.",
             )

@@ -52,6 +52,7 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             name="Assistant",
             role="assistant",
             slug="assistant",
+            chat_access="everyone",
             runtime_status="standby",
             system_prompt=ONBOARDING_SYSTEM_PROMPT,
         )

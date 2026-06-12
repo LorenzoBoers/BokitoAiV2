@@ -116,7 +116,9 @@ def compute_next_run(trigger: Trigger, now: datetime | None = None) -> datetime 
     if trigger.kind in ("interval", "heartbeat"):
         minutes = max(1, trigger.interval_minutes or 60)
         return now + timedelta(minutes=minutes)
-    return None  # webhook: fired externally
+    # webhook: fired externally; once/event: one-shot, next_run_at is set at
+    # creation and cleared after firing.
+    return None
 
 
 # ── CRUD helpers ─────────────────────────────────────────────────────
@@ -145,11 +147,14 @@ async def create_trigger(
     workstream_id: UUID | None = None,
     instructions: str = "",
     enabled: bool = True,
+    run_at: datetime | None = None,
 ) -> Trigger:
     if kind not in TRIGGER_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid trigger kind: {kind}")
     if kind == "cron" and next_cron_run(cron_expr, datetime.utcnow()) is None:
         raise HTTPException(status_code=400, detail="Invalid cron expression")
+    if kind in ("once", "event") and run_at is None:
+        raise HTTPException(status_code=400, detail=f"run_at is required for kind={kind}")
     trigger = Trigger(
         tenant_id=tenant_id,
         name=name,
@@ -163,7 +168,10 @@ async def create_trigger(
         webhook_secret=secrets.token_urlsafe(24) if kind == "webhook" else "",
         enabled=enabled,
     )
-    trigger.next_run_at = compute_next_run(trigger)
+    if kind in ("once", "event"):
+        trigger.next_run_at = run_at
+    else:
+        trigger.next_run_at = compute_next_run(trigger)
     session.add(trigger)
     await session.commit()
     await session.refresh(trigger)
@@ -208,6 +216,7 @@ async def _surface_result(
         trigger.tenant_id,
         subject=trigger.name,
         contact_name=agent.name,
+        agent_id=agent.id,
     )
     await append_signal_chat_message(
         session,
@@ -219,6 +228,36 @@ async def _surface_result(
     )
 
 
+async def _fire_event(session: AsyncSession, trigger: Trigger, now: datetime) -> dict[str, Any]:
+    """Calendar events do not run agents; they surface a notification and complete."""
+    from app.gateway.publish import publish_notification
+    from app.models.notification import Notification
+
+    notification = Notification(
+        tenant_id=trigger.tenant_id,
+        kind="status_update",
+        title=trigger.name,
+        body=trigger.instructions or "Scheduled event",
+        payload_json=json.dumps({"trigger_id": str(trigger.id), "trigger_kind": "event"}),
+    )
+    session.add(notification)
+    trigger.last_run_at = now
+    trigger.last_status = "done"
+    trigger.next_run_at = None
+    trigger.enabled = False
+    trigger.updated_at = now
+    session.add(trigger)
+    await session.commit()
+    await session.refresh(notification)
+    await publish_notification(
+        trigger.tenant_id,
+        notification_id=notification.id,
+        kind="status_update",
+        title=trigger.name,
+    )
+    return {"status": "done"}
+
+
 async def fire_trigger(
     session: AsyncSession,
     trigger: Trigger,
@@ -228,6 +267,9 @@ async def fire_trigger(
     from app.services.agent.loop import AgentLoop
 
     now = datetime.utcnow()
+
+    if trigger.kind == "event":
+        return await _fire_event(session, trigger, now)
 
     if trigger.workstream_id:
         from app.services.orchestration.dispatcher import create_agent_task
@@ -245,6 +287,8 @@ async def fire_trigger(
         trigger.last_run_at = now
         trigger.last_status = "started"
         trigger.next_run_at = compute_next_run(trigger, now)
+        if trigger.kind == "once":
+            trigger.enabled = False
         trigger.updated_at = now
         session.add(trigger)
         await session.commit()
@@ -294,10 +338,135 @@ async def fire_trigger(
     trigger.last_run_at = now
     trigger.last_status = "ok" if suppressed else "reported"
     trigger.next_run_at = compute_next_run(trigger, now)
+    if trigger.kind == "once":
+        trigger.enabled = False
     trigger.updated_at = now
     session.add(trigger)
     await session.commit()
     return {"run_id": str(run.id), "status": trigger.last_status, "suppressed": suppressed}
+
+
+# ── agenda (calendar occurrences) ────────────────────────────────────
+
+MAX_OCCURRENCES_PER_TRIGGER = 100
+
+
+def _planned_occurrences(trigger: Trigger, start: datetime, end: datetime) -> list[datetime]:
+    """Expand a trigger's schedule into concrete future moments inside [start, end]."""
+    if not trigger.enabled or trigger.next_run_at is None:
+        return []
+    moments: list[datetime] = []
+    if trigger.kind in ("once", "event"):
+        if start <= trigger.next_run_at <= end:
+            moments.append(trigger.next_run_at)
+        return moments
+    if trigger.kind == "cron":
+        cursor = max(start, trigger.next_run_at) - timedelta(minutes=1)
+        while len(moments) < MAX_OCCURRENCES_PER_TRIGGER:
+            nxt = next_cron_run(trigger.cron_expr, cursor)
+            if nxt is None or nxt > end:
+                break
+            if nxt >= start:
+                moments.append(nxt)
+            cursor = nxt
+        return moments
+    if trigger.kind in ("interval", "heartbeat"):
+        minutes = max(1, trigger.interval_minutes or 60)
+        cursor = trigger.next_run_at
+        while cursor <= end and len(moments) < MAX_OCCURRENCES_PER_TRIGGER:
+            if cursor >= start:
+                moments.append(cursor)
+            cursor = cursor + timedelta(minutes=minutes)
+        return moments
+    return []  # webhook: not plannable
+
+
+async def agenda_occurrences(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    start: datetime,
+    end: datetime,
+    agent_id: UUID | None = None,
+) -> list[dict[str, Any]]:
+    """Calendar items in [start, end]: planned trigger expansions + run history."""
+    stmt = select(Trigger).where(Trigger.tenant_id == tenant_id)
+    if agent_id:
+        stmt = stmt.where(Trigger.agent_id == agent_id)
+    result = await session.execute(stmt)
+    triggers = list(result.scalars().all())
+
+    agents_result = await session.execute(select(Agent).where(Agent.tenant_id == tenant_id))
+    agent_names = {a.id: a.name for a in agents_result.scalars().all()}
+
+    items: list[dict[str, Any]] = []
+    now = datetime.utcnow()
+
+    for trigger in triggers:
+        agent_name = agent_names.get(trigger.agent_id) if trigger.agent_id else None
+        base = {
+            "trigger_id": str(trigger.id),
+            "name": trigger.name,
+            "kind": trigger.kind,
+            "agent_id": str(trigger.agent_id) if trigger.agent_id else None,
+            "agent_role": trigger.agent_role,
+            "agent_name": agent_name,
+            "instructions": trigger.instructions,
+            "enabled": trigger.enabled,
+        }
+        for moment in _planned_occurrences(trigger, max(start, now), end):
+            items.append({**base, "id": f"{trigger.id}:{moment.isoformat()}", "at": _iso(moment), "status": "planned", "run_id": None})
+        # Completed one-shot items keep their place on the calendar via last_run_at.
+        if (
+            trigger.kind in ("once", "event")
+            and trigger.last_run_at
+            and start <= trigger.last_run_at <= end
+        ):
+            items.append(
+                {
+                    **base,
+                    "id": f"{trigger.id}:done",
+                    "at": _iso(trigger.last_run_at),
+                    "status": trigger.last_status or "done",
+                    "run_id": None,
+                }
+            )
+
+    # Run history for recurring triggers (cron/interval/heartbeat/webhook fires).
+    trigger_by_id = {str(t.id): t for t in triggers}
+    runs_result = await session.execute(
+        select(AgentRun).where(
+            AgentRun.tenant_id == tenant_id,
+            AgentRun.trigger_id.is_not(None),
+            AgentRun.started_at >= start,
+            AgentRun.started_at <= end,
+        )
+    )
+    for run in runs_result.scalars().all():
+        trigger = trigger_by_id.get(run.trigger_id or "")
+        if trigger and trigger.kind in ("once", "event"):
+            continue  # already represented by the one-shot done item
+        if agent_id and run.agent_id != agent_id:
+            continue
+        items.append(
+            {
+                "id": f"run:{run.id}",
+                "trigger_id": run.trigger_id,
+                "name": trigger.name if trigger else (run.subject or "Agent run"),
+                "kind": trigger.kind if trigger else run.trigger_type.removeprefix("trigger_"),
+                "agent_id": str(run.agent_id),
+                "agent_role": trigger.agent_role if trigger else "",
+                "agent_name": agent_names.get(run.agent_id),
+                "instructions": trigger.instructions if trigger else "",
+                "enabled": trigger.enabled if trigger else False,
+                "at": _iso(run.started_at),
+                "status": run.status,
+                "run_id": str(run.id),
+            }
+        )
+
+    items.sort(key=lambda item: item["at"] or "")
+    return items
 
 
 async def process_due_triggers(session: AsyncSession) -> int:

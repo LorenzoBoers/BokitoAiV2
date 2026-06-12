@@ -279,7 +279,7 @@ export default function IntegrationsConnected() {
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/os">{t('integrations.connected.openProjects')}</Link>
+                    <Link to="/agents">{t('integrations.connected.openAgents', { defaultValue: 'Open agents' })}</Link>
                   </Button>
                   <Button size="sm" onClick={() => void addGithubAccount()}>
                     {github.length === 0
@@ -329,7 +329,7 @@ export default function IntegrationsConnected() {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => navigate('/integrations/mcp?connect=custom_mcp')}
+                    onClick={() => navigate('/settings/mcp?connect=custom_mcp')}
                   >
                     {t('integrations.mcp.servers.newConnection')}
                   </Button>

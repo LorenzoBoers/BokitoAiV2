@@ -94,7 +94,7 @@ export default function AiAgents() {
           })}
           action={
             <Button asChild size="sm">
-              <Link to="/os">{t('aiOs.links.canvas', { defaultValue: 'Open AI OS canvas' })}</Link>
+              <Link to="/agenda">{t('aiOs.links.automations', { defaultValue: 'Open agenda' })}</Link>
             </Button>
           }
         />
@@ -110,7 +110,7 @@ export default function AiAgents() {
               poAgents.map((agent) => (
                 <li key={agent.id}>
                   <Link
-                    to={`/os/agents/${agent.id}`}
+                    to={`/agents/${agent.id}`}
                     className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-bg-hover/50"
                   >
                     <div className="flex min-w-0 items-start gap-2.5">
@@ -170,7 +170,7 @@ export default function AiAgents() {
               workerAgents.map((agent) => (
                 <li key={agent.id}>
                   <Link
-                    to={`/os/agents/${agent.id}`}
+                    to={`/agents/${agent.id}`}
                     className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-bg-hover/50"
                   >
                     <div className="flex min-w-0 items-start gap-2.5">

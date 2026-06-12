@@ -118,7 +118,7 @@ export default function Workspaces() {
                       return
                     }
                     await switchWorkspace(workspace.id)
-                    navigate('/home', { replace: true })
+                    navigate('/communication/inbox/all', { replace: true })
                   }}
                   className={`rounded-xl border p-5 text-left transition-colors ${
                     isCurrent

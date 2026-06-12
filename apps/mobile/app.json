@@ -6,7 +6,6 @@
     "scheme": "bokito",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ai.bokito.mobile"
@@ -28,7 +27,7 @@
       ]
     ],
     "extra": {
-      "apiUrl": "http://127.0.0.1:8000"
+      "apiUrl": "http://192.168.68.107:8000"
     }
   }
 }

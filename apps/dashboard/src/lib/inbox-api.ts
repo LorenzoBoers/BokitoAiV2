@@ -28,6 +28,7 @@ export type InboxThread = {
   emailConnectionId: number | null
   graphConversationId: string
   emailSubject: string
+  contactId: string | null
   contactEmail: string
   contactName: string
   contactPhone: string
@@ -42,6 +43,10 @@ export type InboxThread = {
   channel?: string
   folder?: MessageFolder | string
   projectId?: string | null
+  /** The agent this thread targets (chat threads), if any. */
+  agentId?: string | null
+  agentName?: string | null
+  agentKind?: string | null
 }
 
 export type InboxMessage = {
@@ -108,6 +113,7 @@ export type ThreadDetail = {
 
 export type ThreadFilters = {
   view?:
+    | 'all'
     | 'all_open'
     | 'unassigned'
     | 'mine'
@@ -121,7 +127,10 @@ export type ThreadFilters = {
     | 'results'
     | 'external'
     | 'internal'
-  folder?: 'external' | 'internal' | 'all'
+  folder?: 'external' | 'internal' | 'assistant' | 'inbox' | 'all'
+  /** Filter on the signal channel (e.g. widget, chat, internal). */
+  channel?: string
+  agentId?: string
   projectId?: string
   tag?: string
   assigneeId?: number
@@ -142,6 +151,8 @@ export type ReplyInput = {
   bodyText: string
   bodyHtml?: string
   action?: 'send' | 'send_and_close' | 'send_and_pending'
+  /** When `email`, a mailbox signature may be appended. Plain chat/internal skips it. */
+  format?: 'email' | 'plain'
 }
 
 export type PatchThreadInput = {
@@ -213,6 +224,10 @@ function asNullableTimestampString(value: unknown): string | null {
   return iso.length > 0 ? iso : null
 }
 
+export function normalizeThreadRow(row: unknown): InboxThread | null {
+  return normalizeThread(row)
+}
+
 function normalizeThread(row: unknown): InboxThread | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
@@ -231,6 +246,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     emailConnectionId: raw.email_connection_id == null || raw.email_connection_id === 0 ? null : asNumber(raw.email_connection_id),
     graphConversationId: asString(raw.graph_conversation_id),
     emailSubject: asString(raw.email_subject, '(No subject)'),
+    contactId: asNullableString(raw.contact_id),
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),
@@ -243,6 +259,9 @@ function normalizeThread(row: unknown): InboxThread | null {
     hasUnread: Boolean(raw.has_unread),
     isPinned: Boolean(raw.is_pinned),
     createdAt: asTimestampString(raw.created_at),
+    channel: asString(raw.channel) || undefined,
+    folder: asString(raw.folder) || undefined,
+    projectId: asNullableString(raw.project_id),
   }
 }
 

@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_signal_message, publish_thread_update
+from app.models.agent import Agent
 from app.models.auth import Membership, User, user_numeric_id
 from app.models.channel import ChannelAccount
 from app.models.notification import DecisionRequest
@@ -63,6 +64,7 @@ def serialize_thread(
     *,
     is_pinned: bool = False,
     user_num: int | None = None,
+    agent: Agent | None = None,
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
@@ -74,6 +76,7 @@ def serialize_thread(
         "connection_id": str(signal.connection_id) if signal.connection_id else None,
         "graph_conversation_id": signal.external_id or "",
         "email_subject": signal.subject,
+        "contact_id": str(signal.contact_id) if signal.contact_id else None,
         "contact_email": signal.contact_email,
         "contact_name": signal.contact_name,
         "contact_phone": signal.contact_phone,
@@ -86,6 +89,9 @@ def serialize_thread(
         "is_pinned": is_pinned,
         "channel": signal.channel,
         "folder": folder,
+        "agent_id": str(signal.agent_id) if signal.agent_id else None,
+        "agent_name": agent.name if agent else None,
+        "agent_kind": agent.kind if agent else None,
         "project_id": str(signal.project_id) if signal.project_id else None,
         "created_at": _iso(signal.created_at),
     }
@@ -142,6 +148,49 @@ def serialize_event(event: SignalEvent, *, user_num_map: dict[UUID, int] | None 
     }
 
 
+async def _resolve_thread_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    messages: list[SignalMessage] | None = None,
+) -> Agent | None:
+    if signal.agent_id:
+        result = await session.execute(
+            select(Agent).where(Agent.id == signal.agent_id, Agent.tenant_id == tenant_id)
+        )
+        agent = result.scalar_one_or_none()
+        if agent:
+            return agent
+    if messages:
+        for message in reversed(messages):
+            if not message.author_agent_id:
+                continue
+            result = await session.execute(
+                select(Agent).where(
+                    Agent.id == message.author_agent_id,
+                    Agent.tenant_id == tenant_id,
+                )
+            )
+            agent = result.scalar_one_or_none()
+            if agent:
+                return agent
+    if signal.project_id:
+        from app.models.project import Project
+
+        project_result = await session.execute(
+            select(Project).where(Project.id == signal.project_id, Project.tenant_id == tenant_id)
+        )
+        project = project_result.scalar_one_or_none()
+        if project and project.po_agent_id:
+            result = await session.execute(
+                select(Agent).where(Agent.id == project.po_agent_id, Agent.tenant_id == tenant_id)
+            )
+            agent = result.scalar_one_or_none()
+            if agent:
+                return agent
+    return None
+
+
 async def _pinned_ids(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> set[UUID]:
     result = await session.execute(
         select(SignalThreadPin.signal_id).where(
@@ -193,12 +242,14 @@ async def list_threads(
     *,
     view: str = "all_open",
     folder: str | None = None,
+    channel: str | None = None,
     search: str | None = None,
     assignee_id: int | None = None,
     tag: str | None = None,
     connection_id: str | None = None,
     email_connection_id: int | None = None,
     project_id: str | None = None,
+    agent_id: str | None = None,
     page: int = 1,
     per_page: int = 30,
 ) -> dict[str, Any]:
@@ -209,6 +260,18 @@ async def list_threads(
         query = query.where(Signal.channel.in_(EXTERNAL_CHANNELS))
     elif folder == "internal":
         query = query.where(Signal.channel == "internal")
+    elif folder == "inbox":
+        # Assignable conversations across channels; assistant chats live
+        # under the Assistant section, not the shared inbox.
+        query = query.where(Signal.channel != "assistant")
+    elif folder == "assistant":
+        query = query.where(Signal.channel == "assistant")
+        query = query.where(
+            (Signal.owner_user_id == user_id) | (Signal.owner_user_id.is_(None))
+        )
+
+    if channel:
+        query = query.where(Signal.channel == channel)
 
     if project_id:
         try:
@@ -216,7 +279,10 @@ async def list_threads(
         except ValueError:
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
 
-    if view == "all_open":
+    if view == "all":
+        # No status filter: every thread in the active folder/channel scope.
+        pass
+    elif view == "all_open":
         query = query.where(Signal.status == "open")
     elif view == "mine":
         query = query.where(Signal.status == "open", Signal.assigned_user_id == user_id)
@@ -256,6 +322,10 @@ async def list_threads(
     elif view == "internal":
         query = query.where(Signal.channel == "internal")
 
+    if tag:
+        # tags_json holds a JSON array of strings; match the quoted literal.
+        query = query.where(Signal.tags_json.like(f'%"{tag}"%'))
+
     if assignee_id is not None:
         user_map = await _user_map(session, tenant_id)
         assignee_uuid = user_map.get(assignee_id)
@@ -277,6 +347,12 @@ async def list_threads(
         else:
             query = query.where(Signal.id.is_(None))
 
+    if agent_id:
+        try:
+            query = query.where(Signal.agent_id == UUID(agent_id))
+        except ValueError:
+            return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
+
     if search:
         like = f"%{search}%"
         query = query.where(Signal.subject.ilike(like) | Signal.contact_email.ilike(like))
@@ -295,7 +371,52 @@ async def list_threads(
         )
     )
 
-    items = [serialize_thread(t, is_pinned=t.id in pinned, user_num=user_num) for t in threads]
+    agent_ids = {t.agent_id for t in threads if t.agent_id}
+    agents_by_id: dict[UUID, Agent] = {}
+    if agent_ids:
+        agent_rows = await session.execute(
+            select(Agent).where(Agent.tenant_id == tenant_id, Agent.id.in_(agent_ids))
+        )
+        agents_by_id = {a.id: a for a in agent_rows.scalars().all()}
+
+    project_po_agents: dict[UUID, Agent] = {}
+    unresolved_project_ids = {
+        t.project_id for t in threads if t.project_id and not t.agent_id
+    }
+    if unresolved_project_ids:
+        from app.models.project import Project
+
+        project_result = await session.execute(
+            select(Project).where(
+                Project.tenant_id == tenant_id,
+                Project.id.in_(unresolved_project_ids),
+                Project.po_agent_id.is_not(None),
+            )
+        )
+        projects = list(project_result.scalars().all())
+        po_ids = {p.po_agent_id for p in projects if p.po_agent_id}
+        if po_ids:
+            po_rows = await session.execute(
+                select(Agent).where(Agent.tenant_id == tenant_id, Agent.id.in_(po_ids))
+            )
+            po_by_id = {a.id: a for a in po_rows.scalars().all()}
+            for project in projects:
+                if project.po_agent_id and project.po_agent_id in po_by_id:
+                    project_po_agents[project.id] = po_by_id[project.po_agent_id]
+
+    items = []
+    for t in threads:
+        agent = agents_by_id.get(t.agent_id) if t.agent_id else None
+        if not agent and t.project_id:
+            agent = project_po_agents.get(t.project_id)
+        items.append(
+            serialize_thread(
+                t,
+                is_pinned=t.id in pinned,
+                user_num=user_num,
+                agent=agent,
+            )
+        )
     next_page = page + 1 if page * per_page < items_total else None
     return {"items": items, "curPage": page, "itemsTotal": items_total, "nextPage": next_page}
 
@@ -316,13 +437,15 @@ async def get_thread(
     messages_result = await session.execute(
         select(SignalMessage).where(SignalMessage.signal_id == signal_id).order_by(SignalMessage.created_at)
     )
+    messages = list(messages_result.scalars().all())
     events_result = await session.execute(
         select(SignalEvent).where(SignalEvent.signal_id == signal_id).order_by(SignalEvent.created_at)
     )
     rev_map = {v: k for k, v in (await _user_map(session, tenant_id)).items()}
+    agent = await _resolve_thread_agent(session, tenant_id, signal, messages)
     return {
-        "thread": serialize_thread(signal, is_pinned=signal_id in pinned),
-        "messages": [serialize_message(m) for m in messages_result.scalars().all()],
+        "thread": serialize_thread(signal, is_pinned=signal_id in pinned, agent=agent),
+        "messages": [serialize_message(m) for m in messages],
         "events": [serialize_event(e, user_num_map=rev_map) for e in events_result.scalars().all()],
     }
 

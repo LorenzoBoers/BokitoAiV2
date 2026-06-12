@@ -99,7 +99,9 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
 
 async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
     result = await session.execute(
-        select(Agent).where(Agent.tenant_id == tenant_id).order_by(Agent.updated_at.desc())
+        select(Agent)
+        .where(Agent.tenant_id == tenant_id, Agent.kind == "company")
+        .order_by(Agent.updated_at.desc())
     )
     agents = list(result.scalars().all())
     out: list[dict[str, Any]] = []

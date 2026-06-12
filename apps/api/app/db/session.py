@@ -19,6 +19,11 @@ async def init_db() -> None:
         await conn.run_sync(apply_column_patches)
         await conn.run_sync(apply_data_repairs)
 
+    from app.services.personal_agents import provision_missing_personal_agents
+
+    async with async_session_factory() as session:
+        await provision_missing_personal_agents(session)
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:

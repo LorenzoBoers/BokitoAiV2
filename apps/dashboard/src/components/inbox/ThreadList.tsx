@@ -17,6 +17,7 @@ type Props = {
   onTogglePin: (id: ThreadId, currentPinned: boolean) => void
   onDelete: (id: ThreadId) => void
   deletingThreadId?: ThreadId | null
+  variant?: 'customer' | 'direct'
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -41,6 +42,7 @@ export default function ThreadList({
   onTogglePin,
   onDelete,
   deletingThreadId = null,
+  variant = 'customer',
 }: Props) {
   const counts = buildFilterCounts(allThreads)
 
@@ -69,6 +71,7 @@ export default function ThreadList({
               onTogglePin={onTogglePin}
               onDelete={onDelete}
               deleting={String(deletingThreadId) === String(thread.id)}
+              variant={variant}
             />
           ))
         )}

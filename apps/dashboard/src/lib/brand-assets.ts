@@ -19,6 +19,7 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   sentry: { logoUrl: '/brands/logo-sentry.svg' },
   stripe: { logoUrl: '/brands/logo-stripe.svg' },
   shopify: { logoUrl: '/brands/logo-shopify.svg' },
+  higgsfield: { logoUrl: '/brands/logo-higgsfield.svg' },
 }
 
 export function brandAssetUrl(relativePath: string): string {

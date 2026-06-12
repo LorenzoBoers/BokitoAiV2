@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { leafFromPath } from '../lib/messages-paths'
 
 export type InboxListQuickFilter = 'all' | 'unread' | 'pinned'
 
@@ -13,7 +14,7 @@ type InboxCommunicationContextValue = {
 const InboxCommunicationContext = createContext<InboxCommunicationContextValue | null>(null)
 
 export function isInboxCommunicationRoute(pathname: string): boolean {
-  return pathname.startsWith('/messages/') || pathname.startsWith('/support/inbox/')
+  return leafFromPath(pathname) !== null
 }
 
 export function InboxCommunicationProvider({ children }: { children: ReactNode }) {

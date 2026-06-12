@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, PanelRight, Pin, PinOff, RefreshCw, Trash2 } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -14,6 +14,11 @@ import ReplyComposer from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
+import {
+  isInternalThread,
+  resolveComposerSurface,
+  threadCounterpartyName,
+} from '../../lib/message-composer'
 
 type TimelineEntry =
   | { kind: 'message'; time: string; id: string; data: ThreadDetailType['messages'][number] }
@@ -43,7 +48,11 @@ type Props = {
   threadId: ThreadId | null
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
-  onReply: (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => Promise<void>
+  onReply: (
+    bodyText: string,
+    action: 'send' | 'send_and_close' | 'send_and_pending',
+    format?: 'email' | 'plain',
+  ) => Promise<void>
   onNote: (bodyText: string) => Promise<void>
   onRefresh: () => void
   onTogglePin?: () => void | Promise<void>
@@ -52,6 +61,14 @@ type Props = {
   onToggleContact?: () => void
   contactOpen?: boolean
   onDecisionResolved?: () => void
+  /**
+   * Composer behavior: `customer` threads get the reply/note composer,
+   * `agent` (internal) threads get a note-only composer with an
+   * "Ask assistant" action.
+   */
+  mode?: 'customer' | 'agent'
+  /** Start an assistant chat pre-filled with this thread's context. */
+  onAskAssistant?: () => void
 }
 
 const HEADER_ICON =
@@ -98,7 +115,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
   const { token } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -307,12 +324,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [groups])
 
+  const composerSurface = useMemo(
+    () => (detail ? resolveComposerSurface(detail.thread) : null),
+    [detail],
+  )
+
   const handleReply = useCallback(
     async (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => {
-      await onReply(bodyText, action)
+      const format = composerSurface?.includeSignature ? 'email' : 'plain'
+      await onReply(bodyText, action, format)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
-    [onReply, scrollToBottom],
+    [onReply, scrollToBottom, composerSurface],
   )
 
   const handleNote = useCallback(
@@ -369,7 +392,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-bg-surface/90 shrink-0 min-h-10">
         <div className="min-w-0 flex-1 leading-tight">
           <h2 className="text-[13px] font-medium text-text-heading truncate">{thread.emailSubject}</h2>
-          <p className="text-[11px] text-text-muted truncate">{thread.contactEmail}</p>
+          <p className="text-[11px] text-text-muted truncate">
+            {isInternalThread(thread)
+              ? `Intern · ${threadCounterpartyName(thread)}`
+              : thread.contactEmail || thread.contactName}
+          </p>
         </div>
         <div
           className="flex items-center shrink-0 rounded-lg border border-border/50 bg-bg-surface-hover/30 p-0.5"
@@ -460,7 +487,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto px-4 py-3"
         >
-        <div ref={contentRef}>
+        <div ref={contentRef} className="mx-auto w-full max-w-[860px]">
         {groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-xs text-text-muted">
             <p>No messages in this thread.</p>
@@ -523,12 +550,23 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         />
       </div>
 
-      <ReplyComposer
-        onReply={handleReply}
-        onNote={handleNote}
-        saving={saving}
-        disabled={thread.status === 'closed' || thread.status === 'spam'}
-      />
+      {composerSurface ? (
+        <ReplyComposer
+          surface={composerSurface}
+          onReply={handleReply}
+          onNote={handleNote}
+          saving={saving}
+          disabled={thread.status === 'closed' || thread.status === 'spam'}
+          extraActions={
+            onAskAssistant && isInternalThread(thread) ? (
+              <Button size="sm" variant="secondary" onClick={onAskAssistant} className="gap-1.5">
+                <Sparkles size={12} />
+                Ask assistant
+              </Button>
+            ) : null
+          }
+        />
+      ) : null}
     </div>
     </TooltipProvider>
   )

@@ -43,8 +43,8 @@ export function filterOrchestratorAgents(agents: RuntimeAgent[]): RuntimeAgent[]
 /** Orchestrator sidebar target: single agent detail, multi-agent list page, or null when none. */
 export function resolveOrchestratorNavTarget(agents: RuntimeAgent[]): string | null {
   const orchestrators = filterOrchestratorAgents(agents)
-  if (orchestrators.length === 1) return `/os/agents/${orchestrators[0].id}`
-  if (orchestrators.length > 1) return '/os/agents'
+  if (orchestrators.length === 1) return `/agents/${orchestrators[0].id}`
+  if (orchestrators.length > 1) return '/agents'
   return null
 }
 

@@ -139,6 +139,18 @@ export const REMOTE_MCP_PROVIDERS: RemoteMcpProviderDef[] = [
     wave: 3,
     defaultStatus: 'coming_soon',
   },
+  {
+    slug: 'higgsfield_mcp',
+    staticId: 'higgsfield',
+    name: 'Higgsfield',
+    description: 'Genereer AI-beelden en -video\'s (Sora, Veo, Kling en meer) via Higgsfield MCP.',
+    category: 'Productiviteit',
+    mcpRemoteUrl: 'https://mcp.higgsfield.ai/mcp',
+    mcpTransport: 'streamable_http',
+    oauthConfigKey: 'HIGGSFIELD_MCP',
+    wave: 2,
+    defaultStatus: 'coming_soon',
+  },
 ]
 
 export const REMOTE_MCP_SLUGS = REMOTE_MCP_PROVIDERS.map((p) => p.slug)

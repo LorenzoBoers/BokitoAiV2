@@ -49,6 +49,19 @@ class Membership(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class UserPreference(SQLModel, table=True):
+    """Per-user, per-tenant preferences (e.g. default chat target)."""
+
+    __tablename__ = "user_preferences"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    default_chat_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Session(SQLModel, table=True):
     __tablename__ = "sessions"
 

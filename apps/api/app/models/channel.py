@@ -66,6 +66,11 @@ class Contact(SQLModel, table=True):
     display_name: str = ""
     status: str = Field(default="approved", index=True)  # approved | pending | blocked
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    # CRM profile fields (editable from the contact panel / contacts page).
+    company: str = ""
+    title: str = ""
+    phone: str = ""
+    notes: str = ""
     metadata_json: str = Field(default="{}")
     last_seen_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

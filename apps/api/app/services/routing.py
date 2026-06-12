@@ -62,11 +62,13 @@ async def resolve_agent_for_channel(
         if agent:
             return agent
 
+    # Fallbacks consider company agents only; personal assistants belong to one user.
     result = await session.execute(
         select(Agent)
         .where(
             Agent.tenant_id == tenant_id,
             Agent.role == "assistant",
+            Agent.kind == "company",
             Agent.is_active.is_(True),
         )
         .order_by(Agent.updated_at.desc())
@@ -76,7 +78,13 @@ async def resolve_agent_for_channel(
     if agent:
         return agent
     result = await session.execute(
-        select(Agent).where(Agent.tenant_id == tenant_id, Agent.is_active.is_(True)).limit(1)
+        select(Agent)
+        .where(
+            Agent.tenant_id == tenant_id,
+            Agent.kind == "company",
+            Agent.is_active.is_(True),
+        )
+        .limit(1)
     )
     return result.scalar_one_or_none()
 

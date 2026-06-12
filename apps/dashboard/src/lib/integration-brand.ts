@@ -42,6 +42,8 @@ export const PROVIDER_TO_HOST_SLUG: Record<string, string> = {
   stripe: 'stripe',
   shopify_mcp: 'shopify',
   shopify: 'shopify',
+  higgsfield_mcp: 'higgsfield',
+  higgsfield: 'higgsfield',
 }
 
 import { BRAND_ASSETS, BRAND_ASSET_PATHS, brandAssetUrl } from './brand-assets'
@@ -64,6 +66,7 @@ export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: s
   sentry: { initials: 'SE', color: '#362d59', name: 'Sentry' },
   stripe: { initials: 'ST', color: '#635bff', name: 'Stripe' },
   shopify: { initials: 'SH', color: '#96bf48', name: 'Shopify' },
+  higgsfield: { initials: 'HF', color: '#111111', name: 'Higgsfield' },
 }
 
 function imageUrlFromUnknown(value: unknown): string | null {

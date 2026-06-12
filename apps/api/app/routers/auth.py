@@ -36,6 +36,19 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
 
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    """Set the httponly refresh cookie. Marked Secure in production so it is
+    only sent over HTTPS."""
+    response.set_cookie(
+        key=settings.refresh_cookie_name,
+        value=refresh_token,
+        httponly=True,
+        samesite="lax",
+        secure=settings.is_production,
+        max_age=settings.refresh_token_expire_days * 86400,
+    )
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -145,6 +158,9 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
     await bootstrap_tenant(session, tenant.id)
+    from app.services.personal_agents import get_or_create_personal_agent
+
+    await get_or_create_personal_agent(session, tenant.id, user, commit=False)
     from app.models.signal import Signal
 
     session.add(
@@ -162,13 +178,7 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
 
     access_token = create_access_token(user.id, tenant.id, user.email)
     refresh_token, _ = await create_refresh_session(session, user.id)
-    response.set_cookie(
-        key=settings.refresh_cookie_name,
-        value=refresh_token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.refresh_token_expire_days * 86400,
-    )
+    _set_refresh_cookie(response, refresh_token)
     return LoginResponse(
         access_token=access_token,
         user=_user_dict(user, tenant, "owner"),
@@ -191,13 +201,7 @@ async def login(
     tenant, membership = tenant_ctx
     access_token = create_access_token(user.id, tenant.id, user.email)
     refresh_token, _ = await create_refresh_session(session, user.id)
-    response.set_cookie(
-        key=settings.refresh_cookie_name,
-        value=refresh_token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.refresh_token_expire_days * 86400,
-    )
+    _set_refresh_cookie(response, refresh_token)
     return LoginResponse(
         access_token=access_token,
         user=_user_dict(user, tenant, membership.role),
@@ -220,13 +224,7 @@ async def staff_login(
         raise HTTPException(status_code=404, detail="No tenant available")
     access_token = create_access_token(user.id, tenant.id, user.email, staff=True)
     refresh_token, _ = await create_refresh_session(session, user.id)
-    response.set_cookie(
-        key=settings.refresh_cookie_name,
-        value=refresh_token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.refresh_token_expire_days * 86400,
-    )
+    _set_refresh_cookie(response, refresh_token)
     return LoginResponse(
         access_token=access_token,
         user=_user_dict(user, tenant, "admin", is_staff=True),
@@ -310,19 +308,16 @@ async def accept_invite(
         session.add(user)
         await session.flush()
     session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
+    from app.services.personal_agents import get_or_create_personal_agent
+
+    await get_or_create_personal_agent(session, invite.tenant_id, user, commit=False)
     invite.accepted_at = datetime.utcnow()
     tenant_result = await session.execute(select(Tenant).where(Tenant.id == invite.tenant_id))
     tenant = tenant_result.scalar_one()
     await session.commit()
     access_token = create_access_token(user.id, tenant.id, user.email)
     refresh_token, _ = await create_refresh_session(session, user.id)
-    response.set_cookie(
-        key=settings.refresh_cookie_name,
-        value=refresh_token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.refresh_token_expire_days * 86400,
-    )
+    _set_refresh_cookie(response, refresh_token)
     return LoginResponse(
         access_token=access_token,
         user=_user_dict(user, tenant, invite.role),

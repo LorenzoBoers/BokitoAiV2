@@ -1,7 +1,8 @@
 import { Mail } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { inboxPath, leafFromPath, leafKey, leafPath, type HubLeaf, type InboxQueue } from '../lib/messages-paths'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
@@ -29,77 +30,90 @@ import {
 
 type View = NonNullable<ThreadFilters['view']>
 
-const QUEUE_TO_VIEW: Record<string, View> = {
-  all: 'all_open',
-  all_open: 'all_open',
-  my: 'mine',
+const INBOX_QUEUE_TO_VIEW: Record<InboxQueue, View> = {
+  all: 'all',
   mine: 'mine',
+  open: 'all_open',
   unassigned: 'unassigned',
-  pending: 'pending',
   closed: 'closed',
-  spam: 'spam',
-  out: 'outbound',
-  outbound: 'outbound',
-  pinned: 'pinned',
-  created: 'mine',
+}
+
+const RUNS_QUEUE_TO_VIEW: Record<string, View> = {
+  all: 'internal',
+  updates: 'updates',
+  results: 'results',
   'awaiting-decision': 'awaiting_decision',
-  awaiting_decision: 'awaiting_decision',
-  updates: 'updates',
-  results: 'results',
 }
 
-const VIEW_TO_QUEUE: Record<View, string> = {
-  all_open: 'all',
-  mine: 'my',
-  unassigned: 'unassigned',
-  pending: 'pending',
-  closed: 'closed',
-  spam: 'spam',
-  outbound: 'out',
-  pinned: 'pinned',
-  awaiting_decision: 'awaiting-decision',
-  updates: 'updates',
-  results: 'results',
-  external: 'all',
-  internal: 'all',
+type LeafConfig = {
+  filters: Omit<ThreadFilters, 'search' | 'projectId'>
+  mode: 'customer' | 'agent'
+  variant: 'customer' | 'direct'
 }
 
-const INTERNAL_ONLY_VIEWS: View[] = ['awaiting_decision', 'updates', 'results']
-
-function isThreadInQueue(thread: InboxThread, view: View, userId: number | null): boolean {
-  switch (view) {
-    case 'all_open':
-      return thread.status === 'open'
-    case 'mine':
-      return thread.status === 'open' && thread.assignedToUserId === userId
-    case 'unassigned':
-      return thread.status === 'open' && thread.assignedToUserId == null
-    case 'pending':
-      return thread.status === 'pending'
-    case 'closed':
-      return thread.status === 'closed'
-    case 'spam':
-      return thread.status === 'spam'
-    case 'outbound':
-      return true
-    case 'pinned':
-      return thread.isPinned
-    case 'awaiting_decision':
-    case 'updates':
-    case 'results':
-    case 'external':
-    case 'internal':
-      return true
+/** Map the active sidebar leaf to thread filters and rendering mode. */
+function configForLeaf(leaf: HubLeaf): LeafConfig {
+  switch (leaf.type) {
+    case 'inbox':
+      return {
+        filters: { folder: 'inbox', view: INBOX_QUEUE_TO_VIEW[leaf.queue] },
+        mode: 'customer',
+        variant: 'customer',
+      }
+    case 'runs':
+      return {
+        filters: { folder: 'internal', view: RUNS_QUEUE_TO_VIEW[leaf.queue] ?? 'internal' },
+        mode: 'agent',
+        variant: 'customer',
+      }
+    case 'channel': {
+      if (leaf.channelKey === 'email') {
+        return {
+          filters: {
+            folder: 'external',
+            view: 'all',
+            connectionId: leaf.connectionId ? Number(leaf.connectionId) : undefined,
+          },
+          mode: 'customer',
+          variant: 'customer',
+        }
+      }
+      if (leaf.channelKey === 'agent') {
+        return { filters: { folder: 'internal', view: 'internal' }, mode: 'agent', variant: 'customer' }
+      }
+      const channel =
+        leaf.channelKey === 'webchat' ? 'widget' : leaf.channelKey === 'internal' ? 'internal' : leaf.channelKey
+      return {
+        filters: { view: 'all', channel },
+        mode: leaf.channelKey === 'internal' ? 'agent' : 'customer',
+        variant: 'customer',
+      }
+    }
+    case 'view':
+      return { filters: { folder: 'inbox', view: 'all', tag: leaf.key }, mode: 'customer', variant: 'customer' }
+    case 'label':
+      return { filters: { folder: 'inbox', view: 'all', tag: leaf.key }, mode: 'customer', variant: 'customer' }
     default:
-      return true
+      // assistant/agent chats are handled by DirectCommunication
+      return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
   }
 }
 
-function getCanonicalView(thread: InboxThread): View {
-  if (thread.status === 'closed') return 'closed'
-  if (thread.status === 'spam') return 'spam'
-  if (thread.status === 'pending') return 'pending'
-  return 'all_open'
+function threadFitsInboxQueue(thread: InboxThread, queue: InboxQueue, userId: number | null): boolean {
+  switch (queue) {
+    case 'all':
+      return true
+    case 'mine':
+      return thread.status === 'open' && thread.assignedToUserId === userId
+    case 'open':
+      return thread.status === 'open'
+    case 'unassigned':
+      return thread.status === 'open' && thread.assignedToUserId == null
+    case 'closed':
+      return thread.status === 'closed'
+    default:
+      return true
+  }
 }
 
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
@@ -113,18 +127,26 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
   }
 }
 
+/**
+ * Thread-list surface of the Communication hub: renders whichever leaf is
+ * active in the sidebar (inbox queue, agent runs, channel, view or label)
+ * as thread list + conversation + context panel.
+ */
 export default function Communication() {
   const { t } = useTranslation('communication')
   const [searchParams] = useSearchParams()
-  const { queue, channelId, threadId: threadIdParam } = useParams<{
-    queue: string
-    channelId?: string
-    threadId?: string
-  }>()
+  const location = useLocation()
+  const { threadId: threadIdParam } = useParams<{ threadId?: string }>()
   const navigate = useNavigate()
   const { user, token } = useAuth()
   const { refresh: refreshNavBadges } = useNavBadges()
   const currentUserId = user?.id ?? null
+
+  const leaf = useMemo<HubLeaf>(
+    () => leafFromPath(location.pathname) ?? { type: 'inbox', queue: 'all' },
+    [location.pathname],
+  )
+  const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(leaf), [leaf])
 
   const projectId = searchParams.get('project_id')?.trim() || undefined
 
@@ -139,8 +161,6 @@ export default function Communication() {
     void refreshNavBadges()
   }, [refreshNavBadges])
 
-  const view: View = (queue ? QUEUE_TO_VIEW[queue] : undefined) ?? 'all_open'
-  const connectionId = channelId ? Number(channelId) : undefined
   const selectedThreadId: ThreadId | null = threadIdParam ?? null
 
   const { search, setSearch, quickFilter, setQuickFilter, resetQuickFilter } = useInboxCommunication()
@@ -184,9 +204,9 @@ export default function Communication() {
     refresh: refreshThreads,
     setThreadReadState,
     removeThread,
-  } = useThreads({ view, search, connectionId, projectId }, pinnedIds)
+  } = useThreads({ ...leafFilters, search, projectId }, pinnedIds)
 
-  const listContextKey = `${channelId ?? 'all'}:${queue ?? 'all'}:${projectId ?? ''}`
+  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}`
 
   useEffect(() => {
     setSearch('')
@@ -219,18 +239,13 @@ export default function Communication() {
   const handleSelectThread = useCallback(
     (id: ThreadId, replace = false) => {
       setThreadReadState(id, false)
-      const base = channelId
-        ? `/messages/ch/${channelId}/${queue ?? 'all'}`
-        : `/messages/${queue ?? 'all'}`
-      navigate(`${base}/t/${encodeURIComponent(String(id))}${inboxQuery}`, replace ? { replace: true } : undefined)
+      navigate(`${leafPath(leaf, String(id))}${inboxQuery}`, replace ? { replace: true } : undefined)
       void refreshNavBadges()
     },
-    [channelId, queue, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
+    [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
 
-  const firstThreadInView =
-    filteredThreads.find((t) => isThreadInQueue(t, view, currentUserId)) ?? null
-  const firstThreadId = firstThreadInView?.id ?? null
+  const firstThreadId = filteredThreads[0]?.id ?? null
 
   useEffect(() => {
     if (threadIdParam || !threadsReady || firstThreadId == null) return
@@ -313,10 +328,7 @@ export default function Communication() {
         removeThread(id)
         if (pinnedIds.some((pinnedId) => String(pinnedId) === String(id))) removePin(id)
         if (String(selectedThreadId) === String(id)) {
-          const base = channelId
-            ? `/messages/ch/${channelId}/${queue ?? 'all'}`
-            : `/messages/${queue ?? 'all'}`
-          navigate(`${base}${inboxQuery}`)
+          navigate(`${leafPath(leaf)}${inboxQuery}`)
         }
         void refreshNavBadges()
       } catch (err) {
@@ -325,7 +337,7 @@ export default function Communication() {
         setDeletingThreadId(null)
       }
     },
-    [token, removeThread, pinnedIds, removePin, selectedThreadId, channelId, queue, navigate, refreshNavBadges, inboxQuery],
+    [token, removeThread, pinnedIds, removePin, selectedThreadId, leaf, navigate, refreshNavBadges, inboxQuery],
   )
 
   const handleDetailDelete = useCallback(async () => {
@@ -333,31 +345,24 @@ export default function Communication() {
     await handleDeleteThread(selectedThreadId, detail?.thread.emailSubject)
   }, [selectedThreadId, detail?.thread.emailSubject, handleDeleteThread])
 
+  // When a thread's status changes so it no longer fits the active inbox
+  // queue (e.g. closed while viewing Open), hop to the All queue.
   const redirectCheckedForThreadRef = useRef<ThreadId | null>(null)
   useEffect(() => {
     if (selectedThreadId == null) {
       redirectCheckedForThreadRef.current = null
       return
     }
+    if (leaf.type !== 'inbox') return
     if (!detail) return
     if (String(detail.thread.id) !== String(selectedThreadId)) return
     if (redirectCheckedForThreadRef.current === selectedThreadId) return
-    if (INTERNAL_ONLY_VIEWS.includes(view)) return
 
     redirectCheckedForThreadRef.current = selectedThreadId
 
-    const thread = detail.thread
-    const fits = isThreadInQueue(thread, view, currentUserId)
-    const channelMatches = !connectionId || connectionId === thread.emailConnectionId
-    if (fits && channelMatches) return
-    const canonical = getCanonicalView(thread)
-    const targetQueueSegment = VIEW_TO_QUEUE[canonical]
-    const targetChannelId = channelMatches ? channelId : null
-    const base = targetChannelId
-      ? `/messages/ch/${targetChannelId}/${targetQueueSegment}`
-      : `/messages/${targetQueueSegment}`
-    navigate(`${base}/t/${encodeURIComponent(String(thread.id))}${inboxQuery}`, { replace: true })
-  }, [detail, selectedThreadId, view, channelId, connectionId, currentUserId, navigate, inboxQuery])
+    if (threadFitsInboxQueue(detail.thread, leaf.queue, currentUserId)) return
+    navigate(`${inboxPath('all', String(detail.thread.id))}${inboxQuery}`, { replace: true })
+  }, [detail, selectedThreadId, leaf, currentUserId, navigate, inboxQuery])
 
   const handlePatch = useCallback(
     async (input: PatchThreadInput) => {
@@ -369,8 +374,12 @@ export default function Communication() {
   )
 
   const handleReply = useCallback(
-    async (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => {
-      await reply({ bodyText, action })
+    async (
+      bodyText: string,
+      action: 'send' | 'send_and_close' | 'send_and_pending',
+      format?: 'email' | 'plain',
+    ) => {
+      await reply({ bodyText, action, format })
       void refreshThreads()
     },
     [reply, refreshThreads],
@@ -390,6 +399,15 @@ export default function Communication() {
     void refreshNavBadges()
   }, [refreshDetail, refreshThreads, refreshNavBadges])
 
+  // "Ask assistant": open a fresh assistant chat pre-filled with this
+  // thread's context so the user can reason about it with their AI.
+  const handleAskAssistant = useCallback(() => {
+    if (!detail) return
+    const subject = detail.thread.emailSubject || detail.thread.contactName || 'this thread'
+    const prefill = `Help me with the thread "${subject}" (thread id ${detail.thread.id}). Summarize what happened and suggest the next step.`
+    navigate(`/communication/new?prefill=${encodeURIComponent(prefill)}`)
+  }, [detail, navigate])
+
   if (connectionsLoading) {
     return <div className="h-full py-6 text-sm text-text-muted">{t('loadingMailboxes')}</div>
   }
@@ -406,7 +424,13 @@ export default function Communication() {
     )
   }
 
-  if (enabledConnections.length === 0 && threadsReady && threads.length === 0) {
+  const showEmptyMailboxState =
+    (leaf.type === 'inbox' || (leaf.type === 'channel' && leaf.channelKey === 'email')) &&
+    enabledConnections.length === 0 &&
+    threadsReady &&
+    threads.length === 0
+
+  if (showEmptyMailboxState) {
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
@@ -417,7 +441,7 @@ export default function Communication() {
           {t('noActiveMailboxDescription')}
         </p>
         <Link
-          to="/settings/inbox"
+          to="/settings/channels"
           className="mt-5 text-sm font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-sm"
         >
           {t('openEmailSettings')}
@@ -443,6 +467,7 @@ export default function Communication() {
           onTogglePin={handleListTogglePin}
           onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
           deletingThreadId={deletingThreadId}
+          variant={variant}
         />
         <ThreadDetail
           detail={detail}
@@ -460,6 +485,8 @@ export default function Communication() {
           onToggleContact={detail ? toggleContactPanel : undefined}
           contactOpen={showContactPanel}
           onDecisionResolved={handleDecisionResolved}
+          mode={mode}
+          onAskAssistant={detail ? handleAskAssistant : undefined}
         />
         {detail && showContactPanel ? (
           <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} />

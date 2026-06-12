@@ -52,6 +52,8 @@ class Signal(SQLModel, table=True):
     contact_id: Optional[uuid.UUID] = Field(default=None, foreign_key="contacts.id", index=True)
     # Owner for personal assistant threads (channel="assistant").
     owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    # Target agent for chat threads; null = legacy channel routing fallback.
+    agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id", index=True)
     project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
 
     subject: str = Field(default="(No subject)")

@@ -1,24 +1,46 @@
-import { useState } from 'react'
-import { Send, StickyNote } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Mail, MessageCircle, Send, StickyNote } from 'lucide-react'
 import { Button } from '../ui/button'
-
-type Mode = 'reply' | 'note'
+import type { ComposerSurface, ComposerTab } from '../../lib/message-composer'
 
 type Props = {
+  surface: ComposerSurface
   onReply: (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => Promise<void>
   onNote: (bodyText: string) => Promise<void>
   saving: boolean
   disabled?: boolean
+  extraActions?: ReactNode
 }
 
-export default function ReplyComposer({ onReply, onNote, saving, disabled }: Props) {
-  const [mode, setMode] = useState<Mode>('reply')
+function tabIcon(surface: ComposerSurface, tab: ComposerTab) {
+  if (tab === 'note') return StickyNote
+  if (surface.channel === 'email') return Mail
+  return MessageCircle
+}
+
+export default function ReplyComposer({
+  surface,
+  onReply,
+  onNote,
+  saving,
+  disabled,
+  extraActions,
+}: Props) {
+  const [tab, setTab] = useState<ComposerTab>(surface.defaultTab)
   const [body, setBody] = useState('')
+
+  useEffect(() => {
+    setTab(surface.defaultTab)
+    setBody('')
+  }, [surface.channel, surface.defaultTab, surface.recipientValue])
+
+  const showReplyTab = surface.tabs.includes('reply')
+  const showNoteTab = surface.tabs.includes('note')
 
   const handleSubmit = async (action: 'send' | 'send_and_close' | 'send_and_pending') => {
     const text = body.trim()
     if (!text) return
-    if (mode === 'note') {
+    if (tab === 'note') {
       await onNote(text)
     } else {
       await onReply(text, action)
@@ -26,75 +48,106 @@ export default function ReplyComposer({ onReply, onNote, saving, disabled }: Pro
     setBody('')
   }
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      void handleSubmit('send')
+    }
+  }
+
+  const ReplyIcon = tabIcon(surface, 'reply')
+  const isNote = tab === 'note'
+
   return (
-    <div className="border-t border-border/50 p-3 bg-bg-surface">
-      <div className="flex gap-1 mb-2">
-        <button
-          type="button"
-          onClick={() => setMode('reply')}
-          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-            mode === 'reply'
-              ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
-              : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+    <div className="shrink-0 border-t border-border/40 px-4 pb-4 pt-2">
+      <div className="mx-auto w-full max-w-[860px]">
+        <div className="mb-1.5 flex items-center gap-1">
+          {showReplyTab ? (
+            <button
+              type="button"
+              onClick={() => setTab('reply')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                !isNote
+                  ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
+                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+              }`}
+            >
+              <ReplyIcon size={11} />
+              {surface.replyLabel}
+            </button>
+          ) : null}
+          {showNoteTab ? (
+            <button
+              type="button"
+              onClick={() => setTab('note')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                isNote
+                  ? 'bg-yellow-100 text-yellow-800 font-semibold ring-1 ring-yellow-300/60 dark:bg-yellow-900/30 dark:text-yellow-200 dark:ring-yellow-700/40'
+                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+              }`}
+            >
+              <StickyNote size={11} />
+              Notitie
+            </button>
+          ) : null}
+          {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
+        </div>
+
+        {!isNote && surface.showRecipient && surface.recipientValue ? (
+          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-border/50 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
+            <span className="shrink-0 font-medium text-text-muted">{surface.recipientLabel}</span>
+            <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
+            {surface.includeSignature ? (
+              <span className="ml-auto shrink-0 text-[10px] text-text-muted">Met handtekening</span>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div
+          className={`flex items-end gap-2 rounded-2xl border px-3 py-2 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.45)] transition-colors focus-within:border-accent/50 ${
+            isNote
+              ? 'border-yellow-300/50 bg-yellow-50/40 dark:border-yellow-700/40 dark:bg-yellow-900/10'
+              : 'border-border/70 bg-bg-surface'
           }`}
         >
-          <Send size={11} />
-          Antwoord
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('note')}
-          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-            mode === 'note'
-              ? 'bg-yellow-100 text-yellow-800 font-semibold ring-1 ring-yellow-300/60 dark:bg-yellow-900/30 dark:text-yellow-200 dark:ring-yellow-700/40'
-              : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-          }`}
-        >
-          <StickyNote size={11} />
-          Notitie
-        </button>
-      </div>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={onKeyDown}
+            disabled={disabled || saving}
+            placeholder={isNote ? 'Interne notitie (niet zichtbaar voor klant)...' : surface.replyPlaceholder}
+            rows={Math.min(6, Math.max(1, body.split('\n').length))}
+            className="max-h-[180px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none disabled:opacity-50"
+          />
+          <button
+            type="button"
+            disabled={!body.trim() || saving || disabled}
+            onClick={() => void handleSubmit('send')}
+            title={isNote ? 'Notitie toevoegen' : 'Verstuur'}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition-colors disabled:opacity-40 ${
+              isNote
+                ? 'bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600'
+                : 'bg-accent hover:bg-accent-hover'
+            }`}
+          >
+            {isNote ? <StickyNote size={13} /> : <Send size={13} />}
+          </button>
+        </div>
 
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        disabled={disabled || saving}
-        placeholder={mode === 'note' ? 'Interne notitie...' : 'Typ een antwoord...'}
-        rows={3}
-        className="w-full resize-none rounded-md border border-border bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50 disabled:opacity-50"
-      />
-
-      <div className="flex items-center justify-end gap-2 mt-2">
-        {mode === 'reply' ? (
-          <>
+        <div className="mt-1.5 flex items-center justify-between px-1">
+          <p className="text-[10.5px] text-text-muted">Enter to send, Shift+Enter for a new line</p>
+          {!isNote && showReplyTab ? (
             <Button
               size="sm"
-              variant="secondary"
+              variant="ghost"
               disabled={!body.trim() || saving || disabled}
               onClick={() => void handleSubmit('send_and_close')}
+              className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
             >
               Stuur en sluit
             </Button>
-            <Button
-              size="sm"
-              disabled={!body.trim() || saving || disabled}
-              onClick={() => void handleSubmit('send')}
-            >
-              <Send size={13} />
-              {saving ? 'Versturen...' : 'Verstuur'}
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            disabled={!body.trim() || saving || disabled}
-            onClick={() => void handleSubmit('send')}
-            className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300/70 dark:bg-yellow-900/30 dark:text-yellow-200 dark:hover:bg-yellow-900/40 dark:border-yellow-700/40"
-          >
-            <StickyNote size={13} />
-            {saving ? 'Saving...' : 'Add note'}
-          </Button>
-        )}
+          ) : null}
+        </div>
       </div>
     </div>
   )

@@ -94,6 +94,84 @@ async def test_internal_decision_thread(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
+async def test_channel_filter_and_inbox_folder(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+
+    email = await client.post(
+        "/api/signals/inbound",
+        headers=headers,
+        json={
+            "channel": "email",
+            "source": "mock",
+            "subject": "Email thread",
+            "body_text": "Hello",
+            "contact_email": "a@test.com",
+        },
+    )
+    assert email.status_code == 200
+    widget = await client.post(
+        "/api/signals/inbound",
+        headers=headers,
+        json={
+            "channel": "widget",
+            "source": "mock",
+            "subject": "Webchat thread",
+            "body_text": "Hi from webchat",
+            "contact_email": "b@test.com",
+        },
+    )
+    assert widget.status_code == 200
+
+    # An assistant chat should stay out of the shared inbox folder.
+    conv = await client.post("/api/chat/conversations", json={"title": "My chat"}, headers=headers)
+    assert conv.status_code == 200
+
+    by_channel = await client.get("/api/signals?view=all&channel=widget", headers=headers)
+    assert by_channel.status_code == 200
+    channels = {item["channel"] for item in by_channel.json()["items"]}
+    assert channels == {"widget"}
+
+    inbox = await client.get("/api/signals?view=all&folder=inbox", headers=headers)
+    assert inbox.status_code == 200
+    inbox_channels = {item["channel"] for item in inbox.json()["items"]}
+    assert "assistant" not in inbox_channels
+    assert {"email", "widget"}.issubset(inbox_channels)
+
+
+@pytest.mark.asyncio
+async def test_tag_filter(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    ingest = await client.post(
+        "/api/signals/inbound",
+        headers=headers,
+        json={
+            "channel": "email",
+            "source": "mock",
+            "subject": "Billing question",
+            "body_text": "Invoice issue",
+            "contact_email": "billing@test.com",
+        },
+    )
+    assert ingest.status_code == 200
+    signal_id = ingest.json()["id"]
+    patched = await client.patch(
+        f"/api/signals/{signal_id}",
+        headers=headers,
+        json={"tags": ["billing"]},
+    )
+    assert patched.status_code == 200
+
+    tagged = await client.get("/api/signals?view=all&tag=billing", headers=headers)
+    assert tagged.status_code == 200
+    ids = {item["id"] for item in tagged.json()["items"]}
+    assert signal_id in ids
+
+    untagged = await client.get("/api/signals?view=all&tag=does-not-exist", headers=headers)
+    assert untagged.status_code == 200
+    assert untagged.json()["itemsTotal"] == 0
+
+
+@pytest.mark.asyncio
 async def test_signal_model_extensions(session_override):
     from app.models.auth import Tenant
 

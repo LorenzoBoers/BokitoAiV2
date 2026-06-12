@@ -65,6 +65,7 @@ async def create_agent_task(
             project_id=project_id,
             subject=title,
             contact_name=agent_name,
+            agent_id=agent_id,
             assigned_user_id=created_by,
         )
         signal_id = signal.id

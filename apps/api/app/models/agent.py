@@ -12,6 +12,11 @@ class Agent(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     name: str
     role: str = Field(default="assistant")  # assistant | po | orchestrator | coding | orchestra
+    # personal = one user's own assistant (owner_user_id set); company = shared workforce agent.
+    kind: str = Field(default="company", index=True)  # company | personal
+    owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    # Who may open a direct chat with this company agent (personal agents: owner only).
+    chat_access: str = Field(default="nobody")  # everyone | selected | nobody
     model: str = "claude-sonnet-4-20250514"
     provider: str = Field(default="platform")
     system_prompt: str = ""
@@ -35,6 +40,18 @@ class Agent(SQLModel, table=True):
     current_activity_summary: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AgentChatUser(SQLModel, table=True):
+    """Allowlist rows for company agents with chat_access='selected'."""
+
+    __tablename__ = "agent_chat_users"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    agent_id: uuid.UUID = Field(foreign_key="agents.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class AgentRun(SQLModel, table=True):

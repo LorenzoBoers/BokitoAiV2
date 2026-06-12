@@ -30,6 +30,11 @@ async def test_list_providers(client: AsyncClient):
     slugs = {p["slug"] for p in data["providers"]}
     assert "github" in slugs
     assert "gmail" in slugs
+    assert "higgsfield_mcp" in slugs
+    higgsfield = next(p for p in data["providers"] if p["slug"] == "higgsfield_mcp")
+    assert higgsfield["mcp_remote_url"] == "https://mcp.higgsfield.ai/mcp"
+    assert higgsfield["auth_type"] == "mcp_remote_oauth"
+    assert higgsfield["host"]["slug"] == "higgsfield"
 
 
 @pytest.mark.asyncio
@@ -86,6 +91,71 @@ async def test_mcp_install_and_bindings(client: AsyncClient):
     data = bindings.json()
     assert len(data["bindings"]) >= 1
     assert len(data["mcp_server_ids"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_mcp_tenant_isolation(client: AsyncClient):
+    signup_a = await client.post(
+        f"{API}/auth/signup",
+        json={
+            "email": "mcp-a@example.com",
+            "password": "test-password",
+            "tenant_slug": "mcp-tenant-a",
+            "tenant_name": "MCP Tenant A",
+        },
+    )
+    assert signup_a.status_code == 200
+    headers_a = _auth(signup_a.json()["access_token"])
+
+    signup_b = await client.post(
+        f"{API}/auth/signup",
+        json={
+            "email": "mcp-b@example.com",
+            "password": "test-password",
+            "tenant_slug": "mcp-tenant-b",
+            "tenant_name": "MCP Tenant B",
+        },
+    )
+    assert signup_b.status_code == 200
+    headers_b = _auth(signup_b.json()["access_token"])
+
+    install_a = await client.post(
+        f"{API}/integrations/integrations/mcp/install",
+        headers=headers_a,
+        json={
+            "provider": "higgsfield_mcp",
+            "api_key": "tenant-a-key",
+            "display_name": "Tenant A Higgsfield",
+        },
+    )
+    assert install_a.status_code == 200
+    conn_a_id = install_a.json()["connection"]["id"]
+
+    bindings_b = await client.get(
+        f"{API}/integrations/integrations/mcp/bindings",
+        headers=headers_b,
+    )
+    assert bindings_b.status_code == 200
+    binding_conn_ids_b = {b.get("connection_id") for b in bindings_b.json()["bindings"]}
+    assert conn_a_id not in binding_conn_ids_b
+
+    conns_b = await client.get(
+        f"{API}/integrations/integrations/connections",
+        headers=headers_b,
+    )
+    assert conns_b.status_code == 200
+    conn_ids_b = {c["id"] for c in conns_b.json()["connections"]}
+    assert conn_a_id not in conn_ids_b
+
+    providers_b = await client.get(
+        f"{API}/integrations/integrations/providers",
+        headers=headers_b,
+    )
+    assert providers_b.status_code == 200
+    higgsfield_b = next(
+        p for p in providers_b.json()["providers"] if p["slug"] == "higgsfield_mcp"
+    )
+    assert higgsfield_b["mcp_remote_url"] == "https://mcp.higgsfield.ai/mcp"
 
 
 @pytest.mark.asyncio

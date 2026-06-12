@@ -3,7 +3,7 @@
   "rail": {
     "home": "Cockpit",
     "orchestra": "Orchestra",
-    "support": "Messages",
+    "support": "Communication",
     "updates": "AI",
     "assistent": "Assistant",
     "integrations": "Integrations",
@@ -24,7 +24,7 @@
     "orchestra": "Orchestra",
     "users": "Users",
     "settings": "Settings",
-    "inbox": "Messages",
+    "inbox": "Communication",
     "ai": "AI",
     "assistent": "Assistant",
     "integrations": "Integrations",
@@ -271,6 +271,60 @@
     "group": {
       "inbox": "Queues",
       "agentOps": "Agent ops"
+    },
+    "newChat": "New chat",
+    "inbox": {
+      "all": "All",
+      "mine": "Mine",
+      "open": "Open",
+      "unassigned": "Unassigned",
+      "closed": "Closed"
+    },
+    "section": {
+      "inbox": "Inbox",
+      "assistant": "Assistant",
+      "views": "Views",
+      "channels": "Channels",
+      "agents": "Agents",
+      "labels": "Labels",
+      "settings": "Settings"
+    },
+    "views": {
+      "support": "Support",
+      "sales": "Sales",
+      "operations": "Operations",
+      "partners": "Partner communication",
+      "agent-handoffs": "Agent handoffs",
+      "custom": "Custom views..."
+    },
+    "channels": {
+      "loading": "Loading channels...",
+      "webchat": "Webchat",
+      "internal": "Internal chat",
+      "agent": "Agent messages"
+    },
+    "agents": {
+      "loading": "Loading agents...",
+      "empty": "No agents available for chat.",
+      "runs": "Agent runs"
+    },
+    "labels": {
+      "urgent": "Urgent",
+      "vip": "VIP",
+      "follow-up": "Follow-up",
+      "billing": "Billing",
+      "custom": "Custom labels..."
+    },
+    "settings": {
+      "channels": "Channel settings",
+      "assistant": "Assistant settings"
+    },
+    "customize": {
+      "title": "Customize sidebar",
+      "description": "Drag sections to reorder them, hide the ones you do not use, and pick which start collapsed.",
+      "visible": "Show",
+      "collapsed": "Collapse",
+      "reset": "Reset to defaults"
     },
     "allChannels": "All channels",
     "allMessages": "All",

@@ -1,6 +1,6 @@
-from app.models.agent import Agent, AgentRun, RunEvent
+from app.models.agent import Agent, AgentChatUser, AgentRun, RunEvent
 from app.models.audit import AuditEvent
-from app.models.auth import Invite, Membership, Session, Tenant, User
+from app.models.auth import Invite, Membership, Session, Tenant, User, UserPreference
 from app.models.channel import ChannelAccount, ChannelBinding, Contact
 from app.models.inbox import InboxSettings
 from app.models.workspace import DocChunk, WorkspaceDoc
@@ -61,8 +61,10 @@ __all__ = [
     "ChannelBinding",
     "Contact",
     "Agent",
+    "AgentChatUser",
     "AgentRun",
     "RunEvent",
+    "UserPreference",
     "AuditEvent",
     "StaffAccessLog",
     "InboxSettings",

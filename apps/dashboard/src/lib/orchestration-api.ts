@@ -113,10 +113,12 @@ export async function fetchRunEvents(runId: string): Promise<{
   return apiGet(appRoutes.orchestration.runEvents(runId))
 }
 
+export type TriggerKind = 'cron' | 'interval' | 'heartbeat' | 'webhook' | 'once' | 'event'
+
 export type Trigger = {
   id: string
   name: string
-  kind: 'cron' | 'interval' | 'heartbeat' | 'webhook'
+  kind: TriggerKind
   cron_expr: string
   interval_minutes: number
   agent_id: string | null
@@ -139,7 +141,7 @@ export async function listTriggers(): Promise<Trigger[]> {
 
 export async function createTrigger(body: {
   name: string
-  kind: Trigger['kind']
+  kind: TriggerKind
   cron_expr?: string
   interval_minutes?: number
   agent_id?: string
@@ -147,11 +149,15 @@ export async function createTrigger(body: {
   workstream_id?: string
   instructions?: string
   enabled?: boolean
+  run_at?: string
 }): Promise<Trigger> {
   return apiPost<Trigger>(appRoutes.triggers.list, body)
 }
 
-export async function updateTrigger(triggerId: string, body: Partial<Trigger>): Promise<Trigger> {
+export async function updateTrigger(
+  triggerId: string,
+  body: Partial<Trigger> & { run_at?: string },
+): Promise<Trigger> {
   return apiPatch<Trigger>(appRoutes.triggers.byId(triggerId), body)
 }
 
@@ -161,4 +167,32 @@ export async function deleteTrigger(triggerId: string): Promise<void> {
 
 export async function runTrigger(triggerId: string): Promise<{ status: string }> {
   return apiPost(appRoutes.triggers.run(triggerId), {})
+}
+
+export type AgendaItem = {
+  id: string
+  trigger_id: string | null
+  name: string
+  kind: TriggerKind | string
+  agent_id: string | null
+  agent_role: string
+  agent_name: string | null
+  instructions: string
+  enabled: boolean
+  at: string
+  status: string
+  run_id: string | null
+}
+
+export async function listAgendaOccurrences(params: {
+  from?: string
+  to?: string
+  agentId?: string
+}): Promise<AgendaItem[]> {
+  const query = new URLSearchParams()
+  if (params.from) query.set('from', params.from)
+  if (params.to) query.set('to', params.to)
+  if (params.agentId) query.set('agent_id', params.agentId)
+  const res = await apiGet<{ items: AgendaItem[] }>(appRoutes.agenda.occurrencesQuery(query))
+  return res.items ?? []
 }

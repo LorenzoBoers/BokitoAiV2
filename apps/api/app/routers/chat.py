@@ -19,13 +19,19 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.agent import AgentRun
+from app.models.agent import Agent, AgentRun
 from app.models.signal import Signal, SignalMessage
 from app.services.agent.loop import AgentLoop
 from app.services.assistant_threads import (
     append_signal_chat_message,
     serialize_chat_message,
     signal_chat_history,
+)
+from app.services.personal_agents import (
+    allowed_company_agents,
+    get_or_create_personal_agent,
+    get_user_preference,
+    resolve_chat_target,
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -37,6 +43,7 @@ class ConversationCreate(BaseModel):
     title: str = "New conversation"
     audience: str = "internal"
     channel: str = "assistant"
+    agent_id: UUID | None = None
 
 
 class ConversationUpdate(BaseModel):
@@ -48,15 +55,50 @@ class MessageCreate(BaseModel):
     attachments: list[dict] = []
 
 
-def _serialize_conversation(signal: Signal) -> dict:
+def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = None) -> dict:
+    agent = agents.get(signal.agent_id) if agents and signal.agent_id else None
     return {
         "id": str(signal.id),
         "title": signal.subject,
         "channel": signal.channel,
         "audience": "internal" if signal.channel == "assistant" else "external",
         "ai_paused": signal.ai_paused,
+        "agent_id": str(signal.agent_id) if signal.agent_id else None,
+        "agent_name": agent.name if agent else None,
+        "agent_kind": agent.kind if agent else None,
         "updated_at": signal.updated_at.isoformat(),
     }
+
+
+def _serialize_target(agent: Agent, *, is_default: bool = False) -> dict:
+    return {
+        "id": str(agent.id),
+        "name": agent.name,
+        "kind": agent.kind,
+        "role": agent.role,
+        "runtime_status": agent.runtime_status,
+        "is_default": is_default,
+    }
+
+
+@router.get("/targets")
+async def chat_targets(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Chat targets for the current user: personal assistant first, then permitted company agents."""
+    personal = await get_or_create_personal_agent(session, auth.tenant.id, auth.user)
+    is_admin = auth.role in ("owner", "admin")
+    company = await allowed_company_agents(session, auth.tenant.id, auth.user.id, is_admin=is_admin)
+    pref = await get_user_preference(session, auth.tenant.id, auth.user.id)
+    default_id = personal.id
+    if pref and pref.default_chat_agent_id:
+        valid_ids = {personal.id, *(a.id for a in company)}
+        if pref.default_chat_agent_id in valid_ids:
+            default_id = pref.default_chat_agent_id
+    items = [_serialize_target(personal, is_default=personal.id == default_id)]
+    items.extend(_serialize_target(a, is_default=a.id == default_id) for a in company)
+    return {"items": items, "default_agent_id": str(default_id)}
 
 
 @router.get("/conversations")
@@ -78,7 +120,9 @@ async def list_conversations(
             (Signal.owner_user_id == auth.user.id) | (Signal.owner_user_id.is_(None)),
         )
     result = await session.execute(query.order_by(Signal.updated_at.desc()))
-    return [_serialize_conversation(s) for s in result.scalars().all()]
+    signals = list(result.scalars().all())
+    agents = await _agents_by_id(session, auth.tenant.id, [s.agent_id for s in signals])
+    return [_serialize_conversation(s, agents) for s in signals]
 
 
 @router.post("/conversations")
@@ -87,19 +131,30 @@ async def create_conversation(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    agent = await resolve_chat_target(
+        session, auth.tenant.id, auth.user, body.agent_id, is_admin=auth.role in ("owner", "admin")
+    )
     signal = Signal(
         tenant_id=auth.tenant.id,
         channel="assistant",
         source="chat",
         subject=body.title,
         owner_user_id=auth.user.id,
+        agent_id=agent.id,
         contact_name=auth.user.display_name or auth.user.email,
         has_unread=False,
     )
     session.add(signal)
     await session.commit()
     await session.refresh(signal)
-    return {"id": str(signal.id), "title": signal.subject, "channel": signal.channel}
+    return {
+        "id": str(signal.id),
+        "title": signal.subject,
+        "channel": signal.channel,
+        "agent_id": str(agent.id),
+        "agent_name": agent.name,
+        "agent_kind": agent.kind,
+    }
 
 
 @router.patch("/conversations/{conversation_id}")
@@ -197,7 +252,7 @@ async def send_message(
     if signal.ai_paused:
         return {"message": {"role": "assistant", "content": ""}, "ai_paused": True}
 
-    agent, run = await _agent_run(session, auth, body.content)
+    agent, run = await _agent_run(session, auth, signal, body.content)
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(
         session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id
@@ -244,7 +299,7 @@ async def stream_message(
     )
     await session.commit()
 
-    agent, _run = await _agent_run(session, auth, body.content)
+    agent, _run = await _agent_run(session, auth, signal, body.content)
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(session, auth.tenant.id, auth.user.id, agent=agent, signal_id=signal.id)
 
@@ -283,10 +338,34 @@ async def _get_thread(session: AsyncSession, conversation_id: UUID, tenant_id: U
     return signal
 
 
-async def _agent_run(session, auth, content: str):
+async def _agents_by_id(
+    session: AsyncSession, tenant_id: UUID, ids: list[UUID | None]
+) -> dict[UUID, Agent]:
+    wanted = {i for i in ids if i}
+    if not wanted:
+        return {}
+    result = await session.execute(
+        select(Agent).where(Agent.tenant_id == tenant_id, Agent.id.in_(wanted))
+    )
+    return {a.id: a for a in result.scalars().all()}
+
+
+async def _resolve_thread_agent(session: AsyncSession, auth, signal: Signal) -> Agent | None:
+    """Agent pinned on the thread, else legacy channel routing."""
+    if signal.agent_id:
+        result = await session.execute(
+            select(Agent).where(Agent.id == signal.agent_id, Agent.tenant_id == auth.tenant.id)
+        )
+        agent = result.scalar_one_or_none()
+        if agent and agent.is_active:
+            return agent
     from app.services.routing import resolve_agent_for_channel
 
-    agent = await resolve_agent_for_channel(session, auth.tenant.id, "assistant")
+    return await resolve_agent_for_channel(session, auth.tenant.id, signal.channel)
+
+
+async def _agent_run(session, auth, signal: Signal, content: str):
+    agent = await _resolve_thread_agent(session, auth, signal)
     run = None
     if agent:
         run = AgentRun(

@@ -10,7 +10,7 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-TRIGGER_KINDS = ("cron", "interval", "heartbeat", "webhook")
+TRIGGER_KINDS = ("cron", "interval", "heartbeat", "webhook", "once", "event")
 
 
 class Trigger(SQLModel, table=True):
@@ -19,9 +19,11 @@ class Trigger(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     name: str
-    kind: str = Field(default="interval", index=True)  # cron | interval | heartbeat | webhook
+    # cron | interval | heartbeat | webhook | once (one-shot agent task) | event (calendar item)
+    kind: str = Field(default="interval", index=True)
 
     # Schedule: cron uses a 5-field expression; interval/heartbeat use minutes.
+    # once/event use next_run_at directly as the scheduled moment.
     cron_expr: str = ""
     interval_minutes: int = 0
 

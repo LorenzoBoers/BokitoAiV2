@@ -14,6 +14,7 @@ const MCP_SLUGS = new Set([
   'shopify_mcp',
   'github_mcp',
   'microsoft_graph_mcp',
+  'higgsfield_mcp',
 ])
 const REPOSITORY_SLUGS = new Set(['github', 'gitlab'])
 const INBOX_SLUGS = new Set([
