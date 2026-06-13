@@ -38,6 +38,8 @@ import WorkspaceDocs from './pages/WorkspaceDocs'
 // Settings sections
 import ProfileSettings from './pages/ProfileSettings'
 import MyAssistantSettings from './pages/MyAssistantSettings'
+import LlmKeysSettings from './pages/LlmKeysSettings'
+import ModelsSettings from './pages/ModelsSettings'
 import NotificationSettings from './pages/NotificationSettings'
 import WorkspaceSettings from './pages/WorkspaceSettings'
 import CompanyConfig from './pages/CompanyConfig'
@@ -193,7 +195,7 @@ export default function App() {
             <Route path="/billing" element={<WorkspaceBilling />} />
             <Route path="/account" element={<WorkspaceAccount />} />
             <Route path="/support" element={<WorkspaceSupport />} />
-            <Route path="/workspaces" element={<Navigate to="/" replace />} />
+            <Route path="/workspaces" element={<Workspaces />} />
           </Route>
         </Route>
 
@@ -284,6 +286,8 @@ export default function App() {
             <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/autonomy" element={<GovernPage />} />
+            <Route path="/settings/models" element={<ModelsSettings />} />
+            <Route path="/settings/llm-keys" element={<LlmKeysSettings />} />
             <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
             <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
           </Route>

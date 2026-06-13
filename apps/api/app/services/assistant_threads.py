@@ -123,7 +123,8 @@ async def _compact_signal_history(
     session: AsyncSession, signal: Signal, history: list[dict[str, Any]]
 ) -> None:
     """Summarize old turns into signal.compact_summary, flushing durable facts first."""
-    from app.services.agent.llm import get_llm_provider
+    from app.services.agent.llm import get_chat_provider
+    from app.services.model_resolution import record_usage, resolve_model_call
 
     cutoff = len(history) - KEEP_RECENT
     old_messages = history[:cutoff]
@@ -133,9 +134,17 @@ async def _compact_signal_history(
     transcript_parts.extend(f"{m['role']}: {m['content'][:600]}" for m in old_messages)
     transcript = "\n".join(transcript_parts)[-24000:]
 
-    llm = get_llm_provider()
+    resolved = await resolve_model_call(session, signal.tenant_id, kind="chat")
+    llm = get_chat_provider(resolved.provider, resolved.api_key)
     response = await llm.chat(
-        [{"role": "user", "content": _COMPACTION_PROMPT.format(transcript=transcript)}]
+        [{"role": "user", "content": _COMPACTION_PROMPT.format(transcript=transcript)}],
+        model=resolved.model_id,
+    )
+    _usage = response.get("usage", {})
+    await record_usage(
+        session, signal.tenant_id, resolved,
+        tokens_in=_usage.get("input_tokens", 0), tokens_out=_usage.get("output_tokens", 0),
+        scope="chat", scope_id=str(signal.id), call_type="compaction",
     )
     text = "\n".join(b["text"] for b in response["content"] if b.get("type") == "text").strip()
     if not text:

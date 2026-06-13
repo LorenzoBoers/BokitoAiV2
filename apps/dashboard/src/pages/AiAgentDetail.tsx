@@ -5,6 +5,8 @@ import { CalendarDays, MessageSquare, Network, ShieldCheck } from 'lucide-react'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { AgentChatAccessCard } from '../components/workforce/AgentChatAccessCard'
+import { AgentModelCard } from '../components/workforce/AgentModelCard'
+import { AgentInstructionsCard } from '../components/workforce/AgentInstructionsCard'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { LoadingBlock } from '../components/ui/loading-block'
@@ -253,7 +255,24 @@ export default function AiAgentDetail() {
             </Card>
           ) : null}
 
+          {agent.kind !== 'personal' ? (
+            <AgentInstructionsCard
+              agentId={agent.id}
+              name={agent.name}
+              systemPrompt={agent.system_prompt ?? ''}
+              canEdit={isAdmin}
+              onChanged={() => void load()}
+            />
+          ) : null}
+
           <AgentChatAccessCard agentId={agent.id} />
+
+          <AgentModelCard
+            agentId={agent.id}
+            currentModel={agent.model}
+            canEdit={isAdmin}
+            onChanged={() => void load()}
+          />
 
           <Card className="px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">

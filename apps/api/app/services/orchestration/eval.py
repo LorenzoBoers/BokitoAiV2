@@ -10,8 +10,6 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orchestration import EvalCheckpoint
-from app.services.agent.llm import get_llm_provider
-
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
     try:
@@ -60,14 +58,26 @@ async def run_eval_checkpoint(
 
     elif eval_kind == "llm_judge":
         rubric = criteria.get("rubric") or criteria.get("prompt") or "Did the agent complete the task acceptably?"
-        llm = get_llm_provider()
+        from app.services.agent.llm import get_chat_provider
+        from app.services.model_resolution import record_usage, resolve_model_call
+
+        resolved = await resolve_model_call(session, tenant_id, kind="chat")
+        llm = get_chat_provider(resolved.provider, resolved.api_key)
         judge_prompt = (
             f"Evaluate this agent output against the rubric.\n\nRubric:\n{rubric}\n\n"
             f"Output:\n{output_text[:4000]}\n\n"
             "Reply with JSON only: {\"passed\": true|false, \"reason\": \"...\"}"
         )
         try:
-            response = await llm.chat([{"role": "user", "content": judge_prompt}], tools=None)
+            response = await llm.chat(
+                [{"role": "user", "content": judge_prompt}], tools=None, model=resolved.model_id
+            )
+            _usage = response.get("usage", {})
+            await record_usage(
+                session, tenant_id, resolved,
+                tokens_in=_usage.get("input_tokens", 0), tokens_out=_usage.get("output_tokens", 0),
+                scope="eval", call_type="eval",
+            )
             text = " ".join(b.get("text", "") for b in response.get("content", []) if b.get("type") == "text")
             match = re.search(r"\{.*\}", text, re.DOTALL)
             if match:

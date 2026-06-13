@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { onGatewayEvent } from '../lib/gateway'
 import {
   getThread,
   patchThread,
@@ -49,37 +50,56 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const fetchDetail = useCallback(async () => {
-    if (!token || !threadId) {
-      setRawDetail(null)
-      setError(null)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await getThread(token, threadId)
-      // Auto-mark as read when a thread is opened. The server call is
-      // fire-and-forget so the UI never blocks on it; the local state already
-      // reflects the read status. If the request fails the next list poll
-      // (every 30s) will reconcile.
-      if (result && result.thread.hasUnread) {
-        setRawDetail({ ...result, thread: { ...result.thread, hasUnread: false } })
-        void markThreadRead(token, threadId).catch(() => {})
-      } else {
-        setRawDetail(result)
+  // `quiet` reloads (gateway-driven and post-reply reconciles) skip the loading
+  // spinner and never clear the thread on transient errors, so live updates
+  // never flicker the open conversation.
+  const fetchDetail = useCallback(
+    async (quiet = false) => {
+      if (!token || !threadId) {
+        setRawDetail(null)
+        setError(null)
+        return
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Thread kon niet worden geladen.')
-      setRawDetail(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [token, threadId])
+      if (!quiet) setLoading(true)
+      setError(null)
+      try {
+        const result = await getThread(token, threadId)
+        // Auto-mark as read when a thread is opened. The server call is
+        // fire-and-forget so the UI never blocks on it; the local state already
+        // reflects the read status. If the request fails the next list poll
+        // (every 30s) will reconcile.
+        if (result && result.thread.hasUnread) {
+          setRawDetail({ ...result, thread: { ...result.thread, hasUnread: false } })
+          void markThreadRead(token, threadId).catch(() => {})
+        } else {
+          setRawDetail(result)
+        }
+      } catch (err) {
+        if (!quiet) {
+          setError(err instanceof Error ? err.message : 'Thread kon niet worden geladen.')
+          setRawDetail(null)
+        }
+      } finally {
+        if (!quiet) setLoading(false)
+      }
+    },
+    [token, threadId],
+  )
 
   useEffect(() => {
     void fetchDetail()
   }, [fetchDetail])
+
+  // Live updates for the open thread: agent replies (and any other new
+  // messages/events) are published on the `signal:{id}` topic. Reload quietly
+  // so an incoming agent reply appears without a manual refresh.
+  useEffect(() => {
+    if (!token || !threadId) return
+    const unsub = onGatewayEvent(`signal:${threadId}`, () => {
+      void fetchDetail(true)
+    })
+    return () => unsub()
+  }, [token, threadId, fetchDetail])
 
   // Derive isPinned client-side from the shared pinnedIds list. The detail
   // endpoint deliberately does NOT include is_pinned to keep its payload
@@ -141,11 +161,16 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
               : prev,
           )
         }
+        // Agent threads generate a reply synchronously inside the reply
+        // request; pull authoritative state so the assistant message shows.
+        // The gateway event for the assistant fires while `saving` is still
+        // true, so a quiet reload here guarantees it appears.
+        void fetchDetail(true)
       } finally {
         setSaving(false)
       }
     },
-    [token, threadId, user?.signatureUrl, user?.tenant?.logo],
+    [token, threadId, user?.signatureUrl, user?.tenant?.logo, fetchDetail],
   )
 
   const addNote = useCallback(

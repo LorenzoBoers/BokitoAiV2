@@ -101,6 +101,91 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
     }
 
 
+async def usage_breakdown(
+    session: AsyncSession, tenant_id: UUID, *, days: int = 30
+) -> dict[str, Any]:
+    """Token + cost breakdown by model and agent, splitting BYOK vs billable."""
+    from app.models.agent import Agent
+
+    since = datetime.utcnow() - timedelta(days=days)
+
+    # By model (+ key source so we can split BYOK vs platform/billable).
+    model_rows = (
+        await session.execute(
+            select(
+                UsageLedger.model,
+                UsageLedger.provider,
+                UsageLedger.key_source,
+                func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out),
+                func.sum(UsageLedger.provider_cost_micros),
+                func.sum(UsageLedger.customer_cost_micros),
+            )
+            .where(UsageLedger.tenant_id == tenant_id, UsageLedger.created_at >= since)
+            .group_by(UsageLedger.model, UsageLedger.provider, UsageLedger.key_source)
+        )
+    ).all()
+
+    by_model = [
+        {
+            "model": row[0] or "unknown",
+            "provider": row[1] or "",
+            "key_source": row[2] or "mock",
+            "billable": (row[2] == "platform"),
+            "tokens": int(row[3] or 0),
+            "provider_cost_micros": int(row[4] or 0),
+            "customer_cost_micros": int(row[5] or 0),
+        }
+        for row in model_rows
+    ]
+
+    # By agent (join names; rows without an agent are grouped as "System").
+    agent_rows = (
+        await session.execute(
+            select(
+                UsageLedger.agent_id,
+                Agent.name,
+                func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out),
+                func.sum(UsageLedger.customer_cost_micros),
+            )
+            .outerjoin(Agent, Agent.id == UsageLedger.agent_id)
+            .where(UsageLedger.tenant_id == tenant_id, UsageLedger.created_at >= since)
+            .group_by(UsageLedger.agent_id, Agent.name)
+        )
+    ).all()
+
+    by_agent = [
+        {
+            "agent_id": str(row[0]) if row[0] else None,
+            "agent_name": row[1] or "System / untracked",
+            "tokens": int(row[2] or 0),
+            "customer_cost_micros": int(row[3] or 0),
+        }
+        for row in agent_rows
+    ]
+
+    totals = (
+        await session.execute(
+            select(
+                func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out),
+                func.sum(UsageLedger.provider_cost_micros),
+                func.sum(UsageLedger.customer_cost_micros),
+            ).where(UsageLedger.tenant_id == tenant_id, UsageLedger.created_at >= since)
+        )
+    ).one()
+
+    by_model.sort(key=lambda r: r["tokens"], reverse=True)
+    by_agent.sort(key=lambda r: r["tokens"], reverse=True)
+
+    return {
+        "days": days,
+        "total_tokens": int(totals[0] or 0),
+        "total_provider_cost_micros": int(totals[1] or 0),
+        "total_customer_cost_micros": int(totals[2] or 0),
+        "by_model": by_model,
+        "by_agent": by_agent,
+    }
+
+
 async def activity_timeline(session: AsyncSession, tenant_id: UUID, limit: int = 50) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
 

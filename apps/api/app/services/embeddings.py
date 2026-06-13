@@ -5,15 +5,48 @@ from app.config import get_settings
 settings = get_settings()
 
 
-async def embed_text(text: str) -> list[float]:
-    if settings.llm_mode == "mock" or not settings.openai_api_key:
-        # Deterministic pseudo-embedding for tests
-        base = [0.0] * settings.embedding_dimensions
-        for i, ch in enumerate(text[:512]):
-            base[i % settings.embedding_dimensions] += ord(ch) / 10000.0
-        return base
+def _mock_embedding(text: str) -> list[float]:
+    # Deterministic pseudo-embedding for tests / mock mode.
+    base = [0.0] * settings.embedding_dimensions
+    for i, ch in enumerate(text[:512]):
+        base[i % settings.embedding_dimensions] += ord(ch) / 10000.0
+    return base
+
+
+async def embed_text_with_usage(
+    text: str,
+    *,
+    api_key: str | None = None,
+    live: bool = False,
+    model_id: str | None = None,
+) -> tuple[list[float], int]:
+    """Embed text, returning ``(vector, tokens_in)``.
+
+    ``tokens_in`` is 0 in mock mode. Callers with a tenant context resolve the
+    key + model via ``resolve_model_call`` and pass ``api_key``, ``live``, and
+    ``model_id``.
+    """
+    effective_key = api_key if api_key is not None else settings.openai_api_key
+    effective_live = live if api_key is not None else settings.llm_mode == "live"
+
+    if not effective_live or not effective_key:
+        return _mock_embedding(text), 0
+
     from openai import AsyncOpenAI
 
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-    response = await client.embeddings.create(model=settings.embedding_model, input=text[:8000])
-    return response.data[0].embedding
+    client = AsyncOpenAI(api_key=effective_key)
+    response = await client.embeddings.create(
+        model=model_id or settings.embedding_model, input=text[:8000]
+    )
+    tokens_in = getattr(response.usage, "prompt_tokens", 0) if response.usage else 0
+    return response.data[0].embedding, tokens_in
+
+
+async def embed_text(
+    text: str, *, api_key: str | None = None, live: bool = False, model_id: str | None = None
+) -> list[float]:
+    """Embed text and return only the vector (see ``embed_text_with_usage``)."""
+    vector, _ = await embed_text_with_usage(
+        text, api_key=api_key, live=live, model_id=model_id
+    )
+    return vector

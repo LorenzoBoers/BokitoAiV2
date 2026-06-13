@@ -90,11 +90,21 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
         "role_slug": rslug,
         "parent_agent_id": str(agent.parent_agent_id) if agent.parent_agent_id else None,
         "status": status,
+        "model": agent.model,
+        "provider": agent.provider,
+        "system_prompt": agent.system_prompt or "",
+        "chat_access": agent.chat_access,
+        "kind": agent.kind,
         "current_session_id": session_id,
         "current_activity_id": activity_id,
         "current_activity_summary": summary or None,
         "updated_at": _ms(agent.updated_at or agent.created_at),
     }
+
+
+# Roles a workspace admin may pick when creating a worker agent. Orchestrators
+# are created via the project orchestrator flow, not here.
+CREATABLE_AGENT_ROLES = ("assistant", "communication", "builder", "orchestra")
 
 
 async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
@@ -130,6 +140,121 @@ async def update_agent_runtime_status(
         raise HTTPException(status_code=404, detail="Agent not found")
     agent.runtime_status = status
     agent.is_active = status in ("active", "sleeping")
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+    return {"ok": True, "agent": serialize_runtime_agent(agent)}
+
+
+async def update_agent_model(
+    session: AsyncSession, tenant_id: UUID, agent_id: UUID, model_slug: str
+) -> dict[str, Any]:
+    """Set an agent's chat model, validated against the tenant-allowed catalog."""
+    from app.services.model_catalog import get_model
+    from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
+
+    result = await session.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    model = await get_model(session, model_slug)
+    if not model or model.kind != "chat" or not model.enabled:
+        raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+
+    prefs = await get_tenant_model_prefs(session, tenant_id)
+    if not is_chat_model_allowed(prefs, model.slug):
+        raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+
+    agent.model = model.slug
+    agent.provider = model.provider
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+    return {"ok": True, "agent": serialize_runtime_agent(agent)}
+
+
+async def create_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    name: str,
+    role: str = "assistant",
+    system_prompt: str = "",
+    model_slug: str = "",
+    chat_access: str = "everyone",
+) -> dict[str, Any]:
+    """Create a company worker agent, with its model validated against the catalog."""
+    from app.services.model_catalog import get_default_model, get_model
+    from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
+
+    clean_name = (name or "").strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Agent name is required")
+    norm_role = role if role in CREATABLE_AGENT_ROLES else "assistant"
+    if chat_access not in ("everyone", "selected", "nobody"):
+        chat_access = "nobody"
+
+    prefs = await get_tenant_model_prefs(session, tenant_id)
+    model = None
+    if model_slug:
+        model = await get_model(session, model_slug)
+        if not model or model.kind != "chat" or not model.enabled:
+            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+        if not is_chat_model_allowed(prefs, model.slug):
+            raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+    else:
+        if prefs.get("default_chat"):
+            model = await get_model(session, prefs["default_chat"])
+        if not model:
+            model = await get_default_model(session, "chat")
+
+    agent = Agent(
+        tenant_id=tenant_id,
+        name=clean_name,
+        role=norm_role,
+        kind="company",
+        chat_access=chat_access,
+        system_prompt=(system_prompt or "").strip(),
+        slug=_slugify(clean_name),
+        runtime_status="standby",
+        is_active=True,
+    )
+    if model:
+        agent.model = model.slug
+        agent.provider = model.provider
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+    return {"ok": True, "agent": serialize_runtime_agent(agent)}
+
+
+async def update_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    agent_id: UUID,
+    *,
+    name: str | None = None,
+    system_prompt: str | None = None,
+) -> dict[str, Any]:
+    """Edit a company agent's identity (name) and system prompt."""
+    result = await session.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent or agent.kind != "company":
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if name is not None:
+        clean = name.strip()
+        if not clean:
+            raise HTTPException(status_code=400, detail="Agent name cannot be empty")
+        agent.name = clean
+    if system_prompt is not None:
+        agent.system_prompt = system_prompt.strip()
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()

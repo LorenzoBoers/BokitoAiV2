@@ -41,6 +41,13 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
+    label: 'AI',
+    links: [
+      { label: 'Models', to: '/settings/models' },
+      { label: 'AI keys', to: '/settings/llm-keys' },
+    ],
+  },
+  {
     label: 'Autonomy',
     links: [{ label: 'Autonomy & approvals', to: '/settings/autonomy' }],
   },

@@ -28,6 +28,23 @@ class AgentStatusBody(BaseModel):
     status: str
 
 
+class AgentModelBody(BaseModel):
+    model: str
+
+
+class AgentCreateBody(BaseModel):
+    name: str
+    role: str = "assistant"
+    system_prompt: str = ""
+    model: str = ""
+    chat_access: str = "everyone"
+
+
+class AgentUpdateBody(BaseModel):
+    name: str | None = None
+    system_prompt: str | None = None
+
+
 class TriggerAgentBody(BaseModel):
     agent_id: str
     instruction: str
@@ -234,6 +251,41 @@ async def list_agents(
     return {"items": items}
 
 
+@router.post("/agents")
+async def create_agent(
+    body: AgentCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    return await svc.create_agent(
+        session,
+        auth.tenant.id,
+        name=body.name,
+        role=body.role,
+        system_prompt=body.system_prompt,
+        model_slug=body.model,
+        chat_access=body.chat_access,
+    )
+
+
+@router.patch("/agents/{agent_id}")
+async def update_agent(
+    agent_id: UUID,
+    body: AgentUpdateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    return await svc.update_agent(
+        session,
+        auth.tenant.id,
+        agent_id,
+        name=body.name,
+        system_prompt=body.system_prompt,
+    )
+
+
 @router.get("/timeline")
 async def timeline(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -251,6 +303,17 @@ async def patch_agent_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await svc.update_agent_runtime_status(session, auth.tenant.id, agent_id, body.status)
+
+
+@router.patch("/agents/{agent_id}/model")
+async def patch_agent_model(
+    agent_id: UUID,
+    body: AgentModelBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    return await svc.update_agent_model(session, auth.tenant.id, agent_id, body.model)
 
 
 # --- Chat access (who may DM this company agent) ---

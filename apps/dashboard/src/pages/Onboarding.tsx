@@ -55,7 +55,15 @@ export default function Onboarding() {
       })
 
       toast.success('Welcome to Bokito. Your workspace is ready.')
-      navigate('/communication/inbox/all', { replace: true })
+      // Route to the surface the user picked in step 2 so onboarding lands them
+      // where they intend to start, rather than always on the inbox.
+      const destination =
+        step2Data.first_surface === 'channel'
+          ? '/settings/channels'
+          : step2Data.first_surface === 'project'
+            ? '/agents'
+            : '/communication/inbox/all'
+      navigate(destination, { replace: true })
     } catch (error) {
       console.error('Onboarding failed:', error)
       toast.error('Something went wrong while setting up your workspace.')

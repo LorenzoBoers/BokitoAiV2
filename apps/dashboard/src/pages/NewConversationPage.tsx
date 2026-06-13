@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowUp, Bot, Check, ChevronDown, Loader2, Mail, Sparkles, Users } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
@@ -19,6 +19,7 @@ type PickerFilter = 'all' | 'company'
 export default function NewConversationPage() {
   const { token } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { refresh: refreshSessions } = useChatSessions()
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
@@ -27,7 +28,9 @@ export default function NewConversationPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerQuery, setPickerQuery] = useState('')
   const [pickerFilter, setPickerFilter] = useState<PickerFilter>('all')
-  const [draft, setDraft] = useState('')
+  // Seed the composer from a ?prefill= query (e.g. "Ask assistant" from a
+  // customer thread). Read once on mount so user edits are never overwritten.
+  const [draft, setDraft] = useState(() => searchParams.get('prefill') ?? '')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

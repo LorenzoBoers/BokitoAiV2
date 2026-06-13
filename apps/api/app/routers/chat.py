@@ -299,6 +299,15 @@ async def stream_message(
     )
     await session.commit()
 
+    # An admin takeover (ai_paused) pauses the agent: persist the user's message
+    # but do not generate a reply.
+    if signal.ai_paused:
+
+        async def paused_generator():
+            yield {"event": "done", "data": json.dumps({"text": "", "ai_paused": True})}
+
+        return EventSourceResponse(paused_generator())
+
     agent, _run = await _agent_run(session, auth, signal, body.content)
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(session, auth.tenant.id, auth.user.id, agent=agent, signal_id=signal.id)

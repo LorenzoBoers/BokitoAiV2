@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Bot, Check, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
+import { AgentModelCard } from '../components/workforce/AgentModelCard'
 import {
   bokitoGetMyAssistant,
   bokitoListChatTargets,
@@ -26,33 +27,29 @@ export default function MyAssistantSettings() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      if (!token) return
-      setLoading(true)
-      try {
-        const [me, targetData] = await Promise.all([
-          bokitoGetMyAssistant(token),
-          bokitoListChatTargets(token),
-        ])
-        if (cancelled) return
-        setAssistant(me)
-        setTargets(targetData.items)
-        setName(me.agent.name)
-        setInstructions(me.agent.instructions)
-        setDefaultTarget(me.default_chat_agent_id)
-      } catch {
-        if (!cancelled) setError('Could not load assistant settings.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
+  const reload = useCallback(async () => {
+    if (!token) return
+    setLoading(true)
+    try {
+      const [me, targetData] = await Promise.all([
+        bokitoGetMyAssistant(token),
+        bokitoListChatTargets(token),
+      ])
+      setAssistant(me)
+      setTargets(targetData.items)
+      setName(me.agent.name)
+      setInstructions(me.agent.instructions)
+      setDefaultTarget(me.default_chat_agent_id)
+    } catch {
+      setError('Could not load assistant settings.')
+    } finally {
+      setLoading(false)
     }
   }, [token])
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
 
   const save = useCallback(async () => {
     if (!token || saving) return
@@ -173,7 +170,12 @@ export default function MyAssistantSettings() {
       </div>
 
       {assistant ? (
-        <p className="text-[11px] text-text-muted">Model: {assistant.agent.model}</p>
+        <AgentModelCard
+          agentId={assistant.agent.id}
+          currentModel={assistant.agent.model}
+          canEdit
+          onChanged={reload}
+        />
       ) : null}
     </PageContent>
   )

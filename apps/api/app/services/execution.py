@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun
 from app.models.orchestra import WorkstreamStep
-from app.models.usage import UsageLedger
 from app.services.agent.loop import AgentLoop
 from app.services.orchestration.profiles import apply_snapshot_to_agent, resolve_runtime_snapshot
 
@@ -160,6 +159,8 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
         prompt = prompt or instructions or f"Execute workstream step: {step_name}"
 
         loop = AgentLoop(session, tenant_id, None, runtime_agent, run)
+        loop.usage_scope = "workstream"
+        loop.usage_call_type = "workstream"
         try:
             text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
             run.status = "completed"
@@ -167,18 +168,6 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
             run.tokens_input = tokens.get("input_tokens", 0)
             run.tokens_output = tokens.get("output_tokens", 0)
             run.result_json = json.dumps({"text": text[:2000]})
-            session.add(
-                UsageLedger(
-                    tenant_id=tenant_id,
-                    scope="workstream",
-                    scope_id=str(run.id),
-                    provider=runtime_agent.provider,
-                    model=runtime_agent.model,
-                    tokens_in=tokens.get("input_tokens", 0),
-                    tokens_out=tokens.get("output_tokens", 0),
-                    cost_cents=max(1, (tokens.get("input_tokens", 0) + tokens.get("output_tokens", 0)) // 100),
-                )
-            )
             await session.commit()
             return {
                 "status": "success",

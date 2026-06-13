@@ -390,11 +390,18 @@ async def patch_notification_prefs(
 async def _token_usage(
     session: AsyncSession, tenant_id: UUID, project_id: UUID, since: datetime
 ) -> int:
+    from app.models.agent import AgentRun
+
+    # Usage rows link to runs via run_id; runs carry the project. Also include any
+    # legacy rows that stored the project id directly in scope_id.
     result = await session.execute(
-        select(func.coalesce(func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out), 0)).where(
+        select(func.coalesce(func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out), 0))
+        .select_from(UsageLedger)
+        .outerjoin(AgentRun, AgentRun.id == UsageLedger.run_id)
+        .where(
             UsageLedger.tenant_id == tenant_id,
-            UsageLedger.scope_id == str(project_id),
             UsageLedger.created_at >= since,
+            (AgentRun.project_id == project_id) | (UsageLedger.scope_id == str(project_id)),
         )
     )
     return int(result.scalar_one() or 0)

@@ -125,9 +125,18 @@ async def hybrid_search(
     *,
     source_types: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    from app.services.embeddings import embed_text
+    from app.services.embeddings import embed_text_with_usage
+    from app.services.model_resolution import record_usage, resolve_model_call
 
-    query_embedding = await embed_text(query)
+    resolved = await resolve_model_call(session, tenant_id, kind="embedding")
+    query_embedding, emb_tokens = await embed_text_with_usage(
+        query, api_key=resolved.api_key, live=resolved.live, model_id=resolved.model_id
+    )
+    if emb_tokens:
+        await record_usage(
+            session, tenant_id, resolved, tokens_in=emb_tokens, tokens_out=0,
+            scope="embedding", call_type="embedding",
+        )
     query_tokens = _tokens(query)
     stmt = select(DocChunk).where(DocChunk.tenant_id == tenant_id)
     if source_types:
@@ -168,9 +177,18 @@ async def upsert_source_chunk(
     metadata: dict[str, Any] | None = None,
 ) -> DocChunk:
     """Index a non-doc source (email, repo file) as a single chunk."""
-    from app.services.embeddings import embed_text
+    from app.services.embeddings import embed_text_with_usage
+    from app.services.model_resolution import record_usage, resolve_model_call
 
-    embedding = await embed_text(content)
+    resolved = await resolve_model_call(session, tenant_id, kind="embedding")
+    embedding, emb_tokens = await embed_text_with_usage(
+        content, api_key=resolved.api_key, live=resolved.live, model_id=resolved.model_id
+    )
+    if emb_tokens:
+        await record_usage(
+            session, tenant_id, resolved, tokens_in=emb_tokens, tokens_out=0,
+            scope="embedding", call_type="embedding",
+        )
     result = await session.execute(
         select(DocChunk).where(
             DocChunk.tenant_id == tenant_id,
@@ -274,12 +292,24 @@ async def list_docs(
 
 
 async def reindex_doc(session: AsyncSession, doc: WorkspaceDoc) -> int:
-    from app.services.embeddings import embed_text
+    from app.services.embeddings import embed_text_with_usage
+    from app.services.model_resolution import record_usage, resolve_model_call
 
+    resolved = await resolve_model_call(session, doc.tenant_id, kind="embedding")
     await session.execute(delete(DocChunk).where(DocChunk.doc_id == doc.id))
     count = 0
     for heading, text in chunk_markdown(doc.content):
-        embedding = await embed_text(f"{doc.title}\n{heading}\n{text}")
+        embedding, emb_tokens = await embed_text_with_usage(
+            f"{doc.title}\n{heading}\n{text}",
+            api_key=resolved.api_key,
+            live=resolved.live,
+            model_id=resolved.model_id,
+        )
+        if emb_tokens:
+            await record_usage(
+                session, doc.tenant_id, resolved, tokens_in=emb_tokens, tokens_out=0,
+                scope="embedding", call_type="embedding",
+            )
         session.add(
             DocChunk(
                 tenant_id=doc.tenant_id,

@@ -7,18 +7,14 @@
 
 export type SidebarSection =
   | 'assistant'
-  | 'views'
   | 'channels'
   | 'agents'
-  | 'labels'
   | 'settings'
 
 export const ALL_SECTIONS: readonly SidebarSection[] = [
   'assistant',
-  'views',
   'channels',
   'agents',
-  'labels',
   'settings',
 ]
 

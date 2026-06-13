@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import { useAuth } from '../context/AuthContext'
-import { bokitoGetCockpitSummary, type CockpitSummary } from '../lib/bokito-api'
+import {
+  bokitoGetCockpitSummary,
+  bokitoGetUsageBreakdown,
+  type CockpitSummary,
+  type UsageBreakdown,
+} from '../lib/bokito-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 
 function formatNumber(value: number) {
@@ -13,9 +18,14 @@ function formatCost(cents: number) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' }).format(cents / 100)
 }
 
+function formatUsd(micros: number) {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(micros / 1_000_000)
+}
+
 export default function UsagePage() {
   const { token } = useAuth()
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
+  const [breakdown, setBreakdown] = useState<UsageBreakdown | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,8 +33,11 @@ export default function UsagePage() {
     if (!token) return
     setLoading(true)
     setError(null)
-    bokitoGetCockpitSummary(token)
-      .then(setSummary)
+    Promise.all([bokitoGetCockpitSummary(token), bokitoGetUsageBreakdown(token, 30)])
+      .then(([s, b]) => {
+        setSummary(s)
+        setBreakdown(b)
+      })
       .catch((err) => setError(formatApiErrorMessage(err, 'Could not load usage.')))
       .finally(() => setLoading(false))
   }, [token])
@@ -78,8 +91,67 @@ export default function UsagePage() {
         ) : null}
       </div>
 
+      {breakdown ? (
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h3 className="text-[13px] font-semibold text-text-heading">By model ({breakdown.days}d)</h3>
+              <span className="text-[11px] text-text-muted">
+                Billable {formatUsd(breakdown.total_customer_cost_micros)}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {breakdown.by_model.length === 0 ? (
+                <p className="text-[12px] text-text-muted">No model usage yet.</p>
+              ) : (
+                breakdown.by_model.map((row) => (
+                  <div
+                    key={`${row.model}-${row.key_source}`}
+                    className="flex items-center justify-between gap-3 text-[12.5px]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-text-primary">{row.model || 'unknown'}</p>
+                      <p className="text-[11px] text-text-muted">
+                        {formatNumber(row.tokens)} tokens ·{' '}
+                        {row.billable ? (
+                          <span className="text-amber-500">billable {formatUsd(row.customer_cost_micros)}</span>
+                        ) : (
+                          <span className="text-status-success">BYOK (no charge)</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">By agent ({breakdown.days}d)</h3>
+            <div className="space-y-2">
+              {breakdown.by_agent.length === 0 ? (
+                <p className="text-[12px] text-text-muted">No agent usage yet.</p>
+              ) : (
+                breakdown.by_agent.map((row) => (
+                  <div
+                    key={row.agent_id ?? 'system'}
+                    className="flex items-center justify-between gap-3 text-[12.5px]"
+                  >
+                    <p className="min-w-0 truncate font-medium text-text-primary">{row.agent_name}</p>
+                    <p className="shrink-0 text-[11px] text-text-muted">
+                      {formatNumber(row.tokens)} tok · {formatUsd(row.customer_cost_micros)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <p className="mt-4 text-[12px] text-text-muted">
-        Usage is aggregated per workspace billing period. Per-agent breakdowns appear on the agent detail pages.
+        Models run on your own keys show no charge (BYOK); models on Bokito&apos;s keys are billed per token with
+        the platform markup applied.
       </p>
     </div>
   )

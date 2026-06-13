@@ -8,7 +8,7 @@ import { SidebarPrefsProvider } from '../../context/SidebarPrefsContext'
 
 /**
  * Communication hub layout: customizable inner rail (New chat, Inbox,
- * Assistant, Views, Channels, Agents, Labels, Settings), thread list and
+ * Assistant, Channels, Agents, Settings), thread list and
  * conversation on the right.
  */
 export default function MessagesHub() {

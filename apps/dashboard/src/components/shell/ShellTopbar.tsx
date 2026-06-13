@@ -30,12 +30,20 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
   const goToWorkspacesHub = () => {
-    const controlPlaneUrl = buildControlPlaneUrl('/')
+    // On a tenant subdomain the hub lives on the control-plane host, so cross-navigate
+    // there. Same-origin (app host / loopback dev) stays a client-side route change.
+    const controlPlaneUrl = buildControlPlaneUrl('/workspaces')
     if (controlPlaneUrl && typeof window !== 'undefined') {
-      window.location.assign(controlPlaneUrl)
-      return
+      try {
+        if (new URL(controlPlaneUrl).origin !== window.location.origin) {
+          window.location.assign(controlPlaneUrl)
+          return
+        }
+      } catch {
+        /* fall through to client-side navigation */
+      }
     }
-    navigate('/')
+    navigate('/workspaces')
   }
 
   return (

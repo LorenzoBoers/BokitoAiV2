@@ -251,6 +251,8 @@ async def list_passports(
                 "id": str(a.id),
                 "name": a.name,
                 "role": a.role,
+                "model": a.model,
+                "provider": a.provider,
                 "autonomy_level": a.autonomy_level,
                 "allowed_tools": _list(a.tools_json),
                 "permission_scopes": _list(a.permission_scopes_json),

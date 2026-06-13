@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -24,6 +25,9 @@ from app.models.signal import (
     SignalThreadPin,
     is_internal_channel,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -594,7 +598,57 @@ async def reply_to_thread(
     await session.commit()
     await session.refresh(message)
     await publish_signal_message(signal, message)
+    # Internal agent threads are two-way chats: when an operator posts a reply
+    # (not an internal note), run the thread's agent and append its response.
+    # External channels (email/whatsapp/widget) and assistant-channel threads
+    # (handled by /api/chat) are intentionally excluded.
+    if direction == "outbound" and signal.channel == "internal" and not signal.ai_paused:
+        await _generate_agent_reply(session, tenant_id, user_id, signal)
     return serialize_message(message)
+
+
+async def _generate_agent_reply(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    signal: Signal,
+) -> None:
+    """Run the thread's agent and append its reply.
+
+    Best-effort: the user's message is already committed, so any failure here
+    is logged and swallowed rather than surfaced to the caller.
+    """
+    from app.services.agent.loop import AgentLoop
+    from app.services.assistant_threads import (
+        append_signal_chat_message,
+        signal_chat_history,
+    )
+
+    try:
+        agent = await _resolve_thread_agent(session, tenant_id, signal)
+        if not agent or not agent.is_active:
+            return
+        history = await signal_chat_history(session, signal.id)
+        loop = AgentLoop(
+            session,
+            tenant_id,
+            user_id,
+            agent=agent,
+            signal_id=signal.id,
+        )
+        reply_text, tokens = await loop.run_chat(history)
+        await append_signal_chat_message(
+            session,
+            signal,
+            role="assistant",
+            content=reply_text,
+            author_agent_id=agent.id,
+            metadata={"usage": tokens},
+        )
+        await session.commit()
+    except Exception:  # noqa: BLE001 - never break the user's reply
+        await session.rollback()
+        logger.exception("Failed to generate agent reply for signal %s", signal.id)
 
 
 async def list_pins(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> dict[str, list[str]]:

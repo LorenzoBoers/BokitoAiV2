@@ -13,8 +13,6 @@ import {
   Plus,
   Settings,
   Sparkles,
-  Tag,
-  Users,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -26,18 +24,14 @@ import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-a
 import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
-  LABEL_PRESETS,
-  VIEW_PRESETS,
   agentChatPath,
   agentRunsPath,
   assistantPath,
   channelPath,
   inboxPath,
-  labelPath,
   leafFromPath,
   leafKey,
   newConversationPath,
-  viewPath,
   type HubLeaf,
   type InboxQueue,
   type RunsQueue,
@@ -72,10 +66,8 @@ const RUNS_QUEUE_ITEMS: ReadonlyArray<{ queue: RunsQueue; labelKey: string; defa
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
   assistant: { labelKey: 'support.section.assistant', defaultLabel: 'Assistant' },
-  views: { labelKey: 'support.section.views', defaultLabel: 'Views' },
   channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   agents: { labelKey: 'support.section.agents', defaultLabel: 'Agents' },
-  labels: { labelKey: 'support.section.labels', defaultLabel: 'Labels' },
   settings: { labelKey: 'support.section.settings', defaultLabel: 'Settings' },
 }
 
@@ -100,15 +92,6 @@ function LeafLink({ leaf, to, label, icon, badgeCount = 0, activeLeaf }: LeafLin
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <NavCountBadge count={badgeCount} placement="inline" />
     </NavLink>
-  )
-}
-
-function DisabledRow({ label }: { label: string }) {
-  return (
-    <div className="flex cursor-default items-center gap-2 rounded-lg border border-transparent px-3 py-1.5 text-[13px] text-text-muted/70">
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 text-[10px] uppercase tracking-wide">Soon</span>
-    </div>
   )
 }
 
@@ -149,24 +132,6 @@ function AssistantSection({ assistant, activeLeaf }: { assistant: ChatTarget | n
         icon={<Sparkles size={14} className="shrink-0 text-text-muted" />}
         activeLeaf={activeLeaf}
       />
-    </div>
-  )
-}
-
-function ViewsSection({ activeLeaf, t }: { activeLeaf: HubLeaf | null; t: TFn }) {
-  return (
-    <div className="space-y-0.5">
-      {VIEW_PRESETS.map((view) => (
-        <LeafLink
-          key={view.key}
-          leaf={{ type: 'view', key: view.key }}
-          to={viewPath(view.key)}
-          label={t(`support.views.${view.key}`, { defaultValue: view.label })}
-          icon={<Users size={14} className="shrink-0 text-text-muted" />}
-          activeLeaf={activeLeaf}
-        />
-      ))}
-      <DisabledRow label={t('support.views.custom', { defaultValue: 'Custom views...' })} />
     </div>
   )
 }
@@ -310,24 +275,6 @@ function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
   )
 }
 
-function LabelsSection({ activeLeaf, t }: { activeLeaf: HubLeaf | null; t: TFn }) {
-  return (
-    <div className="space-y-0.5">
-      {LABEL_PRESETS.map((label) => (
-        <LeafLink
-          key={label.key}
-          leaf={{ type: 'label', key: label.key }}
-          to={labelPath(label.key)}
-          label={t(`support.labels.${label.key}`, { defaultValue: label.label })}
-          icon={<Tag size={14} className="shrink-0 text-text-muted" />}
-          activeLeaf={activeLeaf}
-        />
-      ))}
-      <DisabledRow label={t('support.labels.custom', { defaultValue: 'Custom labels...' })} />
-    </div>
-  )
-}
-
 function SettingsSection({ t }: { t: TFn }) {
   return (
     <div className="space-y-0.5">
@@ -389,10 +336,8 @@ export default function MessagesHubNav() {
 
   const sectionContent: Record<SidebarSection, ReactNode> = {
     assistant: <AssistantSection assistant={assistant} activeLeaf={activeLeaf} />,
-    views: <ViewsSection activeLeaf={activeLeaf} t={t} />,
     channels: <ChannelsSection activeLeaf={activeLeaf} t={t} />,
     agents: <AgentsSection agents={companyAgents} loading={targetsLoading} activeLeaf={activeLeaf} t={t} />,
-    labels: <LabelsSection activeLeaf={activeLeaf} t={t} />,
     settings: <SettingsSection t={t} />,
   }
 

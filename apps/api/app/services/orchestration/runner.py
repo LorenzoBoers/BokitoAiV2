@@ -14,7 +14,6 @@ from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.notification import DecisionRequest
 from app.models.orchestration import AgentTask
 from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep, WorkstreamStepRun
-from app.models.usage import UsageLedger
 from app.services.agent.loop import AgentLoop
 from app.services.orchestration.dispatcher import add_task_artifact
 from app.services.orchestration.eval import run_eval_checkpoint
@@ -222,11 +221,12 @@ async def _execute_agent_segment(
 
     messages = [*checkpoint_messages, {"role": "user", "content": prompt}]
     loop = AgentLoop(session, tenant_id, task.created_by, runtime_agent, run)
+    loop.usage_scope = "orchestration"
+    loop.usage_call_type = "orchestration"
     text, tokens = await loop.run_chat(messages)
 
     tokens_in = tokens.get("input_tokens", 0)
     tokens_out = tokens.get("output_tokens", 0)
-    cost_cents = max(1, (tokens_in + tokens_out) // 100)
     run.tokens_input = tokens_in
     run.tokens_output = tokens_out
     run.result_json = json.dumps({"text": text[:8000]})
@@ -235,18 +235,15 @@ async def _execute_agent_segment(
     run.completed_at = datetime.utcnow()
     session.add(run)
 
-    session.add(
-        UsageLedger(
-            tenant_id=tenant_id,
-            scope="orchestration",
-            scope_id=str(run.id),
-            provider=runtime_agent.provider,
-            model=runtime_agent.model,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
-            cost_cents=cost_cents,
-        )
-    )
+    # Usage is metered inside AgentLoop.run_chat; derive a cents figure for budget tracking.
+    if loop.resolved_call is not None:
+        from app.services.model_resolution import compute_costs
+
+        provider_micros, customer_micros = compute_costs(loop.resolved_call, tokens_in, tokens_out)
+        billed = customer_micros if loop.resolved_call.billable else provider_micros
+        cost_cents = max(1, round(billed / 10000))
+    else:
+        cost_cents = max(1, (tokens_in + tokens_out) // 100)
 
     context_window = max(1, int(snapshot.get("max_tokens") or runtime_agent.max_tokens or 4096))
     context_pct = min(100, round((tokens_in + tokens_out) / context_window * 100))

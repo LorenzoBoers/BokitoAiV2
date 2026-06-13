@@ -81,6 +81,11 @@ export interface RuntimeAgent {
   role_slug?: string | null
   parent_agent_id: string | null
   status: 'standby' | 'active' | 'sleeping' | 'error'
+  model?: string
+  provider?: string
+  system_prompt?: string
+  chat_access?: 'everyone' | 'selected' | 'nobody'
+  kind?: 'company' | 'personal'
   current_session_id: string | null
   current_activity_id: string | null
   current_activity_summary: string | null

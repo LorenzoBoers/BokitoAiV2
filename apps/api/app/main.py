@@ -30,12 +30,14 @@ from app.routers import (
     integrations,
     mcp,
     me,
+    models,
     notifications,
     projects,
     push,
     settings_orchestra,
     signals,
     learning,
+    tenant_secrets,
     triggers,
     widget,
     workforce,
@@ -116,6 +118,9 @@ app.include_router(govern.router, prefix=api_prefix)
 app.include_router(mcp.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
+app.include_router(tenant_secrets.router, prefix=api_prefix)
+app.include_router(models.router, prefix=api_prefix)
+app.include_router(models.staff_router, prefix=api_prefix)
 app.include_router(orchestration.router, prefix=api_prefix)
 app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
 app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")

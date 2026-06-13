@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
-from app.services.agent.llm import get_llm_provider
+from app.services.agent.llm import get_chat_provider, get_llm_provider
 from app.services.agent.tools import (
     execute_tool,
     filter_tools_for_agent,
@@ -33,6 +33,11 @@ class AgentLoop:
         self.signal_id = signal_id
         self.trust = trust
         self.llm = get_llm_provider()
+        # Set during run_chat once the model call is resolved (drives metering).
+        self.resolved_call = None
+        # Metering labels; orchestration/workstream callers override before run_chat.
+        self.usage_scope = "chat"
+        self.usage_call_type = "chat"
         # Passport: an agent only sees the tools it is permitted to use.
         self.tools = filter_tools_for_agent(get_tool_definitions(), agent)
         self.max_loops = agent.max_loops if agent else 15
@@ -84,6 +89,14 @@ class AgentLoop:
         extra_context: str = "",
         attachments: list[dict] | None = None,
     ) -> tuple[str, dict[str, int]]:
+        from app.services.model_resolution import resolve_model_call
+
+        model_slug = self.agent.model if self.agent else None
+        self.resolved_call = await resolve_model_call(
+            self.session, self.tenant_id, kind="chat", model_slug=model_slug
+        )
+        self.llm = get_chat_provider(self.resolved_call.provider, self.resolved_call.api_key)
+
         user_query = ""
         if messages:
             last = messages[-1]
@@ -101,7 +114,7 @@ class AgentLoop:
             response = await self.llm.chat(
                 llm_messages,
                 tools=self.tools,
-                model=self.agent.model if self.agent else None,
+                model=self.resolved_call.model_id,
             )
             tokens["input_tokens"] += response.get("usage", {}).get("input_tokens", 0)
             tokens["output_tokens"] += response.get("usage", {}).get("output_tokens", 0)
@@ -137,6 +150,29 @@ class AgentLoop:
                     }
                 )
             llm_messages.append({"role": "user", "content": tool_results})
+
+        if self.resolved_call is not None:
+            from app.services.model_resolution import record_usage
+
+            scope_id = None
+            if self.signal_id:
+                scope_id = str(self.signal_id)
+            elif self.run is not None:
+                scope_id = str(self.run.id)
+            await record_usage(
+                self.session,
+                self.tenant_id,
+                self.resolved_call,
+                tokens_in=tokens.get("input_tokens", 0),
+                tokens_out=tokens.get("output_tokens", 0),
+                scope=self.usage_scope,
+                scope_id=scope_id,
+                call_type=self.usage_call_type,
+                agent_id=self.agent.id if self.agent else None,
+                run_id=self.run.id if self.run else None,
+                user_id=self.user_id,
+                commit=True,
+            )
 
         return final_text or "Done.", tokens
 

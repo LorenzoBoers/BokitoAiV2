@@ -42,6 +42,8 @@ from app.models.orchestration import (
     TaskArtifact,
 )
 from app.models.os_graph import OsCanvasEdge, OsCanvasNode
+from app.models.secret import TenantSecret
+from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetting
 
 __all__ = [
     "Tenant",
@@ -101,4 +103,8 @@ __all__ = [
     "AgentTask",
     "EvalCheckpoint",
     "TaskArtifact",
+    "TenantSecret",
+    "ModelCatalog",
+    "PlatformSecret",
+    "PlatformSetting",
 ]

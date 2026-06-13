@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bot, RefreshCw } from 'lucide-react'
+import { Bot, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -9,6 +9,7 @@ import { AiAvatar } from '../components/ui/AiAvatar'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
+import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
@@ -30,12 +31,14 @@ const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
 
 export default function AiAgents() {
   const { t } = useTranslation(['nav', 'common'])
+  const navigate = useNavigate()
   const isAdmin = useIsAdmin()
   const [poAgents, setPoAgents] = useState<RuntimeAgent[]>([])
   const [workerAgents, setWorkerAgents] = useState<RuntimeAgent[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showNewAgent, setShowNewAgent] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -70,10 +73,16 @@ export default function AiAgents() {
           <h1 className="text-2xl font-semibold text-text-heading">{t('workforce.agents.title', { defaultValue: 'Agent library' })}</h1>
           <p className="text-sm text-text-muted mt-1">{t('workforce.agents.listDescription')}</p>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+            Refresh
+          </Button>
+          <Button type="button" size="sm" onClick={() => setShowNewAgent(true)}>
+            <Plus className="mr-1 h-4 w-4" aria-hidden />
+            {t('workforce.agents.newAgent', { defaultValue: 'New agent' })}
+          </Button>
+        </div>
       </header>
 
       {loading ? (
@@ -93,8 +102,9 @@ export default function AiAgents() {
             defaultValue: 'Create a project with an orchestrator or configure worker agents to populate this library.',
           })}
           action={
-            <Button asChild size="sm">
-              <Link to="/agenda">{t('aiOs.links.automations', { defaultValue: 'Open agenda' })}</Link>
+            <Button size="sm" onClick={() => setShowNewAgent(true)}>
+              <Plus className="mr-1 h-4 w-4" aria-hidden />
+              {t('workforce.agents.newAgent', { defaultValue: 'New agent' })}
             </Button>
           }
         />
@@ -150,8 +160,15 @@ export default function AiAgents() {
                         })()}
                       </div>
                     </div>
-                    <span className={cn('shrink-0 text-xs font-medium capitalize', STATUS_CLASS[agent.status])}>
-                      {t(`workforce.agents.status.${agent.status}`, { defaultValue: agent.status })}
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={cn('text-xs font-medium capitalize', STATUS_CLASS[agent.status])}>
+                        {t(`workforce.agents.status.${agent.status}`, { defaultValue: agent.status })}
+                      </span>
+                      {agent.model ? (
+                        <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[10px] text-text-muted">
+                          {agent.model}
+                        </span>
+                      ) : null}
                     </span>
                   </Link>
                 </li>
@@ -198,8 +215,15 @@ export default function AiAgents() {
                         ) : null}
                       </div>
                     </div>
-                    <span className={cn('shrink-0 text-xs font-medium capitalize', STATUS_CLASS[agent.status])}>
-                      {t(`workforce.agents.status.${agent.status}`, { defaultValue: agent.status })}
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={cn('text-xs font-medium capitalize', STATUS_CLASS[agent.status])}>
+                        {t(`workforce.agents.status.${agent.status}`, { defaultValue: agent.status })}
+                      </span>
+                      {agent.model ? (
+                        <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[10px] text-text-muted">
+                          {agent.model}
+                        </span>
+                      ) : null}
                     </span>
                   </Link>
                 </li>
@@ -208,6 +232,12 @@ export default function AiAgents() {
           </ul>
         </Card>
       )}
+
+      <NewAgentDialog
+        open={showNewAgent}
+        onOpenChange={setShowNewAgent}
+        onCreated={(agentId) => navigate(`/agents/${agentId}`)}
+      />
     </PageContent>
   )
 }
