@@ -1657,7 +1657,7 @@ Alle Bokito-verkeer loopt via `*.bokito.ai`. **`bokito.chargecars.app` is verwij
 
 ### 17.3 Autotrading tenant — productie-audit (juni 2026)
 
-UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`, build `776f355`).
+UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`, build `1389b9f`).
 
 **Werkt:**
 - Login + Communication-inbox; MMXM Trader-thread zichtbaar in sidebar en threadlijst.
@@ -1670,9 +1670,10 @@ UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`
 - **Geen agent-antwoord** (opgelost juni 2026): verouderde catalog `model_id`s (`claude-sonnet-4-20250514` retired) + exception handler bug. Fix: catalog → 4.6/4.5/4.8 ids, raw agent model passthrough, `signal_id` vóór rollback loggen. Prod hotfix via `scripts/vps-fix-prod-llm.py`.
 - **Orchestration panel:** "No orchestrator linked to this thread's project" — trading-thread had geen `project_id`. Fix: idempotente bootstrap in `apps/api/app/services/trading_bootstrap.py` (`seed_trading_stack`); prod via `scripts/vps-setup-trading-project.py`.
 - **Pipeline smoke:** bestaande thread bevat skip-bericht: trade plan `smoke-nonexistent` / setup `smoke` not found.
-- **MCP:** geen geconfigureerde MCP-connections op prod (`/settings/mcp` leeg) — trading-tools via `custom_mcp` + `TRADING_MCP_URL` / `TRADING_MCP_API_KEY` op de API-container; install via `scripts/vps-setup-trading-mcp.py`.
+- **MCP:** trading MCP draait op VPS als `trading-trading-exec-mcp-1` (poort 8002, endpoint `/mcp`) op Docker-netwerk `bokito_shared`. Bokito `api`/`worker` moeten op dat netwerk zitten (`docker-compose.deploy.yml`). Env: `TRADING_MCP_URL=http://trading-exec-mcp:8002/mcp`, `TRADING_MCP_API_KEY=local-dev-key`. Install: `scripts/vps-configure-trading-mcp-env.py` + `scripts/vps-setup-trading-mcp.py`. Prod autotrading tenant heeft actieve `custom_mcp` connection "Trading pipeline MCP" (10 tools bereikbaar vanuit api-container).
 - **Platform LLM keys:** tenants zonder eigen Anthropic-key gebruiken de Bokito platform key (`platform_secrets` of env). API exposeert `chat_key_source` / `embeddings_key_source` (`tenant` | `platform` | `none`); LlmKeysSettings toont "Bokito platform" badge.
-- **Settings UI:** prod heeft nog legacy **Models** + **AI keys**; nieuwe **Providers & models**-UI staat in repo maar is niet gedeployed.
+- **Settings UI:** prod build `1389b9f` — na web deploy kan Cloudflare/browser oude JS cachen (login footer toont verkeerde build); purge cache of hard refresh. **Providers & models** + **AI keys** onder Settings → AI.
+- **Deploy smoke:** `scripts/smoke-deploy.sh` wacht tot `/api/health` ready (6 pogingen) vóór login-check.
 - **Infra:** `bokito-web-1` unhealthy op VPS (Caddy/healthcheck — apart onderzoeken).
 
 **Prod trader login (reset juni 2026):** `trader@bokito.ai` — wachtwoord via `scripts/vps-reset-prod-trader.py` (rotate + sync `PROD_SMOKE_PASSWORD` indien smoke tests moeten matchen).

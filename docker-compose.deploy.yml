@@ -44,6 +44,9 @@ services:
     restart: unless-stopped
     env_file:
       - ${BOKITO_ENV_FILE:-.env.prod}
+    networks:
+      - default
+      - bokito_shared
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +66,9 @@ services:
     restart: unless-stopped
     env_file:
       - ${BOKITO_ENV_FILE:-.env.prod}
+    networks:
+      - default
+      - bokito_shared
     environment:
       TRIGGER_SCHEDULER_ENABLED: "false"
     depends_on:
@@ -105,3 +111,7 @@ volumes:
   bokito_redis_data:
   caddy_data:
   caddy_config:
+
+networks:
+  bokito_shared:
+    external: true

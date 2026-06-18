@@ -9,7 +9,18 @@ BASE_URL="${1:?usage: $0 <base-url>}"
 BASE_URL="${BASE_URL%/}"
 
 echo "Smoke: GET ${BASE_URL}/api/health"
-health="$(curl -sf --max-time 30 "${BASE_URL}/api/health")"
+health=""
+for attempt in 1 2 3 4 5 6; do
+  if health="$(curl -sf --max-time 30 "${BASE_URL}/api/health" 2>/dev/null)"; then
+    break
+  fi
+  if [[ "$attempt" -eq 6 ]]; then
+    echo "  health failed after ${attempt} attempts" >&2
+    exit 22
+  fi
+  echo "  health not ready (attempt ${attempt}/6), retrying in 5s..."
+  sleep 5
+done
 python3 -c "import json,sys; d=json.loads(sys.argv[1]); assert d.get('ok') is True, d" "$health"
 echo "  health ok"
 
