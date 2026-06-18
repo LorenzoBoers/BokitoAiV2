@@ -20,7 +20,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection
 from app.models.oauth_state import OAuthState
 from app.services import oauth_providers
