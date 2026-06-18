@@ -6,8 +6,9 @@ const dashboardPort = process.env.PLAYWRIGHT_DASHBOARD_PORT || '5184'
 const apiBase = `http://127.0.0.1:${apiPort}`
 const dashboardBase = `http://127.0.0.1:${dashboardPort}`
 
-const apiCommand =
-  process.platform === 'win32'
+const apiCommand = process.env.CI
+  ? 'python scripts/run_e2e_api.py'
+  : process.platform === 'win32'
     ? 'uv run python scripts/run_e2e_api.py'
     : 'uv run python scripts/run_e2e_api.py'
 

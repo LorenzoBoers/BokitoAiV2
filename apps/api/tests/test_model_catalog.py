@@ -1,13 +1,12 @@
 import pytest
 from httpx import AsyncClient
 
-from app.models.auth import Membership, Tenant, User
+from app.models.auth import Tenant
 from app.models.agent import Agent
 from app.services import platform_secrets, tenant_secrets
 from app.services.agent.llm import OpenAILLMProvider
 from app.services.model_catalog import get_default_model, seed_model_catalog
 from app.services.model_resolution import compute_costs, record_usage, resolve_model_call
-from app.services.tenant_models import set_tenant_model_prefs
 
 
 @pytest.mark.asyncio
