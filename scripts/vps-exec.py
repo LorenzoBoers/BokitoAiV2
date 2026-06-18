@@ -1,32 +1,26 @@
 #!/usr/bin/env python3
-"""Tail logs for a Bokito Compose stack on the VPS."""
+"""Run a one-off command on the Bokito VPS (production)."""
 import os
 import sys
 import paramiko
 
 HOST = os.environ.get("VPS_HOST", "31.97.45.44")
 KEY_PATH = os.environ.get("VPS_SSH_KEY", os.path.expanduser("~/.ssh/bokito_vps_deploy"))
-ROOT = os.environ.get("BOKITO_DEPLOY_ROOT", "/opt/bokito")
-PROJECT = os.environ.get("BOKITO_COMPOSE_PROJECT", "bokito")
-SERVICE = sys.argv[1] if len(sys.argv) > 1 else "api"
-LINES = os.environ.get("LOG_LINES", "80")
 
 
 def main() -> int:
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "docker ps"
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(HOST, username=os.environ.get("VPS_USER", "root"), key_filename=KEY_PATH, timeout=30)
-    cmd = (
-        f"cd {ROOT} && docker compose -p {PROJECT} logs --tail={LINES} {SERVICE} 2>&1"
-    )
+    client.connect(HOST, username="root", key_filename=KEY_PATH, timeout=30)
     _, stdout, stderr = client.exec_command(cmd, timeout=120)
     out = stdout.read().decode()
     err = stderr.read().decode()
+    code = stdout.channel.recv_exit_status()
     if out:
         print(out, end="" if out.endswith("\n") else "\n")
     if err:
         print(err, file=sys.stderr, end="" if err.endswith("\n") else "\n")
-    code = stdout.channel.recv_exit_status()
     client.close()
     return code
 

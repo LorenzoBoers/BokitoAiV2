@@ -1,7 +1,0 @@
-name = "bokito-api-strangler"
-main = "src/index.js"
-compatibility_date = "2024-01-01"
-
-[vars]
-BOKITO_API_ORIGIN = "http://127.0.0.1:8000"
-BOKITO_XANO_ORIGIN = "https://xrex-nmji-j9ur.f2.xano.io"

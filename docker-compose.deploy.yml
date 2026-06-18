@@ -1,0 +1,107 @@
+# Registry-pull deploy stack for VPS (staging + production).
+#
+# Usage (on VPS at /opt/bokito):
+#   docker compose -p bokito --env-file .env.prod \
+#     -f docker-compose.deploy.yml -f docker-compose.vps.yml pull
+#   docker compose -p bokito --env-file .env.prod \
+#     -f docker-compose.deploy.yml -f docker-compose.vps.yml up -d
+#
+# Staging uses project name `bokito-staging` and .env.staging (port 8089).
+# Production keeps project name `bokito` to preserve existing volumes.
+#
+# Set BOKITO_API_IMAGE and BOKITO_WEB_IMAGE in the env file (written by CI).
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bokito}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-bokito}
+    volumes:
+      - bokito_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bokito}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - bokito_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    image: ${BOKITO_API_IMAGE:?set BOKITO_API_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    env_file:
+      - ${BOKITO_ENV_FILE:-.env.prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  worker:
+    image: ${BOKITO_API_IMAGE:?set BOKITO_API_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    env_file:
+      - ${BOKITO_ENV_FILE:-.env.prod}
+    environment:
+      TRIGGER_SCHEDULER_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "arq", "app.workers.tasks.WorkerSettings", "--check"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    command: arq app.workers.tasks.WorkerSettings
+
+  web:
+    image: ${BOKITO_WEB_IMAGE:?set BOKITO_WEB_IMAGE}
+    pull_policy: always
+    restart: unless-stopped
+    env_file:
+      - ${BOKITO_ENV_FILE:-.env.prod}
+    environment:
+      BOKITO_DOMAIN: ${BOKITO_DOMAIN:-:80}
+    ports:
+      - "127.0.0.1:${BOKITO_WEB_PORT:-8088}:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  bokito_pg_data:
+  bokito_redis_data:
+  caddy_data:
+  caddy_config:

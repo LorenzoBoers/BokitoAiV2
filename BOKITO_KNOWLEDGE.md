@@ -6,21 +6,15 @@
 
 ### Repo-scope (bokitoAiV2)
 
-Deze repository bevat `apps/dashboard` (portal), `apps/chat-widget`, `apps/runtime` (BullMQ worker op VPS), `apps/mobile` (Expo Android), en `packages/shared` + `packages/docker/agent-run` (agent containers). Zie `docs/phase-0-infrastructure.md`, `xano-patches/v1/INFRA.md` en `xano-patches/v1-platform-tables.md` voor V1 platform rollout.
+Deze repository bevat `apps/dashboard` (portal), `apps/chat-widget`, `apps/api` (FastAPI backend), `apps/mobile` (Expo), en `packages/shared`. Lokale dev: `docker compose -f docker-compose.dev.yml up`, daarna `uvicorn` in `apps/api` en `npm run dev` in `apps/dashboard`. Zie `README.md` en `docs/architecture.md`.
 
-**V1 worker plane (2026-05):** Runtime op VPS (`127.0.0.1:3300`, publiek via Caddy op `https://worker.bokito.ai`). Xano crons roepen `POST {WORKER_BASE_URL}/agent/po/run` aan met `Authorization: Bearer {WORKER_INBOUND_SECRET}`. Runtime praat met Xano `api:workforce` met JSON `worker_api_key` (runtime voegt dit toe in POST-bodies; gelijk aan `XANO_WORKER_API_KEY` env). Agent-containers sturen `auth_token` in de body (gelijk aan `work_log_id`). Bearer-headers blijven optioneel; `$header` werkt niet op endpoints met `auth = false`. Agent-containers embedden queries zelf via Ollama op `http://host.docker.internal:11434` (`docker run --add-host=host.docker.internal:host-gateway`); Xano `/index/search` accepteert alleen `{ project_id, embedding, top_k }`. Worker endpoints: `POST /runs/start`, `/runs/context`, `/runs/complete`, `POST /work_logs/{id}/events`, `POST /messages/worker`, `POST /index/chunks`, `GET /projects/{id}/budget`, plus block-doc worker plane `POST /api:integrations/doc/worker/{tree,blocks,reindex-page}`. PKB worker endpoints zijn verwijderd in de doc-systeem migratie. **Portal read APIs (user JWT, tenant-scoped):** `GET /work_logs` (list runs), `GET /work_logs/{id}/events` (live run detail), `GET /messages` (filtered list incl. `task_result`), `GET /projects`, `PATCH /projects/{id}`, `GET /pkb`, `POST /pkb`, `PATCH /pkb/{id}`. Dashboard: `/admin/runs` toont run-lijst + live events; `/messages` heeft tab Results met link naar run detail; `/project/:id/pkb` toont projectheader met `autonomous_scope` en PKB-tabs. `POST /runs/complete` behoudt bestaande `tokens_used` wanneer runner zonder token-counts completeert; agent-loop stuurt token totals bij complete. Run-token voor containers = `work_log_id` (UUID). **`POST /messages/worker` (API 265):** ondersteunt nu optionele `message_type` (default `task_result`), `channel` (default `internal`), `to_type`, `to_id` zodat dezelfde endpoint `decision_request` en `status_update` kan schrijven. **`POST /pkb/worker/list` (API 274) en `POST /pkb/worker/update` (API 275):** worker-/run-token endpoints die de PO agent gebruikt om de PKB te lezen en change_queue rijen te updaten. **`POST /projects` (API 237):** zaait twee `pkb_sections` rijen na `db.add projects` zodat `current_state` en `intended_state` direct gevuld zijn met de `autonomous_scope` van de gebruiker. **`POST /pkb` (API 241):** wanneer `layer == "change_queue"` schiet de endpoint synchronisch een `api.request POST {WORKER_BASE_URL}/agent/po/run` af zodat de PO agent binnen seconden reageert (timeout 10s). **`GET /pkb` (API 240):** sorteert op `priority asc, updated_at asc` (eerdere `created_at` bestond niet als kolom). **`runs/context` (API 260):** levert `project_name`, `project_autonomous_scope`, `tenant_id`, `agent_id` en `change_queue_section_id` zodat de runner deze in `RUN_CONFIG_JSON` doorzet en de PO-systeem-prompt `{{project.name}}` kan substitueren. **PO agent prompt + tools (live in `agents` tabel, id `96312783-…`):** `max_loops=15`; `tools=[log, read_pkb, update_pkb_section, write_decision_request, write_status_update]`; system_prompt instrueert STEP1 read_pkb / STEP2 read change_queue / STEP3 reageer met status_update of decision_request / STEP4 log. **Run reaper cron (`run_reaper`, id 11):** elke 5 minuten markeert work_logs die >10 min `running` zijn als `failed` met een `reaped_by_timeout` event. **Runner stderr capture:** `runner.ts` pijpt nu stderr van docker-child en post bij niet-nul exit een `startup_failed` event met de laatste 2KB stderr op `/work_logs/:id/events`, gevolgd door `completeRun(status:failed)`. Smoke-project: `7baa7578-2119-40a5-bbde-b1bb3e2ef27d` (`worker-smoke-v1`). Deploy VPS: `scripts/deploy-runtime-vps.sh` / `scripts/vps-redeploy.py`. Checklist: `xano-patches/v1/VERIFICATION.md`. Cron-overzicht: `xano-patches/v1/CRONS.md`. Deploy naar Xano static hosting gebeurt met rootscript `deploy.ps1`: `npm run build:static` (Vite dashboard; zonder `tsc` zolang de repo geen schone typecheck heeft), daarna `npm run build` in `apps/chat-widget` (IIFE `dist/bokito-chat.js` plus `public/` assets), merge van de inhoud van `apps/chat-widget/dist/` naar `apps/dashboard/dist/chat-widget/`, zip van `dist/`, upload via Metadata API `POST .../static_host/{host}/build`, activatie via `POST .../static_host/{host}/build/{build_id}/env` met JSON `{"env":"dev"|"prod"}` (geen UTF-8 BOM in de body). Omgevingvariabelen: o.a. `XANO_METADATA_API_KEY`, `XANO_META_BASE_URL`, `XANO_DASHBOARD_STATIC_HOST_NAME` (host-slug zoals in de Xano-UI, bijv. `bokitoapp`), en `XANO_WEBSITEWORKSPACE_ID` tenzij de portal-host in een andere workspace staat — dan `XANO_DASHBOARD_WORKSPACE_ID` zetten. Fallback workspace: `XANO_WIDGET_WORKSPACE_ID`. Regels in `.env` overschrijven altijd eerder gezete Process-variabelen zodat een gewijzigde host-naam direct wordt opgepikt. Schakel `-BothEnvs` in om dezelfde build op dev en prod te activeren. Mobiele app, marketingwebsite en overige apps staan niet in deze map.
+**Stack:** FastAPI + SQLModel + Postgres/pgvector + Redis/arq. Dashboard in bokito mode (`VITE_API_MODE=bokito`) proxied `/api/*` naar de API. Geen externe BaaS-backend meer in deze repo.
 
-**Custom domain (Cloudflare) en Xano prod-URL:** Het actieve portal-build op static host `bokitoapp` wordt op Xano uitgeserveerd onder hostnamen als `bokitoapp-prod-{instance}.f2.xano.io` (prod) en `bokitoapp-dev-{instance}.f2.xano.io` (dev). Een oudere hostname `widget-prod-{instance}.f2.xano.io` kan nog steeds het **vorige** portal-artifact (bijv. `Last-Modified` van een eerdere deploy) serveren en komt **byte-voor-byte** overeen met `https://app.bokito.ai` als die custom domain in Cloudflare nog naar `widget-prod-*` wijst i.p.v. naar `bokitoapp-prod-*`. Controle: vergelijk `curl -sI https://app.bokito.ai` met `curl -sI https://bokitoapp-prod-….f2.xano.io` (zelfde `ETag` / `Last-Modified` = zelfde origin). Na DNS/CNAME-correctie eventueel Cloudflare cache purge voor `app.bokito.ai` en `/*`. Snelle UI-check: het productie-JS-bundle (`/assets/index-*.js` vanaf `/login`) bevat `build:` en `APP_VERSION` zodra de nieuwe portal actief is; ontbreken die literal strings, dan draait de browser nog op een oud artifact (vaak verkeerde CNAME/Worker-upstream). API-gestuurde CNAME-wijziging: `scripts/update-cloudflare-app-cname.ps1` met `CLOUDFLARE_API_TOKEN` (Zone.DNS Edit).
+**Deploy:** één Hostinger VPS (`31.97.45.44`) draait de hele stack via Docker Compose + Caddy (`docker-compose.prod.yml`: postgres/pgvector, redis, api, worker, web). Live op `bokito.ai` / `app.bokito.ai` / `api.bokito.ai` (Cloudflare proxied A-records → VPS). Details + cutover: sectie 17. Widget bundles: `/chat-widget/internal/bokito-chat.js` en `/chat-widget/external/bokito-chat.js`. Livechat API: `/api/livechat/*`.
 
-**Wildcard DNS voor tenants:** Cloudflare-zone `bokito.ai` heeft een proxied wildcard A-record `* -> 192.0.2.1` (placeholder TEST-NET-1; upstream is irrelevant want de Workers Route `*.bokito.ai/*` op `bokito-tenant-router` onderschept). Zonder dit record geeft een tenant-subdomein als `bokito.bokito.ai` een browser-`DNS_PROBE_FINISHED_NXDOMAIN`, want auth-DNS geeft geen synthetisch antwoord voor onbekende namen; de Worker route activeert pas zodra DNS naar Cloudflare wijst. Verificatie: `curl -sI --resolve bokito.bokito.ai:443:188.114.97.0 https://bokito.bokito.ai/` retourneert HTTP 200 met `X-Tenant-Slug: bokito`.
+**Tenant routing:** alle hosts (`bokito.ai`, `app.bokito.ai`, `api.bokito.ai`, `*.bokito.ai`) gaan rechtstreeks naar de VPS-Caddy → FastAPI; de oude Cloudflare Workers (`bokito-tenant-router`, `bokito-app-passthrough`) zijn verwijderd. Control-plane = `app.bokito.ai`; cross-host session-handoff via URL-fragment `__bokito_at__=<accessToken>` (`lib/host-routing.ts`, host-driven via `VITE_APP_CONTROL_PLANE_HOST`/`VITE_TENANT_ROOT_DOMAIN`).
 
-**Tenant-host API routing in `bokito-tenant-router`:** zelfde model als `bokito-app-passthrough` — `/api/{group}/...` op de tenant-host wordt geproxied naar `BOKITO_API_ORIGIN` (default `https://xrex-nmji-j9ur.f2.xano.io`) als `/api:{group}/...`, alle andere paden naar `BOKITO_STATIC_ORIGIN` met `Host` gepreserveerd. Zonder API-routing antwoordt de static (GCS) op POSTs met XML 400 `InvalidArgument: POST object expects Content-Type multipart/form-data` en blijft `authRefresh` op de tenant-host kapot. Browser-cookies met `Domain=.bokito.ai` (waaronder `bokito_refresh_token`) gaan automatisch mee naar `<slug>.bokito.ai/api/...` en worden door de worker met de overige headers doorgestuurd naar Xano. Source: `cloudflare-workers/bokito-tenant-router/src/index.js`; deploy via `wrangler@3 deploy`.
-
-**Cross-host session-handoff voor productie:** Xano `api:auth` heeft géén `/refresh` endpoint (`isMissingRefreshEndpointError` in `AuthContext` triggert `bokito_skip_server_auth_refresh`). Sessions worden daarom tussen control plane (`app.bokito.ai`) en tenant-hosts (`<slug>.bokito.ai`) overgedragen via een one-time URL-fragment `__bokito_at__=<accessToken>` (zie `appendDevLocalhostCrossHostAccessHash` / `consumeDevLocalhostAccessHashFromLocation` in `lib/host-routing.ts`). De DEV-restrictie is opgeheven: ook in productie wordt de hash toegevoegd zodra source en target binnen dezelfde root-domain (`*.bokito.ai` of `*.localhost`) liggen en de origins verschillen. Tenant-origin leest de hash bij hydrate, schrijft het token in eigen `sessionStorage` en wist het fragment met `history.replaceState`. Aanroepen vanuit de Workspaces-card (`pages/Workspaces.tsx`) en de Login-redirect (`pages/Login.tsx`) gebruiken dezelfde helper.
-
-**Cloudflare Worker route (live):** in zone `bokito.ai` staat een Workers Route `*.bokito.ai/*` gekoppeld aan worker `bokito-tenant-router`. Dit vangt ook `app.bokito.ai`. Als DNS-record `app` al naar `bokitoapp-prod-*` wijst maar `https://app.bokito.ai` nog dezelfde `Last-Modified` / `x-goog-generation` heeft als `widget-prod-*`, dan overschrijft deze worker het DNS-origin nog (hardcoded upstream of verkeerde fetch-URL). **Scheidingstest:** HEAD naar `https://bokitoapp-prod-<instance>.f2.xano.io/` met request header `Host: app.bokito.ai` moet het **nieuwe** artifact tonen (zelfde fingerprints als rechtstreeks `bokitoapp-prod`); wijkt `https://app.bokito.ai` daarvan af, dan is de oorzaak de Worker (of een tweede route), niet de Xano custom-domain mapping. **Oplossingen:** (1) In `bokito-tenant-router` alle `widget-prod-*` upstreams voor het control-plane naar `bokitoapp-prod-*` zetten en deployen. (2) Of een **specifiekere** route `app.bokito.ai/*` met worker `bokito-app-passthrough` (pattern is specifieker dan `*.bokito.ai/*`, dus die wint). In deze repo staat de bedoelde workercode in `cloudflare-workers/bokito-app-passthrough/src/index.js`: proxy naar `BOKITO_STATIC_ORIGIN` (of default `bokitoapp-prod-…`) met `Host` gelijk aan de inkomende hostname (`app.bokito.ai`). **Na het aanmaken van de route:** als `curl -sI https://app.bokito.ai/` `Content-Type: text/plain` geeft en geen `ETag`/`x-goog-generation` van de static host, draait `bokito-app-passthrough` nog de Cloudflare default-template (Hello World, body is o.a. de 12 tekens `Hello World!`); in de browser oogt dat als een bijna lege pagina. Deploy dan de worker uit `cloudflare-workers/bokito-app-passthrough` (Dashboard → Edit code → Deploy, of `scripts/deploy-cloudflare-app-passthrough.ps1` met `CLOUDFLARE_API_TOKEN` in `.env`). Blijft het mis na deploy, gebruik `npx wrangler deploy --var BOKITO_STATIC_ORIGIN:https://bokitoapp-prod-….f2.xano.io` (zie worker-README). Daarna moet HEAD op `/` weer overeenkomen met `bokitoapp-prod-*`.
-
-**Zichtbare build-versie in UI:** Login toont onderaan `build: <versie>` en het user-menu toont onder `Sign out` dezelfde regel. `deploy.ps1` zet tijdens build automatisch `VITE_APP_VERSION` op de huidige buildnaam (bijv. `portal-version-tag-...`) zodat je direct kunt zien welke deploy actief is.
+**Zichtbare build-versie in UI:** Login toont onderaan `build: <versie>`; `VITE_APP_VERSION` wordt bij productie-builds gezet.
 
 ---
 
@@ -37,7 +31,7 @@ Bokito is een AI-platform waarmee bedrijven (voornamelijk SMBs) AI-agents kunnen
 
 Op de marketing website (`apps/website`) tonen de hoofdnavigatie (Navbar) tijdelijk geen links naar `/pricing` en `/kennisbank`; die pagina’s blijven bereikbaar via directe URL.
 
-Tech stack: React + TypeScript + Vite + Tailwind (`apps/dashboard`, `apps/messenger` PWA), shared `@bokito/messenger-ui`. Backend: Xano (legacy portal APIs) plus **Bokito AI OS** Python/FastAPI backend (`apps/api`) for V1 migration.
+Tech stack: React + TypeScript + Vite + Tailwind (`apps/dashboard`, `apps/messenger` PWA), shared `@bokito/messenger-ui`. Backend: FastAPI (legacy portal APIs) plus **Bokito AI OS** Python/FastAPI backend (`apps/api`) for V1 migration.
 
 ### Bokito AI OS (V1, 2026-06)
 
@@ -61,18 +55,22 @@ Tech stack: React + TypeScript + Vite + Tailwind (`apps/dashboard`, `apps/messen
   - **LEARNING:** `Feedback` + `EvalScore` models; `POST /api/learning/feedback`, `POST /api/learning/process`, `POST /api/learning/eval/compute`, `GET /api/learning/eval`. Heuristic eval (autonomy rate, escalation rate, CSAT proxy) — no ML fine-tuning.
   - **Orchestration (2026-06):** Background agent tasks via `/api/orchestration/*`. Canonical entities: `RuntimeProfile` (model/tools preset per planner|executor|judge), `AgentTask` (durable work unit linked to internal `Signal` thread), `EvalCheckpoint` (rubric|tool_assert|llm_judge), `TaskArtifact` (step outputs). `AgentRun` extended with `task_id`, `step_id`, `parent_run_id`, `segment_index`, `runtime_snapshot_json`, `checkpoint_json`. Workstream steps bind `agent_id` + optional `runtime_profile_id`; runner enqueues ARQ segment jobs (`run_agent_task_segment`) or runs inline when Redis unavailable / `BOKITO_MOCK_EXECUTION=true`. `POST /api/workforce/trigger-agent` and `POST /api/triggers/{id}/run` invoke the dispatcher (no empty runs). Multi-agent handoff: each step runs a different agent/model; outputs pass via `handoff_template` + `context_json.step_outputs`. SSE: `GET /api/orchestration/runs/{id}/events/stream` (EventSource cannot set headers, so `get_current_auth` also accepts an `?access_token=` query token). Cost/context governance: each segment emits a `context_usage` `RunEvent` (context window %, tokens, cents) and the runner accumulates `context_json.cost_cents`; when a profile's `max_cost_cents` is exceeded the task is paused with `pause_reason="budget_exceeded"` (resume via `POST /tasks/{id}/resume`). Automation templates install per tenant: `POST /api/orchestration/automation-templates/{id}/install` creates an `orchestra_tasks` row (interval schedule) from the template; `GET /api/orchestration/automations` lists installed ones and `POST /api/orchestration/automations/{id}/run` triggers immediately. Messages hub: `ThreadDetail` shows an inline `OrchestrationPanel` (status, resume/cancel, context+cost meters, artifacts) when a thread's signal has a linked `AgentTask` (`GET /tasks?signal_id=`). Orchestra admin page exposes Templates, Automations, and Runtime profiles tabs. Cancel walks the `parent_run_id` tree. Bootstrap seeds planner/executor/judge profiles + demo **Ops Triage Pipeline** workstream per tenant.
   - **Decisions:** unified on `DecisionRequest`; `/api/workforce/messages` is a compat layer; approve executes tools or accepts linked `PlatformChange`.
-  - **Still pending:** live Gmail/Outlook sync + webhooks (Signal ingestion stubs exist).
+  - **Real OAuth (2026-06):** authorization-code flow for GitHub, Google (Gmail) and Microsoft (Outlook), gated on env credentials with mock fallback. `app/services/oauth_providers.py` builds authorize URLs, exchanges codes, refreshes tokens and fetches identity; `app/services/oauth_flow.py` persists a one-shot `OAuthState` row (`oauth_states`) and on callback stores tokens into `ChannelAccount.credentials_json` (email) or `IntegrationConnection.credentials_json` (github/integration). Single redirect URI for all providers: `GET /api/integrations/oauth/callback` (302s back to the dashboard return URL with the same success/error params the frontend already parses). Start endpoints (`/api/email/*/oauth/start`, `/api/integrations/oauth/start`, `/api/github/oauth/start`) try `start_real_oauth` first and fall back to `mock_authorize_url` when a provider's client id/secret are empty. Env: `PUBLIC_API_URL`, `PUBLIC_APP_URL`, `{GITHUB,GOOGLE,MICROSOFT}_OAUTH_CLIENT_ID/SECRET`, `MICROSOFT_OAUTH_TENANT`. GitHub repos/branches return live data via the stored token (fallback to mocks). Google project `bokito-ai` already has an OAuth client "Bokito Email Integration" to reuse — just add `{PUBLIC_API_URL}/api/integrations/oauth/callback` to its redirect URIs and set `GOOGLE_OAUTH_CLIENT_ID/SECRET`. **Provisioned creds (2026-06, in `apps/api/.env`, untracked):** Google client `582551847741-42p5…` (reused "Bokito Email Integration"; a new client secret was added — the original Xano secret + redirect `…/api:integrations/oauth/google/callback` are preserved, and `…/api/integrations/oauth/callback` for both `https://api.bokito.ai` and `http://localhost:8000` were added). Microsoft Entra app "Bokito AI OS" `9743ee3e-…` created (multitenant + personal accounts, `tenant=common`, Web redirect = localhost callback; Graph `Mail.ReadWrite`/`Mail.Send`/`User.Read`/`offline_access` are consented dynamically at sign-in via the v2.0 endpoint, no pre-registered API permissions needed). GitHub OAuth App "Bokito AI OS" `Ov23liGBw1CHjPSIWWEU` created with the localhost callback, **but its client secret is still pending** — GitHub gates secret generation behind a sudo "Verify via email" step that requires manual inbox confirmation, so `GITHUB_OAUTH_CLIENT_SECRET` must be generated by hand and pasted into `.env`.
+  - **Inbound email sync (2026-06):** `app/services/email_sync.py` polls connected Gmail (`users.messages`) / Outlook (Graph `/mailFolders/Inbox/messages`) mailboxes using the stored access token, normalizes each into `InboundMessage` and runs `ingest_inbound` (dedupes on provider message id, threads by conversation id, enqueues agent processing). 401 triggers a refresh-token exchange + one retry. `POST /api/email/sync` syncs all tenant mailboxes; `last_sync_at` stored in `ChannelAccount.settings_json`. Accounts without a token (mock/dev) are skipped.
+  - **Live chat human takeover (2026-06):** widget threads support staff↔visitor chat end-to-end. `POST /api/signals/{id}/takeover` and `/release` toggle `Signal.ai_paused` (serialized as `ai_paused` on threads). When paused, the widget SSE stream (`livechat_stream.widget_stream_events`) stores the visitor message and returns a human-handoff `done` event instead of running the AI. Staff replies via `/api/signals/{id}/reply` publish on the `signal:{id}` gateway topic; the widget (`gatewayFrameToWidgetEvent`) now renders outbound `role=user` messages as a human agent bubble (`sender_type=agent`). Dashboard `ThreadDetail` shows a Take over / Hand back to AI toggle for `widget`/`chat`/`assistant` channels (`useThreadDetail.toggleTakeover`).
+  - **Still pending:** Gmail push / Graph webhook subscriptions (current sync is poll-only via `POST /api/email/sync`); production SMTP for auth mail.
+  - **Wiring pass (2026-06):** dashboard features that previously 404'd are now wired to existing models. Path fixes: integrations router de-duplicated to `/api/integrations/*`; GitHub router moved to `/api/github/*`; workspaces/invites/members use app-scoped helpers (`appScopedGet/Post/Patch/Delete` → `/api/app/*`). Email send accepts the full compose DTO (reply when `thread_id`, else new outbound thread). Mailbox settings, signature, AI-config persist into `ChannelAccount.settings_json`; disconnect hard-deletes the account; all email handlers + OAuth start live on the `/email` router. **Routing rules:** `EmailRoutingRule` table (`email_routing_rules`) + CRUD at `/api/email/routing-rules`; evaluated in `services/signals.apply_email_routing` on inbound signals (merges labels into `tags_json`, resolves numeric `assign_to_user_id` → `User.id`). **Knowledge base:** `/api/kb/*` (collections + documents + keyword search) backed by `WorkspaceDoc` (`kind` `kb_collection`/`kb_doc`, metadata in `frontmatter_json`). **Auth mail:** `AuthToken` table (`auth_tokens`, kinds `password_reset`/`email_verify`, single-use, prior unused tokens invalidated) + `User.email_verified`; endpoints `/auth/password-reset-request`, `/auth/password-reset`, `/auth/verify-email`, `/auth/resend-verification`. Non-production responses include `dev_token`/`dev_link` (logged) so flows work without SMTP. **Workforce:** `force-rescan` fires due triggers for the tenant (`process_due_triggers(tenant_id)`); `maintenance-run` calls `clear_stale_runtime` (resets stale active agents to standby, fails long-running runs). **Settings:** workspace save/delete persist via `Tenant.settings_json` (incl. `require_2fa`); `delete_workspace` cascade-deletes tenant-scoped rows; messenger module toggles persist inside `MessengerAppearance` branding JSON. **Legacy `/email/messages*`:** removed from dashboard — orphaned `components/communication/*` deleted; inbox uses Signals API + `/email/threads`. **Auth UI:** `/verify-email?token=…` page + profile resend when `email_verified` is false; `/auth/me` exposes `email_verified`. **Nav badges:** `GET /api/signals/badge-counts` replaces four thread-list fetches.
 - **Widget:** public `POST /api/widget/{slug}/session`; embed is `apps/chat-widget/dist/bokito-chat.js` (the legacy `packages/messenger-ui/embed` script is deleted).
 - **Shared UI:** `packages/messenger-ui` — DecisionCard, ThreadList, InboxList, FloatingMessenger with branding + powered-by (used by the dashboard; the standalone messenger PWA is retired).
 - **Mobile:** native Expo app at `apps/mobile` on the gateway protocol (see Fase 7 section).
 - **Dashboard bokito mode:** `VITE_API_MODE=bokito`; Vite proxies `/api/*` to FastAPI. Frontend API bases: `APP_API_BASE=/api` (signals, etc.), `APP_SCOPED_API_BASE=/api/app` (custom-db). Rail: Cockpit, **Messages** (`/messages`, unified thread-lijst), **AI OS** (`/os`), Integrations, **Govern** (`/govern`), Settings. Orchestra lives under AI OS sidebar (`/orchestra`), not as its own rail item.
 - **Agent setup (2026-06):** Admins/owners can create company worker agents from the UI (`AiAgents` page "New agent" dialog: name, role `assistant|communication|builder|orchestra`, model picker from the workspace catalog, optional system prompt) via `POST /api/workforce/agents`, and edit a company agent's name + system prompt on the detail page (`AgentInstructionsCard`) via `PATCH /api/workforce/agents/{id}`. Both are admin-gated; `create_agent`/`update_agent` validate the chosen model against the catalog + tenant allowlist. The workforce serializer now exposes `system_prompt`, `chat_access`, and `kind`. Per-agent model rebind stays at `PATCH /api/workforce/agents/{id}/model`.
 - **AI OS section:** Single rail item replaces separate Projects and Workforce. **Unified workspace graph canvas** at `/os` (React Flow): draggable nodes for orchestrators, workstreams, repos/sources, and tools with many-to-many edges (`routed_by`, `uses_repo`, `uses_tool`). Overlay tables `os_canvas_nodes` / `os_canvas_edges` store positions and links; domain entities stay in existing tables. Auto-seed on first load from projects/workstreams/repos/integrations. API: `GET/POST/PATCH/DELETE /api/workforce/os/nodes`, `POST/DELETE /api/workforce/os/edges`, `GET /api/workforce/os/graph`. Legacy `/os/project/:id` redirects to `/os`. Drill-in keeps `/project/:id/*` detail pages. Canonical agent URLs: `/os/agents`; legacy `/projects`, `/workforce`, `/ai/agents` redirect to `/os` paths. Single `bokito-chat` embed in `main.tsx` (no messenger-ui FAB). Open workspace → `/home`; one membership skips picker; unified inbox tabs (Conversations | Decisions). Branding save: `appearance_json` + `widget_favicon` on `POST /api/auth/workspaces/{id}/branding`; persona `GET/PUT /api/persona`; notification prefs `GET/PATCH /api/user/notification-preferences`. Primary seed `admin@bokito.ai`. Inbox, Blueprint, integrations, projects, workforce, and settings APIs as below. Stale SQLite: `apps/api/DEV_DATABASE.md`; `init_db()` runs `apply_column_patches` (auto-adds missing columns from SQLModel metadata + manual overrides) so `scripts/seed.py` works without deleting `dev.db` when the API is stopped.
-- **Local dev:** `docker compose -f docker-compose.dev.yml up`; seed `admin@bokito.ai` / `bokito-test-password`. During the FastAPI migration the dashboard is run locally only (`npm run dev -w bokito-dashboard` on `http://127.0.0.1:5174`); portal deploy to Xano static (`deploy.ps1`) is not used for this track.
+- **Local dev:** `docker compose -f docker-compose.dev.yml up`; seed `admin@bokito.ai` / `bokito-test-password`. Dashboard: `npm run dev -w bokito-dashboard` on `http://127.0.0.1:5174` with Vite proxy to FastAPI.
 - **Tests:** pytest (59+ tests, mock LLM); covers govern, platform changes, signals, learning, decisions, notification preferences, branding `appearance_json`, livechat SSE. CI: `api` (ruff + pytest), `dashboard` build, `mobile` typecheck, `e2e` (Playwright: dashboard login/cockpit/inbox/integrations). Local: `npm run verify:bokito` (api tests + dashboard build) and `npm run verify:bokito:e2e`.
-- **Legacy removed (production track):** `apps/runtime`, `packages/docker`, `xano-patches`, `apps/messenger` (PWA, vervangen door de native Expo-app in `apps/mobile`) — niet meer actief in de V1 FastAPI-lijn.
+- **Legacy removed (production track):** `apps/runtime`, `packages/docker`, `platform-patches`, `apps/messenger` (PWA, vervangen door de native Expo-app in `apps/mobile`) — niet meer actief in de V1 FastAPI-lijn.
 
-**Chat widget (`apps/chat-widget`):** TypeScript/Vite IIFE (`bokito-chat`, `src/widget-main.ts`) for portal preview, team embed, and external sites. Build: `npm run build` in `apps/chat-widget` → `dist/bokito-chat.js`. Dashboard Vite serves `/chat-widget/internal/*` and `/chat-widget/external/*` from `dist/`; `main.tsx` loads the internal bundle in bokito mode. Livechat: Vite proxies `/api:livechat/*` to FastAPI `/api/livechat/*` (`session/start`, theme from `livechat_settings.appearance`). `POST stream-chat` and `stream-chat-continue` return SSE (`data: {"t":"..."}` chunks and `{"type":"done","content":"..."}`).
+**Chat widget (`apps/chat-widget`):** TypeScript/Vite IIFE (`bokito-chat`, `src/widget-main.ts`) for portal preview, team embed, and external sites. Build: `npm run build` in `apps/chat-widget` → `dist/bokito-chat.js`. Dashboard Vite serves `/chat-widget/internal/*` and `/chat-widget/external/*` from `dist/`; `main.tsx` loads the internal bundle in bokito mode. Livechat: Vite proxies `/api/livechat/*` to FastAPI `/api/livechat/*` (`session/start`, theme from `livechat_settings.appearance`). `POST stream-chat` and `stream-chat-continue` return SSE (`data: {"t":"..."}` chunks and `{"type":"done","content":"..."}`).
 
 **Externe klant-widget (V1 API):** daarnaast bestaat `POST /api/widget/{slug}/session` op FastAPI voor de vereenvoudigde embed in `packages/messenger-ui`; dat is een parallel pad, geen vervanging van de messenger preview-canvas.
 
@@ -99,15 +97,15 @@ Tenant preset on Govern **Policy** tab: `manual` | `assisted` (default) | `auton
 ## 2. Dashboard – Pagina's & Features
 
 ### Frontend API-laag (portal)
-- Build-time omgeving en Xano API-groep-bases staan in `apps/dashboard/src/lib/api.config.ts` (`VITE_XANO_BASE_URL`, `VITE_API_GROUP_*`, same-origin paden `/api/{canonical}/...` via de Vite-proxy of productie-workers).
-- Relatieve paden per groep (bijv. `/workspaces`, `/inbox/threads`, `/triggers`, `/auth/refresh` op de auth-base) staan centraal in `apps/dashboard/src/api/routes/` (`auth.routes.ts`, `app.routes.ts`, `integrations.routes.ts`, `workforce.routes.ts`) en in `apps/dashboard/src/api/url.ts` voor query-strings. Featurecode en `lib/*-api.ts` importeren daaruit; `lib/xano.ts` blijft transport (fetch, headers, cookies).
-- Deze `src/api/**` bestanden horen **gecommit** te zijn: stonden ze alleen lokaal (niet op `origin/master`), dan herstelt `git fetch` ze niet na een revert; paden zijn dan te reconstrueren uit dezelfde strings die voorheen in `lib/xano.ts`, `lib/custom-db-api.ts`, `lib/email-api.ts`, `lib/inbox-api.ts`, `lib/workforce-api.ts` en workspace/members pages stonden.
+- Build-time omgeving en FastAPI API-groep-bases staan in `apps/dashboard/src/lib/api.config.ts` (`VITE_BOKITO_API_URL`, `VITE_API_GROUP_*`, same-origin paden `/api/{canonical}/...` via de Vite-proxy of productie-workers).
+- Relatieve paden per groep (bijv. `/workspaces`, `/inbox/threads`, `/triggers`, `/auth/refresh` op de auth-base) staan centraal in `apps/dashboard/src/api/routes/` (`auth.routes.ts`, `app.routes.ts`, `integrations.routes.ts`, `workforce.routes.ts`) en in `apps/dashboard/src/api/url.ts` voor query-strings. Featurecode en `lib/*-api.ts` importeren daaruit; `lib/bokito-api.ts` blijft transport (fetch, headers, cookies).
+- Deze `src/api/**` bestanden horen **gecommit** te zijn: stonden ze alleen lokaal (niet op `origin/master`), dan herstelt `git fetch` ze niet na een revert; paden zijn dan te reconstrueren uit dezelfde strings die voorheen in `lib/bokito-api.ts`, `lib/custom-db-api.ts`, `lib/email-api.ts`, `lib/inbox-api.ts`, `lib/workforce-api.ts` en workspace/members pages stonden.
 - Richtlijn voor agents: `.cursor/rules/frontend-api-env-pattern.mdc` en `apps/dashboard/docs/API.md`.
 
 ### 2.1 Login (`/login`)
-- E-mail + wachtwoord login via Xano `POST /auth/login`
+- E-mail + wachtwoord login via FastAPI `POST /auth/login`
 - Dashboard auth gebruikt een same-origin auth-contract op `/api/auth/*` (`login`, `refresh`, `me`, `logout`) met cookie-gebaseerde sessieflow
-- Dashboard auth-client gebruikt een fallbackpad naar directe Xano auth-endpoints (`/api:auth/*`) wanneer de same-origin auth-proxy niet beschikbaar is (bijv. 404/502 of netwerkfout), zodat login niet blokkeert op proxy-availability.
+- Dashboard auth-client gebruikt een fallbackpad naar directe FastAPI auth-endpoints (`//api/auth/*`) wanneer de same-origin auth-proxy niet beschikbaar is (bijv. 404/502 of netwerkfout), zodat login niet blokkeert op proxy-availability.
 - Refresh token hoort in een `HttpOnly` cookie; access token blijft alleen in runtime memory (niet in `localStorage`)
 - Bij laden probeert de portal eerst `POST /api/auth/refresh` en daarna `GET /api/auth/me` om de sessie te herstellen
 - `GET /auth/me` levert tenantcontext in een stabiel object: `tenant = { id, slug, name }` en kan optioneel een logo-URL bevatten (bijv. `logo`, `logo_url` of gelijkwaardig op `tenant`, `account` of `organisation`)
@@ -115,7 +113,7 @@ Tenant preset on Govern **Policy** tab: `manual` | `assisted` (default) | `auton
 - De tenantkaart linksboven in de dashboard-sidebar gebruikt de ingelogde tenant uit `user.tenant` (logo, naam + slug); zonder logo-URL valt de UI terug op `/bokito-logo.svg`
 - `ProtectedRoute` bewaakt alle routes en stuurt ongeauthenticeerde gebruikers naar `/login?return_to=...`; na login gaat de gebruiker terug naar dezelfde interne URL (met open-redirect validatie)
 - Cross-host login returns zijn alleen geldig voor bekende control-plane of tenant-hosts; bare `localhost` is geen tenant-host en wordt genegeerd als `return_to` om app.localhost/login-lussen te voorkomen
-- **Microsoft browser-login (OAuth) buiten deze repo:** de portal-login in `apps/dashboard` is alleen e-mail/wachtwoord. Zie je een Microsoft-fout `invalid_request` … `redirect_uri` is not valid, dan komt de `redirect_uri` in de authorize-URL **letterlijk** overeen met wat je in Entra onder **Web redirect URIs** zet (geen varianten). Voorbeeld: staat alleen `https://api.bokito.ai/api/auth/callback/microsoft` geregistreerd, maar de client stuurt `.../callback/azure-ad`, dan faalt de flow; voeg die tweede URI toe **of** pas de client aan naar de geregistreerde URI. Dit staat los van mailbox/Graph-OAuth op Xano (`MICROSOFT_REDIRECT_URI` → `api:integrations` OAuth-callback); elke app registration heeft een eigen client-id en redirect-lijst.
+- **Microsoft browser-login (OAuth) buiten deze repo:** de portal-login in `apps/dashboard` is alleen e-mail/wachtwoord. Zie je een Microsoft-fout `invalid_request` … `redirect_uri` is not valid, dan komt de `redirect_uri` in de authorize-URL **letterlijk** overeen met wat je in Entra onder **Web redirect URIs** zet (geen varianten). Voorbeeld: staat alleen `https://api.bokito.ai/api/auth/callback/microsoft` geregistreerd, maar de client stuurt `.../callback/azure-ad`, dan faalt de flow; voeg die tweede URI toe **of** pas de client aan naar de geregistreerde URI. Dit staat los van mailbox/Graph-OAuth op FastAPI (`MICROSOFT_REDIRECT_URI` → `/api/integrations` OAuth-callback); elke app registration heeft een eigen client-id en redirect-lijst.
 
 ---
 
@@ -128,7 +126,7 @@ Tenant preset on Govern **Policy** tab: `manual` | `assisted` (default) | `auton
 ---
 
 ### 2.3 Cloud Agents (`/cloud-agent`)
-Beheer van Xano-hosted agents die op de achtergrond draaien.
+Beheer van FastAPI-hosted agents die op de achtergrond draaien.
 
 - **Toggle-view**: kaartweergave of lijstweergave
 - **AgentCard / AgentRow**: naam, model, status (actief/gepauzeerd/deploying), regio, laatste deploy, 24h request count, P50 latency, tools, systeemprompt preview
@@ -191,10 +189,10 @@ Gedeelde **type-segmentatie** (`IntegrationKindNav`): All | Communication | Repo
 - **Marketplace UX**: kaartraster per **applicatie** (`integration_hosts`, bijv. één kaart **GitHub** met host-logo). **Connect** opent een hub-modal met **koppelingstypen** = catalogusproducten (`integration_providers`, bijv. repository-indexering + GitHub MCP). Per type: detailstap en setup (OAuth/API-key/remote MCP). URL `?connect=` accepteert host-slug (`github`) of offer-static-id (`github-mcp`). Frontend: `integration-applications.ts`, `ApplicationCard`, `ApplicationHubDialog`. Setup via `integration-setup.ts` + **`apps/dashboard/src/lib/integrations/registry.ts`**; OAuth via `integration-oauth-flow.ts`.
 - **Integratiedata-model (schaalbaar)**: `integration_hosts` (merk, logo) → `integration_providers` (product/slug, auth, capabilities, `host_id`) → `integration_connections` (tenant-config, credentials) → `integration_bindings` (gebruik, bijv. `mcp_server`, `project_repo`). E-mail blijft deels parallel op `email_oauth_connection`.
 - **Documentatie in de portal**: `/integrations/docs` (sidebar onder Integraties) — uitleg remote MCP OAuth en catalogus voor admins.
-- **Developer docs**: `apps/dashboard/docs/INTEGRATIONS.md` — checklists voor nieuwe MCP-, repo-OAuth- en inbox-OAuth-providers; Xano-deploy en smoke tests. Xano-deploylijst: `xano-patches/v1/INTEGRATIONS-PLATFORM.md`.
+- **Developer docs**: `apps/dashboard/docs/INTEGRATIONS.md` — checklists voor nieuwe MCP-, repo-OAuth- en inbox-OAuth-providers; FastAPI-deploy en smoke tests. FastAPI-deploylijst: `docs/archived/v1/INTEGRATIONS-PLATFORM.md`.
 - **Connected UX**: secties per type, summary-cards bij filter All, CTA **Integratie toevoegen** naar Marketplace (behoudt actief `?kind=`). E-mail: **Mailboxen beheren** naar `/settings/inbox` (label **Mailboxen** in settings-nav).
-- **Catalogus**: `GET /integrations/providers` uit `integration_providers` (seed: github, outlook, gmail, bjorn_lunden_mcp, custom_mcp, plus remote MCP OAuth slugs in `xano-patches/v1/integration-providers-seed.md`). Marketplace groepeert providers per host; fallback-metadata in `integrations-data.ts` en `mcp-remote-providers.ts`. Platform-tabellen (`integration_hosts`, `integration_providers`, `integration_connections`, `integration_bindings`, `github_connections`) en list-endpoints (API ids 307–312) zijn live op Xano workspace 1. Core hosts + providers seeden via `node scripts/seed-integration-providers.mjs` (hosts eerst, daarna providers met `host_id`).
-- **Host-logo's**: tabel `integration_hosts` bevat merklogo's (Xano image-velden `logo` / `logo_dark`). Providers verwijzen via `host_id`. De portal gebruikt `IntegrationHostLogo`: Xano-URL indien geupload, anders officiële merk-SVG's in `apps/dashboard/public/brands/` (vendor sites, Wikimedia, Simple Icons met merkkleur). Zie `public/brands/README.md`. Host **shopify** toegevoegd (`shopify_mcp`, coming_soon, per-store OAuth).
+- **Catalogus**: `GET /integrations/providers` uit `integration_providers` (seed: github, outlook, gmail, bjorn_lunden_mcp, custom_mcp, plus remote MCP OAuth slugs in `docs/archived/v1/integration-providers-seed.md`). Marketplace groepeert providers per host; fallback-metadata in `integrations-data.ts` en `mcp-remote-providers.ts`. Platform-tabellen (`integration_hosts`, `integration_providers`, `integration_connections`, `integration_bindings`, `github_connections`) en list-endpoints (API ids 307–312) zijn live op FastAPI workspace 1. Core hosts + providers seeden via `node scripts/seed-integration-providers.mjs` (hosts eerst, daarna providers met `host_id`).
+- **Host-logo's**: tabel `integration_hosts` bevat merklogo's (FastAPI image-velden `logo` / `logo_dark`). Providers verwijzen via `host_id`. De portal gebruikt `IntegrationHostLogo`: FastAPI-URL indien geupload, anders officiële merk-SVG's in `apps/dashboard/public/brands/` (vendor sites, Wikimedia, Simple Icons met merkkleur). Zie `public/brands/README.md`. Host **shopify** toegevoegd (`shopify_mcp`, coming_soon, per-store OAuth).
 - **Verbindingen**: `integration_connections` per tenant, meerdere rijen per provider (bijv. meerdere GitHub-accounts). Lijst: `GET /integrations/connections?provider=`. OAuth: `GET /integrations/oauth/start?provider=` + callback `GET /integrations/oauth/callback`. API-key: `POST /integrations/connections`. Intrekken: `DELETE /integrations/connections/{id}`.
 - **GitHub (legacy + nieuw)**: `GET /github/connections` (lijst, API 310), `GET /github/connection` (legacy enkelvoud, API 311), `DELETE /github/connection` (API 312), `GET /github/repos?connection_id=`, repo koppelen via `PATCH /projects/{id}/repo` met `connection_id` + `integration_bindings` type `project_repo`. Worker: `POST /integrations/worker/credentials` (fallback `POST /github/worker/token`). Frontend `listGithubConnections` gebruikt primair `/github/connections` (geen extra fallback naar `integrations/connections?provider=github`).
 - **E-mail**: blijft op `email_oauth_connection`; marketplace start OAuth vanuit de setup-modal (`startOAuthConnection` met marketplace return URL). Mailboxbeheer (mappen, handtekening) blijft op `/settings/inbox`.
@@ -223,14 +221,14 @@ Workforce-projecten hebben een dedicated hub met sidebar-navigatie.
 ### 2.6c Project Documentation System (block-based, replaces `pkb_sections`)
 Elk project heeft één centrale documentatie als Notion-stijl block-based hub. Vervangt het oude `pkb_sections` model. Docs zijn de single source of truth voor wat een project is en waar het heen gaat; agents lezen ze op elke run en schrijven er direct in met volledige audit trail.
 
-- **Datamodel** (zie `xano-patches/v1-platform-tables.md`): `project_docs` (1 per project) → `doc_pages` (boom van pagina's; `kind` ∈ overview/vision/features/brand/tech/marketing/operations/roadmap/log/notes/custom; `is_locked` blokkeert agent-writes) → `doc_blocks` (Notion-blocks: heading_1/2/3, paragraph, bullet/numbered/to_do, quote, callout, divider, code, image, embed, link_to_page, toggle, table; `text` is array van inline runs `{text, bold, italic, underline, strike, code, color, link}`; `props` is type-specific). Audit: `doc_block_revisions` (op=create/update/delete/move; before/after JSON; actor_type=user|agent; actor_label; required `change_note` voor agents). Inbox: `doc_change_requests` (vervangt `pkb_sections.layer=change_queue`; status pending/in_progress/implemented/blocked/rejected).
-- **PRD scaffold seed**: `POST /api:workforce/projects` (project create) zaait nu `project_docs` + 8 standaardpagina's (Overview, Vision and audience, Features and scope, Brand and voice, Tech stack, Marketing, Operations, Roadmap), elk met heading_1 + callout + paragraph startblokken. Niets is gelocked; gebruiker kan vrij hernoemen, toevoegen of verwijderen. Pagina-`kind` matcht de scaffold zodat agents kunnen anchoren.
-- **Workforce API** (user-auth, alle onder `/api:workforce`): `GET /projects/{id}/doc` (root + page tree, geen blocks), `POST /projects/{id}/doc/pages`, `PATCH /projects/{id}/doc/pages/{page_id}`, `DELETE /projects/{id}/doc/pages/{page_id}` (soft delete via `archived_at`), `GET /projects/{id}/doc/pages/{page_id}/blocks`, `POST /projects/{id}/doc/pages/{page_id}/blocks` (batch op-array `[{op:create|update|delete|move, ...}]`; schrijft blocks + revisions atomisch en triggert `WORKER_BASE_URL/doc/reindex-page` voor embedding), `GET /projects/{id}/doc/pages/{page_id}/revisions?block_id=…`, `POST /projects/{id}/doc/change-requests` (vervangt legacy PKB change_queue POST; zelfde PO heartbeat dispatch), `GET /projects/{id}/doc/change-requests`.
-- **Integrations API** (worker-auth via `WORKER_INBOUND_SECRET` body-token): `POST /api:integrations/doc/worker/blocks` (agent batch ops, `actor_type=agent`, `change_note` verplicht), `POST /api:integrations/doc/worker/reindex-page` (worker fetch van blocks voor embedding), `POST /api:integrations/doc/worker/tree` (project page tree voor doc-map opbouw).
+- **Datamodel** (zie `docs/archived/v1-platform-tables.md`): `project_docs` (1 per project) → `doc_pages` (boom van pagina's; `kind` ∈ overview/vision/features/brand/tech/marketing/operations/roadmap/log/notes/custom; `is_locked` blokkeert agent-writes) → `doc_blocks` (Notion-blocks: heading_1/2/3, paragraph, bullet/numbered/to_do, quote, callout, divider, code, image, embed, link_to_page, toggle, table; `text` is array van inline runs `{text, bold, italic, underline, strike, code, color, link}`; `props` is type-specific). Audit: `doc_block_revisions` (op=create/update/delete/move; before/after JSON; actor_type=user|agent; actor_label; required `change_note` voor agents). Inbox: `doc_change_requests` (vervangt `pkb_sections.layer=change_queue`; status pending/in_progress/implemented/blocked/rejected).
+- **PRD scaffold seed**: `POST //api/workforce/projects` (project create) zaait nu `project_docs` + 8 standaardpagina's (Overview, Vision and audience, Features and scope, Brand and voice, Tech stack, Marketing, Operations, Roadmap), elk met heading_1 + callout + paragraph startblokken. Niets is gelocked; gebruiker kan vrij hernoemen, toevoegen of verwijderen. Pagina-`kind` matcht de scaffold zodat agents kunnen anchoren.
+- **Workforce API** (user-auth, alle onder `//api/workforce`): `GET /projects/{id}/doc` (root + page tree, geen blocks), `POST /projects/{id}/doc/pages`, `PATCH /projects/{id}/doc/pages/{page_id}`, `DELETE /projects/{id}/doc/pages/{page_id}` (soft delete via `archived_at`), `GET /projects/{id}/doc/pages/{page_id}/blocks`, `POST /projects/{id}/doc/pages/{page_id}/blocks` (batch op-array `[{op:create|update|delete|move, ...}]`; schrijft blocks + revisions atomisch en triggert `WORKER_BASE_URL/doc/reindex-page` voor embedding), `GET /projects/{id}/doc/pages/{page_id}/revisions?block_id=…`, `POST /projects/{id}/doc/change-requests` (vervangt legacy PKB change_queue POST; zelfde PO heartbeat dispatch), `GET /projects/{id}/doc/change-requests`.
+- **Integrations API** (worker-auth via `WORKER_INBOUND_SECRET` body-token): `POST //api/integrations/doc/worker/blocks` (agent batch ops, `actor_type=agent`, `change_note` verplicht), `POST //api/integrations/doc/worker/reindex-page` (worker fetch van blocks voor embedding), `POST //api/integrations/doc/worker/tree` (project page tree voor doc-map opbouw).
 - **Frontend**: `/project/:id/doc/:pageSlug` rendered via `apps/dashboard/src/pages/ProjectDoc.tsx` met `components/doc/PageTree.tsx` (sidebar; lucide icoon per page kind), `components/doc/BlockEditor.tsx` (contentEditable per block; debounced auto-save via diff → batch op API; `@dnd-kit` reorder; slash-style block-type dropdown; agent-edited blocks krijgen `ActorBadge` (kleine accent-stip links)), `components/doc/RevisionPanel.tsx` (audit list met one-click revert per revision). Transport: `apps/dashboard/src/lib/doc-api.ts` + `lib/doc-blocks.ts` (`buildBlockTree`, `diffBlockLists`, `newBlockId`). `ChangeRequest.tsx` schrijft nu naar `doc_change_requests` en accepteert optionele `target_page_id` via `location.state` zodat de "Request a change"-knop op een doc-pagina automatisch de juiste pagina koppelt.
-- **Runtime + agent tools**: `apps/runtime/src/docs/{client.ts,reindex.ts,block-utils.ts,doc-map.ts}` doen reindexing (per block één `index_chunks` row met `source_type=doc_block`, `source_ref=<page_slug>#<block_id>`; één samenvatting per pagina met `source_type=doc_page_summary`) en doc-map opbouw. `dispatcher.ts` accepteert `POST /doc/reindex-page` (Bearer secret). `runner.ts` stopt een compacte plain-text doc-map (pagina-titels + headings) in elke `RUN_CONFIG_JSON.xano.doc_map`; agent-loop voegt die toe aan het system prompt. Agent tools (`packages/docker/agent-run/agent-loop.js`): `write_doc` (page_id + change_note + ops; logt revisions met agent als actor) en `read_doc_page` (huidige block list ophalen). De oude `read_pkb` / `update_pkb_section` tools zijn verwijderd; het PO heartbeat-pad blijft identiek (een nieuwe change_request triggert dezelfde `/agent/po/run`).
-- **Workspace documentatie (project hub):** parallel datamodel `workspace_docs` / `workspace_doc_pages` / `workspace_doc_blocks` / `workspace_doc_block_revisions` (tenant-scoped, geen `project_id`). UI: `/projects/docs[/:slug]` via `WorkspaceDocNavContext`, `ProjectHubDocs`, `docScope=workspace`. API: `/workspace/doc/*` (workforce) en `/workspace/doc/worker/*` (integrations). Zie `xano-patches/v1/PROJECT-HUB-BACKEND.md`.
-- **Migratie**: `xano-patches/v1/MIGRATE-pkb-to-docs.md` beschrijft het one-shot pad: bootstrap missing scaffolds, map `pkb_sections.layer = current_state|intended_state` rows als blocks onder de juiste `kind`-pagina (default Overview), map `change_queue` rows naar `doc_change_requests`. Oude pkb-rijen blijven leesbaar voor één release; daarna wordt de tabel gedropt. Deprecated XS files (`workforce-pkb-create.xs`, `-list.xs`, `-worker-list.xs`, `-worker-update.xs`) en frontend `lib/pkb-api.ts` + `pages/Pkb.tsx` zijn al verwijderd.
+- **Runtime + agent tools**: `apps/runtime/src/docs/{client.ts,reindex.ts,block-utils.ts,doc-map.ts}` doen reindexing (per block één `index_chunks` row met `source_type=doc_block`, `source_ref=<page_slug>#<block_id>`; één samenvatting per pagina met `source_type=doc_page_summary`) en doc-map opbouw. `dispatcher.ts` accepteert `POST /doc/reindex-page` (Bearer secret). `runner.ts` stopt een compacte plain-text doc-map (pagina-titels + headings) in elke `RUN_CONFIG_JSON.platform.doc_map`; agent-loop voegt die toe aan het system prompt. Agent tools (`packages/docker/agent-run/agent-loop.js`): `write_doc` (page_id + change_note + ops; logt revisions met agent als actor) en `read_doc_page` (huidige block list ophalen). De oude `read_pkb` / `update_pkb_section` tools zijn verwijderd; het PO heartbeat-pad blijft identiek (een nieuwe change_request triggert dezelfde `/agent/po/run`).
+- **Workspace documentatie (project hub):** parallel datamodel `workspace_docs` / `workspace_doc_pages` / `workspace_doc_blocks` / `workspace_doc_block_revisions` (tenant-scoped, geen `project_id`). UI: `/projects/docs[/:slug]` via `WorkspaceDocNavContext`, `ProjectHubDocs`, `docScope=workspace`. API: `/workspace/doc/*` (workforce) en `/workspace/doc/worker/*` (integrations). Zie `docs/archived/v1/PROJECT-HUB-BACKEND.md`.
+- **Migratie**: `docs/archived/v1/MIGRATE-pkb-to-docs.md` beschrijft het one-shot pad: bootstrap missing scaffolds, map `pkb_sections.layer = current_state|intended_state` rows als blocks onder de juiste `kind`-pagina (default Overview), map `change_queue` rows naar `doc_change_requests`. Oude pkb-rijen blijven leesbaar voor één release; daarna wordt de tabel gedropt. Deprecated XS files (`workforce-pkb-create.xs`, `-list.xs`, `-worker-list.xs`, `-worker-update.xs`) en frontend `lib/pkb-api.ts` + `pages/Pkb.tsx` zijn al verwijderd.
 
 ---
 
@@ -369,8 +367,8 @@ De portal gebruikte een Featurebase-achtige 2-laagse shell. Zie ook `apps/dashbo
 - **Inbox uitgaande handtekening-afbeelding:** Bij thread-replies bouwt de frontend standaard `body_html` met afbeelding op basis van `user.signatureUrl`; fallbackvolgorde is `user.tenant.logo` en daarna `/bokito-logo.svg` als default-logo.
 - **Landing tenant:** admins gaan naar `/home` (overzicht: recente projecten, inbox-links, agent runs); end-users behouden project-redirect (0/1/many). Op `/home` is er geen context-sidebar (alleen rail + hoofdinhoud).
 - **Project hub (`/projects`):** context sidebar: **Overzicht**, **Communicatie** en **Workspace** (link naar `/workspace`); **Workstreams** (`ProjectHubBackgroundWorkersNav`) met compacte projectrijen: gekleurde dot + teller, status als gekleurde tekst onder de titel. Per-project canvas: `WorkerStatusStrip` boven `ProjectTabNav`; status afgeleid via `deriveWorkerStatus` uit berichten (`decision_request` = geblokkeerd, overige `awaiting_human` = aandacht), budget, orchestration, work logs en repo-index.
-- **Centrale workspace-docs (Phase 4):** de oude block-based Blueprint UI (`WorkspaceDocNavContext`, `PageTree`, `BlockEditor`, `RevisionPanel`, scaffold/handbook seeding) en het Xano `workspace_doc_*` schema zijn verwijderd. Tenant-brede markdown-docs leven nu op `/workspace` (`WorkspaceDocs.tsx`) tegen `/api/workspace/*`.
-- **Per-project config (Xano):** `project_orchestration_config` + `GET/PATCH /projects/{id}/orchestration` zijn table-backed (records worden op eerste read automatisch aangemaakt). `project_notification_preferences` + `GET/PATCH /projects/{id}/notifications/preferences` zijn ook table-backed met default matrix-seeding op eerste read. `GET /projects/{id}/usage/summary` en `GET /projects/{id}/usage/budget` blijven ongewijzigd.
+- **Centrale workspace-docs (Phase 4):** de oude block-based Blueprint UI (`WorkspaceDocNavContext`, `PageTree`, `BlockEditor`, `RevisionPanel`, scaffold/handbook seeding) en het FastAPI `workspace_doc_*` schema zijn verwijderd. Tenant-brede markdown-docs leven nu op `/workspace` (`WorkspaceDocs.tsx`) tegen `/api/workspace/*`.
+- **Per-project config (FastAPI):** `project_orchestration_config` + `GET/PATCH /projects/{id}/orchestration` zijn table-backed (records worden op eerste read automatisch aangemaakt). `project_notification_preferences` + `GET/PATCH /projects/{id}/notifications/preferences` zijn ook table-backed met default matrix-seeding op eerste read. `GET /projects/{id}/usage/summary` en `GET /projects/{id}/usage/budget` blijven ongewijzigd.
 - **Per-project cockpit (`/project/:id/*`):** focust op projectuitvoering. Tab-volgorde: **Workstreams → Project-PO → Orchestratie → Communicatie → Workforce-geschiedenis → Tokenverbruik → Notificaties → Wijziging aanvragen → Instellingen**. `ProjectOverview` op `/project/:id/overview` is een workstreams-wireframe met stream-submenu, input/output placeholders en stapkaarten (agent, instructie, tools). `ProjectCommunication` op `/project/:id/communication` ondersteunt projectbreed + optionele `?stream=` filterweergave (mixed model).
 - **Assistent-zijbalk (legacy):** vervangen door Workforce-zijbalk; widget/communicatie routes ongewijzigd onder `/ai/*`.
 - **Agenten-zijbalk (legacy):** vervangen door Workforce; `/admin/runs` redirect naar `/workforce/agents`.
@@ -384,9 +382,9 @@ De portal gebruikte een Featurebase-achtige 2-laagse shell. Zie ook `apps/dashbo
 - **Home recent activity feed:** De Home-pagina toont nu een gecombineerde activity-lijst (runs + workforce-berichten) in plaats van alleen recente agent runs. Elke rij toont project, actor, agent, workstream en actie-label, met doorklik naar project-communicatie of run-detail.
 - **Agent types in Workforce-list:** De AI Agents-lijst groepeert agents op type met `Orchestrator` bovenaan en `Worker` daaronder. Type wordt als label getoond per agent. Orchestrator-detectie (`isOrchestratorAgent`) matcht `role_slug=orchestrator` plus legacy `po`/`manager`. Het legacy `po`-role is uitgefaseerd: backend mapt `role=po` → `orchestrator` (`role_slug`/`ROLE_NAME_MAP` in `workforce_runtime.py`) en een data-repair (`apply_data_repairs` in `schema_patch.py`) migreert bestaande `po`-agents bij startup.
 - **Project hub selector:** In de linker Project Hub-zijbalk staat nu een projectselector boven de hub-links. De selector onthoudt het laatst geopende project per tenant (`localStorage`) en valt terug op het eerste beschikbare project.
-- **Project workstreams (backend):** Workstreams zijn persisted entities per project (`project_workstreams` tabel) met API `GET/POST/PATCH /projects/:id/workstreams`. Eerste GET seed drie default streams als de lijst leeg is. Sidebar toont workstreams van het geselecteerde project (niet meer projectnamen). Response bevat ook gekoppelde `po_agent` (agent entity met `role=orchestrator`, via `projects.po_agent_id`). In XanoScript geen variabele `$project` gebruiken (gebruik `$project_row` + `|get:"po_agent_id"`) — anders HTTP 500 op workstreams GET.
+- **Project workstreams (backend):** Workstreams zijn persisted entities per project (`project_workstreams` tabel) met API `GET/POST/PATCH /projects/:id/workstreams`. Eerste GET seed drie default streams als de lijst leeg is. Sidebar toont workstreams van het geselecteerde project (niet meer projectnamen). Response bevat ook gekoppelde `po_agent` (agent entity met `role=orchestrator`, via `projects.po_agent_id`).
 - **Orkestrator in hub:** Gekoppelde orkestrator-agent wordt getoond in Project Hub sidebar en op `/project/:id/overview`. Klik opent **orkestrator-configuratie** op `/project/:id/orchestrator` (identiteit, koppelen/aanmaken, orchestration op één pagina; geen project context bar of horizontale tabs op deze route). Zonder orkestrator: sidebar-CTA "Orkestrator instellen" en setup-gate op workstreams/orchestration tot een orkestrator gekoppeld is. Backend (technisch): `GET/POST/PATCH/DELETE /projects/:id/po-agent`; `projects.po_agent_id` is bron van waarheid (één dedicated orkestrator per project, exclusief). Bij project-aanmaak (`POST /projects`, API 276) wordt automatisch een orkestrator-agent aangemaakt (`{project.name} Orchestrator`, `role=orchestrator`, `slug=orchestrator`). Na create redirect portal naar `/project/:id/orchestrator`. Legacy `/project/:id/po` redirect naar orchestrator. **Canonieke regel:** precies één project-gekoppelde orchestrator per project; geen tenant-level orchestrator zonder project (bootstrap/seed koppelen de orchestrator direct aan het demo-project, en `apply_data_repairs` verwijdert orphan-orchestrators zonder runs). `link_po_agent` weigert agents die geen orchestrator zijn.
-- **Projectinstellingen (sidebar):** Onderaan de Project Hub-zijbalk staat **Projectinstellingen** (`/project/:id/settings`) zodra een project geselecteerd is. De pagina bevat algemene projectvelden, codekoppeling en een danger zone om het project te verwijderen. Verwijderen vereist dubbele bevestiging: de gebruiker moet de exacte projectnaam typen. Backend: `DELETE /projects/{id}` met body `{ confirm_name }` (verwijdert workstreams, ontkoppelt agents, verwijdert project). Naamcheck in Xano via DB-where (`$db.projects.name == $input.confirm_name`), niet via `|get:"name"` op een row-variabele — Metadata API push kan die expressie corrumperen naar letterlijke backticks. Post-deploy: `node scripts/verify-xano-api-push.mjs --apigroup 15 --api 302`.
+- **Projectinstellingen (sidebar):** Onderaan de Project Hub-zijbalk staat **Projectinstellingen** (`/project/:id/settings`) zodra een project geselecteerd is. De pagina bevat algemene projectvelden, codekoppeling en een danger zone om het project te verwijderen. Verwijderen vereist dubbele bevestiging: de gebruiker moet de exacte projectnaam typen. Backend: `DELETE /projects/{id}` met body `{ confirm_name }` (verwijdert workstreams, ontkoppelt agents, verwijdert project). Naamcheck in FastAPI via DB-where (`$db.projects.name == $input.confirm_name`), niet via `|get:"name"` op een row-variabele — Metadata API push kan die expressie corrumperen naar letterlijke backticks. Post-deploy: `node scripts/verify-platform-api-push.mjs --apigroup 15 --api 302`.
 - Er is geen aparte **Help**-rail en geen ingebouwde Swagger-route (`/docs`).
 
 ---
@@ -449,7 +447,7 @@ De portal gebruikte een Featurebase-achtige 2-laagse shell. Zie ook `apps/dashbo
 - `organisation.livechat_settings.subdomain` is een expliciete schema-child (text, lowercase/trim) en wordt gebruikt als bron voor tenant host-routing in de dashboard-workspaceflow.
 - Bestaande organisations in workspace `1` zijn gebackfilled met unieke subdomeinen: `bokito`, `chargecars`, `bakermat-design`, `bourgondienadvies`, `demo-organisation`.
 - Multi-tenant autorisatie gebruikt nu een expliciete junction-tabel `tenant_membership` (`user_id`, `tenant_id`, `role`, `status`) i.p.v. een impliciete single-tenant koppeling via alleen `user.organisation_id`.
-- `GET /api:auth/me` en legacy `GET /api:DavdZOps/auth/me` retourneren `memberships[]` en `current_tenant`, plus optionele input `tenant_subdomain` om tenant-context expliciet te selecteren. De stack loopt actieve `tenant_membership`-rijen en doet per rij een `organisation` lookup voor subdomein en naam; een `db.query` met join plus multiline `|map:`/backtick-filters veroorzaakte eerder een Xano runtime `fatal` (HTTP 500) en brak daarmee login/hydratie.
+- `GET //api/auth/me` en legacy `GET /api:DavdZOps/auth/me` retourneren `memberships[]` en `current_tenant`, plus optionele input `tenant_subdomain` om tenant-context expliciet te selecteren. De stack loopt actieve `tenant_membership`-rijen en doet per rij een `organisation` lookup voor subdomein en naam; een `db.query` met join plus multiline `|map:`/backtick-filters veroorzaakte eerder een FastAPI runtime `fatal` (HTTP 500) en brak daarmee login/hydratie.
 - Login- en auth-exchange endpoints zetten nu `bokito_refresh_token` cookies met wildcard domein voor zowel productie (`.bokito.ai`) als lokale ontwikkeling (`.localhost`) zodat sessies over subdomeinen herbruikbaar zijn.
 - Redirectcontract blijft `return_to`; targets naar `/login` of `/auth/handoff` worden genegeerd en vallen terug op een veilige startroute om auth-loops te voorkomen.
 - Workspace openen vanuit `/workspaces` gaat direct naar de tenant URL (`/home` voor admins) zonder frontend handoff-route.
@@ -461,7 +459,7 @@ De portal gebruikte een Featurebase-achtige 2-laagse shell. Zie ook `apps/dashbo
 - `Geen tenanttoegang`: gebruiker is geauthenticeerd maar heeft geen actieve `tenant_membership` voor het subdomein; UI toont expliciet toegang geweigerd i.p.v. login-redirect.
 - `Nog steeds loginprompt op tenant`: verifieer dat `GET /auth/me` een membership met matching `tenant_slug` teruggeeft en dat de subdomeincookie (`bokito_refresh_token`) wordt meegestuurd.
 - `Lege workspace op tenant-host`: controleer `tenant_membership.status = active` en dat `organisation.livechat_settings.subdomain` exact overeenkomt met de host.
-- De hubnavigatie toont accountinformatie van de ingelogde gebruiker linksonder (naam + e-mail + initials) met een directe link naar de `Account` hubpagina, vergelijkbaar met Xano-achtige placement.
+- De hubnavigatie toont accountinformatie van de ingelogde gebruiker linksonder (naam + e-mail + initials) met een directe link naar de `Account` hubpagina, vergelijkbaar met FastAPI-achtige placement.
 - De `Account` hubpagina bevat nu werkende basisinstellingen (profieloverzicht, snelle thema-toggle en uitloggen) in plaats van een placeholder.
 - Workspace hub gedrag bij lege `/workspaces` response: frontend probeert een fallback-workspace op basis van `auth/me` tenantdata (`user.tenant`) zodat users met bestaande tenantcontext niet op een lege lijst stranden.
 - Workspace overzicht is nu visueel gecentreerd (verticaal + horizontaal) als startpunt, met hulpitems onder de cards i.p.v. rechts ernaast.
@@ -512,13 +510,13 @@ Doel: het dashboard voelt overal als één product — zelfde spacing, surfaces,
 - De pagina gebruikt een lijstgerichte layout; in de header staan **Outlook koppelen** (OAuth) en **SMTP / IMAP toevoegen** (modal)
 - **Outlook (productie)**: delegated OAuth via Microsoft Identity Platform en Microsoft Graph. Tokens en sync lopen per **Bokito-account** (`account`-rij); de ingelogde portalgebruiker start de OAuth-flow. De pagina toont de tenantnaam uit `auth/me` bij de koppeling
 - Na succesvolle OAuth redirect terug naar deze route met query `?outlook=connected`; fouten komen binnen als `?outlook_error=...`; bekende foutcodes waaronder **`token_exchange`** (token-POST naar Microsoft mislukt: vaak redirect-URI-afwijking, onjuist secret, verlopen of hergebruikte code); optioneel `aad_detail=` (URL-encoded tekst van Microsoft/AAD voor support). De dashboard-OAuth-flow stuurt `return_url` mee naar de pagina waar de gebruiker de koppeling startte (pathname + origin). Bij start kan `prompt=consent` op de authorize-URL worden meegegeven om een refresh token te stimuleren.
-- **SMTP / IMAP**: alleen **concept** in de browser (geen Xano-opslag); duidelijke copy op de pagina. Geen Gmail-OAuth in deze release
+- **SMTP / IMAP**: alleen **concept** in de browser (geen FastAPI-opslag); duidelijke copy op de pagina. Geen Gmail-OAuth in deze release
 
-#### Xano API-groep `Authentication` (`api:DavdZOps`)
+#### FastAPI API-groep `Authentication` (`api:DavdZOps`)
 - `GET /email/oauth/start` — auth **user**; generieke OAuth start voor `provider=outlook|gmail`, slaat state op en retourneert `{ authorize_url }`.
-- `GET /email/outlook/oauth/start` — auth **user**; legt een rij in `outlook_oauth_state` aan en retourneert `{ authorize_url }` voor redirect naar Microsoft. In de stack wordt `auth.id` eerst gecast met `to_int` voor `db.get user` op numerieke `id`, en `expires_at` gezet met `now|add_secs_to_timestamp:900` (15 minuten). Gebruik niet `timestamp_add_days` voor dit doel: die filter ontbreekt op veel Xano-instances en geeft `Unable to locate func entry: timestamp_add_days`. **Als `MICROSOFT_CLIENT_ID` of `MICROSOFT_REDIRECT_URI` in Xano env leeg zijn**, bevat de gegenereerde Microsoft-URL lege queryparams (`client_id=&redirect_uri=`); de endpoint valideert dit met een `precondition` en geeft een duidelijke `inputerror` i.p.v. door te redirecten.
-- `GET /email/outlook/oauth/start` — auth **user**; legt een rij in `outlook_oauth_state` aan en retourneert `{ authorize_url }` voor redirect naar Microsoft. In de stack wordt `auth.id` eerst gecast met `to_int` voor `db.get user` op numerieke `id`, en `expires_at` gezet met `now|add_secs_to_timestamp:900` (15 minuten). Gebruik niet `timestamp_add_days` voor dit doel: die filter ontbreekt op veel Xano-instances en geeft `Unable to locate func entry: timestamp_add_days`. **Als `MICROSOFT_CLIENT_ID` of `MICROSOFT_REDIRECT_URI` in Xano env leeg zijn**, bevat de gegenereerde Microsoft-URL lege queryparams (`client_id=&redirect_uri=`); de endpoint valideert dit met een `precondition` en geeft een duidelijke `inputerror` i.p.v. door te redirecten. De endpoint accepteert nu optioneel `return_url` en slaat die per state op (`outlook_oauth_state.return_url`); als `return_url` ontbreekt, gebruikt hij `dashboard_outlook_return_url` (met fallback naar `https://app.bokito.ai/settings/support/general`).
-- `GET /email/outlook/oauth/callback` — **publiek** (geen Bearer); wisselt `code` om, haalt Graph `/me` op, schrijft of werkt `email_oauth_connection` bij voor `organisation_id` uit de state, en antwoordt met **HTML** meta-refresh naar `dashboard_outlook_return_url` met `?outlook=connected` of `?outlook_error=...` (fallback: `https://app.bokito.ai/settings/support/general` als env leeg is). Vóór de token-call: controle dat `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` en `MICROSOFT_REDIRECT_URI` (Xano env) niet leeg zijn; anders redirect `?outlook_error=missing_oauth_env`. Token-POST naar Microsoft gebruikt `api.request` met `Content-Type: application/x-www-form-urlencoded` en `params` als key-value (`client_id`, `client_secret`, `grant_type`, `code`, `redirect_uri`), waarden via `to_text`. Lege `MICROSOFT_CLIENT_ID` geeft bij Microsoft vaak **AADSTS900144** (*The request body must contain the following parameter: 'client_id'*). Incident 2026-05-08: de callback kon crashen met `ERROR_CODE_INPUT_ERROR` (*1st operand must be one of these types...*) door een type-onveilige state-lookup (`nonce|to_text == state`) in de `db.query` where; fix is directe vergelijking op de uuid-kolom (`nonce == state`) plus timestamp-veilige `now`-afhandeling, waardoor de flow nu weer HTML-redirects teruggeeft (`invalid_state`, `expired_state`, `no_refresh_token`) in plaats van een 400 JSON crash. De callback gebruikte tijdelijk tenant-subdomain afleiding (`https://<subdomain>.bokito.ai/...`), wat in sommige tenants NXDOMAIN kon geven (bijv. `bokito.bokito.ai`); dit is vervangen door de env-gedreven return URL.
+- `GET /email/outlook/oauth/start` — auth **user**; legt een rij in `outlook_oauth_state` aan en retourneert `{ authorize_url }` voor redirect naar Microsoft. In de stack wordt `auth.id` eerst gecast met `to_int` voor `db.get user` op numerieke `id`, en `expires_at` gezet met `now|add_secs_to_timestamp:900` (15 minuten). Gebruik niet `timestamp_add_days` voor dit doel: die filter ontbreekt op veel FastAPI-instances en geeft `Unable to locate func entry: timestamp_add_days`. **Als `MICROSOFT_CLIENT_ID` of `MICROSOFT_REDIRECT_URI` in FastAPI env leeg zijn**, bevat de gegenereerde Microsoft-URL lege queryparams (`client_id=&redirect_uri=`); de endpoint valideert dit met een `precondition` en geeft een duidelijke `inputerror` i.p.v. door te redirecten.
+- `GET /email/outlook/oauth/start` — auth **user**; legt een rij in `outlook_oauth_state` aan en retourneert `{ authorize_url }` voor redirect naar Microsoft. In de stack wordt `auth.id` eerst gecast met `to_int` voor `db.get user` op numerieke `id`, en `expires_at` gezet met `now|add_secs_to_timestamp:900` (15 minuten). Gebruik niet `timestamp_add_days` voor dit doel: die filter ontbreekt op veel FastAPI-instances en geeft `Unable to locate func entry: timestamp_add_days`. **Als `MICROSOFT_CLIENT_ID` of `MICROSOFT_REDIRECT_URI` in FastAPI env leeg zijn**, bevat de gegenereerde Microsoft-URL lege queryparams (`client_id=&redirect_uri=`); de endpoint valideert dit met een `precondition` en geeft een duidelijke `inputerror` i.p.v. door te redirecten. De endpoint accepteert nu optioneel `return_url` en slaat die per state op (`outlook_oauth_state.return_url`); als `return_url` ontbreekt, gebruikt hij `dashboard_outlook_return_url` (met fallback naar `https://app.bokito.ai/settings/support/general`).
+- `GET /email/outlook/oauth/callback` — **publiek** (geen Bearer); wisselt `code` om, haalt Graph `/me` op, schrijft of werkt `email_oauth_connection` bij voor `organisation_id` uit de state, en antwoordt met **HTML** meta-refresh naar `dashboard_outlook_return_url` met `?outlook=connected` of `?outlook_error=...` (fallback: `https://app.bokito.ai/settings/support/general` als env leeg is). Vóór de token-call: controle dat `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` en `MICROSOFT_REDIRECT_URI` (FastAPI env) niet leeg zijn; anders redirect `?outlook_error=missing_oauth_env`. Token-POST naar Microsoft gebruikt `api.request` met `Content-Type: application/x-www-form-urlencoded` en `params` als key-value (`client_id`, `client_secret`, `grant_type`, `code`, `redirect_uri`), waarden via `to_text`. Lege `MICROSOFT_CLIENT_ID` geeft bij Microsoft vaak **AADSTS900144** (*The request body must contain the following parameter: 'client_id'*). Incident 2026-05-08: de callback kon crashen met `ERROR_CODE_INPUT_ERROR` (*1st operand must be one of these types...*) door een type-onveilige state-lookup (`nonce|to_text == state`) in de `db.query` where; fix is directe vergelijking op de uuid-kolom (`nonce == state`) plus timestamp-veilige `now`-afhandeling, waardoor de flow nu weer HTML-redirects teruggeeft (`invalid_state`, `expired_state`, `no_refresh_token`) in plaats van een 400 JSON crash. De callback gebruikte tijdelijk tenant-subdomain afleiding (`https://<subdomain>.bokito.ai/...`), wat in sommige tenants NXDOMAIN kon geven (bijv. `bokito.bokito.ai`); dit is vervangen door de env-gedreven return URL.
 - `GET /email/google/oauth/start` — auth **user**; Gmail OAuth start met `access_type=offline`, `prompt=consent`, state-opslag en optionele `return_url` (zelfde state-tabel als Outlook). De state-rij krijgt `feature = "gmail-email"` voor centrale callback-routing.
 - `GET /email/google/oauth/callback` — **publiek**; wisselt autorisatiecode om via `https://oauth2.googleapis.com/token`, leest profiel via `https://www.googleapis.com/oauth2/v3/userinfo`, upsert `email_oauth_connection` met `provider=gmail`, en redirect terug met `oauth_provider=gmail` + `oauth_status` of `oauth_error` + `oauth_detail`.
 - `GET /oauth/google/callback` — **publiek**; centrale Google callback-route (Pattern 2). Leest state uit `email_outlook_oauth_state`, inclusief `feature`, en handelt nu Gmail af via dezelfde token/profile flow als de eerdere email-specifieke callback.
@@ -526,20 +524,20 @@ Doel: het dashboard voelt overal als één product — zelfde spacing, surfaces,
 - `GET /email/connections` — auth **user**; lijst koppelingen voor het account van de gebruiker (zonder `refresh_token`). In de function stack: `db.query` met `return = { type: "list" }` **zonder** paging levert de rijen als **array op de variabele zelf**; map die met `array.map ($raw_conn)`, niet `$raw_conn.items` (die sleutel bestaat pas bij paging). Rijen worden gemapt naar veilige velden met `connection_pk` i.p.v. `id` in de output.
 - `DELETE /email/connections/{connection_id}` — auth **user**; verwijdert gekoppelde `email_synced_message`-rijen en de OAuth-rij na tenant-check
 
-#### Xano tabellen (workspace Bokito AI app)
+#### FastAPI tabellen (workspace Bokito AI app)
 - `email_oauth_connection` — per account: Microsoft user id, mailbox, encrypted refresh token veld (text sensitive), `delta_link`, `last_sync_at`, `status` (`active` / `error` / `revoked`)
 - `email_outlook_oauth_state` — korte OAuth state (`nonce`, `organisation_id`, `user_id`, `expires_at`, `return_url`, `feature`); `feature` ondersteunt centrale provider-callbacks voor meerdere Google/Microsoft integraties (zoals email, Drive, Calendar) zonder aparte provider redirect URI per feature.
 - `email_synced_message` — opgeslagen inbox-berichten per `connection_id` (Graph id, subject, from, preview, optioneel `graph_payload`)
 
-#### Xano scheduled task
+#### FastAPI scheduled task
 - `email/outlook_sync_inboxes` — elke **900** seconden (15 min): Outlook-rijden met `status` actief en `is_enabled` leeg of `true`; refresh token; Graph **delta** op inbox, paginering tot `deltaLink`, upserts in `email_synced_message`; werkt `delta_link` en `last_sync_at` bij; bij fout zet `status` op `error` en vult `last_error`
 
 #### Omgeving / Azure (handmatige setup)
-- In **Microsoft Entra ID**: app registration (vaak multi-tenant), delegated permissions: `offline_access`, OpenID profiel, `User.Read`, `Mail.Read`, `Mail.Send`; **Web** redirect URI exact gelijk aan Xano env `MICROSOFT_REDIRECT_URI`. Dat kan de centrale route zijn (`GET /oauth/microsoft/callback` op `api:integrations`) of, als de stack die URL zo opbouwt, de app-groep callback `GET /email/outlook/oauth/callback` op `api:app` (bijv. canonical `https://api.bokito.ai/api:app/email/outlook/oauth/callback`). Verifieer altijd de authorize-URL die de browser krijgt; die `redirect_uri` moet letterlijk in Entra staan op **dezelfde** app registration als `MICROSOFT_CLIENT_ID`.
-- Pattern 2 (centrale provider callback): registreer in Google Cloud / Entra exact dezelfde redirect als in Xano env: `GOOGLE_REDIRECT_URI` voor `GET /oauth/google/callback` en `MICROSOFT_REDIRECT_URI` voor `GET /oauth/microsoft/callback` wanneer die centrale route wordt gebruikt (zelfde host + pad als in env). Als productie in plaats daarvan `api:app` + `/email/outlook/oauth/callback` gebruikt, hoort die URI in Entra — niet alleen de portal Azure AD login-URI (`/api/auth/callback/azure-ad`).
+- In **Microsoft Entra ID**: app registration (vaak multi-tenant), delegated permissions: `offline_access`, OpenID profiel, `User.Read`, `Mail.Read`, `Mail.Send`; **Web** redirect URI exact gelijk aan FastAPI env `MICROSOFT_REDIRECT_URI`. Dat kan de centrale route zijn (`GET /oauth/microsoft/callback` op `/api/integrations`) of, als de stack die URL zo opbouwt, de app-groep callback `GET /email/outlook/oauth/callback` op `/api/app` (bijv. canonical `https://api.bokito.ai//api/app/email/outlook/oauth/callback`). Verifieer altijd de authorize-URL die de browser krijgt; die `redirect_uri` moet letterlijk in Entra staan op **dezelfde** app registration als `MICROSOFT_CLIENT_ID`.
+- Pattern 2 (centrale provider callback): registreer in Google Cloud / Entra exact dezelfde redirect als in FastAPI env: `GOOGLE_REDIRECT_URI` voor `GET /oauth/google/callback` en `MICROSOFT_REDIRECT_URI` voor `GET /oauth/microsoft/callback` wanneer die centrale route wordt gebruikt (zelfde host + pad als in env). Als productie in plaats daarvan `/api/app` + `/email/outlook/oauth/callback` gebruikt, hoort die URI in Entra — niet alleen de portal Azure AD login-URI (`/api/auth/callback/azure-ad`).
 - **Supported account types** (App registration → **Authentication** of **Overview**): als gebruikers **persoonlijke Microsoft-accounts** (@outlook.com, @live.com, @hotmail.com) moeten kunnen inloggen, kies een optie die **personal Microsoft accounts** expliciet toestaat (bijv. multitenant + personal). Alleen *Accounts in this organizational directory only* of alleen werk/school zonder consumers geeft na inloggen met een consumer-account de fout **`unauthorized_client` — *The client does not exist or is not enabled for consumers*** (vaak zichtbaar op `login.live.com`). Zakelijke mailboxen: gebruikers inloggen met **werk- of schoolaccount** van de tenant waar de app voor is ingericht.
-- Xano **environment variables** (Outlook / Microsoft): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (zelfde waarden als in Azure Entra app registration; redirect URI = exacte Xano callback-URL). Daarnaast `dashboard_outlook_return_url` (volledige URL naar de dashboardpagina na OAuth, bv. `http://localhost:5174/settings/email` voor Vite-dev of productie-URL). **Dashboard** roept `GET /email/oauth/start` en gerelateerde routes via **`api:integrations`** aan; als `MICROSOFT_CLIENT_ID` daar leeg is maar wél op een andere groep staat, kan Microsoft reageren met *The provided request must include a 'client_id' input parameter* (authorize-URL bevat dan `client_id=` zonder waarde).
-- Xano **environment variables** (Outlook / Microsoft): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (zelfde waarden als in Azure Entra app registration; redirect URI = exacte Xano callback-URL). Daarnaast `dashboard_outlook_return_url` (productie return URL) en optioneel `dashboard_outlook_return_url_local` (lokale return URL, bv. `http://localhost:5174/settings/support/general`).
+- FastAPI **environment variables** (Outlook / Microsoft): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (zelfde waarden als in Azure Entra app registration; redirect URI = exacte FastAPI callback-URL). Daarnaast `dashboard_outlook_return_url` (volledige URL naar de dashboardpagina na OAuth, bv. `http://localhost:5174/settings/email` voor Vite-dev of productie-URL). **Dashboard** roept `GET /email/oauth/start` en gerelateerde routes via **`/api/integrations`** aan; als `MICROSOFT_CLIENT_ID` daar leeg is maar wél op een andere groep staat, kan Microsoft reageren met *The provided request must include a 'client_id' input parameter* (authorize-URL bevat dan `client_id=` zonder waarde).
+- FastAPI **environment variables** (Outlook / Microsoft): `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` (zelfde waarden als in Azure Entra app registration; redirect URI = exacte FastAPI callback-URL). Daarnaast `dashboard_outlook_return_url` (productie return URL) en optioneel `dashboard_outlook_return_url_local` (lokale return URL, bv. `http://localhost:5174/settings/support/general`).
 
 ---
 
@@ -611,15 +609,15 @@ Type: Vanilla JS embeddable widget, geen framework. Geladen via `<script>` tag.
 ### 4.1 Embed
 ```html
 <script
-  src="https://xrex-nmji-j9ur.f2.xano.io/api:livechat/script/main"
+  src="https://api.bokito.nl/api/livechat/script/main"
   data-agent-slug="demo"
-  data-api-url="https://xrex-nmji-j9ur.f2.xano.io"
+  data-api-url="https://api.bokito.nl"
   defer>
 </script>
 ```
 Of via `<iframe>` wijzend naar `/chat/embed?agent=...`
 
-- De widget gebruikt de API-host van `data-api-url` of leidt die af uit de script-URL (stuk voor `/api:livechat`), en normaliseert trailing slashes. Dit voorkomt dat berichten naar een verkeerde host of dubbele URL gaan bij inject-embeds.
+- De widget gebruikt de API-host van `data-api-url` of leidt die af uit de script-URL (stuk voor `/api/livechat`), en normaliseert trailing slashes. Dit voorkomt dat berichten naar een verkeerde host of dubbele URL gaan bij inject-embeds.
 
 ### 4.2 Features
 - **Widget chrome (Featurebase/Intercom-achtig)**: geen buitenrand op het venster; **24px** hoekradius en diepe schaduw. De **atmosfeerlaag** (`.bk-window::before`) is configureerbaar en mengt standaard het **accent** (`--bk-primary`) met de **achtergrond** (`--bk-bg`) via `color-mix` (geen donkere bovenkap in light mode). Hoogte via `--bk-atmosphere-height` / `--bk-atmosphere-min-height`; optioneel tenant-override, zie **`agent_config.theme`** hieronder. **Header-avatar** (logo-links): in **light mode** witte cirkel (`--bk-bg-surface`), dunne rand en minimale schaduw; in **dark mode** blijft de groene gloed/inset. **Home**: ruimere welkomstypografie; **Nieuw gesprek** als glazen kaart. **Open launcher**: header en home met `bk-header-in`; `prefers-reduced-motion` schakelt animaties uit.
@@ -641,14 +639,14 @@ Of via `<iframe>` wijzend naar `/chat/embed?agent=...`
 - **Multi-tenant auth bootstrap**: widget kan host-auth overnemen via `data-auth-cookie-name`, `data-auth-token` of `window.BokitoConfig.getAuthToken()`, en stuurt dan `host_auth_token` mee naar `session/start`.
 - **Auth modes**: `anonymous`, `optional`, `required` worden ondersteund via backend `agent_config.auth_mode` of `data-auth-mode`.
 - **Home vs chat**: Op het startscherm staan tabknoppen onderaan; in actieve chat neemt de invoerbalk die plek in. **Terug naar menu** staat als pijlknop links in de header (zichtbaar zodra het chat-paneel open is, los van state-machine edge cases zoals `error`). Bij open instellingen: eerst instellingen sluiten, anders terug naar het hoofdmenu via state `home`. De regel **Powered by Bokito AI** staat onderaan het venster (niet alleen onder de home-tabs), verborgen op het inlogscherm en wanneer instellingen open zijn; de regel is een link naar `https://bokito.ai` (nieuw tabblad).
-- **Host-user resolutie voor avatar/popover**: omdat `POST /api:livechat/session/start` geen `data.user` retourneert, haalt de widget de logged-in user apart op:
+- **Host-user resolutie voor avatar/popover**: omdat `POST /api/livechat/session/start` geen `data.user` retourneert, haalt de widget de logged-in user apart op:
   - Eerst inline via `window.BokitoConfig.user` of `getUser()` (preferred, zonder extra request).
   - Anders via `GET /api:DavdZOps/auth/me` met `Authorization: Bearer <host_auth_token>`. URL is overrideable via `data-host-me-url` of `BokitoConfig.hostMeUrl`.
   - Het resultaat wordt gemerged in `#sessionUser` zodat avatar, initialen en popover de echte naam/email/avatar tonen.
 - **Dashboard \u2192 widget bridge** (`apps/dashboard/src/lib/widget-bridge.ts`): `AuthProvider` publiceert de huidige user naar `window.__bokito_dashboard_user__`; `main.tsx` zet `BokitoConfig.getUser()` als reader. Embedded widget mount krijgt `data-auth-mode="optional"`.
-- **Login fallback in widget**: bij verplichte auth zonder geldig token toont de widget een ingebouwd e-mail/wachtwoord formulier (`POST /api:livechat/auth/login`).
-- **User preferences sync**: bij beschikbare API gebruikt de widget `GET/PATCH /api:livechat/user/preferences` met localStorage als cache/fallback.
-- **Authenticated history first**: de widget probeert eerst `GET /api:livechat/user/conversations` en valt terug naar `customer/conversations`.
+- **Login fallback in widget**: bij verplichte auth zonder geldig token toont de widget een ingebouwd e-mail/wachtwoord formulier (`POST /api/livechat/auth/login`).
+- **User preferences sync**: bij beschikbare API gebruikt de widget `GET/PATCH /api/livechat/user/preferences` met localStorage als cache/fallback.
+- **Authenticated history first**: de widget probeert eerst `GET /api/livechat/user/conversations` en valt terug naar `customer/conversations`.
 - **Tenant MCP context forward**: `mcp_server_ids` + `tenant_context` worden meegestuurd in stream-chat requests wanneer session payload tenant-MCP data bevat.
 
 ---
@@ -680,7 +678,7 @@ Of via `<iframe>` wijzend naar `/chat/embed?agent=...`
 
 ## 5b. Web Scraping & Documentatie Datamodel
 
-Xano workspace 1 bevat drie tabellen voor het opslaan van gescrapete webpagina's en documentatie, ten behoeve van AI-zoeken (RAG).
+FastAPI workspace 1 bevat drie tabellen voor het opslaan van gescrapete webpagina's en documentatie, ten behoeve van AI-zoeken (RAG).
 
 ### Tabelstructuur
 
@@ -774,14 +772,14 @@ Zichtbaar in navigatie maar nog niet gebouwd:
 - Buckets zijn altijd gekoppeld aan één organisatie; cross-organisatie toegang is niet standaard mogelijk
 - OCR-verwerking vindt asynchroon plaats na upload
 - Agents kunnen alleen data ophalen uit buckets waarvoor ze expliciet toegang hebben
-- Dashboard-data combineert live Xano-calls (o.a. auth, workspaces, integrations/inbox/e-mail, workforce, custom DB waar geimplementeerd) met mock of UI-only waar nog geen backend is
-- Mobiele app en widget communiceren volledig live via Xano livechat API (`/api:livechat/`)
+- Dashboard-data combineert live FastAPI-calls (o.a. auth, workspaces, integrations/inbox/e-mail, workforce, custom DB waar geimplementeerd) met mock of UI-only waar nog geen backend is
+- Mobiele app en widget communiceren volledig live via FastAPI livechat API (`/api/livechat/`)
 
 ---
 
 ## 8. Technische Architectuur
 
-- **Backend**: Xano (API, database, agents, MCP server, static hosting)
+- **Backend**: FastAPI (API, database, agents, MCP server, static hosting)
 - **Dashboard**: React + TypeScript + Vite + React Router + Tailwind CSS
 - **Mobiel**: React Native + Expo Router
 - **Widget**: Vanilla JS, geen dependencies, SSE-streaming
@@ -792,16 +790,16 @@ Zichtbaar in navigatie maar nog niet gebouwd:
 - **Tenant-migratie status (workspace 1)**: `account.organisation_id` en `user.organisation_id` zijn toegevoegd en gevuld voor bestaande records; `event_log.organisation_id` is na een mislukte bulk-backfill weer verwijderd en blijft voorlopig op `account_id` totdat row-id gestuurde backfill wordt gebruikt.
 - **Tenant-migratie fase**: de volledige `account`→`organisation` migratie gebeurt momenteel in pre-live; tijdelijke datainconsistentie in migratielogs is acceptabel zolang productie nog niet live staat.
 - **Real-time**: Server-Sent Events (SSE) voor streaming AI-antwoorden
-- **Xano API base**: `https://xrex-nmji-j9ur.f2.xano.io`
-  - Dashboard auth: `/api:auth`
-  - Widget/Mobiel livechat: `/api:livechat`
+- **FastAPI API base**: `https://api.bokito.nl`
+  - Dashboard auth: `//api/auth`
+  - Widget/Mobiel livechat: `/api/livechat`
   - Bakermat design configurator: `/api:paVSDSqb`
 
 ### Frontend API endpoint-opbouw (dashboard SOP)
 
-- De dashboard frontend bouwt Xano endpoints op via `VITE_XANO_BASE_URL` + `VITE_API_GROUP_*` + endpoint path.
+- De dashboard frontend bouwt FastAPI endpoints op via `VITE_BOKITO_API_URL` + `VITE_API_GROUP_*` + endpoint path.
 - De centrale opbouw staat in `apps/dashboard/src/lib/api.config.ts`; featurecode hergebruikt deze bases.
-- Integratie- en e-mailroutes lopen via canonical `api:integrations`; frontend gebruikt hiervoor `VITE_API_GROUP_INTEGRATIONS` en `INTEGRATIONS_API_BASE`.
+- Integratie- en e-mailroutes lopen via canonical `/api/integrations`; frontend gebruikt hiervoor `VITE_API_GROUP_INTEGRATIONS` en `INTEGRATIONS_API_BASE`.
 - API group variabelen zijn standaard aanwezig in `apps/dashboard/.env.example` en blijven leidend voor nieuwe API-integraties.
 - Endpoint paths blijven feature-specifiek en worden lokaal toegevoegd op een gedeelde base.
 - `VITE_*` variabelen bevatten geen secrets; Vite verwerkt deze waarden build-time in de frontend bundle.
@@ -809,65 +807,63 @@ Zichtbaar in navigatie maar nog niet gebouwd:
 
 ### Bjorn Lunden MCP (BLA API)
 
-- **Repo-locatie:** [`xanoscript/`](xanoscript/) — XanoScript voor tabel `bl_clients`, functies `bjorn_lunden/bl_bl_credentials` en `bjorn_lunden/bl_api_request`, **60 MCP-tools** onder `xanoscript/tools/bjorn_lunden/`, en MCP-serverdefinitie [`xanoscript/mcp_servers/bjorn_lunden_mcp.xs`](xanoscript/mcp_servers/bjorn_lunden_mcp.xs).
-- **Bron-API:** Bjorn Lunden BLA (`https://apigateway.blinfo.se/bla-api/v1/sp`); auth via header **`User-Key`** (API-key per administratie). OpenAPI-referentie in de repo: [`bourgondienadvies/bl-docs.json`](bourgondienadvies/bl-docs.json).
-- **Multi-administratie:** Elke BL-klantadministratie krijgt een rij in `bl_clients` met unieke `client_id` (string), `name`, `bl_api_key`, en optioneel `base_url` (leeg laten is niet aanbevolen; default is de standaard BLA base-URL bij invoer in Xano).
-- **Tool-generatie:** [`xanoscript/scripts/generate-bl-tools.mjs`](xanoscript/scripts/generate-bl-tools.mjs) regenereert alle toolbestanden; deploy door de XanoScript VS Code-extensie te gebruiken (push naar workspace).
-- **Bulk deploy (workspace 1):** Ontbreekt of is `XANO_METADATA_API_KEY` in `.env` ongeldig, dan kan dezelfde metadata-API (`POST .../api:meta/workspace/1/tool` en `.../mcp_server` met `Content-Type: text/x-xanoscript`) met env **`XANO_BOKITO_AUTH_HEADER`** (dezelfde waarde als Cursor MCP `xano-bokito`) worden aangeroepen. Script: [`xanoscript/scripts/push-bl-tools-bokito-cmd.mjs`](xanoscript/scripts/push-bl-tools-bokito-cmd.mjs) (alle `bjorn_lunden` tools + `bjorn_lunden_mcp.xs`). In Xano staat de MCP-server **Bjorn Lunden MCP** (bijv. id 8) met alle `bl_*` tools geregistreerd.
-- **Scope tools:** leveranciers, klanten, inkoop/verkoopfacturen, journaal, documenten, kostenplaats/kostendrager, attestanten, **ftgpar** (`GET /ftgpar?entityId=...`), **settings** (`GET /settings/type/{type}`), grootboek- en artikelbatch, projecten, boekjaar, klantadressen, valuta, offertes/orders, key figures (`/keyfigure/{kpi_path}/{date}`) en rapporten (`/report/{type}/{fromDate}/{toDate}`).
+- **Implementatie:** FastAPI integrations + MCP tools (`bl_*`) in `apps/api`; credentials per administratie in `bl_clients`.
+- **Bron-API:** Bjorn Lunden BLA (`https://apigateway.blinfo.se/bla-api/v1/sp`); auth via header **`User-Key`** (API-key per administratie).
+- **Multi-administratie:** Elke BL-klantadministratie krijgt een rij in `bl_clients` met unieke `client_id` (string), `name`, `bl_api_key`, en optioneel `base_url`.
+- **Scope tools:** leveranciers, klanten, inkoop/verkoopfacturen, journaal, documenten, kostenplaats/kostendrager, attestanten, **ftgpar**, **settings**, grootboek- en artikelbatch, projecten, boekjaar, klantadressen, valuta, offertes/orders, key figures en rapporten.
 
-### Livechat: legacy Claude-router vs native Xano-agent (dual pipeline)
+### Livechat: legacy Claude-router vs native FastAPI-agent (dual pipeline)
 
-Livechat ondersteunt **twee server-side pipelines** naast elkaar. Clients blijven standaard dezelfde URLs aanroepen; Xano kiest intern de pipeline **per agent** (aanbevolen), of je exposeert een **tweede POST-route** en stuurt overrides mee in `agent_config`.
+Livechat ondersteunt **twee server-side pipelines** naast elkaar. Clients blijven standaard dezelfde URLs aanroepen; FastAPI kiest intern de pipeline **per agent** (aanbevolen), of je exposeert een **tweede POST-route** en stuurt overrides mee in `agent_config`.
 
-**Aanbevolen (één endpoint, branch in Xano):** `POST /api:livechat/stream-chat` (en zo nodig `stream-chat-continue`) blijft het contract. In de function stack: als `chat_pipeline === "xano_native"`, run de ingebouwde **Xano AI Agent** (zelfde message-persist en SSE-output als legacy); anders ongewijzigde legacy-flow (Claude/router).
+**Aanbevolen (één endpoint, branch in FastAPI):** `POST /api/livechat/stream-chat` (en zo nodig `stream-chat-continue`) blijft het contract. In de function stack: als `chat_pipeline === "bokito_native"`, run de ingebouwde **FastAPI AI Agent** (zelfde message-persist en SSE-output als legacy); anders ongewijzigde legacy-flow (Claude/router).
 
-**Alternatief (tweede route):** bv. `POST /api:livechat/stream-chat-native` met identiek request body en **hetzelfde SSE-formaat** als `stream-chat`. Zet dan in `agent_config`:
+**Alternatief (tweede route):** bv. `POST /api/livechat/stream-chat-native` met identiek request body en **hetzelfde SSE-formaat** als `stream-chat`. Zet dan in `agent_config`:
 
 | Veld | Type | Betekenis |
 |------|------|-----------|
-| `chat_pipeline` | `"legacy"` \| `"xano_native"` | Documentatie/telemetrie; clients gebruiken het vooral informatief. Standaard: `legacy` of weglaten. |
-| `xano_agent_id` | string (optioneel) | Verwijzing naar de Xano AI Agent die de native tak moet runnen (id/canonical naar keuze van jullie Xano-model). |
-| `stream_chat_path` | string (optioneel) | Path-segment onder `/api:livechat/` voor de eerste SSE POST. Alleen `[a-zA-Z0-9_-]{1,64}`. Default: `stream-chat`. |
+| `chat_pipeline` | `"legacy"` \| `"bokito_native"` | Documentatie/telemetrie; clients gebruiken het vooral informatief. Standaard: `legacy` of weglaten. |
+| `platform_agent_id` | string (optioneel) | Verwijzing naar de FastAPI AI Agent die de native tak moet runnen (id/canonical naar keuze van jullie FastAPI-model). |
+| `stream_chat_path` | string (optioneel) | Path-segment onder `/api/livechat/` voor de eerste SSE POST. Alleen `[a-zA-Z0-9_-]{1,64}`. Default: `stream-chat`. |
 | `stream_chat_continue_path` | string (optioneel) | Zelfde regels; default: `stream-chat-continue`. |
-| `transcribe_path` | string (optioneel) | Path-segment onder `/api:livechat/` voor spraak-transcriptie (`POST`). Alleen `[a-zA-Z0-9_-]{1,64}`. Default: `transcribe`. |
+| `transcribe_path` | string (optioneel) | Path-segment onder `/api/livechat/` voor spraak-transcriptie (`POST`). Alleen `[a-zA-Z0-9_-]{1,64}`. Default: `transcribe`. |
 
 **`session/start`:** breid het bestaande `agent_config`-object uit met bovenstaande velden (backward compatible: geen velden = legacy + defaults).
 
 **SSE-contract (ongewijzigd):** clients verwachten o.a. `{ "t": "..." }` chunks, `{ "type": "title", ... }`, `{ "type": "page_context_needed", ... }`, `{ "type": "done", "content": "...", "id": ... }`. De **native tak** moet dezelfde events emittersen (of `page_context_needed` **niet** sturen als die stap daar niet bestaat — anders blijft de client wachten op `stream-chat-continue`).
 
-**Incrementele UI-streaming:** Widget en mobiel **renderen elke `t`-chunk live** (widget: `textContent` tijdens de stream, daarna markdown bij `done`; mobiel: `parseSseStream` `onDelta` + tijdelijk AI-bericht met status `processing`, daarna `sent`). Voor zichtbare woord-voor-woord streaming moet de backend **meerdere** `t`-events emitten (Xano agent streaming forwarden of response in segmenten knippen). **Client-side smoothing:** als er géén `t`-events waren en alleen `done` met `content`, knipt de widget de tekst in stukjes en toont die met korte delays (`#sseMaybeSimulateClientChunks`); uitschakelbaar met `data-client-simulate-stream="false"` of query `bk_sse_smooth=0` bij auto-mount. Mobiel: zelfde idee na `parseSseStream` wanneer `hadTokenEvents` false (`splitTextForClientSim` + `onDelta`).
+**Incrementele UI-streaming:** Widget en mobiel **renderen elke `t`-chunk live** (widget: `textContent` tijdens de stream, daarna markdown bij `done`; mobiel: `parseSseStream` `onDelta` + tijdelijk AI-bericht met status `processing`, daarna `sent`). Voor zichtbare woord-voor-woord streaming moet de backend **meerdere** `t`-events emitten (FastAPI agent streaming forwarden of response in segmenten knippen). **Client-side smoothing:** als er géén `t`-events waren en alleen `done` met `content`, knipt de widget de tekst in stukjes en toont die met korte delays (`#sseMaybeSimulateClientChunks`); uitschakelbaar met `data-client-simulate-stream="false"` of query `bk_sse_smooth=0` bij auto-mount. Mobiel: zelfde idee na `parseSseStream` wanneer `hadTokenEvents` false (`splitTextForClientSim` + `onDelta`).
 
-**Repo-clients:** de gebouwde widget (`npm run build` in `apps/chat-widget`, uitvoer `dist/bokito-chat.js`; bron [`apps/chat-widget/src/widget-main.ts`](apps/chat-widget/src/widget-main.ts)) en de mobiele app ([`apps/mobile/src/context/ChatContext.tsx`](apps/mobile/src/context/ChatContext.tsx) + [`parseSseStream` / `livechatStreamPaths`](apps/mobile/src/api/streamChat.ts)) gebruiken `stream_chat_path` / `stream_chat_continue_path` wanneer Xano die zet.
+**Repo-clients:** de gebouwde widget (`npm run build` in `apps/chat-widget`, uitvoer `dist/bokito-chat.js`; bron [`apps/chat-widget/src/widget-main.ts`](apps/chat-widget/src/widget-main.ts)) en de mobiele app ([`apps/mobile/src/context/ChatContext.tsx`](apps/mobile/src/context/ChatContext.tsx) + [`parseSseStream` / `livechatStreamPaths`](apps/mobile/src/api/streamChat.ts)) gebruiken `stream_chat_path` / `stream_chat_continue_path` wanneer FastAPI die zet.
 
-**Xano-implementatiechecklist (handmatig in workspace):**
+**FastAPI-implementatiechecklist (handmatig in workspace):**
 
-1. **Agent-tabel of config:** kolom/JSON `chat_pipeline`, optioneel `xano_agent_id` (of vaste agent per slug).
+1. **Agent-tabel of config:** kolom/JSON `chat_pipeline`, optioneel `platform_agent_id` (of vaste agent per slug).
 2. **`session/start`:** merge deze waarden in `agent_config`.
-3. **`stream-chat`:** `if chat_pipeline == xano_native` → laad conversatie + berichten, append user message, **Run AI Agent** met history, sla assistent-bericht op, stream SSE met **incrementele** `t`-chunks zodra het model tekst produceert, afsluiten met `done`; `else` → bestaande stack.
+3. **`stream-chat`:** `if chat_pipeline == bokito_native` → laad conversatie + berichten, append user message, **Run AI Agent** met history, sla assistent-bericht op, stream SSE met **incrementele** `t`-chunks zodra het model tekst produceert, afsluiten met `done`; `else` → bestaande stack.
 4. **`stream-chat-continue`:** alleen relevant voor legacy `page_context_needed`; native tak kan dezelfde handler laten of een no-op die direct `done` stuurt als je ooit per ongeluk continue aanroept.
 5. **Realtime / tool-stappen (pariteit, optioneel):** de widget luistert naar `tool_started`, `tool_completed`, `tool_error` op het conversation-kanaal ([`#handleRealtimeEvent`](apps/chat-widget/src/widget-main.ts)). Als de native agent tools uitvoert, emitteer dezelfde `event_type` + `object` als legacy zodat “thinking steps” zichtbaar blijven; anders blijft alleen de denk-indicator zonder substappen.
 
-**Testen:** gebruik een **aparte `agent_slug`** (bijv. `demo-native`) met `chat_pipeline: "xano_native"` zodat productie-slugs op legacy blijven. Vergelijk gedrag met [`apps/chat-widget/chat-standalone.html`](apps/chat-widget/chat-standalone.html) en de mobiele app.
+**Testen:** gebruik een **aparte `agent_slug`** (bijv. `demo-native`) met `chat_pipeline: "bokito_native"` zodat productie-slugs op legacy blijven. Vergelijk gedrag met [`apps/chat-widget/chat-standalone.html`](apps/chat-widget/chat-standalone.html) en de mobiele app.
 
-**Verschil met Bakermat:** Bakermat-chat gebruikt `POST /api:paVSDSqb/chat` en een aparte flow; livechat blijft op `/api:livechat` met het hierboven beschreven SSE-contract.
+**Verschil met Bakermat:** Bakermat-chat gebruikt `POST /api:paVSDSqb/chat` en een aparte flow; livechat blijft op `/api/livechat` met het hierboven beschreven SSE-contract.
 
 ### Livechat: spraak transcriptie (`transcribe` + faster-whisper)
 
-**faster-whisper draait niet in de Xano-runtime.** De repo bevat een aparte **ASR-worker**: [`apps/asr-service/`](apps/asr-service/) (FastAPI + [faster-whisper](https://github.com/SYSTRAN/faster-whisper)). Xano exposeert `POST /api:livechat/transcribe` (of een override via `agent_config.transcribe_path`) en proxy’t de audio naar die worker met een gedeeld geheim.
+**faster-whisper draait niet in de FastAPI-runtime.** De repo bevat een aparte **ASR-worker**: [`apps/asr-service/`](apps/asr-service/) (FastAPI + [faster-whisper](https://github.com/SYSTRAN/faster-whisper)). FastAPI exposeert `POST /api/livechat/transcribe` (of een override via `agent_config.transcribe_path`) en proxy’t de audio naar die worker met een gedeeld geheim.
 
 **Widget:** [`apps/chat-widget/src/widget-main.ts`](apps/chat-widget/src/widget-main.ts) en [`apps/chat-widget/js/chat-module.js`](apps/chat-widget/js/chat-module.js) uploaden na bevestigen van de opname een **webm**-blob als multipart (`audio`), met form fields `session_token` en `language` (`nl`), en header `Authorization: Bearer <session_token>`. Als de server geen bruikbare `text` teruggeeft, valt de client terug op de **Web Speech API**-tekst (indien beschikbaar).
 
-**Workspace environment variables (Xano):**
+**Workspace environment variables (FastAPI):**
 
 | Variable | Gebruik |
 |----------|---------|
 | `BOKITO_ASR_URL` | Volledige URL van de worker, eindigend op `/transcribe` (bijv. `https://asr.jouwdomein.nl/transcribe`). |
 | `BOKITO_ASR_API_KEY` | Zelfde waarde als `ASR_API_KEY` op de ASR-service. |
 
-**Xano: `POST /api:livechat/transcribe` bouwen (function stack):**
+**FastAPI: `POST /api/livechat/transcribe` bouwen (function stack):**
 
-1. Valideer de livechat-sessie op dezelfde manier als bij `POST /api:livechat/attachment` (Bearer-token en/of form field `session_token`).
+1. Valideer de livechat-sessie op dezelfde manier als bij `POST /api/livechat/attachment` (Bearer-token en/of form field `session_token`).
 2. **External API request:** `POST` naar `BOKITO_ASR_URL`, header `X-API-Key: <BOKITO_ASR_API_KEY>`, body **multipart/form-data** met bestandsveld `audio` = het geüploade bestand van de client; optioneel form field `language` doorgeven.
 3. Response van de worker is JSON (`text`, `language`, …). Stuur minimaal `{ "text": "<transcript>" }` terug naar de widget.
 4. Zet de time-out op de external request hoog genoeg voor model-inferentie (CPU kan tientallen seconden duren).
@@ -881,20 +877,20 @@ Bakermat is een partner-facing React app (`apps/bakermat/`) waarmee klanten van 
 
 ### Architectuur
 - **Frontend**: React + TypeScript + Vite + Tailwind + Framer Motion
-- **AI Chat**: Aangestuurd door Xano Agent "Bakermat Design Assistant" (canonical: `xnB1Q5od`, xano-free provider)
-- **API**: Xano API group `bakermat` (canonical: `paVSDSqb`) met `POST /chat` endpoint
+- **AI Chat**: Aangestuurd door FastAPI Agent "Bakermat Design Assistant" (canonical: `xnB1Q5od`, platform-free provider)
+- **API**: FastAPI API group `bakermat` (canonical: `paVSDSqb`) met `POST /chat` endpoint
 - **Realtime**: Hergebruikt het bestaande `conversation` realtime channel (`conversation/{sessionId}`) voor push-based berichten
-- **Image Generation**: Client-side via OpenAI DALL-E 3 (tijdelijk; wordt later een Xano tool)
+- **Image Generation**: Client-side via OpenAI DALL-E 3 (tijdelijk; wordt later een FastAPI tool)
 
 ### Flow
 1. Welkom → Vragen (bedrijf, sector, stijl, kleur) → Trailer selectie → Merk-input (URL + logo) → AI Design chat → Eindontwerp
 2. In de AI Design stap: split-screen met 3 image slots (links) en AI chat (rechts)
-3. Chat stuurt berichten via `POST /api:paVSDSqb/chat` naar de Xano agent
+3. Chat stuurt berichten via `POST /api:paVSDSqb/chat` naar de FastAPI agent
 4. Agent geeft `[GENEREER_ONTWERPEN]` trigger mee wanneer designs gegenereerd moeten worden
 5. Frontend parseert de trigger en start client-side image generation
 
-### Xano Backend
-- **Agent**: "Bakermat Design Assistant" — xano-free model, Nederlandse system prompt, dynamische context via `$args` (bedrijfsnaam, sector, stijl, kleursfeer, trailer, website)
+### FastAPI Backend
+- **Agent**: "Bakermat Design Assistant" — platform-free model, Nederlandse system prompt, dynamische context via `$args` (bedrijfsnaam, sector, stijl, kleursfeer, trailer, website)
 - **Tool**: `BM_GET_WEAGON_DESIGNS` (leeg, nog te implementeren voor server-side image generation)
 - **Endpoint**: `POST /api:paVSDSqb/chat` — ontvangt session_id + messages + context, runt de agent, broadcast via realtime
 
@@ -908,11 +904,8 @@ Bakermat is een partner-facing React app (`apps/bakermat/`) waarmee klanten van 
 - Legacy bron-tabellen met prefix `BM_` in workspace `1` zijn verwijderd na migratie; operationele data voor Bakermat staat nu uitsluitend in tenant-scoped custom tabellen (`organisation_id = 4`).
 
 ### Static hosting (deploy)
-- Vanaf de repo-root: `deploy-xano-static.ps1` zipt een map en uploadt via de Xano Metadata API.
-- Parameters: `-BuildPath` (default `.\apps\website\static`), `-BuildName`, `-BuildDescription`, optioneel `-XanoWorkspaceId` en `-XanoStaticHost` (overschrijven van `.env`), en `-ActivateEnvironment` met waarden `prod` (default), `dev`, of `none` (alleen upload, geen activatie).
-- Standaard gebruikt het script `XANO_METADATA_API_KEY`, `XANO_META_BASE_URL`, `XANO_WEBSITEWORKSPACE_ID` en `XANO_WEBSITE_STATIC_HOST_NAME` uit de root-`.env`.
-- Voorbeeld (andere workspace/static site, zoals **marcocrm** in de UI: workspace `3`, static host `4` in de URL):  
-  `.\deploy-xano-static.ps1 -BuildPath .\apps\bakermat\dist -XanoWorkspaceId 3 -XanoStaticHost 4 -ActivateEnvironment dev`
+
+Portal + widget deploy via VPS/Caddy (zie `README.md` en `docs/phase-0-infrastructure.md`). Geen externe static-host metadata-API meer in deze repo.
 
 ---
 
@@ -922,9 +915,9 @@ Het platform biedt tenants een no-code database builder (`/database`) waarmee ze
 
 ### Architectuur
 
-Meta-schema benadering met 4 vaste Xano-tabellen:
+Meta-schema benadering met 4 vaste FastAPI-tabellen:
 
-| Tabel | Xano ID | Doel |
+| Tabel | FastAPI ID | Doel |
 |---|---|---|
 | `custom_table` | 45 | Tabeldefinities per organisatie |
 | `custom_field` | 46 | Velddefinities per tabel (14 field types) |
@@ -948,7 +941,7 @@ text, number, boolean, date, email, url, phone, select, multi_select, file, curr
 
 ### API
 
-Xano API-groep `custom_db` (id: 9, canonical: `vLUpKLJh`) met volledige CRUD endpoints voor tabellen, velden, records en views. Alle endpoints vereisen JWT-authenticatie en filteren op tenant via `organisation_id`.
+FastAPI API-groep `custom_db` (id: 9, canonical: `vLUpKLJh`) met volledige CRUD endpoints voor tabellen, velden, records en views. Alle endpoints vereisen JWT-authenticatie en filteren op tenant via `organisation_id`.
 
 - Optioneel: `GET /standard-tables` en `POST /standard-tables/create` voor het eenmalig aanmaken van standaardtabellen (`is_standard`). Ontbreken deze routes (404 / “Unable to locate request”), dan initialiseert de dashboard-databasepagina zonder die bootstrap en zonder herhaalde retries; custom tabellen blijven werken via `custom-tables`.
 
@@ -1005,7 +998,7 @@ Uitbreiding van het platform met een volledige multichannel inbox, AI-communicat
 - Per workspace meerdere mailboxen (support@, sales@, persoonlijk)
 - Bidirectionele email sync: inkomend ophalen (polling 60s) + uitgaand verzenden via provider API
 - Email threading op basis van In-Reply-To/References headers en thread_id
-- Attachment handling: inline images + bijlagen in Xano file storage (max 25MB)
+- Attachment handling: inline images + bijlagen in FastAPI file storage (max 25MB)
 - Token management: AES-256 encrypted, auto-refresh, health indicator (verbonden/fout/verlopen)
 - HTML signature management per mailbox
 - Mailbox routing rules: auto-assign op basis van afzenderdomein, onderwerp, of mailbox
@@ -1050,30 +1043,30 @@ Uitbreiding van het platform met een volledige multichannel inbox, AI-communicat
   - Thread record heeft `has_unread` boolean (team-wide). De inbox lijst toont een accentdot links van de afzender wanneer `has_unread = true`.
   - Bij klikken op een thread in de lijst gaat de dot meteen weg (optimistic via `setThreadReadState(id, false)` in `useThreads`); de detail hook (`useThreadDetail`) doet vervolgens silent een `PATCH /inbox/threads/{id}/mark-read` en zet `detail.thread.hasUnread = false` lokaal. Falen wordt opgeruimd door de 30s poll.
   - Endpoints zijn auth-required en organisatie-scoped:
-    - `PATCH /api:integrations/inbox/threads/{thread_id}/mark-read` (id 232)
-    - `PATCH /api:integrations/inbox/threads/{thread_id}/mark-unread` (id 233)
+    - `PATCH //api/integrations/inbox/threads/{thread_id}/mark-read` (id 232)
+    - `PATCH //api/integrations/inbox/threads/{thread_id}/mark-unread` (id 233)
 - Thread verwijderen (permanent, organisatie-scoped):
-  - `DELETE /api:integrations/inbox/threads/{thread_id}` (id 292) verwijdert de thread plus gekoppelde `inbox_message`, `inbox_event` en `inbox_thread_pin` rijen.
+  - `DELETE //api/integrations/inbox/threads/{thread_id}` (id 292) verwijdert de thread plus gekoppelde `inbox_message`, `inbox_event` en `inbox_thread_pin` rijen.
   - Dashboard UI: prullenbak-icoon in de thread-header (naast sluiten/heropenen) en prullenbak op hover in de threadlijst. Beide vragen een bevestiging via `window.confirm`; na succes verdwijnt de thread uit de lijst en navigeert de detail-view terug naar de queue zonder thread-id.
 - Pin systeem op thread-niveau (per-user, Slack/Notion patroon):
   - Aparte tabel `inbox_thread_pin` (id 79) met unique index op `(user_id, thread_id)`. Pin state is per-user; collega's zien hun eigen pins.
   - Endpoints zijn idempotent en auth-required:
-    - `POST /api:integrations/inbox/threads/{thread_id}/pin` (id 234)
-    - `DELETE /api:integrations/inbox/threads/{thread_id}/pin` (id 235)
-    - `GET /api:integrations/inbox/pins` (id 236) - returnt `{ thread_ids: number[] }` voor de huidige user (organisatie-scoped). Dashboard gebruikt deze lijst voor client-side decoratie.
-  - **Architectuur**: pin-decoratie en sortering gebeuren CLIENT-SIDE in de dashboard (hook `usePinnedIds` + `useThreads` + `useThreadDetail`). De Xano endpoints `GET /inbox/threads` (id 223) en `GET /inbox/threads/{id}` (id 224) bevatten GEEN `is_pinned` veld in hun response - dat field wordt op de frontend toegevoegd door de set van pinned thread ids te joinen met de fetched threads.
-    - Reden: een eerdere implementatie deed de decoratie server-side via inline `|map:|set:|in:` filter-expressies, maar dat trigger Xano runtime errors ("1st operand must be one of these types: text, bool") wanneer `$pinned_ids` leeg was. Coercion met `|to_bool` of refactor naar `array.map`/`array.filter` statements loste het niet betrouwbaar op. Client-side join is robuuster, simpler en performant op moderate listsizes.
-  - `view=pinned` blijft wel server-side: `GET /inbox/threads?view=pinned` (id 223) haalt eerst de pinned thread ids op uit `inbox_thread_pin` voor de huidige user, walks daarna elke id af met `db.get inbox_thread` in een `foreach`-lus en pusht gevonden rijen in een items-array (gefilterd op `organisation_id`). De response volgt dezelfde paged shape als de andere views (`{items, itemsTotal, curPage, ...}`). Joins en array-IN where-clausules zijn beide vermeden — zie Xano-valkuilen 3 en 4.
-  - **Xano-valkuil 1**: alle endpoints die `inbox_thread_pin` queryen (223 view=pinned, 234, 235, 236) zetten `$auth.id|to_int` eerst in een `$user_id` variabele. Dezelfde piped-expressie inline in een `db.query` `where` clausule (`$db.inbox_thread_pin.user_id == ($auth.id|to_int)`) triggert een runtime error `"1st operand must be one of these types: text, bool"` ondanks dat `$auth.id|to_int` perfect werkt in `db.get user`'s `field_value`. Vermoedelijke bug in deze specifieke combo van filter-expressie + tableref-veld.
-  - **Xano-valkuil 2**: de `|map:$$.field` filter-vorm returnt `null` per element op deze workspace, ook als de bron-array gevulde rijen bevat. Workaround: gebruik de `array.map` statement (met `$this`) i.p.v. de `|map:` filter:
+    - `POST //api/integrations/inbox/threads/{thread_id}/pin` (id 234)
+    - `DELETE //api/integrations/inbox/threads/{thread_id}/pin` (id 235)
+    - `GET //api/integrations/inbox/pins` (id 236) - returnt `{ thread_ids: number[] }` voor de huidige user (organisatie-scoped). Dashboard gebruikt deze lijst voor client-side decoratie.
+  - **Architectuur**: pin-decoratie en sortering gebeuren CLIENT-SIDE in de dashboard (hook `usePinnedIds` + `useThreads` + `useThreadDetail`). De FastAPI endpoints `GET /inbox/threads` (id 223) en `GET /inbox/threads/{id}` (id 224) bevatten GEEN `is_pinned` veld in hun response - dat field wordt op de frontend toegevoegd door de set van pinned thread ids te joinen met de fetched threads.
+    - Reden: een eerdere implementatie deed de decoratie server-side via inline `|map:|set:|in:` filter-expressies, maar dat trigger FastAPI runtime errors ("1st operand must be one of these types: text, bool") wanneer `$pinned_ids` leeg was. Coercion met `|to_bool` of refactor naar `array.map`/`array.filter` statements loste het niet betrouwbaar op. Client-side join is robuuster, simpler en performant op moderate listsizes.
+  - `view=pinned` blijft wel server-side: `GET /inbox/threads?view=pinned` (id 223) haalt eerst de pinned thread ids op uit `inbox_thread_pin` voor de huidige user, walks daarna elke id af met `db.get inbox_thread` in een `foreach`-lus en pusht gevonden rijen in een items-array (gefilterd op `organisation_id`). De response volgt dezelfde paged shape als de andere views (`{items, itemsTotal, curPage, ...}`). Joins en array-IN where-clausules zijn beide vermeden — zie FastAPI-valkuilen 3 en 4.
+  - **FastAPI-valkuil 1**: alle endpoints die `inbox_thread_pin` queryen (223 view=pinned, 234, 235, 236) zetten `$auth.id|to_int` eerst in een `$user_id` variabele. Dezelfde piped-expressie inline in een `db.query` `where` clausule (`$db.inbox_thread_pin.user_id == ($auth.id|to_int)`) triggert een runtime error `"1st operand must be one of these types: text, bool"` ondanks dat `$auth.id|to_int` perfect werkt in `db.get user`'s `field_value`. Vermoedelijke bug in deze specifieke combo van filter-expressie + tableref-veld.
+  - **FastAPI-valkuil 2**: de `|map:$$.field` filter-vorm returnt `null` per element op deze workspace, ook als de bron-array gevulde rijen bevat. Workaround: gebruik de `array.map` statement (met `$this`) i.p.v. de `|map:` filter:
     ```xs
     array.map ($rows) {
       by = $this.thread_id
     } as $thread_ids
     ```
     Toegepast op endpoint 236 en de `view=pinned` branch in endpoint 223.
-  - **Xano-valkuil 3**: joins met `inbox_thread_pin` (`$db.inbox_thread_pin.X` referenties in een `join.where`) gaven `"Unsupported parameter reference - inbox_thread_pin.thread_id"`. Workaround: vermijd joins voor deze tabel; doe een aparte `db.query` voor de pin-rijen en koppel daarna in een tweede stap.
-  - **Xano-valkuil 4**: `where = $arr|in:$db.X.id` (filter-syntax in een db.query where-clausule) wordt door Xano niet als IN-conditie geparsed maar als single-param vergelijking met de array zelf, met als gevolg `"ParseError: Invalid value for param:[2,35]"`. Het IN-patroon is op deze workspace niet betrouwbaar via xanoscript filter-expressies. Workaround: gebruik een `foreach ($ids) { each as $id { db.get ... } }` lus en push gevonden rijen in een result array — werkt prima voor kleine sets (zoals de typische pinned-set per user).
+  - **FastAPI-valkuil 3**: joins met `inbox_thread_pin` (`$db.inbox_thread_pin.X` referenties in een `join.where`) gaven `"Unsupported parameter reference - inbox_thread_pin.thread_id"`. Workaround: vermijd joins voor deze tabel; doe een aparte `db.query` voor de pin-rijen en koppel daarna in een tweede stap.
+  - **Query pitfall (historical):** large IN-filters should use explicit loops or SQLAlchemy `in_()` in FastAPI rather than brittle legacy filter DSL.
   - Sortering: pinned items worden in `useThreads` naar de top gesorteerd (binnen de huidige page), daarna op `lastMessageAt DESC`.
   - Sidebar heeft onder "Alle kanalen" een nieuwe entry "Gepind" (Lucide `Pin` icon).
   - ThreadDetail header heeft een eigen pin/unpin button (`Pin`/`PinOff` icon, accent kleur wanneer gepind). Toggle delegeert naar dezelfde optimistic flow als de list dropdown via `addPin`/`removePin` op de gedeelde `usePinnedIds` state.
@@ -1107,19 +1100,19 @@ Uitbreiding van het platform met een volledige multichannel inbox, AI-communicat
 
 | Variable | Status | Waarde/Omschrijving |
 |---|---|---|
-| `GOOGLE_CLIENT_ID` | ✅ aanwezig in Xano | Google Cloud Console OAuth Client ID |
-| `GOOGLE_CLIENT_SECRET` | ✅ aanwezig in Xano | Google Cloud Console OAuth Client Secret |
-| `GOOGLE_REDIRECT_URI` | ✅ aanwezig in Xano | `https://xrex-nmji-j9ur.f2.xano.io/api:_kH3DnKo/oauth/google/callback` |
+| `GOOGLE_CLIENT_ID` | ✅ aanwezig in FastAPI | Google Cloud Console OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | ✅ aanwezig in FastAPI | Google Cloud Console OAuth Client Secret |
+| `GOOGLE_REDIRECT_URI` | ✅ aanwezig in FastAPI | `https://api.bokito.nl/api:_kH3DnKo/oauth/google/callback` |
 | `MICROSOFT_CLIENT_ID` | ⏳ nog regelen | Azure AD App Registration Client ID (wacht op tenant) |
 | `MICROSOFT_CLIENT_SECRET` | ⏳ nog regelen | Azure AD App Registration Client Secret |
-| `MICROSOFT_REDIRECT_URI` | ⏳ nog regelen | `https://xrex-nmji-j9ur.f2.xano.io/api:_kH3DnKo/oauth/microsoft/callback` |
+| `MICROSOFT_REDIRECT_URI` | ⏳ nog regelen | `https://api.bokito.nl/api:_kH3DnKo/oauth/microsoft/callback` |
 | `OPENAI_API_KEY` | ✅ reeds aanwezig | Embeddings + AI-suggesties (Batch 11 + 12) |
 
 Google OAuth is klaar voor Batch 9. Microsoft OAuth nog te regelen via Azure (wacht op M365 developer tenant of gratis Azure-account).
 
-### 10.6 Implementatiestatus april 2026 (dashboard + Xano)
+### 10.6 Implementatiestatus april 2026 (dashboard + FastAPI)
 
-- Xano `Authentication` API-groep bevat nu inbox endpoints voor:
+- FastAPI `Authentication` API-groep bevat nu inbox endpoints voor:
   - `GET /email/messages`
   - `GET /email/messages/{message_id}`
   - `PATCH /email/messages/{message_id}`
@@ -1128,17 +1121,17 @@ Google OAuth is klaar voor Batch 9. Microsoft OAuth nog te regelen via Azure (wa
   - `GET/PUT /email/connections/{connection_id}/signature`
   - `GET/PUT /email/connections/{connection_id}/ai-config`
   - `GET/POST/PATCH/DELETE /email/routing-rules` varianten
-- Xano inbox AI endpoints zijn toegevoegd:
+- FastAPI inbox AI endpoints zijn toegevoegd:
   - `POST /email/messages/{message_id}/ai-suggest`
   - `POST /email/messages/{message_id}/ai-summarize`
   - `POST /email/messages/{message_id}/ai-sentiment`
   - `POST /email/messages/{message_id}/ai-categorize`
-- Xano knowledge base endpoints zijn toegevoegd:
+- FastAPI knowledge base endpoints zijn toegevoegd:
   - `GET/POST /kb/collections`
   - `GET/POST /kb/collections/{collection_id}/documents`
   - `DELETE /kb/documents/{document_id}`
   - `GET /kb/search` (basis retrieval voor RAG context)
-- Xano tabellen zijn uitgebreid/aangemaakt:
+- FastAPI tabellen zijn uitgebreid/aangemaakt:
   - `email_oauth_connection`: provider ondersteunt `outlook` en `gmail`, plus `signature_html` en `ai_config`; kolommen `is_enabled` en `is_primary` sturen sync en primaire mailbox per organisatie
   - `email_synced_message`: velden voor threading/status/labels/AI (`thread_id`, `conversation_status`, `assigned_to_user_id`, `labels`, `ai_summary`, `sentiment`, enz.)
   - Nieuwe tabellen: `inbox_routing_rule`, `kb_collection`, `kb_document`
@@ -1160,23 +1153,23 @@ Google OAuth is klaar voor Batch 9. Microsoft OAuth nog te regelen via Azure (wa
 
 ## 11. Cursor Agent Orchestra
 
-Het platform gebruikt een geautomatiseerde build pipeline (Cursor Agent Orchestra) voor het bouwen van features uit de PRD. De orchestrator draait volledig in Xano en bestuurt Cursor Cloud Agents via de Cursor API.
+Het platform gebruikt een geautomatiseerde build pipeline (Cursor Agent Orchestra) voor het bouwen van features uit de PRD. De orchestrator draait volledig in FastAPI en bestuurt Cursor Cloud Agents via de Cursor API.
 
-- Pipeline state machine in Xano: PENDING → BUILDING → BUILD_DONE → TESTING → TEST_DONE → REVIEWING → REVIEW_DONE → DONE
+- Pipeline state machine in FastAPI: PENDING → BUILDING → BUILD_DONE → TESTING → TEST_DONE → REVIEWING → REVIEW_DONE → DONE
 - 3 agent-rollen: Builder (bouwt features), Tester (test TypeScript + build), Architect (beoordeelt architecturele fit)
-- Webhook-driven: Cursor stuurt status-updates naar Xano die automatisch de volgende stap triggert
+- Webhook-driven: Cursor stuurt status-updates naar FastAPI die automatisch de volgende stap triggert
 - 12 feature batches totaal (8 origineel + 4 inbox-uitbreiding)
 - Monitor task: elke 5 minuten controle op vastgelopen agents (terminal state + advance)
 - MCP server: `cursor_orchestra` voor pipeline control
 
 ### 11.1 MCP-gedreven autonomie (primaire methode)
 
-**Architectuurkeuze (2 april 2026):** Agents communiceren nu rechtstreeks met Xano via MCP-tools in plaats van uitsluitend via externe webhooks. Dit elimineert webhook-delivery-problemen en race conditions.
+**Architectuurkeuze (2 april 2026):** Agents communiceren nu rechtstreeks met FastAPI via MCP-tools in plaats van uitsluitend via externe webhooks. Dit elimineert webhook-delivery-problemen en race conditions.
 
 **Hoe het werkt:**
-1. Xano lanceert een Builder/Tester/Architect agent via de Cursor Cloud API.
+1. FastAPI lanceert een Builder/Tester/Architect agent via de Cursor Cloud API.
 2. De agent-prompt bevat altijd een "When You Are Finished" sectie die de agent instrueert een MCP-tool aan te roepen.
-3. De agent roept de betreffende MCP-tool aan op de `cursor_orchestra` MCP server, waarop Xano direct de DB-status bijwerkt en `orchestra/advance` uitvoert.
+3. De agent roept de betreffende MCP-tool aan op de `cursor_orchestra` MCP server, waarop FastAPI direct de DB-status bijwerkt en `orchestra/advance` uitvoert.
 4. De volgende agent wordt hierdoor automatisch gestart.
 
 **Drie signal-tools op MCP server `cursor_orchestra` (id: 6):**
@@ -1247,7 +1240,7 @@ Het platform wordt uitgebreid met een autonome agentic orchestration laag boveno
 
 Trigger types: question, command, delegate, report, webhook, schedule, data_change, inbox_event, answer. Agents slapen tot een trigger ze wekt. Cooldown en deduplicatie voorkomen rapid-fire.
 
-### 12.7 Data Model (nieuwe Xano tabellen)
+### 12.7 Data Model (nieuwe FastAPI tabellen)
 
 | Tabel | Doel |
 |---|---|
@@ -1281,7 +1274,7 @@ Trigger types: question, command, delegate, report, webhook, schedule, data_chan
 
 Het platform heeft nu een eerste werkende backlog/roadmap module waarmee workspace users feature requests, bugs en wijzigingsverzoeken kunnen indienen. Deze module wordt gebruikt om dezelfde flow te dogfooden die later aan klanten wordt verkocht.
 
-**Nieuwe Xano tabellen:**
+**Nieuwe FastAPI tabellen:**
 - `backlog_item` (id: 54): feature request records met type, priority, status, complexity, category, PRD mapping, queue position, sprint label, tags/dependencies en soft delete velden.
 - `backlog_comment` (id: 55): discussies en AI-triage notities per backlog item.
 - `backlog_config` (id: 56): per-organisatie backlog instellingen (`auto_triage`, `prd_context`, `default_model`, `sprint_labels`).
@@ -1324,7 +1317,7 @@ Het platform heeft nu een eerste werkende backlog/roadmap module waarmee workspa
 
 Het platform heeft nu een eerste autonome dirigent-laag die als productfeature in de portal beheerd wordt en de bestaande orchestra-flow self-healing ondersteunt.
 
-**Nieuwe Xano tabellen:**
+**Nieuwe FastAPI tabellen:**
 - `agent_orchestrator_config` (id: 57): per organisatie policy (`enabled`, `autonomy_level`, `check_interval_sec`, `max_retry_per_feature`, `allow_verdict_override`, `sleep_mode`, `last_wake_at`, `next_wake_at`).
 - `agent_task` (id: 58): geplande en uitgevoerde dirigent-cycli (`wake_check`, `scheduled_check`, `recovery_action`) met status/audit.
 - `agent_log` (id: 59): immutable audittrail van autonome acties.
@@ -1409,23 +1402,23 @@ De orchestrator-pagina gebruikt een hiërarchische full-canvas visualisatie die 
 - `apps/api/app/services/os_graph.py` — auto-seed, graph read, nodes/edges CRUD.
 - `apps/dashboard/src/components/aios/OsFlowNode.tsx`, `OsAddNodePalette.tsx`, `NodeCard.tsx`.
 - `apps/dashboard/src/lib/os-api.ts`, hook `useOsGraph`.
-- `apps/dashboard/src/lib/workforce-realtime.ts` beheert Xano realtime websocket connectie op channel-niveau met reconnect/backoff.
+- `apps/dashboard/src/lib/workforce-realtime.ts` beheert FastAPI realtime websocket connectie op channel-niveau met reconnect/backoff.
 - Als de socket sluit **zonder** ooit `open` te hebben bereikt (typisch: `/realtime` handshake issue), zet de client tijdelijk een korte cooldown in `sessionStorage` (`bokito_workforce_realtime_unavailable`) en probeert daarna automatisch opnieuw met reconnect/backoff. Er is dus geen permanente tab-lock meer na een enkele mislukte handshake. Optioneel: in `.env.local` zetten `VITE_DISABLE_WORKFORCE_REALTIME=true` of `VITE_DISABLE_ORCHESTRATOR_REALTIME=true` (legacy) om realtime volledig over te slaan.
-- Realtime diagnose (3 april 2026): directe probe naar `wss://xrex-nmji-j9ur.f2.xano.io/realtime?channel=workforce/{organisation_id}` vanaf de devmachine geeft geen websocket-upgrade (`non-101 status`); de HTTP-variant op `/realtime` levert de Xano frontend-HTML i.p.v. een websocket handshake. In deze situatie blijft de Workforce UI in `Polling` fallback.
+- Realtime diagnose (3 april 2026): directe probe naar `wss://api.bokito.nl/realtime?channel=workforce/{organisation_id}` vanaf de devmachine geeft geen websocket-upgrade (`non-101 status`); de HTTP-variant op `/realtime` levert de FastAPI frontend-HTML i.p.v. een websocket handshake. In deze situatie blijft de Workforce UI in `Polling` fallback.
 
 **Fallback gedrag:**
 - Als `graph-snapshot` endpoint nog niet beschikbaar is, bouwt de frontend een baseline graph uit `GET /workforce/status` (pipeline + recente taken).
 - Als `graph-resync` niet beschikbaar is, gebruikt de frontend `POST /workforce/force-rescan` als fallback resync-trigger.
 
 **Realtime channel convention:**
-- De Workforce canvas luistert op tenantniveau naar Xano Realtime channel `workforce/{organisation_id}` (een stabiele websocket per tenantweergave).
+- De Workforce canvas luistert op tenantniveau naar FastAPI Realtime channel `workforce/{organisation_id}` (een stabiele websocket per tenantweergave).
 - Runtime APIs en MCP runtime-tools publiceren updates op `workforce/{organisation_id}` met payloads voor `agent_updated`, `activity_updated`, `task_updated` en `message_created`.
-- In Xano Realtime kanaalconfiguratie staat channel `workforce` met `Enable Nested Channels` ingeschakeld, zodat clients op `workforce/{organisation_id}` kunnen subscriben.
+- In FastAPI Realtime kanaalconfiguratie staat channel `workforce` met `Enable Nested Channels` ingeschakeld, zodat clients op `workforce/{organisation_id}` kunnen subscriben.
 
 **Workforce realtime debugging (frontend):**
 - De realtime client ondersteunt diagnostiek-events (`connect_attempt`, `close`, `error`, `cooldown`, `fallback_without_token`, `give_up`) die in de Workforce header als debugregel getoond worden wanneer de status niet `Live` is.
 - De websocket-URL is overschrijfbaar via `.env` (`VITE_WORKFORCE_REALTIME_WS_URL` of `VITE_WORKFORCE_REALTIME_PATH`; legacy aliases `VITE_ORCHESTRATOR_REALTIME_WS_URL`/`VITE_ORCHESTRATOR_REALTIME_PATH` blijven ondersteund).
-- Extra optie: `.env` `VITE_WORKFORCE_REALTIME_CANONICAL` (of legacy `VITE_ORCHESTRATOR_REALTIME_CANONICAL`) bouwt automatisch websocket pad `.../rt/{canonical}` (Xano SDK-transport).
+- Extra optie: `.env` `VITE_WORKFORCE_REALTIME_CANONICAL` (of legacy `VITE_ORCHESTRATOR_REALTIME_CANONICAL`) bouwt automatisch websocket pad `.../rt/{canonical}` (FastAPI SDK-transport).
 - Bij een mislukte handshake vóór `open` probeert de client éénmalig opnieuw zonder `token` queryparam om auth-problemen te onderscheiden van transport/proxy-problemen; daarna valt hij terug op de bestaande cooldown/backoff.
 - Auth-context ondersteunt nu een apart realtime-token uit login/refresh responses (`realtimeAuthToken`, `realtime_auth_token` of `realtime_token`) en bewaart dit als `bokito_realtime_auth_token`; Workforce gebruikt dit token voor websocket-auth en valt terug op het reguliere access token als geen realtime-token beschikbaar is.
 - In de Workforce header staat een `Realtime test` knop die meerdere websocket-URL-varianten (canonical/path/legacy met en zonder token) kort probeert en de resultaten (`OPEN`, `ERROR`, `CLOSED (code)`, `TIMEOUT`) in een compact diagnostiekpaneel toont.
@@ -1465,7 +1458,7 @@ De orchestrator-pagina gebruikt een hiërarchische full-canvas visualisatie die 
 - Endpoint `POST /workforce/maintenance-run` voert stale cleanup + retries uit (default stale > 15 min): markeert stale executing activity als failed, plant retry met backoff (30s/120s) zolang `retry_attempt < max_attempts`, en zet agent terug naar `standby`.
 - `GET /workforce/status` is vereenvoudigd naar runtime-bronnen (`task`, `agent_log`, managerstatus) en retourneert stabiel `pipelines`, `recent_tasks` en `recent_logs` zonder legacy referenties.
 - `GET /timeline` en `GET /agents/{agent_id}/activities` in API group `agent_runtime` gebruiken nu directe `activity`-query zonder verplichte `agent_session`-join, zodat geplande delegaties zonder sessie direct zichtbaar blijven in timeline en delegated-status.
-- Er is een lokale stdio MCP package `packages/bokito-workforce-mcp` die workforce-operaties op Xano uitvoert via `api:BWK_e0qC` (orchestrator) en `api:_NUMR_yJ` (runtime). De server gebruikt env-token auth (`BOKITO_WORKFORCE_MCP_TOKEN` of alternatieven) en is tenant-scope per token, zodat productie multi-tenant wordt ingericht met aparte token/config per tenant.
+- Er is een lokale stdio MCP package `packages/bokito-workforce-mcp` die workforce-operaties op FastAPI uitvoert via `api:BWK_e0qC` (orchestrator) en `api:_NUMR_yJ` (runtime). De server gebruikt env-token auth (`BOKITO_WORKFORCE_MCP_TOKEN` of alternatieven) en is tenant-scope per token, zodat productie multi-tenant wordt ingericht met aparte token/config per tenant.
 
 ---
 
@@ -1485,20 +1478,20 @@ De orchestrator-pagina gebruikt een hiërarchische full-canvas visualisatie die 
 
 ## 14. API Groepsstructuur (mei 2026)
 
-Xano workspace `Bokito AI app` gebruikt nu een geconsolideerde API-groepsindeling met semantische canonicals.
+FastAPI workspace `Bokito AI app` gebruikt nu een geconsolideerde API-groepsindeling met semantische canonicals.
 
-- `api:app`: centrale applicatiegroep voor members/accounts, custom-db, backlog en workspace endpoints (geen auth-routes).
-- `api:integrations`: integratiegroep voor email/OAuth/inbox-integratie endpoints.
-- `api:auth`: dedicated authgroep voor alleen authenticatie- en profielgerelateerde endpoints.
-- `api:DavdZOps`: tijdelijke legacy compat-groep toegevoegd voor oudere portal bundles die nog hardcoded naar `https://xrex-nmji-j9ur.f2.xano.io/api:DavdZOps/...` wijzen.
-- `api:workforce`: centrale workforcegroep voor orchestra/workforce-control/agent-runtime endpoints.
-- `api:livechat`: livechat en widget-endpoints.
+- `/api/app`: centrale applicatiegroep voor members/accounts, custom-db, backlog en workspace endpoints (geen auth-routes).
+- `/api/integrations`: integratiegroep voor email/OAuth/inbox-integratie endpoints.
+- `/api/auth`: dedicated authgroep voor alleen authenticatie- en profielgerelateerde endpoints.
+- `api:DavdZOps`: tijdelijke legacy compat-groep toegevoegd voor oudere portal bundles die nog hardcoded naar `https://api.bokito.nl/api:DavdZOps/...` wijzen.
+- `/api/workforce`: centrale workforcegroep voor orchestra/workforce-control/agent-runtime endpoints.
+- `/api/livechat`: livechat en widget-endpoints.
 - `api:logs`: event logs.
 - `api:bakermat`: Bakermat configurator en bijbehorende endpoints.
 
 Dashboard frontend-richtlijn:
 
-- API-routes worden dynamisch opgebouwd via `VITE_XANO_BASE_URL` + group canonical + endpoint path.
+- API-routes worden dynamisch opgebouwd via `VITE_BOKITO_API_URL` + group canonical + endpoint path.
 - Group canonicals zijn env-gedreven via:
   - `VITE_API_GROUP_APP`
   - `VITE_API_GROUP_AUTH`
@@ -1510,11 +1503,11 @@ Dashboard frontend-richtlijn:
 - Publieke docs-URL gebruikt `VITE_PUBLIC_API_URL` i.p.v. hardcoded hoststrings.
 - Auth BFF-proxy (`/api/auth/*`) rewrite gebruikt `VITE_API_GROUP_AUTH` als canonical fallback.
 - Legacy compat voor oude production bundle: `api:DavdZOps` bevat nu alias endpoints `POST /auth/login`, `GET /auth/me`, `POST /auth/handoff/create`, `POST /auth/handoff/exchange` zodat login blijft werken zolang de oude frontendbundle nog actief is.
-- Voor legacy email/inbox-compat in dezelfde oude bundle bevat `api:DavdZOps` nu ook `GET /email/connections`, `DELETE /email/connections/{connection_id}`, `GET /email/oauth/start`, `GET /email/outlook/oauth/start` en `GET /email/google/oauth/start` (met centrale `api:integrations` callbacks voor provider redirects).
-- `GET /email/oauth/start` (provider `outlook` of `gmail`) bouwt de provider authorize-URL met `redirect_uri` uit Xano env (`MICROSOFT_REDIRECT_URI` resp. `GOOGLE_REDIRECT_URI`), RFC 3986-encoded; state-rij bevat `feature` (`outlook-email` / `gmail-email`). Zelfde env-waarden moeten exact overeenkomen met de geregistreerde redirect URI in Entra / Google Cloud.
-- GitHub repo connect (workforce + marketplace): `GET /github/oauth/start` (user auth) retourneert `{ authorize_url }`; callback `GET /github/oauth/callback` (publiek, HTML redirect). Marketplace-setup roept alleen `/github/oauth/start` aan (geen fallback naar `/integrations/oauth/start`). Registreer een GitHub OAuth App met callback op de callback-URL. Xano env: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `GITHUB_OAUTH_CALLBACK_URL` (exact gelijk aan geregistreerde redirect URI). Scopes: `read:user`, `repo`. Token exchange in Xano gebruikt `api.request` met `params` + `Content-Type: application/x-www-form-urlencoded` (geen `body`-block).
+- Voor legacy email/inbox-compat in dezelfde oude bundle bevat `api:DavdZOps` nu ook `GET /email/connections`, `DELETE /email/connections/{connection_id}`, `GET /email/oauth/start`, `GET /email/outlook/oauth/start` en `GET /email/google/oauth/start` (met centrale `/api/integrations` callbacks voor provider redirects).
+- `GET /email/oauth/start` (provider `outlook` of `gmail`) bouwt de provider authorize-URL met `redirect_uri` uit FastAPI env (`MICROSOFT_REDIRECT_URI` resp. `GOOGLE_REDIRECT_URI`), RFC 3986-encoded; state-rij bevat `feature` (`outlook-email` / `gmail-email`). Zelfde env-waarden moeten exact overeenkomen met de geregistreerde redirect URI in Entra / Google Cloud.
+- GitHub repo connect (workforce + marketplace): `GET /github/oauth/start` (user auth) retourneert `{ authorize_url }`; callback `GET /github/oauth/callback` (publiek, HTML redirect). Marketplace-setup roept alleen `/github/oauth/start` aan (geen fallback naar `/integrations/oauth/start`). Registreer een GitHub OAuth App met callback op de callback-URL. FastAPI env: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `GITHUB_OAUTH_CALLBACK_URL` (exact gelijk aan geregistreerde redirect URI). Scopes: `read:user`, `repo`. Token exchange in FastAPI gebruikt `api.request` met `params` + `Content-Type: application/x-www-form-urlencoded` (geen `body`-block).
 - `GET email/outlook/oauth/start` en `GET email/google/oauth/start` gebruiken dezelfde env-redirects (plus preconditions dat de env gezet is); token exchange in `GET /oauth/microsoft/callback` en `GET /oauth/google/callback` gebruikt dezelfde env-waarde in de token-POST `redirect_uri` als bij de authorize-stap.
-- Profielfoto-upload gebruikt de authgroep endpoint `POST /users/me/avatar` (met fallback naar `POST /avatar` voor backward compatibility binnen `api:auth`).
+- Profielfoto-upload gebruikt de authgroep endpoint `POST /users/me/avatar` (met fallback naar `POST /avatar` voor backward compatibility binnen `/api/auth`).
 - Avatar upload-endpoints gebruiken `input file avatar` + `storage.create_image` en patchen daarna `user.avatar`; directe patch van ruwe input zonder opslag geeft in de praktijk lege avatar-objecten terug (`path: ""`, `size: 0`).
 - Workspace-branding gebruikt appgroep endpoints:
   - `GET /workspaces` retourneert workspace `id`, `name`, `slug`, `logo`, `favicon`, `brand_color`.
@@ -1522,20 +1515,20 @@ Dashboard frontend-richtlijn:
   - `POST /workspaces/{workspace_id}/branding` voor gecombineerde branding update inclusief optionele `file logo` en `file favicon` (`subdomain` is verplicht).
 - De pagina `/settings/branding` doet nu een echte API-save naar `/workspaces/{workspace_id}/branding` (multipart) voor naam/subdomein/kleur/logo/favicon, en refresht daarna `workspaces` + `auth/me` context.
 - Tenant branding ondersteunt een aparte favicon uploadflow (los van logo) met preview en opslag in `organisation.livechat_settings.favicon`.
-- Praktijkbeperking: Xano `storage.create_image` accepteert niet alle image-extensies (o.a. ruwe SVG kan falen met `Invalid file extension`); dashboard branding upload ondersteunt nu SVG door deze client-side om te zetten naar PNG vóór upload, met behoud van PNG/JPG/JPEG/GIF/WebP ondersteuning.
-- Workspace media-URL's (`logo`, `favicon`) worden frontend-side genormaliseerd naar absolute URL's op basis van `XANO_BASE_URL` wanneer Xano alleen een relatief `path` terugstuurt, zodat previews consistent renderen in settings.
+- Praktijkbeperking: FastAPI `storage.create_image` accepteert niet alle image-extensies (o.a. ruwe SVG kan falen met `Invalid file extension`); dashboard branding upload ondersteunt nu SVG door deze client-side om te zetten naar PNG vóór upload, met behoud van PNG/JPG/JPEG/GIF/WebP ondersteuning.
+- Workspace media-URL's (`logo`, `favicon`) worden frontend-side genormaliseerd naar absolute URL's op basis van `BOKITO_BASE_URL` wanneer FastAPI alleen een relatief `path` terugstuurt, zodat previews consistent renderen in settings.
 - Subdomeinbeleid: `subdomain` is tenantbreed verplicht en uniek. Backend valideert formaat (`[a-z0-9-]`, 3-63 chars, niet starten/eindigen met `-`) en blokkeert duplicaten.
 - Hostmodel: dashboard draait tenant-first op `<subdomain>.bokito.ai` met centrale login op `app.bokito.ai`.
 - Unauthenticated requests op tenant-host worden via `ProtectedRoute` doorgestuurd naar `https://app.bokito.ai/login?return_to=<absolute-tenant-url>`.
 - Na succesvolle login op `app.bokito.ai` navigeert de portal terug naar `return_to` (zelfde root domein), zodat de sessie direct op tenant-host verdergaat.
 - WorkspaceContext lockt op tenant-host op de workspace waarvan `slug == host subdomain`; cross-tenant switch op een tenant-host wordt genegeerd.
-- Livechat `POST /api:livechat/session/start` ondersteunt `tenant_subdomain`; bij aanwezigheid valideert backend dat de agent echt bij die tenant-subdomein hoort, anders volgt `Tenant not found for this subdomain`.
+- Livechat `POST /api/livechat/session/start` ondersteunt `tenant_subdomain`; bij aanwezigheid valideert backend dat de agent echt bij die tenant-subdomein hoort, anders volgt `Tenant not found for this subdomain`.
 
 *Laatste update: 10 mei 2026 — OAuth centrale callbacks en unified `email/oauth/start` gebruiken `MICROSOFT_REDIRECT_URI` / `GOOGLE_REDIRECT_URI` voor authorize en token exchange; API-groepen geconsolideerd naar `app/auth/workforce/livechat/logs/bakermat`.*
 
 ---
 
-## 15. Xano tabel-audit (8 mei 2026)
+## 15. FastAPI tabel-audit (8 mei 2026)
 
 Workspace `1` (`Bokito AI app`) bevat meerdere datadomeinen naast elkaar: portal/auth, livechat, workforce, custom database, backlog en integraties.
 
@@ -1599,11 +1592,11 @@ OpenClaw-geïnspireerde herstructurering van de FastAPI/V1-track. Plan: gateway 
 - Auth op connect: dashboard JWT of widget session token via `?access_token=` of een `connect`-frame; `device` parameter voor device-identiteit (dashboard / widget / mobile).
 - Fanout: in-process dispatch + optionele Redis pub/sub (`bokito:gateway:events`) zodat ARQ-workers en meerdere webworkers WS-clients bereiken; zonder Redis werkt single-process fanout gewoon.
 - Publish-hooks: signal-berichten (`assistant_threads`, `signal_threads.reply`, `signals.create_inbound_signal`, `signal_decisions`), thread-updates (`patch_thread`, `apply_triage`), run-events (`orchestration/runner.log_run_event`, `AgentLoop._log_event`), decisions (created/resolved) en notifications.
-- Verwijderd: orchestration SSE endpoint `GET /api/orchestration/runs/{id}/events/stream` (vervangen door topic `run:<id>`); Xano Realtime (`/rt/...`) clients in de widget.
+- Verwijderd: orchestration SSE endpoint `GET /api/orchestration/runs/{id}/events/stream` (vervangen door topic `run:<id>`); FastAPI Realtime (`/rt/...`) clients in de widget.
 - Dashboard: `lib/gateway.ts` (singleton WS-client met reconnect/backoff en topic-subscriptions). `LiveWorkLog` streamt run-events via WS; `NavBadgeContext` en `useThreads` verversen live op `threads`/`decisions` events (polling is teruggebracht tot trage fallback). Vite dev-proxy heeft `ws: true`.
 - Widget: `RealtimeClient` spreekt nu het gateway-protocol (`gatewayWebSocketUrl` leidt `wss://host/api/ws` af van de livechat base). Assistant-replies en run-logs komen via gateway-events binnen; token-streaming van een actief antwoord blijft via `POST /api/livechat/stream-chat` (fetch-SSE).
 
-### Fase 6 — Kanalen + frontend-consolidatie + Xano sunset (afgerond)
+### Fase 6 — Kanalen + frontend-consolidatie + FastAPI sunset (afgerond)
 
 **Backend kanaal-adapters (`apps/api/app/channels/`):**
 
@@ -1616,10 +1609,10 @@ OpenClaw-geïnspireerde herstructurering van de FastAPI/V1-track. Plan: gateway 
 
 **Frontend — één modus, acht secties:**
 
-- De dashboard draait uitsluitend tegen FastAPI: `lib/xano.ts`, `VITE_API_MODE`, `VITE_XANO_BASE_URL`, `lib/bokito-mode.ts` en alle `isBokitoMode()`-branching zijn verwijderd. Transport: `lib/api.ts` (REST helpers `apiGet/apiPost/...`, `workforce*`, auth-flows) + `lib/gateway.ts` (WS). Vite-proxy stuurt `/api/*` altijd naar `VITE_BOKITO_API_URL` (default `http://127.0.0.1:8000`).
+- De dashboard draait uitsluitend tegen FastAPI: `lib/bokito-api.ts`, `VITE_API_MODE`, `VITE_BOKITO_API_URL`, `lib/bokito-mode.ts` en alle `isBokitoMode()`-branching zijn verwijderd. Transport: `lib/api.ts` (REST helpers `apiGet/apiPost/...`, `workforce*`, auth-flows) + `lib/gateway.ts` (WS). Vite-proxy stuurt `/api/*` altijd naar `VITE_BOKITO_API_URL` (default `http://127.0.0.1:8000`).
 - Navigatie: **Home** (Cockpit), **Messages**, **Agents**, **Workspace** (`/workspace`, markdown docs), **Automations** (`/automations`, voorheen Orchestra), **Integrations**, **Govern**, **Settings**. Legacy redirects: `/os` en `/orchestra`.
 - Verwijderde frontend-stacks: alle 13+ Project-pagina's en componenten, Custom DB-builder (`components/database`, `DatabaseContext`, enz.), API-console, AI OS canvas-pagina's (`AiOsCanvas`, `AiOsWorkspaceCanvas`, `components/aios`), legacy realtime (`workforce-realtime`), duplicate MCP/integratiepagina's en orphan-pagina's (~35 pagina's totaal).
-- Xano sunset compleet: Xano push-scripts in `scripts/` (push-xano-api, verify-xano-api-push, push-integrations-apis, push-project-hub-apis, push-workspace-doc-apis, seed-integration-providers, xanoscript-patchers) en `deploy.ps1` (Xano static hosting flow) zijn verwijderd; `.env.example` bestanden zijn opgeschoond. Deploy van het portal gebeurt voortaan via de FastAPI/VPS-stack.
+- Legacy deploy/push scripts and static-host upload flows are removed from `scripts/`. Deploy portal + API via the FastAPI/VPS stack (`README.md`).
 
 ### Fase 7 — Native mobiele app (Expo) op het gateway-protocol (afgerond)
 
@@ -1645,3 +1638,23 @@ De 24/7 MVP-test draait op een bestaande Hostinger VPS, naast een al draaiende h
 - **LLM-modus:** gestart met `LLM_MODE=mock` (er zijn nog geen globale API-keys op de server). Twee manieren om live te gaan: (1) globaal via `ANTHROPIC_API_KEY` (chat) + `OPENAI_API_KEY` (embeddings) in `.env.prod` + `LLM_MODE=live` + `docker compose ... up -d api worker`, of (2) per tenant zonder env-wijziging: owner/admin vult eigen keys in op `/settings/llm-keys` (encrypted opgeslagen, overschrijft globale modus voor die tenant).
 - **Seed:** `docker compose ... exec -T api python scripts/seed.py` maakt tenant `bokito` met admin `admin@bokito.ai` (wachtwoord `bokito-test-password` — na eerste login roteren). De `bcrypt __about__`-melding is een onschuldige passlib-versiewaarschuwing.
 - **Healthchecks:** `GET /api/health` (liveness) en `GET /api/health/ready` (diepe check: Postgres + Redis). Geverifieerd over publieke HTTPS samen met een succesvolle `POST /api/auth/login` (JWT geretourneerd).
+
+### 17.1 Cutover naar bokito.ai (juni 2026, geverifieerd live)
+
+De primaire domeinen draaien nu op dezelfde VPS; `bokito.chargecars.app` blijft werken maar redirect naar de bokito.ai-control-plane.
+
+- **Cloudflare DNS (zone `bokito.ai` → VPS `31.97.45.44`):** `bokito.ai` (A, proxied), `*.bokito.ai` (A, proxied — vereist voor tenant-subdomeinen), `app.bokito.ai` (A, proxied), `api.bokito.ai` (A, proxied — **verplaatst van Xano naar de VPS**), `worker.bokito.ai` (A, DNS-only, bestaande Node-dienst op :3300). Mail/SendGrid-records ongewijzigd.
+- **Cloudflare Workers verwijderd:** de oude interceptors `bokito-tenant-router` en `bokito-app-passthrough` zijn uit Workers Routes gehaald; er staan geen routes meer, verkeer gaat rechtstreeks naar de VPS. De map `cloudflare-workers/` in de repo is daarmee dood (niet meer gedeployed).
+- **Control-plane host = `app.bokito.ai`:** de live `web`-build is gebouwd met de **defaults** (`VITE_APP_CONTROL_PLANE_HOST=app.bokito.ai`, `VITE_TENANT_ROOT_DOMAIN=.bokito.ai`) — geverifieerd: de gepubliceerde JS-bundle bevat `app.bokito.ai` en géén `chargecars`. Daardoor toont `app.bokito.ai` de lokale `/login` (geen cross-host redirect) en stuurt `bokito.chargecars.app` client-side door naar `app.bokito.ai`.
+- **Env-driven build (gemirrord in de repo):** `apps/dashboard/Dockerfile` en `docker-compose.prod.yml > web.build.args` bevatten de build-args `VITE_APP_CONTROL_PLANE_HOST` / `VITE_TENANT_ROOT_DOMAIN` / `VITE_APP_CONTROL_PLANE_URL` (+ `VITE_APP_VERSION`). `VITE_*` wordt op build-time ingebakken, dus een domeinwissel vereist een **rebuild van de `web`-image** (niet alleen restart). `host-routing.ts` valt terug op `app.bokito.ai` / `.bokito.ai` als de envs leeg zijn.
+- **Caddy is host-agnostisch:** repo-`Caddyfile` bedient `{$BOKITO_DOMAIN}` als één blok; host-Caddy op de VPS routeert `app.bokito.ai` / `api.bokito.ai` / `staging.bokito.ai` naar `127.0.0.1:8088` (prod) of `:8089` (staging). `docker-compose.vps.yml` in de repo parametreert `BOKITO_WEB_PORT`.
+- **Trading-tenant user:** dedicated `trader@chargecars.app` is enige owner-member van de `autotrading`-tenant (slug `autotrading`). Eén membership ⇒ `get_tenant_for_user` geeft altijd `autotrading`, dus dashboard- én mobile/API-login (`POST /api/auth/login` → `access_token` + `tenant.slug=autotrading`) landen direct in de trading-tenant. Geverifieerd live op `app.bokito.ai`. (`admin@bokito.ai` / `bokito-test-password` bestaat **niet** op deze VPS-DB.)
+- **Live verificatie (geverifieerd):** `GET /api/health` op `bokito.ai`, `app.bokito.ai` én `api.bokito.ai` → `{"ok":true,"service":"bokito-api"}` (HTTP 200); `POST /api/auth/login` met `trader@chargecars.app` → JWT met `tenant=autotrading`.
+- **Env-only switch (geen codewijziging):** voor `bokito.ai` als app-host volstaan de defaults; voor een ander domein (bijv. wildcard `*.chargecars.app`) zet je `VITE_APP_CONTROL_PLANE_HOST` + `VITE_TENANT_ROOT_DOMAIN` in `/opt/bokito/.env.prod`, voeg je de host(s) toe aan `BOKITO_DOMAIN`, wijs je DNS naar de VPS, en draai je `docker compose -f docker-compose.prod.yml build web && up -d web`. Tenant-subdomeinen (`<slug>.bokito.ai`) werken dan via de ingebouwde cross-host token-handoff (`__bokito_at__=`).
+
+### 17.2 CI/CD + staging (juni 2026)
+
+- **Pipeline:** push naar `master` triggert `CI` (ruff, pytest, dashboard build, Playwright e2e), daarna workflow `Deploy`: buildx pusht naar GHCR (`ghcr.io/lorenzoboers/bokito-api:<sha>`, `bokito-web:<sha>-staging|prod`), auto-deploy naar staging, smoke test, handmatige GitHub Environment-goedkeuring voor productie, smoke + automatische rollback bij falen. Zie `docs/DEPLOY.md` en `.github/workflows/deploy.yml`.
+- **Staging:** tweede Compose-stack op dezelfde VPS (`docker compose -p bokito-staging`, poort `8089`, host-Caddy `staging.bokito.ai`). Aparte DB (`bokito_staging`), Redis en volumes; `LLM_MODE=mock` standaard voor goedkope 24/7 autonomous tests. Seed: `apps/api/scripts/seed_staging.py` → `trader@staging.bokito.ai` / `staging-trader-password`, tenant `autotrading`.
+- **Productie project-naam:** blijft `bokito` (niet `bokito-prod`) zodat bestaande volumes behouden blijven. Registry-deploy via `docker-compose.deploy.yml` + `scripts/vps-pull-deploy.sh`.
+- **Opgeruimd:** V1 worker-plane deploy-scripts (`vps-redeploy.py`, `deploy-runtime-vps.sh`, Cloudflare Worker workflows) verwijderd. **Rotate** gelekte worker-secrets uit die scripts (zie `docs/DEPLOY.md`).

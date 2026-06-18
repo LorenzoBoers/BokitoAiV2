@@ -6,17 +6,30 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# Install the whole workspace from the lockfile (mirrors CI).
+# Install workspace deps with a cache-friendly layer (package manifests only).
 COPY package.json package-lock.json ./
+COPY apps/dashboard/package.json apps/dashboard/
+COPY apps/chat-widget/package.json apps/chat-widget/
+COPY apps/mobile/package.json apps/mobile/
+COPY packages/shared/package.json packages/shared/
+COPY packages/messenger-ui/package.json packages/messenger-ui/
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+
 COPY . .
-RUN npm ci
 
 # Build the webchat widget first so Caddy can serve /chat-widget/*.
 RUN npm run build -w bokito-chat-widget
 
 # Build the dashboard SPA. VITE_* values are baked in at build time.
 ARG VITE_APP_VERSION=mvp
+ARG VITE_APP_CONTROL_PLANE_HOST=app.bokito.ai
+ARG VITE_TENANT_ROOT_DOMAIN=.bokito.ai
+ARG VITE_APP_CONTROL_PLANE_URL=
 ENV VITE_APP_VERSION=$VITE_APP_VERSION
+ENV VITE_APP_CONTROL_PLANE_HOST=$VITE_APP_CONTROL_PLANE_HOST
+ENV VITE_TENANT_ROOT_DOMAIN=$VITE_TENANT_ROOT_DOMAIN
+ENV VITE_APP_CONTROL_PLANE_URL=$VITE_APP_CONTROL_PLANE_URL
 RUN npm run build:static -w bokito-dashboard
 
 FROM caddy:2-alpine

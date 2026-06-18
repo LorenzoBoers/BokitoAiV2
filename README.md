@@ -1,14 +1,24 @@
 # BokitoAiV2
 
-Minimal repo: Bokito portal (React dashboard) and the embeddable chat widget, deployed as **one** Xano static host.
+Monorepo for the Bokito portal (React dashboard), embeddable chat widget, and FastAPI backend (`apps/api`).
 
 ## Layout
 
 - `apps/dashboard` — portal (Vite + React). Build output: `apps/dashboard/dist/`.
-- `apps/chat-widget` — embeddable livechat widget (TypeScript + Vite). Source under `src/`; run `npm run build` to produce `dist/bokito-chat.js` (IIFE) plus copied `public/` assets. Root `deploy.ps1` merges that `dist/` output into `apps/dashboard/dist/chat-widget/` before zipping.
-- `deploy.ps1` — `npm run build:static` in dashboard (Vite only; run `npm run build` locally when you want full `tsc` + Vite), `npm run build` in `apps/chat-widget`, merge `apps/chat-widget/dist/` into `dist/chat-widget/`, zip `dist/`, upload and activate on Xano (Metadata API).
+- `apps/chat-widget` — embeddable livechat widget (TypeScript + Vite). Run `npm run build` to produce `dist/bokito-chat.js` (IIFE) plus copied `public/` assets. The dashboard dev server serves `/chat-widget/internal/*` and `/chat-widget/external/*` from that build output.
+- `apps/api` — FastAPI backend (auth, signals, workforce, livechat, govern, orchestration).
 
 ## Local development
+
+**API**
+
+```powershell
+cd apps\api
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --port 8000
+```
 
 **Portal**
 
@@ -18,7 +28,9 @@ npm install
 npm run dev
 ```
 
-**Chat widget** (Vite dev server for static pages)
+Vite proxies `/api/*` (HTTP + WebSocket) to `http://127.0.0.1:8000` by default (`VITE_BOKITO_API_URL`).
+
+**Chat widget** (standalone dev pages)
 
 ```powershell
 cd apps\chat-widget
@@ -27,86 +39,63 @@ npm run build
 npm run dev
 ```
 
-## Deploy to Xano
+Seed credentials (after `python scripts/seed.py` in `apps/api`): `admin@bokito.ai` / `bokito-test-password`.
 
-1. Copy `.env.example` to `.env` and fill in Metadata API and static host values. **Important:** `XANO_DASHBOARD_STATIC_HOST_NAME` must be the exact static host slug in Xano for the site that serves your portal (e.g. `bokitoapp`). If that host lives in a **different workspace** than `XANO_WEBSITEWORKSPACE_ID`, set `XANO_DASHBOARD_WORKSPACE_ID` to that workspace’s numeric id (see `deploy.ps1` and `.env.example`).
-2. From repo root:
+## Frontend API pattern
 
-```powershell
-.\deploy.ps1
-```
+The dashboard constructs endpoints from same-origin paths:
 
-Activate production instead of dev:
+- Bases in `apps/dashboard/src/lib/api.config.ts` (`APP_API_BASE`, `AUTH_API_BASE`, `WORKFORCE_API_BASE`, `LIVECHAT_API_BASE`, …)
+- Route path constants in `apps/dashboard/src/api/routes/`
+- Transport in `apps/dashboard/src/lib/bokito-api.ts`
 
-```powershell
-.\deploy.ps1 -Prod
-```
+Do not hardcode full API origins in components. `VITE_*` values are build-time only; never store secrets in them.
 
-Same uploaded build on **both** dev and prod:
-
-```powershell
-.\deploy.ps1 -BothEnvs
-```
-
-Skip rebuild (only merge widget + zip + upload):
-
-```powershell
-.\deploy.ps1 -SkipBuild
-```
-
-### Troubleshooting: nieuwe build in Xano, maar `app.bokito.ai` toont oude portal
-
-Xano kan meerdere `*.f2.xano.io` hostnames tonen. Als prod in de UI op `widget-prod-…` staat maar je deploy naar static host **`bokitoapp`**, dan is de inhoud die bij **`bokitoapp-prod-…`** hoort vaak de juiste. Controleer met `curl -sI` of `app.bokito.ai` dezelfde `Last-Modified` / `ETag` heeft als `bokitoapp-prod-…`. Zo niet: pas in **Cloudflare DNS** (of Workers origin) het doel aan naar **`bokitoapp-prod-<jouw-instance>.f2.xano.io`**, niet een legacy `widget-prod-*` host.
-
-### Smoke check script (live portal)
-
-Use this script to validate origin parity, `/api/auth` reachability, optional tenant host reachability, and optional CORS preflight:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\live-portal-smoke.ps1 `
-  -TenantHost "https://acme.bokito.ai" `
-  -ApiBase "https://xrex-nmji-j9ur.f2.xano.io/api:integrations"
-```
-
-If the script reports that `app.bokito.ai` matches `widget-prod-*` instead of `bokitoapp-prod-*` while DNS `app` already points at `bokitoapp-prod-*`, the wildcard Worker route is likely overriding the origin. Deploy the passthrough worker in `cloudflare-workers/bokito-app-passthrough` (`npx wrangler deploy` or `scripts/deploy-cloudflare-app-passthrough.ps1`) so `app.bokito.ai/*` uses zone DNS. Alternatively, fix `bokito-tenant-router` upstreams. See `BOKITO_KNOWLEDGE.md` (Cloudflare Worker route).
-
-### Visible build marker in UI
-
-- Login page footer shows `build: <version>`.
-- User menu (under `Sign out`) shows the same build marker.
-- `deploy.ps1` sets `VITE_APP_VERSION` automatically to the current build name so each deploy is traceable from the UI.
-
-De dashboard frontend gebruikt een vaste endpoint-opbouw:
-
-- Base URL: `VITE_XANO_BASE_URL`
-- API group canonical: `VITE_API_GROUP_*`
-- Endpoint path: feature-specifiek pad, bijvoorbeeld `/members` of `/auth/login`
-
-De centrale configuratie staat in `apps/dashboard/src/lib/api.config.ts`.
-Gebruik in featurecode altijd de gedeelde API-bases (`APP_API_BASE`, `AUTH_API_BASE`, etc.) in plaats van hardcoded origins.
-
-### Dev vs production gedrag
-
-- Development: routes lopen via de Vite proxy (`/api/<group>`) voor local development.
-- Production build: routes gebruiken `VITE_XANO_BASE_URL` gecombineerd met de API group canonical.
-
-Let op: `VITE_*` variabelen zijn build-time waarden en worden in de frontend bundle ingebakken.
-
-### Checklist voor nieuwe API integraties
-
-1. Voeg (indien nodig) een nieuwe `VITE_API_GROUP_<NAME>` toe aan `apps/dashboard/.env.example`.
-2. Voeg de bijbehorende constanten toe in `apps/dashboard/src/lib/api.config.ts`.
-3. Gebruik de gedeelde base in een API helper of lib-bestand, niet direct in componenten.
-4. Houd alleen endpoint paths feature-specifiek (`/resource`, `/resource/:id`).
-5. Zet geen secrets in `VITE_*` variabelen.
+Human onboarding: `apps/dashboard/docs/API.md`.
 
 ## Public embed URL
 
-After deploy, the widget bundles are served from the same origin as the portal, for example:
+After building the widget, bundles are served from the same origin as the portal:
 
-- `/chat-widget/internal/bokito-chat.js` (team: logged-in users with permissions; `data-auth-mode` typically `optional` or `required`)
-- `/chat-widget/external/bokito-chat.js` (public: anonymous visitors; `data-auth-mode` typically `anonymous`)
+- `/chat-widget/internal/bokito-chat.js` — team widget (logged-in users; `data-auth-mode` typically `optional` or `required`)
+- `/chat-widget/external/bokito-chat.js` — public widget (anonymous visitors)
 
-The legacy root file `/chat-widget/bokito-chat.js` is no longer the primary entry; the portal loads the team bundle from the internal path (`apps/dashboard/src/main.tsx`).
+Livechat API: `/api/livechat/*` (`session/start`, `stream-chat`, theme from workspace branding).
 
 See `apps/chat-widget/README.md` for embed attributes and API contract.
+
+## Production deployment (Hostinger VPS)
+
+The whole stack runs on a single Hostinger VPS (`31.97.45.44`) via Docker Compose + Caddy:
+
+```bash
+cp .env.prod.example .env.prod   # fill in real secrets
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```
+
+`docker-compose.prod.yml` runs `postgres` (pgvector), `redis`, `api` (uvicorn, single replica — the in-process trigger scheduler has no distributed lock), `worker` (arq), and `web` (Caddy serving the dashboard + widget bundles and reverse-proxying `/api`).
+
+- **Live hosts:** `bokito.ai`, `app.bokito.ai`, `api.bokito.ai`, and `*.bokito.ai` are Cloudflare-proxied A records pointing at the VPS. `app.bokito.ai` is the control-plane (login) host; `api.bokito.ai` now serves this FastAPI backend (moved off the old Xano API). The legacy Cloudflare Workers (`bokito-tenant-router`, `bokito-app-passthrough`) are removed — traffic goes straight to the VPS.
+- **Env-driven domain:** the dashboard's control-plane/tenant hosts are baked at build time from `VITE_APP_CONTROL_PLANE_HOST` / `VITE_TENANT_ROOT_DOMAIN` (defaults `app.bokito.ai` / `.bokito.ai`; see `apps/dashboard/Dockerfile` and `web.build.args` in the compose file). Because `VITE_*` is baked in, switching domains requires a `web` image rebuild, not just a restart. See `host-routing.ts`.
+- **Health/login checks:** `GET /api/health` returns `{"ok":true,"service":"bokito-api"}` on all three hosts; `POST /api/auth/login` returns a JWT carrying the user's `tenant.id`.
+
+Full deploy notes and the bokito.ai cutover log live in `BOKITO_KNOWLEDGE.md` (section 17).
+
+## CI/CD (GitHub -> GHCR -> VPS)
+
+Push to `master` runs CI, builds images to GHCR, auto-deploys **staging** (`https://staging.bokito.ai`), then waits for a **production** approval before promoting the same API image to `app.bokito.ai`.
+
+Setup (GitHub Environments, secrets, rollback): [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+```text
+local tests  ->  push master  ->  CI  ->  GHCR build  ->  staging deploy + smoke
+                                                      ->  [approve] prod deploy + smoke
+```
+
+## Verification
+
+```powershell
+npm run verify:bokito
+```
+
+Runs API pytest and dashboard type-check/build as configured in the root `package.json`.

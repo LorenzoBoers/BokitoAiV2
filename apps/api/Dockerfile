@@ -5,7 +5,8 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml ./
-RUN uv pip install --system -e ".[dev]"
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -e ".[dev]"
 
 COPY app ./app
 COPY scripts ./scripts

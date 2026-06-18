@@ -1,0 +1,208 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Git commit SHA to deploy (default HEAD of master)
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE: ghcr.io/lorenzoboers/bokito-api
+
+jobs:
+  gate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI gate passed
+        run: echo "Proceeding with deploy"
+
+  resolve-sha:
+    needs: gate
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.out.outputs.sha }}
+      short_sha: ${{ steps.out.outputs.short_sha }}
+    steps:
+      - id: out
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.sha }}" ]; then
+            SHA="${{ inputs.sha }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            SHA="${{ github.event.workflow_run.head_sha }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve-sha
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-sha.outputs.sha }}
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/api
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:${{ needs.resolve-sha.outputs.sha }}
+            ${{ env.API_IMAGE }}:master
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push web image (staging)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/dashboard/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/lorenzoboers/bokito-web:${{ needs.resolve-sha.outputs.sha }}-staging
+            ghcr.io/lorenzoboers/bokito-web:master-staging
+          build-args: |
+            VITE_APP_VERSION=${{ needs.resolve-sha.outputs.short_sha }}
+            VITE_APP_CONTROL_PLANE_HOST=staging.bokito.ai
+            VITE_TENANT_ROOT_DOMAIN=.bokito.ai
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push web image (production)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/dashboard/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/lorenzoboers/bokito-web:${{ needs.resolve-sha.outputs.sha }}-prod
+            ghcr.io/lorenzoboers/bokito-web:master-prod
+          build-args: |
+            VITE_APP_VERSION=${{ needs.resolve-sha.outputs.short_sha }}
+            VITE_APP_CONTROL_PLANE_HOST=app.bokito.ai
+            VITE_TENANT_ROOT_DOMAIN=.bokito.ai
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    needs: [resolve-sha, build]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Deploy staging on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/bokito
+            git fetch origin master
+            git reset --hard origin/master
+            chmod +x scripts/vps-pull-deploy.sh scripts/smoke-deploy.sh scripts/vps-staging-bootstrap.sh
+            test -f .env.staging || bash scripts/vps-staging-bootstrap.sh
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            ./scripts/vps-pull-deploy.sh staging ${{ needs.resolve-sha.outputs.sha }}
+            docker compose -p bokito-staging --env-file .env.staging \
+              -f docker-compose.deploy.yml -f docker-compose.vps.yml \
+              exec -T api python scripts/seed_staging.py || true
+
+      - name: Smoke test staging
+        env:
+          SMOKE_EMAIL: ${{ secrets.STAGING_SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: bash scripts/smoke-deploy.sh https://staging.bokito.ai
+
+  deploy-production:
+    needs: [resolve-sha, build, deploy-staging]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Deploy production on VPS
+        id: deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/bokito
+            git fetch origin master
+            git reset --hard origin/master
+            chmod +x scripts/vps-pull-deploy.sh scripts/smoke-deploy.sh
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            ./scripts/vps-pull-deploy.sh prod ${{ needs.resolve-sha.outputs.sha }}
+
+      - name: Smoke test production
+        id: smoke
+        env:
+          SMOKE_EMAIL: ${{ secrets.PROD_SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.PROD_SMOKE_PASSWORD }}
+        run: bash scripts/smoke-deploy.sh https://app.bokito.ai
+
+      - name: Rollback production on smoke failure
+        if: failure() && steps.smoke.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/bokito
+            if [ ! -f .rollback.prod.env ]; then
+              echo "No rollback snapshot; manual intervention required" >&2
+              exit 1
+            fi
+            set -a
+            source .rollback.prod.env
+            set +a
+            export BOKITO_ENV_FILE=.env.prod
+            docker compose -p bokito --env-file .env.prod \
+              -f docker-compose.deploy.yml -f docker-compose.vps.yml pull
+            docker compose -p bokito --env-file .env.prod \
+              -f docker-compose.deploy.yml -f docker-compose.vps.yml up -d
+            echo "rollback_ok"

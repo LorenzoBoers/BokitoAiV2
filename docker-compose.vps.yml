@@ -1,0 +1,9 @@
+# VPS host port override. Pair with docker-compose.prod.yml (local build) or
+# docker-compose.deploy.yml (registry pull). BOKITO_WEB_PORT comes from the env file:
+#   production: 8088 (host Caddy -> app.bokito.ai / api.bokito.ai / …)
+#   staging:    8089 (host Caddy -> staging.bokito.ai)
+
+services:
+  web:
+    ports: !override
+      - "127.0.0.1:${BOKITO_WEB_PORT:-8088}:80"
