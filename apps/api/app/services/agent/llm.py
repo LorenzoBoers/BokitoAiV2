@@ -97,8 +97,9 @@ class MockLLMProvider:
 
 
 class AnthropicLLMProvider:
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = api_key or settings.anthropic_api_key
+        self.base_url = (base_url or "").strip() or None
 
     async def chat(
         self,
@@ -108,7 +109,10 @@ class AnthropicLLMProvider:
     ) -> dict[str, Any]:
         from anthropic import AsyncAnthropic
 
-        client = AsyncAnthropic(api_key=self.api_key)
+        kwargs: dict[str, Any] = {"api_key": self.api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        client = AsyncAnthropic(**kwargs)
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
         response = await client.messages.create(
@@ -148,7 +152,10 @@ class AnthropicLLMProvider:
     ):
         from anthropic import AsyncAnthropic
 
-        client = AsyncAnthropic(api_key=self.api_key)
+        kwargs: dict[str, Any] = {"api_key": self.api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        client = AsyncAnthropic(**kwargs)
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
         async with client.messages.stream(
@@ -178,8 +185,9 @@ class OpenAILLMProvider:
     single loop can drive either provider.
     """
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = api_key or settings.openai_api_key
+        self.base_url = (base_url or "").strip() or None
 
     @staticmethod
     def _tools_to_openai(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -253,7 +261,10 @@ class OpenAILLMProvider:
     ) -> dict[str, Any]:
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=self.api_key)
+        kwargs: dict[str, Any] = {"api_key": self.api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        client = AsyncOpenAI(**kwargs)
         oai_messages = self._messages_to_openai(messages)
         kwargs: dict[str, Any] = {
             "model": model or "gpt-4o",
@@ -308,12 +319,12 @@ class OpenAILLMProvider:
         yield {"type": "done", "usage": result.get("usage", {})}
 
 
-def get_chat_provider(provider: str, api_key: str):
-    """Return a chat provider instance by provider name (or mock when unknown)."""
-    if provider == "anthropic" and api_key:
-        return AnthropicLLMProvider(api_key=api_key)
-    if provider == "openai" and api_key:
-        return OpenAILLMProvider(api_key=api_key)
+def get_chat_provider(provider_type: str, api_key: str, base_url: str | None = None):
+    """Return a chat provider instance by provider type (or mock when unknown)."""
+    if provider_type == "anthropic" and api_key:
+        return AnthropicLLMProvider(api_key=api_key, base_url=base_url)
+    if provider_type in ("openai", "openai_compatible") and api_key:
+        return OpenAILLMProvider(api_key=api_key, base_url=base_url)
     return MockLLMProvider()
 
 

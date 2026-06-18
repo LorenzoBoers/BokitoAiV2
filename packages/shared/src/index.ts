@@ -109,7 +109,7 @@ export interface RunConfigJson {
   }
   report_to: { type: 'agent' | 'user' | 'team'; id: string }
   budget: { remaining_today: number; remaining_hour: number }
-  xano: {
+  platform: {
     base_url: string
     work_log_url: string
     messages_url: string

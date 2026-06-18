@@ -298,6 +298,8 @@ export interface Workspace {
   brand_color?: string;
   /** Parsed from livechat_settings.appearance (+ legacy keys). */
   messengerAppearance?: MessengerAppearance;
+  /** Tenant security: enforce 2FA for all members. */
+  require_2fa?: boolean;
   owner_user_id?: number | string | null;
   role?: UserRole | 'member';
   created_at?: string;
@@ -474,7 +476,7 @@ export interface DuplicateDetection {
   duplicateIds: number[];
   confidence: number;
   matchedFields: string[];
-  /** Xano / API snake_case (optional) */
+  /** API snake_case (optional) */
   possible_duplicate_id?: number;
   possible_duplicate_name?: string;
   similarity_score?: number;
@@ -487,7 +489,7 @@ export interface SemanticSearchResult {
   highlights?: Record<string, string>;
 }
 
-// Onboarding wizard (legacy Xano flow; types kept for compile)
+// Onboarding wizard (legacy flow; types kept for compile)
 export interface OnboardingStep1Data {
   workspace_name: string;
   timezone: string;

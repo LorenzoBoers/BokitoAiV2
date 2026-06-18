@@ -135,7 +135,9 @@ async def _compact_signal_history(
     transcript = "\n".join(transcript_parts)[-24000:]
 
     resolved = await resolve_model_call(session, signal.tenant_id, kind="chat")
-    llm = get_chat_provider(resolved.provider, resolved.api_key)
+    llm = get_chat_provider(
+        resolved.provider_type, resolved.api_key, resolved.base_url or None
+    )
     response = await llm.chat(
         [{"role": "user", "content": _COMPACTION_PROMPT.format(transcript=transcript)}],
         model=resolved.model_id,

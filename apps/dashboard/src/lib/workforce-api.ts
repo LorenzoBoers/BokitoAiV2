@@ -4,7 +4,7 @@ import { requireAccessToken } from './api'
 
 const AGENT_RUNTIME_API_BASE = WORKFORCE_API_BASE
 
-/** Xano Realtime nested channel prefix — must match workspace setting `workforce/*`. */
+/** Realtime nested channel prefix — must match workspace setting `workforce/*`. */
 export const WORKFORCE_REALTIME_CHANNEL_PREFIX = 'workforce'
 
 export function workforceRealtimeChannel(organisationId: number | string): string {
@@ -213,14 +213,14 @@ export async function forceWakeWorkforce(
   return readResponse<Record<string, unknown>>(res)
 }
 
-export async function forceRescanWorkforce(token: string | undefined, pipelineId?: number): Promise<{ ok: boolean; trigger_id: number }> {
+export async function forceRescanWorkforce(token: string | undefined, pipelineId?: number): Promise<{ ok: boolean; fired: number }> {
   const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.workforce.forceRescan}`, {
     method: 'POST',
     credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify(pipelineId ? { pipeline_id: pipelineId } : {}),
   })
-  return readResponse<{ ok: boolean; trigger_id: number }>(res)
+  return readResponse<{ ok: boolean; fired: number }>(res)
 }
 
 export async function pauseWorkforce(token?: string): Promise<{ ok: boolean }> {

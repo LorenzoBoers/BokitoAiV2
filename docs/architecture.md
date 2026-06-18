@@ -1,6 +1,6 @@
 # Bokito AI OS Architecture
 
-This document describes the Intelligence Stack backbone implemented in `apps/api` (FastAPI) and `apps/dashboard`. The dashboard runs in a single mode against the FastAPI backend (the Xano stack is fully sunset).
+This document describes the Intelligence Stack backbone implemented in `apps/api` (FastAPI) and `apps/dashboard`. The dashboard runs in a single mode against the FastAPI backend (the FastAPI stack is fully sunset).
 
 **Product intent (north star for features and agents):** [`CORE_INTENT.md`](CORE_INTENT.md)
 
@@ -155,7 +155,7 @@ Token usage is written to `UsageLedger` per segment.
 
 ## Frontend consolidation (single mode)
 
-The dashboard has one API mode: same-origin `/api/*` to FastAPI (Vite dev proxy via `VITE_BOKITO_API_URL`; same origin in production). `lib/xano.ts`, `VITE_API_MODE`, and all `isBokitoMode()` branching were removed; transport is `lib/api.ts` (REST) + `lib/gateway.ts` (WS).
+The dashboard has one API mode: same-origin `/api/*` to FastAPI (Vite dev proxy via `VITE_BOKITO_API_URL`; same origin in production). `lib/bokito-api.ts`, `VITE_API_MODE`, and all `isBokitoMode()` branching were removed; transport is `lib/api.ts` (REST) + `lib/gateway.ts` (WS).
 
 Navigation is eight sections: **Home** (Cockpit), **Messages**, **Agents**, **Workspace**, **Automations**, **Integrations**, **Govern**, **Settings**. The Project hub, Custom DB, AI OS canvas pages, Orchestra page (renamed Automations), and legacy duplicate pages were deleted (~35 pages removed).
 

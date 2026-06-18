@@ -1,6 +1,6 @@
 # Tenant and hosting
 
-Last updated: May 2026
+Last updated: June 2026
 
 Bokito is **multi-tenant**: each customer organisation runs on its own subdomain. Authentication and workspace selection happen on a shared **control plane**; day-to-day product work happens on the **tenant host**.
 
@@ -66,34 +66,33 @@ On a tenant host, `WorkspaceContext` locks to the workspace whose slug matches t
 
 Used from [`Workspaces.tsx`](../../apps/dashboard/src/pages/Workspaces.tsx) and [`Login.tsx`](../../apps/dashboard/src/pages/Login.tsx).
 
-**Note:** Xano `api:auth` may not expose `/refresh`; the frontend can skip server refresh when missing (`bokito_skip_server_auth_refresh` in sessionStorage).
+**Note:** FastAPI `/api/auth` may not expose `/refresh`; the frontend can skip server refresh when missing (`bokito_skip_server_auth_refresh` in sessionStorage).
 
 ### Protected routes
 
 `ProtectedRoute` sends unauthenticated users to `/login?return_to=...` with open-redirect validation. Bare `localhost` is not a valid tenant return target.
 
-## Cloudflare routing
+## Cloudflare routing (current: June 2026)
 
-### Wildcard DNS
+> The earlier Cloudflare Workers (`bokito-tenant-router`, `bokito-app-passthrough`) and the FastAPI static-host pipeline are **retired**. All traffic now goes directly to the single Hostinger VPS (`31.97.45.44`) running Docker Compose + Caddy. See [09 – Infrastructure and deploy](09-infrastructure-and-deploy.md) and `BOKITO_KNOWLEDGE.md` §17.
 
-Zone `bokito.ai` uses a proxied wildcard A record so `*.bokito.ai` resolves. Without it, new tenant subdomains return `DNS_PROBE_FINISHED_NXDOMAIN`.
+### DNS (zone `bokito.ai` → VPS `31.97.45.44`)
 
-Verify: `curl -sI https://bokito.bokito.ai/` should return HTTP 200 with header `X-Tenant-Slug: bokito`.
+| Record | Type | Proxy | Role |
+|--------|------|-------|------|
+| `bokito.ai` | A | Proxied | Marketing/app entry; serves the VPS API + SPA |
+| `app.bokito.ai` | A | Proxied | Control plane (login, workspace hub) |
+| `api.bokito.ai` | A | Proxied | FastAPI backend (moved off the old Xano API) |
+| `*.bokito.ai` | A | Proxied | Tenant subdomains (`<slug>.bokito.ai`) |
+| `worker.bokito.ai` | A | DNS only | Pre-existing Node service on :3300 (untouched) |
 
-### `bokito-tenant-router`
+The proxied wildcard is required so new tenant subdomains resolve (otherwise `DNS_PROBE_FINISHED_NXDOMAIN`).
 
-Worker: [`cloudflare-workers/bokito-tenant-router/src/index.js`](../../cloudflare-workers/bokito-tenant-router/src/index.js)
+Verify: `curl -sI https://app.bokito.ai/api/health` → HTTP 200 `{"ok":true,"service":"bokito-api"}` (same for `bokito.ai` and `api.bokito.ai`).
 
-| Request path | Proxied to |
-|--------------|------------|
-| `/api/{group}/...` | Xano as `/api:{group}/...` (`BOKITO_API_ORIGIN`) |
-| Everything else | Xano static host (`BOKITO_STATIC_ORIGIN`), `Host` preserved |
+### Routing
 
-Browser cookies on `.bokito.ai` are forwarded to Xano on API calls from tenant subdomains.
-
-### `bokito-app-passthrough`
-
-More specific route `app.bokito.ai/*` can use a passthrough worker so the control plane serves the correct static artifact (`bokitoapp-prod-*`) instead of an outdated `widget-prod-*` upstream.
+The VPS Caddy (`web` container, host-agnostic `{$BOKITO_DOMAIN}` site block) serves the dashboard SPA and reverse-proxies `/api/*` to FastAPI for every host. There is no edge Worker layer; tenant scoping is derived from the JWT (`tenant.id`) and from the host subdomain in `host-routing.ts`. Refresh cookies on `.bokito.ai` are sent same-origin to `/api/auth/*`.
 
 ## Troubleshooting runbook
 
@@ -102,9 +101,9 @@ More specific route `app.bokito.ai/*` can use a passthrough worker so the contro
 | **No tenant access** | User lacks active `tenant_membership` for subdomain | Check membership status; UI shows access denied (not login loop) |
 | **Login loop on tenant** | `/auth/me` missing matching membership or cookie not sent | Verify `bokito_refresh_token` on `.bokito.ai`; check `tenant_slug` in response |
 | **Empty workspace list** | Subdomain mismatch or inactive membership | Confirm `organisation.livechat_settings.subdomain` matches host |
-| **NXDOMAIN on tenant URL** | Missing wildcard DNS or Worker route | Add Cloudflare wildcard; deploy `bokito-tenant-router` |
-| **API 400 on tenant POST** | Static host answering instead of API proxy | Fix worker API routing for `/api/*` |
-| **Wrong portal build on app.bokito.ai** | Worker upstream points to old static host | Update worker vars or use `bokito-app-passthrough`; compare `ETag` with direct Xano host |
+| **NXDOMAIN on tenant URL** | Missing proxied wildcard `*.bokito.ai` A record | Add the Cloudflare wildcard A record → VPS |
+| **API 400/404 on tenant POST** | `web` container not proxying `/api/*` or wrong host in `BOKITO_DOMAIN` | Check Caddy `{$BOKITO_DOMAIN}` includes the host; verify `web` container healthy |
+| **Wrong/old portal build** | `web` image not rebuilt after a `VITE_*` change | Rebuild the image: `docker compose -f docker-compose.prod.yml build web && up -d web` |
 
 ## Related docs
 

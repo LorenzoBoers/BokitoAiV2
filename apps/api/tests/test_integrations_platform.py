@@ -21,7 +21,7 @@ def _auth(token: str) -> dict[str, str]:
 @pytest.mark.asyncio
 async def test_list_providers(client: AsyncClient):
     token = await _login(client)
-    res = await client.get(f"{API}/integrations/integrations/providers", headers=_auth(token))
+    res = await client.get(f"{API}/integrations/providers", headers=_auth(token))
     assert res.status_code == 200
     data = res.json()
     assert "providers" in data
@@ -44,7 +44,7 @@ async def test_github_oauth_and_connections(client: AsyncClient):
     return_url = "http://test/integrations/connected"
 
     start = await client.get(
-        f"{API}/integrations/github/oauth/start",
+        f"{API}/github/oauth/start",
         params={"return_url": return_url},
         headers=headers,
     )
@@ -52,14 +52,14 @@ async def test_github_oauth_and_connections(client: AsyncClient):
     assert "authorize_url" in start.json()
     assert "github=connected" in start.json()["authorize_url"]
 
-    conns = await client.get(f"{API}/integrations/github/connections", headers=headers)
+    conns = await client.get(f"{API}/github/connections", headers=headers)
     assert conns.status_code == 200
     rows = conns.json()["connections"]
     assert len(rows) == 1
     assert rows[0]["github_login"]
     assert rows[0]["status"] == "active"
 
-    repos = await client.get(f"{API}/integrations/github/repos", headers=headers)
+    repos = await client.get(f"{API}/github/repos", headers=headers)
     assert repos.status_code == 200
     assert len(repos.json()["items"]) >= 1
 
@@ -70,7 +70,7 @@ async def test_mcp_install_and_bindings(client: AsyncClient):
     headers = _auth(token)
 
     install = await client.post(
-        f"{API}/integrations/integrations/mcp/install",
+        f"{API}/integrations/mcp/install",
         headers=headers,
         json={
             "provider": "custom_mcp",
@@ -86,7 +86,7 @@ async def test_mcp_install_and_bindings(client: AsyncClient):
     assert body["connection"]["provider_id"]
     assert body["binding"]["id"]
 
-    bindings = await client.get(f"{API}/integrations/integrations/mcp/bindings", headers=headers)
+    bindings = await client.get(f"{API}/integrations/mcp/bindings", headers=headers)
     assert bindings.status_code == 200
     data = bindings.json()
     assert len(data["bindings"]) >= 1
@@ -120,7 +120,7 @@ async def test_mcp_tenant_isolation(client: AsyncClient):
     headers_b = _auth(signup_b.json()["access_token"])
 
     install_a = await client.post(
-        f"{API}/integrations/integrations/mcp/install",
+        f"{API}/integrations/mcp/install",
         headers=headers_a,
         json={
             "provider": "higgsfield_mcp",
@@ -132,7 +132,7 @@ async def test_mcp_tenant_isolation(client: AsyncClient):
     conn_a_id = install_a.json()["connection"]["id"]
 
     bindings_b = await client.get(
-        f"{API}/integrations/integrations/mcp/bindings",
+        f"{API}/integrations/mcp/bindings",
         headers=headers_b,
     )
     assert bindings_b.status_code == 200
@@ -140,7 +140,7 @@ async def test_mcp_tenant_isolation(client: AsyncClient):
     assert conn_a_id not in binding_conn_ids_b
 
     conns_b = await client.get(
-        f"{API}/integrations/integrations/connections",
+        f"{API}/integrations/connections",
         headers=headers_b,
     )
     assert conns_b.status_code == 200
@@ -148,7 +148,7 @@ async def test_mcp_tenant_isolation(client: AsyncClient):
     assert conn_a_id not in conn_ids_b
 
     providers_b = await client.get(
-        f"{API}/integrations/integrations/providers",
+        f"{API}/integrations/providers",
         headers=headers_b,
     )
     assert providers_b.status_code == 200
@@ -165,7 +165,7 @@ async def test_email_oauth_mock(client: AsyncClient):
     return_url = "http://test/email/settings"
 
     res = await client.get(
-        f"{API}/integrations/email/oauth/start",
+        f"{API}/email/oauth/start",
         params={"provider": "gmail", "return_url": return_url},
         headers=headers,
     )
@@ -174,6 +174,6 @@ async def test_email_oauth_mock(client: AsyncClient):
     assert "oauth_provider=gmail" in url
     assert "oauth_status=connected" in url
 
-    email_conns = await client.get(f"{API}/integrations/email/connections", headers=headers)
+    email_conns = await client.get(f"{API}/email/accounts", headers=headers)
     assert email_conns.status_code == 200
     assert len(email_conns.json()) >= 1

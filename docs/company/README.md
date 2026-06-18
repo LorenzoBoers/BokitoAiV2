@@ -7,14 +7,14 @@ English handbook for the Bokito platform: products, tenancy, infrastructure, and
 ## Audience
 
 - Engineers onboarding to the monorepo
-- Operators deploying runtime, Cloudflare, and Xano static hosting
+- Operators deploying runtime, Cloudflare, and FastAPI static hosting
 - Internal product staff using the **`bokito`** tenant (`https://bokito.bokito.ai`, dev: `http://bokito.localhost:5174`)
 
 ## Conventions
 
 - **Language:** English throughout this folder.
 - **Facts over speculation:** Roadmap and stub areas are labeled explicitly.
-- **Deep dives:** Portal navigation, API routes, and integrations have dedicated docs under `apps/dashboard/docs/` and `xano-patches/`; this handbook summarizes and links rather than duplicating them.
+- **Deep dives:** Portal navigation, API routes, and integrations have dedicated docs under `apps/dashboard/docs/` and `docs/archived/`; this handbook summarizes and links rather than duplicating them.
 - **No emojis** in documentation copy (workspace policy).
 
 ## Table of contents
@@ -32,7 +32,7 @@ English handbook for the Bokito platform: products, tenancy, infrastructure, and
 | [07 – Inbox and communication](07-inbox-and-communication.md) | Inbox queues, email sync, assistant settings |
 | [08 – Chat widget and mobile](08-chat-widget-and-mobile.md) | Embed contract, SSE streaming, mobile app |
 | [09 – Infrastructure and deploy](09-infrastructure-and-deploy.md) | VPS runtime, `deploy.ps1`, DNS, env vars |
-| [10 – Data model and APIs](10-data-model-and-apis.md) | Xano API groups, tenant tables, workspace docs schema |
+| [10 – Data model and APIs](10-data-model-and-apis.md) | FastAPI API groups, tenant tables, workspace docs schema |
 | [11 – Business rules and glossary](11-business-rules-and-glossary.md) | Isolation, RBAC, SOPs, terminology, roadmap |
 
 ## Related documentation (outside this folder)
@@ -46,6 +46,6 @@ English handbook for the Bokito platform: products, tenancy, infrastructure, and
 | [`apps/dashboard/docs/INTEGRATIONS.md`](../../apps/dashboard/docs/INTEGRATIONS.md) | Integrations developer checklist |
 | [`apps/chat-widget/MULTI_TENANT_BACKEND_CONTRACT.md`](../../apps/chat-widget/MULTI_TENANT_BACKEND_CONTRACT.md) | Widget tenant auth contract |
 | [`docs/phase-0-infrastructure.md`](../phase-0-infrastructure.md) | VPS setup checklist |
-| [`xano-patches/v1/CRONS.md`](../../xano-patches/v1/CRONS.md) | Scheduled tasks |
-| [`xano-patches/v1/VERIFICATION.md`](../../xano-patches/v1/VERIFICATION.md) | Platform verification checklist |
-| [`xano-patches/v1-platform-tables.md`](../../xano-patches/v1-platform-tables.md) | V1 platform tables |
+| [`docs/archived/v1/CRONS.md`](../../docs/archived/v1/CRONS.md) | Scheduled tasks |
+| [`docs/archived/v1/VERIFICATION.md`](../../docs/archived/v1/VERIFICATION.md) | Platform verification checklist |
+| [`docs/archived/v1-platform-tables.md`](../../docs/archived/v1-platform-tables.md) | V1 platform tables |

@@ -315,7 +315,7 @@ export const cloudAgents: CloudAgent[] = [
     name: 'Bokito Support',
     slug: 'bokito-support',
     description:
-      'Eerste lijn voor klanten: FAQ, orders en retourflow. Gekoppeld aan Xano tools.',
+      'Eerste lijn voor klanten: FAQ, orders en retourflow. Gekoppeld aan platform tools.',
     model: 'claude-sonnet-4-20250514',
     status: 'active',
     region: 'eu-west',
@@ -325,7 +325,7 @@ export const cloudAgents: CloudAgent[] = [
     tools: ['search_orders', 'kb_lookup', 'create_ticket', 'handoff_human'],
     systemPromptPreview:
       'Je bent de officiële support-agent voor Bokito. Antwoord kort, in het Nederlands, en gebruik tools voor orderdata...',
-    embedUrl: 'https://xrex-nmji-j9ur.f2.xano.io/api:livechat/script/main',
+    embedUrl: '/chat-widget/external/bokito-chat.js',
   },
   {
     id: 'ca-2',
@@ -341,7 +341,7 @@ export const cloudAgents: CloudAgent[] = [
     tools: ['crm_lookup', 'schedule_meeting', 'pricing_sheet'],
     systemPromptPreview:
       'Je helpt prospects met productfit en pricing. Vraag altijd naar sector en teamgrootte voordat je een demo voorstelt...',
-    embedUrl: 'https://xrex-nmji-j9ur.f2.xano.io/api:livechat/script/main',
+    embedUrl: '/chat-widget/external/bokito-chat.js',
   },
   {
     id: 'ca-3',
@@ -357,7 +357,7 @@ export const cloudAgents: CloudAgent[] = [
     tools: ['tenant_summary', 'usage_report', 'flag_incident'],
     systemPromptPreview:
       'Je ondersteunt Bokito-medewerkers. Geen klantdata naar externe kanalen. Log gevoelige acties...',
-    embedUrl: 'https://xrex-nmji-j9ur.f2.xano.io/api:livechat/script/main',
+    embedUrl: '/chat-widget/external/bokito-chat.js',
   },
   {
     id: 'ca-4',
@@ -373,6 +373,6 @@ export const cloudAgents: CloudAgent[] = [
     tools: ['fetch_page_context'],
     systemPromptPreview:
       'Je schrijft korte, merkconforme teksten voor Bokito. Gebruik alleen feiten uit de kennisbank...',
-    embedUrl: 'https://xrex-nmji-j9ur.f2.xano.io/api:livechat/script/main',
+    embedUrl: '/chat-widget/external/bokito-chat.js',
   },
 ]

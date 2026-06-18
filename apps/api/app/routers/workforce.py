@@ -544,8 +544,16 @@ async def force_wake(
 
 
 @router.post("/workforce/force-rescan")
-async def force_rescan():
-    return {"ok": True, "trigger_id": 1}
+async def force_rescan(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    body: dict[str, Any] | None = None,
+):
+    del body
+    from app.services.triggers import process_due_triggers
+
+    fired = await process_due_triggers(session, tenant_id=auth.tenant.id)
+    return {"ok": True, "fired": fired}
 
 
 @router.post("/workforce/pause")
@@ -591,6 +599,18 @@ async def post_complete_activity(
     )
 
 
+class MaintenanceRunBody(BaseModel):
+    max_stale_minutes: int = 15
+
+
 @router.post("/workforce/maintenance-run")
-async def maintenance_run():
-    return {"ok": True, "stale_cleared": 0}
+async def maintenance_run(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    body: MaintenanceRunBody | None = None,
+):
+    max_stale_minutes = body.max_stale_minutes if body else 15
+    result = await svc.clear_stale_runtime(
+        session, auth.tenant.id, max_stale_minutes=max_stale_minutes
+    )
+    return {"ok": True, **result}

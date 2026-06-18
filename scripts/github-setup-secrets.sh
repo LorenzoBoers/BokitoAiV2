@@ -32,8 +32,8 @@ gh secret set GHCR_PULL_TOKEN --body "$GHCR_TOKEN" --repo "$REPO"
 gh secret set STAGING_SMOKE_EMAIL --body "trader@staging.bokito.ai" --repo "$REPO"
 gh secret set STAGING_SMOKE_PASSWORD --body "staging-trader-password" --repo "$REPO"
 
-read -r -p "PROD_SMOKE_EMAIL [trader@chargecars.app]: " PROD_EMAIL
-PROD_EMAIL="${PROD_EMAIL:-trader@chargecars.app}"
+read -r -p "PROD_SMOKE_EMAIL [trader@bokito.ai]: " PROD_EMAIL
+PROD_EMAIL="${PROD_EMAIL:-trader@bokito.ai}"
 gh secret set PROD_SMOKE_EMAIL --body "$PROD_EMAIL" --repo "$REPO"
 
 read -r -s -p "PROD_SMOKE_PASSWORD: " PROD_PW

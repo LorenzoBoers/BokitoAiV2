@@ -46,7 +46,7 @@ Outlook and Gmail connect via OAuth (see [06 – Integrations](06-integrations.m
 
 Settings: `/settings/inbox` and `/settings/communication-email` (legacy paths may redirect).
 
-SMTP/IMAP is concept-only in the UI (no Xano storage in current release).
+SMTP/IMAP is concept-only in the UI (no FastAPI storage in current release).
 
 ## Workforce communication
 

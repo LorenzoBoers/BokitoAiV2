@@ -54,15 +54,6 @@ export const integrationsRoutes = {
       outlookStart: (encodedReturnUrl: string) => `/email/outlook/oauth/start?return_url=${encodedReturnUrl}`,
       googleStart: (encodedReturnUrl: string) => `/email/google/oauth/start?return_url=${encodedReturnUrl}`,
     },
-    messages: {
-      listQuery: (params: URLSearchParams) => withQuery('/email/messages', params),
-      byId: (messageId: number) => `/email/messages/${messageId}`,
-      snooze: (messageId: number) => `/email/messages/${messageId}/snooze`,
-      aiSuggest: (messageId: number) => `/email/messages/${messageId}/ai-suggest`,
-      aiSummarize: (messageId: number) => `/email/messages/${messageId}/ai-summarize`,
-      aiSentiment: (messageId: number) => `/email/messages/${messageId}/ai-sentiment`,
-      aiCategorize: (messageId: number) => `/email/messages/${messageId}/ai-categorize`,
-    },
     send: '/email/send',
     routingRules: {
       withMailbox: (mailboxId: number) => `/email/routing-rules?mailbox_id=${mailboxId}`,

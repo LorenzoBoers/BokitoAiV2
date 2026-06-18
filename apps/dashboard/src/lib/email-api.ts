@@ -23,57 +23,6 @@ export type EmailConnection = {
   isPrimary: boolean
 }
 
-export type EmailMessage = {
-  id: number
-  connectionId: number
-  graphMessageId: string
-  subject: string
-  fromAddress: string
-  receivedAt: string | null
-  bodyPreview: string
-  bodyHtml: string | null
-  toAddresses: string | null
-  cc: string | null
-  bcc: string | null
-  threadId: string | null
-  inReplyTo: string | null
-  isRead: boolean
-  conversationStatus: 'open' | 'snoozed' | 'closed'
-  snoozedUntil: string | null
-  assignedToUserId: number | null
-  labels: string[]
-  aiSummary: string | null
-  sentiment: 'positive' | 'neutral' | 'negative' | 'urgent' | null
-  attachments: unknown[] | null
-}
-
-export type PagedResult<T> = {
-  items: T[]
-  page: number
-  perPage: number
-  total: number | null
-}
-
-export type MessageFilters = {
-  connectionId: number
-  page?: number
-  perPage?: number
-  search?: string
-}
-
-export type SendEmailInput = {
-  connectionId: number
-  toAddresses: string
-  cc?: string
-  bcc?: string
-  subject: string
-  bodyText: string
-  bodyHtml?: string
-  inReplyTo?: string
-  threadId?: string
-  attachments?: unknown[]
-}
-
 export type RoutingRuleApi = {
   id: number
   mailbox_id: number
@@ -118,7 +67,7 @@ function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
 
-/** Microsoft authorize URLs must include a non-empty client_id; empty env on Xano yields login.live.com invalid_request. */
+/** Microsoft authorize URLs must include a non-empty client_id; empty env yields login.live.com invalid_request. */
 export function ensureOutlookAuthorizeUrlHasClientId(url: string): void {
   let parsed: URL
   try {
@@ -137,7 +86,7 @@ export function ensureOutlookAuthorizeUrlHasClientId(url: string): void {
   const clientId = parsed.searchParams.get('client_id')
   if (!clientId?.trim()) {
     throw new Error(
-      'Microsoft OAuth mist client_id in de authorize-URL. Zet MICROSOFT_CLIENT_ID (en het juiste secret) in de Xano-omgeving voor de API-groep die /email/oauth/start uitvoert (doorgaans `api:integrations`), niet alleen voor `api:app`.',
+      'Microsoft OAuth mist client_id in de authorize-URL. Zet MICROSOFT_CLIENT_ID (en het juiste secret) in de API-omgeving voor de integrations-router die /email/oauth/start uitvoert.',
     )
   }
 }
@@ -154,7 +103,7 @@ function asNumber(value: unknown, fallback = 0): number {
 }
 
 /**
- * Normalize a Xano timestamp (returned as Unix ms number, seconds number, or
+ * Normalize an API timestamp (returned as Unix ms number, seconds number, or
  * ISO string) into an ISO 8601 string. Returns null when it cannot be parsed.
  */
 function asNullableTimestampString(value: unknown): string | null {
@@ -192,42 +141,6 @@ function normalizeConnection(row: unknown): EmailConnection | null {
     signatureHtml: asNullableString(raw.signature_html ?? raw.signatureHtml),
     isEnabled,
     isPrimary,
-  }
-}
-
-function normalizeMessage(row: unknown): EmailMessage | null {
-  if (!row || typeof row !== 'object') return null
-  const raw = row as Record<string, unknown>
-  const id = asNumber(raw.id, NaN)
-  if (!Number.isFinite(id)) return null
-  const status = asString(raw.conversation_status ?? 'open')
-  const sentimentValue = asString(raw.sentiment).toLowerCase()
-  const sentiment =
-    sentimentValue === 'positive' || sentimentValue === 'neutral' || sentimentValue === 'negative' || sentimentValue === 'urgent'
-      ? sentimentValue
-      : null
-  return {
-    id,
-    connectionId: asNumber(raw.connection_id),
-    graphMessageId: asString(raw.graph_message_id),
-    subject: asString(raw.subject, '(No subject)'),
-    fromAddress: asString(raw.from_address),
-    receivedAt: asNullableString(raw.received_at),
-    bodyPreview: asString(raw.body_preview),
-    bodyHtml: asNullableString(raw.body_html),
-    toAddresses: asNullableString(raw.to_addresses),
-    cc: asNullableString(raw.cc),
-    bcc: asNullableString(raw.bcc),
-    threadId: asNullableString(raw.thread_id),
-    inReplyTo: asNullableString(raw.in_reply_to),
-    isRead: Boolean(raw.is_read),
-    conversationStatus: status === 'snoozed' || status === 'closed' ? status : 'open',
-    snoozedUntil: asNullableString(raw.snoozed_until),
-    assignedToUserId: raw.assigned_to_user_id == null ? null : asNumber(raw.assigned_to_user_id),
-    labels: Array.isArray(raw.labels) ? raw.labels.filter((item): item is string => typeof item === 'string') : [],
-    aiSummary: asNullableString(raw.ai_summary),
-    sentiment,
-    attachments: Array.isArray(raw.attachments) ? raw.attachments : null,
   }
 }
 
@@ -309,79 +222,6 @@ export async function saveConnectionSignature(token: string, connectionId: numbe
   await apiPut(integrationsRoutes.email.connections.signature(connectionId), { signature_html: signatureHtml }, token)
 }
 
-export async function listEmailMessages(token: string, filters: MessageFilters): Promise<PagedResult<EmailMessage>> {
-  const cid = Math.trunc(Number(filters.connectionId))
-  if (!Number.isFinite(cid) || cid < 1) {
-    throw new Error('Ongeldige mailbox (connection_id).')
-  }
-  const params = new URLSearchParams()
-  params.set('connection_id', String(cid))
-  params.set('page', String(filters.page ?? 1))
-  params.set('per_page', String(filters.perPage ?? 50))
-  if (filters.search) params.set('search', filters.search)
-  const payload = await apiGet<unknown>(integrationsRoutes.email.messages.listQuery(params), token)
-
-  const data = payload as Record<string, unknown>
-  const itemsSource = Array.isArray(payload)
-    ? payload
-    : Array.isArray(data.items)
-      ? data.items
-      : []
-
-  return {
-    items: itemsSource.map(normalizeMessage).filter((item): item is EmailMessage => item !== null),
-    page: asNumber(data.curPage ?? data.page, filters.page ?? 1),
-    perPage: asNumber(data.perPage ?? data.per_page, filters.perPage ?? 50),
-    total: Number.isFinite(asNumber(data.itemsTotal, NaN)) ? asNumber(data.itemsTotal) : null,
-  }
-}
-
-export async function getEmailMessage(token: string, messageId: number): Promise<EmailMessage | null> {
-  const payload = await apiGet<unknown>(integrationsRoutes.email.messages.byId(messageId), token)
-  return normalizeMessage(payload)
-}
-
-export async function patchEmailMessage(
-  token: string,
-  messageId: number,
-  patch: Partial<{
-    is_read: boolean
-    conversation_status: 'open' | 'snoozed' | 'closed'
-    assigned_to_user_id: number | null
-    labels: string[]
-    ai_summary: string
-    sentiment: 'positive' | 'neutral' | 'negative' | 'urgent'
-  }>,
-): Promise<EmailMessage | null> {
-  const payload = await apiPatch<unknown>(integrationsRoutes.email.messages.byId(messageId), patch, token)
-  return normalizeMessage(payload)
-}
-
-export async function snoozeEmailMessage(token: string, messageId: number, snoozedUntil: string): Promise<EmailMessage | null> {
-  const payload = await apiPatch<unknown>(integrationsRoutes.email.messages.snooze(messageId), { snoozed_until: snoozedUntil }, token)
-  return normalizeMessage(payload)
-}
-
-export async function sendEmailMessage(token: string, input: SendEmailInput): Promise<{ ok: boolean; messageId: number | null }> {
-  const payload = await apiPost<{ ok?: boolean; message_id?: number }>(
-    integrationsRoutes.email.send,
-    {
-      connection_id: input.connectionId,
-      to_addresses: input.toAddresses,
-      cc: input.cc,
-      bcc: input.bcc,
-      subject: input.subject,
-      body_text: input.bodyText,
-      body_html: input.bodyHtml,
-      in_reply_to: input.inReplyTo,
-      thread_id: input.threadId,
-      attachments: input.attachments,
-    },
-    token,
-  )
-  return { ok: Boolean(payload.ok), messageId: typeof payload.message_id === 'number' ? payload.message_id : null }
-}
-
 export async function listRoutingRules(token: string, mailboxId: number): Promise<RoutingRuleApi[]> {
   const payload = await apiGet<unknown>(integrationsRoutes.email.routingRules.withMailbox(mailboxId), token)
   const source = Array.isArray(payload)
@@ -447,33 +287,6 @@ export async function getAiConfig(token: string, connectionId: number): Promise<
 
 export async function saveAiConfig(token: string, connectionId: number, config: AiInboxConfig): Promise<void> {
   await apiPut(integrationsRoutes.email.connections.aiConfig(connectionId), { ai_config: config }, token)
-}
-
-export async function aiSuggestReply(token: string, messageId: number): Promise<{ suggestion: string; confidence: number }> {
-  const payload = await apiPost<{ suggestion?: string; confidence?: number }>(
-    integrationsRoutes.email.messages.aiSuggest(messageId),
-    {},
-    token,
-  )
-  return {
-    suggestion: asString(payload.suggestion),
-    confidence: typeof payload.confidence === 'number' ? payload.confidence : 0,
-  }
-}
-
-export async function aiSummarizeMessage(token: string, messageId: number): Promise<string> {
-  const payload = await apiPost<{ ai_summary?: string }>(integrationsRoutes.email.messages.aiSummarize(messageId), {}, token)
-  return asString(payload.ai_summary)
-}
-
-export async function aiAnalyzeSentiment(token: string, messageId: number): Promise<string> {
-  const payload = await apiPost<{ sentiment?: string }>(integrationsRoutes.email.messages.aiSentiment(messageId), {}, token)
-  return asString(payload.sentiment)
-}
-
-export async function aiCategorizeMessage(token: string, messageId: number): Promise<string[]> {
-  const payload = await apiPost<{ labels?: unknown[] }>(integrationsRoutes.email.messages.aiCategorize(messageId), {}, token)
-  return Array.isArray(payload.labels) ? payload.labels.filter((label): label is string => typeof label === 'string') : []
 }
 
 export async function listKbCollections(token: string): Promise<KbCollection[]> {

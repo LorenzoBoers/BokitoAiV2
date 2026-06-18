@@ -21,10 +21,16 @@ export const WORKFORCE_API_BASE = '/api/workforce'
 /** Livechat router (`/api/livechat/*`): widget streaming endpoints. */
 export const LIVECHAT_API_BASE = '/api/livechat'
 
+/** Settings router (`/api/settings/*`): providers, models, llm keys. */
+export const SETTINGS_API_BASE = '/api/settings'
+
+/** Staff admin router (`/api/staff/*`): platform catalog and keys. */
+export const STAFF_API_BASE = '/api/staff'
+
 const DEFAULT_PUBLIC_API_URL = 'https://api.bokito.nl/v1'
 export const PUBLIC_API_URL = import.meta.env.VITE_PUBLIC_API_URL || DEFAULT_PUBLIC_API_URL
 
-/** Origin for `bokito-chat` `data-api-url` (widget appends `/api:livechat/...`). */
+/** Origin for `bokito-chat` `data-api-url` (widget appends `/api/livechat/...`). */
 export function livechatWidgetHttpOrigin(): string {
   if (typeof window !== 'undefined') {
     return window.location.origin.replace(/\/+$/, '')
@@ -35,12 +41,13 @@ export function livechatWidgetHttpOrigin(): string {
 /** Same-origin path to the team widget bundle (ingelogde gebruikers met rechten). */
 export const CHAT_WIDGET_SCRIPT_PATH_INTERNAL = '/chat-widget/internal/bokito-chat.js'
 
-/** Same-origin path to the public visitor widget bundle (anonieme websitebezoekers). */
+/** Same-origin path to the public visitor widget bundle (anonymous website visitors). */
 export const CHAT_WIDGET_SCRIPT_PATH_EXTERNAL = '/chat-widget/external/bokito-chat.js'
 
 export function livechatWidgetHostedScriptUrl(kind: 'internal' | 'external'): string {
   const base = livechatWidgetHttpOrigin()
-  return `${base}/api:livechat/script/${kind}`
+  const path = kind === 'internal' ? CHAT_WIDGET_SCRIPT_PATH_INTERNAL : CHAT_WIDGET_SCRIPT_PATH_EXTERNAL
+  return `${base}${path}`
 }
 
 /** Agent slug for the chat widget embedded in the dashboard portal. */

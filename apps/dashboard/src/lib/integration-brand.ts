@@ -81,7 +81,7 @@ function imageUrlFromUnknown(value: unknown): string | null {
   return null
 }
 
-/** Ignore empty Xano image placeholders so static fallbacks still apply. */
+/** Ignore empty hosted image placeholders so static fallbacks still apply. */
 function apiImageUrlOrNull(value: unknown): string | null {
   const url = imageUrlFromUnknown(value)
   if (!url) return null

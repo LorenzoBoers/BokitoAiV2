@@ -11,7 +11,7 @@
 
 ## Summary
 
-The bokito-mode shell is visually polished but still feels like a **hybrid** of legacy Xano portal patterns and new AI OS surfaces. **335 findings** are logged below (phases 1–2: 1–165; phase 3: 166–265; **phase 4: 266–335**).
+The bokito-mode shell is visually polished but still feels like a **hybrid** of legacy FastAPI portal patterns and new AI OS surfaces. **335 findings** are logged below (phases 1–2: 1–165; phase 3: 166–265; **phase 4: 266–335**).
 
 **Verified API (admin seed, 2026-06-04):** `GET /api/cockpit/summary` **200**; `GET /api/workforce/agents` **500**; `GET /api/workforce/work_logs?status=running` **500**; `GET /api/workforce/workspace/doc` **500**.
 
@@ -320,7 +320,7 @@ The bokito-mode shell is visually polished but still feels like a **hybrid** of 
 | # | Type | Finding |
 |---|------|---------|
 | 189 | UX | Installation tab explains **internal vs external** paths (`/chat-widget/internal/` vs `external/`) — accurate for local Vite. |
-| 190 | UX | Copy references parallel **Xano** script URLs (`/api:livechat/script/internal`) — confusing in pure bokito local mode. |
+| 190 | UX | Copy references parallel **FastAPI** script URLs (`/api/livechat/script/internal`) — confusing in pure bokito local mode. |
 | 191 | UX | **Kopieer embed-HTML** button present — good; not clicked in audit (clipboard feedback unknown). |
 | 192 | UX | Snippet text truncated in a11y tree mid-sentence — long prose block hard to scan; consider code block only. |
 | 193 | UX | Installation preview also shows **Live messenger preview** with Dark tab — same widget as Customization (good parity). |
@@ -352,7 +352,7 @@ The bokito-mode shell is visually polished but still feels like a **hybrid** of 
 | 209 | UX | **Documentation** tab is substantive — MCP OAuth steps, vendor URLs, developer repo paths. |
 | 210 | i18n | MCP catalog descriptions mix **Dutch** body copy with **English** headings. |
 | 211 | UX | Ten duplicate **Open in Marketplace** links — repetitive; one CTA per provider card enough. |
-| 212 | Copy | Page references **`apps/runtime/src/mcp-oauth/`** and **`xano-patches/`** — removed from repo; misleads operators. |
+| 212 | Copy | Page references **`apps/runtime/src/mcp-oauth/`** and **`docs/archived/`** — removed from repo; misleads operators. |
 | 213 | Copy | Lists **`GET /integrations/mcp/oauth/start`** — may not exist on FastAPI yet; doc ahead of implementation. |
 | 214 | UX | Raw MCP endpoint URLs shown (Notion, Linear, Slack) — great for engineers, noisy for admins. |
 | 215 | UX | **Platform requirements** block reads as internal runbook — consider collapsible **Admin** vs **Developer** tabs. |
@@ -461,7 +461,7 @@ The bokito-mode shell is visually polished but still feels like a **hybrid** of 
 | 276 | UX | Model segmented control **Bokito AI / Custom**; Custom reveals model id + temperature — no validation on model id. |
 | 277 | UX | **Stream responses** on by default; **Allow tool use** and **Include visitor page context** on — not wired to backend. |
 | 278 | UX | **Conversation memory** default 12 turns — spinbutton present; no save path. |
-| 279 | Bug | **Save changes** posts to `XANO_AUTH_API` + `authRoutes.workspaceBranding` — not ported to FastAPI `workspaces_portal` in bokito mode (save would fail even when enabled). |
+| 279 | Bug | **Save changes** posts to `BOKITO_AUTH_API` + `authRoutes.workspaceBranding` — not ported to FastAPI `workspaces_portal` in bokito mode (save would fail even when enabled). |
 | 280 | UX | Save disabled when `draft === saved` — editing welcome text should enable save; if not, workspace `messengerAppearance` may be uninitialized. |
 | 281 | UX | Sidebar on Messenger pages shows resolved **HTTP 500 [/agents]** text (not infinite loading) after agents API fails. |
 | 282 | Copy | Agent handoff copy references **Inbox later** for routing rules — cross-module dependency unclear. |
@@ -701,7 +701,7 @@ Use this section when opening **Plan mode** in a follow-up prompt. Each item nee
 | `/settings/notifications` | 21 toggles; local-only draft banner |
 | `/settings/profile`, `/settings/branding`, `/settings/members` | OK |
 | `/ai/assistent/internal/customization` | Widget preview OK; save disabled; sidebar agents 500 |
-| `/ai/assistent/internal/installation` | Embed copy + preview; Xano paths in copy |
+| `/ai/assistent/internal/installation` | Embed copy + preview; FastAPI paths in copy |
 | `/ai/assistent/external/customization` | Same layout as internal; Extern tab selected |
 | `/projects/docs` | HTTP 500 workspace doc |
 | `/forgot-password` | NL form; validation on empty |

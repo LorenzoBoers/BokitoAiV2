@@ -118,8 +118,10 @@ export default function AssistantEditor({
 
   const embedSnippet = useMemo(
     () => `<script
-  src="https://xrex-nmji-j9ur.f2.xano.io/api:livechat/script/main"
+  src="/chat-widget/external/bokito-chat.js"
+  data-bokito-chat-widget
   data-agent-slug="bokito-webchat"
+  data-api-url=""
   data-bot-name="${config.name}"
   data-primary-color="${config.primaryColor}"
   data-position="${config.launcherPosition}"

@@ -13,11 +13,14 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { useAuth } from '../../context/AuthContext'
+import { bokitoCreateAgent } from '../../lib/bokito-api'
 import {
-  bokitoCreateAgent,
-  bokitoGetTenantModels,
+  defaultChatSlug,
+  getTenantModels,
+  selectableChatModels,
   type CatalogModel,
-} from '../../lib/bokito-api'
+  type TenantModelRow,
+} from '../../lib/models-api'
 
 type Props = {
   open: boolean
@@ -35,16 +38,15 @@ const ROLE_OPTIONS = [
 const SELECT_CLASS =
   'w-full rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50'
 
-/** Create a new company worker agent. Model choices come from the workspace
- * model catalog; the new agent opens on its detail page. */
+type ModelOption = TenantModelRow | CatalogModel
+
 export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
   const { token } = useAuth()
   const [name, setName] = useState('')
   const [role, setRole] = useState('assistant')
   const [model, setModel] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
-  const [models, setModels] = useState<CatalogModel[]>([])
-  const [allowed, setAllowed] = useState<string[]>([])
+  const [models, setModels] = useState<ModelOption[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -56,21 +58,17 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
     setModel('')
     setSystemPrompt('')
     setError(null)
-    bokitoGetTenantModels(token)
+    getTenantModels(token)
       .then((data) => {
         if (cancelled) return
-        const chat = data.models.filter((m) => m.kind === 'chat')
-        setModels(chat)
-        setAllowed(data.prefs.allowed_chat ?? [])
-        setModel(data.prefs.default_chat || '')
+        setModels(selectableChatModels(data))
+        setModel(defaultChatSlug(data))
       })
       .catch(() => {})
     return () => {
       cancelled = true
     }
   }, [open, token])
-
-  const isAllowed = (slug: string) => allowed.length === 0 || allowed.includes(slug)
 
   const submit = async () => {
     if (!token || busy) return
@@ -144,9 +142,8 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
               >
                 <option value="">Workspace default</option>
                 {models.map((m) => (
-                  <option key={m.slug} value={m.slug} disabled={!isAllowed(m.slug)}>
+                  <option key={m.slug} value={m.slug}>
                     {m.display_name}
-                    {!isAllowed(m.slug) ? ' (blocked)' : ''}
                   </option>
                 ))}
               </select>

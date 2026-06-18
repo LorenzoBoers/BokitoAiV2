@@ -39,6 +39,8 @@ export type InboxThread = {
   lastMessageAt: string | null
   hasUnread: boolean
   isPinned: boolean
+  /** True when a human operator has taken over and the AI is paused. */
+  aiPaused?: boolean
   createdAt: string
   channel?: string
   folder?: MessageFolder | string
@@ -204,14 +206,14 @@ function asNullableString(value: unknown): string | null {
 }
 
 /**
- * Normalize a Xano timestamp (returned as Unix milliseconds number, ISO string,
+ * Normalize an API timestamp (returned as Unix milliseconds number, ISO string,
  * or seconds number) into an ISO 8601 string. Returns empty string when the
  * value cannot be parsed.
  */
 function asTimestampString(value: unknown): string {
   if (typeof value === 'string') return value
   if (typeof value === 'number' && Number.isFinite(value)) {
-    // Xano returns timestamps in ms. Treat smaller values as seconds.
+    // API returns timestamps in ms. Treat smaller values as seconds.
     const ms = value > 1e12 ? value : value * 1000
     const date = new Date(ms)
     if (!Number.isNaN(date.getTime())) return date.toISOString()
@@ -258,6 +260,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
     isPinned: Boolean(raw.is_pinned),
+    aiPaused: Boolean(raw.ai_paused),
     createdAt: asTimestampString(raw.created_at),
     channel: asString(raw.channel) || undefined,
     folder: asString(raw.folder) || undefined,
@@ -398,8 +401,10 @@ import {
   markSignalThreadUnread,
   patchSignalThread,
   pinSignalThread,
+  releaseSignalThread,
   replyToSignalThread,
   resolveSignalDecision,
+  takeoverSignalThread,
   unpinSignalThread,
 } from './signals-api'
 
@@ -457,6 +462,16 @@ export async function replyToThread(token: string, threadId: ThreadId, input: Re
 
 export async function addNoteToThread(token: string, threadId: ThreadId, bodyText: string): Promise<InboxMessage | null> {
   return addNoteToSignalThread(token, String(threadId), bodyText)
+}
+
+/** Human takeover: pause the AI on a thread so an operator owns the reply. */
+export async function takeoverThread(token: string, threadId: ThreadId): Promise<boolean> {
+  return takeoverSignalThread(token, String(threadId))
+}
+
+/** Hand a thread back to the AI agent. */
+export async function releaseThread(token: string, threadId: ThreadId): Promise<boolean> {
+  return releaseSignalThread(token, String(threadId))
 }
 
 export async function resolveThreadDecision(

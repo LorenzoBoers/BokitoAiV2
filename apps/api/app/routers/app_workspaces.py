@@ -11,6 +11,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.services.workspaces_portal import (
     create_workspace,
     create_workspace_invite,
+    delete_workspace,
     list_invites,
     list_members,
     list_workspaces,
@@ -34,6 +35,7 @@ class WorkspaceUpdateBody(BaseModel):
     logo: str | None = None
     slug: str | None = None
     brand_color: str | None = None
+    require_2fa: bool | None = None
 
 
 class WorkspaceInviteBody(BaseModel):
@@ -80,6 +82,20 @@ async def post_workspace_update(
     auth.require_role("owner", "admin")
     payload: dict[str, Any] = body.model_dump(exclude_none=True)
     return await update_workspace(session, tenant, role, payload)
+
+
+@router.delete("/workspaces/{workspace_id}")
+async def delete_workspace_endpoint(
+    workspace_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant, _role = await resolve_tenant_for_workspace(
+        session, workspace_id, auth.user, is_staff=auth.is_staff
+    )
+    auth.require_role("owner")
+    await delete_workspace(session, tenant)
+    return {"ok": True}
 
 
 @router.get("/workspaces/{workspace_id}/members")

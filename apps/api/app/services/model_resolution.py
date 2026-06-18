@@ -1,13 +1,15 @@
 """Resolve a model call to provider + model_id + API key + key source + pricing.
 
-Resolution order for the API key (per provider):
-  1. Tenant BYOK secret  -> key_source="tenant", not billable
-  2. Platform secret      -> key_source="platform", billable (token resale)
-  3. Env fallback (live)  -> key_source="platform", billable (bootstrap key)
-  4. None                 -> key_source="mock" (deterministic mock provider)
+Resolution order for tenant-owned models (when configured):
+  1. TenantModel by slug (or tenant default for kind)
+  2. ProviderConnection key -> key_source="tenant", not billable
 
-Catalog rows drive pricing and the real provider ``model_id``. If the catalog
-is empty (e.g. fresh DB / unit tests) we degrade to safe built-in defaults.
+Platform fallback (bootstrap / resale when tenant has no models):
+  1. Platform catalog ModelCatalog row
+  2. Tenant BYOK secret (legacy) -> key_source="tenant"
+  3. Platform secret -> key_source="platform", billable
+  4. Env fallback (live) -> key_source="platform", billable
+  5. None -> key_source="mock"
 """
 
 from __future__ import annotations
@@ -20,23 +22,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.usage import UsageLedger
 from app.services import model_catalog as catalog_svc
-from app.services import platform_secrets, tenant_secrets
+from app.services import platform_secrets, provider_connections, tenant_model_catalog, tenant_secrets
 
 settings = get_settings()
 
-# Used only when the catalog has no matching row (keeps the app functional).
-_FALLBACK_CHAT = ("claude-sonnet-4", "anthropic", "claude-sonnet-4-20250514")
+_FALLBACK_CHAT = ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4-6")
 _FALLBACK_EMBEDDING = ("text-embedding-3-small", "openai", "text-embedding-3-small")
+
+
+def _infer_provider(model_id: str) -> str | None:
+    """Guess provider from a raw API model id when the slug is not in the catalog."""
+    value = (model_id or "").strip().lower()
+    if value.startswith("claude"):
+        return "anthropic"
+    if value.startswith(("gpt-", "o1", "o3", "text-embedding")):
+        return "openai"
+    return None
 
 
 @dataclass
 class ResolvedModelCall:
     slug: str
-    provider: str  # anthropic | openai
+    provider: str  # anthropic | openai | openai_compatible (usage label)
+    provider_type: str  # anthropic | openai | openai_compatible
     model_id: str
     kind: str  # chat | embedding
     api_key: str
     key_source: str  # tenant | platform | mock
+    base_url: str = ""
     input_cost_per_mtok_cents: int = 0
     output_cost_per_mtok_cents: int = 0
     markup: float = catalog_svc.DEFAULT_MARKUP
@@ -53,15 +66,17 @@ class ResolvedModelCall:
 def _env_key(provider: str) -> str:
     if settings.llm_mode != "live":
         return ""
-    if provider == "anthropic":
+    if provider in ("anthropic",):
         return settings.anthropic_api_key or ""
-    if provider == "openai":
+    if provider in ("openai", "openai_compatible"):
         return settings.openai_api_key or ""
     return ""
 
 
-async def _resolve_key(session: AsyncSession, tenant_id: UUID, provider: str) -> tuple[str, str]:
-    """Return (api_key, key_source) for a provider following the priority chain."""
+async def _resolve_platform_key(
+    session: AsyncSession, tenant_id: UUID, provider: str
+) -> tuple[str, str]:
+    """Return (api_key, key_source) for platform-catalog providers."""
     tenant_key = await tenant_secrets.get_secret(session, tenant_id, provider)
     if tenant_key:
         return tenant_key, "tenant"
@@ -74,12 +89,59 @@ async def _resolve_key(session: AsyncSession, tenant_id: UUID, provider: str) ->
     return "", "mock"
 
 
-async def resolve_model_call(
+async def _resolve_from_tenant_model(
     session: AsyncSession,
     tenant_id: UUID,
     *,
-    kind: str = "chat",
-    model_slug: str | None = None,
+    kind: str,
+    model_slug: str | None,
+) -> ResolvedModelCall | None:
+    if not await tenant_model_catalog.tenant_has_models(session, tenant_id):
+        return None
+
+    model = None
+    if model_slug:
+        model = await tenant_model_catalog.get_model(session, tenant_id, model_slug)
+        if model and (model.kind != kind or not model.enabled):
+            model = None
+    if model is None:
+        model = await tenant_model_catalog.get_default_model(session, tenant_id, kind)
+    if model is None or not model.enabled:
+        return None
+
+    conn = await provider_connections.get_connection(session, tenant_id, model.connection_id)
+    if not conn or not conn.enabled:
+        return None
+
+    api_key = await provider_connections.get_decrypted_key(session, conn)
+    if not api_key:
+        key_source = "mock"
+        api_key = ""
+    else:
+        key_source = "tenant"
+
+    markup = await catalog_svc.get_markup_multiplier(session)
+    return ResolvedModelCall(
+        slug=model.slug,
+        provider=conn.provider_type,
+        provider_type=conn.provider_type,
+        model_id=model.model_id or model.slug,
+        kind=model.kind,
+        api_key=api_key,
+        key_source=key_source,
+        base_url=conn.base_url or "",
+        input_cost_per_mtok_cents=model.input_cost_per_mtok_cents,
+        output_cost_per_mtok_cents=model.output_cost_per_mtok_cents,
+        markup=markup,
+    )
+
+
+async def _resolve_from_platform_catalog(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    kind: str,
+    model_slug: str | None,
 ) -> ResolvedModelCall:
     markup = await catalog_svc.get_markup_multiplier(session)
 
@@ -89,7 +151,6 @@ async def resolve_model_call(
         if model and model.kind != kind:
             model = None
     if model is None:
-        # Fall back to the tenant's preferred default for this kind, then platform default.
         from app.services.tenant_models import get_tenant_model_prefs
 
         prefs = await get_tenant_model_prefs(session, tenant_id)
@@ -107,22 +168,50 @@ async def resolve_model_call(
         model_id = model.model_id or model.slug
         in_cents = model.input_cost_per_mtok_cents
         out_cents = model.output_cost_per_mtok_cents
+    elif model_slug:
+        provider = _infer_provider(model_slug)
+        if provider:
+            slug = model_slug
+            model_id = model_slug
+            in_cents = out_cents = 0
+        else:
+            slug, provider, model_id = _FALLBACK_CHAT if kind == "chat" else _FALLBACK_EMBEDDING
+            in_cents = out_cents = 0
     else:
         slug, provider, model_id = _FALLBACK_CHAT if kind == "chat" else _FALLBACK_EMBEDDING
         in_cents = out_cents = 0
 
-    api_key, key_source = await _resolve_key(session, tenant_id, provider)
+    api_key, key_source = await _resolve_platform_key(session, tenant_id, provider)
 
     return ResolvedModelCall(
         slug=slug,
         provider=provider,
+        provider_type=provider,
         model_id=model_id,
         kind=kind,
         api_key=api_key,
         key_source=key_source,
+        base_url="",
         input_cost_per_mtok_cents=in_cents,
         output_cost_per_mtok_cents=out_cents,
         markup=markup,
+    )
+
+
+async def resolve_model_call(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    kind: str = "chat",
+    model_slug: str | None = None,
+) -> ResolvedModelCall:
+    tenant_resolved = await _resolve_from_tenant_model(
+        session, tenant_id, kind=kind, model_slug=model_slug
+    )
+    if tenant_resolved is not None:
+        return tenant_resolved
+    return await _resolve_from_platform_catalog(
+        session, tenant_id, kind=kind, model_slug=model_slug
     )
 
 

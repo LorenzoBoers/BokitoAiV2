@@ -42,9 +42,10 @@
     <h2 style="font-size:16px;margin-bottom:8px;">Embed code</h2>
     <p>Voeg dit toe aan je website om de chatbot in te sluiten:</p>
     <pre>&lt;script
-  src="https://YOUR-XANO-URL/api:livechat/script/main"
+  src="https://YOUR-API-ORIGIN/chat-widget/external/bokito-chat.js"
+  data-bokito-chat-widget
   data-agent-slug="jouw-bot-slug"
-  data-api-url="https://YOUR-XANO-URL"
+  data-api-url="https://YOUR-API-ORIGIN"
 &gt;&lt;/script&gt;</pre>
   </div>
 
@@ -64,7 +65,7 @@
 
   <!--
     Chat widget embed — nieuwe syntax
-    Vervang YOUR-XANO-URL door jouw Xano API URL
+    Vervang YOUR-API-ORIGIN door jouw portal/API origin (zelfde host als `/api/livechat`)
     Vervang demo-bot door jouw bot agent slug
   -->
   <script

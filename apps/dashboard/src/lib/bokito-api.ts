@@ -129,7 +129,29 @@ export type LlmKeysStatus = {
   providers: LlmKeyStatus[]
   chat_mode: 'live' | 'mock'
   embeddings_mode: 'live' | 'mock'
+  chat_key_source?: 'tenant' | 'platform' | 'none'
+  embeddings_key_source?: 'tenant' | 'platform' | 'none'
 }
+
+// Model/provider types and API — see lib/models-api.ts
+export type {
+  CatalogModel,
+  TenantModelPrefs,
+  TenantModelsPayload,
+  PlatformKeysPayload,
+} from './models-api'
+
+export {
+  getTenantModels as bokitoGetTenantModels,
+  setAgentModel as bokitoSetAgentModel,
+  staffListModels as bokitoStaffListModels,
+  staffUpsertModel as bokitoStaffUpsertModel,
+  staffDeleteModel as bokitoStaffDeleteModel,
+  staffGetPlatformKeys as bokitoStaffGetPlatformKeys,
+  staffSetPlatformKey as bokitoStaffSetPlatformKey,
+  staffDeletePlatformKey as bokitoStaffDeletePlatformKey,
+  staffSetMarkup as bokitoStaffSetMarkup,
+} from './models-api'
 
 export async function bokitoGetLlmKeys(token: string) {
   return bokitoFetch<LlmKeysStatus>('/api/settings/llm-keys', token)
@@ -148,46 +170,11 @@ export async function bokitoDeleteLlmKey(token: string, provider: LlmProvider) {
   })
 }
 
-export type CatalogModel = {
-  slug: string
-  provider: string
-  kind: 'chat' | 'embedding'
-  model_id: string
-  display_name: string
-  context_window: number
-  input_cost_per_mtok_cents: number
-  output_cost_per_mtok_cents: number
-  supports_tools: boolean
-  supports_vision: boolean
-  enabled: boolean
-  is_default_chat: boolean
-  is_default_embedding: boolean
-  id?: string
-  sort_order?: number
-}
-
-export type TenantModelPrefs = {
-  default_chat: string
-  default_embedding: string
-  allowed_chat: string[]
-}
-
-export type TenantModelsPayload = {
-  models: CatalogModel[]
-  prefs: TenantModelPrefs
-  byok: LlmKeyStatus[]
-  billable_providers: string[]
-}
-
-export async function bokitoGetTenantModels(token: string) {
-  return bokitoFetch<TenantModelsPayload>('/api/settings/models', token)
-}
-
 export async function bokitoUpdateTenantModels(
   token: string,
-  patch: Partial<TenantModelPrefs>,
+  patch: Partial<{ default_chat: string; default_embedding: string; allowed_chat: string[] }>,
 ) {
-  return bokitoFetch<TenantModelsPayload>('/api/settings/models', token, {
+  return bokitoFetch<import('./models-api').TenantModelsPayload>('/api/settings/models', token, {
     method: 'PUT',
     body: JSON.stringify(patch),
   })
@@ -223,14 +210,6 @@ export async function bokitoGetUsageBreakdown(token: string, days = 30) {
   return bokitoFetch<UsageBreakdown>(`/api/cockpit/usage?days=${days}`, token)
 }
 
-export async function bokitoSetAgentModel(token: string, agentId: string, model: string) {
-  return bokitoFetch<{ ok: boolean; agent: Record<string, unknown> }>(
-    `/api/workforce/agents/${agentId}/model`,
-    token,
-    { method: 'PATCH', body: JSON.stringify({ model }) },
-  )
-}
-
 export type CreateAgentInput = {
   name: string
   role?: string
@@ -256,59 +235,6 @@ export async function bokitoUpdateAgent(
     token,
     { method: 'PATCH', body: JSON.stringify(input) },
   )
-}
-
-// --- Staff catalog admin ---
-
-export type PlatformKeysPayload = {
-  providers: LlmKeyStatus[]
-  markup?: number
-}
-
-export async function bokitoStaffListModels(token: string) {
-  return bokitoFetch<{ items: CatalogModel[] }>('/api/staff/models', token)
-}
-
-export async function bokitoStaffUpsertModel(
-  token: string,
-  body: Partial<CatalogModel>,
-  modelId?: string,
-) {
-  const path = modelId ? `/api/staff/models/${modelId}` : '/api/staff/models'
-  return bokitoFetch<CatalogModel>(path, token, {
-    method: modelId ? 'PATCH' : 'POST',
-    body: JSON.stringify(body),
-  })
-}
-
-export async function bokitoStaffDeleteModel(token: string, modelId: string) {
-  return bokitoFetch<{ ok: boolean }>(`/api/staff/models/${modelId}`, token, {
-    method: 'DELETE',
-  })
-}
-
-export async function bokitoStaffGetPlatformKeys(token: string) {
-  return bokitoFetch<PlatformKeysPayload>('/api/staff/platform-keys', token)
-}
-
-export async function bokitoStaffSetPlatformKey(token: string, provider: LlmProvider, apiKey: string) {
-  return bokitoFetch<PlatformKeysPayload>(`/api/staff/platform-keys/${provider}`, token, {
-    method: 'PUT',
-    body: JSON.stringify({ api_key: apiKey }),
-  })
-}
-
-export async function bokitoStaffDeletePlatformKey(token: string, provider: LlmProvider) {
-  return bokitoFetch<PlatformKeysPayload>(`/api/staff/platform-keys/${provider}`, token, {
-    method: 'DELETE',
-  })
-}
-
-export async function bokitoStaffSetMarkup(token: string, multiplier: number) {
-  return bokitoFetch<{ markup: number }>('/api/staff/markup', token, {
-    method: 'PUT',
-    body: JSON.stringify({ multiplier }),
-  })
 }
 
 export async function bokitoListMessages(token: string, conversationId: string) {

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { useAuth } from './AuthContext';
 import type { Workspace, WorkspaceInvite } from '../types/custom-db';
 import { appRoutes } from '../api/routes/app.routes';
-import { apiGet, apiPost } from '../lib/api';
+import { appScopedDelete, appScopedGet, appScopedPost } from '../lib/api';
 import { resolveTenantSubdomainFromHost } from '../lib/host-routing';
 import { normalizeMessengerAppearance } from '../lib/messenger-appearance';
 
@@ -35,6 +35,7 @@ interface WorkspaceContextValue {
   
   createWorkspace: (data: { name: string; timezone: string; logo?: string; subdomain?: string }) => Promise<Workspace>;
   updateWorkspace: (id: number | string, data: Partial<Workspace>) => Promise<void>;
+  deleteWorkspace: (id: number | string) => Promise<void>;
   switchWorkspace: (workspaceId: number | string) => Promise<void>;
   
   inviteUser: (email: string, role: 'admin' | 'member' | 'viewer') => Promise<void>;
@@ -124,6 +125,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           logo: resolvedLogo ?? undefined,
           favicon: resolvedFavicon ?? undefined,
           brand_color: resolvedBrandColor,
+          require_2fa: typeof row.require_2fa === 'boolean' ? row.require_2fa : undefined,
           messengerAppearance,
         } as Workspace;
       })
@@ -229,7 +231,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const workspaceList = await apiGet<unknown>(appRoutes.workspaces.list, token);
+      const workspaceList = await appScopedGet<unknown>(appRoutes.workspaces.list, token);
       const safeWorkspaceList = normalizeWorkspaceList(workspaceList);
       const resolvedWorkspaceList = safeWorkspaceList.length > 0 ? safeWorkspaceList : getTenantFallbackWorkspaceList();
       if (safeWorkspaceList.length === 0 && resolvedWorkspaceList.length > 0) {
@@ -275,7 +277,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
     const fallbackSubdomain = normalizeSubdomainCandidate(data.name || 'workspace');
     const normalizedSubdomain = normalizeSubdomainCandidate(data.subdomain || fallbackSubdomain).slice(0, 63);
-    const workspace = await apiPost<Workspace>(appRoutes.workspaces.list, { ...data, subdomain: normalizedSubdomain }, token);
+    const workspace = await appScopedPost<Workspace>(appRoutes.workspaces.list, { ...data, subdomain: normalizedSubdomain }, token);
     setWorkspaces(prev => [...prev, workspace]);
     setCurrentWorkspace(workspace);
     try {
@@ -289,12 +291,29 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const updateWorkspace = useCallback(async (id: number | string, data: Partial<Workspace>) => {
     if (!token) throw new Error('Not authenticated');
     
-    const updated = await apiPost<Workspace>(appRoutes.workspaces.byId(id), data, token);
+    const updated = await appScopedPost<Workspace>(appRoutes.workspaces.byId(id), data, token);
     setWorkspaces(prev => prev.map(w => (workspaceIdKey(w.id) === workspaceIdKey(id) ? { ...w, ...updated } : w)));
     if (workspaceIdKey(currentWorkspace?.id) === workspaceIdKey(id)) {
       setCurrentWorkspace(prev => prev ? { ...prev, ...updated } : null);
     }
   }, [token, currentWorkspace?.id, workspaceIdKey]);
+
+  const deleteWorkspace = useCallback(async (id: number | string) => {
+    if (!token) throw new Error('Not authenticated');
+    await appScopedDelete(appRoutes.workspaces.byId(id), token);
+    setWorkspaces((prev) => prev.filter((w) => workspaceIdKey(w.id) !== workspaceIdKey(id)));
+    setCurrentWorkspace((prev) => {
+      if (workspaceIdKey(prev?.id) !== workspaceIdKey(id)) return prev;
+      return null;
+    });
+    try {
+      if (localStorage.getItem(LAST_WORKSPACE_STORAGE_KEY) === workspaceIdKey(id)) {
+        localStorage.removeItem(LAST_WORKSPACE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [token, workspaceIdKey]);
 
   const switchWorkspace = useCallback(async (workspaceId: number | string) => {
     const hostTenantSubdomain = resolveTenantSubdomainFromHost();
@@ -320,7 +339,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const inviteUser = useCallback(async (email: string, role: 'admin' | 'member' | 'viewer') => {
     if (!token || !currentWorkspace) throw new Error('Not authenticated or no workspace');
     
-    await apiPost(appRoutes.workspaceInvites.create, {
+    await appScopedPost(appRoutes.workspaceInvites.create, {
       workspace_id: currentWorkspace.id,
       email,
       role,
@@ -334,7 +353,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (!token || !currentWorkspace) return;
     
     try {
-      const inviteList = await apiGet<WorkspaceInvite[]>(appRoutes.workspaces.invites(currentWorkspace.id), token);
+      const inviteList = await appScopedGet<WorkspaceInvite[]>(appRoutes.workspaces.invites(currentWorkspace.id), token);
       setInvites(Array.isArray(inviteList) ? inviteList : []);
     } catch (error) {
       console.error('Failed to load invites:', error);
@@ -349,6 +368,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     invites,
     createWorkspace,
     updateWorkspace,
+    deleteWorkspace,
     switchWorkspace,
     inviteUser,
     loadInvites,

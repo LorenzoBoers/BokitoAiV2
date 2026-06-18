@@ -64,7 +64,7 @@ flowchart TB
 | **Messages hub** | `/support/inbox/*`, `/messages` | Single UI for human + agent threads; decisions inline in timeline |
 | **Human gates** | `DecisionRequest`, Govern draft queue | Inline approve/defer/reject in threads; structural changes via `PlatformChange` |
 | **Self-maintenance** | Agent tools → `propose_platform_change()` | Agents propose graph/agent/integration edits under apply modes and audit |
-| **Legacy track** | Xano / XanoScript | Some portal paths still on Xano; **new bokito-mode features prefer FastAPI + Signal**, not parallel stacks |
+| **V1 track** | FastAPI `apps/api` | All bokito-mode features use FastAPI + Signal; no parallel legacy stacks |
 
 Intelligence Stack layers are **conceptual lanes** on the canvas and in metrics — not separate top-level navigation tabs. See [`architecture.md`](architecture.md) for the layer-to-code mapping.
 

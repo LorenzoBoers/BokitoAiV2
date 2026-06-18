@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Globe, Paintbrush, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { useWorkspace } from '../context/WorkspaceContext';
 import { usePermission } from '../hooks/usePermission';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -14,31 +16,49 @@ import { SettingsSection } from '../components/layout/SettingsSection';
 export default function WorkspaceSettings() {
   const { t, i18n } = useTranslation(['workspace', 'common']);
   const { user } = useAuth();
+  const { currentWorkspace, updateWorkspace, deleteWorkspace } = useWorkspace();
   const canManageWorkspace = usePermission('delete_workspace') || usePermission('invite_members');
-  
-  const [workspaceName, setWorkspaceName] = useState(user?.tenant.name || '');
+
+  const [workspaceName, setWorkspaceName] = useState(currentWorkspace?.name || user?.tenant.name || '');
   const language = (i18n.resolvedLanguage === 'nl' ? 'nl' : 'en') as 'nl' | 'en';
-  const [require2FA, setRequire2FA] = useState(false);
+  const [require2FA, setRequire2FA] = useState(currentWorkspace?.require_2fa ?? false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
+  useEffect(() => {
+    if (currentWorkspace?.name) setWorkspaceName(currentWorkspace.name);
+    setRequire2FA(currentWorkspace?.require_2fa ?? false);
+  }, [currentWorkspace?.id, currentWorkspace?.name, currentWorkspace?.require_2fa]);
 
-  const handleSave = () => {
-    // In a real app, this would save to the backend
-    console.log('Saving workspace settings:', {
-      name: workspaceName,
-      language,
-      require2FA,
-    });
-    alert(t('saveSuccess'));
+  const handleSave = async () => {
+    if (!currentWorkspace) return;
+    setSaving(true);
+    try {
+      await updateWorkspace(currentWorkspace.id, {
+        name: workspaceName.trim(),
+        require_2fa: require2FA,
+      });
+      toast.success(t('saveSuccess'));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteWorkspace = () => {
-    if (deleteConfirmation === workspaceName) {
-      // In a real app, this would delete the workspace
-      console.log('Deleting workspace:', workspaceName);
-      alert(t('deleteDemoNotice'));
+  const handleDeleteWorkspace = async () => {
+    if (!currentWorkspace || deleteConfirmation !== workspaceName) return;
+    setDeleting(true);
+    try {
+      await deleteWorkspace(currentWorkspace.id);
       setShowDeleteDialog(false);
+      window.location.assign('/');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Delete failed');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -52,7 +72,7 @@ export default function WorkspaceSettings() {
         title={t('generalTitle')}
         actions={
           canManageWorkspace ? (
-            <Button onClick={handleSave} size="sm">
+            <Button onClick={() => void handleSave()} size="sm" disabled={saving || !currentWorkspace}>
               {t('saveSettings')}
             </Button>
           ) : null
@@ -202,8 +222,8 @@ export default function WorkspaceSettings() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={handleDeleteWorkspace}
-                disabled={deleteConfirmation !== workspaceName}
+                onClick={() => void handleDeleteWorkspace()}
+                disabled={deleteConfirmation !== workspaceName || deleting}
               >
                 {t('deleteConfirmButton')}
               </Button>

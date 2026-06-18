@@ -77,13 +77,13 @@ Unified surfaces and spacing (May 2026 unification):
 
 ## Frontend API pattern
 
-All Xano calls follow a centralized pattern:
+All FastAPI calls follow a centralized pattern:
 
-1. **Env and group bases:** `apps/dashboard/src/lib/api.config.ts` (`VITE_XANO_BASE_URL`, `VITE_API_GROUP_*`)
+1. **Env and group bases:** `apps/dashboard/src/lib/api.config.ts` (`VITE_BOKITO_API_URL`, `VITE_API_GROUP_*`)
 2. **Route constants:** `apps/dashboard/src/api/routes/`
-3. **Transport:** `apps/dashboard/src/lib/xano.ts`
+3. **Transport:** `apps/dashboard/src/lib/bokito-api.ts`
 
-Do not hardcode full Xano origins in pages or components. See [`apps/dashboard/docs/API.md`](../../apps/dashboard/docs/API.md) and `.cursor/rules/frontend-api-env-pattern.mdc`.
+Do not hardcode full FastAPI origins in pages or components. See [`apps/dashboard/docs/API.md`](../../apps/dashboard/docs/API.md) and `.cursor/rules/frontend-api-env-pattern.mdc`.
 
 ## Build version
 

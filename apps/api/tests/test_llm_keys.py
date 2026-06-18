@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.models.auth import Tenant
-from app.services import tenant_secrets
+from app.services import platform_secrets, tenant_secrets
 from app.services.tenant_llm import resolve_tenant_llm_config
 
 
@@ -80,6 +80,12 @@ async def test_tenant_llm_config_isolation(session_override):
     assert cfg_b.live is False
     assert cfg_b.embeddings_live is False
     assert cfg_b.anthropic_api_key == ""
+
+    # Platform (Bokito) key makes every tenant live without BYOK.
+    await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-shared")
+    cfg_platform = await resolve_tenant_llm_config(session_override, other.id)
+    assert cfg_platform.live is True
+    assert cfg_platform.anthropic_api_key == "sk-ant-platform-shared"
 
     # Round-trip decryption works and is scoped per tenant.
     assert await tenant_secrets.get_secret(session_override, tenant.id, "anthropic") == "sk-ant-aaaa1111"

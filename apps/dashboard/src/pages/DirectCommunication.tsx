@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Bot } from 'lucide-react'
+import { toast } from 'sonner'
 import ThreadList from '../components/inbox/ThreadList'
 import DirectChatPanel, { DirectChatEmptyState } from '../components/inbox/DirectChatPanel'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
@@ -232,7 +233,7 @@ export default function DirectCommunication() {
         void refreshNavBadges()
         void refreshThreads()
       } catch (err) {
-        window.alert(err instanceof Error ? err.message : 'Delete failed.')
+        toast.error(err instanceof Error ? err.message : 'Delete failed.')
       } finally {
         setDeletingThreadId(null)
       }

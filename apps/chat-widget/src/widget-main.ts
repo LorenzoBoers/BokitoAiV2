@@ -1,13 +1,13 @@
 /**
  * Bokito Chat Widget
  * Embed on any website:
- *   <script src="https://xrex-nmji-j9ur.f2.xano.io/api:livechat/script/main"
+ *   <script src="https://app.example.com/chat-widget/external/bokito-chat.js"
  *           data-agent-slug="demo"
- *           data-api-url="https://xrex-nmji-j9ur.f2.xano.io"
+ *           data-api-url="https://app.example.com"
  *           defer></script>
  */
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
-import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, gatewayWebSocketUrl, livechatHttpUrl, normalizeLivechatApiBase, xanoApiGroupUrl } from './api/livechat-url'
+import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, apiGroupUrl, gatewayWebSocketUrl, livechatHttpUrl, normalizeLivechatApiBase } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
 import {
   appendWorkLogEvent,
@@ -275,17 +275,35 @@ class RealtimeClient {
 function gatewayFrameToWidgetEvent(frame) {
   if (frame?.event !== 'message') return null;
   const m = frame.data?.message || {};
-  if (m.role !== 'assistant') return null;
-  return {
-    event_type: 'message',
-    object: {
-      id: m.id,
-      sender_type: 'ai',
-      status: 'sent',
-      message_content: m.body_text || '',
-      created_at: m.created_at,
-    },
-  };
+  // AI assistant reply.
+  if (m.role === 'assistant') {
+    return {
+      event_type: 'message',
+      object: {
+        id: m.id,
+        sender_type: 'ai',
+        status: 'sent',
+        message_content: m.body_text || '',
+        created_at: m.created_at,
+      },
+    };
+  }
+  // Human takeover: a staff operator replied from the dashboard. Such messages
+  // are outbound with role "user"; render them as a human agent bubble. The
+  // visitor's own (inbound) messages are ignored to avoid echoing.
+  if (m.direction === 'outbound' && m.role === 'user') {
+    return {
+      event_type: 'message',
+      object: {
+        id: m.id,
+        sender_type: 'agent',
+        status: 'sent',
+        message_content: m.body_text || '',
+        created_at: m.created_at,
+      },
+    };
+  }
+  return null;
 }
 
 /* ── Page context manager ───────────────────────────────────── */
@@ -1042,7 +1060,7 @@ class BokitoChatWidget extends HTMLElement {
     }
 
     if (!this.#hostAuthToken) return;
-    const defaultMeUrl = xanoApiGroupUrl(this.#apiUrl, LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatRoutes.hostAuth.me);
+    const defaultMeUrl = apiGroupUrl(this.#apiUrl, LIVECHAT_DEFAULT_HOST_AUTH_GROUP, livechatRoutes.hostAuth.me);
     const url = (this.dataset.hostMeUrl && String(this.dataset.hostMeUrl).trim())
       || (cfg.hostMeUrl && String(cfg.hostMeUrl).trim())
       || defaultMeUrl;
@@ -3919,6 +3937,16 @@ class BokitoChatWidget extends HTMLElement {
             else if (this.#sm.state === 'processing') this.#sm.transition('active');
             this.#loadSuggestions();
           }
+        } else if (obj.sender_type === 'agent' && obj.status === 'sent') {
+          // Human support agent reply pushed via the realtime gateway.
+          this.#stopPolling();
+          this.#thinkingEl.style.display = 'none';
+          this.#thinkingSteps.innerHTML = '';
+          if (!this.#renderedMsgIds.has(obj.id)) {
+            this.#appendMessage(obj);
+            this.#renderedMsgIds.add(obj.id);
+            if (this.#sm.state === 'processing') this.#sm.transition('active');
+          }
         }
         break;
       case 'tool_started':
@@ -4819,9 +4847,11 @@ if (!customElements.get('bokito-chat')) {
   const cfg = window.BokitoConfig || {};
   const scriptSrc = scriptEl?.src || '';
   const apiFromSrc = (() => {
-    const marker = '/api:livechat';
-    const idx = scriptSrc.indexOf(marker);
-    return idx > 0 ? scriptSrc.slice(0, idx) : '';
+    for (const marker of ['/api/livechat', '/api/livechat', '/chat-widget/']) {
+      const idx = scriptSrc.indexOf(marker);
+      if (idx > 0) return scriptSrc.slice(0, idx);
+    }
+    return '';
   })();
   const slug    = scriptEl?.dataset?.agentSlug || cfg.agentSlug || '';
   const apiUrl  = normalizeLivechatApiBase(scriptEl?.dataset?.apiUrl || cfg.apiUrl || apiFromSrc || '');

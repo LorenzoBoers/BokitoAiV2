@@ -1,4 +1,4 @@
-/** Canonical remote MCP OAuth provider definitions (mirrors Xano seed). */
+/** Canonical remote MCP OAuth provider definitions (platform seed). */
 export type RemoteMcpProviderDef = {
   slug: string
   staticId: string

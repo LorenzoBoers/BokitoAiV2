@@ -12,6 +12,6 @@ Open **Integrations** in the rail, then **Documentation** in the context sidebar
 
 ## Related repository docs
 
-- `xano-patches/v1/INTEGRATIONS-PLATFORM.md` — Xano deploy checklist
-- `xano-patches/v1/integration-providers-seed.md` — provider UUIDs and OAuth env
+- `docs/archived/v1/INTEGRATIONS-PLATFORM.md` — FastAPI deploy checklist
+- `docs/archived/v1/integration-providers-seed.md` — provider UUIDs and OAuth env
 - `BOKITO_KNOWLEDGE.md` section 2.6 — product behavior

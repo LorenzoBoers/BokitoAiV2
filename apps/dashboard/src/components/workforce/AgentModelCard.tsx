@@ -4,10 +4,12 @@ import { Link } from 'react-router-dom'
 import { Card } from '../ui/card'
 import { useAuth } from '../../context/AuthContext'
 import {
-  bokitoGetTenantModels,
-  bokitoSetAgentModel,
+  getTenantModels,
+  selectableChatModels,
+  setAgentModel,
   type CatalogModel,
-} from '../../lib/bokito-api'
+  type TenantModelRow,
+} from '../../lib/models-api'
 
 type Props = {
   agentId: string
@@ -16,23 +18,22 @@ type Props = {
   onChanged?: () => void
 }
 
-/** Model & runtime card on the agent detail page. Admins can rebind the agent's
- * chat model to any model allowed for the workspace. */
+type ModelOption = TenantModelRow | CatalogModel
+
+/** Model and runtime card on the agent detail page. */
 export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Props) {
   const { token } = useAuth()
-  const [models, setModels] = useState<CatalogModel[]>([])
-  const [allowed, setAllowed] = useState<string[]>([])
+  const [models, setModels] = useState<ModelOption[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     if (!token) return
-    bokitoGetTenantModels(token)
+    getTenantModels(token)
       .then((data) => {
         if (cancelled) return
-        setModels(data.models.filter((m) => m.kind === 'chat'))
-        setAllowed(data.prefs.allowed_chat ?? [])
+        setModels(selectableChatModels(data))
       })
       .catch(() => {})
     return () => {
@@ -48,7 +49,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
       setBusy(true)
       setError(null)
       try {
-        await bokitoSetAgentModel(token, agentId, slug)
+        await setAgentModel(token, agentId, slug)
         onChanged?.()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not update model.')
@@ -59,13 +60,11 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
     [token, busy, agentId, onChanged],
   )
 
-  const isAllowed = (slug: string) => allowed.length === 0 || allowed.includes(slug)
-
   return (
     <Card className="px-4 py-3">
       <div className="flex items-center gap-2">
         <Cpu size={15} className="text-accent" aria-hidden />
-        <h3 className="text-base font-semibold text-text-heading">Model & runtime</h3>
+        <h3 className="text-base font-semibold text-text-heading">Model and runtime</h3>
       </div>
       <p className="mt-1 text-sm text-text-muted">
         The model this agent uses for reasoning and chat.
@@ -81,9 +80,8 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
           >
             {!current ? <option value="">{currentModel || 'Select a model'}</option> : null}
             {models.map((m) => (
-              <option key={m.slug} value={m.slug} disabled={!isAllowed(m.slug)}>
+              <option key={m.slug} value={m.slug}>
                 {m.display_name}
-                {!isAllowed(m.slug) ? ' (blocked)' : ''}
               </option>
             ))}
           </select>
@@ -94,7 +92,12 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
         )}
         {current ? (
           <span className="text-[11px] text-text-muted">
-            {current.provider} · in ${(current.input_cost_per_mtok_cents / 100).toFixed(2)}/Mtok · out $
+            {'provider_type' in current && current.provider_type
+              ? current.provider_type
+              : 'provider' in current
+                ? current.provider
+                : ''}{' '}
+            · in ${(current.input_cost_per_mtok_cents / 100).toFixed(2)}/Mtok · out $
             {(current.output_cost_per_mtok_cents / 100).toFixed(2)}/Mtok
           </span>
         ) : null}
@@ -104,7 +107,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
 
       {canEdit ? (
         <p className="mt-2 text-[11px] text-text-muted">
-          Manage which models are available in{' '}
+          Manage providers and models in{' '}
           <Link to="/settings/models" className="text-accent hover:underline">
             workspace model settings
           </Link>

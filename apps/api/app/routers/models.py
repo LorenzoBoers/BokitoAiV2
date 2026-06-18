@@ -1,11 +1,4 @@
-"""Model catalog APIs.
-
-Tenant routes (``/api/settings/models``) let owners/admins pick defaults and
-allowed models and view BYOK vs. billable (platform-key) status.
-
-Staff routes (``/api/staff/...``) manage the global catalog, Bokito's platform
-fallback keys, and the resale markup. Gated on the ``is_staff`` flag.
-"""
+"""Tenant provider connections and per-tenant model catalog APIs."""
 
 from typing import Annotated
 from uuid import UUID
@@ -19,7 +12,8 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.model_catalog import ModelCatalog
 from app.services import model_catalog as catalog_svc
-from app.services import platform_secrets, tenant_models, tenant_secrets
+from app.services import platform_secrets, provider_connections, tenant_model_catalog
+from app.services.provider_presets import serialize_presets
 
 router = APIRouter(prefix="/settings", tags=["models"])
 staff_router = APIRouter(prefix="/staff", tags=["staff-models"])
@@ -30,26 +24,165 @@ def _require_staff(auth: AuthContext) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff only")
 
 
-# --- Tenant: model preferences ---
+# --- Provider connections ---
 
 
-class TenantModelPrefsBody(BaseModel):
-    default_chat: str | None = None
-    default_embedding: str | None = None
-    allowed_chat: list[str] | None = None
+class ProviderCreateBody(BaseModel):
+    provider_type: str
+    label: str = ""
+    base_url: str = ""
+    api_key: str
+
+
+class ProviderUpdateBody(BaseModel):
+    label: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
+    enabled: bool | None = None
+
+
+@router.get("/providers")
+async def list_providers(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    connections = await provider_connections.list_connections(session, auth.tenant.id)
+    return {
+        "connections": [provider_connections.serialize_connection(c) for c in connections],
+        "presets": serialize_presets(),
+    }
+
+
+@router.post("/providers")
+async def create_provider(
+    body: ProviderCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    try:
+        conn = await provider_connections.create_connection(
+            session,
+            auth.tenant.id,
+            provider_type=body.provider_type,
+            label=body.label,
+            base_url=body.base_url,
+            api_key=body.api_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return provider_connections.serialize_connection(conn)
+
+
+@router.patch("/providers/{connection_id}")
+async def update_provider(
+    connection_id: UUID,
+    body: ProviderUpdateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    try:
+        conn = await provider_connections.update_connection(
+            session,
+            auth.tenant.id,
+            connection_id,
+            label=body.label,
+            base_url=body.base_url,
+            api_key=body.api_key,
+            enabled=body.enabled,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return provider_connections.serialize_connection(conn)
+
+
+@router.delete("/providers/{connection_id}")
+async def delete_provider(
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    deleted = await provider_connections.delete_connection(session, auth.tenant.id, connection_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return {"ok": True}
+
+
+@router.post("/providers/{connection_id}/test")
+async def test_provider(
+    connection_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    try:
+        return await provider_connections.test_connection(session, auth.tenant.id, connection_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+# --- Tenant models ---
+
+
+class TenantModelCreateBody(BaseModel):
+    connection_id: UUID | None = None
+    model_id: str = ""
+    display_name: str = ""
+    kind: str = "chat"
+    slug: str = ""
+    enabled: bool = True
+    supports_tools: bool = True
+    supports_vision: bool = False
+    context_window: int = 0
+    input_cost_per_mtok_cents: int = 0
+    output_cost_per_mtok_cents: int = 0
+    is_default_chat: bool = False
+    is_default_embedding: bool = False
+    enable_presets: bool = False
+
+
+class TenantModelUpdateBody(BaseModel):
+    display_name: str | None = None
+    enabled: bool | None = None
+    is_default_chat: bool | None = None
+    is_default_embedding: bool | None = None
+    input_cost_per_mtok_cents: int | None = None
+    output_cost_per_mtok_cents: int | None = None
 
 
 async def _tenant_models_payload(session: AsyncSession, tenant_id: UUID) -> dict:
-    models = await catalog_svc.list_models(session, enabled_only=True)
+    has_tenant = await tenant_model_catalog.tenant_has_models(session, tenant_id)
+    if has_tenant:
+        models = await tenant_model_catalog.list_models_with_connections(session, tenant_id)
+        default_chat = next((m["slug"] for m in models if m.get("is_default_chat")), "")
+        default_embedding = next((m["slug"] for m in models if m.get("is_default_embedding")), "")
+        connections = await provider_connections.list_connections(session, tenant_id)
+        return {
+            "source": "tenant",
+            "models": models,
+            "connections": [provider_connections.serialize_connection(c) for c in connections],
+            "default_chat": default_chat,
+            "default_embedding": default_embedding,
+            "presets": serialize_presets(),
+        }
+
+    # Legacy platform-catalog fallback when tenant has not configured providers yet.
+    from app.services import tenant_models, tenant_secrets
+
+    platform_models = await catalog_svc.list_models(session, enabled_only=True)
     prefs = await tenant_models.get_tenant_model_prefs(session, tenant_id)
     byok = await tenant_secrets.list_status(session, tenant_id)
     byok_providers = {row["provider"] for row in byok if row["is_set"]}
     return {
-        "models": [catalog_svc.serialize_model(m) for m in models],
+        "source": "platform",
+        "models": [catalog_svc.serialize_model(m) for m in platform_models],
         "prefs": prefs,
         "byok": byok,
-        # A provider runs on the tenant's own (non-billable) key when BYOK is set.
         "billable_providers": [p for p in ("anthropic", "openai") if p not in byok_providers],
+        "presets": serialize_presets(),
     }
 
 
@@ -62,14 +195,110 @@ async def get_tenant_models(
     return await _tenant_models_payload(session, auth.tenant.id)
 
 
-@router.put("/models")
-async def update_tenant_models(
-    body: TenantModelPrefsBody,
+@router.post("/models")
+async def create_tenant_model(
+    body: TenantModelCreateBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    # Validate any provided slugs against the enabled catalog.
+    if body.enable_presets:
+        if not body.connection_id:
+            raise HTTPException(status_code=400, detail="connection_id required for preset enable")
+        try:
+            created = await tenant_model_catalog.bulk_enable_presets(
+                session, auth.tenant.id, body.connection_id
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"items": [tenant_model_catalog.serialize_tenant_model(m) for m in created]}
+
+    if not body.connection_id:
+        raise HTTPException(status_code=400, detail="connection_id is required")
+    try:
+        model = await tenant_model_catalog.create_model(
+            session,
+            auth.tenant.id,
+            connection_id=body.connection_id,
+            model_id=body.model_id,
+            display_name=body.display_name,
+            kind=body.kind,
+            slug=body.slug,
+            enabled=body.enabled,
+            supports_tools=body.supports_tools,
+            supports_vision=body.supports_vision,
+            context_window=body.context_window,
+            input_cost_per_mtok_cents=body.input_cost_per_mtok_cents,
+            output_cost_per_mtok_cents=body.output_cost_per_mtok_cents,
+            is_default_chat=body.is_default_chat,
+            is_default_embedding=body.is_default_embedding,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    conn = await provider_connections.get_connection(session, auth.tenant.id, model.connection_id)
+    return tenant_model_catalog.serialize_tenant_model(model, conn)
+
+
+@router.patch("/models/{model_id}")
+async def update_tenant_model(
+    model_id: UUID,
+    body: TenantModelUpdateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    try:
+        model = await tenant_model_catalog.update_model(
+            session,
+            auth.tenant.id,
+            model_id,
+            display_name=body.display_name,
+            enabled=body.enabled,
+            is_default_chat=body.is_default_chat,
+            is_default_embedding=body.is_default_embedding,
+            input_cost_per_mtok_cents=body.input_cost_per_mtok_cents,
+            output_cost_per_mtok_cents=body.output_cost_per_mtok_cents,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    conn = await provider_connections.get_connection(session, auth.tenant.id, model.connection_id)
+    return tenant_model_catalog.serialize_tenant_model(model, conn)
+
+
+@router.delete("/models/{model_id}")
+async def delete_tenant_model(
+    model_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    deleted = await tenant_model_catalog.delete_model(session, auth.tenant.id, model_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return {"ok": True}
+
+
+class TenantModelPrefsBody(BaseModel):
+    default_chat: str | None = None
+    default_embedding: str | None = None
+    allowed_chat: list[str] | None = None
+
+
+@router.put("/models")
+async def update_tenant_model_prefs_legacy(
+    body: TenantModelPrefsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Legacy platform-catalog prefs (only when tenant has no self-managed models)."""
+    from app.services import tenant_models
+
+    auth.require_role("owner", "admin")
+    if await tenant_model_catalog.tenant_has_models(session, auth.tenant.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Workspace uses self-managed models; update defaults via PATCH on model rows",
+        )
     for slug, kind in (
         (body.default_chat, "chat"),
         (body.default_embedding, "embedding"),
@@ -93,7 +322,7 @@ async def update_tenant_models(
     return await _tenant_models_payload(session, auth.tenant.id)
 
 
-# --- Staff: catalog CRUD ---
+# --- Staff: catalog CRUD (platform resale) ---
 
 
 class CatalogUpsertBody(BaseModel):
@@ -200,9 +429,6 @@ async def staff_delete_model(
     await session.delete(model)
     await session.commit()
     return {"ok": True}
-
-
-# --- Staff: platform keys + markup ---
 
 
 class PlatformKeyBody(BaseModel):

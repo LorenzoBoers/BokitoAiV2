@@ -1,5 +1,5 @@
 /**
- * Static fallbacks for integration_hosts when Xano image fields are empty.
+ * Static fallbacks for integration_hosts when hosted image fields are empty.
  * Official third-party marks: see public/brands/README.md (Simple Icons MIT where noted).
  */
 

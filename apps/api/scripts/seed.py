@@ -247,7 +247,7 @@ async def _seed_tenant_data(session, tenant):
     agent_result = await session.execute(
         select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
     )
-    if not agent_result.scalar_one_or_none():
+    if agent_result.scalars().first() is None:
         session.add(
             Agent(
                 tenant_id=tenant.id,

@@ -20,7 +20,7 @@ import {
 } from '../lib/host-routing';
 import { publishDashboardUserToWidget } from '../lib/widget-bridge';
 const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
-/** When set, the Xano auth group returned 404 for POST /refresh; skip further refresh calls until logout. */
+/** When set, the auth router returned 404 for POST /refresh; skip further refresh calls until logout. */
 const SKIP_SERVER_AUTH_REFRESH_KEY = 'bokito_skip_server_auth_refresh';
 
 function shouldSkipServerAuthRefresh(): boolean {
@@ -85,10 +85,11 @@ interface User {
   /** Public signature image URL used in outbound mail signatures. */
   signatureUrl: string | null;
   accountId: number | null;
-  /** Xano `user.organisation_id` (UUID); required for tenant-scoped APIs such as email. */
+  /** `user.organisation_id` (UUID); required for tenant-scoped APIs such as email. */
   organisationId: string | null;
   role: UserRole;
   isStaff: boolean;
+  emailVerified: boolean;
   tenant: Tenant;
   memberships: TenantMembership[];
 }
@@ -104,7 +105,7 @@ interface AuthContextValue {
   hasPermission: (action: PermissionAction) => boolean;
   setUserRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
-  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl'>>) => void;
+  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified'>>) => void;
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
   isStaff: boolean;
@@ -246,6 +247,7 @@ function normalizeAuthUser(raw: unknown): User {
     organisationId: normalizeOrganisationId(payload),
     role: mapTenantRoleToUserRole(payload.role),
     isStaff: Boolean(payload.is_staff),
+    emailVerified: Boolean(payload.email_verified),
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
@@ -553,7 +555,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token]);
 
-  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl'>>) => {
+  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified'>>) => {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 

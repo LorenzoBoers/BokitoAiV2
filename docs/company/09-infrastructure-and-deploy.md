@@ -41,7 +41,7 @@ Static bundles are built inside the `web` image (`apps/dashboard/Dockerfile`): t
 | `*.bokito.ai` | A | Proxied | Tenant subdomains (required for `<slug>.bokito.ai`) |
 | `worker.bokito.ai` | A | DNS only | Pre-existing Node service (:3300) |
 
-No Cloudflare Workers / routes are involved anymore — requests hit the VPS Caddy directly. Mail/SendGrid records are unchanged. `bokito.chargecars.app` still resolves to the VPS but the SPA redirects it client-side to `app.bokito.ai` (the baked control-plane host).
+No Cloudflare Workers / routes are involved anymore — requests hit the VPS Caddy directly. Mail/SendGrid records are unchanged. All Bokito traffic uses `*.bokito.ai` only.
 
 ### Verification
 

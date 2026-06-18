@@ -2,7 +2,7 @@
 
 ## Deploy artifact (source of truth)
 
-- **Production script:** run `npm run build` in this folder; Vite emits **`dist/bokito-chat.js`** (IIFE: stream-chat SSE, attachments, voice, settings, Happy Bokito launcher, etc.). Static files from **`public/`** (for example `css/`, `assets/`) are copied into `dist/`. This bundle is what Xano static hosting and `api:livechat/script/main` should serve (merged into the portal zip by root `deploy.ps1`).
+- **Production script:** run `npm run build` in this folder; Vite emits **`dist/bokito-chat.js`** (IIFE: stream-chat SSE, attachments, voice, settings, Happy Bokito launcher, etc.). Static files from **`public/`** (for example `css/`, `assets/`) are copied into `dist/`. This bundle is what FastAPI static hosting and `/api/livechat/script/main` should serve (merged into the portal zip by root `deploy.ps1`).
 - **Source:** [`src/widget-main.ts`](./src/widget-main.ts) (bootstrap in [`src/index.ts`](./src/index.ts)); livechat URL helpers live under [`src/api/`](./src/api/).
 - **Legacy / alternate:** [`js/chat-module.js`](./js/chat-module.js) — smaller, older build. Do **not** use for new integrations unless you explicitly maintain that path. Prefer the Vite bundle for parity with the mobile app and current backend.
 
@@ -10,7 +10,7 @@
 
 Launcher and header avatar art (with blink animation) are kept in sync with [`../shared_components/Happy bokito.svg`](../shared_components/Happy%20bokito.svg). After editing that file, copy the SVG fragment into the `#render()` template in `src/widget-main.ts` (launcher + `.bk-avatar-logo`).
 
-## Local preview (widget files local, chat API on Xano)
+## Local preview (widget files local, chat API on FastAPI)
 
 Recommended:
 
@@ -21,7 +21,7 @@ npm run build   # required at least once so dist/bokito-chat.js exists
 npm run dev
 ```
 
-This runs **Vite** on `http://127.0.0.1:8787` and opens your **system default browser**. [`chat-standalone.html`](./chat-standalone.html) loads **`/bokito-chat.js`** from the last `npm run build` output (served by a small dev plugin). Edit `src/widget-main.ts` or HTML; after TS changes run **`npm run build`** again and refresh. The widget still talks to your **Xano** instance (`api_url` / `data-api-url`), so you need network access to Xano, not an offline mock. If the port is busy (for example an old `serve` on 8787), stop that process or change `server.port` in [`vite.config.ts`](./vite.config.ts).
+This runs **Vite** on `http://127.0.0.1:8787` and opens your **system default browser**. [`chat-standalone.html`](./chat-standalone.html) loads **`/bokito-chat.js`** from the last `npm run build` output (served by a small dev plugin). Edit `src/widget-main.ts` or HTML; after TS changes run **`npm run build`** again and refresh. The widget still talks to your **FastAPI** instance (`api_url` / `data-api-url`), so you need network access to FastAPI, not an offline mock. If the port is busy (for example an old `serve` on 8787), stop that process or change `server.port` in [`vite.config.ts`](./vite.config.ts).
 
 **Cursor / VS Code Simple Browser:** opening `http://localhost:8787` in the built-in Simple Browser tab often shows a **blank white page** even when the server is fine (webview / localhost quirks). Use the browser window that `npm run dev` opens, or open the same URL manually in Chrome or Edge.
 
@@ -34,16 +34,16 @@ This runs **Vite** on `http://127.0.0.1:8787` and opens your **system default br
 
 ## Livechat stream endpoints (optional)
 
-If Xano `session/start` returns `agent_config.stream_chat_path` / `stream_chat_continue_path` (each must match `[a-zA-Z0-9_-]{1,64}`), the widget POSTs to those paths under `/api:livechat/` instead of `stream-chat` / `stream-chat-continue`. Defaults apply when omitted. See `BOKITO_KNOWLEDGE.md` (livechat dual pipeline).
+If FastAPI `session/start` returns `agent_config.stream_chat_path` / `stream_chat_continue_path` (each must match `[a-zA-Z0-9_-]{1,64}`), the widget POSTs to those paths under `/api/livechat/` instead of `stream-chat` / `stream-chat-continue`. Defaults apply when omitted. See `BOKITO_KNOWLEDGE.md` (livechat dual pipeline).
 
-Optional `agent_config.transcribe_path` overrides the default `POST /api:livechat/transcribe` used after voice recording (server-side faster-whisper proxy; see `BOKITO_KNOWLEDGE.md` and `apps/asr-service/`).
+Optional `agent_config.transcribe_path` overrides the default `POST /api/livechat/transcribe` used after voice recording (server-side faster-whisper proxy; see `BOKITO_KNOWLEDGE.md` and `apps/asr-service/`).
 
 ## Multi-tenant auth flow
 
 The widget supports tenant/user-aware auth bootstrapping:
 
-- **Host auth cookie:** set `data-auth-cookie-name="host_auth_cookie"` and the widget reads `document.cookie` to forward `host_auth_token` in `POST /api:livechat/session/start`.
-- **Host subdomain routing:** on tenant hosts like `foo.bokito.ai`, the widget forwards `tenant_subdomain: "foo"` in `POST /api:livechat/session/start` so backend tenant resolution can stay host-driven.
+- **Host auth cookie:** set `data-auth-cookie-name="host_auth_cookie"` and the widget reads `document.cookie` to forward `host_auth_token` in `POST /api/livechat/session/start`.
+- **Host subdomain routing:** on tenant hosts like `foo.bokito.ai`, the widget forwards `tenant_subdomain: "foo"` in `POST /api/livechat/session/start` so backend tenant resolution can stay host-driven.
 - **Direct token handoff:** set `data-auth-token` or `window.BokitoConfig.authToken`.
 - **Dynamic token handoff:** set `window.BokitoConfig.getAuthToken = async () => token`.
 - **Auth mode override:** set `data-auth-mode="anonymous|optional|required"` (fallback to backend `agent_config.auth_mode`).
@@ -52,8 +52,8 @@ The widget supports tenant/user-aware auth bootstrapping:
 
 When auth is required and no valid token is available, the widget shows an in-widget login form and calls:
 
-- `POST /api:livechat/auth/login` with `{ email, password, agent_slug, session_token? }`
-- `POST /api:livechat/auth/logout` to invalidate the current session
+- `POST /api/livechat/auth/login` with `{ email, password, agent_slug, session_token? }`
+- `POST /api/livechat/auth/logout` to invalidate the current session
 
 The widget emits:
 
@@ -64,8 +64,8 @@ The widget emits:
 
 If available, preferences are synced via:
 
-- `GET /api:livechat/user/preferences`
-- `PATCH /api:livechat/user/preferences` with `{ preferences: { ...partial } }`
+- `GET /api/livechat/user/preferences`
+- `PATCH /api/livechat/user/preferences` with `{ preferences: { ...partial } }`
 
 Local storage remains as offline/cache fallback.
 
@@ -73,11 +73,11 @@ Local storage remains as offline/cache fallback.
 
 For authenticated users the widget first requests:
 
-- `GET /api:livechat/user/conversations?per_page=10`
+- `GET /api/livechat/user/conversations?per_page=10`
 
 If unavailable, it falls back to:
 
-- `GET /api:livechat/customer/conversations?per_page=10`
+- `GET /api/livechat/customer/conversations?per_page=10`
 
 ### Tenant MCP context
 

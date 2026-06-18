@@ -82,7 +82,7 @@ export function logOAuthRedirectDebugInDev(searchParams: URLSearchParams, callba
   console.info('  error code:', callback.error ?? '(geen)')
   console.info(
     '  detail (aad/oauth):',
-    callback.detail ?? '(geen — Xano stuurt geen aad_detail/oauth_detail mee in de redirect)',
+    callback.detail ?? '(geen — de OAuth-callback stuurt geen aad_detail/oauth_detail mee in de redirect)',
   )
 }
 
@@ -92,12 +92,12 @@ export function describeOAuthCallbackSummary(result: OAuthCallbackResult): strin
   const who = result.provider ? providerFriendlyName(result.provider) : 'The provider'
 
   if (code === 'token_exchange') {
-    return `${who} rejected the token step after authorization. Usually: redirect URI in the identity provider app and in Xano do not match exactly, or the client secret is wrong or expired.`
+    return `${who} rejected the token step after authorization. Usually: redirect URI in the identity provider app and in the API do not match exactly, or the client secret is wrong or expired.`
   }
 
   const byCode: Record<string, string> = {
     microsoft_oauth_token:
-      'Microsoft did not return a valid token. Check client ID, secret, and redirect URI in Azure and Xano.',
+      'Microsoft did not return a valid token. Check client ID, secret, and redirect URI in Azure and the API.',
     no_refresh_token:
       'No refresh token was received. Reconnect and grant consent again (admin consent for the tenant may be required).',
     missing_oauth_env: 'The server is missing OAuth configuration (Microsoft environment variables).',
@@ -107,7 +107,7 @@ export function describeOAuthCallbackSummary(result: OAuthCallbackResult): strin
       'Authorization code is invalid or expired. Start the connection again.',
     consent_required: 'The user must grant consent again. Try connecting again.',
     google_oauth_token:
-      'Google did not return a valid token. Check client ID, client secret, and matching redirect URI in Google Cloud and Xano.',
+      'Google did not return a valid token. Check client ID, client secret, and matching redirect URI in Google Cloud and the API.',
     google_profile:
       'Could not fetch Google profile with the access token. Check scopes and consent screen configuration.',
     no_google_id:
@@ -115,7 +115,7 @@ export function describeOAuthCallbackSummary(result: OAuthCallbackResult): strin
     no_mailbox_email:
       'Google did not return a mailbox address. Check that email access is allowed in the consent flow.',
     redirect_uri_mismatch:
-      'The redirect URI in Google Cloud does not exactly match the redirect URI in Xano.',
+      'The redirect URI in Google Cloud does not exactly match the redirect URI configured for the API.',
     access_denied:
       'The user denied or cancelled Google consent.',
   }

@@ -131,6 +131,18 @@ async def widget_stream_events(
             attachments=attachments,
         )
         await session.commit()
+        # Human takeover: a team member owns this thread, so the AI stays silent.
+        # The visitor's message is persisted (and published to the gateway above)
+        # so the operator sees it live and replies via the dashboard.
+        if signal.ai_paused:
+            payload = {
+                "type": "done",
+                "content": "",
+                "ai_paused": True,
+                "conversation_id": str(signal.id),
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+            return
         history = await signal_chat_history(session, signal.id)
     else:
         history = [{"role": "user", "content": message or "Hello"}]

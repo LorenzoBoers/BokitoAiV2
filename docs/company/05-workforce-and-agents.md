@@ -8,7 +8,7 @@ Bokito's **workforce** layer runs AI agents against projects: orchestrated work 
 
 | Term | Meaning |
 |------|---------|
-| **Agent** | Configured AI worker (prompt, tools, model) in Xano `agents` table |
+| **Agent** | Configured AI worker (prompt, tools, model) in FastAPI `agents` table |
 | **Work log** | Single agent run instance (UUID); container auth token |
 | **Message** | Workforce communication: `task_result`, `decision_request`, `status_update`, etc. |
 | **PO agent** | Product-owner orchestrator that reads project/workspace Blueprint context and open change requests |
@@ -23,9 +23,9 @@ Bokito's **workforce** layer runs AI agents against projects: orchestrated work 
 | Agent execution | Docker containers from `packages/docker/agent-run` |
 | Embeddings | Ollama on host (`nomic-embed-text-v2-moe`) |
 
-Xano crons trigger runs: `POST {WORKER_BASE_URL}/agent/po/run` with `Authorization: Bearer {WORKER_INBOUND_SECRET}`.
+FastAPI crons trigger runs: `POST {WORKER_BASE_URL}/agent/po/run` with `Authorization: Bearer {WORKER_INBOUND_SECRET}`.
 
-Runtime calls Xano `api:workforce` with `worker_api_key` in JSON bodies. Agent containers use `auth_token` = `work_log_id` in the body (Bearer optional on `auth = false` endpoints).
+Runtime calls FastAPI `/api/workforce` with `worker_api_key` in JSON bodies. Agent containers use `auth_token` = `work_log_id` in the body (Bearer optional on `auth = false` endpoints).
 
 ### Key worker endpoints
 
@@ -45,7 +45,7 @@ Deploy: `scripts/deploy-runtime-vps.sh`, `scripts/vps-redeploy.py`.
 ## PO agent flow (V1)
 
 1. Change request is created on project or workspace Blueprint
-2. Xano may fire synchronous `POST .../agent/po/run` (10s timeout)
+2. FastAPI may fire synchronous `POST .../agent/po/run` (10s timeout)
 3. Runner loads context via `runs/context` (project name, scope, pending Blueprint request)
 4. Agent tools: `log`, `read_doc_page`, `write_doc`, `write_decision_request`, `write_status_update`
 5. Events stream to `/work_logs/{id}/events`; completion via `/runs/complete`
@@ -75,12 +75,12 @@ Live UI component: `LiveWorkLog` (`apps/dashboard/src/components/observability/L
 
 ## MCP for external clients
 
-Package: `packages/bokito-workforce-mcp` – stdio MCP server for workforce operations on Xano orchestrator and runtime API groups. Tenant-scoped via token per deployment.
+Package: `packages/bokito-workforce-mcp` – stdio MCP server for workforce operations on FastAPI orchestrator and runtime API groups. Tenant-scoped via token per deployment.
 
 ## Crons and verification
 
-- Cron list: [`xano-patches/v1/CRONS.md`](../../xano-patches/v1/CRONS.md)
-- Smoke checklist: [`xano-patches/v1/VERIFICATION.md`](../../xano-patches/v1/VERIFICATION.md)
+- Cron list: [`docs/archived/v1/CRONS.md`](../../docs/archived/v1/CRONS.md)
+- Smoke checklist: [`docs/archived/v1/VERIFICATION.md`](../../docs/archived/v1/VERIFICATION.md)
 - Smoke project id (example): `7baa7578-2119-40a5-bbde-b1bb3e2ef27d` (`worker-smoke-v1`)
 
 ## Related docs

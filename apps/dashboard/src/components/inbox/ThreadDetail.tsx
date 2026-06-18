@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, Bot, Hand, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -56,6 +56,8 @@ type Props = {
   onNote: (bodyText: string) => Promise<void>
   onRefresh: () => void
   onTogglePin?: () => void | Promise<void>
+  /** Human takeover toggle for AI-handled channels (widget/chat/assistant). */
+  onToggleTakeover?: () => void | Promise<void>
   onDelete?: () => void | Promise<void>
   deleting?: boolean
   onToggleContact?: () => void
@@ -115,7 +117,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
   const { token } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -147,6 +149,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       cancelled = true
     }
   }, [token])
+
+  const messageLayout: 'chat' | 'email' =
+    detail && resolveComposerSurface(detail.thread).channel === 'email' ? 'email' : 'chat'
 
   const groups = useMemo<DayGroup[]>(() => {
     if (!detail) return []
@@ -356,7 +361,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   // The detail fetch failed. Surface the actual error to the user instead
   // of silently showing the "Selecteer een thread" placeholder, which hides
-  // backend issues (e.g. the Xano runtime errors that previously slipped
+  // backend issues (e.g. runtime errors that previously slipped
   // through unnoticed).
   if (error && threadId != null) {
     return (
@@ -442,6 +447,25 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               <TooltipContent side="bottom">Delete</TooltipContent>
             </Tooltip>
           ) : null}
+          {onToggleTakeover && ['widget', 'chat', 'assistant'].includes(thread.channel ?? '') ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={saving || loading}
+                  onClick={() => void onToggleTakeover()}
+                  aria-label={thread.aiPaused ? 'Hand back to AI' : 'Take over from AI'}
+                  aria-pressed={thread.aiPaused}
+                  className={`${HEADER_ICON}${thread.aiPaused ? ' text-accent' : ''}`}
+                >
+                  {thread.aiPaused ? <Bot size={14} /> : <Hand size={14} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {thread.aiPaused ? 'Hand back to AI' : 'Take over from AI'}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           {onTogglePin ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -467,7 +491,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <button
                   type="button"
                   onClick={onToggleContact}
-                  aria-label={contactOpen ? 'Hide orchestration panel' : 'Show orchestration panel'}
+                  aria-label={contactOpen ? 'Hide details' : 'Show details'}
                   aria-pressed={contactOpen}
                   className={`${HEADER_ICON}${contactOpen ? ' text-accent' : ''}`}
                 >
@@ -475,7 +499,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {contactOpen ? 'Hide orchestration panel' : 'Show orchestration panel'}
+                {contactOpen ? 'Hide details' : 'Show details'}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -519,6 +543,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     ) : (
                       <MessageTimelineItem
                         message={entry.data}
+                        layout={messageLayout}
                         contactName={thread.contactName}
                         contactEmail={thread.contactEmail}
                         contactPhone={thread.contactPhone}

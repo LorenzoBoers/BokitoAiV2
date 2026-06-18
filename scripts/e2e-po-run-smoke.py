@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 
 WORKER_SECRET = "97e28b2fa528dfd1b9863d9a464225618d21970d6821cd953965fd172f720991"
-XANO = "https://xrex-nmji-j9ur.f2.xano.io/api:workforce"
+API_BASE = "https://api.bokito.nl/api/workforce"
 WORKER_KEY = "SBP1e-dbWgRcgchFVME6pGKy2VCigp6yR4tkPGsj51I"
 PROJECT = "7baa7578-2119-40a5-bbde-b1bb3e2ef27d"
 TENANT = "067ebc22-6aac-4986-868b-857bc1c55f5f"
@@ -37,7 +37,7 @@ def main():
         time.sleep(10)
         try:
             _, ctx = post(
-                f"{XANO}/runs/context",
+                f"{API_BASE}/runs/context",
                 {
                     "worker_api_key": WORKER_KEY,
                     "project_id": PROJECT,
@@ -52,7 +52,7 @@ def main():
         # lightweight: post empty events merge to verify auth (optional)
         try:
             post(
-                f"{XANO}/work_logs/{wl}/events",
+                f"{API_BASE}/work_logs/{wl}/events",
                 {"auth_token": wl, "events": []},
             )
         except urllib.error.HTTPError as e:
@@ -61,7 +61,7 @@ def main():
                 print("events auth check", e.code, body[:200])
 
     print("work_log_id", wl)
-    print("Check Xano work_logs/messages tables for final status and task_result")
+    print("Check FastAPI work_logs/messages tables for final status and task_result")
     return 0
 
 

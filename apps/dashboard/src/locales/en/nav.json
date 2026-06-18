@@ -598,7 +598,7 @@
       "adminTitle": "Platform requirements",
       "adminBody": "Remote MCP requires the integrations API patches, runtime OAuth service, and per-vendor OAuth apps. Until configured, providers stay in Coming soon status.",
       "devTitle": "Developer documentation (repository)",
-      "devBody": "Technical setup guides live in the GitHub repository for engineers deploying Xano and runtime:"
+      "devBody": "Technical setup guides live in the GitHub repository for engineers deploying the API and runtime:"
     },
     "sources": {
       "description": "Indexed documentation and knowledge sources for AI agents. Sources become searchable as soon as indexing is active.",

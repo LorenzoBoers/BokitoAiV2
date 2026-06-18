@@ -172,6 +172,17 @@ async def test_tag_filter(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
+async def test_signal_badge_counts(client: AsyncClient):
+    headers = await _auth_headers(client)
+    res = await client.get("/api/signals/badge-counts", headers=headers)
+    assert res.status_code == 200
+    body = res.json()
+    assert "inbox_unread" in body
+    assert "agents_attention" in body
+    assert set(body["inbox_by_queue"].keys()) == {"my", "unassigned", "all"}
+
+
+@pytest.mark.asyncio
 async def test_signal_model_extensions(session_override):
     from app.models.auth import Tenant
 

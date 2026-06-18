@@ -62,6 +62,7 @@ def workspace_payload(tenant: Tenant, role: str) -> dict[str, Any]:
         merged_livechat["logo"] = _asset_object(logo_url)
     if favicon_url:
         merged_livechat["favicon"] = _asset_object(favicon_url)
+    security = settings.get("security") if isinstance(settings.get("security"), dict) else {}
     return {
         "id": str(tenant.id),
         "workspace_id": tenant_numeric_id(tenant.id),
@@ -71,6 +72,7 @@ def workspace_payload(tenant: Tenant, role: str) -> dict[str, Any]:
         "logo": logo_url or None,
         "favicon": favicon_url or None,
         "brand_color": main_color or None,
+        "require_2fa": bool(security.get("require_2fa", False)),
         "livechat_settings": merged_livechat,
         "role": role,
         "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
@@ -196,10 +198,35 @@ async def update_workspace(
         livechat = settings.setdefault("livechat_settings", {})
         if isinstance(livechat, dict):
             livechat["main_color"] = data["brand_color"].strip()
+    if "require_2fa" in data and isinstance(data["require_2fa"], bool):
+        security = settings.setdefault("security", {})
+        if not isinstance(security, dict):
+            security = {}
+            settings["security"] = security
+        security["require_2fa"] = data["require_2fa"]
     save_settings(tenant, settings)
     await session.commit()
     await session.refresh(tenant)
     return workspace_payload(tenant, role)
+
+
+async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
+    """Purge a tenant and every tenant-scoped row.
+
+    All domain tables carry a `tenant_id` column, so we delete from each table
+    that has one (children before parents) and finally the tenant itself.
+    """
+    from sqlalchemy import delete as sa_delete
+    from sqlmodel import SQLModel
+
+    tenant_id = tenant.id
+    for table in reversed(SQLModel.metadata.sorted_tables):
+        if table.name == "tenants":
+            continue
+        if "tenant_id" in table.c:
+            await session.execute(sa_delete(table).where(table.c.tenant_id == tenant_id))
+    await session.execute(sa_delete(Tenant.__table__).where(Tenant.__table__.c.id == tenant_id))
+    await session.commit()
 
 
 async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:

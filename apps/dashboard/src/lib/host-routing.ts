@@ -126,7 +126,7 @@ export function sanitizeCrossHostReturnTo(raw: string | null): string | null {
 /**
  * Cross-host access token handoff via URL hash.
  *
- * Backend `/api:auth/refresh` is not exposed, so the tenant origin cannot derive an access
+ * Backend `//api/auth/refresh` is not exposed, so the tenant origin cannot derive an access
  * token from the wildcard refresh cookie alone. Instead, the control plane (app host) appends
  * the active access token as a one-time URL fragment when redirecting to a sibling origin
  * inside the same root domain (`*.bokito.ai` in prod or `*.localhost` in dev). The fragment is

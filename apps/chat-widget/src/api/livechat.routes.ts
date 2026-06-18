@@ -1,5 +1,5 @@
 /**
- * Relative paths on the livechat API group (`/api:livechat`).
+ * Relative paths on the livechat API group (`/api/livechat`).
  * Used by widget-main.ts; keep in sync with MULTI_TENANT_BACKEND_CONTRACT.md.
  */
 export const livechatRoutes = {

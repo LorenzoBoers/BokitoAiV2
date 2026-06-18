@@ -2,7 +2,7 @@
 
 Last updated: May 2026
 
-Xano is the system of record for auth, tenant data, livechat, workforce, integrations, and static hosting. Platform table definitions: [`xano-patches/v1-platform-tables.md`](../../xano-patches/v1-platform-tables.md).
+FastAPI is the system of record for auth, tenant data, livechat, workforce, integrations, and static hosting. Platform table definitions: [`docs/archived/v1-platform-tables.md`](../../docs/archived/v1-platform-tables.md).
 
 ## API groups
 
@@ -16,9 +16,9 @@ Xano is the system of record for auth, tenant data, livechat, workforce, integra
 | Logs | `logs` | Audit / event logs |
 | Bakermat | `bakermat` | Design configurator (separate product line) |
 
-Frontend builds URLs as `{origin}/api/{group}/...` (proxied to `/api:{group}/...` on Xano).
+Frontend builds URLs as `{origin}/api/{group}/...` (proxied to `/api:{group}/...` on FastAPI).
 
-**Example base:** `https://xrex-nmji-j9ur.f2.xano.io`
+**Example base:** `https://api.bokito.nl`
 
 ## Tenant scoping
 

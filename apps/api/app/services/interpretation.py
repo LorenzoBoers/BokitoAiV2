@@ -27,7 +27,9 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
     from app.services.model_resolution import record_usage, resolve_model_call
 
     resolved = await resolve_model_call(session, tenant_id, kind="chat")
-    llm = get_chat_provider(resolved.provider, resolved.api_key)
+    llm = get_chat_provider(
+        resolved.provider_type, resolved.api_key, resolved.base_url or None
+    )
     prompt = (
         "Classify this inbound signal. Reply with JSON only:\n"
         '{"category":"support|sales|billing|other","urgency":0-100,"impact":0-100,'

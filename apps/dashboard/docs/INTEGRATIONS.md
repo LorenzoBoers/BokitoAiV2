@@ -1,13 +1,13 @@
 # Integrations — developer guide
 
-How to add or extend integrations in the dashboard marketplace (`/integrations/marketplace`) and on Xano (`api:integrations`).
+How to add or extend integrations in the dashboard marketplace (`/integrations/marketplace`) and on FastAPI (`/api/integrations`).
 
 **Related docs**
 
 - Product behavior: `BOKITO_KNOWLEDGE.md` section 2.6
-- Xano deploy checklist: `xano-patches/v1/INTEGRATIONS-PLATFORM.md`
+- FastAPI deploy checklist: `docs/archived/v1/INTEGRATIONS-PLATFORM.md`
 - API env and route pattern: `apps/dashboard/API_CONFIGURATION.md`
-- Provider seed UUIDs: `xano-patches/v1/integration-providers-seed.md`
+- Provider seed UUIDs: `docs/archived/v1/integration-providers-seed.md`
 - Frontend provider registry: `apps/dashboard/src/lib/integrations/registry.ts`
 
 ---
@@ -58,8 +58,8 @@ Unified tables: `integration_hosts` → `integration_providers` → `integration
 |-------|------------------|------------------------------|------------------------------|
 | **Registry** | Entry in `registry.ts` | Entry + `oauthStrategy: 'github'` or `'platform'` | Entry + `oauthStrategy: 'inbox'` |
 | **Static catalog** | `integrations-data.ts` | Same | Same |
-| **Xano seed** | `integration-providers-seed.md` | Same + OAuth env | Same (catalog only for inbox) |
-| **Xano API** | Often none (use `mcp/install`) | `integrations-oauth-start.xs` branch or `/github/*` patches | `/email/oauth/start` pattern |
+| **FastAPI seed** | `integration-providers-seed.md` | Same + OAuth env | Same (catalog only for inbox) |
+| **FastAPI API** | Often none (use `mcp/install`) | `integrations-oauth-start.xs` branch or `/github/*` patches | `/email/oauth/start` pattern |
 | **Routes** | `integrations.routes.ts` if new paths | `github.routes.ts` or `integrations.routes.ts` | `integrations.routes.ts` (email section) |
 | **OAuth callback** | N/A | `integrations-oauth-callback.xs` or `github/oauth/callback` | `oauth/microsoft/callback`, `oauth/google/callback` |
 | **i18n** | `locales/*/nav.json` | Same | Same |
@@ -68,7 +68,7 @@ Unified tables: `integration_hosts` → `integration_providers` → `integration
 
 ## Checklist: MCP provider (fastest path)
 
-### 1. Xano
+### 1. FastAPI
 
 - [ ] Row in `integration_providers`: `auth_type: api_key`, `capabilities: {"mcp_tools": true}`, fixed UUID in seed doc
 - [ ] Row in `integration_hosts` + logo upload
@@ -92,9 +92,9 @@ Unified tables: `integration_hosts` → `integration_providers` → `integration
 
 ## Checklist: remote MCP OAuth provider
 
-Vendor-hosted MCP servers (Notion, Linear, Slack, etc.) use OAuth 2.1 + PKCE. Token exchange is implemented in **`apps/runtime/src/mcp-oauth/`**; Xano stores state and connections.
+Vendor-hosted MCP servers (Notion, Linear, Slack, etc.) use OAuth 2.1 + PKCE. Token exchange is implemented in **`apps/runtime/src/mcp-oauth/`**; FastAPI stores state and connections.
 
-### 1. Xano
+### 1. FastAPI
 
 - [ ] Columns on `integration_providers`: `mcp_remote_url`, `mcp_transport`, `oauth_profile`; `auth_type: mcp_remote_oauth`
 - [ ] Columns on `integration_oauth_states`: `code_verifier`, `oauth_client_id`, `mcp_remote_url`, `oauth_profile`
@@ -122,7 +122,7 @@ Vendor-hosted MCP servers (Notion, Linear, Slack, etc.) use OAuth 2.1 + PKCE. To
 - [ ] `GET /integrations/mcp/bindings` shows `remote_oauth` config
 - [ ] `POST /integrations/worker/mcp-credentials` returns access token for agents
 
-Adding provider #11: seed + env + `mcp-remote-providers.ts` only (no new Xano `if provider ==` branches).
+Adding provider #11: seed + env + `mcp-remote-providers.ts` only (no new FastAPI `if provider ==` branches).
 
 ---
 
@@ -130,7 +130,7 @@ Adding provider #11: seed + env + `mcp-remote-providers.ts` only (no new Xano `i
 
 Use for code hosts with OAuth2 and repo indexing. Today GitHub uses a **dedicated** `/github/oauth/start` endpoint (dual-write to `github_oauth_states` and `integration_oauth_states`). New providers can either copy the GitHub patch set or extend generic `integrations/oauth/start` and use `oauthStrategy: 'platform'` in the registry.
 
-### 1. Xano
+### 1. FastAPI
 
 - [ ] Tables: `github_oauth_states` (or reuse `integration_oauth_states` only), `integration_connections`, optional legacy connection table during migration
 - [ ] OAuth app at provider; redirect URI = `GET /github/oauth/callback` or `GET /integrations/oauth/callback`
@@ -160,7 +160,7 @@ Use for code hosts with OAuth2 and repo indexing. Today GitHub uses a **dedicate
 
 Inbox providers appear in the unified catalog but store connections in **`email_oauth_connection`**, not `integration_connections`.
 
-### 1. Xano
+### 1. FastAPI
 
 - [ ] Provider seed for marketplace (`outlook`, `gmail`)
 - [ ] `GET /email/oauth/start?provider=outlook|gmail` (or dedicated outlook/google start endpoints)
@@ -184,17 +184,17 @@ Inbox providers appear in the unified catalog but store connections in **`email_
 
 ---
 
-## Deploying Xano API patches
+## Deploying FastAPI API patches
 
-1. Apply tables from `xano-patches/v1-platform-tables.md`.
-2. Follow `xano-patches/v1/INTEGRATIONS-PLATFORM.md` for the full endpoint list.
-3. Push to workspace via Xano UI, VS Code Xano extension, or metadata API:
+1. Apply tables from `docs/archived/v1-platform-tables.md`.
+2. Follow `docs/archived/v1/INTEGRATIONS-PLATFORM.md` for the full endpoint list.
+3. Push to workspace via FastAPI UI, VS Code FastAPI extension, or metadata API:
 
 ```bash
-node scripts/push-xano-api.mjs <api_id> xano-patches/v1/<file>.xs
+node scripts/push-platform-api.mjs <api_id> docs/archived/v1/<file>.xs
 ```
 
-Requires root `.env`: `XANO_METADATA_API_KEY`, optional `XANO_META_BASE_URL`.
+Requires root `.env`: `BOKITO_METADATA_API_KEY`, optional `BOKITO_META_BASE_URL`.
 
 **Important:** Patches in git are not live until deployed. A 404 on `/github/oauth/start` usually means the patch was never pushed.
 
@@ -215,7 +215,7 @@ Requires root `.env`: `XANO_METADATA_API_KEY`, optional `XANO_META_BASE_URL`.
 
 ## Smoke verification (local dev)
 
-Base: `http://bokito.localhost:5174` with Vite proxy to Xano (`/api/integrations/...`).
+Base: `http://bokito.localhost:5174` with Vite proxy to FastAPI (`/api/integrations/...`).
 
 | Check | Expected |
 |-------|----------|
@@ -230,8 +230,8 @@ Base: `http://bokito.localhost:5174` with Vite proxy to Xano (`/api/integrations
 ## Adding a sixth provider (summary)
 
 1. Choose path: **MCP**, **repo OAuth**, or **inbox OAuth** (table above).
-2. Add Xano seed + patches; deploy to workspace.
+2. Add FastAPI seed + patches; deploy to workspace.
 3. Add registry entry + static card (slug maps follow registry).
 4. Run smoke checks; update `BOKITO_KNOWLEDGE.md` if product behavior changes.
 
-Future work (not required for every provider): unify inbox into `integration_connections`, drive OAuth env from `oauth_config_key` in Xano metadata, single generic OAuth router without per-provider `conditional` blocks.
+Future work (not required for every provider): unify inbox into `integration_connections`, drive OAuth env from `oauth_config_key` in FastAPI metadata, single generic OAuth router without per-provider `conditional` blocks.

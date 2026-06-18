@@ -4,6 +4,24 @@
  * Widget preview uses the same keys in data-preview-overrides JSON.
  */
 
+export type MessengerModuleKey = 'home' | 'messages' | 'help' | 'changelog'
+
+export const MESSENGER_MODULE_KEYS: MessengerModuleKey[] = ['home', 'messages', 'help', 'changelog']
+
+export const MESSENGER_MODULE_LABELS: Record<MessengerModuleKey, string> = {
+  home: 'Home',
+  messages: 'Messages',
+  help: 'Help',
+  changelog: 'Changelog',
+}
+
+export const DEFAULT_MESSENGER_MODULES: Record<MessengerModuleKey, boolean> = {
+  home: true,
+  messages: true,
+  help: true,
+  changelog: false,
+}
+
 export interface MessengerAppearance {
   main_color: string
   welcome_title: string
@@ -11,6 +29,8 @@ export interface MessengerAppearance {
   chatbot_name: string
   /** Resolved public URL for widget header favicon; null when unset */
   widget_favicon_url: string | null
+  /** Which messenger modules are surfaced in the widget. */
+  modules: Record<MessengerModuleKey, boolean>
 }
 
 export const DEFAULT_MESSENGER_APPEARANCE: MessengerAppearance = {
@@ -19,6 +39,16 @@ export const DEFAULT_MESSENGER_APPEARANCE: MessengerAppearance = {
   welcome_subtitle: '',
   chatbot_name: '',
   widget_favicon_url: null,
+  modules: { ...DEFAULT_MESSENGER_MODULES },
+}
+
+function normalizeModules(raw: unknown): Record<MessengerModuleKey, boolean> {
+  const source = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const result = { ...DEFAULT_MESSENGER_MODULES }
+  for (const key of MESSENGER_MODULE_KEYS) {
+    if (typeof source[key] === 'boolean') result[key] = source[key] as boolean
+  }
+  return result
 }
 
 function str(v: unknown): string {
@@ -74,6 +104,7 @@ export function normalizeMessengerAppearance(
     welcome_subtitle: welcomeSub,
     chatbot_name: chatbotName,
     widget_favicon_url: fav,
+    modules: normalizeModules(rawAppearance.modules),
   }
 }
 
@@ -96,7 +127,8 @@ export function messengerAppearanceEquals(a: MessengerAppearance, b: MessengerAp
     a.welcome_title === b.welcome_title &&
     a.welcome_subtitle === b.welcome_subtitle &&
     a.chatbot_name === b.chatbot_name &&
-    a.widget_favicon_url === b.widget_favicon_url
+    a.widget_favicon_url === b.widget_favicon_url &&
+    MESSENGER_MODULE_KEYS.every((key) => a.modules[key] === b.modules[key])
   )
 }
 
@@ -107,5 +139,6 @@ export function appearanceToBrandingJson(a: MessengerAppearance): Record<string,
     welcome_title: a.welcome_title.trim(),
     welcome_subtitle: a.welcome_subtitle.trim(),
     chatbot_name: a.chatbot_name.trim(),
+    modules: { ...a.modules },
   }
 }

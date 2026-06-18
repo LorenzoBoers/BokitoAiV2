@@ -61,7 +61,7 @@ export interface Integration {
   connectedSince?: string
 }
 
-/** Slugs registered in Xano `integration_providers` (see integration-providers-seed.md). */
+/** Slugs registered in `integration_providers` (platform seed). */
 export const PLATFORM_PROVIDER_SLUGS = [
   'github',
   'outlook',

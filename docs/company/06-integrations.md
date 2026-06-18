@@ -2,7 +2,7 @@
 
 Last updated: May 2026
 
-The integrations module connects external services: communication (email), source control (GitHub), and MCP servers. Deep developer guide: [`apps/dashboard/docs/INTEGRATIONS.md`](../../apps/dashboard/docs/INTEGRATIONS.md). Backend deploy notes: [`xano-patches/v1/INTEGRATIONS-PLATFORM.md`](../../xano-patches/v1/INTEGRATIONS-PLATFORM.md).
+The integrations module connects external services: communication (email), source control (GitHub), and MCP servers. Deep developer guide: [`apps/dashboard/docs/INTEGRATIONS.md`](../../apps/dashboard/docs/INTEGRATIONS.md). Backend deploy notes: [`docs/archived/v1/INTEGRATIONS-PLATFORM.md`](../../docs/archived/v1/INTEGRATIONS-PLATFORM.md).
 
 ## Portal routes
 
@@ -64,7 +64,7 @@ Email OAuth lives on Authentication / Integrations API groups:
 
 Mailbox management UI: `/settings/inbox` (folders, signature). Marketplace starts OAuth with return URL to marketplace.
 
-**Env (Xano):** `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI`, `GOOGLE_*` equivalents, `dashboard_outlook_return_url`.
+**Env (FastAPI):** `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI`, `GOOGLE_*` equivalents, `dashboard_outlook_return_url`.
 
 ## MCP
 
@@ -84,7 +84,7 @@ Unified `index_chunks` with `source_type` values including `repo_file`, `tenant_
 | Pattern | When |
 |---------|------|
 | Central provider callback | `GET /oauth/microsoft/callback`, `/oauth/google/callback` on integrations group |
-| App-group callback | Legacy email-specific routes on `api:app` |
+| App-group callback | Legacy email-specific routes on `/api/app` |
 | State table | `email_outlook_oauth_state` with `return_url`, `feature` for routing |
 
 Redirect URI in authorize URL must **exactly** match Entra / Google Cloud console registration.

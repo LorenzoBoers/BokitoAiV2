@@ -2,7 +2,7 @@
 
 Last updated: May 2026
 
-Customer-facing chat is delivered via an **embeddable web widget** and a **mobile app**. Both use Xano livechat APIs with tenant-aware session start.
+Customer-facing chat is delivered via an **embeddable web widget** and a **mobile app**. Both use FastAPI livechat APIs with tenant-aware session start.
 
 Widget backend contract: [`apps/chat-widget/MULTI_TENANT_BACKEND_CONTRACT.md`](../../apps/chat-widget/MULTI_TENANT_BACKEND_CONTRACT.md).
 
@@ -12,9 +12,9 @@ Widget backend contract: [`apps/chat-widget/MULTI_TENANT_BACKEND_CONTRACT.md`](.
 
 ```html
 <script
-  src="https://<xano-host>/api:livechat/script/main"
+  src="https://<platform-host>/api/livechat/script/main"
   data-agent-slug="demo"
-  data-api-url="https://<xano-host>"
+  data-api-url="https://<platform-host>"
   defer>
 </script>
 ```
@@ -25,7 +25,7 @@ Built bundle: `apps/chat-widget/dist/bokito-chat.js` (IIFE). Source: `apps/chat-
 
 ### Tenant awareness
 
-`POST /api:livechat/session/start` accepts optional `tenant_subdomain`. Backend validates the agent belongs to that tenant subdomain; otherwise returns tenant not found.
+`POST /api/livechat/session/start` accepts optional `tenant_subdomain`. Backend validates the agent belongs to that tenant subdomain; otherwise returns tenant not found.
 
 ### Features
 
@@ -37,14 +37,14 @@ Built bundle: `apps/chat-widget/dist/bokito-chat.js` (IIFE). Source: `apps/chat-
 - Image attachments, agent mode banner for human handoff
 - Light/dark theme via CSS variables from agent config
 
-### Dual chat pipeline (Xano)
+### Dual chat pipeline (FastAPI)
 
 | Pipeline | Behavior |
 |----------|----------|
 | `legacy` (default) | Claude/router stack |
-| `xano_native` | Built-in Xano AI Agent |
+| `bokito_native` | Built-in FastAPI AI Agent |
 
-Selected per agent via `chat_pipeline` and optional `xano_agent_id` in `agent_config` from `session/start`. SSE contract must stay compatible: `{ "t": "..." }` chunks, `{ "type": "done", ... }`, optional `page_context_needed`.
+Selected per agent via `chat_pipeline` and optional `platform_agent_id` in `agent_config` from `session/start`. SSE contract must stay compatible: `{ "t": "..." }` chunks, `{ "type": "done", ... }`, optional `page_context_needed`.
 
 Configurable paths: `stream_chat_path`, `stream_chat_continue_path`, `transcribe_path`.
 

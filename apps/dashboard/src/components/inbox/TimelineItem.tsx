@@ -1,15 +1,19 @@
 import { Mail, Phone, StickyNote, User } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 import { getDomainFaviconUrl } from '../../lib/domain-favicon'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { useTheme } from '../../context/ThemeContext'
+import { useAuth } from '../../context/AuthContext'
 import type { InboxEvent, InboxMessage, InboxMember } from '../../lib/inbox-api'
+
+type MessageLayout = 'chat' | 'email'
 
 type MessageItemProps = {
   message: InboxMessage
+  layout?: MessageLayout
   contactName?: string
   contactEmail?: string
   contactPhone?: string
@@ -255,7 +259,78 @@ const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName
   reopened: () => 'Heropend',
 }
 
-export function MessageTimelineItem({ message, contactName, contactEmail, contactPhone, membersById }: MessageItemProps) {
+// Chat-style bubble: avatar on one side, message bubble constrained to a
+// portion of the width so left/right alignment is clearly visible.
+function ChatMessageBubble({
+  side,
+  avatar,
+  header,
+  body,
+  internal,
+}: {
+  side: 'left' | 'right'
+  avatar: ReactNode
+  header: ReactNode
+  body: ReactNode
+  internal?: boolean
+}) {
+  const isRight = side === 'right'
+  return (
+    <div className={cn('flex items-end gap-2', isRight ? 'justify-end' : 'justify-start')}>
+      {isRight ? null : avatar}
+      <div
+        className={cn(
+          'max-w-[78%] min-w-0 rounded-2xl border px-3 py-2',
+          isRight ? 'rounded-br-sm' : 'rounded-bl-sm',
+          internal
+            ? 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30'
+            : isRight
+              ? 'bg-bg-surface border-border/50 ring-1 ring-accent/10 dark:ring-accent/15'
+              : 'bg-bg-surface border-border/50',
+        )}
+      >
+        {header}
+        {body}
+      </div>
+      {isRight ? avatar : null}
+    </div>
+  )
+}
+
+// Email-style block: full width, left-aligned, flat card (no chat bubble
+// corners) regardless of direction.
+function EmailMessageBlock({
+  avatar,
+  header,
+  body,
+  internal,
+}: {
+  avatar: ReactNode
+  header: ReactNode
+  body: ReactNode
+  internal?: boolean
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      {avatar}
+      <div
+        className={cn(
+          'w-full min-w-0 rounded-lg border px-3 py-2',
+          internal
+            ? 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30'
+            : 'bg-bg-surface border-border/50',
+        )}
+      >
+        {header}
+        {body}
+      </div>
+    </div>
+  )
+}
+
+export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById }: MessageItemProps) {
+  const { user } = useAuth()
+  const currentUserId = user?.id ?? null
   const isInternal = message.direction === 'internal'
   const isOutbound = message.direction === 'outbound'
   const isInbound = !isInternal && !isOutbound
@@ -276,55 +351,66 @@ export function MessageTimelineItem({ message, contactName, contactEmail, contac
     <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">{message.bodyPreview}</p>
   )
 
-  if (isInbound) {
+  const contactAvatar = (
+    <ContactAvatar email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
+  )
+  const userAvatar = (
+    <UserAvatar name={authorName} email={authorEmail || authorName} avatarUrl={authorAvatarUrl} size={28} />
+  )
+
+  const inboundHeader = (
+    <div className="flex items-baseline gap-1.5 mb-1 min-w-0">
+      <span className="font-medium text-text-heading text-xs truncate">{inboundName}</span>
+      {inboundEmail && inboundEmail !== inboundName ? (
+        <span className="text-[10px] text-text-muted truncate">{inboundEmail}</span>
+      ) : null}
+    </div>
+  )
+  const outboundHeader = (
+    <div className="flex items-center gap-1.5 mb-1 min-w-0">
+      {isInternal ? <StickyNote size={12} className="text-yellow-600 shrink-0" /> : null}
+      <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
+      <span className="text-[10px] text-text-muted shrink-0">
+        {isInternal ? 'Interne notitie' : 'Verstuurd'}
+      </span>
+    </div>
+  )
+
+  // Email threads: never use chat-style left/right alignment. Render every
+  // message as a full-width, left-aligned card.
+  if (layout === 'email') {
     return (
-      <div className="flex items-end gap-2 justify-start">
-        <ContactAvatar email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
-        <div
-          className={cn(
-            'w-full max-w-3xl min-w-0 rounded-2xl rounded-bl-sm border px-3 py-2',
-            'bg-bg-surface border-border/50',
-          )}
-        >
-          <div className="flex items-baseline gap-1.5 mb-1 min-w-0">
-            <span className="font-medium text-text-heading text-xs truncate">{inboundName}</span>
-            {inboundEmail && inboundEmail !== inboundName ? (
-              <span className="text-[10px] text-text-muted truncate">{inboundEmail}</span>
-            ) : null}
-          </div>
-          {bubbleBody}
-        </div>
-      </div>
+      <EmailMessageBlock
+        avatar={isInbound ? contactAvatar : userAvatar}
+        header={isInbound ? inboundHeader : outboundHeader}
+        body={bubbleBody}
+        internal={isInternal}
+      />
     )
   }
 
-  // Outbound or internal note: right-aligned, avatar on the right
+  // Chat layout. Inbound messages go left with the contact avatar.
+  if (isInbound) {
+    return (
+      <ChatMessageBubble side="left" avatar={contactAvatar} header={inboundHeader} body={bubbleBody} />
+    )
+  }
+
+  // Outbound / internal: only the logged-in user's own messages align right.
+  // Messages sent by a colleague stay left, labelled with their name.
+  const isOwn =
+    message.authorUserId != null &&
+    currentUserId != null &&
+    message.authorUserId === currentUserId
+
   return (
-    <div className="flex items-end gap-2 justify-end">
-      <div
-        className={cn(
-          'w-full max-w-3xl min-w-0 rounded-2xl rounded-br-sm border px-3 py-2',
-          isInternal
-            ? 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30'
-            : 'bg-bg-surface border-border/50 ring-1 ring-accent/10 dark:ring-accent/15',
-        )}
-      >
-        <div className="flex items-center gap-1.5 mb-1 min-w-0">
-          {isInternal ? <StickyNote size={12} className="text-yellow-600 shrink-0" /> : null}
-          <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
-          <span className="text-[10px] text-text-muted shrink-0">
-            {isInternal ? 'Interne notitie' : 'Verstuurd'}
-          </span>
-        </div>
-        {bubbleBody}
-      </div>
-      <UserAvatar
-        name={authorName}
-        email={authorEmail || authorName}
-        avatarUrl={authorAvatarUrl}
-        size={28}
-      />
-    </div>
+    <ChatMessageBubble
+      side={isOwn ? 'right' : 'left'}
+      avatar={userAvatar}
+      header={outboundHeader}
+      body={bubbleBody}
+      internal={isInternal}
+    />
   )
 }
 

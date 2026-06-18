@@ -14,6 +14,7 @@ import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import VerifyEmail from './pages/VerifyEmail'
 import Onboarding from './pages/Onboarding'
 
 // Chat (default surface)
@@ -38,7 +39,6 @@ import WorkspaceDocs from './pages/WorkspaceDocs'
 // Settings sections
 import ProfileSettings from './pages/ProfileSettings'
 import MyAssistantSettings from './pages/MyAssistantSettings'
-import LlmKeysSettings from './pages/LlmKeysSettings'
 import ModelsSettings from './pages/ModelsSettings'
 import NotificationSettings from './pages/NotificationSettings'
 import WorkspaceSettings from './pages/WorkspaceSettings'
@@ -185,6 +185,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/onboarding" element={<Onboarding />} />
 
       <Route element={<ProtectedRoute />}>
@@ -287,7 +288,6 @@ export default function App() {
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/autonomy" element={<GovernPage />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
-            <Route path="/settings/llm-keys" element={<LlmKeysSettings />} />
             <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
             <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
           </Route>

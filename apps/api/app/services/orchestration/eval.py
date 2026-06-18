@@ -62,7 +62,9 @@ async def run_eval_checkpoint(
         from app.services.model_resolution import record_usage, resolve_model_call
 
         resolved = await resolve_model_call(session, tenant_id, kind="chat")
-        llm = get_chat_provider(resolved.provider, resolved.api_key)
+        llm = get_chat_provider(
+            resolved.provider_type, resolved.api_key, resolved.base_url or None
+        )
         judge_prompt = (
             f"Evaluate this agent output against the rubric.\n\nRubric:\n{rubric}\n\n"
             f"Output:\n{output_text[:4000]}\n\n"

@@ -10,6 +10,8 @@ import {
   markThreadUnread,
   pinThread,
   unpinThread,
+  takeoverThread,
+  releaseThread,
   type ThreadDetail,
   type PatchThreadInput,
   type ReplyInput,
@@ -224,5 +226,33 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
     [token, threadId],
   )
 
-  return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote, markUnread, togglePin }
+  // Human takeover: pause/resume the AI on this thread. Updates local state
+  // optimistically, then persists. A widget visitor sees staff replies live via
+  // the gateway; while paused the AI stops auto-replying.
+  const toggleTakeover = useCallback(
+    async (currentPaused: boolean): Promise<boolean> => {
+      if (!token || !threadId) return currentPaused
+      const next = !currentPaused
+      setRawDetail((prev) =>
+        prev ? { ...prev, thread: { ...prev.thread, aiPaused: next } } : prev,
+      )
+      try {
+        const result = next
+          ? await takeoverThread(token, threadId)
+          : await releaseThread(token, threadId)
+        setRawDetail((prev) =>
+          prev ? { ...prev, thread: { ...prev.thread, aiPaused: result } } : prev,
+        )
+        return result
+      } catch {
+        setRawDetail((prev) =>
+          prev ? { ...prev, thread: { ...prev.thread, aiPaused: currentPaused } } : prev,
+        )
+        throw new Error(next ? 'Kon thread niet overnemen.' : 'Kon AI niet hervatten.')
+      }
+    },
+    [token, threadId],
+  )
+
+  return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote, markUnread, togglePin, toggleTakeover }
 }

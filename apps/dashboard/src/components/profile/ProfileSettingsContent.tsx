@@ -1,11 +1,12 @@
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, LaptopMinimal, Lock, Moon, Pencil, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { authRoutes } from '../../api/routes/auth.routes'
-import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders } from '../../lib/api'
+import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders, resendVerificationEmail } from '../../lib/api'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 
@@ -237,11 +238,12 @@ function ThemeOption({ label, icon, active, onClick, variant }: {
 
 export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?: boolean }) {
   const { t, i18n } = useTranslation(['profile', 'common'])
-  const { user, token, logout, patchLocalUser } = useAuth()
+  const { user, token, logout, patchLocalUser, refreshUser } = useAuth()
   const { mode, setMode } = useTheme()
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [verifySending, setVerifySending] = useState(false)
 
   const handleAvatarChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -293,8 +295,26 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
   const saveEmail = useCallback(async (next: string) => {
     if (!token) return
     await apiPatchAuth(authRoutes.profile.patch, { email: next }, token)
-    patchLocalUser({ email: next })
-  }, [token, patchLocalUser])
+    patchLocalUser({ email: next, emailVerified: false })
+    void refreshUser()
+  }, [token, patchLocalUser, refreshUser])
+
+  const handleResendVerification = useCallback(async () => {
+    if (!user?.email) return
+    setVerifySending(true)
+    try {
+      const result = await resendVerificationEmail(user.email)
+      if (result.dev_link) {
+        toast.success('Verification email sent. Check the dev link in the API response or server logs.')
+      } else {
+        toast.success('Verification email sent if applicable.')
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not resend verification email')
+    } finally {
+      setVerifySending(false)
+    }
+  }, [user?.email])
 
   const saveJobTitle = useCallback(async (next: string) => {
     if (!token) return
@@ -358,6 +378,18 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
             type="email"
             onSave={saveEmail}
           />
+
+          {!securityOnly && user && !user.emailVerified ? (
+            <div className="flex items-center justify-between gap-3 border-b border-border/50 py-3.5 pr-4">
+              <div>
+                <p className="text-sm font-medium text-text-heading">Email verification</p>
+                <p className="text-xs text-text-muted">Confirm your email address to secure the account.</p>
+              </div>
+              <Button size="sm" variant="secondary" disabled={verifySending} onClick={() => void handleResendVerification()}>
+                {verifySending ? 'Sending...' : 'Resend email'}
+              </Button>
+            </div>
+          ) : null}
 
           {/* Name */}
           <EditableField

@@ -95,7 +95,11 @@ class AgentLoop:
         self.resolved_call = await resolve_model_call(
             self.session, self.tenant_id, kind="chat", model_slug=model_slug
         )
-        self.llm = get_chat_provider(self.resolved_call.provider, self.resolved_call.api_key)
+        self.llm = get_chat_provider(
+            self.resolved_call.provider_type,
+            self.resolved_call.api_key,
+            self.resolved_call.base_url or None,
+        )
 
         user_query = ""
         if messages:

@@ -9,14 +9,12 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from './AuthContext'
-import { useIsAdmin } from '../hooks/useIsAdmin'
-import { listThreads } from '../lib/inbox-api'
+import { fetchSignalBadgeCounts } from '../lib/signals-api'
 import { onGatewayEvent } from '../lib/gateway'
 
 // Slow fallback poll; live updates arrive over the gateway WS.
 const POLL_MS = 120_000
 const GATEWAY_DEBOUNCE_MS = 1_500
-const PER_PAGE = 50
 
 export type NavBadgeCounts = {
   inboxUnread: number
@@ -30,8 +28,21 @@ const EMPTY_COUNTS: NavBadgeCounts = {
   agentsAttention: 0,
 }
 
-function countUnread(items: { hasUnread: boolean }[]): number {
-  return items.filter((t) => t.hasUnread).length
+function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCounts>>): NavBadgeCounts {
+  return {
+    inboxUnread: payload.inbox_unread,
+    inboxByQueue: {
+      my: payload.inbox_by_queue.my,
+      unassigned: payload.inbox_by_queue.unassigned,
+      all: payload.inbox_by_queue.all,
+    },
+    agentsAttention: payload.agents_attention,
+  }
+}
+
+async function fetchNavBadgeCounts(token: string): Promise<NavBadgeCounts> {
+  const payload = await fetchSignalBadgeCounts(token)
+  return mapBadgeCounts(payload)
 }
 
 type NavBadgeContextValue = {
@@ -42,44 +53,8 @@ type NavBadgeContextValue = {
 
 const NavBadgeContext = createContext<NavBadgeContextValue | null>(null)
 
-async function fetchNavBadgeCounts(token: string, isAdmin: boolean): Promise<NavBadgeCounts> {
-  const [mine, unassigned, all, agentsAttention] = await Promise.all([
-    listThreads(token, { view: 'mine', perPage: PER_PAGE }),
-    listThreads(token, { view: 'unassigned', perPage: PER_PAGE }),
-    listThreads(token, { view: 'all_open', perPage: PER_PAGE }),
-    isAdmin
-      ? listThreads(token, { view: 'awaiting_decision', perPage: PER_PAGE }).then(
-          (result) => result.items.length,
-        )
-      : Promise.resolve(0),
-  ])
-
-  const myUnread = countUnread(mine.items)
-  const unassignedUnread = countUnread(unassigned.items)
-  const allUnread = countUnread(all.items)
-
-  const unreadIds = new Set<string>()
-  for (const thread of mine.items) {
-    if (thread.hasUnread) unreadIds.add(String(thread.id))
-  }
-  for (const thread of unassigned.items) {
-    if (thread.hasUnread) unreadIds.add(String(thread.id))
-  }
-
-  return {
-    inboxUnread: unreadIds.size,
-    inboxByQueue: {
-      my: myUnread,
-      unassigned: unassignedUnread,
-      all: allUnread,
-    },
-    agentsAttention,
-  }
-}
-
 export function NavBadgeProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth()
-  const isAdmin = useIsAdmin()
   const [counts, setCounts] = useState<NavBadgeCounts>(EMPTY_COUNTS)
   const [loading, setLoading] = useState(false)
   const fetchIdRef = useRef(0)
@@ -92,7 +67,7 @@ export function NavBadgeProvider({ children }: { children: ReactNode }) {
     const fetchId = ++fetchIdRef.current
     setLoading(true)
     try {
-      const next = await fetchNavBadgeCounts(token, isAdmin)
+      const next = await fetchNavBadgeCounts(token)
       if (fetchIdRef.current === fetchId) {
         setCounts(next)
       }
@@ -105,7 +80,7 @@ export function NavBadgeProvider({ children }: { children: ReactNode }) {
         setLoading(false)
       }
     }
-  }, [token, isAdmin])
+  }, [token])
 
   useEffect(() => {
     void refresh()

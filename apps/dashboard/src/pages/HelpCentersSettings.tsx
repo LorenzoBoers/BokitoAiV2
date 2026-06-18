@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
@@ -27,17 +28,26 @@ export default function HelpCentersSettings() {
 
   const refreshKbCollections = useCallback(async () => {
     if (!token) return
-    const rows = await listKbCollections(token)
-    setKbCollections(rows)
-    if (!selectedCollectionId && rows.length > 0) {
-      setSelectedCollectionId(rows[0].id)
+    try {
+      const rows = await listKbCollections(token)
+      setKbCollections(rows)
+      setSelectedCollectionId((prev) => {
+        if (prev != null && rows.some((row) => row.id === prev)) return prev
+        return rows[0]?.id ?? null
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not load collections')
     }
-  }, [token, selectedCollectionId])
+  }, [token])
 
   const refreshKbDocuments = useCallback(async () => {
     if (!token || !selectedCollectionId) return
-    const rows = await listKbDocuments(token, selectedCollectionId)
-    setKbDocuments(rows)
+    try {
+      const rows = await listKbDocuments(token, selectedCollectionId)
+      setKbDocuments(rows)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not load documents')
+    }
   }, [token, selectedCollectionId])
 
   useEffect(() => {
@@ -50,13 +60,6 @@ export default function HelpCentersSettings() {
 
   return (
     <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-4 py-1">
-      <Card className="border-border/80 bg-bg-elevated/40 p-4">
-        <p className="text-sm font-medium text-text-heading">Coming soon</p>
-        <p className="mt-1 text-sm text-text-secondary">
-          Help center collections and document indexing will ship in a follow-up release. The UI below is
-          a preview of the planned workflow.
-        </p>
-      </Card>
       <p className="text-sm text-text-secondary">
         Manage collection sources for AI context and document indexing.
       </p>
@@ -79,10 +82,15 @@ export default function HelpCentersSettings() {
               onClick={() =>
                 void (async () => {
                   if (!token || !newCollectionName.trim()) return
-                  await createKbCollection(token, newCollectionName.trim(), newCollectionDescription.trim() || undefined)
-                  setNewCollectionName('')
-                  setNewCollectionDescription('')
-                  await refreshKbCollections()
+                  try {
+                    await createKbCollection(token, newCollectionName.trim(), newCollectionDescription.trim() || undefined)
+                    setNewCollectionName('')
+                    setNewCollectionDescription('')
+                    await refreshKbCollections()
+                    toast.success('Collection created')
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Could not create collection')
+                  }
                 })()
               }
             >
@@ -95,7 +103,10 @@ export default function HelpCentersSettings() {
           <Card className="overflow-y-auto p-3">
             <div className="mb-2 text-xs text-text-muted">Collecties</div>
             <div className="space-y-1">
-              {kbCollections.map((collection) => (
+              {kbCollections.length === 0 ? (
+                <p className="px-2 py-3 text-sm text-text-muted">No collections yet.</p>
+              ) : (
+                kbCollections.map((collection) => (
                 <button
                   key={collection.id}
                   type="button"
@@ -109,7 +120,8 @@ export default function HelpCentersSettings() {
                   <div>{collection.name}</div>
                   <div className="text-2xs opacity-80">{collection.document_count} documenten</div>
                 </button>
-              ))}
+              ))
+              )}
             </div>
           </Card>
 
@@ -145,15 +157,20 @@ export default function HelpCentersSettings() {
                     onClick={() =>
                       void (async () => {
                         if (!token || !newDocName.trim() || !newDocUrl.trim()) return
-                        await uploadKbDocument(token, selectedCollectionId, {
-                          filename: newDocName.trim(),
-                          file_url: newDocUrl.trim(),
-                          file_type: newDocType,
-                        })
-                        setNewDocName('')
-                        setNewDocUrl('')
-                        await refreshKbDocuments()
-                        await refreshKbCollections()
+                        try {
+                          await uploadKbDocument(token, selectedCollectionId, {
+                            filename: newDocName.trim(),
+                            file_url: newDocUrl.trim(),
+                            file_type: newDocType,
+                          })
+                          setNewDocName('')
+                          setNewDocUrl('')
+                          await refreshKbDocuments()
+                          await refreshKbCollections()
+                          toast.success('Document added')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Could not add document')
+                        }
                       })()
                     }
                   >
@@ -176,9 +193,14 @@ export default function HelpCentersSettings() {
                         onClick={() =>
                           void (async () => {
                             if (!token) return
-                            await deleteKbDocument(token, doc.id)
-                            await refreshKbDocuments()
-                            await refreshKbCollections()
+                            try {
+                              await deleteKbDocument(token, doc.id)
+                              await refreshKbDocuments()
+                              await refreshKbCollections()
+                              toast.success('Document removed')
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : 'Could not remove document')
+                            }
                           })()
                         }
                       >

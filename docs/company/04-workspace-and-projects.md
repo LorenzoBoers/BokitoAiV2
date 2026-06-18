@@ -72,9 +72,9 @@ API: `GET/POST/PATCH/DELETE /workspace/doc/pages`, batch block ops `POST /worksp
 - Flat top-level blocks only in the editor (no nested block UI)
 - Optimistic concurrency via `content_version` / `expected_version` when column exists
 
-### XanoScript caveats (operators)
+### API caveats (operators)
 
-Documented in `BOKITO_KNOWLEDGE.md`: optional `bool false` ignored by Xano (use enums like `lock_action`); avoid `|to_string`; nullable JSON columns on blocks table.
+Documented in `BOKITO_KNOWLEDGE.md`: optional `bool false` ignored by FastAPI (use enums like `lock_action`); avoid `|to_string`; nullable JSON columns on blocks table.
 
 ## Project configuration (backend)
 
@@ -84,7 +84,7 @@ Documented in `BOKITO_KNOWLEDGE.md`: optional `bool false` ignored by Xano (use 
 | Notifications | `project_notification_preferences`, `GET/PATCH /projects/{id}/notifications/preferences` |
 | Usage | `GET /projects/{id}/usage/summary`, `GET /projects/{id}/usage/budget` |
 
-Patches live under `xano-patches/v1/` and `PROJECT-HUB-BACKEND.md`.
+Patches live under `docs/archived/v1/` and `PROJECT-HUB-BACKEND.md`.
 
 ## Related docs
 

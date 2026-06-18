@@ -14,7 +14,7 @@ import { withTimeout } from './promise-timeout'
 
 const MCP_CONNECTIONS_TIMEOUT_MS = 15_000
 
-/** Default Xano MCP server ids per provider slug (see registry `mcpServerId`). */
+/** Default MCP server ids per provider slug (see registry `mcpServerId`). */
 export const MCP_PROVIDER_SERVER_IDS: Record<string, number> = Object.fromEntries(
   PROVIDER_REGISTRY.filter((e) => e.mcpServerId != null).map((e) => [e.platformSlug, e.mcpServerId!]),
 )
@@ -126,6 +126,7 @@ export async function listMcpIntegrationRows(
 
   const mcpProviders = providers.filter(isMcpProvider)
   const providerById = new Map(mcpProviders.map((p) => [p.id, p]))
+  const mcpProviderIds = new Set(mcpProviders.map((p) => p.id))
 
   const bindingByConnectionId = new Map<string, (typeof bindings.bindings)[number]>()
   for (const b of bindings.bindings ?? []) {
@@ -134,47 +135,42 @@ export async function listMcpIntegrationRows(
     }
   }
 
-  const connectionLists = await withTimeout(
-    Promise.all(
-      mcpProviders.map((p) =>
-        listIntegrationConnections(p.slug).catch(() => [] as IntegrationConnectionRow[]),
-      ),
-    ),
+  const allConnections = await withTimeout(
+    listIntegrationConnections().catch(() => [] as IntegrationConnectionRow[]),
     MCP_CONNECTIONS_TIMEOUT_MS,
-    mcpProviders.map(() => [] as IntegrationConnectionRow[]),
+    [] as IntegrationConnectionRow[],
   )
 
   const rows: McpIntegrationRow[] = []
 
-  for (const connections of connectionLists) {
-    for (const connection of connections) {
-      if (connection.status === 'revoked') continue
-      const provider = providerById.get(connection.provider_id)
-      if (!provider) continue
+  for (const connection of allConnections) {
+    if (connection.status === 'revoked') continue
+    if (!mcpProviderIds.has(connection.provider_id)) continue
+    const provider = providerById.get(connection.provider_id)
+    if (!provider) continue
 
-      const binding = bindingByConnectionId.get(connection.id)
-      const bindingConfig = binding?.config as Record<string, unknown> | undefined
-      const mcpServerId = bindingConfig?.mcp_server_id
+    const binding = bindingByConnectionId.get(connection.id)
+    const bindingConfig = binding?.config as Record<string, unknown> | undefined
+    const mcpServerId = bindingConfig?.mcp_server_id
 
-      const brand = resolveProviderRowBrand(provider)
-      rows.push({
-        id: connection.id,
-        providerSlug: provider.slug,
-        providerName: provider.name,
-        displayName: connection.display_name,
-        endpoint: endpointForRow(provider, connection, bindingConfig),
-        authLabel: authTypeFromMetadata(connection.metadata, provider.auth_type),
-        status: connection.status,
-        mcpServerId:
-          typeof mcpServerId === 'string' || typeof mcpServerId === 'number' ? mcpServerId : undefined,
-        createdAt: connection.created_at,
-        logoUrl: brand.logoUrl,
-        logoDarkUrl: brand.logoDarkUrl,
-        initials: brand.initials,
-        brandColor: brand.color,
-        hostSlug: brand.hostSlug,
-      })
-    }
+    const brand = resolveProviderRowBrand(provider)
+    rows.push({
+      id: connection.id,
+      providerSlug: provider.slug,
+      providerName: provider.name,
+      displayName: connection.display_name,
+      endpoint: endpointForRow(provider, connection, bindingConfig),
+      authLabel: authTypeFromMetadata(connection.metadata, provider.auth_type),
+      status: connection.status,
+      mcpServerId:
+        typeof mcpServerId === 'string' || typeof mcpServerId === 'number' ? mcpServerId : undefined,
+      createdAt: connection.created_at,
+      logoUrl: brand.logoUrl,
+      logoDarkUrl: brand.logoDarkUrl,
+      initials: brand.initials,
+      brandColor: brand.color,
+      hostSlug: brand.hostSlug,
+    })
   }
 
   rows.sort((a, b) => {

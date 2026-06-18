@@ -26,7 +26,7 @@ A **node-based agentic OS** for AI-driven SMBs. Canonical entities in this repo:
 - **Govern:** `PlatformChange`, `AuditEvent`, apply modes (`draft` | `yolo` | `decision`), **Autonomy Posture** (`manual` | `assisted` | `autonomous`)
 - **Learning:** `Feedback`, `EvalScore`, `ActionPolicy` (heuristic V1)
 
-**V1 track:** FastAPI `apps/api` + dashboard bokito mode. Prefer Signal and stack APIs over new parallel Xano/inbox stacks.
+**V1 track:** FastAPI `apps/api` + dashboard bokito mode. Prefer Signal and stack APIs over parallel legacy inbox stacks.
 
 Intelligence Stack layers are **conceptual lanes**, not separate rail nav items. Map: [`docs/architecture.md`](docs/architecture.md).
 

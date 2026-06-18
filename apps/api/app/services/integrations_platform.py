@@ -311,6 +311,25 @@ async def ensure_github_connection(
     return conn
 
 
+async def get_provider_access_token(
+    session: AsyncSession, tenant_id: UUID, provider: str
+) -> str | None:
+    """Return a stored OAuth access token for an active connection, if any."""
+    result = await session.execute(
+        select(IntegrationConnection).where(
+            IntegrationConnection.tenant_id == tenant_id,
+            IntegrationConnection.provider == provider,
+            IntegrationConnection.status == "active",
+        )
+    )
+    conn = result.scalar_one_or_none()
+    if not conn:
+        return None
+    creds = _parse_json(conn.credentials_json)
+    token = creds.get("access_token")
+    return token if isinstance(token, str) and token else None
+
+
 async def list_github_connections(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
     result = await session.execute(
         select(IntegrationConnection).where(

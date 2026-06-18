@@ -1,4 +1,5 @@
 import base64
+import logging
 from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
@@ -14,6 +15,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
 from app.models.auth import user_numeric_id
+from app.models.auth_token import AuthToken
 from app.models.staff import StaffAccessLog
 from app.services.auth import (
     authenticate_user,
@@ -34,6 +36,7 @@ from app.services.workspaces_portal import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
@@ -126,6 +129,7 @@ def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) ->
         "display_name": user.display_name,
         "role": role,
         "is_staff": is_staff,
+        "email_verified": user.email_verified,
         "tenant": {"id": str(tenant.id), "slug": tenant.slug, "name": tenant.name},
     }
 
@@ -392,6 +396,7 @@ def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
         "id": user_numeric_id(auth.user.id),
         "name": auth.user.display_name or auth.user.email,
         "email": auth.user.email,
+        "email_verified": auth.user.email_verified,
         "job_title": auth.user.job_title or None,
         "role": auth.role,
         "organisation_id": tenant_id,
@@ -573,28 +578,120 @@ async def workspace_branding(
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
+async def _issue_auth_token(
+    session: AsyncSession, user: User, kind: str, ttl_minutes: int
+) -> str:
+    """Create a single-use token row and return the opaque token string.
+
+    Any prior unused tokens of the same kind for this user are invalidated so a
+    fresh request always supersedes an older link."""
+    now = datetime.utcnow()
+    prior = await session.execute(
+        select(AuthToken).where(
+            AuthToken.user_id == user.id,
+            AuthToken.kind == kind,
+            AuthToken.used_at.is_(None),
+        )
+    )
+    for stale in prior.scalars().all():
+        stale.used_at = now
+
+    token = await create_invite_token()
+    session.add(
+        AuthToken(
+            user_id=user.id,
+            kind=kind,
+            token=token,
+            expires_at=now + timedelta(minutes=ttl_minutes),
+        )
+    )
+    return token
+
+
+async def _consume_auth_token(
+    session: AsyncSession, token: str, kind: str
+) -> User:
+    """Validate and burn a token, returning the owning user."""
+    result = await session.execute(
+        select(AuthToken).where(AuthToken.token == token, AuthToken.kind == kind)
+    )
+    row = result.scalar_one_or_none()
+    if row is None or row.used_at is not None or row.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired token.")
+    user = await session.get(User, row.user_id)
+    if user is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired token.")
+    row.used_at = datetime.utcnow()
+    return user
+
+
+def _dev_magic_link(path: str, token: str) -> dict[str, str]:
+    """In non-production, surface the token + link so flows are testable without SMTP."""
+    if settings.is_production:
+        return {}
+    link = f"{path}?token={token}"
+    logger.info("[auth] dev magic link: %s", link)
+    return {"dev_token": token, "dev_link": link}
+
+
 @router.post("/auth/password-reset-request")
 @router.post("/password-reset-request")
-async def password_reset_request(body: PasswordResetRequest):
-    return {"message": "If the email exists, a reset link has been sent."}
+async def password_reset_request(
+    body: PasswordResetRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    result = await session.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    response: dict = {"message": "If the email exists, a reset link has been sent."}
+    if user is not None:
+        token = await _issue_auth_token(session, user, "password_reset", ttl_minutes=60)
+        await session.commit()
+        response.update(_dev_magic_link("/reset-password", token))
+    return response
 
 
 @router.post("/auth/password-reset")
 @router.post("/password-reset")
-async def password_reset(_body: PasswordResetConfirm):
-    return {"message": "Password reset is not enabled in this environment."}
+async def password_reset(
+    body: PasswordResetConfirm,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    if body.password_confirmation is not None and body.password != body.password_confirmation:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+    if len(body.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+    user = await _consume_auth_token(session, body.token, "password_reset")
+    user.password_hash = hash_password(body.password)
+    await session.commit()
+    return {"message": "Password reset successfully."}
 
 
 @router.post("/auth/verify-email")
 @router.post("/verify-email")
-async def verify_email(_body: VerifyEmailRequest):
-    return {"message": "Email verified."}
+async def verify_email(
+    body: VerifyEmailRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    user = await _consume_auth_token(session, body.token, "email_verify")
+    user.email_verified = True
+    await session.commit()
+    return {"message": "Email verified.", "email_verified": True}
 
 
 @router.post("/auth/resend-verification")
 @router.post("/resend-verification")
-async def resend_verification(_body: ResendVerificationRequest):
-    return {"message": "Verification email sent if applicable."}
+async def resend_verification(
+    body: ResendVerificationRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    result = await session.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    response: dict = {"message": "Verification email sent if applicable."}
+    if user is not None and not user.email_verified:
+        token = await _issue_auth_token(session, user, "email_verify", ttl_minutes=60 * 24)
+        await session.commit()
+        response.update(_dev_magic_link("/verify-email", token))
+    return response
 
 
 @router.post("/auth/revoke")

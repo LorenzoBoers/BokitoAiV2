@@ -469,15 +469,16 @@ async def agenda_occurrences(
     return items
 
 
-async def process_due_triggers(session: AsyncSession) -> int:
+async def process_due_triggers(session: AsyncSession, tenant_id: UUID | None = None) -> int:
     now = datetime.utcnow()
-    result = await session.execute(
-        select(Trigger).where(
-            Trigger.enabled.is_(True),
-            Trigger.next_run_at.is_not(None),
-            Trigger.next_run_at <= now,
-        )
-    )
+    conditions = [
+        Trigger.enabled.is_(True),
+        Trigger.next_run_at.is_not(None),
+        Trigger.next_run_at <= now,
+    ]
+    if tenant_id is not None:
+        conditions.append(Trigger.tenant_id == tenant_id)
+    result = await session.execute(select(Trigger).where(*conditions))
     count = 0
     for trigger in result.scalars().all():
         try:

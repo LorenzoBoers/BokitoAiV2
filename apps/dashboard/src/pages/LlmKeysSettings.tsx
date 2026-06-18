@@ -126,8 +126,8 @@ export default function LlmKeysSettings() {
         <div>
           <h2 className="text-[15px] font-semibold text-text-heading">AI keys</h2>
           <p className="text-[12.5px] text-text-muted">
-            Bring your own LLM keys for this workspace. Keys are encrypted and never shown again.
-            Adding an Anthropic key runs this workspace live; without keys it stays in mock mode.
+            Bring your own LLM keys for this workspace, or use Bokito platform models (Anthropic via
+            Bokito) when no tenant key is set. Keys you add are encrypted and never shown again.
           </p>
         </div>
       </div>
@@ -142,6 +142,11 @@ export default function LlmKeysSettings() {
             }`}
           >
             Chat: {status.chat_mode === 'live' ? 'Live' : 'Mock'}
+            {status.chat_mode === 'live' && status.chat_key_source === 'platform'
+              ? ' (Bokito platform)'
+              : status.chat_mode === 'live' && status.chat_key_source === 'tenant'
+                ? ' (your key)'
+                : ''}
           </span>
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 ${
@@ -151,6 +156,11 @@ export default function LlmKeysSettings() {
             }`}
           >
             Embeddings: {status.embeddings_mode === 'live' ? 'Live' : 'Mock'}
+            {status.embeddings_mode === 'live' && status.embeddings_key_source === 'platform'
+              ? ' (Bokito platform)'
+              : status.embeddings_mode === 'live' && status.embeddings_key_source === 'tenant'
+                ? ' (your key)'
+                : ''}
           </span>
         </div>
       ) : null}
@@ -174,6 +184,14 @@ export default function LlmKeysSettings() {
                 {ps?.is_set ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-status-success/40 bg-status-success/10 px-2.5 py-1 text-[11px] text-status-success">
                     Set ····{ps.last4}
+                  </span>
+                ) : status?.chat_key_source === 'platform' && meta.provider === 'anthropic' ? (
+                  <span className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">
+                    Bokito platform
+                  </span>
+                ) : status?.embeddings_key_source === 'platform' && meta.provider === 'openai' ? (
+                  <span className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">
+                    Bokito platform
                   </span>
                 ) : (
                   <span className="rounded-full border border-border/60 bg-bg-surface px-2.5 py-1 text-[11px] text-text-muted">
@@ -224,8 +242,8 @@ export default function LlmKeysSettings() {
       </div>
 
       <p className="text-[11px] text-text-muted">
-        Keys are encrypted at rest. Removing a key reverts that capability to the platform default
-        (mock unless the server is globally configured for live).
+        Keys are encrypted at rest. Removing your key falls back to the Bokito platform model when
+        configured, otherwise mock mode.
       </p>
     </PageContent>
   )

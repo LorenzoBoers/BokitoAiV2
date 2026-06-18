@@ -37,8 +37,9 @@ export default function AgentDetail({
 
   const snippet = `<script
   src="${agent.embedUrl}"
+  data-bokito-chat-widget
   data-agent-slug="${agent.slug}"
-  data-api-url="https://xrex-nmji-j9ur.f2.xano.io"
+  data-api-url=""
   defer
 ></script>`
 

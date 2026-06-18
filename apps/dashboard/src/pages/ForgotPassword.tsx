@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
+import { requestPasswordReset } from '../lib/api';
 import { ValidatedInput, ValidationRules, useFormValidation } from '../components/ui/form-validation';
 
 export default function ForgotPassword() {
-  const { sendPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [devLink, setDevLink] = useState<string | null>(null);
 
   const validation = useFormValidation(
     { email },
@@ -27,11 +28,13 @@ export default function ForgotPassword() {
 
     setIsLoading(true);
     try {
-      await sendPasswordReset(email);
+      const result = await requestPasswordReset(email);
+      if (result.dev_link) {
+        setDevLink(result.dev_link);
+      }
       setIsSuccess(true);
     } catch (error) {
-      console.error('Password reset request failed:', error);
-      // Error handling would be done via toast in a real implementation
+      toast.error(error instanceof Error ? error.message : 'Password reset request failed');
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +70,15 @@ export default function ForgotPassword() {
               We sent a password reset link to <strong>{email}</strong>.
               Check your inbox and spam folder.
             </p>
+            {devLink ? (
+              <div className="mb-6 rounded-md border border-border bg-bg-input/50 px-4 py-3 text-left text-sm">
+                <p className="font-medium text-text-heading mb-1">Local dev reset link</p>
+                <p className="text-text-secondary mb-2">No SMTP in dev — use this link instead:</p>
+                <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
+                  {devLink}
+                </Link>
+              </div>
+            ) : null}
             
             <Link
               to="/login"

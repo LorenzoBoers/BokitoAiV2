@@ -52,7 +52,7 @@ Grouped by theme (each bullet is one tracked fix).
 - MessengerSettings, HelpCentersSettings, ProfileSettings, ResetPassword
 - Onboarding wizard/steps copy
 - email-api.ts, email-oauth.ts (connect labels + OAuth error summaries)
-- xano.ts + AuthContext + WorkspaceDocNavContext auth error messages
+- platform.ts + AuthContext + WorkspaceDocNavContext auth error messages
 - NotificationContext sample message
 
 ## Batch 6 — Workforce & platform pages (9)

@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -150,7 +150,8 @@ async def update_agent_runtime_status(
 async def update_agent_model(
     session: AsyncSession, tenant_id: UUID, agent_id: UUID, model_slug: str
 ) -> dict[str, Any]:
-    """Set an agent's chat model, validated against the tenant-allowed catalog."""
+    """Set an agent's chat model, validated against tenant-enabled models."""
+    from app.services import provider_connections, tenant_model_catalog as tmc
     from app.services.model_catalog import get_model
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
@@ -161,16 +162,28 @@ async def update_agent_model(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    model = await get_model(session, model_slug)
-    if not model or model.kind != "chat" or not model.enabled:
-        raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+    provider_type = ""
+    if await tmc.tenant_has_models(session, tenant_id):
+        model = await tmc.get_model(session, tenant_id, model_slug)
+        if not model or model.kind != "chat" or not model.enabled:
+            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+        conn = await provider_connections.get_connection(session, tenant_id, model.connection_id)
+        if not conn or not conn.enabled:
+            raise HTTPException(status_code=400, detail="Provider connection unavailable")
+        provider_type = conn.provider_type
+        slug = model.slug
+    else:
+        model = await get_model(session, model_slug)
+        if not model or model.kind != "chat" or not model.enabled:
+            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+        prefs = await get_tenant_model_prefs(session, tenant_id)
+        if not is_chat_model_allowed(prefs, model.slug):
+            raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+        provider_type = model.provider
+        slug = model.slug
 
-    prefs = await get_tenant_model_prefs(session, tenant_id)
-    if not is_chat_model_allowed(prefs, model.slug):
-        raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
-
-    agent.model = model.slug
-    agent.provider = model.provider
+    agent.model = slug
+    agent.provider = provider_type
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()
@@ -188,7 +201,8 @@ async def create_agent(
     model_slug: str = "",
     chat_access: str = "everyone",
 ) -> dict[str, Any]:
-    """Create a company worker agent, with its model validated against the catalog."""
+    """Create a company worker agent, with its model validated against tenant models."""
+    from app.services import provider_connections, tenant_model_catalog as tmc
     from app.services.model_catalog import get_default_model, get_model
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
@@ -199,19 +213,42 @@ async def create_agent(
     if chat_access not in ("everyone", "selected", "nobody"):
         chat_access = "nobody"
 
-    prefs = await get_tenant_model_prefs(session, tenant_id)
-    model = None
-    if model_slug:
-        model = await get_model(session, model_slug)
-        if not model or model.kind != "chat" or not model.enabled:
-            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
-        if not is_chat_model_allowed(prefs, model.slug):
-            raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+    slug = ""
+    provider_type = ""
+    has_tenant = await tmc.tenant_has_models(session, tenant_id)
+
+    if has_tenant:
+        tenant_model = None
+        if model_slug:
+            tenant_model = await tmc.get_model(session, tenant_id, model_slug)
+            if not tenant_model or tenant_model.kind != "chat" or not tenant_model.enabled:
+                raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+        else:
+            tenant_model = await tmc.get_default_model(session, tenant_id, "chat")
+        if tenant_model:
+            conn = await provider_connections.get_connection(
+                session, tenant_id, tenant_model.connection_id
+            )
+            if conn and conn.enabled:
+                slug = tenant_model.slug
+                provider_type = conn.provider_type
     else:
-        if prefs.get("default_chat"):
-            model = await get_model(session, prefs["default_chat"])
-        if not model:
-            model = await get_default_model(session, "chat")
+        prefs = await get_tenant_model_prefs(session, tenant_id)
+        model = None
+        if model_slug:
+            model = await get_model(session, model_slug)
+            if not model or model.kind != "chat" or not model.enabled:
+                raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+            if not is_chat_model_allowed(prefs, model.slug):
+                raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+        else:
+            if prefs.get("default_chat"):
+                model = await get_model(session, prefs["default_chat"])
+            if not model:
+                model = await get_default_model(session, "chat")
+        if model:
+            slug = model.slug
+            provider_type = model.provider
 
     agent = Agent(
         tenant_id=tenant_id,
@@ -224,9 +261,9 @@ async def create_agent(
         runtime_status="standby",
         is_active=True,
     )
-    if model:
-        agent.model = model.slug
-        agent.provider = model.provider
+    if slug:
+        agent.model = slug
+        agent.provider = provider_type
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
@@ -603,6 +640,56 @@ async def complete_activity(
     await ensure_run_events(session, run)
     await session.commit()
     return {"ok": True, "outcome": outcome}
+
+
+async def clear_stale_runtime(
+    session: AsyncSession, tenant_id: UUID, *, max_stale_minutes: int = 15
+) -> dict[str, int]:
+    """Reset agents/runs stuck in an active state past the staleness window.
+
+    DB-only maintenance: an agent whose `runtime_status` is active/running but
+    has not been updated within `max_stale_minutes` is returned to standby, and
+    any long-running `AgentRun` is marked failed.
+    """
+    cutoff = datetime.utcnow() - timedelta(minutes=max(1, max_stale_minutes))
+    now = datetime.utcnow()
+
+    agents_cleared = 0
+    agent_result = await session.execute(
+        select(Agent).where(
+            Agent.tenant_id == tenant_id,
+            Agent.runtime_status.in_(["active", "running"]),
+            Agent.updated_at < cutoff,
+        )
+    )
+    for agent in agent_result.scalars().all():
+        agent.runtime_status = "standby"
+        agent.current_activity_summary = ""
+        agent.updated_at = now
+        session.add(agent)
+        agents_cleared += 1
+
+    runs_cleared = 0
+    run_result = await session.execute(
+        select(AgentRun).where(
+            AgentRun.tenant_id == tenant_id,
+            AgentRun.status == "running",
+            AgentRun.started_at < cutoff,
+        )
+    )
+    for run in run_result.scalars().all():
+        run.status = "failed"
+        run.completed_at = now
+        run.pause_reason = "cleared_stale"
+        session.add(run)
+        runs_cleared += 1
+
+    await session.commit()
+    return {
+        "agents_cleared": agents_cleared,
+        "runs_cleared": runs_cleared,
+        "stale_cleared": agents_cleared + runs_cleared,
+    }
 
 
 async def create_demo_run(

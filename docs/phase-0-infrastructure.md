@@ -53,13 +53,13 @@ systemctl enable --now caddy
 
 Add `worker` A record to `31.97.45.44` as **DNS only (grey cloud)** so the wildcard `*.bokito.ai` Worker does not intercept traffic.
 
-Set Xano env: `WORKER_BASE_URL=https://worker.bokito.ai`
+Set FastAPI env: `WORKER_BASE_URL=https://worker.bokito.ai`
 
 Runtime binds localhost only: `WORKER_BIND_HOST=127.0.0.1`
 
 ## Environment (Step 0.7)
 
-Copy `apps/runtime/.env.example` to `/root/bokito-runtime/.env`. Generate `WORKER_INBOUND_SECRET` with `openssl rand -hex 32` and set the same value in Xano workspace env.
+Copy `apps/runtime/.env.example` to `/root/bokito-runtime/.env`. Generate `WORKER_INBOUND_SECRET` with `openssl rand -hex 32` and set the same value in FastAPI workspace env.
 
 ## Deploy runtime
 
@@ -78,10 +78,10 @@ bash scripts/deploy-runtime-vps.sh
 3. `redis-cli -a <password> ping` returns PONG
 4. `node --version` reports v20.x
 5. Ollama embeddings return length 768 for nomic-embed-text-v2-moe
-6. Xano worker API key returns 200 on auth/me
+6. FastAPI worker API key returns 200 on auth/me
 7. GitHub App PEM at `/root/bokito-runtime/secrets/github-app.pem`
 8. `.env` complete on VPS; secrets not in git
 9. Anthropic API test returns 200
-10. `WORKER_INBOUND_SECRET` hash matches Xano env
+10. `WORKER_INBOUND_SECRET` hash matches FastAPI env
 11. `curl https://worker.bokito.ai/health` returns JSON `{ok:true}`
 12. `curl -X POST https://worker.bokito.ai/agent/po/run -H "Authorization: Bearer $SECRET" -d '{}'` returns 400/401, not connection refused

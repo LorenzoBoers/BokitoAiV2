@@ -56,7 +56,7 @@ export function OauthRedirectAlert({
           ) : null}
           {!isSuccess && !technicalDetail && import.meta.env.DEV ? (
             <p className="text-2xs text-text-muted">
-              Ontbrekende technische details: laat de Xano Outlook-callback bij fout de Microsoft-respons (error / error_description) als query-parameter meesturen (bijv. aad_detail), dan verschijnt die hier.
+              Ontbrekende technische details: laat de Outlook-callback bij fout de Microsoft-respons (error / error_description) als query-parameter meesturen (bijv. aad_detail), dan verschijnt die hier.
             </p>
           ) : null}
         </div>

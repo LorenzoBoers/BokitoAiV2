@@ -13,7 +13,7 @@ Bokito is the **unified operational flow** for AI-driven SMBs: customer signals,
 | **Chat widget** | TypeScript IIFE embed | Website visitor, customer |
 | **Marketing website** | Static site | Prospective customer |
 
-The dashboard is the control center for tenant configuration, inbox, workforce agents, integrations, and workspace documentation. The widget and mobile app connect to Xano livechat APIs. Background agents run on a VPS runtime orchestrated from Xano crons.
+The dashboard is the control center for tenant configuration, inbox, workforce agents, integrations, and workspace documentation. The widget and mobile app connect to FastAPI livechat APIs. Background agents run on a VPS runtime orchestrated from FastAPI crons.
 
 ## Tech stack
 
@@ -22,12 +22,12 @@ The dashboard is the control center for tenant configuration, inbox, workforce a
 | Dashboard | React, TypeScript, Vite, React Router, Tailwind CSS |
 | Mobile | React Native, Expo Router |
 | Widget | Vanilla TypeScript, Vite IIFE bundle, SSE streaming |
-| Backend | Xano (API, database, AI agents, MCP servers, static hosting) |
+| Backend | FastAPI (API, database, AI agents, MCP servers, static hosting) |
 | Worker runtime | Node.js on VPS, BullMQ, Redis, Docker agent containers, Ollama embeddings |
 | Edge | Cloudflare Workers (`bokito-tenant-router`, `bokito-app-passthrough`) |
 | Real-time | Server-Sent Events (SSE) for AI responses and live work logs |
 
-**Xano API base (example):** `https://xrex-nmji-j9ur.f2.xano.io`
+**FastAPI API base (example):** `https://api.bokito.nl`
 
 ## Repository layout
 
@@ -46,7 +46,7 @@ docs/
 packages/
   shared/        Shared types/utilities
   docker/agent-run/  Agent container image
-xano-patches/    XanoScript patches, tables, deploy notes
+docs/archived/    legacy patches, tables, deploy notes (historical)
 ```
 
 Source code is hosted on GitHub: [github.com/BokitoAI/Bokito-AI](https://github.com/BokitoAI/Bokito-AI).
@@ -64,21 +64,21 @@ flowchart LR
     Router[bokito-tenant-router]
   end
   subgraph backend [Backend]
-    Xano[Xano APIs and DB]
-    Static[Xano static hosting]
+    FastAPI[FastAPI APIs and DB]
+    Static[FastAPI static hosting]
   end
   subgraph worker [VPS]
     Runtime[worker.bokito.ai]
     Agents[Docker agent runs]
   end
   Portal --> Router
-  Widget --> Xano
-  Mobile --> Xano
+  Widget --> FastAPI
+  Mobile --> FastAPI
   Router --> Static
-  Router --> Xano
-  Xano --> Runtime
+  Router --> FastAPI
+  FastAPI --> Runtime
   Runtime --> Agents
-  Runtime --> Xano
+  Runtime --> FastAPI
 ```
 
 ## Local development (quick reference)

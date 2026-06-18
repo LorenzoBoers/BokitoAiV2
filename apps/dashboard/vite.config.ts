@@ -57,11 +57,6 @@ export default defineConfig(({ mode }) => {
   const bokitoApiUrl = env.VITE_BOKITO_API_URL || 'http://127.0.0.1:8000'
 
   const proxy: Record<string, object> = {
-    '/api:livechat': {
-      target: bokitoApiUrl,
-      changeOrigin: true,
-      rewrite: (path: string) => path.replace(/^\/api:livechat/, '/api/livechat'),
-    },
     '/api': {
       target: bokitoApiUrl,
       changeOrigin: true,

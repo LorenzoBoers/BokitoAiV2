@@ -565,7 +565,7 @@
       "adminTitle": "Platformvereisten",
       "adminBody": "Remote MCP vereist integrations API-patches, de runtime OAuth-service en OAuth-apps per vendor. Zonder configuratie blijven providers op Binnenkort staan.",
       "devTitle": "Developer-documentatie (repository)",
-      "devBody": "Technische handleidingen staan in de GitHub-repository voor engineers die Xano en runtime deployen:"
+      "devBody": "Technische handleidingen staan in de GitHub-repository voor engineers die de API en runtime deployen:"
     },
     "sources": {
       "description": "Geindexeerde documentatie en kennisbronnen voor AI-agents. Bronnen worden automatisch doorzoekbaar zodra indexering actief is.",

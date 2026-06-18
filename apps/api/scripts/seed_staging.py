@@ -56,6 +56,11 @@ async def seed_staging() -> None:
         await session.commit()
         print(f"staging_seed_ok tenant={TENANT_SLUG} user={TRADER_EMAIL}")
 
+        from app.services.trading_bootstrap import seed_trading_stack
+
+        trading = await seed_trading_stack(session, tenant.id)
+        print(f"trading_stack_ok {trading}")
+
 
 if __name__ == "__main__":
     asyncio.run(seed_staging())

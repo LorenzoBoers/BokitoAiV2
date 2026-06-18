@@ -93,6 +93,27 @@ async def test_change_password_and_branding(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_update_require_2fa_and_delete(client: AsyncClient):
+    token, tenant_id = await _login(client)
+    headers = _auth(token)
+
+    updated = await client.post(
+        f"{APP}/workspaces/{tenant_id}",
+        headers=headers,
+        json={"require_2fa": True},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["require_2fa"] is True
+
+    listed = await client.get(f"{APP}/workspaces", headers=headers)
+    assert any(w.get("require_2fa") for w in listed.json())
+
+    deleted = await client.delete(f"{APP}/workspaces/{tenant_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert deleted.json()["ok"] is True
+
+
+@pytest.mark.asyncio
 async def test_branding_appearance_json(client: AsyncClient):
     token, tenant_id = await _login(client)
     headers = _auth(token)

@@ -48,20 +48,20 @@ Dashboard admin detection: `useIsAdmin()` hook (tenant role).
 
 ### Deploy
 
-- Push XanoScript patches before relying on new frontend API routes.
+- Deploy API changes before relying on new frontend API routes.
 - Run `deploy.ps1` for portal; verify `build:` string on login after deploy.
-- Deploy runtime separately on VPS; confirm `WORKER_BASE_URL` reachable from Xano crons.
+- Deploy runtime separately on VPS; confirm `WORKER_BASE_URL` reachable from FastAPI crons.
 
 ### UI data sources
 
-- Dashboard combines **live Xano APIs** with **mock or UI-only state** where backend is not yet implemented (check feature-specific docs before assuming persistence).
+- Dashboard combines **live FastAPI APIs** with **mock or UI-only state** where backend is not yet implemented (check feature-specific docs before assuming persistence).
 
 ## Glossary
 
 | Term | Definition |
 |------|------------|
 | **Tenant** | Customer organisation; identified by UUID and subdomain slug |
-| **Organisation** | Xano table holding tenant configuration and branding |
+| **Organisation** | FastAPI table holding tenant configuration and branding |
 | **Account** | Legacy business/account entity linked to organisation |
 | **Workspace** | UI concept mapping to tenant; hub at `/workspaces` on control plane |
 | **Control plane** | Shared app host (`app.bokito.ai`) for login and workspace selection |
@@ -73,7 +73,7 @@ Dashboard admin detection: `useIsAdmin()` hook (tenant role).
 | **Workspace docs** | Tenant-wide block documentation at `/projects/docs` |
 | **PKB** | Project knowledge base (legacy sections; migrating to block docs) |
 | **MCP** | Model Context Protocol server exposing tools to agents |
-| **Static host** | Xano-hosted SPA build for portal (`bokitoapp-prod-*`) |
+| **Static host** | FastAPI-hosted SPA build for portal (`bokitoapp-prod-*`) |
 
 ## Stub and roadmap modules
 
@@ -95,7 +95,7 @@ Future items documented in `BOKITO_KNOWLEDGE.md` section 13 (roadmap): expanded 
 | New feature or workflow | `BOKITO_KNOWLEDGE.md` (agent log) + relevant `docs/company/` chapter |
 | Navigation change | `apps/dashboard/docs/NAVIGATION.md` + [03 – Dashboard product](03-dashboard-product.md) |
 | New integration provider | `INTEGRATIONS.md` + [06 – Integrations](06-integrations.md) |
-| Schema migration | `xano-patches/v1-platform-tables.md` + [10 – Data model and APIs](10-data-model-and-apis.md) |
+| Schema migration | `docs/archived/v1-platform-tables.md` + [10 – Data model and APIs](10-data-model-and-apis.md) |
 
 ## Related docs
 

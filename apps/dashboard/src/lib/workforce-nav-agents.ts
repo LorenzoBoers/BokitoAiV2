@@ -1,13 +1,7 @@
 import type { RuntimeAgent } from './workforce-api'
 
-/** Roles treated as platform agents (excluded from "Your agents" sidebar list). */
-export const PLATFORM_ROLE_SLUGS = new Set([
-  'orchestrator',
-  'po',
-  'manager',
-  'assistant',
-  'communication',
-])
+/** Role slugs for built-in platform agents (excluded from worker library list). */
+export const PLATFORM_ROLE_SLUGS = new Set(['communication'])
 /** Slugs that identify an orchestrator (canonical + legacy po/manager). */
 const ORCHESTRATOR_ROLE_SLUGS = new Set(['orchestrator', 'po', 'manager'])
 
@@ -29,6 +23,8 @@ export function agentType(agent: RuntimeAgent): AgentType {
 }
 
 export function isPlatformAgent(agent: RuntimeAgent): boolean {
+  if (agent.kind === 'personal') return true
+  if (isOrchestratorAgent(agent)) return true
   return PLATFORM_ROLE_SLUGS.has(normalizeRoleSlug(agent))
 }
 

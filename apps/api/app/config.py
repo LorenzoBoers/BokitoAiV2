@@ -43,6 +43,27 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://127.0.0.1:5174,http://127.0.0.1:5175,http://localhost:5174,http://localhost:5175"
 
+    # Public origins used to build OAuth redirect URIs and post-OAuth returns.
+    # `public_api_url` must match the redirect URI registered with each provider:
+    #   {public_api_url}/api/integrations/oauth/callback
+    public_api_url: str = "http://localhost:8000"
+    public_app_url: str = "http://localhost:5174"
+
+    # OAuth provider credentials. When a provider's client id/secret are empty,
+    # the corresponding /oauth/start falls back to the dev mock flow (no real
+    # redirect, connection created locally) so dev works without registering apps.
+    github_oauth_client_id: str = ""
+    github_oauth_client_secret: str = ""
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    microsoft_oauth_client_id: str = ""
+    microsoft_oauth_client_secret: str = ""
+    microsoft_oauth_tenant: str = "common"
+
+    @property
+    def oauth_redirect_uri(self) -> str:
+        return f"{self.public_api_url.rstrip('/')}/api/integrations/oauth/callback"
+
     @property
     def is_production(self) -> bool:
         return self.environment.strip().lower() in ("prod", "production")

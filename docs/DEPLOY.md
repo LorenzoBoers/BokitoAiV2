@@ -33,7 +33,7 @@ In **Settings -> Environments**:
 | `VPS_SSH_KEY` | Private key matching `~/.ssh/bokito_vps_deploy` on the VPS |
 | `STAGING_SMOKE_EMAIL` | `trader@staging.bokito.ai` |
 | `STAGING_SMOKE_PASSWORD` | `staging-trader-password` (from `seed_staging.py`) |
-| `PROD_SMOKE_EMAIL` | `trader@chargecars.app` |
+| `PROD_SMOKE_EMAIL` | `trader@bokito.ai` |
 | `PROD_SMOKE_PASSWORD` | Production trader password (never commit) |
 
 ### GHCR package access

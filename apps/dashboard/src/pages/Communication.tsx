@@ -2,6 +2,7 @@ import { Mail } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { inboxPath, leafFromPath, leafKey, leafPath, type HubLeaf, type InboxQueue } from '../lib/messages-paths'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
@@ -228,6 +229,7 @@ export default function Communication() {
     reply,
     addNote,
     togglePin,
+    toggleTakeover,
   } = useThreadDetail(selectedThreadId, pinnedIds)
 
   useEffect(() => {
@@ -314,6 +316,15 @@ export default function Communication() {
     }
   }, [selectedThreadId, detail, togglePin, addPin, removePin])
 
+  const handleToggleTakeover = useCallback(async () => {
+    if (selectedThreadId == null || !detail) return
+    try {
+      await toggleTakeover(Boolean(detail.thread.aiPaused))
+    } catch {
+      // Optimistic state is reverted inside the hook; surface nothing here.
+    }
+  }, [selectedThreadId, detail, toggleTakeover])
+
   const handleDeleteThread = useCallback(
     async (id: ThreadId, subject?: string) => {
       if (!token) return
@@ -332,7 +343,7 @@ export default function Communication() {
         }
         void refreshNavBadges()
       } catch (err) {
-        window.alert(err instanceof Error ? err.message : 'Delete failed.')
+        toast.error(err instanceof Error ? err.message : 'Delete failed.')
       } finally {
         setDeletingThreadId(null)
       }
@@ -480,6 +491,7 @@ export default function Communication() {
           onNote={handleNote}
           onRefresh={refreshDetail}
           onTogglePin={handleDetailTogglePin}
+          onToggleTakeover={detail ? handleToggleTakeover : undefined}
           onDelete={detail ? handleDetailDelete : undefined}
           deleting={String(deletingThreadId) === String(selectedThreadId)}
           onToggleContact={detail ? toggleContactPanel : undefined}

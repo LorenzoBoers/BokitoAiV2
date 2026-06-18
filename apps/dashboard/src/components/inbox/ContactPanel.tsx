@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Check, Loader2, Mail, MessageSquare, Phone, ShieldBan, ShieldCheck, UserRound } from 'lucide-react'
+import { Building2, Check, Loader2, Mail, MessageSquare, Phone, ShieldBan, UserRound } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getContact,
@@ -17,12 +17,6 @@ type Props = {
   fallbackName?: string
   fallbackEmail?: string
   currentThreadId?: ThreadId | null
-}
-
-const STATUS_STYLE: Record<ContactStatus, string> = {
-  approved: 'bg-status-success/15 text-status-success',
-  pending: 'bg-status-warning/15 text-status-warning',
-  blocked: 'bg-status-error/15 text-status-error',
 }
 
 function timeAgo(iso: string | null): string {
@@ -162,11 +156,6 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
                 {[contact.title, contact.company].filter(Boolean).join(' - ')}
               </p>
             ) : null}
-            <span
-              className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-semibold capitalize ${STATUS_STYLE[contact.status]}`}
-            >
-              {contact.status}
-            </span>
           </div>
         </div>
         <div className="mt-3 space-y-1.5">
@@ -178,17 +167,6 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
           <p className="mt-2 text-[11px] text-text-muted">Last seen {timeAgo(contact.lastSeenAt)}</p>
         ) : null}
         <div className="mt-3 flex gap-1.5">
-          {contact.status !== 'approved' ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void setStatus('approved')}
-              className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
-            >
-              <ShieldCheck size={11} />
-              Approve
-            </button>
-          ) : null}
           {contact.status !== 'blocked' ? (
             <button
               type="button"

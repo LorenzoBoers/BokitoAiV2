@@ -1,5 +1,7 @@
 """Text embedding provider (OpenAI live, deterministic mock for tests)."""
 
+from typing import Any
+
 from app.config import get_settings
 
 settings = get_settings()
@@ -19,6 +21,7 @@ async def embed_text_with_usage(
     api_key: str | None = None,
     live: bool = False,
     model_id: str | None = None,
+    base_url: str | None = None,
 ) -> tuple[list[float], int]:
     """Embed text, returning ``(vector, tokens_in)``.
 
@@ -34,7 +37,10 @@ async def embed_text_with_usage(
 
     from openai import AsyncOpenAI
 
-    client = AsyncOpenAI(api_key=effective_key)
+    kwargs: dict[str, Any] = {"api_key": effective_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+    client = AsyncOpenAI(**kwargs)
     response = await client.embeddings.create(
         model=model_id or settings.embedding_model, input=text[:8000]
     )
@@ -43,10 +49,15 @@ async def embed_text_with_usage(
 
 
 async def embed_text(
-    text: str, *, api_key: str | None = None, live: bool = False, model_id: str | None = None
+    text: str,
+    *,
+    api_key: str | None = None,
+    live: bool = False,
+    model_id: str | None = None,
+    base_url: str | None = None,
 ) -> list[float]:
     """Embed text and return only the vector (see ``embed_text_with_usage``)."""
     vector, _ = await embed_text_with_usage(
-        text, api_key=api_key, live=live, model_id=model_id
+        text, api_key=api_key, live=live, model_id=model_id, base_url=base_url
     )
     return vector

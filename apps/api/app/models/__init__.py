@@ -1,7 +1,10 @@
 from app.models.agent import Agent, AgentChatUser, AgentRun, RunEvent
 from app.models.audit import AuditEvent
 from app.models.auth import Invite, Membership, Session, Tenant, User, UserPreference
+from app.models.auth_token import AuthToken
+from app.models.oauth_state import OAuthState
 from app.models.channel import ChannelAccount, ChannelBinding, Contact
+from app.models.email_routing import EmailRoutingRule
 from app.models.inbox import InboxSettings
 from app.models.workspace import DocChunk, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback
@@ -44,6 +47,7 @@ from app.models.orchestration import (
 from app.models.os_graph import OsCanvasEdge, OsCanvasNode
 from app.models.secret import TenantSecret
 from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetting
+from app.models.provider import ProviderConnection, TenantModel
 
 __all__ = [
     "Tenant",
@@ -51,6 +55,8 @@ __all__ = [
     "Membership",
     "Session",
     "Invite",
+    "AuthToken",
+    "OAuthState",
     "Notification",
     "UserNotificationPreference",
     "DecisionRequest",
@@ -62,6 +68,7 @@ __all__ = [
     "ChannelAccount",
     "ChannelBinding",
     "Contact",
+    "EmailRoutingRule",
     "Agent",
     "AgentChatUser",
     "AgentRun",
@@ -107,4 +114,6 @@ __all__ = [
     "ModelCatalog",
     "PlatformSecret",
     "PlatformSetting",
+    "ProviderConnection",
+    "TenantModel",
 ]

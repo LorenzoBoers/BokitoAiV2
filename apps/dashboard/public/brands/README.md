@@ -1,6 +1,6 @@
 # Integration host logos (static fallbacks)
 
-Used when Xano `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/lib/brand-assets.ts`.
+Used when `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/lib/brand-assets.ts`.
 
 ## Sources (official or vendor-published marks)
 
@@ -20,4 +20,4 @@ Used when Xano `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/
 | `logo-higgsfield.svg` | Higgsfield wordmark-style mark (Bokito fallback; dark tile + accent) |
 | `logo-smtp-imap.svg` | Neutral mail icon (Bokito) |
 
-Upload higher-resolution or wordmark variants in Xano when brand guidelines require hosted files instead of these fallbacks.
+Upload higher-resolution or wordmark variants via integration host branding when guidelines require hosted files instead of these fallbacks.

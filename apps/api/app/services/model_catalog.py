@@ -21,11 +21,11 @@ DEFAULT_MARKUP = 1.3
 # slug, provider, kind, model_id, display_name, ctx, in_cents/Mtok, out_cents/Mtok,
 # tools, vision, default_chat, default_embedding, sort
 DEFAULT_MODELS: list[tuple] = [
-    ("claude-sonnet-4", "anthropic", "chat", "claude-sonnet-4-20250514", "Claude Sonnet 4",
+    ("claude-sonnet-4-6", "anthropic", "chat", "claude-sonnet-4-6", "Claude Sonnet 4.6",
      200000, 300, 1500, True, True, True, False, 10),
-    ("claude-haiku-4", "anthropic", "chat", "claude-haiku-4-20250514", "Claude Haiku 4",
+    ("claude-haiku-4-5", "anthropic", "chat", "claude-haiku-4-5-20251001", "Claude Haiku 4.5",
      200000, 100, 500, True, True, False, False, 20),
-    ("claude-opus-4", "anthropic", "chat", "claude-opus-4-20250514", "Claude Opus 4",
+    ("claude-opus-4-8", "anthropic", "chat", "claude-opus-4-8", "Claude Opus 4.8",
      200000, 1500, 7500, True, True, False, False, 30),
     ("gpt-4o", "openai", "chat", "gpt-4o", "GPT-4o",
      128000, 250, 1000, True, True, False, False, 40),
@@ -36,6 +36,44 @@ DEFAULT_MODELS: list[tuple] = [
     ("text-embedding-3-large", "openai", "embedding", "text-embedding-3-large",
      "Embedding 3 Large", 8191, 13, 0, False, False, False, False, 70),
 ]
+
+
+# Retired Anthropic snapshot IDs -> current API model ids (non-destructive catalog refresh).
+CATALOG_MODEL_ID_REFRESH: dict[str, tuple[str, str, str]] = {
+    # slug -> (model_id, display_name, new_slug or same slug)
+    "claude-sonnet-4": ("claude-sonnet-4-6", "Claude Sonnet 4.6", "claude-sonnet-4-6"),
+    "claude-haiku-4": ("claude-haiku-4-5-20251001", "Claude Haiku 4.5", "claude-haiku-4-5"),
+    "claude-opus-4": ("claude-opus-4-8", "Claude Opus 4.8", "claude-opus-4-8"),
+}
+
+
+async def refresh_catalog_model_ids(session: AsyncSession) -> None:
+    """Update legacy catalog rows to current provider model ids."""
+    from datetime import datetime
+
+    changed = False
+    for legacy_slug, (model_id, display_name, new_slug) in CATALOG_MODEL_ID_REFRESH.items():
+        result = await session.execute(
+            select(ModelCatalog).where(ModelCatalog.slug == legacy_slug)
+        )
+        row = result.scalar_one_or_none()
+        if not row:
+            continue
+        if new_slug != legacy_slug:
+            existing_new = await session.execute(
+                select(ModelCatalog).where(ModelCatalog.slug == new_slug)
+            )
+            if existing_new.scalar_one_or_none():
+                await session.delete(row)
+                changed = True
+                continue
+        row.model_id = model_id
+        row.display_name = display_name
+        row.slug = new_slug
+        row.updated_at = datetime.utcnow()
+        changed = True
+    if changed:
+        await session.commit()
 
 
 async def seed_model_catalog(session: AsyncSession) -> None:
@@ -69,6 +107,7 @@ async def seed_model_catalog(session: AsyncSession) -> None:
         added = True
     if added:
         await session.commit()
+    await refresh_catalog_model_ids(session)
 
 
 async def list_models(
@@ -107,7 +146,7 @@ async def get_default_model(session: AsyncSession, kind: str) -> ModelCatalog | 
             ModelCatalog.kind == kind, flag.is_(True), ModelCatalog.enabled.is_(True)
         )
     )
-    row = result.scalar_one_or_none()
+    row = result.scalars().first()
     if row:
         return row
     # Fall back to the first enabled model of the kind.

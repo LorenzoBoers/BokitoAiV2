@@ -130,7 +130,11 @@ async def hybrid_search(
 
     resolved = await resolve_model_call(session, tenant_id, kind="embedding")
     query_embedding, emb_tokens = await embed_text_with_usage(
-        query, api_key=resolved.api_key, live=resolved.live, model_id=resolved.model_id
+        query,
+        api_key=resolved.api_key,
+        live=resolved.live,
+        model_id=resolved.model_id,
+        base_url=resolved.base_url or None,
     )
     if emb_tokens:
         await record_usage(
@@ -182,7 +186,11 @@ async def upsert_source_chunk(
 
     resolved = await resolve_model_call(session, tenant_id, kind="embedding")
     embedding, emb_tokens = await embed_text_with_usage(
-        content, api_key=resolved.api_key, live=resolved.live, model_id=resolved.model_id
+        content,
+        api_key=resolved.api_key,
+        live=resolved.live,
+        model_id=resolved.model_id,
+        base_url=resolved.base_url or None,
     )
     if emb_tokens:
         await record_usage(
@@ -304,6 +312,7 @@ async def reindex_doc(session: AsyncSession, doc: WorkspaceDoc) -> int:
             api_key=resolved.api_key,
             live=resolved.live,
             model_id=resolved.model_id,
+            base_url=resolved.base_url or None,
         )
         if emb_tokens:
             await record_usage(

@@ -65,7 +65,7 @@
     // Config: read from URL querystring, fallback to defaults
     const _q = new URLSearchParams(window.location.search);
     const _slug    = _q.get('agent_slug')     || 'demo';
-    const _apiUrl  = _q.get('api_url')        || 'https://xrex-nmji-j9ur.f2.xano.io';
+    const _apiUrl  = _q.get('api_url')        || 'https://api.bokito.nl';
     const _idToken = _q.get('identity_token') || null;
     const _authToken = _q.get('auth_token') || null;
     const _authCookieName = _q.get('auth_cookie_name') || null;
@@ -73,7 +73,7 @@
 
     document.getElementById('agentLabel').textContent = _slug;
 
-    const _scriptUrl = _q.get('script_url') || (_apiUrl + '/api:livechat/script/main');
+    const _scriptUrl = _q.get('script_url') || (_apiUrl + '/api/livechat/script/main');
     document.getElementById('embedSnippet').textContent =
       `<script\n  src="${_scriptUrl}"\n  data-agent-slug="${_slug}"\n  data-api-url="${_apiUrl}"${_authCookieName ? `\n  data-auth-cookie-name="${_authCookieName}"` : ''}${_authMode ? `\n  data-auth-mode="${_authMode}"` : ''}\n  defer\n><\/script>`;
 
@@ -91,7 +91,7 @@
   <!--
     The widget is loaded as an external script — exactly as any website would embed it.
     Locally:  after `npm run build`, served from /bokito-chat.js (Vite dev) or dist/bokito-chat.js
-    On Xano:  served via /api:livechat/script/main (which redirects to the hosted file)
+    On FastAPI:  served via /api/livechat/script/main (which redirects to the hosted file)
   -->
   <script src="/bokito-chat.js" defer></script>
 </body>

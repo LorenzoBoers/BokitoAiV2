@@ -24,12 +24,35 @@ class LlmKeyUpdate(BaseModel):
 
 
 async def _status_payload(session: AsyncSession, tenant_id) -> dict:
+    from app.services import platform_secrets
+
     providers = await tenant_secrets.list_status(session, tenant_id)
     config = await resolve_tenant_llm_config(session, tenant_id)
+    tenant_anthropic = await tenant_secrets.get_secret(session, tenant_id, "anthropic")
+    tenant_openai = await tenant_secrets.get_secret(session, tenant_id, "openai")
+    platform_anthropic = await platform_secrets.get_platform_secret(session, "anthropic")
+    platform_openai = await platform_secrets.get_platform_secret(session, "openai")
+
+    def chat_source() -> str:
+        if tenant_anthropic:
+            return "tenant"
+        if platform_anthropic or config.live:
+            return "platform"
+        return "none"
+
+    def emb_source() -> str:
+        if tenant_openai:
+            return "tenant"
+        if platform_openai or config.embeddings_live:
+            return "platform"
+        return "none"
+
     return {
         "providers": providers,
         "chat_mode": "live" if config.live else "mock",
         "embeddings_mode": "live" if config.embeddings_live else "mock",
+        "chat_key_source": chat_source(),
+        "embeddings_key_source": emb_source(),
     }
 
 

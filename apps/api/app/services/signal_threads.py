@@ -88,6 +88,7 @@ def serialize_thread(
         "priority": signal.priority,
         "assigned_to_user_id": assignee_num,
         "tags": json.loads(signal.tags_json or "[]"),
+        "ai_paused": signal.ai_paused,
         "last_message_at": _iso(signal.last_message_at),
         "has_unread": signal.has_unread,
         "is_pinned": is_pinned,
@@ -216,6 +217,42 @@ async def _signals_with_open_decisions(session: AsyncSession, tenant_id: UUID) -
         )
     )
     return {row for row in result.scalars().all()}
+
+
+async def nav_badge_counts(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    *,
+    include_agents_attention: bool,
+) -> dict[str, Any]:
+    """Lightweight unread/attention counts for sidebar badges (no thread payloads)."""
+    tenant = Signal.tenant_id == tenant_id
+    open_status = Signal.status == "open"
+    unread = Signal.has_unread.is_(True)
+
+    async def _count(*filters) -> int:
+        stmt = select(func.count()).select_from(Signal).where(tenant, *filters)
+        return int((await session.execute(stmt)).scalar_one() or 0)
+
+    my_unread = await _count(open_status, unread, Signal.assigned_user_id == user_id)
+    unassigned_unread = await _count(open_status, unread, Signal.assigned_user_id.is_(None))
+    all_unread = await _count(open_status, unread)
+
+    agents_attention = 0
+    if include_agents_attention:
+        open_dec = await _signals_with_open_decisions(session, tenant_id)
+        agents_attention = len(open_dec)
+
+    return {
+        "inbox_unread": my_unread + unassigned_unread,
+        "inbox_by_queue": {
+            "my": my_unread,
+            "unassigned": unassigned_unread,
+            "all": all_unread,
+        },
+        "agents_attention": agents_attention,
+    }
 
 
 async def _signals_with_message_kind(session: AsyncSession, tenant_id: UUID, kind: str) -> set[UUID]:
@@ -537,6 +574,42 @@ async def delete_thread(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
     return True
 
 
+async def set_ai_paused(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    signal_id: UUID,
+    *,
+    paused: bool,
+) -> dict[str, Any] | None:
+    """Human takeover / hand-back for a thread.
+
+    When paused, the assigned operator owns replies and the AI stops generating
+    automatic responses (widget stream, /api/chat, and internal agent threads all
+    respect `ai_paused`). Releasing hands control back to the agent.
+    """
+    signal = await _get_signal_row(session, tenant_id, signal_id)
+    if not signal:
+        return None
+    signal.ai_paused = paused
+    signal.assigned_user_id = user_id if paused else None
+    signal.updated_at = datetime.utcnow()
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal_id,
+            tenant_id=tenant_id,
+            event_type="ai_paused" if paused else "ai_resumed",
+            actor_type="user",
+            actor_id=str(user_id),
+            payload_json=json.dumps({"ai_paused": paused}),
+        )
+    )
+    await session.commit()
+    await publish_thread_update(signal)
+    return {"signal_id": str(signal_id), "ai_paused": paused}
+
+
 async def reply_to_thread(
     session: AsyncSession,
     tenant_id: UUID,
@@ -624,17 +697,18 @@ async def _generate_agent_reply(
         signal_chat_history,
     )
 
+    signal_id = signal.id
     try:
         agent = await _resolve_thread_agent(session, tenant_id, signal)
         if not agent or not agent.is_active:
             return
-        history = await signal_chat_history(session, signal.id)
+        history = await signal_chat_history(session, signal_id)
         loop = AgentLoop(
             session,
             tenant_id,
             user_id,
             agent=agent,
-            signal_id=signal.id,
+            signal_id=signal_id,
         )
         reply_text, tokens = await loop.run_chat(history)
         await append_signal_chat_message(
@@ -648,7 +722,7 @@ async def _generate_agent_reply(
         await session.commit()
     except Exception:  # noqa: BLE001 - never break the user's reply
         await session.rollback()
-        logger.exception("Failed to generate agent reply for signal %s", signal.id)
+        logger.exception("Failed to generate agent reply for signal %s", signal_id)
 
 
 async def list_pins(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> dict[str, list[str]]:

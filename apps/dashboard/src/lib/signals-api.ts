@@ -13,7 +13,7 @@ import type {
 } from './inbox-api'
 
 // Signal is the only thread model (Phase 1 of the Bokito OS restructure);
-// the legacy Xano inbox path is gone.
+// the legacy inbox path is gone.
 export const USE_SIGNAL_INBOX = true
 
 function asString(value: unknown, fallback = ''): string {
@@ -80,6 +80,7 @@ function normalizeSignalThread(row: unknown): InboxThread | null {
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
     isPinned: Boolean(raw.is_pinned),
+    aiPaused: Boolean(raw.ai_paused),
     channel: asString(raw.channel, 'email'),
     folder: asString(raw.folder, raw.channel === 'internal' ? 'internal' : 'external'),
     projectId: raw.project_id ? asString(raw.project_id) : null,
@@ -241,6 +242,24 @@ export async function replyToSignalThread(
   return normalizeSignalMessage(payload)
 }
 
+export async function takeoverSignalThread(token: string, threadId: string): Promise<boolean> {
+  const payload = await apiPost<{ ai_paused?: boolean }>(
+    appRoutes.signals.threadTakeover(threadId),
+    {},
+    token,
+  )
+  return Boolean(payload?.ai_paused)
+}
+
+export async function releaseSignalThread(token: string, threadId: string): Promise<boolean> {
+  const payload = await apiPost<{ ai_paused?: boolean }>(
+    appRoutes.signals.threadRelease(threadId),
+    {},
+    token,
+  )
+  return Boolean(payload?.ai_paused)
+}
+
 export async function addNoteToSignalThread(
   token: string,
   threadId: string,
@@ -286,4 +305,14 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
       }
     })
     .filter((m): m is InboxMember => m !== null)
+}
+
+export type SignalBadgeCounts = {
+  inbox_unread: number
+  inbox_by_queue: { my: number; unassigned: number; all: number }
+  agents_attention: number
+}
+
+export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadgeCounts> {
+  return apiGet<SignalBadgeCounts>(appRoutes.signals.badgeCounts, token)
 }

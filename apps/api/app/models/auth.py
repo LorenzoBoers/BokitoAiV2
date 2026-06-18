@@ -36,6 +36,7 @@ class User(SQLModel, table=True):
     avatar_url: Optional[str] = None
     is_active: bool = True
     is_staff: bool = False
+    email_verified: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

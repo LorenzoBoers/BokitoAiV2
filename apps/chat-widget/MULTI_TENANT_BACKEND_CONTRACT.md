@@ -4,7 +4,7 @@ This file defines the backend contract expected by the Bokito chat widget (`apps
 
 ## Session start
 
-`POST /api:livechat/session/start`
+`POST /api/livechat/session/start`
 
 Request body (new fields are optional):
 
@@ -64,18 +64,18 @@ Response:
 
 ## Widget login fallback
 
-- `POST /api:livechat/auth/login`
+- `POST /api/livechat/auth/login`
   - Input: `{ email, password, agent_slug, session_token? }`
   - Output: same shape as `session/start` (including `session_token`, `user`, `tenant`, `preferences`)
-- `POST /api:livechat/auth/logout`
-- `POST /api:livechat/auth/forgot-password`
-- `POST /api:livechat/auth/register`
+- `POST /api/livechat/auth/logout`
+- `POST /api/livechat/auth/forgot-password`
+- `POST /api/livechat/auth/register`
 
 ## User scoped chat data
 
-- `GET /api:livechat/user/conversations?per_page=10`
-- `GET /api:livechat/user/preferences`
-- `PATCH /api:livechat/user/preferences`
+- `GET /api/livechat/user/conversations?per_page=10`
+- `GET /api/livechat/user/preferences`
+- `PATCH /api/livechat/user/preferences`
   - Input: `{ "preferences": { ...partial_patch } }`
 
 If `user/*` endpoints are unavailable, the widget falls back to `customer/*` endpoints.

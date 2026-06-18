@@ -18,14 +18,14 @@ export type ConnectionCountSource =
 export type ProviderRegistryEntry = {
   /** Marketplace card id (e.g. microsoft-365). */
   staticId: string
-  /** Xano integration_providers.slug. */
+  /** integration_providers.slug. */
   platformSlug: string
   kind: IntegrationKind
   setupMode: IntegrationSetupMode
   oauthStrategy?: IntegrationOAuthStrategy
   inboxOAuthProvider?: OAuthProvider
   mcpPreset?: McpSetupPreset
-  /** Default Xano MCP server id for platform MCP install. */
+  /** Default MCP server id for platform MCP install. */
   mcpServerId?: number
   mcpRemoteUrl?: string
   connectionCountSource: ConnectionCountSource
@@ -115,7 +115,7 @@ for (const p of REMOTE_MCP_PROVIDERS) {
   SLUG_TO_STATIC_ID_RECORD[p.slug] = p.staticId
 }
 
-/** Maps Xano provider slug to marketplace integration card id. */
+/** Maps provider slug to marketplace integration card id. */
 export const SLUG_TO_STATIC_ID: Record<string, string> = SLUG_TO_STATIC_ID_RECORD
 
 export const STATIC_ID_TO_SLUG: Record<string, string> = Object.fromEntries(

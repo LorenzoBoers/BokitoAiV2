@@ -1,22 +1,20 @@
 """Integrations API group (marketplace, connections, MCP, email helpers).
 
 Mounted under /api/integrations/* to match the dashboard INTEGRATIONS_API_BASE.
-Platform marketplace paths use a double integrations segment
-(/api/integrations/integrations/*) per integrationsRoutes.platform.*
+Marketplace paths are served at /api/integrations/* (router prefix only).
 """
 
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.auth import user_numeric_id
-from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDER_BY_SLUG
 from app.services.integrations_platform import (
@@ -32,12 +30,9 @@ from app.services.integrations_platform import (
     mock_authorize_url,
     revoke_connection,
 )
+from app.services.oauth_flow import complete_oauth, start_real_oauth
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
-
-
-def _account_numeric_id(account_id) -> int:
-    return user_numeric_id(account_id)
 
 
 class ApiKeyConnectionCreate(BaseModel):
@@ -60,7 +55,7 @@ class McpInstallBody(BaseModel):
 # --- Platform marketplace ---
 
 
-@router.get("/integrations/providers")
+@router.get("/providers")
 async def get_providers(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -68,7 +63,7 @@ async def get_providers(
     return await list_providers(session, auth.tenant.id)
 
 
-@router.get("/integrations/connections")
+@router.get("/connections")
 async def get_connections(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -78,7 +73,7 @@ async def get_connections(
     return {"connections": rows}
 
 
-@router.post("/integrations/connections")
+@router.post("/connections")
 async def post_api_key_connection(
     body: ApiKeyConnectionCreate,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -93,7 +88,7 @@ async def post_api_key_connection(
     )
 
 
-@router.delete("/integrations/connections/{connection_id}")
+@router.delete("/connections/{connection_id}")
 async def delete_connection(
     connection_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -103,7 +98,7 @@ async def delete_connection(
     return {"ok": True}
 
 
-@router.get("/integrations/connections/{connection_id}/resources")
+@router.get("/connections/{connection_id}/resources")
 async def connection_resources(
     connection_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -123,7 +118,7 @@ async def connection_resources(
     return {"items": []}
 
 
-@router.get("/integrations/oauth/start")
+@router.get("/oauth/start")
 async def platform_oauth_start(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -134,6 +129,27 @@ async def platform_oauth_start(
     del project_id
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
+
+    # Email providers connect a mailbox (flow="email"); github connects an
+    # integration. Try a real provider redirect first; fall back to the mock
+    # flow when the provider has no client credentials configured.
+    if provider in ("outlook", "gmail"):
+        flow = "email"
+    elif provider == "github":
+        flow = "github"
+    else:
+        flow = "integration"
+
+    real_url = await start_real_oauth(
+        session,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+        provider=provider,
+        flow=flow,
+        return_url=return_url,
+    )
+    if real_url:
+        return {"authorize_url": real_url, "provider": provider}
 
     if provider == "github":
         await ensure_github_connection(session, auth.tenant.id)
@@ -164,7 +180,27 @@ async def platform_oauth_start(
     return {"authorize_url": authorize_url, "provider": provider}
 
 
-@router.get("/integrations/mcp/oauth/start")
+@router.get("/oauth/callback")
+async def platform_oauth_callback(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    state: str = Query(...),
+    code: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    error_description: str | None = Query(default=None),
+):
+    """Single OAuth redirect URI for all providers.
+
+    Exchanges the authorization code for tokens, stores them on the mailbox or
+    integration connection, then 302-redirects the browser back to the dashboard
+    return URL with success/error params the frontend already understands.
+    """
+    target = await complete_oauth(
+        session, state=state, code=code, error=error or error_description
+    )
+    return RedirectResponse(url=target, status_code=302)
+
+
+@router.get("/mcp/oauth/start")
 async def mcp_oauth_start(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -187,7 +223,7 @@ async def mcp_oauth_start(
     return {"authorize_url": authorize_url, "provider": provider, "state": "mock"}
 
 
-@router.post("/integrations/mcp/install")
+@router.post("/mcp/install")
 async def post_mcp_install(
     body: McpInstallBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -207,133 +243,12 @@ async def post_mcp_install(
     )
 
 
-@router.get("/integrations/mcp/bindings")
+@router.get("/mcp/bindings")
 async def get_mcp_bindings(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await list_mcp_bindings(session, auth.tenant.id)
-
-
-# --- Email OAuth (mock redirect back to dashboard) ---
-
-
-async def _email_oauth_response(
-    session: AsyncSession,
-    tenant_id: UUID,
-    provider: str,
-    return_url: str,
-    email: str,
-) -> dict[str, str]:
-    await ensure_email_account(session, tenant_id, provider, email)
-    authorize_url = mock_authorize_url(
-        return_url, {"oauth_provider": provider, "oauth_status": "connected"}
-    )
-    return {"authorize_url": authorize_url}
-
-
-@router.get("/email/oauth/start")
-async def email_oauth_start(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    provider: str = Query(...),
-    return_url: str = Query(...),
-):
-    if provider not in ("outlook", "gmail"):
-        raise HTTPException(status_code=400, detail="Unsupported email provider")
-    email = auth.user.email or f"{provider}@bokito.local"
-    return await _email_oauth_response(session, auth.tenant.id, provider, return_url, email)
-
-
-@router.get("/email/outlook/oauth/start")
-async def outlook_oauth_start(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    return_url: str = Query(...),
-):
-    email = auth.user.email or "outlook@bokito.local"
-    return await _email_oauth_response(session, auth.tenant.id, "outlook", return_url, email)
-
-
-@router.get("/email/google/oauth/start")
-async def google_oauth_start(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    return_url: str = Query(...),
-):
-    email = auth.user.email or "gmail@bokito.local"
-    return await _email_oauth_response(session, auth.tenant.id, "gmail", return_url, email)
-
-
-# --- Email connections (dashboard contract) ---
-
-
-@router.get("/email/connections")
-async def list_email_connections(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    result = await session.execute(
-        select(ChannelAccount).where(
-            ChannelAccount.tenant_id == auth.tenant.id, ChannelAccount.channel == "email"
-        )
-    )
-    connections = []
-    for index, account in enumerate(result.scalars().all()):
-        provider = account.provider if account.provider in ("gmail", "outlook") else "gmail"
-        connections.append(
-            {
-                "id": _account_numeric_id(account.id),
-                "provider": provider,
-                "mailbox_email": account.address,
-                "display_name": account.display_name or account.address,
-                "status": "active",
-                "last_sync_at": None,
-                "last_error": None,
-                "signature_html": None,
-                "is_enabled": account.is_enabled,
-                "is_primary": index == 0,
-            }
-        )
-    return connections
-
-
-@router.put("/email/connections/{connection_id}/mailbox-settings")
-async def update_mailbox_settings(
-    connection_id: int,
-    body: dict,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-):
-    del connection_id, body, auth
-    return {"ok": True}
-
-
-@router.put("/email/connections/{connection_id}/signature")
-async def save_signature(
-    connection_id: int,
-    body: dict,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-):
-    del connection_id, auth
-    return {"ok": True, "signature_html": body.get("signature_html", "")}
-
-
-@router.get("/email/connections/{connection_id}/signature")
-async def get_signature(
-    connection_id: int,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-):
-    del connection_id, auth
-    return {"signature_html": ""}
-
-
-@router.delete("/email/connections/{connection_id}")
-async def disconnect_email_connection(
-    connection_id: int,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-):
-    del connection_id, auth
-    return {"ok": True}
 
 
 # --- MCP servers (legacy listing) ---

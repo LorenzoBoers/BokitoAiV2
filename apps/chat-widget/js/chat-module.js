@@ -119,7 +119,7 @@ class ApiClient {
       if (identityToken) body.identity_token = identityToken;
       if (tenantSubdomain) body.tenant_subdomain = tenantSubdomain;
 
-      const res = await fetch(`${this.#baseUrl}/api:livechat/session/start`, {
+      const res = await fetch(`${this.#baseUrl}/api/livechat/session/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -133,7 +133,7 @@ class ApiClient {
   }
 
   async request(path, options = {}) {
-    const url  = `${this.#baseUrl}/api:livechat/${path}`;
+    const url  = `${this.#baseUrl}/api/livechat/${path}`;
     const opts = { ...options, headers: this.#authHeaders(options.headers) };
 
     let res = await fetch(url, opts);
@@ -500,12 +500,12 @@ class BokitoChatWidget extends HTMLElement {
 
     const fontsLink = document.createElement('link');
     fontsLink.rel = 'stylesheet';
-    fontsLink.href = `${this.#apiUrl.replace(/\/$/, '')}/api:livechat/style/fonts`;
+    fontsLink.href = `${this.#apiUrl.replace(/\/$/, '')}/api/livechat/style/fonts`;
     this.#root.prepend(fontsLink);
 
     const link = document.createElement('link');
     link.rel   = 'stylesheet';
-    link.href  = `${this.#apiUrl.replace(/\/$/, '')}/api:livechat/style/main`;
+    link.href  = `${this.#apiUrl.replace(/\/$/, '')}/api/livechat/style/main`;
     this.#root.prepend(link);
   }
 
@@ -1274,7 +1274,7 @@ class BokitoChatWidget extends HTMLElement {
   async #postTranscribe(blob) {
     const base = this.#apiUrl.replace(/\/$/, '');
     const path = this.#transcribePath();
-    const url = `${base}/api:livechat/${path}`;
+    const url = `${base}/api/livechat/${path}`;
     const buildFd = () => {
       const fd = new FormData();
       if (this.#sessionToken) fd.append('session_token', this.#sessionToken);
@@ -2101,7 +2101,7 @@ if (!customElements.get('bokito-chat')) {
   if (!script) return;
 
   const slug          = script.getAttribute('data-agent-slug');
-  const apiUrl        = script.getAttribute('data-api-url') || script.src.split('/api:livechat')[0];
+  const apiUrl        = script.getAttribute('data-api-url') || script.src.split('/api/livechat')[0];
   const identityToken = script.getAttribute('data-identity-token') || null;
   if (!slug) return;
 

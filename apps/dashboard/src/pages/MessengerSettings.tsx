@@ -38,6 +38,8 @@ import {
 } from '../lib/api.config'
 import {
   DEFAULT_MESSENGER_APPEARANCE,
+  MESSENGER_MODULE_KEYS,
+  MESSENGER_MODULE_LABELS,
   appearanceToBrandingJson,
   messengerAppearanceEquals,
   serializeAppearanceForWidgetPreview,
@@ -216,8 +218,8 @@ function MessengerSettingsContent({
     const apiOrigin = livechatWidgetHttpOrigin()
     const slug = DASHBOARD_CHAT_AGENT_SLUG
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const xanoInternal = livechatWidgetHostedScriptUrl('internal')
-    const xanoExternal = livechatWidgetHostedScriptUrl('external')
+    const hostedInternal = livechatWidgetHostedScriptUrl('internal')
+    const hostedExternal = livechatWidgetHostedScriptUrl('external')
 
     if (audience === 'internal') {
       return (
@@ -231,10 +233,10 @@ function MessengerSettingsContent({
         `  defer\n` +
         `></script>\n` +
         `\n` +
-        `<!-- Alternatief: laad dezelfde team-widget rechtstreeks vanaf Xano (vereist werkende route script/internal) -->\n` +
+        `<!-- Alternatief: absolute URL naar het team-widget script op dezelfde host -->\n` +
         `<!--\n` +
         `<script\n` +
-        `  src="${xanoInternal}"\n` +
+        `  src="${hostedInternal}"\n` +
         `  data-agent-slug="${slug}"\n` +
         `  data-api-url="${apiOrigin}"\n` +
         `  data-auth-mode="optional"\n` +
@@ -254,10 +256,10 @@ function MessengerSettingsContent({
       `  defer\n` +
       `></script>\n` +
       `\n` +
-      `<!-- Alternatief: laad de publieke widget rechtstreeks vanaf Xano (vereist werkende route script/external) -->\n` +
+      `<!-- Alternatief: absolute URL naar het publieke widget script op dezelfde host -->\n` +
       `<!--\n` +
       `<script\n` +
-      `  src="${xanoExternal}"\n` +
+      `  src="${hostedExternal}"\n` +
       `  data-agent-slug="${slug}"\n` +
       `  data-api-url="${apiOrigin}"\n` +
       `  data-auth-mode="anonymous"\n` +
@@ -526,9 +528,8 @@ function MessengerSettingsContent({
                 <span className="font-medium text-text-secondary">Team</span> gebruikt het pad{' '}
                 <span className="font-mono text-text-muted">/chat-widget/internal/</span>;{' '}
                 <span className="font-medium text-text-secondary">publiek</span> gebruikt{' '}
-                <span className="font-mono text-text-muted">/chat-widget/external/</span>. Parallel kunnen scripts via
-                Xano als <span className="font-mono text-text-muted">/api:livechat/script/internal</span> en{' '}
-                <span className="font-mono text-text-muted">/api:livechat/script/external</span> (zie snippet).
+                <span className="font-mono text-text-muted">/chat-widget/external/</span>. Livechat API:{' '}
+                <span className="font-mono text-text-muted">/api/livechat/*</span>.
               </p>
             ) : null}
 
@@ -547,22 +548,22 @@ function MessengerSettingsContent({
                   <div className="space-y-1">
                     <FoldableSection title="Modules configuration" defaultOpen>
                       <p className="mb-3 text-xs text-text-secondary">
-                        Configure which modules should be available in your messenger. (Ordering and persistence will
-                        follow when the backend supports it.)
+                        Configure which modules should be available in your messenger.
                       </p>
                       <div className="space-y-2">
-                        {[
-                          { label: 'Home', enabled: true },
-                          { label: 'Messages', enabled: true },
-                          { label: 'Help', enabled: true },
-                          { label: 'Changelog', enabled: false },
-                        ].map((item) => (
+                        {MESSENGER_MODULE_KEYS.map((key) => (
                           <div
-                            key={item.label}
+                            key={key}
                             className="flex items-center justify-between rounded-lg border border-border/55 bg-bg-surface/80 px-3 py-2.5 shadow-sm backdrop-blur-sm dark:bg-bg-surface/40"
                           >
-                            <span className="text-sm text-text-primary">{item.label}</span>
-                            <Switch checked={item.enabled} disabled aria-label={item.label} />
+                            <span className="text-sm text-text-primary">{MESSENGER_MODULE_LABELS[key]}</span>
+                            <Switch
+                              checked={draft.modules[key]}
+                              onCheckedChange={(checked) =>
+                                patchDraft({ modules: { ...draft.modules, [key]: checked } })
+                              }
+                              aria-label={MESSENGER_MODULE_LABELS[key]}
+                            />
                           </div>
                         ))}
                       </div>
@@ -818,10 +819,9 @@ function MessengerSettingsContent({
                     </Button>
                   </div>
                   <p className="px-4 pt-3 text-xs text-text-secondary">
-                    Gebruik het <strong>eerste</strong> actieve scriptblok. Het tweede blok staat in HTML-commentaar: dat
-                    is het Xano-pad (<span className="font-mono text-text-muted">script/internal</span> of{' '}
-                    <span className="font-mono text-text-muted">script/external</span>) zodra die routes live staan.
-                    Team: zet <span className="font-mono text-text-muted">data-auth-mode</span> op{' '}
+                    Gebruik het <strong>eerste</strong> actieve scriptblok. Het tweede blok staat in HTML-commentaar als
+                    absolute URL naar hetzelfde script op deze host. Team: zet{' '}
+                    <span className="font-mono text-text-muted">data-auth-mode</span> op{' '}
                     <span className="font-mono text-text-muted">optional</span> of{' '}
                     <span className="font-mono text-text-muted">required</span> als je sessies wilt koppelen. Publiek:
                     houd <span className="font-mono text-text-muted">anonymous</span>.

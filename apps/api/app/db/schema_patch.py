@@ -16,6 +16,7 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "job_title": "VARCHAR DEFAULT ''",
         "avatar_url": "VARCHAR",
         "is_staff": "BOOLEAN DEFAULT 0",
+        "email_verified": "BOOLEAN DEFAULT 0",
     },
     "agents": {
         "slug": "VARCHAR DEFAULT ''",

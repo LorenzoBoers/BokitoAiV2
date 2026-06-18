@@ -14,12 +14,12 @@ async def test_seed_and_default_model(session_override):
     await seed_model_catalog(session_override)
     chat = await get_default_model(session_override, "chat")
     emb = await get_default_model(session_override, "embedding")
-    assert chat is not None and chat.slug == "claude-sonnet-4"
+    assert chat is not None and chat.slug == "claude-sonnet-4-6"
     assert emb is not None and emb.kind == "embedding"
     # Re-seeding is idempotent.
     await seed_model_catalog(session_override)
     again = await get_default_model(session_override, "chat")
-    assert again.slug == "claude-sonnet-4"
+    assert again.slug == "claude-sonnet-4-6"
 
 
 @pytest.mark.asyncio
@@ -52,6 +52,26 @@ async def test_resolve_byok_platform_mock(session_override):
     # Pricing comes from the catalog row.
     assert resolved.input_cost_per_mtok_cents == 300
     assert resolved.output_cost_per_mtok_cents == 1500
+
+
+@pytest.mark.asyncio
+async def test_resolve_raw_agent_model_id(session_override):
+    await seed_model_catalog(session_override)
+    tenant = Tenant(slug="raw-model", name="Raw Model")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+
+    await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-9999")
+    resolved = await resolve_model_call(
+        session_override,
+        tenant.id,
+        kind="chat",
+        model_slug="claude-haiku-4-5-20251001",
+    )
+    assert resolved.model_id == "claude-haiku-4-5-20251001"
+    assert resolved.key_source == "platform"
+    assert resolved.live is True
 
 
 @pytest.mark.asyncio
@@ -150,18 +170,19 @@ async def test_tenant_models_api_and_agent_patch(client: AsyncClient):
     res = await client.get("/api/settings/models", headers=headers)
     assert res.status_code == 200
     payload = res.json()
-    assert any(m["slug"] == "claude-sonnet-4" for m in payload["models"])
+    assert payload.get("source") == "platform"
+    assert any(m["slug"] == "claude-sonnet-4-6" for m in payload["models"])
     # No BYOK -> both providers billable.
     assert set(payload["billable_providers"]) == {"anthropic", "openai"}
 
     # Restrict allowed chat models to just haiku.
     put = await client.put(
         "/api/settings/models",
-        json={"allowed_chat": ["claude-haiku-4"], "default_chat": "claude-haiku-4"},
+        json={"allowed_chat": ["claude-haiku-4-5"], "default_chat": "claude-haiku-4-5"},
         headers=headers,
     )
     assert put.status_code == 200
-    assert put.json()["prefs"]["allowed_chat"] == ["claude-haiku-4"]
+    assert put.json()["prefs"]["allowed_chat"] == ["claude-haiku-4-5"]
 
     # Find a company agent to repoint.
     agents = (await client.get("/api/workforce/agents", headers=headers)).json()["items"]
@@ -169,16 +190,16 @@ async def test_tenant_models_api_and_agent_patch(client: AsyncClient):
 
     # A blocked model is rejected.
     blocked = await client.patch(
-        f"/api/workforce/agents/{agent_id}/model", json={"model": "claude-opus-4"}, headers=headers
+        f"/api/workforce/agents/{agent_id}/model", json={"model": "claude-opus-4-8"}, headers=headers
     )
     assert blocked.status_code == 403
 
     # An allowed model succeeds and updates provider.
     ok = await client.patch(
-        f"/api/workforce/agents/{agent_id}/model", json={"model": "claude-haiku-4"}, headers=headers
+        f"/api/workforce/agents/{agent_id}/model", json={"model": "claude-haiku-4-5"}, headers=headers
     )
     assert ok.status_code == 200
-    assert ok.json()["agent"]["model"] == "claude-haiku-4"
+    assert ok.json()["agent"]["model"] == "claude-haiku-4-5"
 
 
 @pytest.mark.asyncio

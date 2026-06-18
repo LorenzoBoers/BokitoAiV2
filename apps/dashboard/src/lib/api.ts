@@ -1,7 +1,7 @@
 import { authRoutes } from '../api/routes/auth.routes';
-import { APP_API_BASE, AUTH_API_BASE, WORKFORCE_API_BASE } from './api.config';
+import { APP_API_BASE, APP_SCOPED_API_BASE, AUTH_API_BASE, SETTINGS_API_BASE, STAFF_API_BASE, WORKFORCE_API_BASE } from './api.config';
 
-export { APP_API_BASE, AUTH_API_BASE, WORKFORCE_API_BASE };
+export { APP_API_BASE, APP_SCOPED_API_BASE, AUTH_API_BASE, SETTINGS_API_BASE, STAFF_API_BASE, WORKFORCE_API_BASE };
 
 const DEFAULT_ACCESS_TOKEN_TTL_S = 3600;
 const DEFAULT_REFRESH_TOKEN_TTL_S = 30 * 24 * 60 * 60;
@@ -166,6 +166,24 @@ export async function apiDelete<T = unknown>(path: string, token?: string): Prom
   return request<T>(APP_API_BASE, path, 'DELETE', { token });
 }
 
+// ── app-scoped base (`/api/app`) ─────────────────────────────────────
+
+export async function appScopedGet<T>(path: string, token?: string): Promise<T> {
+  return request<T>(APP_SCOPED_API_BASE, path, 'GET', { token });
+}
+
+export async function appScopedPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(APP_SCOPED_API_BASE, path, 'POST', { body, token, requireAuth: false });
+}
+
+export async function appScopedPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(APP_SCOPED_API_BASE, path, 'PATCH', { body, token });
+}
+
+export async function appScopedDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return request<T>(APP_SCOPED_API_BASE, path, 'DELETE', { token });
+}
+
 // ── workforce base (`/api/workforce`) ────────────────────────────────
 
 export async function workforceGet<T>(path: string, token?: string): Promise<T> {
@@ -196,6 +214,46 @@ export async function workforceDelete<T = unknown>(
   return readJsonResponse<T>(res, path);
 }
 
+// ── settings base (`/api/settings`) ──────────────────────────────────
+
+export async function settingsGet<T>(path: string, token?: string): Promise<T> {
+  return request<T>(SETTINGS_API_BASE, path, 'GET', { token });
+}
+
+export async function settingsPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(SETTINGS_API_BASE, path, 'POST', { body, token });
+}
+
+export async function settingsPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(SETTINGS_API_BASE, path, 'PATCH', { body, token });
+}
+
+export async function settingsDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return request<T>(SETTINGS_API_BASE, path, 'DELETE', { token });
+}
+
+// ── staff base (`/api/staff`) ────────────────────────────────────────
+
+export async function staffGet<T>(path: string, token?: string): Promise<T> {
+  return request<T>(STAFF_API_BASE, path, 'GET', { token });
+}
+
+export async function staffPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(STAFF_API_BASE, path, 'POST', { body, token });
+}
+
+export async function staffPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(STAFF_API_BASE, path, 'PATCH', { body, token });
+}
+
+export async function staffPut<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(STAFF_API_BASE, path, 'PUT', { body, token });
+}
+
+export async function staffDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return request<T>(STAFF_API_BASE, path, 'DELETE', { token });
+}
+
 // ── auth base (`/api/auth`) ──────────────────────────────────────────
 
 export async function apiPostAuth<T>(path: string, body: object, token?: string): Promise<T> {
@@ -208,7 +266,7 @@ export async function apiPatchAuth<T>(path: string, body: object, token?: string
 
 // ── auth session flows ───────────────────────────────────────────────
 
-export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+export async function requestPasswordReset(email: string): Promise<{ message: string; dev_token?: string; dev_link?: string }> {
   return apiPostAuth(authRoutes.session.passwordResetRequest, { email });
 }
 
@@ -220,11 +278,15 @@ export async function resetPassword(token: string, password: string, passwordCon
   });
 }
 
-export async function verifyEmail(token: string): Promise<{ message: string }> {
+export async function verifyEmail(
+  token: string,
+): Promise<{ message: string; email_verified?: boolean }> {
   return apiPostAuth(authRoutes.session.verifyEmail, { token });
 }
 
-export async function resendVerificationEmail(email: string): Promise<{ message: string }> {
+export async function resendVerificationEmail(
+  email: string,
+): Promise<{ message: string; dev_token?: string; dev_link?: string }> {
   return apiPostAuth(authRoutes.session.resendVerification, { email });
 }
 

@@ -71,11 +71,14 @@ export const appRoutes = {
     threadPin: (threadId: string) => `/signals/${threadId}/pin`,
     threadReply: (threadId: string) => `/signals/${threadId}/reply`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
+    threadTakeover: (threadId: string) => `/signals/${threadId}/takeover`,
+    threadRelease: (threadId: string) => `/signals/${threadId}/release`,
     messageResolve: (threadId: string, messageId: string) =>
       `/signals/${threadId}/messages/${messageId}/resolve`,
     pins: '/signals/pins',
     members: '/signals/members',
     syncStatus: '/signals/sync-status',
+    badgeCounts: '/signals/badge-counts',
   },
   orchestration: {
     runtimeProfiles: '/orchestration/runtime-profiles',

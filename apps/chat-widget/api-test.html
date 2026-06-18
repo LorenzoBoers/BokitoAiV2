@@ -63,7 +63,7 @@
     <h3>Config</h3>
     <div style="padding:4px 0;">
       <div class="label">API Base URL</div>
-      <input id="cfgApi" type="text" value="https://xrex-nmji-j9ur.f2.xano.io" placeholder="https://..." style="width:100%;margin-bottom:6px;">
+      <input id="cfgApi" type="text" value="https://api.bokito.nl" placeholder="https://..." style="width:100%;margin-bottom:6px;">
       <div class="label">Setup Key (for seed)</div>
       <input id="cfgKey" type="password" value="bokito-dev-seed-2024" placeholder="setup_key" style="width:100%;margin-bottom:6px;">
       <div class="label">Agent Slug</div>
@@ -94,7 +94,7 @@
       <button onclick="runSeed()">Seed Database</button>
       <button class="primary" onclick="runAll()">Run All Tests</button>
       <button onclick="launchWidget()">Open Chat Widget</button>
-      <a href="chat-standalone.html?agent_slug=demo&api_url=https://xrex-nmji-j9ur.f2.xano.io" target="_blank"><button>Open Standalone</button></a>
+      <a href="chat-standalone.html?agent_slug=demo&api_url=https://api.bokito.nl" target="_blank"><button>Open Standalone</button></a>
       <input id="authEmail" type="text" placeholder="login email" style="max-width:180px;">
       <input id="authPassword" type="password" placeholder="login password" style="max-width:180px;">
       <button onclick="runAuthLogin()">Login Test</button>
@@ -127,7 +127,7 @@ const PHASES = [
 const TEST_IDENTITY_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItMTIzIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJpYXQiOjE3NzM1NjgwMDAsImV4cCI6MTc5ODc2MTYwMCwibWV0YWRhdGEiOnsiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIn19.bdMytRQ17HvLgdplC5b9rdcb_dmSCPZEdMDHIapOngc';
 
 let cfg = {
-  api: localStorage.getItem('bk_api') || 'https://xrex-nmji-j9ur.f2.xano.io',
+  api: localStorage.getItem('bk_api') || 'https://api.bokito.nl',
   key: localStorage.getItem('bk_key') || 'bokito-dev-seed-2024',
   slug: localStorage.getItem('bk_slug') || 'demo'
 };
@@ -197,7 +197,7 @@ function refreshUI() {
   });
 }
 
-function API(path) { return `${cfg.api}/api:livechat/${path}`; }
+function API(path) { return `${cfg.api}/api/livechat/${path}`; }
 
 async function apiFetch(path, options = {}) {
   const r = await fetch(API(path), options);
@@ -423,7 +423,7 @@ async function testWebSocket(convId, tok) {
       if (!done) {
         done = true;
         addCard('ws', '9. WebSocket Realtime', 'CONFIG', {
-          note: 'WebSocket connection failed. Xano Realtime requires a channel to be configured in the Xano workspace (Realtime > Channels). The REST API tests above all passed.',
+          note: 'WebSocket connection failed. FastAPI Realtime requires a channel to be configured in the FastAPI workspace (Realtime > Channels). The REST API tests above all passed.',
           events
         }, true);
         state.results['ws'] = {ok: true};

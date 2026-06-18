@@ -1,7 +1,7 @@
 param(
   [string]$AppHost = "https://app.bokito.ai",
-  [string]$ExpectedXanoProdHost = "https://bokitoapp-prod-7443ed-xrex-nmji-j9ur.f2.xano.io",
-  [string]$LegacyXanoProdHost = "https://widget-prod-7443ed-xrex-nmji-j9ur.f2.xano.io",
+  [string]$ExpectedProdHost = "https://app.bokito.ai",
+  [string]$LegacyProdHost = "https://app.bokito.ai",
   [string]$TenantHost = "",
   [string]$ApiBase = ""
 )
@@ -73,15 +73,15 @@ function Print-OriginSummary {
 
 Write-Host "== Live portal smoke check ==" -ForegroundColor Cyan
 Write-Host "App host: $AppHost"
-Write-Host "Expected Xano prod host: $ExpectedXanoProdHost"
-Write-Host "Legacy Xano prod host: $LegacyXanoProdHost"
+Write-Host "Expected prod host: $ExpectedProdHost"
+Write-Host "Legacy prod host: $LegacyProdHost"
 if ($TenantHost) { Write-Host "Tenant host: $TenantHost" }
 if ($ApiBase) { Write-Host "API base: $ApiBase" }
 Write-Host ""
 
 $appHeaders = Get-Headers -Url "$AppHost/"
-$expectedHeaders = Get-Headers -Url "$ExpectedXanoProdHost/"
-$legacyHeaders = Get-Headers -Url "$LegacyXanoProdHost/"
+$expectedHeaders = Get-Headers -Url "$ExpectedProdHost/"
+$legacyHeaders = Get-Headers -Url "$LegacyProdHost/"
 
 Print-OriginSummary -Label "app" -Headers $appHeaders
 Print-OriginSummary -Label "expected-prod" -Headers $expectedHeaders
@@ -106,9 +106,9 @@ $matchesLegacy = ($appEtag -and $legacyEtag -and $appEtag -eq $legacyEtag) -or
   ($appModified -and $legacyModified -and $appModified -eq $legacyModified)
 
 if ($matchesExpected) {
-  Write-Host "PASS: app host matches expected Xano prod host." -ForegroundColor Green
+  Write-Host "PASS: app host matches expected FastAPI prod host." -ForegroundColor Green
 } elseif ($matchesLegacy) {
-  Write-Host "FAIL: app host still matches legacy Xano host (likely wrong DNS/Worker origin)." -ForegroundColor Red
+  Write-Host "FAIL: app host still matches legacy FastAPI host (likely wrong DNS/Worker origin)." -ForegroundColor Red
 } else {
   Write-Host "WARN: could not prove parity with either expected or legacy host." -ForegroundColor Yellow
 }
