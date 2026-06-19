@@ -1657,7 +1657,7 @@ Alle Bokito-verkeer loopt via `*.bokito.ai`. **`bokito.chargecars.app` is verwij
 
 ### 17.3 Autotrading tenant — productie-audit (juni 2026)
 
-UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`, build `69fd3a7`).
+UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`, build `5deed83`).
 
 **Werkt:**
 - Login + Communication-inbox; MMXM Trader-thread zichtbaar in sidebar (Assistant / Channels / Agents secties) en threadlijst.
