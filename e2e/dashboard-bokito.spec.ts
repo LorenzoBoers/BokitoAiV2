@@ -13,9 +13,9 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/inbox/all')
     await expect(page.getByRole('link', { name: 'New chat' })).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('link', { name: 'Unassigned' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('button', { name: 'Views' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Assistant' })).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('button', { name: 'Channels' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('button', { name: 'Labels' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Agents' })).toBeVisible({ timeout: 20000 })
   })
 
   test('customize dialog hides a section and persists across reload', async ({ page }) => {
@@ -23,14 +23,14 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/inbox/all')
     await page.getByTestId('customize-sidebar').click()
     await expect(page.getByRole('heading', { name: 'Customize sidebar' })).toBeVisible({ timeout: 20000 })
-    // Toggle off the Labels section via its Show switch.
-    const labelsRow = page.locator('[data-customize-section="labels"]')
-    await labelsRow.getByRole('switch').nth(1).click()
+    // Toggle off the Agents section via its Show switch.
+    const agentsRow = page.locator('[data-customize-section="agents"]')
+    await agentsRow.getByRole('switch').nth(1).click()
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('button', { name: 'Labels' })).toBeHidden({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Agents' })).toBeHidden({ timeout: 20000 })
     await page.reload()
-    await expect(page.getByRole('button', { name: 'Views' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('button', { name: 'Labels' })).toBeHidden({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Assistant' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Agents' })).toBeHidden({ timeout: 20000 })
   })
 
   test('new conversation surface shows To-picker with default target', async ({ page }) => {

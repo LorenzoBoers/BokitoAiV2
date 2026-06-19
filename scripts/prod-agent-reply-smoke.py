@@ -45,7 +45,9 @@ def main() -> int:
         agent_msgs = [
             m
             for m in messages
-            if m.get("author_type") == "agent" and m.get("direction") == "outbound"
+            if m.get("kind") == "agent_message"
+            or m.get("payload", {}).get("agent_id")
+            or m.get("author_type") == "agent"
         ]
         latest_agent = agent_msgs[-1] if agent_msgs else None
         if latest_agent and latest_agent.get("created_at", "") >= msg.get("created_at", ""):

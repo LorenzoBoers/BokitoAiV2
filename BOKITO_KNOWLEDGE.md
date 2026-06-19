@@ -1657,13 +1657,14 @@ Alle Bokito-verkeer loopt via `*.bokito.ai`. **`bokito.chargecars.app` is verwij
 
 ### 17.3 Autotrading tenant — productie-audit (juni 2026)
 
-UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`, build `1389b9f`).
+UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`, build `69fd3a7`).
 
 **Werkt:**
-- Login + Communication-inbox; MMXM Trader-thread zichtbaar in sidebar en threadlijst.
-- Berichten sturen naar MMXM Trader (intern kanaal) werkt in de UI.
+- Login + Communication-inbox; MMXM Trader-thread zichtbaar in sidebar (Assistant / Channels / Agents secties) en threadlijst.
+- Berichten sturen naar MMXM Trader (intern kanaal) + live agent-antwoord via platform Anthropic key (`execution_mode: shadow`, MCP tools bereikbaar).
+- Agent library `/agents`: MMXM Trader onder worker agents + Demo Project Orchestrator onder orchestrators.
 - Agent-detail via directe URL `/agents/{id}` (MMXM Trader: `e1728c7f-f06d-4ea3-bbe7-1f7781ee9c25`) — model `claude-haiku-4-5-20251001`, autonomy `auto`, chat access `everyone`.
-- Demo Project Orchestrator zichtbaar in agent library (orchestrator-sectie).
+- Orchestration panel: MMXM Trading project gekoppeld aan thread (`project_id` gezet).
 
 **Gaten (lokaal fixen → deploy):**
 - **Agent library:** MMXM Trader (`role_slug=assistant`, `kind=company`) ontbrak onder worker agents door te brede `PLATFORM_ROLE_SLUGS`-filter (`assistant` uitgesloten). Fix: filter alleen `personal` kind + orchestrators + `communication` role (`workforce-nav-agents.ts`).
@@ -1674,6 +1675,7 @@ UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`
 - **Platform LLM keys:** tenants zonder eigen Anthropic-key gebruiken de Bokito platform key (`platform_secrets` of env). API exposeert `chat_key_source` / `embeddings_key_source` (`tenant` | `platform` | `none`); LlmKeysSettings toont "Bokito platform" badge.
 - **Settings UI:** prod build `1389b9f` — na web deploy kan Cloudflare/browser oude JS cachen (login footer toont verkeerde build); purge cache of hard refresh. **Providers & models** + **AI keys** onder Settings → AI.
 - **Deploy smoke:** `scripts/smoke-deploy.sh` wacht tot `/api/health` ready (6 pogingen) vóór login-check.
-- **Infra:** `bokito-web-1` unhealthy op VPS (Caddy/healthcheck — apart onderzoeken).
+- **Infra:** `bokito-web-1` healthcheck gebruikt `http://localhost:80/` (niet Caddy admin `:2019`). Oude check faalde terwijl de site wel bereikbaar was; na patch is container `healthy`.
+- **Smoke scripts:** agent-antwoord detectie via `kind=agent_message` / `payload.agent_id` (API serialiseert geen `author_type`). VPS-bypass: `scripts/vps-prod-smoke-local.py` (localhost:8088, omzeilt Cloudflare 403).
 
 **Prod trader login (reset juni 2026):** `trader@bokito.ai` — wachtwoord via `scripts/vps-reset-prod-trader.py` (rotate + sync `PROD_SMOKE_PASSWORD` indien smoke tests moeten matchen).
