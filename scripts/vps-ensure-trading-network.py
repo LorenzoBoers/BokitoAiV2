@@ -12,6 +12,8 @@ CONTAINERS = (
     "trading-worker-1",
     "trading-api-1",
     "trading-trading-exec-mcp-1",
+    "bokito-api-1",
+    "bokito-worker-1",
 )
 
 REMOTE = f"""
@@ -26,7 +28,13 @@ if docker inspect bokito-api-1 >/dev/null 2>&1; then
   docker network connect --alias bokito-api bokito_shared bokito-api-1 2>/dev/null || \
     docker network connect bokito_shared bokito-api-1 2>/dev/null || true
 fi
-docker compose -p trading exec -T worker getent hosts bokito-api bokito-api-1 || true
+if docker inspect trading-trading-exec-mcp-1 >/dev/null 2>&1; then
+  docker network disconnect bokito_shared trading-trading-exec-mcp-1 2>/dev/null || true
+  docker network connect --alias trading-exec-mcp bokito_shared trading-trading-exec-mcp-1 2>/dev/null || \
+    docker network connect bokito_shared trading-trading-exec-mcp-1 2>/dev/null || true
+fi
+docker compose -p bokito exec -T api getent hosts trading-exec-mcp 2>/dev/null || true
+docker compose -p trading exec -T worker getent hosts bokito-api 2>/dev/null || true
 """
 
 

@@ -27,8 +27,8 @@ MMXM_TRADER_PROMPT = """You are MMXM Trader, the autotrading execution agent for
 You monitor trading setups, trade plans, and pipeline state. When MCP trading tools are connected,
 use them to read setup state, validate entries, and report execution status clearly.
 
-Default posture is shadow (dry-run) until the operator explicitly approves live execution.
-Always state execution_mode, blockers, and what is needed to go live. Be concise and operational."""
+Default posture follows risk_status: shadow until live is enabled; when live, place orders only inside caps and AM window.
+Always state execution_mode, blockers, and what is needed to trade. Be concise and operational."""
 
 
 async def refresh_retired_agent_models(session: AsyncSession, tenant_id: UUID) -> int:
