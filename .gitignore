@@ -45,6 +45,9 @@ apps/api/dev.db
 apps/api/dev-local.db
 apps/api/_reset_check.db
 apps/mobile/expo-dev-qr.png
+apps/mobile/google-services.json
+apps/mobile/*.jks
+apps/mobile/*.keystore
 
 # Cursor MCP (may contain API tokens — use mcp.json.example)
 .cursor/mcp.json

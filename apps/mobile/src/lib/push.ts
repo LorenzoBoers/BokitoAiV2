@@ -7,6 +7,11 @@ function isExpoGo(): boolean {
   return Constants.executionEnvironment === ExecutionEnvironment.StoreClient
 }
 
+function expoProjectId(): string | undefined {
+  const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined
+  return extra?.eas?.projectId
+}
+
 /**
  * Register this device for push notifications and store the Expo push token
  * on the backend. Skips Expo Go (push is not supported there since SDK 53),
@@ -19,7 +24,7 @@ export async function registerForPush(): Promise<string | null> {
 
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldPlaySound: false,
+      shouldPlaySound: true,
       shouldSetBadge: true,
       shouldShowBanner: true,
       shouldShowList: true,
@@ -29,7 +34,7 @@ export async function registerForPush(): Promise<string | null> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Default',
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
     })
   }
 
@@ -42,7 +47,10 @@ export async function registerForPush(): Promise<string | null> {
   if (status !== 'granted') return null
 
   try {
-    const token = (await Notifications.getExpoPushTokenAsync()).data
+    const projectId = expoProjectId()
+    const token = (
+      await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)
+    ).data
     await subscribePush(token)
     return token
   } catch {

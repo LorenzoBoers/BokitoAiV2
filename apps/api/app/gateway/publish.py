@@ -55,6 +55,9 @@ async def publish_signal_message(signal: "Signal", message: "SignalMessage") -> 
             },
         },
     )
+    from app.services.push import schedule_notify_thread_message
+
+    schedule_notify_thread_message(signal.id, message.id)
 
 
 async def publish_thread_update(signal: "Signal") -> None:
@@ -118,6 +121,10 @@ async def publish_decision(
             "payload": payload or {},
         },
     )
+    if status == "awaiting_human":
+        from app.services.push import schedule_notify_decision
+
+        schedule_notify_decision(decision_id, signal_id=signal_id)
 
 
 async def publish_notification(tenant_id: Any, *, notification_id: Any, kind: str, title: str) -> None:

@@ -1616,14 +1616,15 @@ OpenClaw-geïnspireerde herstructurering van de FastAPI/V1-track. Plan: gateway 
 
 ### Fase 7 — Native mobiele app (Expo) op het gateway-protocol (afgerond)
 
-**App (`apps/mobile`):** Expo + expo-router (npm workspace `bokito-mobile`; monorepo-aware `metro.config.js`). Donker thema gespiegeld aan de dashboard-tokens (`src/theme.ts`). Backend-URL via `expo.extra.apiUrl` in `app.json` (LAN-IP voor fysieke devices).
+**App (`apps/mobile`):** Expo + expo-router (npm workspace `bokito-mobile`; monorepo-aware `metro.config.js`). Donker thema gespiegeld aan de dashboard-tokens (`src/theme.ts`). Backend-URL via `BOKITO_API_URL` in `app.config.ts` (dev: LAN-IP; prod/EAS preview: `https://app.bokito.ai`).
 
 - **Auth:** `POST /api/auth/login` → access token in `expo-secure-store`; sessie-bootstrap via `GET /api/auth/me` (`src/context/AuthContext.tsx`). Logout reset ook de gateway-verbinding.
 - **Gateway:** `src/lib/gateway.ts` spreekt hetzelfde typed WS-protocol als het dashboard (`/api/ws?access_token=...&device=mobile`): `sub`/`unsub`/`ping`, event-frames, reconnect met backoff en automatische re-subscribe. Live refresh op topics `threads`, `signal:<id>` en `decisions`.
 - **Tabs:** Assistant (Signal-backed chat via `/api/chat/conversations*`), Messages (unified inbox via `/api/signals` met views Open/Mine/Unassigned/Decisions), Decisions (`/api/notifications/decisions` + approve/reject), Settings (account, workspace, API-endpoint, sign out). Thread-detail (`app/thread/[id].tsx`) toont berichten, interne notities en inline decision-kaarten (resolve via `POST /api/signals/{id}/messages/{mid}/resolve`), met reply-composer (`POST /api/signals/{id}/reply`).
-- **Push:** `src/lib/push.ts` registreert het Expo-pushtoken via `POST /api/push/subscribe` met endpoint-prefix `expo:`. Backend `services/push.py` levert nu beide paden: `expo:`-endpoints gaan via de Expo push API (`exp.host/--/api/v2/push/send`), overige endpoints via web push (VAPID/pywebpush).
+- **Push:** `src/lib/push.ts` registreert het Expo-pushtoken via `POST /api/push/subscribe` met endpoint-prefix `expo:` (vereist `extra.eas.projectId` + Firebase `google-services.json` voor standalone APK). Backend `services/push.py` stuurt push bij nieuwe **inbound** thread-berichten en bij decisions met status `awaiting_human` (ontvangers: thread assignee/owner, anders tenant owners/admins). Dispatch loopt fire-and-forget vanuit `gateway/publish.py` (`schedule_notify_thread_message`, `schedule_notify_decision`). Tap op notificatie deep-linkt naar thread of Decisions-tab (`src/lib/notification-routing.ts`).
+- **Android APK:** EAS Build profiel `preview` in `apps/mobile/eas.json` (`buildType: apk`, prod API URL). GitHub workflow `.github/workflows/mobile-apk.yml` (handmatig `workflow_dispatch`) bouwt en uploadt een downloadbaar APK-artifact; secrets: `EXPO_TOKEN`, `GOOGLE_SERVICES_JSON`. Setup: `apps/mobile/FIREBASE_SETUP.md`, `apps/mobile/README.md`.
 - **Messenger PWA gepensioneerd:** `apps/messenger`, `packages/messenger-ui/embed` en `e2e/messenger.spec.ts` zijn verwijderd; `build:messenger` is uit de root-scripts en CI; docker-compose heeft geen messenger-service meer. `packages/messenger-ui` (componentenpakket) blijft bestaan voor de dashboard FloatingMessenger.
-- **CI:** nieuwe `mobile`-job draait `npx tsc --noEmit` in `apps/mobile`.
+- **CI:** `mobile`-job draait `npx tsc --noEmit` in `apps/mobile`; aparte `Mobile APK`-workflow voor EAS builds.
 
 ## 17. Live MVP Deployment (Hostinger VPS, juni 2026)
 

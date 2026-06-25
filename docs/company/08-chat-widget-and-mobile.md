@@ -1,6 +1,6 @@
 # Chat widget and mobile
 
-Last updated: May 2026
+Last updated: June 2026
 
 Customer-facing chat is delivered via an **embeddable web widget** and a **mobile app**. Both use FastAPI livechat APIs with tenant-aware session start.
 
@@ -59,38 +59,35 @@ Dev server: `http://127.0.0.1:8787`. Dashboard dev proxies `/chat-widget/*` from
 
 ## Mobile app
 
-Tech: React Native, Expo Router, Gesture Handler, Reanimated.
+Tech: React Native, Expo Router (SDK 55), expo-notifications, expo-secure-store.
 
-### Home (two-page pager)
+Source: [`apps/mobile`](../../apps/mobile). Production API: `https://app.bokito.ai`.
 
-**Page 0 – Conversations**
+### Screens
 
-- Search, pull-to-refresh, FAB for new chat
-- `LoginRequiredGate` when unauthenticated
+| Tab / route | Purpose |
+|-------------|---------|
+| Assistant | Personal assistant chat via `/api/chat/conversations*` |
+| Messages | Unified inbox (`/api/signals`) with Open / Mine / Unassigned / Decisions views |
+| Decisions | Pending decisions (`/api/notifications/decisions`) with approve/reject |
+| Settings | Account, workspace, API endpoint, sign out |
+| `/thread/[id]` | Thread detail: messages, inline decision cards, reply composer |
 
-**Page 1 – Cloud agents**
+### Realtime and push
 
-- List and schedule tabs
-- Draggable agent order, 24h activity sparklines
-- Schedule timeline with draggable blocks
+- **Gateway WebSocket** (`/api/ws?device=mobile`): same typed protocol as the dashboard; live refresh on `threads`, `signal:<id>`, `decisions`.
+- **Push (standalone APK):** Expo token registered via `POST /api/push/subscribe` (`expo:` endpoint prefix). Backend sends push on inbound thread messages and `awaiting_human` decisions. Tap opens thread or Decisions tab.
+- **Firebase:** required for Android FCM on standalone builds — see [`apps/mobile/FIREBASE_SETUP.md`](../../apps/mobile/FIREBASE_SETUP.md).
 
-### Chat screen (`/chat`)
+### Build and install (Android APK)
 
-- SSE streaming via `parseSseStream`
-- Thinking indicator with tool steps
-- Suggestion chips on new conversation
-- Image attachments via `expo-image-picker`
+1. One-time: Expo project + Firebase — see [`apps/mobile/README.md`](../../apps/mobile/README.md).
+2. GitHub Actions workflow **Mobile APK** (`workflow_dispatch`) builds via EAS `preview` profile and uploads a downloadable APK artifact.
+3. Install on device (unknown sources), log in, allow notifications.
 
-### Agent detail (`/agent`)
+### Auth
 
-- Stats, activity chart, tools list
-- Pause/activate, configuration entry
-
-### State and auth
-
-- `ChatContext` – sessions, messages, streaming, agent mode
-- `ApiClient` – GET, POST, SSE, multipart upload
-- `customer_id` in AsyncStorage; auto-refresh on 401
+- `POST /api/auth/login` → JWT in SecureStore; bootstrap via `GET /api/auth/me`.
 
 ## Shared streaming behavior
 
