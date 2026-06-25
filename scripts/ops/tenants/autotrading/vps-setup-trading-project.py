@@ -17,7 +17,7 @@ from uuid import UUID
 from sqlalchemy import select
 from app.db.session import async_session_factory
 from app.models.auth import Tenant
-from app.services.trading_bootstrap import seed_trading_stack
+from scripts.tenants.autotrading.bootstrap import seed_trading_stack
 
 LINK = "{LINK_SIGNAL}".strip() or None
 SIGNAL_ID = UUID(LINK) if LINK else None

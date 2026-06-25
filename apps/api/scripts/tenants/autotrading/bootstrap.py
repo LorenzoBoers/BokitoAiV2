@@ -1,4 +1,4 @@
-"""Bootstrap MMXM autotrading workspace: trader agent, project, model refresh."""
+"""Ops-only autotrading tenant bootstrap (not imported by runtime routers)."""
 
 from __future__ import annotations
 

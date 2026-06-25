@@ -410,6 +410,8 @@ export default function Communication() {
     void refreshNavBadges()
   }, [refreshDetail, refreshThreads, refreshNavBadges])
 
+  const handleThreadUpdated = handleDecisionResolved
+
   // "Ask assistant": open a fresh assistant chat pre-filled with this
   // thread's context so the user can reason about it with their AI.
   const handleAskAssistant = useCallback(() => {
@@ -501,7 +503,7 @@ export default function Communication() {
           onAskAssistant={detail ? handleAskAssistant : undefined}
         />
         {detail && showContactPanel ? (
-          <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} />
+          <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} onThreadUpdated={handleThreadUpdated} />
         ) : null}
       </div>
     </div>

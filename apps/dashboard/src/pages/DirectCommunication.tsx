@@ -289,7 +289,11 @@ export default function DirectCommunication() {
           <DirectChatEmptyState agentLabel={agentLabel} />
         )}
         {selectedThread && showContextPanel ? (
-          <AgentThreadPanel thread={selectedThread} onClose={toggleContextPanel} />
+          <AgentThreadPanel
+            thread={selectedThread}
+            onClose={toggleContextPanel}
+            onThreadUpdated={() => void refreshThreads()}
+          />
         ) : null}
       </div>
     </div>

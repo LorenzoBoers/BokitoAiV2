@@ -572,7 +572,7 @@
         "title": "API keys",
         "description": "Developer keys for programmatic access.",
         "comingSoon": "Coming soon",
-        "comingSoonBody": "Developer API keys and webhooks will appear here once the backend is rolled out."
+        "comingSoonBody": "Webhook triggers are configured on Agenda under Automations. See Integrations setup for the full checklist."
       },
       "sources": {
         "title": "Sources",

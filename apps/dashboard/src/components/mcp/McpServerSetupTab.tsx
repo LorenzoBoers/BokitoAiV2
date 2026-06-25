@@ -59,6 +59,9 @@ export function McpServerSetupTab() {
         <div>
           <h2 className="text-lg font-medium text-text-heading">{t('integrations.mcp.servers.title')}</h2>
           <p className="text-sm text-text-secondary mt-1">{t('integrations.mcp.servers.description')}</p>
+          <p className="text-xs text-text-muted mt-2">
+            The MCP URL must be reachable from the Bokito API server (Docker internal hostnames are fine).
+          </p>
           <Link
             to="/integrations/docs"
             className="text-xs text-accent hover:underline mt-2 inline-block"

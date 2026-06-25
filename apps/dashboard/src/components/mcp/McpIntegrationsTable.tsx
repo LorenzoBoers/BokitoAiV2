@@ -1,11 +1,18 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Trash2 } from 'lucide-react'
+import { Loader2, Trash2, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
-import { revokeMcpConnection, type McpIntegrationRow } from '../../lib/mcp-integrations'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import {
+  revokeMcpConnection,
+  testMcpConnection,
+  type McpIntegrationRow,
+} from '../../lib/mcp-integrations'
 
 type Props = {
   rows: McpIntegrationRow[]
@@ -15,11 +22,42 @@ type Props = {
 
 export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
   const { t } = useTranslation('nav')
+  const [testingId, setTestingId] = useState<string | null>(null)
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; toolCount: number; error?: string }>>({})
 
   const statusVariant = (status: McpIntegrationRow['status']) => {
     if (status === 'active') return 'success'
     if (status === 'error') return 'error'
     return 'neutral'
+  }
+
+  const runTest = async (row: McpIntegrationRow) => {
+    if (!row.mcpServerId) {
+      toast.error('No MCP server id on this connection')
+      return
+    }
+    const serverId = String(row.mcpServerId)
+    setTestingId(row.id)
+    try {
+      const result = await testMcpConnection(serverId)
+      setTestResults((prev) => ({
+        ...prev,
+        [row.id]: {
+          ok: result.ok,
+          toolCount: result.tool_count,
+          error: result.error,
+        },
+      }))
+      if (result.ok) {
+        toast.success(`Connected — ${result.tool_count} tool${result.tool_count === 1 ? '' : 's'} found`)
+      } else {
+        toast.error(result.error ?? 'Connection test failed')
+      }
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Connection test failed'))
+    } finally {
+      setTestingId(null)
+    }
   }
 
   return (
@@ -80,20 +118,40 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                  <div className="flex flex-col gap-1">
+                    <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                    {testResults[row.id] ? (
+                      <span className={`text-[10px] ${testResults[row.id].ok ? 'text-status-success' : 'text-status-error'}`}>
+                        {testResults[row.id].ok
+                          ? `${testResults[row.id].toolCount} tools`
+                          : testResults[row.id].error ?? 'Test failed'}
+                      </span>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-text-muted hover:text-status-error"
-                    onClick={() => {
-                      void revokeMcpConnection(row.id).then(onChange)
-                    }}
-                    aria-label={t('integrations.actions.disconnect')}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={testingId === row.id}
+                      onClick={() => void runTest(row)}
+                      aria-label="Test connection"
+                    >
+                      {testingId === row.id ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-text-muted hover:text-status-error"
+                      onClick={() => {
+                        void revokeMcpConnection(row.id).then(onChange)
+                      }}
+                      aria-label={t('integrations.actions.disconnect')}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))

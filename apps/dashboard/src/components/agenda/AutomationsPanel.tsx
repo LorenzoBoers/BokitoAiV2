@@ -16,6 +16,7 @@ import {
   updateTrigger,
   type Trigger,
 } from '../../lib/orchestration-api'
+import { WebhookTriggerPanel } from './WebhookTriggerPanel'
 
 type ProfileItem = { id: string; name: string; model: string }
 type WorkstreamItem = { id: string; name: string; enabled: boolean }
@@ -197,64 +198,68 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                 </p>
               ) : (
                 triggers.map((trigger) => (
-                  <div
-                    key={trigger.id}
-                    className="flex items-center justify-between gap-3 border-b border-border py-2 text-sm last:border-0"
-                  >
-                    <div className="min-w-0">
-                      <span className="font-medium text-text-heading">{trigger.name}</span>
-                      <Badge variant="outline" className="ml-2 text-[10px] capitalize">
-                        {trigger.kind}
-                      </Badge>
-                      <span className="ml-2 text-text-muted">{triggerSchedule(trigger)}</span>
-                      {trigger.next_run_at && trigger.kind !== 'once' && trigger.kind !== 'event' ? (
-                        <span className="ml-2 text-text-muted">next {formatWhen(trigger.next_run_at)}</span>
-                      ) : null}
-                      {trigger.last_status ? (
-                        <Badge variant={runStatusVariant(trigger.last_status)} className="ml-2 text-[10px]">
-                          {trigger.last_status}
+                  <div key={trigger.id} className="border-b border-border py-2 last:border-0">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        <span className="font-medium text-text-heading">{trigger.name}</span>
+                        <Badge variant="outline" className="ml-2 text-[10px] capitalize">
+                          {trigger.kind}
                         </Badge>
-                      ) : null}
-                      {!trigger.enabled ? (
-                        <Badge variant="outline" className="ml-2 text-[10px]">
-                          disabled
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      {onEditTrigger ? (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => onEditTrigger(trigger)}>
-                          Edit
+                        <span className="ml-2 text-text-muted">{triggerSchedule(trigger)}</span>
+                        {trigger.next_run_at && trigger.kind !== 'once' && trigger.kind !== 'event' ? (
+                          <span className="ml-2 text-text-muted">next {formatWhen(trigger.next_run_at)}</span>
+                        ) : null}
+                        {trigger.last_status ? (
+                          <Badge variant={runStatusVariant(trigger.last_status)} className="ml-2 text-[10px]">
+                            {trigger.last_status}
+                          </Badge>
+                        ) : null}
+                        {!trigger.enabled ? (
+                          <Badge variant="outline" className="ml-2 text-[10px]">
+                            disabled
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {onEditTrigger ? (
+                          <Button type="button" size="sm" variant="ghost" onClick={() => onEditTrigger(trigger)}>
+                            Edit
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={runningId === trigger.id}
+                          onClick={() => void toggleTrigger(trigger)}
+                        >
+                          {trigger.enabled ? 'Disable' : 'Enable'}
                         </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={runningId === trigger.id}
-                        onClick={() => void toggleTrigger(trigger)}
-                      >
-                        {trigger.enabled ? 'Disable' : 'Enable'}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={runningId === trigger.id}
-                        onClick={() => void removeTrigger(trigger.id)}
-                      >
-                        Delete
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        disabled={runningId === trigger.id || trigger.kind === 'webhook' || trigger.kind === 'event'}
-                        onClick={() => void fireTrigger(trigger.id)}
-                      >
-                        {runningId === trigger.id ? 'Starting...' : 'Run now'}
-                      </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={runningId === trigger.id}
+                          onClick={() => void removeTrigger(trigger.id)}
+                        >
+                          Delete
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={runningId === trigger.id || trigger.kind === 'webhook' || trigger.kind === 'event'}
+                          onClick={() => void fireTrigger(trigger.id)}
+                        >
+                          {runningId === trigger.id ? 'Starting...' : 'Run now'}
+                        </Button>
+                      </div>
                     </div>
+                    {trigger.kind === 'webhook' ? (
+                      <div className="mt-2">
+                        <WebhookTriggerPanel trigger={trigger} compact onUpdated={() => void load()} />
+                      </div>
+                    ) : null}
                   </div>
                 ))
               )}

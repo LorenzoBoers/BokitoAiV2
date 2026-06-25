@@ -169,6 +169,29 @@ async def run_trigger(
     return await svc.fire_trigger(session, trigger)
 
 
+@router.post("/triggers/{trigger_id}/rotate-webhook-secret")
+async def rotate_webhook_secret(
+    trigger_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    trigger, secret = await svc.rotate_webhook_secret(session, auth.tenant.id, trigger_id)
+    data = svc.serialize_trigger(trigger)
+    data["webhook_secret"] = secret
+    return data
+
+
+@router.post("/triggers/{trigger_id}/test-webhook")
+async def test_webhook(
+    trigger_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    return await svc.test_webhook_trigger(session, auth.tenant.id, trigger_id)
+
+
 @router.post("/hooks/{trigger_id}")
 async def webhook_fire(
     trigger_id: UUID,

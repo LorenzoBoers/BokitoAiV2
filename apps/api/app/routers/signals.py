@@ -32,6 +32,7 @@ class ThreadPatch(BaseModel):
     assigned_to_user_id: int | None = None
     tags: list[str] | None = None
     priority: str | None = None
+    project_id: UUID | None = None
 
 
 class ReplyBody(BaseModel):
@@ -165,16 +166,21 @@ async def patch_signal(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    updates = body.model_dump(exclude_unset=True)
+    project_id_set = "project_id" in updates
+    project_id = updates.pop("project_id", None)
     thread = await svc.patch_thread(
         session,
         auth.tenant.id,
         auth.user.id,
         _num(auth),
         signal_id,
-        status=body.status,
-        assigned_to_user_id=body.assigned_to_user_id,
-        tags=body.tags,
-        priority=body.priority,
+        status=updates.get("status"),
+        assigned_to_user_id=updates.get("assigned_to_user_id"),
+        tags=updates.get("tags"),
+        priority=updates.get("priority"),
+        project_id=project_id,
+        project_id_set=project_id_set,
     )
     if not thread:
         raise HTTPException(status_code=404, detail="Signal not found")

@@ -285,6 +285,67 @@ async def list_mcp_bindings(session: AsyncSession, tenant_id: UUID) -> dict[str,
     return {"bindings": bindings, "mcp_server_ids": list(server_ids)}
 
 
+def _mcp_auth_headers(auth: dict[str, Any]) -> dict[str, str]:
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if auth.get("bearer_token"):
+        headers["Authorization"] = f"Bearer {auth['bearer_token']}"
+    elif auth.get("api_key"):
+        headers["Authorization"] = f"Bearer {auth['api_key']}"
+        headers["X-API-Key"] = str(auth["api_key"])
+    return headers
+
+
+async def test_mcp_server(
+    session: AsyncSession, tenant_id: UUID, server_id: UUID
+) -> dict[str, Any]:
+    import httpx
+
+    result = await session.execute(
+        select(McpServer).where(McpServer.id == server_id, McpServer.tenant_id == tenant_id)
+    )
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=404, detail="MCP server not found")
+
+    if server.server_url.startswith("mock://"):
+        return {
+            "ok": True,
+            "server_id": str(server.id),
+            "server_name": server.name,
+            "tool_count": 1,
+            "tools": [{"name": "mock_tool"}],
+        }
+
+    auth = _parse_json(server.auth_json)
+    payload = {"jsonrpc": "2.0", "id": "1", "method": "tools/list", "params": {}}
+    headers = _mcp_auth_headers(auth if isinstance(auth, dict) else {})
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(server.server_url, json=payload, headers=headers)
+            response.raise_for_status()
+            body = response.json()
+    except Exception as exc:
+        return {
+            "ok": False,
+            "server_id": str(server.id),
+            "server_name": server.name,
+            "tool_count": 0,
+            "tools": [],
+            "error": str(exc),
+        }
+
+    tools_raw = body.get("result", {}).get("tools", []) if isinstance(body, dict) else []
+    tools = [{"name": t.get("name", "")} for t in tools_raw if isinstance(t, dict) and t.get("name")]
+    return {
+        "ok": True,
+        "server_id": str(server.id),
+        "server_name": server.name,
+        "tool_count": len(tools),
+        "tools": tools,
+    }
+
+
 async def ensure_github_connection(
     session: AsyncSession, tenant_id: UUID, *, login: str = "bokito-dev"
 ) -> IntegrationConnection:

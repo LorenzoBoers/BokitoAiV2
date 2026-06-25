@@ -29,6 +29,7 @@ from app.services.integrations_platform import (
     list_providers,
     mock_authorize_url,
     revoke_connection,
+    test_mcp_server,
 )
 from app.services.oauth_flow import complete_oauth, start_real_oauth
 
@@ -249,6 +250,16 @@ async def get_mcp_bindings(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await list_mcp_bindings(session, auth.tenant.id)
+
+
+@router.post("/mcp/{server_id}/test")
+async def post_mcp_test(
+    server_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    return await test_mcp_server(session, auth.tenant.id, server_id)
 
 
 # --- MCP servers (legacy listing) ---

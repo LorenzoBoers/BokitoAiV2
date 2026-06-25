@@ -95,6 +95,8 @@ export const appRoutes = {
     list: '/triggers',
     byId: (id: string) => `/triggers/${id}`,
     run: (id: string) => `/triggers/${id}/run`,
+    rotateWebhookSecret: (id: string) => `/triggers/${id}/rotate-webhook-secret`,
+    testWebhook: (id: string) => `/triggers/${id}/test-webhook`,
   },
   channelBindings: {
     list: '/channels/bindings',

@@ -23,7 +23,7 @@ set_kv DEGIRO_ALLOW_LIVE_ORDERS 0
 sed -i 's/^  mode: live/  mode: shadow/' __TRADING_CONFIG__ || true
 grep -E '^EXECUTION_MODE=|^DEGIRO_ALLOW_LIVE' __TRADING_ENV__
 cd /opt/trading && docker compose -p trading up -d worker trading-exec-mcp --force-recreate
-python3 /opt/bokito/scripts/vps-ensure-trading-network.py 2>/dev/null || true
+python3 /opt/bokito/scripts/ops/tenants/autotrading/vps-ensure-trading-network.py 2>/dev/null || true
 """.replace("__TRADING_ENV__", TRADING_ENV).replace("__TRADING_CONFIG__", TRADING_CONFIG)
 
 

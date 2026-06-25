@@ -141,6 +141,19 @@ export async function listMcpBindings(): Promise<McpBindingsResponse> {
   return apiGet<McpBindingsResponse>(integrationsRoutes.platform.mcpBindings)
 }
 
+export type McpTestResult = {
+  ok: boolean
+  server_id: string
+  server_name: string
+  tool_count: number
+  tools: Array<{ name: string }>
+  error?: string
+}
+
+export async function testMcpServer(serverId: string): Promise<McpTestResult> {
+  return apiPost<McpTestResult>(integrationsRoutes.platform.mcpTest(serverId), {})
+}
+
 export function connectionCountForProvider(
   provider: IntegrationProviderRow,
   counts: ProvidersListResponse['connection_counts'],

@@ -539,7 +539,7 @@
         "title": "API-sleutels",
         "description": "Developer-sleutels voor programmatische toegang.",
         "comingSoon": "Binnenkort",
-        "comingSoonBody": "Developer API-sleutels en webhooks worden hier beschikbaar zodra de backend is uitgerold."
+        "comingSoonBody": "Webhook-triggers configureer je op Agenda onder Automations. Zie Integrations setup voor de volledige checklist."
       },
       "sources": {
         "title": "Bronnen",

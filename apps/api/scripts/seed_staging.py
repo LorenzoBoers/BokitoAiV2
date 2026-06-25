@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -56,10 +57,11 @@ async def seed_staging() -> None:
         await session.commit()
         print(f"staging_seed_ok tenant={TENANT_SLUG} user={TRADER_EMAIL}")
 
-        from app.services.trading_bootstrap import seed_trading_stack
+        if os.environ.get("SEED_TRADING_TENANT", "").strip() in ("1", "true", "yes"):
+            from scripts.tenants.autotrading.bootstrap import seed_trading_stack
 
-        trading = await seed_trading_stack(session, tenant.id)
-        print(f"trading_stack_ok {trading}")
+            trading = await seed_trading_stack(session, tenant.id)
+            print(f"trading_stack_ok {trading}")
 
 
 if __name__ == "__main__":

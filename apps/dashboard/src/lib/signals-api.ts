@@ -196,6 +196,7 @@ export async function patchSignalThread(
   if (patch.assignedToUserId !== undefined) body.assigned_to_user_id = patch.assignedToUserId
   if (patch.tags !== undefined) body.tags = patch.tags
   if (patch.priority !== undefined) body.priority = patch.priority
+  if (patch.projectId !== undefined) body.project_id = patch.projectId
   const payload = await apiPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
   return normalizeSignalThread(payload)
 }

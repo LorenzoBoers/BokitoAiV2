@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.project import Project
-from app.services.trading_bootstrap import (
+from scripts.tenants.autotrading.bootstrap import (
     MMXM_PROJECT_SLUG,
     MMXM_TRADER_SLUG,
     seed_trading_stack,

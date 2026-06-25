@@ -1,3 +1,4 @@
+import { integrationsRoutes } from '../api/routes'
 import { resolveProviderRowBrand } from './integration-brand'
 import {
   installMcpIntegration,
@@ -197,3 +198,5 @@ export async function installMcpConnection(input: InstallMcpConnectionInput): Pr
 export async function revokeMcpConnection(connectionId: string): Promise<void> {
   await revokeIntegrationConnection(connectionId)
 }
+
+export { testMcpServer as testMcpConnection, type McpTestResult } from './integrations-api'

@@ -162,6 +162,7 @@ export type PatchThreadInput = {
   assignedToUserId?: number
   tags?: string[]
   priority?: ThreadPriority
+  projectId?: string | null
 }
 
 export type SyncFolderStatus = {

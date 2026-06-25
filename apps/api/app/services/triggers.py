@@ -124,6 +124,42 @@ def compute_next_run(trigger: Trigger, now: datetime | None = None) -> datetime 
 # ── CRUD helpers ─────────────────────────────────────────────────────
 
 
+async def rotate_webhook_secret(
+    session: AsyncSession, tenant_id: UUID, trigger_id: UUID
+) -> tuple[Trigger, str]:
+    trigger = await get_trigger(session, tenant_id, trigger_id)
+    if trigger.kind != "webhook":
+        raise HTTPException(status_code=400, detail="Only webhook triggers have secrets")
+    new_secret = secrets.token_urlsafe(24)
+    trigger.webhook_secret = new_secret
+    trigger.updated_at = datetime.utcnow()
+    session.add(trigger)
+    await session.commit()
+    await session.refresh(trigger)
+    return trigger, new_secret
+
+
+async def test_webhook_trigger(
+    session: AsyncSession, tenant_id: UUID, trigger_id: UUID
+) -> dict[str, Any]:
+    trigger = await get_trigger(session, tenant_id, trigger_id)
+    if trigger.kind != "webhook":
+        raise HTTPException(status_code=400, detail="Only webhook triggers can be tested")
+    if not trigger.webhook_secret:
+        raise HTTPException(status_code=400, detail="Webhook secret is not configured")
+    result = await fire_trigger(
+        session,
+        trigger,
+        payload={"source": "bokito_test_ping", "test": True},
+    )
+    return {
+        "ok": True,
+        "status": result.get("status"),
+        "run_id": result.get("run_id"),
+        "task_id": result.get("task_id"),
+    }
+
+
 async def get_trigger(session: AsyncSession, tenant_id: UUID, trigger_id: UUID) -> Trigger:
     result = await session.execute(
         select(Trigger).where(Trigger.id == trigger_id, Trigger.tenant_id == tenant_id)

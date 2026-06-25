@@ -51,6 +51,43 @@ async def test_signal_threads_list_patch_pin(client: AsyncClient, session_overri
 
 
 @pytest.mark.asyncio
+async def test_signal_thread_project_link(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    from app.models.auth import Tenant
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+    project = await client.post(
+        "/api/workforce/projects",
+        headers=headers,
+        json={"name": "Ops Project", "slug": "ops-project", "autonomous_scope": "ops"},
+    )
+    assert project.status_code == 200
+    project_id = project.json()["id"]
+
+    ingest = await client.post(
+        "/api/signals/inbound",
+        headers=headers,
+        json={
+            "channel": "internal",
+            "source": "mock",
+            "subject": "Ops thread",
+            "body_text": "Link me",
+        },
+    )
+    assert ingest.status_code == 200
+    signal_id = ingest.json()["id"]
+
+    patched = await client.patch(
+        f"/api/signals/{signal_id}",
+        headers=headers,
+        json={"project_id": project_id},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["project_id"] == project_id
+
+
+@pytest.mark.asyncio
 async def test_internal_decision_thread(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     from app.models.auth import Tenant

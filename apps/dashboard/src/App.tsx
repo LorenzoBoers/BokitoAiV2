@@ -40,6 +40,7 @@ import WorkspaceDocs from './pages/WorkspaceDocs'
 import ProfileSettings from './pages/ProfileSettings'
 import MyAssistantSettings from './pages/MyAssistantSettings'
 import ModelsSettings from './pages/ModelsSettings'
+import ProjectsSettings from './pages/ProjectsSettings'
 import NotificationSettings from './pages/NotificationSettings'
 import WorkspaceSettings from './pages/WorkspaceSettings'
 import CompanyConfig from './pages/CompanyConfig'
@@ -51,6 +52,7 @@ import MessengerSettings from './pages/MessengerSettings'
 import IntegrationsConnected from './pages/IntegrationsConnected'
 import IntegrationsMarketplace from './pages/IntegrationsMarketplace'
 import IntegrationsMcp from './pages/IntegrationsMcp'
+import IntegrationSetupPage from './pages/IntegrationSetupPage'
 import GovernPage from './pages/GovernPage'
 
 // Control plane hub
@@ -258,6 +260,7 @@ export default function App() {
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/integrations/setup" element={<IntegrationSetupPage />} />
           <Route path="/triggers" element={<Navigate to="/agenda" replace />} />
           <Route path="/usage" element={<UsagePage />} />
 
@@ -288,6 +291,7 @@ export default function App() {
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/autonomy" element={<GovernPage />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
+            <Route path="/settings/projects" element={<ProjectsSettings />} />
             <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
             <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
           </Route>

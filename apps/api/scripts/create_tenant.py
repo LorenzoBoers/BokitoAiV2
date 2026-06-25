@@ -17,8 +17,8 @@ from app.services.workspaces_portal import create_workspace
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Create a Bokito tenant for an existing user")
     parser.add_argument("--email", help="Owner email (defaults to first non-staff user)")
-    parser.add_argument("--name", default="Autotrading", help="Tenant display name")
-    parser.add_argument("--subdomain", default="autotrading", help="Tenant slug/subdomain")
+    parser.add_argument("--name", required=True, help="Tenant display name")
+    parser.add_argument("--subdomain", required=True, help="Tenant slug/subdomain")
     args = parser.parse_args()
 
     await init_db()

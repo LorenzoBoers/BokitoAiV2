@@ -136,6 +136,25 @@ async def test_triggers_crud_and_bindings(client: AsyncClient):
     bad = await client.post(f"/api/hooks/{webhook.json()['id']}?secret=wrong")
     assert bad.status_code == 403
 
+    hook_id = webhook.json()["id"]
+    rotated = await client.post(f"/api/triggers/{hook_id}/rotate-webhook-secret", headers=headers)
+    assert rotated.status_code == 200
+    new_secret = rotated.json().get("webhook_secret")
+    assert new_secret
+    assert new_secret != secret
+    assert rotated.json()["has_webhook_secret"] is True
+
+    ok_hook = await client.post(
+        f"/api/hooks/{hook_id}",
+        headers={"X-Bokito-Secret": new_secret},
+        json={"ping": True},
+    )
+    assert ok_hook.status_code == 200
+
+    tested = await client.post(f"/api/triggers/{hook_id}/test-webhook", headers=headers)
+    assert tested.status_code == 200
+    assert tested.json()["ok"] is True
+
     deleted = await client.delete(f"/api/triggers/{trigger['id']}", headers=headers)
     assert deleted.status_code == 200
 

@@ -21,10 +21,12 @@ import type { GovernToolRow } from '../../lib/govern-api'
 import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import { AiAvatar } from '../ui/AiAvatar'
+import { ThreadProjectPicker } from './ThreadProjectPicker'
 
 type Props = {
   thread: InboxThread
   agent: RuntimeAgent | null
+  onThreadUpdated?: () => void
 }
 
 type AgentPassport = {
@@ -112,7 +114,7 @@ function DisclosureRow({
   )
 }
 
-export default function AgentContextPanel({ thread, agent }: Props) {
+export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Props) {
   const { token } = useAuth()
   const [passport, setPassport] = useState<AgentPassport | null>(null)
   const [toolCatalog, setToolCatalog] = useState<GovernToolRow[]>([])
@@ -170,6 +172,12 @@ export default function AgentContextPanel({ thread, agent }: Props) {
 
   return (
     <div className="flex flex-col">
+      <ThreadProjectPicker
+        threadId={thread.id}
+        projectId={thread.projectId ?? null}
+        onUpdated={onThreadUpdated}
+      />
+
       {/* Identity */}
       <div className="border-b border-border/40 px-4 pb-3 pt-4">
         <SectionHeading title="Agent" />

@@ -23,6 +23,7 @@ import {
   type Trigger,
   type TriggerKind,
 } from '../../lib/orchestration-api'
+import { WebhookTriggerPanel } from './WebhookTriggerPanel'
 
 export type TargetOption = { id: string; name: string }
 
@@ -80,6 +81,8 @@ export default function TriggerDialog({
   const [enabled, setEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [savedWebhook, setSavedWebhook] = useState<Trigger | null>(null)
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -109,6 +112,8 @@ export default function TriggerDialog({
       setInstructions('')
       setEnabled(true)
     }
+    setSavedWebhook(null)
+    setRevealedSecret(null)
   }, [open, trigger, initialRunAt])
 
   const kindHint = useMemo(() => KIND_OPTIONS.find((k) => k.value === kind)?.hint ?? '', [kind])
@@ -140,8 +145,23 @@ export default function TriggerDialog({
           ...(runAtIso ? { run_at: runAtIso } : {}),
         })
         toast.success('Saved')
+        if (kind === 'webhook') {
+          setSavedWebhook({
+            ...trigger,
+            name: name.trim(),
+            kind,
+            instructions,
+            enabled,
+            agent_id: agentId ?? null,
+            workstream_id: workstreamId ?? null,
+          })
+          onSaved()
+        } else {
+          onOpenChange(false)
+          onSaved()
+        }
       } else {
-        await createTrigger({
+        const created = await createTrigger({
           name: name.trim(),
           kind,
           cron_expr: kind === 'cron' ? cronExpr.trim() : undefined,
@@ -152,10 +172,17 @@ export default function TriggerDialog({
           enabled,
           run_at: runAtIso,
         })
-        toast.success('Scheduled')
+        if (kind === 'webhook' && created.webhook_secret) {
+          setSavedWebhook(created)
+          setRevealedSecret(created.webhook_secret)
+          toast.success('Webhook created. Copy the secret now — it is shown once.')
+          onSaved()
+        } else {
+          toast.success('Scheduled')
+          onOpenChange(false)
+          onSaved()
+        }
       }
-      onOpenChange(false)
-      onSaved()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, 'Could not save.'))
     } finally {
@@ -302,6 +329,15 @@ export default function TriggerDialog({
             </div>
             <Switch checked={enabled} onCheckedChange={setEnabled} />
           </div>
+
+          {(kind === 'webhook' && (savedWebhook ?? (editing ? trigger : null))) ? (
+            <WebhookTriggerPanel
+              trigger={savedWebhook ?? trigger!}
+              revealedSecret={revealedSecret}
+              onSecretConsumed={() => setRevealedSecret(null)}
+              onUpdated={onSaved}
+            />
+          ) : null}
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">
@@ -314,7 +350,7 @@ export default function TriggerDialog({
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancel
+              {savedWebhook ? 'Close' : 'Cancel'}
             </Button>
             <Button type="button" onClick={() => void save()} disabled={!canSave || saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? 'Save' : 'Schedule'}

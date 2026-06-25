@@ -92,6 +92,25 @@ async def test_mcp_install_and_bindings(client: AsyncClient):
     assert len(data["bindings"]) >= 1
     assert len(data["mcp_server_ids"]) >= 1
 
+    mock_install = await client.post(
+        f"{API}/integrations/mcp/install",
+        headers=headers,
+        json={
+            "provider": "custom_mcp",
+            "api_key": "mock-key",
+            "display_name": "Mock MCP",
+            "server_url": "mock://local/tools",
+        },
+    )
+    assert mock_install.status_code == 200
+    server_id = mock_install.json()["binding"]["config"]["mcp_server_id"]
+    tested = await client.post(f"{API}/integrations/mcp/{server_id}/test", headers=headers)
+    assert tested.status_code == 200
+    body = tested.json()
+    assert body["ok"] is True
+    assert body["tool_count"] >= 1
+    assert body["tools"][0]["name"]
+
 
 @pytest.mark.asyncio
 async def test_mcp_tenant_isolation(client: AsyncClient):

@@ -509,6 +509,8 @@ async def patch_thread(
     assigned_to_user_id: int | None = None,
     tags: list[str] | None = None,
     priority: str | None = None,
+    project_id: UUID | None = None,
+    project_id_set: bool = False,
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
@@ -522,6 +524,16 @@ async def patch_thread(
         signal.tags_json = json.dumps(tags)
     if priority is not None:
         signal.priority = priority
+    if project_id_set:
+        if project_id is not None:
+            from app.models.project import Project
+
+            project_result = await session.execute(
+                select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+            )
+            if not project_result.scalar_one_or_none():
+                raise HTTPException(status_code=404, detail="Project not found")
+        signal.project_id = project_id
     signal.updated_at = datetime.utcnow()
     session.add(signal)
     session.add(
@@ -531,7 +543,13 @@ async def patch_thread(
             event_type="thread_updated",
             actor_type="user",
             actor_id=str(user_id),
-            payload_json=json.dumps({"status": status, "priority": priority}),
+            payload_json=json.dumps(
+                {
+                    "status": status,
+                    "priority": priority,
+                    "project_id": str(project_id) if project_id else None,
+                }
+            ),
         )
     )
     await session.commit()

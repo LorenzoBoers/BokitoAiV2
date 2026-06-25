@@ -169,6 +169,28 @@ export async function runTrigger(triggerId: string): Promise<{ status: string }>
   return apiPost(appRoutes.triggers.run(triggerId), {})
 }
 
+export async function rotateWebhookSecret(triggerId: string): Promise<Trigger> {
+  return apiPost<Trigger>(appRoutes.triggers.rotateWebhookSecret(triggerId), {})
+}
+
+export type WebhookTestResult = {
+  ok: boolean
+  status?: string
+  run_id?: string
+  task_id?: string
+}
+
+export async function testWebhookTrigger(triggerId: string): Promise<WebhookTestResult> {
+  return apiPost<WebhookTestResult>(appRoutes.triggers.testWebhook(triggerId), {})
+}
+
+export function webhookHookUrl(triggerId: string): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api/hooks/${triggerId}`
+  }
+  return `/api/hooks/${triggerId}`
+}
+
 export type AgendaItem = {
   id: string
   trigger_id: string | null

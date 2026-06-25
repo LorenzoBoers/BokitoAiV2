@@ -19,6 +19,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     label: 'Workspace',
     links: [
       { label: 'General', to: '/settings/general' },
+      { label: 'Projects', to: '/settings/projects' },
       { label: 'Branding', to: '/settings/branding' },
       { label: 'Members & teams', to: '/settings/members' },
     ],
@@ -36,6 +37,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     label: 'Integrations',
     links: [
       { label: 'Connected', to: '/settings/integrations' },
+      { label: 'Setup guide', to: '/integrations/setup' },
       { label: 'Marketplace', to: '/settings/marketplace' },
       { label: 'MCP', to: '/settings/mcp' },
     ],

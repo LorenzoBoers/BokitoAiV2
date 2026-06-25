@@ -104,6 +104,20 @@ export async function getProjectBudget(projectId: string): Promise<ProjectBudget
   return workforceGet<ProjectBudgetResponse>(projectsRoutes.usageBudget(projectId))
 }
 
+export async function createProjectPoAgent(
+  projectId: string,
+  name: string,
+): Promise<{ po_agent_id: string; po_agent: ProjectRow['po_agent'] }> {
+  return workforcePost(projectsRoutes.poAgent(projectId), { name })
+}
+
+export async function linkProjectPoAgentById(
+  projectId: string,
+  poAgentId: string,
+): Promise<{ project_id: string; po_agent_id: string; po_agent: ProjectRow['po_agent'] }> {
+  return workforcePatch(projectsRoutes.poAgent(projectId), { po_agent_id: poAgentId })
+}
+
 export async function getRepoStatus(projectId: string): Promise<{
   repo_index_status: RepoIndexStatus
   repo_indexed_at: string | null

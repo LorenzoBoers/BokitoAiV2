@@ -10,9 +10,10 @@ import AgentContextPanel from './AgentContextPanel'
 type Props = {
   thread: InboxThread
   onClose: () => void
+  onThreadUpdated?: () => void
 }
 
-export default function AgentThreadPanel({ thread, onClose }: Props) {
+export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: Props) {
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [targetAgent, setTargetAgent] = useState<RuntimeAgent | null>(null)
   // External/customer threads show the contact; assistant and internal threads
@@ -129,7 +130,7 @@ export default function AgentThreadPanel({ thread, onClose }: Props) {
             currentThreadId={thread.id}
           />
         ) : (
-          <AgentContextPanel thread={thread} agent={contextAgent} />
+          <AgentContextPanel thread={thread} agent={contextAgent} onThreadUpdated={onThreadUpdated} />
         )}
       </div>
     </aside>

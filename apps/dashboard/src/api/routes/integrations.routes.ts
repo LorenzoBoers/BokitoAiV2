@@ -27,6 +27,7 @@ export const integrationsRoutes = {
     workerCredentials: '/integrations/worker/credentials',
     mcpBindings: '/integrations/mcp/bindings',
     mcpInstall: '/integrations/mcp/install',
+    mcpTest: (serverId: string) => `/integrations/mcp/${serverId}/test`,
     mcpOAuthStart: (provider: string, returnUrl: string) => {
       const params = new URLSearchParams({
         provider,
