@@ -53,9 +53,6 @@ async def test_signal_threads_list_patch_pin(client: AsyncClient, session_overri
 @pytest.mark.asyncio
 async def test_signal_thread_project_link(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
-    from app.models.auth import Tenant
-
-    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
 
     project = await client.post(
         "/api/workforce/projects",
