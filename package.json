@@ -15,5 +15,10 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"
+  },
+  "overrides": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "expo-font": "55.0.8"
   }
 }

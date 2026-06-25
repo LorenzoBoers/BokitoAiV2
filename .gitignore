@@ -48,6 +48,8 @@ apps/mobile/expo-dev-qr.png
 apps/mobile/google-services.json
 apps/mobile/*.jks
 apps/mobile/*.keystore
+apps/mobile/fcm-service-account.json
+apps/mobile/*service-account*.json
 
 # Cursor MCP (may contain API tokens — use mcp.json.example)
 .cursor/mcp.json
