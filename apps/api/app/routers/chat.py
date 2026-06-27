@@ -468,12 +468,3 @@ async def _llm_meta_for_agent(session: AsyncSession, tenant_id: UUID, agent: Age
         "llm_mode": "live" if call.live else "mock",
         "llm_key_source": call.key_source,
     }
-    if not llm_meta.get("llm_configured"):
-        return (
-            "The assistant cannot reply because no LLM API key is configured for this workspace. "
-            "Add a provider key in Settings or contact your administrator."
-        )
-    return (
-        "The assistant encountered an error while generating a reply. "
-        "Please try again in a moment."
-    )

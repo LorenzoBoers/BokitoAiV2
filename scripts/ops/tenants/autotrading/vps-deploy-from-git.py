@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Git pull on VPS and rebuild prod api/worker from source."""
+"""Git pull on VPS and hot-patch prod api/worker from pulled source."""
 import os
 import sys
 
@@ -7,17 +7,21 @@ import paramiko
 
 HOST = os.environ.get("VPS_HOST", "31.97.45.44")
 KEY_PATH = os.environ.get("VPS_SSH_KEY", os.path.expanduser("~/.ssh/bokito_vps_deploy"))
-BRANCH = os.environ.get("DEPLOY_BRANCH", "main")
+BRANCH = os.environ.get("DEPLOY_BRANCH", "master")
 
 REMOTE = f"""
 set -euo pipefail
 cd /opt/bokito
 git fetch origin {BRANCH}
 git checkout {BRANCH}
-git pull --ff-only origin {BRANCH} || true
-export BOKITO_ENV_FILE=.env.prod
-docker compose -p bokito -f docker-compose.deploy.yml build api worker
-docker compose -p bokito -f docker-compose.deploy.yml up -d api worker
+git reset --hard origin/{BRANCH}
+for svc in api worker; do
+  cid=$(docker compose -p bokito ps -q $svc)
+  docker cp apps/api/app/. "$cid":/app/app/
+  docker cp apps/api/scripts/. "$cid":/app/scripts/
+done
+docker compose -p bokito restart api worker
+sleep 15
 docker compose -p bokito exec -T api python -c "import asyncio; from app.db.session import init_db; asyncio.run(init_db())"
 docker compose -p bokito exec -T api python <<'PY'
 import asyncio

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels.outbound import deliver_outbound
 from app.models.agent import Agent
-from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.models.signal import Signal, SignalEvent
 from app.services.assistant_threads import append_signal_chat_message
 
 

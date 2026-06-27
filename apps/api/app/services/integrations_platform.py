@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDERS, PROVIDER_BY_SLUG, provider_id
+from app.services.mcp_auth import mcp_auth_headers as _mcp_auth_headers
 
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
@@ -283,9 +284,6 @@ async def list_mcp_bindings(session: AsyncSession, tenant_id: UUID) -> dict[str,
         )
         server_ids = {str(s.id) for s in servers.scalars().all()}
     return {"bindings": bindings, "mcp_server_ids": list(server_ids)}
-
-
-from app.services.mcp_auth import mcp_auth_headers as _mcp_auth_headers
 
 
 async def test_mcp_server(
