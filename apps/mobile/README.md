@@ -22,6 +22,49 @@ npm run start -w bokito-mobile
 
 Open in Expo Go or a dev build on iOS/Android.
 
+### Android emulator (Windows)
+
+The emulator has no internet by default — use `adb reverse` so it reaches Metro and the local API on the host.
+
+1. Start the API (`apps/api` on port 8000).
+2. If stuck on `unauthorized`, cold-boot with auth skipped (first-time or after key reset):
+
+```powershell
+adb emu kill
+emulator -avd Medium_Phone_API_36.1 -port 5556 -wipe-data -skip-adb-auth -no-snapshot-load
+```
+
+Or use `.\scripts\dev-android.ps1` (passes `-skip-adb-auth` when starting the AVD).
+
+After first successful setup, save an AVD snapshot for faster boots (emulator console port = AVD port):
+
+```text
+auth <token from %USERPROFILE%\.emulator_console_auth_token>
+avd snapshot save bokito-dev
+```
+
+The dev script loads snapshot `bokito-dev` automatically when it exists.
+
+3. Run the bootstrap script (builds APK if missing, sets port reverse, installs app):
+
+```powershell
+cd apps/mobile
+.\scripts\dev-android.ps1
+```
+
+Manual equivalent:
+
+```powershell
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:8000 tcp:8000
+$env:BOKITO_API_URL="http://127.0.0.1:8000"
+npm run start:offline
+```
+
+**Expo Go** works for UI testing; push notifications require the **native debug APK** (`npm run android:build`).
+
+Gradle wrapper must stay on **8.13** (9.0 fails on Windows with `JvmVendorSpec IBM_SEMERU`). Re-pin after `expo prebuild`.
+
 ## Production APK
 
 The app targets production at `https://app.bokito.ai` when built with the EAS `preview` profile.

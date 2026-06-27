@@ -130,7 +130,7 @@ export default function IntegrationSetupPage() {
                           {index + 1}. {step.title}
                         </p>
                         <p className="mt-1 text-xs text-text-muted">{step.description}</p>
-                        <Button asChild variant="link" size="sm" className="h-auto px-0 mt-1">
+                        <Button asChild variant="ghost" size="sm" className="h-auto px-0 mt-1 text-accent hover:text-accent">
                           <Link to={step.href}>
                             Open
                             <ExternalLink size={12} className="ml-1" />

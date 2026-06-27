@@ -1,5 +1,10 @@
+import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { useEffect } from 'react'
 import { router } from 'expo-router'
+
+function isExpoGo(): boolean {
+  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+}
 
 type NotificationData = {
   signal_id?: string
@@ -23,6 +28,8 @@ function routeFromNotificationData(data: NotificationData | undefined) {
  */
 export function useNotificationRouting() {
   useEffect(() => {
+    if (isExpoGo()) return
+
     let cancelled = false
 
     void (async () => {

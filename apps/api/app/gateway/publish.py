@@ -34,6 +34,50 @@ def _thread_summary(signal: "Signal") -> dict[str, Any]:
     }
 
 
+async def publish_message_delta(
+    tenant_id: Any,
+    signal_id: Any,
+    *,
+    delta: str,
+    stream_id: str | None = None,
+) -> None:
+    """Streaming token delta for an in-progress agent reply."""
+    await _safe_publish(
+        tenant_id,
+        [f"signal:{signal_id}"],
+        "message.delta",
+        {
+            "signal_id": str(signal_id),
+            "delta": delta,
+            "stream_id": stream_id,
+        },
+    )
+
+
+async def publish_agent_step(
+    tenant_id: Any,
+    signal_id: Any,
+    *,
+    step_type: str,
+    name: str = "",
+    payload: dict[str, Any] | None = None,
+    stream_id: str | None = None,
+) -> None:
+    """Agent tool call, tool result, or thinking step during a reply."""
+    await _safe_publish(
+        tenant_id,
+        [f"signal:{signal_id}"],
+        "agent.step",
+        {
+            "signal_id": str(signal_id),
+            "step_type": step_type,
+            "name": name,
+            "payload": payload or {},
+            "stream_id": stream_id,
+        },
+    )
+
+
 async def publish_signal_message(signal: "Signal", message: "SignalMessage") -> None:
     """A message was appended to a thread (any channel, any author)."""
     await _safe_publish(

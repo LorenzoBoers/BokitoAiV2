@@ -45,7 +45,12 @@ apps/api/dev.db
 apps/api/dev-local.db
 apps/api/_reset_check.db
 apps/mobile/expo-dev-qr.png
+apps/mobile/emulator-*.png
+apps/mobile/ui-dump.xml
 apps/mobile/google-services.json
+apps/mobile/android/app/google-services.json
+apps/mobile/android-build.log
+apps/mobile/android/app/build/
 apps/mobile/*.jks
 apps/mobile/*.keystore
 apps/mobile/fcm-service-account.json
@@ -62,3 +67,6 @@ widget-wink-build.zip
 .tmp-*
 *.xs.bak
 **/.tmp/
+
+# Local upload storage (dev)
+data/uploads/

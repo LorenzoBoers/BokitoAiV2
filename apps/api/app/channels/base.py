@@ -185,6 +185,8 @@ async def ingest_inbound(
         subject=inbound.subject,
         body_text=inbound.body_text,
         body_preview=inbound.body_text[:200],
+        body_html=str(inbound.metadata.get("body_html") or ""),
+        attachments_json=json.dumps(inbound.metadata.get("attachments") or []),
         external_id=inbound.external_id,
         metadata_json=json.dumps(inbound.metadata) if inbound.metadata else "{}",
         received_at=now,

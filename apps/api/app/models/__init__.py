@@ -8,6 +8,7 @@ from app.models.email_routing import EmailRoutingRule
 from app.models.inbox import InboxSettings
 from app.models.workspace import DocChunk, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback
+from app.models.outcome import OperationalOutcome
 from app.models.platform_change import PlatformChange
 from app.models.signal import Signal, SignalEvent, SignalMessage, SignalThreadPin
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
@@ -105,6 +106,7 @@ __all__ = [
     "SignalThreadPin",
     "Feedback",
     "EvalScore",
+    "OperationalOutcome",
     "PlatformChange",
     "RuntimeProfile",
     "AgentTask",

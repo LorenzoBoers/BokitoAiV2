@@ -28,6 +28,8 @@ When payload kind is "decide": review the setup with MCP tools (get_setup, get_t
 
 When kind is "manage": review the open position and whether to hold, update_stop, or flatten.
 
+When kind is "report": structured outcome from the trading stack. Subtype trade_closed or session_summary with fields setup_id, pnl_r, notes. Summarize for the operator; outcome is persisted automatically.
+
 Never call place_live_order unless risk_status shows execution_mode live with degiro_allow_live_orders true. In shadow mode, use check_live_order only.
 
 Be concise and operational."""
@@ -102,9 +104,8 @@ echo "trigger_id=$TRIGGER_ID"
 
 set_kv() {{
   key="$1"; val="$2"; file="{TRADING_ENV}"
-  if grep -q "^${{key}}=" "$file" 2>/dev/null; then
-    sed -i "s|^${{key}}=.*|${{key}}=${{val}}|" "$file"
-  else
+  perl -pi -e "s/^${{key}}=.*/${{key}}=${{val}}/" "$file" 2>/dev/null || true
+  if ! grep -q "^${{key}}=" "$file" 2>/dev/null; then
     echo "${{key}}=${{val}}" >> "$file"
   fi
 }}

@@ -66,7 +66,20 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             "Decide: reply, operational action via tool/MCP, or escalate. "
             "Use create_decision_request with multiple choice options."
         )
-        await loop.run_chat([{"role": "user", "content": prompt}])
+        reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
+
+        from app.services.inbound_agent import persist_inbound_agent_reply
+
+        delivery = await persist_inbound_agent_reply(
+            session,
+            UUID(tenant_id),
+            signal,
+            agent,
+            reply_text=reply_text,
+            run_id=run.id,
+            tokens=tokens,
+        )
+
         session.add(
             SignalEvent(
                 signal_id=signal.id,
@@ -74,11 +87,11 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 event_type="agent_processed",
                 actor_type="agent",
                 actor_id=str(agent.id),
-                payload_json=json.dumps({"run_id": str(run.id)}),
+                payload_json=json.dumps({"run_id": str(run.id), "delivery": delivery}),
             )
         )
         await session.commit()
-        return {"processed": True, "signal_id": signal_id}
+        return {"processed": True, "signal_id": signal_id, "delivery": delivery}
 
 
 async def coding_agent_run(ctx, tenant_id: str, task_subject: str, repo_path: str = "/work"):
@@ -135,11 +148,20 @@ async def run_agent_task_segment_job(ctx, tenant_id: str, task_id: str):
 
 
 async def process_due_triggers_job(ctx):
+    from app.services.learning import run_learning_for_enabled_tenants
     from app.services.triggers import process_due_triggers
 
     async with async_session_factory() as session:
         count = await process_due_triggers(session)
-        return {"triggers_fired": count}
+        learning = await run_learning_for_enabled_tenants(session)
+        return {"triggers_fired": count, "learning": learning}
+
+
+async def run_tenant_learning_cycle_job(ctx, tenant_id: str):
+    from app.services.learning import run_tenant_learning_cycle
+
+    async with async_session_factory() as session:
+        return await run_tenant_learning_cycle(session, UUID(tenant_id))
 
 
 class WorkerSettings:
@@ -149,6 +171,7 @@ class WorkerSettings:
         run_agent_task_segment_job,
         run_workstream_orchestrated,
         process_due_triggers_job,
+        run_tenant_learning_cycle_job,
     ]
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)

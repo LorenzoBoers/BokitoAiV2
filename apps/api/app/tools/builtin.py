@@ -198,7 +198,83 @@ async def _propose_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
 
 
 async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    return {"task_id": "mock-task", "title": tool_input.get("title"), "status": "created"}
+    from uuid import UUID
+
+    from app.services.orchestration.dispatcher import create_agent_task
+
+    agent_id = UUID(str(tool_input["agent_id"])) if tool_input.get("agent_id") else (ctx.agent.id if ctx.agent else None)
+    task = await create_agent_task(
+        ctx.session,
+        ctx.tenant_id,
+        title=tool_input.get("title", "Agent task"),
+        description=tool_input.get("description", ""),
+        agent_id=agent_id,
+        project_id=UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
+        workstream_id=UUID(str(tool_input["workstream_id"])) if tool_input.get("workstream_id") else None,
+        signal_id=ctx.signal_id,
+        created_by=ctx.user_id,
+        auto_start=tool_input.get("auto_start", True),
+    )
+    return {
+        "task_id": str(task.id),
+        "signal_id": str(task.signal_id) if task.signal_id else None,
+        "status": task.status,
+    }
+
+
+async def _delegate_to_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+    from app.services.orchestration.dispatcher import create_agent_task
+
+    target: Agent | None = None
+    if tool_input.get("agent_id"):
+        target = (
+            await ctx.session.execute(
+                select(Agent).where(
+                    Agent.id == UUID(str(tool_input["agent_id"])),
+                    Agent.tenant_id == ctx.tenant_id,
+                    Agent.is_active.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+    elif tool_input.get("agent_slug"):
+        target = (
+            await ctx.session.execute(
+                select(Agent).where(
+                    Agent.slug == tool_input["agent_slug"],
+                    Agent.tenant_id == ctx.tenant_id,
+                    Agent.is_active.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+    if not target:
+        return {"error": "Target agent not found in this tenant"}
+
+    instructions = tool_input.get("instructions") or tool_input.get("message") or ""
+    title = tool_input.get("title") or f"Delegated to {target.name}"
+    task = await create_agent_task(
+        ctx.session,
+        ctx.tenant_id,
+        title=title,
+        description=instructions,
+        agent_id=target.id,
+        project_id=UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
+        workstream_id=UUID(str(tool_input["workstream_id"])) if tool_input.get("workstream_id") else None,
+        signal_id=ctx.signal_id,
+        created_by=ctx.user_id,
+        auto_start=tool_input.get("auto_start", True),
+    )
+    return {
+        "task_id": str(task.id),
+        "agent_id": str(target.id),
+        "agent_name": target.name,
+        "signal_id": str(task.signal_id) if task.signal_id else None,
+        "status": task.status,
+    }
 
 
 # ── integrations ─────────────────────────────────────────────────
@@ -413,14 +489,43 @@ register_tool(
 register_tool(
     ToolSpec(
         name="create_task",
-        description="Create an internal task/reminder for the user or agent.",
+        description="Create an orchestration task for an agent (starts internal thread + optional workstream segment).",
         category="agents",
         input_schema={
             "type": "object",
-            "properties": {"title": {"type": "string"}, "due_at": {"type": "string"}},
+            "properties": {
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "agent_id": {"type": "string"},
+                "project_id": {"type": "string"},
+                "workstream_id": {"type": "string"},
+                "auto_start": {"type": "boolean"},
+            },
             "required": ["title"],
         },
         handler=_create_task,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="delegate_to_agent",
+        description="Delegate work to another agent in this tenant by creating an orchestration task.",
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "agent_slug": {"type": "string"},
+                "title": {"type": "string"},
+                "instructions": {"type": "string"},
+                "message": {"type": "string"},
+                "project_id": {"type": "string"},
+                "workstream_id": {"type": "string"},
+                "auto_start": {"type": "boolean"},
+            },
+        },
+        handler=_delegate_to_agent,
     )
 )
 

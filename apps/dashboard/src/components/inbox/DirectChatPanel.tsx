@@ -14,6 +14,8 @@ import {
   type ChatMessage,
 } from '../../lib/bokito-api'
 import { UserAvatar } from '../ui/UserAvatar'
+import AgentSteps from './AgentSteps'
+import { useSignalStream } from '../../hooks/useSignalStream'
 
 type StreamState = {
   text: string
@@ -175,6 +177,7 @@ export default function DirectChatPanel({
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [draft, setDraft] = useState('')
   const [stream, setStream] = useState<StreamState>({ text: '', active: false })
+  const gatewayStream = useSignalStream(conversationId)
   const [error, setError] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [renameDraft, setRenameDraft] = useState('')
@@ -215,7 +218,11 @@ export default function DirectChatPanel({
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages, stream.text])
+  }, [messages, stream.text, gatewayStream.streamText])
+
+  const activeStreamText = stream.active ? stream.text : gatewayStream.streamText
+  const showStreamBubble = stream.active || gatewayStream.streaming
+  const agentSteps = gatewayStream.steps
 
   useEffect(() => {
     composerRef.current?.focus()
@@ -400,20 +407,23 @@ export default function DirectChatPanel({
                   onDecisionResolved={() => void loadMessages()}
                 />
               ))}
-              {stream.active ? (
+              {showStreamBubble ? (
                 <div className="flex items-start gap-2.5">
                   <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
                     <Bot size={14} />
                   </span>
-                  <div className="min-w-0 max-w-[82%] rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-                    {stream.text ? (
-                      <p className="whitespace-pre-wrap break-words">{stream.text}</p>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-text-muted">
-                        <Loader2 size={12} className="animate-spin" />
-                        Thinking
-                      </span>
-                    )}
+                  <div className="min-w-0 max-w-[82%] space-y-2">
+                    <AgentSteps steps={agentSteps} />
+                    <div className="rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
+                      {activeStreamText ? (
+                        <p className="whitespace-pre-wrap break-words">{activeStreamText}</p>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-text-muted">
+                          <Loader2 size={12} className="animate-spin" />
+                          Thinking
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : null}

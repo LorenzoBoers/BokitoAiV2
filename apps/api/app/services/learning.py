@@ -204,3 +204,139 @@ def serialize_eval(row: EvalScore) -> dict[str, Any]:
         "window_end": row.window_end.isoformat() if row.window_end else None,
         "created_at": row.created_at.isoformat(),
     }
+
+
+async def map_outcomes_to_feedback(session: AsyncSession, tenant_id: UUID, days: int = 7) -> int:
+    """Create feedback rows from operational outcomes not yet reflected in feedback."""
+    from app.models.outcome import OperationalOutcome
+    from app.services.outcomes import _sentiment_from_payload
+
+    since = datetime.utcnow() - timedelta(days=days)
+    outcomes = (
+        await session.execute(
+            select(OperationalOutcome).where(
+                OperationalOutcome.tenant_id == tenant_id,
+                OperationalOutcome.created_at >= since,
+            )
+        )
+    ).scalars().all()
+    created = 0
+    for outcome in outcomes:
+        try:
+            payload = json.loads(outcome.payload_json or "{}")
+        except json.JSONDecodeError:
+            payload = {}
+        sentiment = _sentiment_from_payload(payload)
+        if not sentiment:
+            continue
+        subject_id = str(outcome.signal_id or outcome.id)
+        existing = (
+            await session.execute(
+                select(Feedback).where(
+                    Feedback.tenant_id == tenant_id,
+                    Feedback.subject_type.in_(("signal", "run")),
+                    Feedback.subject_id == subject_id,
+                    Feedback.comment == json.dumps(payload)[:2000],
+                )
+            )
+        ).scalar_one_or_none()
+        if existing:
+            continue
+        await submit_feedback(
+            session,
+            tenant_id,
+            subject_type="signal" if outcome.signal_id else "run",
+            subject_id=subject_id,
+            sentiment=sentiment,
+            comment=json.dumps(payload)[:2000],
+        )
+        created += 1
+    return created
+
+
+async def _eval_trend_worsened(session: AsyncSession, tenant_id: UUID, metric: str) -> bool:
+    rows = (
+        await session.execute(
+            select(EvalScore)
+            .where(EvalScore.tenant_id == tenant_id, EvalScore.metric == metric)
+            .order_by(EvalScore.created_at.desc())
+            .limit(2)
+        )
+    ).scalars().all()
+    if len(rows) < 2:
+        return False
+    latest, previous = rows[0], rows[1]
+    if metric == "escalation_rate":
+        return latest.value > previous.value + 5
+    if metric == "resolution_quality":
+        return latest.value < previous.value - 0.5
+    return False
+
+
+async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    """Process feedback, compute evals, optionally flag strategy review."""
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if not tenant:
+        return {"skipped": True, "reason": "tenant_not_found"}
+
+    settings = tenant_settings(tenant)
+    if not settings.get("learning_enabled"):
+        return {"skipped": True, "reason": "learning_disabled"}
+
+    mapped = await map_outcomes_to_feedback(session, tenant_id)
+    batch = await process_feedback_batch(session, tenant_id)
+    evals = await compute_eval_scores(session, tenant_id)
+    guardrails = await apply_heuristic_guardrails(session, tenant_id)
+
+    enqueue_strategy = await _eval_trend_worsened(session, tenant_id, "escalation_rate")
+    if await _eval_trend_worsened(session, tenant_id, "resolution_quality"):
+        enqueue_strategy = True
+
+    workstream_enqueued = False
+    if enqueue_strategy:
+        from uuid import UUID as _UUID
+
+        from app.models.orchestra import Workstream
+        from app.services.orchestration.queue import enqueue_workstream_run
+
+        ws_id = settings.get("strategy_workstream_id")
+        ws = None
+        if ws_id:
+            ws = await session.get(Workstream, _UUID(str(ws_id)))
+        if not ws:
+            ws = (
+                await session.execute(
+                    select(Workstream).where(
+                        Workstream.tenant_id == tenant_id,
+                        Workstream.name == "MMXM strategy review",
+                    )
+                )
+            ).scalar_one_or_none()
+        if ws:
+            workstream_enqueued = await enqueue_workstream_run(
+                str(tenant_id), str(ws.id), "learning_cycle"
+            )
+
+    return {
+        "mapped_outcomes": mapped,
+        "feedback_batch": batch,
+        "eval_count": len(evals),
+        "guardrails": guardrails,
+        "strategy_review_recommended": enqueue_strategy,
+        "strategy_workstream_enqueued": workstream_enqueued,
+    }
+
+
+async def run_learning_for_enabled_tenants(session: AsyncSession) -> dict[str, Any]:
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant
+
+    tenants = (await session.execute(select(Tenant))).scalars().all()
+    results: dict[str, Any] = {}
+    for tenant in tenants:
+        if tenant_settings(tenant).get("learning_enabled"):
+            results[str(tenant.id)] = await run_tenant_learning_cycle(session, tenant.id)
+    return results

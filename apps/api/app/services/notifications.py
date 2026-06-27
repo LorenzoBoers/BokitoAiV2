@@ -53,6 +53,13 @@ async def resolve_decision(
         if always_auto and user_id and action_type:
             await set_tool_override(session, tenant_id, action_type, "allow")
 
+        if action_type == "orchestration_continue":
+            task_id_raw = payload.get("task_id")
+            if task_id_raw:
+                from app.services.orchestration.dispatcher import resume_agent_task
+
+                await resume_agent_task(session, tenant_id, UUID(str(task_id_raw)))
+
         change_id = decision.platform_change_id
         platform_change_id = payload.get("platform_change_id") or chosen.get("platform_change_id")
         if change_id and user_id:
@@ -64,6 +71,7 @@ async def resolve_decision(
             "defer",
             "setup_integration",
             "accept_platform_change",
+            "orchestration_continue",
         ):
             from app.tools import execute_tool
 

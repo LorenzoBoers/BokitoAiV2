@@ -40,11 +40,29 @@ Use [/integrations/setup](https://app.bokito.ai/integrations/setup) or follow th
 | Hook URL (`/api/hooks/{id}`) | `BOKITO_HOOK_URL` |
 | Trigger ID | `BOKITO_TRIGGER_ID` |
 | Webhook secret (one-time on create/rotate) | `BOKITO_WEBHOOK_SECRET` |
-| Workspace origin | `BOKITO_BASE_URL` |
+| Workspace origin | `BOKITO_BASE_URL` (use `http://bokito-api:8000` on shared Docker network, not host loopback) |
 | Tenant slug | `BOKITO_TENANT_SLUG` |
 | MCP server URL (internal Docker) | Configure in trading/sidecar stack separately |
 
 Webhook authentication: header `X-Bokito-Secret: <secret>` or query `?secret=<secret>`.
+
+### Trading report payloads (optional)
+
+The external trading stack may POST structured outcomes:
+
+```json
+{
+  "kind": "report",
+  "subtype": "trade_closed|session_summary|setup_skipped|error",
+  "setup_id": "...",
+  "pnl_r": 1.2,
+  "notes": "..."
+}
+```
+
+Bokito persists these as tenant-scoped `OperationalOutcome` rows, maps PnL to Learning `Feedback`, and surfaces agent summaries in Messages (tenant setting `operations_signal_id`).
+
+**Fallback without trading-repo changes:** seed a cron trigger (for example `Trading session digest`) that polls MCP tools (`get_positions`, `risk_status`, `list_setups`) and always posts a summary. Autotrading bootstrap creates this at `0 16 * * *` UTC.
 
 ## Docker sidecar network
 

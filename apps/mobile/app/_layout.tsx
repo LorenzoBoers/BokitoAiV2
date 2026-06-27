@@ -1,8 +1,21 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { AuthProvider } from '../src/context/AuthContext'
+import { useGatewayInvalidation } from '../src/hooks/useMessagingQueries'
 import { useNotificationRouting } from '../src/lib/notification-routing'
 import { colors } from '../src/theme'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, staleTime: 20_000 },
+  },
+})
+
+function GatewaySync() {
+  useGatewayInvalidation()
+  return null
+}
 
 function RootNavigator() {
   useNotificationRouting()
@@ -25,9 +38,12 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <StatusBar style="light" />
-      <RootNavigator />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <GatewaySync />
+        <StatusBar style="light" />
+        <RootNavigator />
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }

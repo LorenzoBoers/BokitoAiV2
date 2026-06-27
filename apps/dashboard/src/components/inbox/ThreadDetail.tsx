@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, Bot, Hand, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, Bot, Hand, Loader2, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -7,6 +7,7 @@ import {
   type PatchThreadInput,
   type InboxMember,
   type ThreadId,
+  type MessageAttachment,
 } from '../../lib/inbox-api'
 import { MessageTimelineItem, EventTimelineItem, formatHourMinute } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
@@ -19,6 +20,8 @@ import {
   resolveComposerSurface,
   threadCounterpartyName,
 } from '../../lib/message-composer'
+import { useSignalStream } from '../../hooks/useSignalStream'
+import AgentSteps from './AgentSteps'
 
 type TimelineEntry =
   | { kind: 'message'; time: string; id: string; data: ThreadDetailType['messages'][number] }
@@ -52,8 +55,9 @@ type Props = {
     bodyText: string,
     action: 'send' | 'send_and_close' | 'send_and_pending',
     format?: 'email' | 'plain',
+    attachments?: MessageAttachment[],
   ) => Promise<void>
-  onNote: (bodyText: string) => Promise<void>
+  onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   onRefresh: () => void
   onTogglePin?: () => void | Promise<void>
   /** Human takeover toggle for AI-handled channels (widget/chat/assistant). */
@@ -119,6 +123,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
 
 export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
   const { token } = useAuth()
+  const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const previousMessageCountRef = useRef<number>(0)
@@ -335,17 +340,21 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
 
   const handleReply = useCallback(
-    async (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => {
+    async (
+      bodyText: string,
+      action: 'send' | 'send_and_close' | 'send_and_pending',
+      attachments?: MessageAttachment[],
+    ) => {
       const format = composerSurface?.includeSignature ? 'email' : 'plain'
-      await onReply(bodyText, action, format)
+      await onReply(bodyText, action, format, attachments)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
     [onReply, scrollToBottom, composerSurface],
   )
 
   const handleNote = useCallback(
-    async (bodyText: string) => {
-      await onNote(bodyText)
+    async (bodyText: string, attachments?: MessageAttachment[]) => {
+      await onNote(bodyText, attachments)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
     [onNote, scrollToBottom],
@@ -563,6 +572,26 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             </section>
           ))
         )}
+        {gatewayStream.streaming ? (
+          <div className="mb-3 flex items-start gap-2.5">
+            <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
+              <Bot size={14} />
+            </span>
+            <div className="min-w-0 max-w-[82%] space-y-2">
+              <AgentSteps steps={gatewayStream.steps} />
+              <div className="rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
+                {gatewayStream.streamText ? (
+                  <p className="whitespace-pre-wrap break-words">{gatewayStream.streamText}</p>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-text-muted">
+                    <Loader2 size={12} className="animate-spin" />
+                    Agent working
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
         </div>
         </div>
         {/* Fade overlay tegen de bovenzijde van het thread inhoud venster.

@@ -239,6 +239,7 @@ export async function replyToSignalThread(
     action: input.action ?? 'send',
   }
   if (input.bodyHtml) body.body_html = input.bodyHtml
+  if (input.attachments?.length) body.attachments = input.attachments
   const payload = await apiPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
   return normalizeSignalMessage(payload)
 }
@@ -265,10 +266,13 @@ export async function addNoteToSignalThread(
   token: string,
   threadId: string,
   bodyText: string,
+  attachments?: ReplyInput['attachments'],
 ): Promise<InboxMessage | null> {
+  const body: Record<string, unknown> = { body_text: bodyText }
+  if (attachments?.length) body.attachments = attachments
   const payload = await apiPost<unknown>(
     appRoutes.signals.threadNotes(threadId),
-    { body_text: bodyText },
+    body,
     token,
   )
   return normalizeSignalMessage(payload)

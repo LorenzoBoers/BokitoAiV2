@@ -240,20 +240,44 @@ async def _heartbeat_checklist(session: AsyncSession, tenant_id: UUID) -> str:
     return "\n\n".join(d.content for d in docs if d.content.strip())
 
 
+async def _operations_signal_id(session: AsyncSession, tenant_id: UUID) -> UUID | None:
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if not tenant:
+        return None
+    raw = tenant_settings(tenant).get("operations_signal_id")
+    if not raw:
+        return None
+    try:
+        return UUID(str(raw))
+    except ValueError:
+        return None
+
+
 async def _surface_result(
     session: AsyncSession, trigger: Trigger, agent: Agent, text: str
 ) -> None:
     """Post a non-OK trigger result into an internal Signal thread (Messages)."""
+    from app.models.signal import Signal
     from app.services.assistant_threads import append_signal_chat_message
     from app.services.signal_decisions import get_or_create_internal_thread
 
-    signal = await get_or_create_internal_thread(
-        session,
-        trigger.tenant_id,
-        subject=trigger.name,
-        contact_name=agent.name,
-        agent_id=agent.id,
-    )
+    ops_signal_id = await _operations_signal_id(session, trigger.tenant_id)
+    signal: Signal | None = None
+    if ops_signal_id:
+        signal = await session.get(Signal, ops_signal_id)
+        if signal and signal.tenant_id != trigger.tenant_id:
+            signal = None
+    if not signal:
+        signal = await get_or_create_internal_thread(
+            session,
+            trigger.tenant_id,
+            subject=trigger.name,
+            contact_name=agent.name,
+            agent_id=agent.id,
+        )
     await append_signal_chat_message(
         session,
         signal,
@@ -309,12 +333,18 @@ async def fire_trigger(
 
     if trigger.workstream_id:
         from app.services.orchestration.dispatcher import create_agent_task
+        from app.services.outcomes import list_recent_outcomes, summarize_outcomes
+
+        description = trigger.instructions
+        recent = await list_recent_outcomes(session, trigger.tenant_id, days=7)
+        if recent:
+            description += f"\n\n## Recent operational outcomes\n{summarize_outcomes(recent)}"
 
         task = await create_agent_task(
             session,
             trigger.tenant_id,
             title=trigger.name,
-            description=trigger.instructions,
+            description=description,
             workstream_id=trigger.workstream_id,
             trigger_type="trigger",
             trigger_id=str(trigger.id),
@@ -349,6 +379,21 @@ async def fire_trigger(
     else:
         prompt = trigger.instructions.strip() or "Execute the scheduled wake."
         if payload:
+            if payload.get("kind") == "report":
+                from app.services.outcomes import ingest_trading_report
+
+                ops_signal_id = await _operations_signal_id(session, trigger.tenant_id)
+                outcome = await ingest_trading_report(
+                    session,
+                    trigger.tenant_id,
+                    payload,
+                    source="trading_webhook",
+                    signal_id=ops_signal_id,
+                )
+                prompt += (
+                    f"\n\nStructured report ingested (outcome_id={outcome.id}, kind={outcome.kind})."
+                    f"\nSummarize for the operator and note any follow-up actions."
+                )
             prompt += f"\n\nWebhook payload:\n{json.dumps(payload)[:4000]}"
 
     run = AgentRun(

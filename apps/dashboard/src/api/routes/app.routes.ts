@@ -79,6 +79,11 @@ export const appRoutes = {
     members: '/signals/members',
     syncStatus: '/signals/sync-status',
     badgeCounts: '/signals/badge-counts',
+    note: (threadId: string, messageId: string) => `/signals/${threadId}/notes/${messageId}`,
+  },
+  uploads: {
+    create: '/uploads',
+    file: (tenantId: string, filename: string) => `/uploads/files/${tenantId}/${filename}`,
   },
   orchestration: {
     runtimeProfiles: '/orchestration/runtime-profiles',

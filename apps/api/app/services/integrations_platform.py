@@ -285,14 +285,7 @@ async def list_mcp_bindings(session: AsyncSession, tenant_id: UUID) -> dict[str,
     return {"bindings": bindings, "mcp_server_ids": list(server_ids)}
 
 
-def _mcp_auth_headers(auth: dict[str, Any]) -> dict[str, str]:
-    headers: dict[str, str] = {"Content-Type": "application/json"}
-    if auth.get("bearer_token"):
-        headers["Authorization"] = f"Bearer {auth['bearer_token']}"
-    elif auth.get("api_key"):
-        headers["Authorization"] = f"Bearer {auth['api_key']}"
-        headers["X-API-Key"] = str(auth["api_key"])
-    return headers
+from app.services.mcp_auth import mcp_auth_headers as _mcp_auth_headers
 
 
 async def test_mcp_server(

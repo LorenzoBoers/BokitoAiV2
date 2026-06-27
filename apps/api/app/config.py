@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     orchestra_interval_minutes: int = 60
     use_signal_inbox: bool = True
 
+    # File storage: local (dev) or s3 (R2 prod)
+    storage_backend: str = "local"  # local | s3
+    storage_local_path: str = "data/uploads"
+    storage_s3_bucket: str = ""
+    storage_s3_region: str = "auto"
+    storage_s3_access_key: str = ""
+    storage_s3_secret_key: str = ""
+    storage_s3_endpoint: str = ""
+    storage_public_base: str = ""
+
     cors_origins: str = "http://127.0.0.1:5174,http://127.0.0.1:5175,http://localhost:5174,http://localhost:5175"
 
     # Public origins used to build OAuth redirect URIs and post-OAuth returns.

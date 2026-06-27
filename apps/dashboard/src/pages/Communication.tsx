@@ -24,6 +24,7 @@ import {
   unpinThread as apiUnpinThread,
   deleteThread as apiDeleteThread,
   type InboxThread,
+  type MessageAttachment,
   type PatchThreadInput,
   type ThreadFilters,
   type ThreadId,
@@ -389,16 +390,17 @@ export default function Communication() {
       bodyText: string,
       action: 'send' | 'send_and_close' | 'send_and_pending',
       format?: 'email' | 'plain',
+      attachments?: MessageAttachment[],
     ) => {
-      await reply({ bodyText, action, format })
+      await reply({ bodyText, action, format, attachments })
       void refreshThreads()
     },
     [reply, refreshThreads],
   )
 
   const handleNote = useCallback(
-    async (bodyText: string) => {
-      await addNote(bodyText)
+    async (bodyText: string, attachments?: MessageAttachment[]) => {
+      await addNote(bodyText, attachments)
       void refreshThreads()
     },
     [addNote, refreshThreads],

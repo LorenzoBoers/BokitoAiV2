@@ -149,10 +149,19 @@ export type PagedThreadResult = {
   nextPage: number | null
 }
 
+export type MessageAttachment = {
+  id: string
+  name: string
+  mime: string
+  size: number
+  url: string
+}
+
 export type ReplyInput = {
   bodyText: string
   bodyHtml?: string
   action?: 'send' | 'send_and_close' | 'send_and_pending'
+  attachments?: MessageAttachment[]
   /** When `email`, a mailbox signature may be appended. Plain chat/internal skips it. */
   format?: 'email' | 'plain'
 }
@@ -461,8 +470,13 @@ export async function replyToThread(token: string, threadId: ThreadId, input: Re
   return replyToSignalThread(token, String(threadId), input)
 }
 
-export async function addNoteToThread(token: string, threadId: ThreadId, bodyText: string): Promise<InboxMessage | null> {
-  return addNoteToSignalThread(token, String(threadId), bodyText)
+export async function addNoteToThread(
+  token: string,
+  threadId: ThreadId,
+  bodyText: string,
+  attachments?: MessageAttachment[],
+): Promise<InboxMessage | null> {
+  return addNoteToSignalThread(token, String(threadId), bodyText, attachments)
 }
 
 /** Human takeover: pause the AI on a thread so an operator owns the reply. */

@@ -7,7 +7,9 @@ import { UserAvatar } from '../ui/UserAvatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import type { InboxEvent, InboxMessage, InboxMember } from '../../lib/inbox-api'
+import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment } from '../../lib/inbox-api'
+import MessageAttachments from './MessageAttachments'
+import MessageMarkdown from './MessageMarkdown'
 
 type MessageLayout = 'chat' | 'email'
 
@@ -345,10 +347,23 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   const inboundEmail = message.fromAddress || contactEmail || ''
   const inboundName = contactName || inboundEmail || 'Afzender'
 
+  const attachmentItems: MessageAttachment[] = Array.isArray(message.attachments)
+    ? message.attachments.filter(
+        (a): a is MessageAttachment =>
+          !!a &&
+          typeof a === 'object' &&
+          typeof (a as MessageAttachment).id === 'string' &&
+          typeof (a as MessageAttachment).url === 'string',
+      )
+    : []
+
   const bubbleBody = message.bodyHtml ? (
     <MessageHtmlBody html={message.bodyHtml} />
   ) : (
-    <p className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">{message.bodyPreview}</p>
+    <div className="space-y-1">
+      <MessageMarkdown text={message.bodyPreview || message.bodyText || ''} />
+      <MessageAttachments attachments={attachmentItems} />
+    </div>
   )
 
   const contactAvatar = (

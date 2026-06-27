@@ -605,8 +605,8 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
     if (!token) return
     setBusy(true)
     try {
-      const next = await staffDeletePlatformKey(token, provider)
-      setKeys(next)
+      await staffDeletePlatformKey(token, provider)
+      await load()
     } finally {
       setBusy(false)
     }

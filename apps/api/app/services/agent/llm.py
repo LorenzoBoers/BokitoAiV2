@@ -93,7 +93,12 @@ class MockLLMProvider:
                 text = block["text"]
                 for i in range(0, len(text), 20):
                     yield {"type": "delta", "text": text[i : i + 20]}
-        yield {"type": "done", "usage": result.get("usage", {})}
+        yield {
+            "type": "done",
+            "usage": result.get("usage", {}),
+            "content": result.get("content", []),
+            "stop_reason": result.get("stop_reason", "end_turn"),
+        }
 
 
 class AnthropicLLMProvider:
@@ -168,12 +173,27 @@ class AnthropicLLMProvider:
             async for text in stream.text_stream:
                 yield {"type": "delta", "text": text}
             final = await stream.get_final_message()
+            content: list[dict[str, Any]] = []
+            for block in final.content:
+                if block.type == "text":
+                    content.append({"type": "text", "text": block.text})
+                elif block.type == "tool_use":
+                    content.append(
+                        {
+                            "type": "tool_use",
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        }
+                    )
             yield {
                 "type": "done",
                 "usage": {
                     "input_tokens": final.usage.input_tokens,
                     "output_tokens": final.usage.output_tokens,
                 },
+                "content": content,
+                "stop_reason": final.stop_reason,
             }
 
 
@@ -310,13 +330,74 @@ class OpenAILLMProvider:
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
     ):
-        result = await self.chat(messages, tools, model)
-        for block in result["content"]:
-            if block.get("type") == "text":
-                text = block["text"]
-                for i in range(0, len(text), 20):
-                    yield {"type": "delta", "text": text[i : i + 20]}
-        yield {"type": "done", "usage": result.get("usage", {})}
+        from openai import AsyncOpenAI
+
+        kwargs: dict[str, Any] = {"api_key": self.api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        client = AsyncOpenAI(**kwargs)
+        oai_messages = self._messages_to_openai(messages)
+        create_kwargs: dict[str, Any] = {
+            "model": model or "gpt-4o",
+            "messages": oai_messages,
+            "max_tokens": 4096,
+            "stream": True,
+        }
+        oai_tools = self._tools_to_openai(tools)
+        if oai_tools:
+            create_kwargs["tools"] = oai_tools
+
+        stream = await client.chat.completions.create(**create_kwargs)
+        text_parts: list[str] = []
+        tool_calls: dict[int, dict[str, Any]] = {}
+        usage = {"input_tokens": 0, "output_tokens": 0}
+
+        async for chunk in stream:
+            if chunk.usage:
+                usage["input_tokens"] = getattr(chunk.usage, "prompt_tokens", 0) or 0
+                usage["output_tokens"] = getattr(chunk.usage, "completion_tokens", 0) or 0
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta.content:
+                text_parts.append(delta.content)
+                yield {"type": "delta", "text": delta.content}
+            if delta.tool_calls:
+                for tc in delta.tool_calls:
+                    idx = tc.index
+                    if idx not in tool_calls:
+                        tool_calls[idx] = {"id": tc.id or "", "name": "", "arguments": ""}
+                    if tc.id:
+                        tool_calls[idx]["id"] = tc.id
+                    if tc.function:
+                        if tc.function.name:
+                            tool_calls[idx]["name"] = tc.function.name
+                        if tc.function.arguments:
+                            tool_calls[idx]["arguments"] += tc.function.arguments
+
+        content: list[dict[str, Any]] = []
+        if text_parts:
+            content.append({"type": "text", "text": "".join(text_parts)})
+        for tc in tool_calls.values():
+            try:
+                parsed = json.loads(tc["arguments"] or "{}")
+            except json.JSONDecodeError:
+                parsed = {}
+            content.append(
+                {
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": parsed,
+                }
+            )
+        stop_reason = "tool_use" if tool_calls else "end_turn"
+        yield {
+            "type": "done",
+            "usage": usage,
+            "content": content,
+            "stop_reason": stop_reason,
+        }
 
 
 def get_chat_provider(provider_type: str, api_key: str, base_url: str | None = None):

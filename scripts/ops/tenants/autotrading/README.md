@@ -20,6 +20,10 @@ They are not imported by FastAPI runtime code.
 | `vps-enable-trading-live.py` / `vps-disable-trading-live.py` | Toggle live execution on VPS |
 | `vps-trading-webhook-smoke.py` / `vps-trading-mcp-probe.py` | Smoke tests |
 | `vps-audit-autotrading.py` | Audit autotrading tenant state |
+| `vps-fix-trading-bokito-url.py` | Fix `BOKITO_BASE_URL` in `/opt/trading/.env` (must be `http://bokito-api:8000`) |
+| `vps-sync-deploy-api.py` | Hot-patch `apps/api` into running prod api/worker containers + re-run bootstrap |
+| `vps-validate-reporting.py` | Fire `kind: report` webhook; verify `OperationalOutcome` row |
+| `vps-validate-strategy-review.py` | Fire weekly strategy review trigger; verify workstream task starts |
 
 ## Preferred setup path
 

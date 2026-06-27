@@ -43,19 +43,24 @@ def _credentials(account: ChannelAccount) -> dict[str, Any]:
         return {}
 
 
-def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, str]:
-    headers = {h.get("name", "").lower(): h.get("value", "") for h in msg.get("payload", {}).get("headers", [])}
+def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
+    payload = msg.get("payload", {})
+    headers = {h.get("name", "").lower(): h.get("value", "") for h in payload.get("headers", [])}
     from_raw = headers.get("from", "")
     name, address = "", from_raw
     if "<" in from_raw and ">" in from_raw:
         name = from_raw.split("<")[0].strip().strip('"')
         address = from_raw.split("<")[1].split(">")[0].strip()
-    body_text = _extract_gmail_body(msg.get("payload", {})) or msg.get("snippet", "")
+    body_text = _extract_gmail_body(payload) or msg.get("snippet", "")
+    body_html = _extract_gmail_html(payload)
+    attachments = _extract_gmail_attachments(payload)
     return {
         "from_address": address,
         "from_name": name,
         "subject": headers.get("subject", ""),
         "body_text": body_text,
+        "body_html": body_html,
+        "attachments": attachments,
         "message_id": msg.get("id", ""),
         "thread_id": msg.get("threadId", ""),
     }
@@ -78,8 +83,47 @@ def _extract_gmail_body(payload: dict[str, Any]) -> str:
     return ""
 
 
-async def _fetch_gmail(token: str) -> list[dict[str, str]]:
-    out: list[dict[str, str]] = []
+def _extract_gmail_html(payload: dict[str, Any]) -> str:
+    """Depth-first search for the first text/html part; decode base64url."""
+    mime = payload.get("mimeType", "")
+    body = payload.get("body", {})
+    data = body.get("data")
+    if mime == "text/html" and data:
+        try:
+            return base64.urlsafe_b64decode(data + "===").decode("utf-8", "replace")
+        except Exception:
+            return ""
+    for part in payload.get("parts", []) or []:
+        html = _extract_gmail_html(part)
+        if html:
+            return html
+    return ""
+
+
+def _extract_gmail_attachments(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    attachments: list[dict[str, Any]] = []
+
+    def walk(part: dict[str, Any]) -> None:
+        filename = part.get("filename") or ""
+        if filename:
+            body = part.get("body", {})
+            attachments.append(
+                {
+                    "filename": filename,
+                    "mime": part.get("mimeType", "application/octet-stream"),
+                    "size": body.get("size", 0),
+                    "attachment_id": body.get("attachmentId"),
+                }
+            )
+        for child in part.get("parts", []) or []:
+            walk(child)
+
+    walk(payload)
+    return attachments
+
+
+async def _fetch_gmail(token: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
     async with httpx.AsyncClient(timeout=20.0) as client:
         listing = await client.get(
             GMAIL_LIST_URL,
@@ -101,28 +145,50 @@ async def _fetch_gmail(token: str) -> list[dict[str, str]]:
     return out
 
 
-async def _fetch_graph(token: str) -> list[dict[str, str]]:
+async def _fetch_graph(token: str) -> list[dict[str, Any]]:
     async with httpx.AsyncClient(timeout=20.0) as client:
         resp = await client.get(
             GRAPH_INBOX_URL,
             params={
                 "$top": str(MAX_FETCH),
                 "$orderby": "receivedDateTime desc",
-                "$select": "id,subject,from,bodyPreview,body,conversationId",
+                "$select": "id,subject,from,bodyPreview,body,conversationId,hasAttachments",
             },
             headers={"Authorization": f"Bearer {token}"},
         )
         resp.raise_for_status()
-        out: list[dict[str, str]] = []
+        out: list[dict[str, Any]] = []
         for msg in resp.json().get("value", []) or []:
             sender = (msg.get("from") or {}).get("emailAddress") or {}
             body = msg.get("body") or {}
+            content_type = (body.get("contentType") or "text").lower()
+            body_content = body.get("content") or msg.get("bodyPreview", "")
+            body_html = body_content if content_type == "html" else ""
+            body_text = msg.get("bodyPreview", "") if content_type == "html" else body_content
+            attachments: list[dict[str, Any]] = []
+            if msg.get("hasAttachments"):
+                att_resp = await client.get(
+                    f"{GRAPH_INBOX_URL}/{msg.get('id')}/attachments",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                if att_resp.status_code == 200:
+                    for att in att_resp.json().get("value", []) or []:
+                        attachments.append(
+                            {
+                                "filename": att.get("name", "attachment"),
+                                "mime": att.get("contentType", "application/octet-stream"),
+                                "size": att.get("size", 0),
+                                "attachment_id": att.get("id"),
+                            }
+                        )
             out.append(
                 {
                     "from_address": sender.get("address", ""),
                     "from_name": sender.get("name", ""),
                     "subject": msg.get("subject", ""),
-                    "body_text": body.get("content") or msg.get("bodyPreview", ""),
+                    "body_text": body_text,
+                    "body_html": body_html,
+                    "attachments": attachments,
                     "message_id": msg.get("id", ""),
                     "thread_id": msg.get("conversationId", ""),
                 }
@@ -130,7 +196,7 @@ async def _fetch_graph(token: str) -> list[dict[str, str]]:
         return out
 
 
-async def _fetch_messages(account: ChannelAccount, token: str) -> list[dict[str, str]]:
+async def _fetch_messages(account: ChannelAccount, token: str) -> list[dict[str, Any]]:
     if account.provider == "gmail":
         return await _fetch_gmail(token)
     if account.provider == "outlook":
@@ -200,6 +266,10 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
             external_id=item.get("message_id", ""),
             thread_external_id=item.get("thread_id", ""),
             channel_account_id=account.id,
+            metadata={
+                "body_html": item.get("body_html", ""),
+                "attachments": item.get("attachments") or [],
+            },
         )
         try:
             _signal, should_process = await ingest_inbound(session, account.tenant_id, inbound)

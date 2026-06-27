@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -98,6 +99,10 @@ async def seed() -> None:
             await get_or_create_personal_agent(session, demo.id, demo_user, commit=False)
 
         await get_or_create_personal_agent(session, tenant.id, user, commit=False)
+
+        if os.environ.get("SEED_TRADING_TENANT", "").strip().lower() in ("1", "true", "yes"):
+            await _seed_autotrading_tenant(session)
+
         await session.commit()
         print(f"Seeded tenant={tenant.slug} user={TEST_EMAIL} password={TEST_PASSWORD}")
         print(f"Staff={STAFF_EMAIL} demo={DEMO_EMAIL} password={DEMO_PASSWORD}")
@@ -241,6 +246,45 @@ async def _ensure_orchestrator_passport(session, tenant):
     for agent in result.scalars().all():
         if not json.loads(agent.permission_scopes_json or "[]"):
             agent.permission_scopes_json = json.dumps(DEFAULT_ORCHESTRATOR_SCOPES)
+
+
+async def _seed_autotrading_tenant(session) -> None:
+    """Optional second tenant for trading agent dev (multitenant isolation)."""
+    from scripts.tenants.autotrading.bootstrap import seed_trading_stack
+
+    tenant_result = await session.execute(select(Tenant).where(Tenant.slug == "autotrading"))
+    tenant = tenant_result.scalar_one_or_none()
+    if not tenant:
+        tenant = Tenant(
+            slug="autotrading",
+            name="Autotrading",
+            settings_json=serialize_settings(default_tenant_settings()),
+        )
+        session.add(tenant)
+        await session.flush()
+
+    user_result = await session.execute(select(User).where(User.email == "trader@bokito.ai"))
+    trader_user = user_result.scalar_one_or_none()
+    if not trader_user:
+        trader_user = User(
+            email="trader@bokito.ai",
+            password_hash=hash_password(TEST_PASSWORD),
+            display_name="Trading Operator",
+        )
+        session.add(trader_user)
+        await session.flush()
+
+    membership_result = await session.execute(
+        select(Membership).where(
+            Membership.user_id == trader_user.id, Membership.tenant_id == tenant.id
+        )
+    )
+    if not membership_result.scalar_one_or_none():
+        session.add(Membership(tenant_id=tenant.id, user_id=trader_user.id, role="owner"))
+
+    await bootstrap_tenant(session, tenant.id)
+    stack = await seed_trading_stack(session, tenant.id)
+    print(f"Seeded autotrading tenant trader={trader_user.email} stack={stack}")
 
 
 async def _seed_tenant_data(session, tenant):

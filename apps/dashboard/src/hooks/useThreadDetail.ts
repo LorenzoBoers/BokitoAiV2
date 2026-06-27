@@ -176,11 +176,11 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
   )
 
   const addNote = useCallback(
-    async (bodyText: string) => {
+    async (bodyText: string, attachments?: ReplyInput['attachments']) => {
       if (!token || !threadId) return
       setSaving(true)
       try {
-        const msg = await addNoteToThread(token, threadId, bodyText)
+        const msg = await addNoteToThread(token, threadId, bodyText, attachments)
         if (msg) {
           setRawDetail((prev) => (prev ? { ...prev, messages: [...prev.messages, msg] } : prev))
         }

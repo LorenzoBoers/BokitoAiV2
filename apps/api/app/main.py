@@ -44,6 +44,7 @@ from app.routers import (
     workforce,
     workspace,
     orchestration,
+    uploads,
 )
 from app.routers.settings_orchestra import orchestra_router
 from app.gateway.bus import event_bus
@@ -119,6 +120,7 @@ app.include_router(workforce.router, prefix=api_prefix)
 app.include_router(govern.router, prefix=api_prefix)
 app.include_router(mcp.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
+app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
 app.include_router(tenant_secrets.router, prefix=api_prefix)
 app.include_router(models.router, prefix=api_prefix)

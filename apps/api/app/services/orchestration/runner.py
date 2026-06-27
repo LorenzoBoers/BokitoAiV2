@@ -326,14 +326,24 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 session.add(task)
 
     if step and step.step_kind == "human_gate":
+        gate_payload = {"task_id": str(task.id), "step_id": str(step.id)}
         decision = DecisionRequest(
             tenant_id=tenant_id,
             project_id=task.project_id,
             title=f"Approval: {step.name}",
-            body=task.description or step.prompt_template or "Review and approve to continue.",
-            status="pending",
-            action_type="orchestration_continue",
-            action_payload_json=json.dumps({"task_id": str(task.id), "step_id": str(step.id)}),
+            summary=task.description or step.prompt_template or "Review and approve to continue.",
+            status="awaiting_human",
+            options_json=json.dumps(
+                [
+                    {
+                        "id": "approve",
+                        "label": "Continue",
+                        "action_type": "orchestration_continue",
+                        "payload": gate_payload,
+                    },
+                    {"id": "reject", "label": "Reject", "action_type": "reject", "payload": gate_payload},
+                ]
+            ),
         )
         session.add(decision)
         await session.flush()
@@ -512,6 +522,15 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
     if workstream_run:
         workstream_run.status = "completed"
         workstream_run.completed_at = datetime.utcnow()
+        workstream_run.report_json = json.dumps(
+            {
+                "task_id": str(task.id),
+                "workstream_id": str(task.workstream_id) if task.workstream_id else None,
+                "step_outputs": step_outputs,
+                "segment_count": segment_index + 1,
+                "completed_at": datetime.utcnow().isoformat(),
+            }
+        )
         session.add(workstream_run)
     await session.commit()
     return {"completed": True, "run_id": str(run.id)}

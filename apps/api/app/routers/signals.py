@@ -39,9 +39,15 @@ class ReplyBody(BaseModel):
     body_text: str
     body_html: str | None = None
     action: str = "send"
+    attachments: list[dict] | None = None
 
 
 class NoteBody(BaseModel):
+    body_text: str
+    attachments: list[dict] | None = None
+
+
+class NotePatchBody(BaseModel):
     body_text: str
 
 
@@ -243,6 +249,7 @@ async def reply(
         body_text=body.body_text,
         body_html=body.body_html,
         action=body.action,
+        attachments=body.attachments,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")
@@ -295,10 +302,56 @@ async def add_note(
         body_text=body.body_text,
         direction="internal",
         kind="internal_note",
+        attachments=body.attachments,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")
     return message
+
+
+@router.get("/{signal_id}/notes")
+async def list_notes(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    signal = await svc.get_thread(session, auth.tenant.id, auth.user.id, signal_id)
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return await svc.list_notes(session, auth.tenant.id, signal_id)
+
+
+@router.patch("/{signal_id}/notes/{message_id}")
+async def update_note(
+    signal_id: UUID,
+    message_id: UUID,
+    body: NotePatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    note = await svc.update_note(
+        session,
+        auth.tenant.id,
+        signal_id,
+        message_id,
+        body_text=body.body_text,
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return note
+
+
+@router.delete("/{signal_id}/notes/{message_id}")
+async def delete_note(
+    signal_id: UUID,
+    message_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    ok = await svc.delete_note(session, auth.tenant.id, signal_id, message_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Note not found")
+    return {"ok": True}
 
 
 @router.post("/{signal_id}/pin")

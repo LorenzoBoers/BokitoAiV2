@@ -63,6 +63,7 @@ async def list_decisions(
             "status": d.status,
             "options": json.loads(d.options_json or "[]"),
             "source_type": d.source_type,
+            "signal_id": str(d.signal_id) if d.signal_id else None,
             "created_at": d.created_at.isoformat(),
         }
         for d in result.scalars().all()

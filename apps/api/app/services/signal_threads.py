@@ -102,13 +102,25 @@ def serialize_thread(
     }
 
 
-def serialize_message(message: SignalMessage) -> dict[str, Any]:
+def serialize_message(message: SignalMessage, *, decision: DecisionRequest | None = None) -> dict[str, Any]:
     author_num = user_numeric_id(message.author_user_id) if message.author_user_id else None
     payload: dict[str, Any] = {}
     if message.decision_id:
         payload["decision_id"] = str(message.decision_id)
     if message.author_agent_id:
         payload["agent_id"] = str(message.author_agent_id)
+    if decision:
+        try:
+            options = json.loads(decision.options_json or "[]")
+        except json.JSONDecodeError:
+            options = []
+        payload["decision"] = {
+            "id": str(decision.id),
+            "title": decision.title,
+            "summary": decision.summary,
+            "status": decision.status,
+            "options": options,
+        }
     return {
         "id": str(message.id),
         "thread_id": str(message.signal_id),
@@ -479,6 +491,13 @@ async def get_thread(
         select(SignalMessage).where(SignalMessage.signal_id == signal_id).order_by(SignalMessage.created_at)
     )
     messages = list(messages_result.scalars().all())
+    decision_ids = [m.decision_id for m in messages if m.decision_id]
+    decisions_by_id: dict[UUID, DecisionRequest] = {}
+    if decision_ids:
+        dr = await session.execute(
+            select(DecisionRequest).where(DecisionRequest.id.in_(decision_ids))
+        )
+        decisions_by_id = {d.id: d for d in dr.scalars().all()}
     events_result = await session.execute(
         select(SignalEvent).where(SignalEvent.signal_id == signal_id).order_by(SignalEvent.created_at)
     )
@@ -486,9 +505,77 @@ async def get_thread(
     agent = await _resolve_thread_agent(session, tenant_id, signal, messages)
     return {
         "thread": serialize_thread(signal, is_pinned=signal_id in pinned, agent=agent),
-        "messages": [serialize_message(m) for m in messages],
+        "messages": [
+            serialize_message(m, decision=decisions_by_id.get(m.decision_id) if m.decision_id else None)
+            for m in messages
+        ],
         "events": [serialize_event(e, user_num_map=rev_map) for e in events_result.scalars().all()],
     }
+
+
+async def update_note(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    message_id: UUID,
+    *,
+    body_text: str,
+) -> dict[str, Any] | None:
+    result = await session.execute(
+        select(SignalMessage).where(
+            SignalMessage.id == message_id,
+            SignalMessage.signal_id == signal_id,
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.kind == "internal_note",
+        )
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        return None
+    message.body_text = body_text
+    message.body_preview = body_text[:200]
+    session.add(message)
+    await session.commit()
+    return serialize_message(message)
+
+
+async def delete_note(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    message_id: UUID,
+) -> bool:
+    result = await session.execute(
+        select(SignalMessage).where(
+            SignalMessage.id == message_id,
+            SignalMessage.signal_id == signal_id,
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.kind == "internal_note",
+        )
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        return False
+    await session.delete(message)
+    await session.commit()
+    return True
+
+
+async def list_notes(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+) -> list[dict[str, Any]]:
+    result = await session.execute(
+        select(SignalMessage)
+        .where(
+            SignalMessage.signal_id == signal_id,
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.kind == "internal_note",
+        )
+        .order_by(SignalMessage.created_at)
+    )
+    return [serialize_message(m) for m in result.scalars().all()]
 
 
 async def _get_signal_row(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> Signal | None:
@@ -640,6 +727,7 @@ async def reply_to_thread(
     action: str = "send",
     direction: str = "outbound",
     kind: str = "user_message",
+    attachments: list[dict] | None = None,
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
@@ -649,7 +737,9 @@ async def reply_to_thread(
     if direction == "outbound":
         from app.channels import deliver_outbound
 
-        send_status = await deliver_outbound(session, signal, body_text=body_text)
+        send_status = await deliver_outbound(
+            session, signal, body_text=body_text, body_html=body_html
+        )
         if send_status == "skipped":
             send_status = "sent"
     message = SignalMessage(
@@ -665,6 +755,7 @@ async def reply_to_thread(
         body_text=body_text,
         body_preview=body_text[:200],
         body_html=body_html or f"<p>{body_text}</p>",
+        attachments_json=json.dumps(attachments or []),
         send_status=send_status,
         received_at=now,
     )
@@ -694,7 +785,7 @@ async def reply_to_thread(
     # External channels (email/whatsapp/widget) and assistant-channel threads
     # (handled by /api/chat) are intentionally excluded.
     if direction == "outbound" and signal.channel == "internal" and not signal.ai_paused:
-        await _generate_agent_reply(session, tenant_id, user_id, signal)
+        await _generate_agent_reply(session, tenant_id, user_id, signal, attachments=attachments)
     return serialize_message(message)
 
 
@@ -703,6 +794,8 @@ async def _generate_agent_reply(
     tenant_id: UUID,
     user_id: UUID,
     signal: Signal,
+    *,
+    attachments: list[dict] | None = None,
 ) -> None:
     """Run the thread's agent and append its reply.
 
@@ -728,7 +821,12 @@ async def _generate_agent_reply(
             agent=agent,
             signal_id=signal_id,
         )
-        reply_text, tokens = await loop.run_chat(history)
+        reply_text = ""
+        tokens: dict = {"input_tokens": 0, "output_tokens": 0}
+        async for event in loop.stream_chat(history, attachments=attachments):
+            if event["type"] == "done":
+                reply_text = event.get("text", "") or "Done."
+                tokens = event.get("usage", tokens)
         await append_signal_chat_message(
             session,
             signal,

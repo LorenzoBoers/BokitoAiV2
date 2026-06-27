@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { router } from 'expo-router'
 import {
   ActivityIndicator,
   FlatList,
@@ -92,6 +93,11 @@ export default function DecisionsScreen() {
         <View style={styles.card}>
           <Text style={styles.title}>{item.title}</Text>
           {item.summary ? <Text style={styles.summary}>{item.summary}</Text> : null}
+          {item.signal_id ? (
+            <Pressable onPress={() => router.push(`/thread/${item.signal_id}`)}>
+              <Text style={styles.threadLink}>Open thread</Text>
+            </Pressable>
+          ) : null}
           <View style={styles.actions}>
             <Pressable
               style={[styles.button, styles.approve, busyId === item.id && styles.buttonDisabled]}
@@ -128,6 +134,7 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.textHeading, fontSize: 15, fontWeight: '600' },
   summary: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  threadLink: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
   button: {
     flex: 1,

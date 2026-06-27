@@ -1,12 +1,20 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Mail, MessageCircle, Send, StickyNote } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Mail, MessageCircle, Paperclip, Send, StickyNote } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import { Button } from '../ui/button'
 import type { ComposerSurface, ComposerTab } from '../../lib/message-composer'
+import type { MessageAttachment } from '../../lib/inbox-api'
+import { uploadAttachment } from '../../lib/uploads-api'
+import MessageAttachments from './MessageAttachments'
 
 type Props = {
   surface: ComposerSurface
-  onReply: (bodyText: string, action: 'send' | 'send_and_close' | 'send_and_pending') => Promise<void>
-  onNote: (bodyText: string) => Promise<void>
+  onReply: (
+    bodyText: string,
+    action: 'send' | 'send_and_close' | 'send_and_pending',
+    attachments?: MessageAttachment[],
+  ) => Promise<void>
+  onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   saving: boolean
   disabled?: boolean
   extraActions?: ReactNode
@@ -26,12 +34,17 @@ export default function ReplyComposer({
   disabled,
   extraActions,
 }: Props) {
+  const { token } = useAuth()
   const [tab, setTab] = useState<ComposerTab>(surface.defaultTab)
   const [body, setBody] = useState('')
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setTab(surface.defaultTab)
     setBody('')
+    setAttachments([])
   }, [surface.channel, surface.defaultTab, surface.recipientValue])
 
   const showReplyTab = surface.tabs.includes('reply')
@@ -39,13 +52,31 @@ export default function ReplyComposer({
 
   const handleSubmit = async (action: 'send' | 'send_and_close' | 'send_and_pending') => {
     const text = body.trim()
-    if (!text) return
+    if (!text && attachments.length === 0) return
+    const payload = attachments.length ? attachments : undefined
     if (tab === 'note') {
-      await onNote(text)
+      await onNote(text, payload)
     } else {
-      await onReply(text, action)
+      await onReply(text, action, payload)
     }
     setBody('')
+    setAttachments([])
+  }
+
+  const onPickFiles = async (files: FileList | null) => {
+    if (!files?.length || !token) return
+    setUploading(true)
+    try {
+      const uploaded: MessageAttachment[] = []
+      for (const file of Array.from(files)) {
+        const att = await uploadAttachment(token, file)
+        uploaded.push(att)
+      }
+      setAttachments((prev) => [...prev, ...uploaded])
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -103,6 +134,11 @@ export default function ReplyComposer({
           </div>
         ) : null}
 
+        <MessageAttachments
+          attachments={attachments}
+          onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
+        />
+
         <div
           className={`flex items-end gap-2 rounded-2xl border px-3 py-2 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.45)] transition-colors focus-within:border-accent/50 ${
             isNote
@@ -119,9 +155,25 @@ export default function ReplyComposer({
             rows={Math.min(6, Math.max(1, body.split('\n').length))}
             className="max-h-[180px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none disabled:opacity-50"
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => void onPickFiles(e.target.files)}
+          />
           <button
             type="button"
-            disabled={!body.trim() || saving || disabled}
+            disabled={uploading || saving || disabled}
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach file"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+          >
+            <Paperclip size={14} />
+          </button>
+          <button
+            type="button"
+            disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
             onClick={() => void handleSubmit('send')}
             title={isNote ? 'Notitie toevoegen' : 'Verstuur'}
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition-colors disabled:opacity-40 ${
@@ -140,7 +192,7 @@ export default function ReplyComposer({
             <Button
               size="sm"
               variant="ghost"
-              disabled={!body.trim() || saving || disabled}
+              disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
               onClick={() => void handleSubmit('send_and_close')}
               className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
             >

@@ -7,6 +7,7 @@ widget.
 """
 
 import json
+import logging
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
@@ -35,6 +36,7 @@ from app.services.personal_agents import (
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 ASSISTANT_CHANNELS = ("assistant", "widget")
 
@@ -250,14 +252,44 @@ async def send_message(
     await session.commit()
 
     if signal.ai_paused:
-        return {"message": {"role": "assistant", "content": ""}, "ai_paused": True}
+        return {
+            "message": {"role": "assistant", "content": ""},
+            "ai_paused": True,
+            "llm_configured": True,
+        }
 
     agent, run = await _agent_run(session, auth, signal, body.content)
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(
         session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id
     )
-    reply_text, tokens = await loop.run_chat(history, attachments=body.attachments)
+    llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
+    try:
+        reply_text, tokens = await loop.run_chat(history, attachments=body.attachments)
+    except Exception as exc:
+        logger.exception("assistant chat failed for signal %s", signal.id)
+        reply_text = _agent_error_message(exc, llm_meta)
+        tokens = {}
+        assistant_msg = await append_signal_chat_message(
+            session,
+            signal,
+            role="assistant",
+            content=reply_text,
+            author_agent_id=agent.id if agent else None,
+            metadata={"error": True, "llm_meta": llm_meta},
+        )
+        await session.commit()
+        await session.refresh(assistant_msg)
+        return {
+            "message": {
+                "id": str(assistant_msg.id),
+                "role": "assistant",
+                "content": reply_text,
+            },
+            "usage": tokens,
+            "error": True,
+            **llm_meta,
+        }
 
     assistant_msg = await append_signal_chat_message(
         session,
@@ -265,7 +297,7 @@ async def send_message(
         role="assistant",
         content=reply_text,
         author_agent_id=agent.id if agent else None,
-        metadata={"usage": tokens},
+        metadata={"usage": tokens, **llm_meta},
     )
     if signal.subject == "New conversation":
         signal.subject = body.content[:60]
@@ -278,6 +310,7 @@ async def send_message(
             "content": reply_text,
         },
         "usage": tokens,
+        **llm_meta,
     }
 
 
@@ -299,8 +332,6 @@ async def stream_message(
     )
     await session.commit()
 
-    # An admin takeover (ai_paused) pauses the agent: persist the user's message
-    # but do not generate a reply.
     if signal.ai_paused:
 
         async def paused_generator():
@@ -308,27 +339,53 @@ async def stream_message(
 
         return EventSourceResponse(paused_generator())
 
-    agent, _run = await _agent_run(session, auth, signal, body.content)
+    agent, run = await _agent_run(session, auth, signal, body.content)
     history = await signal_chat_history(session, conversation_id)
-    loop = AgentLoop(session, auth.tenant.id, auth.user.id, agent=agent, signal_id=signal.id)
+    loop = AgentLoop(
+        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id
+    )
+    llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
 
     async def event_generator():
         full_text = ""
-        async for event in loop.stream_chat(history, attachments=body.attachments):
-            if event["type"] == "delta":
-                full_text += event["text"]
-                yield {"event": "delta", "data": json.dumps({"text": event["text"]})}
-            elif event["type"] == "done":
-                final = event.get("text", full_text)
-                await append_signal_chat_message(
-                    session,
-                    signal,
-                    role="assistant",
-                    content=final,
-                    author_agent_id=agent.id if agent else None,
-                )
-                await session.commit()
-                yield {"event": "done", "data": json.dumps({"text": final})}
+        try:
+            async for event in loop.stream_chat(history, attachments=body.attachments):
+                if event["type"] == "delta":
+                    full_text += event["text"]
+                    yield {"event": "delta", "data": json.dumps({"text": event["text"]})}
+                elif event["type"] == "done":
+                    final = event.get("text", full_text)
+                    await append_signal_chat_message(
+                        session,
+                        signal,
+                        role="assistant",
+                        content=final,
+                        author_agent_id=agent.id if agent else None,
+                        metadata={"usage": event.get("usage", {}), **llm_meta},
+                    )
+                    if signal.subject == "New conversation":
+                        signal.subject = body.content[:60]
+                    await session.commit()
+                    yield {
+                        "event": "done",
+                        "data": json.dumps({"text": final, **llm_meta}),
+                    }
+        except Exception as exc:
+            logger.exception("assistant stream failed for signal %s", signal.id)
+            error_text = _agent_error_message(exc, llm_meta)
+            await append_signal_chat_message(
+                session,
+                signal,
+                role="assistant",
+                content=error_text,
+                author_agent_id=agent.id if agent else None,
+                metadata={"error": True, **llm_meta},
+            )
+            await session.commit()
+            yield {
+                "event": "done",
+                "data": json.dumps({"text": error_text, "error": True, **llm_meta}),
+            }
 
     return EventSourceResponse(event_generator())
 
@@ -387,3 +444,36 @@ async def _agent_run(session, auth, signal: Signal, content: str):
         await session.commit()
         await session.refresh(run)
     return agent, run
+
+
+def _agent_error_message(exc: Exception, llm_meta: dict) -> str:
+    if not llm_meta.get("llm_configured"):
+        return (
+            "The assistant cannot reply because no LLM API key is configured for this workspace. "
+            "Add a provider key in Settings or contact your administrator."
+        )
+    return (
+        "The assistant encountered an error while generating a reply. "
+        "Please try again in a moment."
+    )
+
+
+async def _llm_meta_for_agent(session: AsyncSession, tenant_id: UUID, agent: Agent | None) -> dict:
+    from app.services.model_resolution import resolve_model_call
+
+    model_slug = agent.model if agent else None
+    call = await resolve_model_call(session, tenant_id, kind="chat", model_slug=model_slug)
+    return {
+        "llm_configured": call.live,
+        "llm_mode": "live" if call.live else "mock",
+        "llm_key_source": call.key_source,
+    }
+    if not llm_meta.get("llm_configured"):
+        return (
+            "The assistant cannot reply because no LLM API key is configured for this workspace. "
+            "Add a provider key in Settings or contact your administrator."
+        )
+    return (
+        "The assistant encountered an error while generating a reply. "
+        "Please try again in a moment."
+    )
