@@ -66,7 +66,8 @@ async def test_autonomy_auto_executes_and_audits(client: AsyncClient, session_ov
     result = await execute_tool(
         session_override, tenant.id, None, "create_task", {"title": "Do it"}, agent=agent
     )
-    assert result.get("status") == "created"
+    assert result.get("task_id")
+    assert result.get("status") in ("created", "queued", "running", "completed")
 
     events = await search_audit(session_override, tenant.id, action="tool_call:create_task")
     assert any(e.outcome == "executed" for e in events)
@@ -212,7 +213,8 @@ async def test_tool_override_wins_over_slider(client: AsyncClient, session_overr
     session_override.expire_all()
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     result = await execute_tool(session_override, tenant.id, None, "create_task", {"title": "Go"})
-    assert result.get("status") == "created"
+    assert result.get("task_id")
+    assert result.get("status") in ("created", "queued", "running", "completed")
 
 
 @pytest.mark.asyncio

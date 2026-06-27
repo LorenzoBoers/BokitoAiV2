@@ -20,5 +20,8 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "expo-font": "55.0.8"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.34.9"
   }
 }
