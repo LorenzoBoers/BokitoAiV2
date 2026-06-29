@@ -27,6 +27,8 @@ jobs:
         run: |
           if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
             printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/google-services.json
+            mkdir -p apps/mobile/android/app
+            printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/android/app/google-services.json
           else
             echo "GOOGLE_SERVICES_JSON not set; push may not work on the built APK"
           fi
@@ -41,7 +43,12 @@ jobs:
         working-directory: apps/mobile
         run: |
           set -euo pipefail
-          eas build -p android --profile preview --non-interactive --wait --json > build-output.json
+          if ! eas build -p android --profile preview --non-interactive --wait --json > build-output.json; then
+            echo "EAS build failed. Output:"
+            cat build-output.json || true
+            eas build:list --platform android --limit 1 --json-non-interactive || true
+            exit 1
+          fi
           node <<'NODE'
           const fs = require('fs');
           const raw = fs.readFileSync('build-output.json', 'utf8');

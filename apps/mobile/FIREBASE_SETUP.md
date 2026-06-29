@@ -12,7 +12,8 @@ Background push on standalone Android APKs requires Firebase Cloud Messaging (FC
 
 1. Download `google-services.json` from the Firebase Android app settings.
 2. Place it at `apps/mobile/google-services.json` (git-ignored).
-3. For CI, store the file contents as a GitHub secret `GOOGLE_SERVICES_JSON`.
+3. When using the committed `android/` native project (EAS bare workflow), also keep a copy at `apps/mobile/android/app/google-services.json` for Gradle. CI does this automatically from the `GOOGLE_SERVICES_JSON` secret.
+4. For CI, store the file contents as a GitHub secret `GOOGLE_SERVICES_JSON`.
 
 `app.config.ts` automatically includes `android.googleServicesFile` when this file exists.
 
