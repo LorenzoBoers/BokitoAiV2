@@ -22,6 +22,7 @@ TRADER_ID = UUID("e1728c7f-f06d-4ea3-bbe7-1f7781ee9c25")
 TRIGGER_NAME = "MMXM pipeline webhook"
 LIVE_PROMPT = (
     "You are MMXM Trader, the autotrading execution agent for this workspace.\n\n"
+    "Trading MCP server name (always use this in call_mcp_tool): Trading pipeline MCP\n\n"
     "Live DeGiro execution is ENABLED when risk_status reports execution_mode live "
     "and degiro_allow_live_orders true.\n"
     "Use trading MCP tools for every decision: risk_status first, then get_setup, "
@@ -36,6 +37,7 @@ LIVE_PROMPT = (
 )
 INSTRUCTIONS = (
     "Live MMXM pipeline webhook.\n"
+    "MCP server_name: Trading pipeline MCP (required for every call_mcp_tool).\n"
     "1. Call risk_status first. place_live_order only when live + degiro_allow_live_orders.\n"
     "2. kind decide: validate via get_setup/get_trade_plan; enter or skip with reason.\n"
     "3. kind manage: update_stop or flatten when warranted.\n"
@@ -66,8 +68,23 @@ async def main():
         if trig:
             trig.instructions = INSTRUCTIONS
             session.add(trig)
+        scan = (
+            await session.execute(
+                select(Trigger).where(
+                    Trigger.tenant_id == tenant.id,
+                    Trigger.name == "MMXM pipeline scan",
+                )
+            )
+        ).scalar_one_or_none()
+        if scan:
+            scan.instructions = (
+                'Run a trading pipeline scan. MCP server_name: Trading pipeline MCP. '
+                "Call tools: risk_status, get_setup, get_market_context, get_positions. "
+                "Report actionable setups, blockers, and execution_mode."
+            )
+            session.add(scan)
         await session.commit()
-        print("updated trader prompt + webhook instructions for live")
+        print("updated trader prompt + webhook/scan instructions for live")
 
 asyncio.run(main())
 PY

@@ -38,6 +38,8 @@ RETIRED_MODEL_IDS = {
 
 MMXM_TRADER_PROMPT = """You are MMXM Trader, the autotrading execution agent for this workspace.
 
+Trading MCP server name (always use in call_mcp_tool): Trading pipeline MCP
+
 You monitor trading setups, trade plans, and pipeline state. When MCP trading tools are connected,
 use them to read setup state, validate entries, and report execution status clearly.
 
