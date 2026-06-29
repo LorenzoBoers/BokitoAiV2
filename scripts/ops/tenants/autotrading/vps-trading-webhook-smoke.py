@@ -10,10 +10,19 @@ HOST = os.environ.get("VPS_HOST", "31.97.45.44")
 KEY_PATH = os.environ.get("VPS_SSH_KEY", os.path.expanduser("~/.ssh/bokito_vps_deploy"))
 
 REMOTE = r"""
+set -euo pipefail
+for c in trading-worker-1 bokito-api-1; do
+  docker network connect bokito_shared "$c" 2>/dev/null || true
+done
+docker network connect --alias bokito-api bokito_shared bokito-api-1 2>/dev/null || true
 set -a
 source /opt/trading/.env
 set +a
-docker compose -p trading exec -T worker python <<'PY'
+docker compose -p trading exec -T \
+  -e BOKITO_BASE_URL="${BOKITO_BASE_URL}" \
+  -e BOKITO_TRIGGER_ID="${BOKITO_TRIGGER_ID}" \
+  -e BOKITO_WEBHOOK_SECRET="${BOKITO_WEBHOOK_SECRET}" \
+  worker python <<'PY'
 import json
 import os
 import urllib.request

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -212,7 +213,7 @@ async def get_or_create_trading_mcp(
     )
     server = result.scalar_one_or_none()
     if server:
-        if server_url and not server.server_url.startswith("mock://") and server.server_url != server_url:
+        if server_url and server_url != "mock://trading" and server.server_url != server_url:
             server.server_url = server_url
             session.add(server)
         return server
@@ -477,7 +478,8 @@ async def seed_trading_stack(
         session, tenant_id, orchestrator_id=orchestrator.id
     )
     project = await get_or_create_mmxm_project(session, tenant_id, orchestrator.id)
-    mcp = await get_or_create_trading_mcp(session, tenant_id)
+    mcp_url = (os.environ.get("TRADING_MCP_URL") or "").strip() or "mock://trading"
+    mcp = await get_or_create_trading_mcp(session, tenant_id, server_url=mcp_url)
     pipeline_trigger = await get_or_create_trading_pipeline_trigger(session, tenant_id, trader.id)
     digest_trigger = await get_or_create_session_digest_trigger(session, tenant_id, trader.id)
     strategy_ws = await get_or_create_strategy_workstream(session, tenant_id, orchestrator.id)
