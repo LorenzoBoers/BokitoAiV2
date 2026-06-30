@@ -1,0 +1,5 @@
+# Local native projects are for Windows dev builds only.
+# EAS runs expo prebuild on the cloud (managed workflow), matching the last
+# successful CI APK builds before android/ was committed.
+android/
+ios/

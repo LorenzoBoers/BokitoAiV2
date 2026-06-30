@@ -85,6 +85,8 @@ The app targets production at `https://app.bokito.ai` when built with the EAS `p
 3. Transfer the APK to your Android phone, enable install from unknown sources, and install.
 4. Log in with your Bokito account and allow notifications.
 
+CI uses EAS **managed** builds (`.easignore` excludes the committed `android/` tree used for local Windows dev). Do not upload `android/` to EAS; cloud prebuild generates native code with `google-services.json` from secrets.
+
 ### Build locally (optional)
 
 ```bash
