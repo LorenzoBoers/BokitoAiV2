@@ -27,8 +27,6 @@ jobs:
         run: |
           if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
             printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/google-services.json
-            mkdir -p apps/mobile/android/app
-            printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/android/app/google-services.json
           else
             echo "GOOGLE_SERVICES_JSON not set; push may not work on the built APK"
           fi
@@ -37,6 +35,13 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Prepare managed EAS build
+        working-directory: apps/mobile
+        run: |
+          # Committed android/ is for local Windows dev only. EAS managed prebuild
+          # (last successful CI APK) must not upload the bare native tree.
+          rm -rf android ios
 
       - name: Build Android APK (EAS preview)
         id: eas_build
