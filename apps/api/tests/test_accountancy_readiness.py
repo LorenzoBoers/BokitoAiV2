@@ -270,7 +270,9 @@ async def test_bjorn_lunden_install_discovers_accounting_tools(
     assert servers.status_code == 200
     row = servers.json()[0]
     assert row["tools_synced_at"] is not None
-    assert any(t["name"] == "list_vat_reports" for t in row["tools"])
+    # Native BLA toolset: ledger + company tools are exposed.
+    listed = {t["name"] for t in row["tools"]}
+    assert {"get_account_balance", "list_companies"} <= listed
 
 
 @pytest.mark.asyncio

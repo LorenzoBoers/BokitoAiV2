@@ -36,6 +36,9 @@ export function McpConnectionForm({
   const [url, setUrl] = useState('')
   const [authType, setAuthType] = useState<McpAuthType>('api_key')
   const [secret, setSecret] = useState('')
+  const [blClientId, setBlClientId] = useState('')
+  const [blClientSecret, setBlClientSecret] = useState('')
+  const [blCompanyKey, setBlCompanyKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,12 +47,16 @@ export function McpConnectionForm({
     setUrl('')
     setAuthType('api_key')
     setSecret('')
+    setBlClientId('')
+    setBlClientSecret('')
+    setBlCompanyKey('')
     setError(null)
     setSaving(false)
   }, [provider, isBjorn])
 
-  // Björn Lundén can be connected without credentials (sandbox until the
-  // client signs in); custom servers need name + URL + secret.
+  // Björn Lundén can be connected without credentials (the native connection
+  // stays pending until the client's API credentials are added); custom
+  // servers need name + URL + secret.
   const canSave = isBjorn
     ? true
     : secret.trim().length > 0 && name.trim().length > 0 && url.trim().length > 0
@@ -59,12 +66,21 @@ export function McpConnectionForm({
     setSaving(true)
     setError(null)
     try {
+      const blAuth =
+        isBjorn && (blClientId.trim() || blClientSecret.trim() || blCompanyKey.trim())
+          ? {
+              client_id: blClientId.trim() || undefined,
+              client_secret: blClientSecret.trim() || undefined,
+              user_key: blCompanyKey.trim() || undefined,
+            }
+          : undefined
       await installMcpConnection({
         provider,
         api_key: secret.trim(),
         display_name: name.trim() || undefined,
         server_url: url.trim() || undefined,
         auth_type: authType,
+        ...(blAuth ? { auth: blAuth } : {}),
       })
       onSaved()
     } catch (e) {
@@ -85,15 +101,17 @@ export function McpConnectionForm({
           placeholder={t('integrations.mcp.servers.name')}
         />
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor="mcp-connection-url">{t('integrations.mcp.servers.url')}</Label>
-        <Input
-          id="mcp-connection-url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder={isBjorn ? 'Optional — sandbox is used when empty' : 'https://...'}
-        />
-      </div>
+      {isBjorn ? null : (
+        <div className="grid gap-2">
+          <Label htmlFor="mcp-connection-url">{t('integrations.mcp.servers.url')}</Label>
+          <Input
+            id="mcp-connection-url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://..."
+          />
+        </div>
+      )}
       {isCustom ? (
         <div className="grid gap-2">
           <Label>{t('integrations.mcp.servers.authType')}</Label>
@@ -108,20 +126,52 @@ export function McpConnectionForm({
           </Select>
         </div>
       ) : null}
-      <div className="grid gap-2">
-        <Label htmlFor="mcp-connection-secret">
-          {isBjorn
-            ? t('integrations.mcp.servers.bjornApiKey')
-            : t('integrations.mcp.servers.secret')}
-        </Label>
-        <Input
-          id="mcp-connection-secret"
-          type="password"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
-          placeholder={isBjorn ? 'Optional until client login is available' : ''}
-        />
-      </div>
+      {isBjorn ? (
+        <>
+          <div className="grid gap-2">
+            <Label htmlFor="mcp-bl-client-id">{t('integrations.mcp.servers.bjornClientId')}</Label>
+            <Input
+              id="mcp-bl-client-id"
+              value={blClientId}
+              onChange={(e) => setBlClientId(e.target.value)}
+              placeholder={t('integrations.mcp.servers.bjornCredentialsOptional')}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="mcp-bl-client-secret">
+              {t('integrations.mcp.servers.bjornClientSecret')}
+            </Label>
+            <Input
+              id="mcp-bl-client-secret"
+              type="password"
+              value={blClientSecret}
+              onChange={(e) => setBlClientSecret(e.target.value)}
+              placeholder={t('integrations.mcp.servers.bjornCredentialsOptional')}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="mcp-bl-company-key">
+              {t('integrations.mcp.servers.bjornCompanyKey')}
+            </Label>
+            <Input
+              id="mcp-bl-company-key"
+              value={blCompanyKey}
+              onChange={(e) => setBlCompanyKey(e.target.value)}
+              placeholder={t('integrations.mcp.servers.bjornCompanyKeyHint')}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="grid gap-2">
+          <Label htmlFor="mcp-connection-secret">{t('integrations.mcp.servers.secret')}</Label>
+          <Input
+            id="mcp-connection-secret"
+            type="password"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+          />
+        </div>
+      )}
       {error ? <p className="text-xs text-status-error">{error}</p> : null}
       {showActions ? (
         <div className="flex justify-end gap-2 pt-1">

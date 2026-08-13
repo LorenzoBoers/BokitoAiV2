@@ -679,7 +679,12 @@
         "authBearer": "Bearer token",
         "secret": "Secret / token",
         "save": "Save connection",
-        "bjornApiKey": "Bjorn Lunden User-Key"
+        "bjornApiKey": "Bjorn Lunden User-Key",
+        "bjornClientId": "Bjorn Lunden client ID",
+        "bjornClientSecret": "Bjorn Lunden client secret",
+        "bjornCompanyKey": "Company key (User-Key)",
+        "bjornCredentialsOptional": "Optional until your Bjorn Lunden API access is issued",
+        "bjornCompanyKeyHint": "Optional - company GUID, discoverable via list_companies"
       },
       "catalog": {
         "customMcpName": "Custom MCP server",

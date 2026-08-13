@@ -196,6 +196,24 @@ async def call_mcp_tool(
     if not server:
         return {"error": f"MCP server {server_name} not found"}
 
+    if server.server_url.startswith("native://"):
+        from app.services.bjorn_lunden import call_bl_tool, has_bl_credentials
+
+        try:
+            auth_data = json.loads(server.auth_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            auth_data = {}
+        if not isinstance(auth_data, dict):
+            auth_data = {}
+        if not has_bl_credentials(auth_data) and not get_settings().is_production:
+            # Dev sandbox: keep the accountancy flow demo-able before the
+            # client's real Björn Lundén credentials exist.
+            return _mock_mcp_response(server_name, tool_name, arguments)
+        outcome = await call_bl_tool(auth_data, tool_name, arguments or {})
+        response: dict[str, Any] = {"server": server_name, "tool": tool_name}
+        response.update(outcome)
+        return response
+
     if server.server_url.startswith("mock://"):
         if get_settings().is_production:
             return {

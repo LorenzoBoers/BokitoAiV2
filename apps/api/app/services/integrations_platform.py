@@ -176,6 +176,12 @@ async def install_mcp(
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
     url = server_url or PROVIDER_BY_SLUG[provider].get("mcp_remote_url") or ""
+    if not url and provider == "bjorn_lunden_mcp":
+        # Björn Lundén runs natively against the BLA REST API — no separate
+        # MCP process (and no Xano) needed, in dev or production.
+        from app.services.bjorn_lunden import BL_NATIVE_URL
+
+        url = BL_NATIVE_URL
     if not url:
         if get_settings().is_production:
             raise HTTPException(
@@ -361,6 +367,26 @@ async def test_mcp_server(
     server = result.scalar_one_or_none()
     if not server:
         raise HTTPException(status_code=404, detail="MCP server not found")
+
+    if server.server_url.startswith("native://"):
+        from app.services.bjorn_lunden import BL_NATIVE_TOOLS, validate_credentials
+
+        auth_data = _parse_json(server.auth_json)
+        check = await validate_credentials(auth_data if isinstance(auth_data, dict) else {})
+        tools = [dict(t) for t in BL_NATIVE_TOOLS]
+        await _persist_discovered_tools(session, server, tools)
+        payload: dict[str, Any] = {
+            "ok": bool(check.get("ok")),
+            "server_id": str(server.id),
+            "server_name": server.name,
+            "tool_count": len(tools),
+            "tools": tools,
+        }
+        if check.get("error"):
+            payload["error"] = check["error"]
+        if check.get("note"):
+            payload["note"] = check["note"]
+        return payload
 
     if server.server_url.startswith("mock://"):
         if get_settings().is_production:

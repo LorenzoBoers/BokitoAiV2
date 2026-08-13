@@ -109,14 +109,14 @@ PROVIDERS: list[dict[str, Any]] = [
     _provider(
         "bjorn_lunden_mcp",
         "Bjorn Lunden MCP",
-        "Accounting integration via the Bjorn Lunden MCP server.",
+        "Accounting tools via the native Bjorn Lunden (BLA) API integration.",
         "Productiviteit",
         "api_key",
         host_slug="bjorn_lunden",
         capabilities={"mcp_tools": True},
         sort_order=10,
-        # Real endpoint comes from BJORN_LUNDEN_MCP_URL; unset means dev mock
-        # fallback (prod refuses installs without an explicit URL).
+        # BJORN_LUNDEN_MCP_URL optionally points at an external MCP server;
+        # unset means the built-in native BLA API integration is used.
         mcp_remote_url=get_settings().bjorn_lunden_mcp_url or None,
         mcp_transport="streamable_http",
     ),

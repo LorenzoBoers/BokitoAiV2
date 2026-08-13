@@ -29,9 +29,9 @@ class Settings(BaseSettings):
     # Dev-only: short-circuit agent/orchestration execution with canned results.
     bokito_mock_execution: bool = False
 
-    # Real Bjorn Lunden MCP endpoint. When set, installing the bjorn_lunden_mcp
-    # integration targets this URL; when empty, dev falls back to the mock MCP
-    # and prod requires an explicit server_url at install time.
+    # Optional external Bjorn Lunden MCP endpoint. When set, installing the
+    # bjorn_lunden_mcp integration targets this URL; when empty, the built-in
+    # native BLA API integration (services/bjorn_lunden.py) is used.
     bjorn_lunden_mcp_url: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
