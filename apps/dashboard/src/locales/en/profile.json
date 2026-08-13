@@ -31,7 +31,7 @@
   },
   "security": {
     "title": "Security",
-    "description": "Manage your password and two-factor authentication.",
+    "description": "Manage your account password.",
     "passwordTitle": "Password",
     "passwordDescription": "Change your account password.",
     "changePassword": "Change password",
@@ -40,10 +40,7 @@
     "confirmPassword": "Confirm new password",
     "passwordMismatch": "Passwords do not match",
     "passwordSuccess": "Password changed",
-    "cancel": "Cancel",
-    "twoFactorTitle": "Two-factor authentication",
-    "twoFactorDescription": "Add an extra layer of security. Currently not available.",
-    "twoFactorComingSoon": "Coming soon"
+    "cancel": "Cancel"
   },
   "account": {
     "title": "Account",
@@ -51,7 +48,10 @@
     "signOutTitle": "Sign out",
     "signOutDescription": "Log out of your current session on this device.",
     "deleteTitle": "Delete account",
-    "deleteDescription": "Permanently delete your account and all associated data. This action cannot be undone."
+    "deleteDescription": "Permanently delete your account and all associated data. This action cannot be undone.",
+    "deleteConfirm": "Delete your account permanently? This cannot be undone.",
+    "deletePasswordPrompt": "Enter your password to confirm deletion:",
+    "deleting": "Deleting..."
   },
   "links": {
     "openInboxSettings": "Open inbox settings"

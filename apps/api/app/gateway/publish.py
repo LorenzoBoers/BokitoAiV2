@@ -78,6 +78,28 @@ async def publish_agent_step(
     )
 
 
+async def publish_agent_thinking(
+    tenant_id: Any,
+    signal_id: Any,
+    *,
+    delta: str,
+    stream_id: str | None = None,
+) -> None:
+    """Streaming reasoning/thinking delta for an in-progress agent reply."""
+    if not delta:
+        return
+    await _safe_publish(
+        tenant_id,
+        [f"signal:{signal_id}"],
+        "agent.thinking",
+        {
+            "signal_id": str(signal_id),
+            "delta": delta,
+            "stream_id": stream_id,
+        },
+    )
+
+
 async def publish_signal_message(signal: "Signal", message: "SignalMessage") -> None:
     """A message was appended to a thread (any channel, any author)."""
     await _safe_publish(

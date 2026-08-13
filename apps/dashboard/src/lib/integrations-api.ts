@@ -133,7 +133,12 @@ export async function installMcpIntegration(input: {
   mcp_server_id?: number
   server_url?: string
   auth_type?: 'api_key' | 'bearer'
-}): Promise<{ connection: IntegrationConnectionRow; binding: { id: string; config: unknown } }> {
+  auth?: Record<string, unknown>
+}): Promise<{
+  connection: IntegrationConnectionRow
+  binding: { id: string; config: unknown }
+  discovery?: McpTestResult | null
+}> {
   return apiPost(integrationsRoutes.platform.mcpInstall, input)
 }
 
@@ -146,7 +151,7 @@ export type McpTestResult = {
   server_id: string
   server_name: string
   tool_count: number
-  tools: Array<{ name: string }>
+  tools: Array<{ name: string; description?: string }>
   error?: string
 }
 

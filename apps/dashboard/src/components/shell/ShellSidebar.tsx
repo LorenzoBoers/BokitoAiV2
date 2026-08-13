@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
@@ -35,10 +36,13 @@ type ShellSidebarProps = {
 
 export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate }: ShellSidebarProps) {
   const { pathname } = useLocation()
+  const { t } = useTranslation('nav')
   const { isDark } = useTheme()
   const { counts } = useOptionalNavBadges()
   const activeTab = tabFromPath(pathname)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups)
+
+  const tabTitle = (tab: Tab) => t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
 
   const toggleGroup = (label: string) => {
     setCollapsedGroups((prev) => {
@@ -107,7 +111,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                     className="flex w-full items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted hover:text-text-secondary"
                     aria-expanded={showItems}
                   >
-                    <span>{group.label}</span>
+                    <span>{t(`tabGroups.${group.label.toLowerCase()}`, { defaultValue: group.label })}</span>
                     <ChevronDown
                       size={12}
                       className={`transition-transform ${!showItems ? '-rotate-90' : ''}`}
@@ -125,8 +129,8 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                           key={tab}
                           to={pathForTab(tab)}
                           onClick={onNavigate}
-                          title={titleForTab(tab)}
-                          aria-label={titleForTab(tab)}
+                          title={tabTitle(tab)}
+                          aria-label={tabTitle(tab)}
                           className={`flex items-center rounded-lg text-[13px] transition-colors ${
                             collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
                           } ${
@@ -138,7 +142,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                           <Icon size={15} className="shrink-0" />
                           {!collapsed ? (
                             <>
-                              <span className="min-w-0 flex-1 truncate">{titleForTab(tab)}</span>
+                              <span className="min-w-0 flex-1 truncate">{tabTitle(tab)}</span>
                               {badge > 0 ? (
                                 <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">
                                   {badge > 99 ? '99+' : badge}

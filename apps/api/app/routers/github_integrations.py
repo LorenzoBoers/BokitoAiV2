@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 import httpx
@@ -21,6 +22,7 @@ from app.services.integrations_platform import (
 from app.services.oauth_flow import start_real_oauth
 
 router = APIRouter(prefix="/github", tags=["github"])
+settings = get_settings()
 
 
 @router.get("/oauth/start")
@@ -41,6 +43,11 @@ async def github_oauth_start(
     )
     if real_url:
         return {"authorize_url": real_url}
+    if settings.is_production:
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub OAuth is not configured on this server.",
+        )
     await ensure_github_connection(session, auth.tenant.id)
     authorize_url = mock_authorize_url(return_url, {"github": "connected"})
     return {"authorize_url": authorize_url}
@@ -109,8 +116,13 @@ async def github_repos(
                     for r in repos
                 ]
             }
-        except Exception:
-            pass
+        except Exception as exc:
+            if settings.is_production:
+                raise HTTPException(
+                    status_code=502, detail="GitHub API request failed."
+                ) from exc
+    if settings.is_production:
+        raise HTTPException(status_code=409, detail="GitHub connection has no access token.")
     return {"items": MOCK_REPOS}
 
 
@@ -138,6 +150,11 @@ async def github_branches(
                 resp.raise_for_status()
                 branches = resp.json()
             return {"branches": [b.get("name") for b in branches if b.get("name")]}
-        except Exception:
-            pass
+        except Exception as exc:
+            if settings.is_production:
+                raise HTTPException(
+                    status_code=502, detail="GitHub API request failed."
+                ) from exc
+    if settings.is_production:
+        raise HTTPException(status_code=409, detail="GitHub connection has no access token.")
     return {"branches": MOCK_BRANCHES}

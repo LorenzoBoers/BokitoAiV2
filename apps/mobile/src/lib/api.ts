@@ -137,6 +137,8 @@ export type Thread = {
 export type DecisionOption = {
   id: string
   label: string
+  action_type?: string
+  payload?: { body?: string; body_text?: string; subject?: string; [key: string]: unknown }
 }
 
 export type DecisionPayload = {
@@ -273,7 +275,17 @@ export const resolveThreadDecision = (
   threadId: string,
   messageId: string,
   action: ResolveAction,
-) => apiPost(`/api/signals/${threadId}/messages/${messageId}/resolve`, { action })
+  opts?: { optionId?: string; body?: string; subject?: string },
+) => {
+  const payload: Record<string, unknown> = { action }
+  if (opts?.optionId) payload.option_id = opts.optionId
+  if (opts?.body != null) {
+    payload.body = opts.body
+    payload.body_text = opts.body
+  }
+  if (opts?.subject != null) payload.subject = opts.subject
+  return apiPost(`/api/signals/${threadId}/messages/${messageId}/resolve`, payload)
+}
 
 // ---------------------------------------------------------------------------
 // Assistant chat

@@ -83,7 +83,7 @@ Default: `/ai/assistent/internal/customization`.
 - **internal** – logged-in team widget
 - **external** – public visitor widget
 
-Scripts served from `/chat-widget/internal/` and `/chat-widget/external/` in dashboard dev (from `apps/chat-widget/dist`).
+One script at `/chat-widget/bokito-chat.js` (served from `apps/chat-widget/dist`); the snippet's `data-auth-mode` distinguishes team (`required`) from public (`anonymous`) embeds.
 
 ## Navigation badges
 

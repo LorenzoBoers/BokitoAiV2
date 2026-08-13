@@ -28,6 +28,15 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    from app.middleware.rate_limit import reset_rate_limits
+
+    reset_rate_limits()
+    yield
+    reset_rate_limits()
+
+
 @pytest_asyncio.fixture
 async def session_override() -> AsyncGenerator[AsyncSession, None]:
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -84,12 +93,13 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             system_prompt="Test orchestra agent",
         )
     )
+    # Use a connectable provider: the email settings API hides mock accounts.
     session_override.add(
         ChannelAccount(
             tenant_id=tenant.id,
             channel="email",
             address="support@test.local",
-            provider="mock",
+            provider="outlook",
         )
     )
     from app.services.workspace import upsert_doc

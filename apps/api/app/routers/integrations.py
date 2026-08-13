@@ -13,8 +13,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
+from app.middleware.rate_limit import rate_limit
 from app.models.integration import IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDER_BY_SLUG
 from app.services.integrations_platform import (
@@ -34,6 +36,7 @@ from app.services.integrations_platform import (
 from app.services.oauth_flow import complete_oauth, start_real_oauth
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
+settings = get_settings()
 
 
 class ApiKeyConnectionCreate(BaseModel):
@@ -114,7 +117,7 @@ async def connection_resources(
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(status_code=404, detail="Connection not found")
-    if conn.provider == "github":
+    if conn.provider == "github" and not settings.is_production:
         return {"items": MOCK_REPOS}
     return {"items": []}
 
@@ -152,18 +155,31 @@ async def platform_oauth_start(
     if real_url:
         return {"authorize_url": real_url, "provider": provider}
 
+    if settings.is_production:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"OAuth for {provider} is not configured on this server. "
+                "Set the provider client credentials to enable it."
+            ),
+        )
+
     if provider == "github":
         await ensure_github_connection(session, auth.tenant.id)
         authorize_url = mock_authorize_url(return_url, {"github": "connected"})
     elif provider == "outlook":
         email = auth.user.email or "outlook@bokito.local"
-        await ensure_email_account(session, auth.tenant.id, "outlook", email)
+        await ensure_email_account(
+            session, auth.tenant.id, "outlook", email, seed_mock_credentials=True
+        )
         authorize_url = mock_authorize_url(
             return_url, {"oauth_provider": "outlook", "oauth_status": "connected"}
         )
     elif provider == "gmail":
         email = auth.user.email or "gmail@bokito.local"
-        await ensure_email_account(session, auth.tenant.id, "gmail", email)
+        await ensure_email_account(
+            session, auth.tenant.id, "gmail", email, seed_mock_credentials=True
+        )
         authorize_url = mock_authorize_url(
             return_url, {"oauth_provider": "gmail", "oauth_status": "connected"}
         )
@@ -194,11 +210,26 @@ async def platform_oauth_callback(
     Exchanges the authorization code for tokens, stores them on the mailbox or
     integration connection, then 302-redirects the browser back to the dashboard
     return URL with success/error params the frontend already understands.
+    SSO login flows additionally set the refresh cookie so the app session
+    starts on the next AuthContext boot.
     """
-    target = await complete_oauth(
+    target, refresh_token = await complete_oauth(
         session, state=state, code=code, error=error or error_description
     )
-    return RedirectResponse(url=target, status_code=302)
+    response = RedirectResponse(url=target, status_code=302)
+    if refresh_token:
+        from app.config import get_settings as _get_settings
+
+        _settings = _get_settings()
+        response.set_cookie(
+            key=_settings.refresh_cookie_name,
+            value=refresh_token,
+            httponly=True,
+            samesite="lax",
+            secure=_settings.is_production,
+            max_age=_settings.refresh_token_expire_days * 86400,
+        )
+    return response
 
 
 @router.get("/mcp/oauth/start")
@@ -210,6 +241,14 @@ async def mcp_oauth_start(
 ):
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
+    if settings.is_production:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "MCP OAuth is not available in production yet. "
+                "Install the MCP server with its URL and API key instead."
+            ),
+        )
     await install_mcp(
         session,
         auth.tenant.id,
@@ -224,15 +263,16 @@ async def mcp_oauth_start(
     return {"authorize_url": authorize_url, "provider": provider, "state": "mock"}
 
 
-@router.post("/mcp/install")
+@router.post("/mcp/install", dependencies=[Depends(rate_limit("mcp-install", limit=10))])
 async def post_mcp_install(
     body: McpInstallBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    auth.require_role("owner", "admin")
     api_key = body.api_key or (body.auth.get("api_key") if body.auth else "") or "mock-key"
     display_name = body.display_name or body.name
-    return await install_mcp(
+    installed = await install_mcp(
         session,
         auth.tenant.id,
         provider=body.provider,
@@ -241,7 +281,25 @@ async def post_mcp_install(
         server_url=body.server_url,
         auth_type=body.auth_type,
         mcp_server_id=body.mcp_server_id,
+        auth=body.auth or None,
     )
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="integration:mcp_installed",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="mcp_server",
+        resource_id=(installed.get("binding") or {}).get("id", ""),
+        payload={
+            "provider": body.provider,
+            "server_url": body.server_url or "",
+            "display_name": display_name or "",
+        },
+    )
+    return installed
 
 
 @router.get("/mcp/bindings")
@@ -270,8 +328,23 @@ async def list_mcp_servers(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    import json as _json
+
     result = await session.execute(select(McpServer).where(McpServer.tenant_id == auth.tenant.id))
-    return [
-        {"id": str(s.id), "name": s.name, "server_url": s.server_url, "is_active": s.is_active}
-        for s in result.scalars().all()
-    ]
+    rows = []
+    for s in result.scalars().all():
+        try:
+            tools = _json.loads(s.tools_json or "[]")
+        except (_json.JSONDecodeError, TypeError):
+            tools = []
+        rows.append(
+            {
+                "id": str(s.id),
+                "name": s.name,
+                "server_url": s.server_url,
+                "is_active": s.is_active,
+                "tools": tools if isinstance(tools, list) else [],
+                "tools_synced_at": s.tools_synced_at.isoformat() if s.tools_synced_at else None,
+            }
+        )
+    return rows

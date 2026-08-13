@@ -19,13 +19,16 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
-import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
+import {
+  MOVABLE_SECTIONS,
+  type SidebarSection,
+} from '../../lib/communication-sidebar-prefs'
 import { SECTION_LABELS } from './MessagesHubNav'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Switch } from '../ui/switch'
 import { cn } from '../../lib/utils'
 
-type SectionRowProps = {
+type SectionTogglesProps = {
   section: SidebarSection
   label: string
   hidden: boolean
@@ -34,9 +37,11 @@ type SectionRowProps = {
   onCollapsedChange: (collapsed: boolean) => void
   visibleLabel: string
   collapsedLabel: string
+  /** When false, no drag handle (anchored sections). */
+  sortable?: boolean
 }
 
-function SectionRow({
+function SectionToggles({
   section,
   label,
   hidden,
@@ -45,15 +50,17 @@ function SectionRow({
   onCollapsedChange,
   visibleLabel,
   collapsedLabel,
-}: SectionRowProps) {
+  sortable = true,
+}: SectionTogglesProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: section,
+    disabled: !sortable,
   })
 
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={sortable ? { transform: CSS.Transform.toString(transform), transition } : undefined}
       data-customize-section={section}
       className={cn(
         'flex items-center gap-3 rounded-xl border border-border/60 bg-bg-elevated/60 px-3 py-2.5',
@@ -61,15 +68,19 @@ function SectionRow({
         hidden && 'opacity-60',
       )}
     >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="shrink-0 cursor-grab touch-none rounded-md p-1 text-text-muted hover:bg-bg-hover/70 hover:text-text-primary active:cursor-grabbing"
-        aria-label={`Reorder ${label}`}
-      >
-        <GripVertical size={15} />
-      </button>
+      {sortable ? (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab touch-none rounded-md p-1 text-text-muted hover:bg-bg-hover/70 hover:text-text-primary active:cursor-grabbing"
+          aria-label={`Reorder ${label}`}
+        >
+          <GripVertical size={15} />
+        </button>
+      ) : (
+        <span className="w-7 shrink-0" aria-hidden />
+      )}
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">{label}</span>
       <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted">
         {collapsedLabel}
@@ -98,12 +109,17 @@ type Props = {
 }
 
 /**
- * Customize the Communication rail: drag to reorder sections,
+ * Customize the Communication rail: drag to reorder middle sections,
  * toggle visibility, and choose which sections start collapsed.
+ * Settings stays anchored at the bottom (show/collapse only).
  */
 export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
   const { t } = useTranslation('nav')
   const { prefs, setOrder, setSectionHidden, setSectionCollapsed, resetPrefs } = useSidebarPrefs()
+
+  const movableOrder = prefs.order.filter((s): s is Exclude<SidebarSection, 'settings'> =>
+    (MOVABLE_SECTIONS as readonly string[]).includes(s),
+  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -114,12 +130,12 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
     (event: DragEndEvent) => {
       const { active, over } = event
       if (!over || active.id === over.id) return
-      const oldIndex = prefs.order.indexOf(active.id as SidebarSection)
-      const newIndex = prefs.order.indexOf(over.id as SidebarSection)
+      const oldIndex = movableOrder.indexOf(active.id as Exclude<SidebarSection, 'settings'>)
+      const newIndex = movableOrder.indexOf(over.id as Exclude<SidebarSection, 'settings'>)
       if (oldIndex < 0 || newIndex < 0) return
-      setOrder(arrayMove(prefs.order, oldIndex, newIndex))
+      setOrder([...arrayMove(movableOrder, oldIndex, newIndex), 'settings'])
     },
-    [prefs.order, setOrder],
+    [movableOrder, setOrder],
   )
 
   const visibleLabel = t('support.customize.visible', { defaultValue: 'Show' })
@@ -132,15 +148,16 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
           <DialogTitle>{t('support.customize.title', { defaultValue: 'Customize sidebar' })}</DialogTitle>
           <DialogDescription>
             {t('support.customize.description', {
-              defaultValue: 'Drag sections to reorder them, hide the ones you do not use, and pick which start collapsed.',
+              defaultValue:
+                'Drag Agents and Channels to reorder them. Settings stays at the bottom of the rail.',
             })}
           </DialogDescription>
         </DialogHeader>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={prefs.order} strategy={verticalListSortingStrategy}>
+          <SortableContext items={movableOrder} strategy={verticalListSortingStrategy}>
             <div className="space-y-1.5">
-              {prefs.order.map((section) => (
-                <SectionRow
+              {movableOrder.map((section) => (
+                <SectionToggles
                   key={section}
                   section={section}
                   label={t(SECTION_LABELS[section].labelKey, {
@@ -157,6 +174,22 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
             </div>
           </SortableContext>
         </DndContext>
+        <p className="pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
+          {t('support.customize.anchored', { defaultValue: 'Anchored' })}
+        </p>
+        <SectionToggles
+          section="settings"
+          label={t(SECTION_LABELS.settings.labelKey, {
+            defaultValue: SECTION_LABELS.settings.defaultLabel,
+          })}
+          hidden={prefs.hidden.includes('settings')}
+          collapsed={prefs.collapsed.includes('settings')}
+          onHiddenChange={(hidden) => setSectionHidden('settings', hidden)}
+          onCollapsedChange={(collapsed) => setSectionCollapsed('settings', collapsed)}
+          visibleLabel={visibleLabel}
+          collapsedLabel={collapsedLabel}
+          sortable={false}
+        />
         <div className="flex justify-end">
           <button
             type="button"

@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, LaptopMinimal, Lock, Moon, Pencil, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
+import { Check, LaptopMinimal, Lock, Moon, Pencil, Sun, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
@@ -236,7 +236,7 @@ function ThemeOption({ label, icon, active, onClick, variant }: {
 
 // ── main ─────────────────────────────────────────────────────────────────────
 
-export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?: boolean }) {
+export function ProfileSettingsContent() {
   const { t, i18n } = useTranslation(['profile', 'common'])
   const { user, token, logout, patchLocalUser, refreshUser } = useAuth()
   const { mode, setMode } = useTheme()
@@ -276,6 +276,24 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
       e.target.value = ''
     }
   }, [token, patchLocalUser])
+
+  // Account deletion
+  const [deleting, setDeleting] = useState(false)
+  const handleDeleteAccount = useCallback(async () => {
+    if (!token || deleting) return
+    if (!window.confirm(t('profile:account.deleteConfirm'))) return
+    const password = window.prompt(t('profile:account.deletePasswordPrompt'))
+    if (!password) return
+    setDeleting(true)
+    try {
+      await apiPostAuth(authRoutes.profile.deleteAccount, { password }, token)
+      await logout()
+      window.location.assign('/login')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not delete the account.')
+      setDeleting(false)
+    }
+  }, [token, deleting, t, logout])
 
   // Password form
   const [showPasswordForm, setShowPasswordForm] = useState(false)
@@ -343,7 +361,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
     <div className="space-y-7">
 
       {/* ── Profile ── */}
-      {!securityOnly && <Section title={t('profile:personalInformation.title')} description={t('profile:personalInformation.description')}>
+      <Section title={t('profile:personalInformation.title')} description={t('profile:personalInformation.description')}>
         <Card>
           {/* Avatar */}
           <div className="flex items-center justify-between border-b border-border/50 py-3.5 pr-4">
@@ -379,7 +397,7 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
             onSave={saveEmail}
           />
 
-          {!securityOnly && user && !user.emailVerified ? (
+          {user && !user.emailVerified ? (
             <div className="flex items-center justify-between gap-3 border-b border-border/50 py-3.5 pr-4">
               <div>
                 <p className="text-sm font-medium text-text-heading">Email verification</p>
@@ -406,10 +424,10 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
             onSave={saveJobTitle}
           />
         </Card>
-      </Section>}
+      </Section>
 
       {/* ── Language ── */}
-      {!securityOnly && <Section title={t('profile:language.title')} description={t('profile:language.description')}>
+      <Section title={t('profile:language.title')} description={t('profile:language.description')}>
         <div className="flex gap-2">
           {(['nl', 'en'] as const).map((lang) => (
             <button
@@ -426,16 +444,16 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
             </button>
           ))}
         </div>
-      </Section>}
+      </Section>
 
       {/* ── Appearance ── */}
-      {!securityOnly && <Section title={t('profile:theme.title')} description={t('profile:theme.description')}>
+      <Section title={t('profile:theme.title')} description={t('profile:theme.description')}>
         <div className="grid grid-cols-3 gap-2.5 rounded-xl border border-border/60 bg-bg-surface/80 p-3">
           <ThemeOption variant="light" label={t('profile:theme.light')} icon={<Sun size={12} />} active={mode === 'light'} onClick={() => setMode('light')} />
           <ThemeOption variant="dark" label={t('profile:theme.dark')} icon={<Moon size={12} />} active={mode === 'dark'} onClick={() => setMode('dark')} />
           <ThemeOption variant="system" label={t('profile:theme.system')} icon={<LaptopMinimal size={12} />} active={mode === 'system'} onClick={() => setMode('system')} />
         </div>
-      </Section>}
+      </Section>
 
       {/* ── Security ── */}
       <Section title={t('profile:security.title')} description={t('profile:security.description')}>
@@ -503,17 +521,6 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
             )}
           </div>
 
-          {/* 2FA */}
-          <div className="flex items-center justify-between py-3.5">
-            <div>
-              <p className="text-sm font-medium text-text-heading">{t('profile:security.twoFactorTitle')}</p>
-              <p className="text-xs text-text-muted">{t('profile:security.twoFactorDescription')}</p>
-            </div>
-            <Button variant="secondary" size="sm" disabled className="h-8 rounded-lg px-3 text-xs">
-              <ShieldCheck size={12} />
-              {t('profile:security.twoFactorComingSoon')}
-            </Button>
-          </div>
         </Card>
       </Section>
 
@@ -534,9 +541,15 @@ export function ProfileSettingsContent({ securityOnly = false }: { securityOnly?
               <p className="text-sm font-medium text-text-heading">{t('profile:account.deleteTitle')}</p>
               <p className="text-xs text-text-muted">{t('profile:account.deleteDescription')}</p>
             </div>
-            <Button variant="destructive" size="sm" className="h-8 rounded-lg px-3 text-xs">
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deleting}
+              onClick={() => void handleDeleteAccount()}
+              className="h-8 rounded-lg px-3 text-xs"
+            >
               <Trash2 size={12} />
-              {t('common:actions.delete')}
+              {deleting ? t('profile:account.deleting') : t('common:actions.delete')}
             </Button>
           </div>
         </Card>

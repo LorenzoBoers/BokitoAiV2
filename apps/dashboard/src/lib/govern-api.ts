@@ -13,6 +13,8 @@ export type PlatformChangeRow = {
   proposed_by_type: string
   proposed_by_id: string
   agent_id: string | null
+  decision_id: string | null
+  signal_id: string | null
   created_at: string
   resolved_at: string | null
 }
@@ -111,6 +113,16 @@ export async function listGovernAudit(limit = 50) {
 
 export async function listAgentPassports() {
   return governFetch<{ items: Array<Record<string, unknown>> }>('/api/govern/passports')
+}
+
+export async function updateAgentPassport(
+  agentId: string,
+  patch: { autonomy_level?: string; allowed_tools?: string[]; permission_scopes?: string[] },
+) {
+  return governFetch<{ ok: boolean; passport: Record<string, unknown> }>(
+    `/api/govern/passports/${encodeURIComponent(agentId)}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  )
 }
 
 export async function getAllowances() {

@@ -12,14 +12,17 @@ Widget backend contract: [`apps/chat-widget/MULTI_TENANT_BACKEND_CONTRACT.md`](.
 
 ```html
 <script
-  src="https://<platform-host>/api/livechat/script/main"
-  data-agent-slug="demo"
+  src="https://<platform-host>/chat-widget/bokito-chat.js"
+  data-bokito-chat-widget
+  data-agent-slug="assistant"
   data-api-url="https://<platform-host>"
+  data-tenant="<tenant-slug>"
+  data-auth-mode="anonymous"
   defer>
 </script>
 ```
 
-Or iframe to `/chat/embed?agent=...`.
+For logged-in platform users, set `data-auth-mode="required"` and provide `window.BokitoConfig = { getAuthToken: () => token }`. The snippet is generated in Settings > Messenger.
 
 Built bundle: `apps/chat-widget/dist/bokito-chat.js` (IIFE). Source: `apps/chat-widget/src/widget-main.ts`.
 

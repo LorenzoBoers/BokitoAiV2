@@ -30,13 +30,19 @@ class User(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     email: str = Field(index=True, unique=True)
-    password_hash: str
+    # Empty string means passwordless (SSO-only) account.
+    password_hash: str = ""
     display_name: str = ""
     job_title: str = ""
     avatar_url: Optional[str] = None
     is_active: bool = True
     is_staff: bool = False
     email_verified: bool = False
+    # Per-user preferences (widget theme/sound, hidden conversations, ...).
+    settings_json: str = Field(default="{}")
+    # Workspace the user was last active in; login/refresh scope the JWT to
+    # this tenant so the session survives workspace switches.
+    last_tenant_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tenants.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -68,7 +74,9 @@ class Session(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
-    refresh_token_hash: str
+    # SHA-256 hex of the raw refresh token (high-entropy random, so an
+    # unsalted digest is safe and enables O(1) lookup on refresh).
+    refresh_token_hash: str = Field(index=True)
     expires_at: datetime
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -81,6 +89,7 @@ class Invite(SQLModel, table=True):
     email: str = Field(index=True)
     role: str = Field(default="member")
     token: str = Field(index=True, unique=True)
+    invited_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     expires_at: datetime
     accepted_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

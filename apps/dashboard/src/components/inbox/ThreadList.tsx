@@ -1,5 +1,6 @@
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
-import type { InboxThread, ThreadId } from '../../lib/inbox-api'
+import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
+import BulkActionsBar from './BulkActionsBar'
 import ThreadListItem from './ThreadListItem'
 import ThreadListQuickFilters from './ThreadListQuickFilters'
 
@@ -18,6 +19,12 @@ type Props = {
   onDelete: (id: ThreadId) => void
   deletingThreadId?: ThreadId | null
   variant?: 'customer' | 'direct'
+  /** Bulk selection: omit to hide checkboxes (e.g. direct/assistant lists). */
+  bulkSelectedIds?: ReadonlySet<string>
+  onToggleBulkSelect?: (id: ThreadId) => void
+  onBulkAction?: (action: BulkThreadAction, assigneeId?: number) => void
+  onClearBulkSelection?: () => void
+  bulkBusy?: boolean
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -43,12 +50,27 @@ export default function ThreadList({
   onDelete,
   deletingThreadId = null,
   variant = 'customer',
+  bulkSelectedIds,
+  onToggleBulkSelect,
+  onBulkAction,
+  onClearBulkSelection,
+  bulkBusy = false,
 }: Props) {
   const counts = buildFilterCounts(allThreads)
+  const selectionActive = (bulkSelectedIds?.size ?? 0) > 0
 
   return (
     <div className="flex flex-col h-full min-h-0 w-72 shrink-0 border-r border-border/50 bg-bg-surface">
-      <ThreadListQuickFilters value={quickFilter} onChange={onQuickFilterChange} counts={counts} />
+      {selectionActive && onBulkAction && onClearBulkSelection ? (
+        <BulkActionsBar
+          count={bulkSelectedIds?.size ?? 0}
+          busy={bulkBusy}
+          onAction={onBulkAction}
+          onClear={onClearBulkSelection}
+        />
+      ) : (
+        <ThreadListQuickFilters value={quickFilter} onChange={onQuickFilterChange} counts={counts} />
+      )}
 
       <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
         {threads.length === 0 ? (
@@ -72,6 +94,9 @@ export default function ThreadList({
               onDelete={onDelete}
               deleting={String(deletingThreadId) === String(thread.id)}
               variant={variant}
+              checked={bulkSelectedIds?.has(String(thread.id))}
+              onToggleChecked={onToggleBulkSelect}
+              selectionActive={selectionActive}
             />
           ))
         )}

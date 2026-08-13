@@ -25,7 +25,7 @@ export function useMailboxConnections() {
       const rows = await listEmailConnections(token)
       setConnections(rows)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kon mailboxen niet laden.')
+      setError(err instanceof Error ? err.message : 'Could not load mailboxes.')
       setConnections([])
     } finally {
       setLoading(false)
@@ -34,7 +34,9 @@ export function useMailboxConnections() {
 
   const removeConnection = useCallback(
     async (connectionId: number) => {
-      if (!token) return
+      if (!token) {
+        throw new Error('Not signed in.')
+      }
       await disconnectEmailConnection(token, connectionId)
       setConnections((prev) => prev.filter((item) => item.id !== connectionId))
     },
@@ -46,7 +48,11 @@ export function useMailboxConnections() {
   }, [refresh])
 
   const activeConnections = useMemo(
-    () => connections.filter((item) => item.status === 'active' && item.isEnabled !== false),
+    () =>
+      connections.filter(
+        (item) =>
+          (item.status === 'active' || item.status === 'connected') && item.isEnabled !== false,
+      ),
     [connections],
   )
   const loadingState = loading || (Boolean(token) && authLoading)

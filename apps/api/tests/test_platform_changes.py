@@ -49,6 +49,8 @@ async def test_propose_ask_creates_pending_change_and_decision(client: AsyncClie
         )
     ).scalar_one()
     assert decision.status == "awaiting_human"
+    assert decision.signal_id is not None
+    assert decision.message_id is not None
 
 
 @pytest.mark.asyncio

@@ -14,7 +14,8 @@ type Props = {
   events?: ThreadEvent[]
   onDecisionResolved?: () => void
   resolveBusy?: boolean
-  onResolve?: (messageId: string, action: ResolveAction) => void
+  onResolve?: (messageId: string, action: ResolveAction, optionId?: string) => void
+  onEditDraft?: (draft: { body: string; subject?: string; decisionMessageId: string }) => void
 }
 
 function isNoteKind(kind: string): boolean {
@@ -30,10 +31,21 @@ function isDecisionResolved(message: ThreadMessage, events: ThreadEvent[]): bool
   })
 }
 
-function optionToAction(optionId: string): ResolveAction {
-  const id = optionId.toLowerCase()
-  if (id.includes('reject') || id === 'no') return 'rejected'
-  if (id.includes('later') || id.includes('defer') || id === 'skip') return 'deferred'
+type DecisionOption = {
+  id: string
+  label: string
+  action_type?: string
+  payload?: { body?: string; body_text?: string; subject?: string }
+}
+
+function optionAction(option: DecisionOption): ResolveAction {
+  const id = option.id.toLowerCase()
+  const actionType = (option.action_type || '').toLowerCase()
+  if (id === 'escalate' || actionType === 'escalate') return 'rejected'
+  if (id.includes('reject') || id === 'no' || actionType === 'reject') return 'rejected'
+  if (id.includes('later') || id.includes('defer') || id === 'skip' || actionType === 'defer') {
+    return 'deferred'
+  }
   return 'approved'
 }
 
@@ -43,23 +55,43 @@ export default function MessageBubble({
   onDecisionResolved,
   resolveBusy,
   onResolve,
+  onEditDraft,
 }: Props) {
   if (message.kind === 'decision_request') {
     const decision = message.payload?.decision
     const resolved = isDecisionResolved(message, events)
-    const options = decision?.options?.length
-      ? decision.options
+    const options: DecisionOption[] = decision?.options?.length
+      ? (decision.options as DecisionOption[])
       : [
           { id: 'approve', label: 'Approve' },
           { id: 'later', label: 'Defer' },
           { id: 'reject', label: 'Reject' },
         ]
 
-    const act = (action: ResolveAction) => {
+    const draftBody =
+      options.find((o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email')?.payload?.body_text ||
+      options.find((o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email')?.payload?.body ||
+      decision?.summary ||
+      message.body_text ||
+      ''
+
+    const act = (option: DecisionOption) => {
+      if (option.id === 'edit' || option.action_type === 'draft') {
+        onEditDraft?.({
+          body: draftBody,
+          subject: option.payload?.subject,
+          decisionMessageId: message.id,
+        })
+        return
+      }
+      const action = optionAction(option)
       if (onResolve) {
-        onResolve(message.id, action)
+        onResolve(message.id, action, option.id)
       } else {
-        void resolveThreadDecision(message.signal_id, message.id, action).then(() => onDecisionResolved?.())
+        void resolveThreadDecision(message.signal_id, message.id, action, {
+          optionId: option.id,
+          body: option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email' ? draftBody : undefined,
+        }).then(() => onDecisionResolved?.())
       }
     }
 
@@ -75,7 +107,7 @@ export default function MessageBubble({
                 key={opt.id}
                 style={[styles.decisionButton, resolveBusy && styles.disabled]}
                 disabled={resolveBusy}
-                onPress={() => act(optionToAction(opt.id))}
+                onPress={() => act(opt)}
               >
                 {resolveBusy ? (
                   <ActivityIndicator color={colors.textHeading} size="small" />

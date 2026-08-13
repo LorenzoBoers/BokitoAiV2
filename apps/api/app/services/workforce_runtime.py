@@ -147,6 +147,43 @@ async def update_agent_runtime_status(
     return {"ok": True, "agent": serialize_runtime_agent(agent)}
 
 
+async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> dict[str, Any]:
+    """Archive a company agent: hidden from the workforce list, history preserved.
+
+    The default workspace assistant (slug 'assistant') cannot be archived.
+    """
+    result = await session.execute(
+        select(Agent).where(
+            Agent.id == agent_id, Agent.tenant_id == tenant_id, Agent.kind == "company"
+        )
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if (agent.slug or "") == "assistant":
+        raise HTTPException(status_code=409, detail="The default assistant cannot be archived")
+    if agent.role == "assistant":
+        other = await session.execute(
+            select(Agent).where(
+                Agent.tenant_id == tenant_id,
+                Agent.kind == "company",
+                Agent.role == "assistant",
+                Agent.id != agent_id,
+            )
+        )
+        if not other.scalars().first():
+            raise HTTPException(
+                status_code=409, detail="The last assistant cannot be archived"
+            )
+    agent.kind = "archived"
+    agent.is_active = False
+    agent.runtime_status = "standby"
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    await session.commit()
+    return {"ok": True, "id": str(agent_id)}
+
+
 async def update_agent_model(
     session: AsyncSession, tenant_id: UUID, agent_id: UUID, model_slug: str
 ) -> dict[str, Any]:
@@ -630,7 +667,9 @@ async def complete_activity(
     if summary:
         run.subject = summary[:500]
     session.add(run)
-    agent_result = await session.execute(select(Agent).where(Agent.id == run.agent_id))
+    agent_result = await session.execute(
+        select(Agent).where(Agent.id == run.agent_id, Agent.tenant_id == tenant_id)
+    )
     agent = agent_result.scalar_one_or_none()
     if agent:
         agent.runtime_status = "standby"

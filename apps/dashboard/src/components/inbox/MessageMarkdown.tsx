@@ -19,6 +19,13 @@ function escapeHtml(input: string): string {
 
 function formatMarkdown(text: string): string {
   let out = escapeHtml(text)
+  // Mentions first: their `@[Name](user:id)` markup would otherwise be
+  // swallowed by the generic link rule below.
+  out = out.replace(
+    /@\[([^\]]+)\]\((user|agent):([^)]+)\)/g,
+    (_, name: string, type: string) =>
+      `<span class="mention-chip" data-mention-type="${type}">@${name}</span>`,
+  )
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>')
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
   out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>')

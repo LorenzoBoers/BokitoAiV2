@@ -162,7 +162,30 @@ def guess_mime(filename: str, content_type: str | None) -> str:
     return guessed or "application/octet-stream"
 
 
+def _local_file_for_url(url: str) -> Path | None:
+    """Map a local-backend uploads URL to its on-disk path (uploads serving
+    requires auth, so server-side consumers read the file directly)."""
+    marker = "/api/uploads/files/"
+    if marker not in url:
+        return None
+    rel = url.split(marker, 1)[1]
+    parts = [p for p in rel.split("/") if p and p not in (".", "..")]
+    if len(parts) != 2:
+        return None
+    root = Path(settings.storage_local_path).resolve()
+    path = (root / parts[0] / parts[1]).resolve()
+    if not str(path).startswith(str(root)):
+        return None
+    return path
+
+
 async def fetch_attachment_bytes(url: str) -> bytes | None:
+    local = _local_file_for_url(url)
+    if local is not None:
+        try:
+            return local.read_bytes() if local.is_file() else None
+        except OSError:
+            return None
     if url.startswith("/"):
         url = f"{settings.public_api_url.rstrip('/')}{url}"
     try:

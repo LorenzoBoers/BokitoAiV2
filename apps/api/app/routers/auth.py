@@ -15,6 +15,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
 from app.models.auth import user_numeric_id
+from app.middleware.rate_limit import rate_limit
 from app.models.auth_token import AuthToken
 from app.models.staff import StaffAccessLog
 from app.services.auth import (
@@ -138,7 +139,7 @@ def _tenant_dict(tenant: Tenant) -> dict:
     return {"id": str(tenant.id), "slug": tenant.slug, "name": tenant.name, "logo": tenant.logo_url}
 
 
-@router.post("/signup", response_model=LoginResponse)
+@router.post("/signup", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-signup", limit=5))])
 async def signup(body: SignupRequest, response: Response, session: Annotated[AsyncSession, Depends(get_session)]):
     existing = await session.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
@@ -161,23 +162,11 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     session.add(user)
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
+    user.last_tenant_id = tenant.id
     await bootstrap_tenant(session, tenant.id)
     from app.services.personal_agents import get_or_create_personal_agent
 
     await get_or_create_personal_agent(session, tenant.id, user, commit=False)
-    from app.models.signal import Signal
-
-    session.add(
-        Signal(
-            tenant_id=tenant.id,
-            owner_user_id=user.id,
-            subject="Onboarding",
-            channel="assistant",
-            source="chat",
-            contact_name=user.display_name or user.email,
-            has_unread=False,
-        )
-    )
     await session.commit()
 
     access_token = create_access_token(user.id, tenant.id, user.email)
@@ -190,7 +179,7 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     )
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-login", limit=10))])
 async def login(
     body: LoginRequest,
     response: Response,
@@ -199,10 +188,14 @@ async def login(
     user = await authenticate_user(session, body.email, body.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    tenant_ctx = await get_tenant_for_user(session, user.id)
+    tenant_ctx = await get_tenant_for_user(session, user.id, preferred_tenant_id=user.last_tenant_id)
     if not tenant_ctx:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenant membership")
     tenant, membership = tenant_ctx
+    if user.last_tenant_id != tenant.id:
+        user.last_tenant_id = tenant.id
+        session.add(user)
+        await session.commit()
     access_token = create_access_token(user.id, tenant.id, user.email)
     refresh_token, _ = await create_refresh_session(session, user.id)
     _set_refresh_cookie(response, refresh_token)
@@ -213,7 +206,35 @@ async def login(
     )
 
 
-@router.post("/staff-login", response_model=LoginResponse)
+@router.get("/microsoft/start", dependencies=[Depends(rate_limit("auth-sso", limit=20))])
+async def microsoft_sso_start(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    return_url: str = "",
+):
+    """Public entry point for "Sign in with Microsoft".
+
+    Returns the Entra authorize URL; the browser is redirected there and comes
+    back through the shared OAuth callback, which mints the session cookie.
+    """
+    from app.services.oauth_flow import start_real_oauth
+
+    authorize_url = await start_real_oauth(
+        session,
+        tenant_id=None,
+        user_id=None,
+        provider="outlook",
+        flow="login",
+        return_url=return_url or settings.public_app_url,
+    )
+    if not authorize_url:
+        raise HTTPException(
+            status_code=503,
+            detail="Microsoft sign-in is not configured on this server.",
+        )
+    return {"authorize_url": authorize_url}
+
+
+@router.post("/staff-login", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-login", limit=10))])
 async def staff_login(
     body: StaffLoginRequest,
     response: Response,
@@ -222,10 +243,19 @@ async def staff_login(
     user = await authenticate_user(session, body.email, body.password)
     if not user or not user.is_staff:
         raise HTTPException(status_code=401, detail="Invalid staff credentials")
-    tenant_result = await session.execute(select(Tenant).order_by(Tenant.created_at).limit(1))
-    tenant = tenant_result.scalar_one_or_none()
+    tenant = None
+    if user.last_tenant_id:
+        tenant_result = await session.execute(select(Tenant).where(Tenant.id == user.last_tenant_id))
+        tenant = tenant_result.scalar_one_or_none()
+    if not tenant:
+        tenant_result = await session.execute(select(Tenant).order_by(Tenant.created_at).limit(1))
+        tenant = tenant_result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="No tenant available")
+    if user.last_tenant_id != tenant.id:
+        user.last_tenant_id = tenant.id
+        session.add(user)
+        await session.commit()
     access_token = create_access_token(user.id, tenant.id, user.email, staff=True)
     refresh_token, _ = await create_refresh_session(session, user.id)
     _set_refresh_cookie(response, refresh_token)
@@ -236,26 +266,66 @@ async def staff_login(
     )
 
 
+async def _switch_workspace_response(
+    auth: AuthContext,
+    session: AsyncSession,
+    tenant_id: UUID,
+) -> LoginResponse:
+    """Issue a fresh access token scoped to the requested workspace.
+
+    Staff may enter any tenant (logged); members may only switch to tenants
+    where they hold a membership. `last_tenant_id` is persisted so refresh and
+    the next login keep the same workspace.
+    """
+    tenant_result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = tenant_result.scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    if auth.user.is_staff:
+        role = "admin"
+        session.add(StaffAccessLog(staff_user_id=auth.user.id, tenant_id=tenant.id, action="enter"))
+    else:
+        membership_result = await session.execute(
+            select(Membership).where(
+                Membership.user_id == auth.user.id,
+                Membership.tenant_id == tenant.id,
+            )
+        )
+        membership = membership_result.scalar_one_or_none()
+        if not membership:
+            raise HTTPException(status_code=403, detail="No membership for this workspace")
+        role = membership.role
+
+    auth.user.last_tenant_id = tenant.id
+    session.add(auth.user)
+    await session.commit()
+    access_token = create_access_token(
+        auth.user.id, tenant.id, auth.user.email, staff=auth.user.is_staff
+    )
+    return LoginResponse(
+        access_token=access_token,
+        user=_user_dict(auth.user, tenant, role, is_staff=auth.user.is_staff),
+        tenant=_tenant_dict(tenant),
+    )
+
+
+@router.post("/switch-workspace", response_model=LoginResponse)
+async def switch_workspace(
+    body: SwitchTenantRequest,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await _switch_workspace_response(auth, session, body.tenant_id)
+
+
 @router.post("/switch-tenant", response_model=LoginResponse)
 async def switch_tenant(
     body: SwitchTenantRequest,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if not auth.user.is_staff:
-        raise HTTPException(status_code=403, detail="Staff only")
-    tenant_result = await session.execute(select(Tenant).where(Tenant.id == body.tenant_id))
-    tenant = tenant_result.scalar_one_or_none()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    session.add(StaffAccessLog(staff_user_id=auth.user.id, tenant_id=tenant.id, action="enter"))
-    await session.commit()
-    access_token = create_access_token(auth.user.id, tenant.id, auth.user.email, staff=True)
-    return LoginResponse(
-        access_token=access_token,
-        user=_user_dict(auth.user, tenant, "admin", is_staff=True),
-        tenant=_tenant_dict(tenant),
-    )
+    return await _switch_workspace_response(auth, session, body.tenant_id)
 
 
 @router.get("/tenants")
@@ -282,11 +352,55 @@ async def invite_user(
         email=body.email,
         role=body.role if body.role in ("admin", "member") else "member",
         token=token,
+        invited_by_user_id=auth.user.id,
         expires_at=datetime.utcnow() + timedelta(days=7),
     )
     session.add(invite)
     await session.commit()
-    return {"token": token, "email": body.email, "expires_at": invite.expires_at.isoformat()}
+
+    from app.services.transactional_mail import send_invite_mail
+    from app.services.workspaces_portal import invite_link_for_token
+
+    link = invite_link_for_token(token)
+    mailed = await send_invite_mail(
+        invite.email,
+        invite_link=link,
+        tenant_name=auth.tenant.name,
+        inviter_name=auth.user.display_name or auth.user.email,
+    )
+    return {
+        "token": token,
+        "email": body.email,
+        "expires_at": invite.expires_at.isoformat(),
+        "invite_link": link,
+        "mail_sent": mailed,
+    }
+
+
+@router.get("/invite-info")
+async def invite_info(
+    token: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Public preview for the accept-invite page: who is invited, to which workspace."""
+    result = await session.execute(
+        select(Invite).where(Invite.token == token, Invite.expires_at > datetime.utcnow())
+    )
+    invite = result.scalar_one_or_none()
+    if not invite or invite.accepted_at:
+        raise HTTPException(status_code=400, detail="Invalid or expired invite")
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == invite.tenant_id))
+    ).scalar_one()
+    existing = (
+        await session.execute(select(User).where(User.email == invite.email))
+    ).scalar_one_or_none()
+    return {
+        "email": invite.email,
+        "role": invite.role,
+        "tenant_name": tenant.name,
+        "existing_user": existing is not None,
+    }
 
 
 @router.post("/accept-invite", response_model=LoginResponse)
@@ -304,6 +418,8 @@ async def accept_invite(
     user_result = await session.execute(select(User).where(User.email == invite.email))
     user = user_result.scalar_one_or_none()
     if not user:
+        if len(body.password or "") < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
         user = User(
             email=invite.email,
             password_hash=hash_password(body.password),
@@ -311,7 +427,25 @@ async def accept_invite(
         )
         session.add(user)
         await session.flush()
-    session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
+    else:
+        # Existing account: the invite token alone must not grant a session.
+        # The invitee proves ownership with their current password. SSO-only
+        # accounts have no password; possession of the emailed token suffices.
+        if user.password_hash and not verify_password(body.password or "", user.password_hash):
+            raise HTTPException(
+                status_code=400,
+                detail="An account with this email already exists. Enter its current password to join.",
+            )
+    existing_membership = (
+        await session.execute(
+            select(Membership).where(
+                Membership.tenant_id == invite.tenant_id, Membership.user_id == user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if not existing_membership:
+        session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
+    user.last_tenant_id = invite.tenant_id
     from app.services.personal_agents import get_or_create_personal_agent
 
     await get_or_create_personal_agent(session, invite.tenant_id, user, commit=False)
@@ -329,7 +463,7 @@ async def accept_invite(
     )
 
 
-@router.post("/refresh", response_model=LoginResponse)
+@router.post("/refresh", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-refresh", limit=60))])
 async def refresh(
     request: Request,
     response: Response,
@@ -341,7 +475,20 @@ async def refresh(
     user = await verify_refresh_token(session, raw)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-    tenant_ctx = await get_tenant_for_user(session, user.id)
+    if user.is_staff and user.last_tenant_id:
+        # Staff can be scoped to tenants without a membership row.
+        staff_tenant_result = await session.execute(
+            select(Tenant).where(Tenant.id == user.last_tenant_id)
+        )
+        staff_tenant = staff_tenant_result.scalar_one_or_none()
+        if staff_tenant:
+            access_token = create_access_token(user.id, staff_tenant.id, user.email, staff=True)
+            return LoginResponse(
+                access_token=access_token,
+                user=_user_dict(user, staff_tenant, "admin", is_staff=True),
+                tenant=_tenant_dict(staff_tenant),
+            )
+    tenant_ctx = await get_tenant_for_user(session, user.id, preferred_tenant_id=user.last_tenant_id)
     if not tenant_ctx:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenant membership")
     tenant, membership = tenant_ctx
@@ -466,6 +613,7 @@ async def patch_profile(
         user.display_name = body.name.strip()
     if body.job_title is not None:
         user.job_title = body.job_title.strip()
+    email_changed = False
     if body.email is not None:
         email = str(body.email).strip().lower()
         if email != user.email:
@@ -473,7 +621,21 @@ async def patch_profile(
             if existing.scalar_one_or_none():
                 raise HTTPException(status_code=400, detail="Email already in use")
             user.email = email
+            # A new address is unverified until the owner confirms it.
+            user.email_verified = False
+            email_changed = True
     session.add(user)
+
+    verification_extras: dict = {}
+    if email_changed:
+        token = await _issue_auth_token(session, user, "email_verify", ttl_minutes=60 * 24)
+        from app.services.transactional_mail import send_verification_mail
+
+        await send_verification_mail(
+            user.email, verify_link=_absolute_app_link("/verify-email", token)
+        )
+        verification_extras = _dev_magic_link("/verify-email", token)
+
     await session.commit()
     await session.refresh(user)
     memberships = await _build_memberships(session, user)
@@ -484,7 +646,11 @@ async def patch_profile(
         token=auth.token,
         is_staff=auth.is_staff,
     )
-    return _me_payload(scoped, memberships)
+    payload = _me_payload(scoped, memberships)
+    if verification_extras:
+        payload.update(verification_extras)
+        payload["verification_required"] = True
+    return payload
 
 
 @router.post("/change-password")
@@ -493,7 +659,10 @@ async def change_password(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if not verify_password(body.current_password, auth.user.password_hash):
+    # SSO-only accounts (empty hash) may set an initial password directly.
+    if auth.user.password_hash and not verify_password(
+        body.current_password, auth.user.password_hash
+    ):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     confirm = body.password_confirmation or body.new_password
     if body.new_password != confirm:
@@ -547,6 +716,8 @@ async def workspace_branding(
     favicon: UploadFile | None = File(None),
     appearance_json: str | None = Form(None),
     widget_favicon: UploadFile | None = File(None),
+    clear_logo: str | None = Form(None),
+    clear_favicon: str | None = Form(None),
 ):
     auth.require_role("owner", "admin")
     try:
@@ -571,6 +742,8 @@ async def workspace_branding(
             appearance_json=appearance_json,
             widget_favicon_bytes=widget_favicon_bytes,
             widget_favicon_content_type=widget_favicon.content_type if widget_favicon else None,
+            clear_logo=(clear_logo or "").lower() in ("1", "true", "yes"),
+            clear_favicon=(clear_favicon or "").lower() in ("1", "true", "yes"),
         )
         payload["role"] = role
         return payload
@@ -634,8 +807,11 @@ def _dev_magic_link(path: str, token: str) -> dict[str, str]:
     return {"dev_token": token, "dev_link": link}
 
 
-@router.post("/auth/password-reset-request")
-@router.post("/password-reset-request")
+def _absolute_app_link(path: str, token: str) -> str:
+    return f"{settings.public_app_url.rstrip('/')}{path}?token={token}"
+
+
+@router.post("/password-reset-request", dependencies=[Depends(rate_limit("auth-pw-reset", limit=5))])
 async def password_reset_request(
     body: PasswordResetRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -646,11 +822,15 @@ async def password_reset_request(
     if user is not None:
         token = await _issue_auth_token(session, user, "password_reset", ttl_minutes=60)
         await session.commit()
+        from app.services.transactional_mail import send_password_reset_mail
+
+        await send_password_reset_mail(
+            user.email, reset_link=_absolute_app_link("/reset-password", token)
+        )
         response.update(_dev_magic_link("/reset-password", token))
     return response
 
 
-@router.post("/auth/password-reset")
 @router.post("/password-reset")
 async def password_reset(
     body: PasswordResetConfirm,
@@ -666,7 +846,6 @@ async def password_reset(
     return {"message": "Password reset successfully."}
 
 
-@router.post("/auth/verify-email")
 @router.post("/verify-email")
 async def verify_email(
     body: VerifyEmailRequest,
@@ -678,7 +857,6 @@ async def verify_email(
     return {"message": "Email verified.", "email_verified": True}
 
 
-@router.post("/auth/resend-verification")
 @router.post("/resend-verification")
 async def resend_verification(
     body: ResendVerificationRequest,
@@ -690,11 +868,15 @@ async def resend_verification(
     if user is not None and not user.email_verified:
         token = await _issue_auth_token(session, user, "email_verify", ttl_minutes=60 * 24)
         await session.commit()
+        from app.services.transactional_mail import send_verification_mail
+
+        await send_verification_mail(
+            user.email, verify_link=_absolute_app_link("/verify-email", token)
+        )
         response.update(_dev_magic_link("/verify-email", token))
     return response
 
 
-@router.post("/auth/revoke")
 @router.post("/revoke")
 async def revoke_session(
     response: Response,
@@ -706,5 +888,87 @@ async def revoke_session(
 
 @router.post("/logout")
 async def logout(response: Response):
+    response.delete_cookie(settings.refresh_cookie_name)
+    return {"ok": True}
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
+@router.post("/delete-account")
+async def delete_account(
+    body: DeleteAccountRequest,
+    response: Response,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Delete the calling user's account.
+
+    Memberships, sessions and tokens are removed; the user row is anonymized
+    (kept for FK integrity of historical messages/audit rows). Workspaces where
+    the user is the only member are deleted entirely; workspaces with other
+    members require another owner before this account can go.
+    """
+    import secrets as _secrets
+
+    from app.models.auth_token import AuthToken as _AuthToken
+    from app.services.workspaces_portal import delete_workspace
+
+    user = auth.user
+    # SSO-only accounts have no password; the authenticated session suffices.
+    if user.password_hash and not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Password is incorrect")
+
+    memberships_result = await session.execute(
+        select(Membership).where(Membership.user_id == user.id)
+    )
+    memberships = memberships_result.scalars().all()
+    for membership in memberships:
+        others_result = await session.execute(
+            select(Membership).where(
+                Membership.tenant_id == membership.tenant_id,
+                Membership.user_id != user.id,
+            )
+        )
+        others = others_result.scalars().all()
+        if not others:
+            # Sole member: the workspace goes with the account.
+            tenant = (
+                await session.execute(select(Tenant).where(Tenant.id == membership.tenant_id))
+            ).scalar_one_or_none()
+            if tenant:
+                await delete_workspace(session, tenant)
+            continue
+        if membership.role == "owner" and not any(o.role == "owner" for o in others):
+            raise HTTPException(
+                status_code=400,
+                detail="You are the only owner of a shared workspace. Promote another owner first.",
+            )
+        await session.delete(membership)
+
+    # Kill sessions and one-time tokens.
+    from app.models.auth import Session as _RefreshSession
+
+    sessions_result = await session.execute(
+        select(_RefreshSession).where(_RefreshSession.user_id == user.id)
+    )
+    for row in sessions_result.scalars().all():
+        await session.delete(row)
+    tokens_result = await session.execute(
+        select(_AuthToken).where(_AuthToken.user_id == user.id)
+    )
+    for row in tokens_result.scalars().all():
+        await session.delete(row)
+
+    # Anonymize instead of hard delete: historical rows keep a valid FK.
+    user.email = f"deleted-{user.id.hex[:12]}@deleted.invalid"
+    user.display_name = "Deleted user"
+    user.password_hash = hash_password(_secrets.token_urlsafe(24))
+    user.avatar_url = None
+    user.email_verified = False
+    user.last_tenant_id = None
+    await session.commit()
+
     response.delete_cookie(settings.refresh_cookie_name)
     return {"ok": True}

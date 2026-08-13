@@ -1,38 +1,119 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { cn } from '../../lib/utils'
 import { resolveThreadDecision, type InboxEvent, type InboxMessage, type ThreadId } from '../../lib/inbox-api'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '../ui/button'
+
+type DecisionOption = {
+  id: string
+  label: string
+  action_type?: string
+  payload?: Record<string, unknown>
+  input_type?: 'text'
+  input_placeholder?: string
+}
 
 type Props = {
   message: InboxMessage
   threadId: ThreadId
   events: InboxEvent[]
   onResolved?: () => void
+  onEditDraft?: (draft: { body: string; subject?: string; decisionMessageId: string }) => void
 }
 
 function isDecisionResolved(message: InboxMessage, events: InboxEvent[]): boolean {
   if (!message.decisionId) return false
+  const status = (message.payload?.decision as { status?: unknown } | undefined)?.status
+  if (typeof status === 'string' && status !== 'awaiting_human' && status !== 'pending') {
+    return true
+  }
   return events.some((event) => {
-    if (!event.eventType.startsWith('decision_')) return false
+    // Only resolution events count; decision_created marks creation, not resolution.
+    if (!event.eventType.startsWith('decision_') || event.eventType === 'decision_created') return false
     const payloadId = event.payload?.decision_id
     return typeof payloadId === 'string' && payloadId === message.decisionId
   })
 }
 
-export default function DecisionRequestMessage({ message, threadId, events, onResolved }: Props) {
+function extractOptions(message: InboxMessage): DecisionOption[] {
+  const decision = message.payload?.decision
+  if (!decision || typeof decision !== 'object') return []
+  const options = (decision as { options?: unknown }).options
+  if (!Array.isArray(options)) return []
+  return options
+    .map((row): DecisionOption | null => {
+      if (!row || typeof row !== 'object') return null
+      const raw = row as Record<string, unknown>
+      const id = typeof raw.id === 'string' ? raw.id : ''
+      if (!id) return null
+      return {
+        id,
+        label: typeof raw.label === 'string' ? raw.label : id,
+        action_type: typeof raw.action_type === 'string' ? raw.action_type : undefined,
+        payload:
+          raw.payload && typeof raw.payload === 'object'
+            ? (raw.payload as Record<string, unknown>)
+            : undefined,
+        input_type: raw.input_type === 'text' ? 'text' : undefined,
+        input_placeholder:
+          typeof raw.input_placeholder === 'string' ? raw.input_placeholder : undefined,
+      }
+    })
+    .filter((o): o is DecisionOption => o !== null)
+}
+
+function draftBodyFromOptions(options: DecisionOption[], fallback: string): string {
+  const send = options.find((o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email')
+  const payload = send?.payload
+  if (payload) {
+    const body =
+      (typeof payload.body_text === 'string' && payload.body_text) ||
+      (typeof payload.body === 'string' && payload.body) ||
+      ''
+    if (body.trim()) return body
+  }
+  return fallback
+}
+
+export default function DecisionRequestMessage({
+  message,
+  threadId,
+  events,
+  onResolved,
+  onEditDraft,
+}: Props) {
   const { token } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [textOptionId, setTextOptionId] = useState<string | null>(null)
+  const [responseText, setResponseText] = useState('')
   const resolved = isDecisionResolved(message, events)
-  const body = message.bodyText?.trim() || message.bodyPreview || message.subject || 'Decision needed'
+  const options = useMemo(() => extractOptions(message), [message])
+  const summary = message.bodyText?.trim() || message.bodyPreview || message.subject || 'Decision needed'
+  const draftBody = useMemo(() => draftBodyFromOptions(options, summary), [options, summary])
+  const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
 
-  async function act(action: 'approve' | 'defer' | 'reject') {
+  async function resolve(
+    action: 'approve' | 'defer' | 'reject',
+    optionId?: string,
+    bodyOverride?: string,
+    successLabel?: string,
+    answerText?: string,
+  ) {
     if (!token || resolved) return
     setBusy(true)
     setError(null)
     try {
-      await resolveThreadDecision(token, threadId, message.id, action)
+      await resolveThreadDecision(token, threadId, message.id, action, {
+        optionId,
+        body: bodyOverride,
+        responseText: answerText,
+      })
+      toast.success(
+        successLabel ??
+          (action === 'approve' ? 'Decision approved' : action === 'defer' ? 'Decision deferred' : 'Decision rejected'),
+      )
       onResolved?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not resolve decision.')
@@ -41,18 +122,50 @@ export default function DecisionRequestMessage({ message, threadId, events, onRe
     }
   }
 
+  async function onOptionClick(option: DecisionOption) {
+    if (option.input_type === 'text') {
+      setTextOptionId((current) => (current === option.id ? null : option.id))
+      return
+    }
+    if (option.id === 'edit' || option.action_type === 'draft') {
+      onEditDraft?.({
+        body: draftBody,
+        subject: typeof option.payload?.subject === 'string' ? option.payload.subject : undefined,
+        decisionMessageId: String(message.id),
+      })
+      return
+    }
+    if (option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email') {
+      await resolve('approve', option.id, draftBody, 'Reply sent')
+      return
+    }
+    if (option.id === 'escalate' || option.action_type === 'escalate') {
+      await resolve('reject', option.id, undefined, 'Escalated to human')
+      return
+    }
+    if (option.id === 'reject' || option.action_type === 'reject') {
+      await resolve('reject', option.id, undefined, 'Rejected')
+      return
+    }
+    if (option.id === 'later' || option.action_type === 'defer') {
+      await resolve('defer', option.id)
+      return
+    }
+    await resolve('approve', option.id)
+  }
+
   return (
     <div className="flex justify-start">
       <div
         className={cn(
           'w-full max-w-3xl min-w-0 rounded-2xl border px-4 py-3',
-          resolved
-            ? 'border-border/50 bg-bg-surface/80'
-            : 'border-accent/30 bg-accent/5',
+          resolved ? 'border-border/50 bg-bg-surface/80' : 'border-accent/30 bg-accent/5',
         )}
       >
         <div className="mb-1 flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">Decision</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            {isSuggestion ? 'Suggested reply' : 'Decision'}
+          </span>
           {resolved ? (
             <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
               Resolved
@@ -62,18 +175,92 @@ export default function DecisionRequestMessage({ message, threadId, events, onRe
         {message.subject ? (
           <h3 className="text-sm font-medium text-text-heading">{message.subject}</h3>
         ) : null}
-        <p className="mt-2 whitespace-pre-wrap text-sm text-text-primary">{body}</p>
+        <div className="mt-2 rounded-lg border border-border/50 bg-bg-surface/60 px-3 py-2">
+          <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
+        </div>
         {!resolved ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" size="sm" disabled={busy} onClick={() => void act('approve')}>
-              Approve
-            </Button>
-            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => void act('defer')}>
-              Defer
-            </Button>
-            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => void act('reject')}>
-              Reject
-            </Button>
+            {options.length > 0 ? (
+              options.map((option) => {
+                const primary = option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email'
+                const activeText = option.input_type === 'text' && textOptionId === option.id
+                return (
+                  <Button
+                    key={option.id}
+                    type="button"
+                    size="sm"
+                    variant={primary ? 'default' : activeText ? 'outline' : 'secondary'}
+                    disabled={busy}
+                    onClick={() => void onOptionClick(option)}
+                  >
+                    {option.label}
+                  </Button>
+                )
+              })
+            ) : (
+              <>
+                <Button type="button" size="sm" disabled={busy} onClick={() => void resolve('approve')}>
+                  Approve
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => void resolve('defer')}
+                >
+                  Defer
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => void resolve('reject')}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+          </div>
+        ) : null}
+        {!resolved && textOptionId ? (
+          <div className="mt-3 space-y-2">
+            <textarea
+              value={responseText}
+              onChange={(e) => setResponseText(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder={
+                options.find((o) => o.id === textOptionId)?.input_placeholder ??
+                'Type your answer...'
+              }
+              className="w-full resize-y rounded-lg border border-border bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/60"
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy || !responseText.trim()}
+                onClick={() =>
+                  void resolve('approve', textOptionId, undefined, 'Answer submitted', responseText)
+                }
+              >
+                Submit answer
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  setTextOptionId(null)
+                  setResponseText('')
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         ) : null}
         {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}

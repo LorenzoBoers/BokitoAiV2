@@ -26,15 +26,35 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "bokito_refresh_token"
 
     llm_mode: str = "mock"  # mock | live
+    # Dev-only: short-circuit agent/orchestration execution with canned results.
+    bokito_mock_execution: bool = False
+
+    # Real Bjorn Lunden MCP endpoint. When set, installing the bjorn_lunden_mcp
+    # integration targets this URL; when empty, dev falls back to the mock MCP
+    # and prod requires an explicit server_url at install time.
+    bjorn_lunden_mcp_url: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     default_chat_model: str = "claude-sonnet-4-20250514"
+    # Default Anthropic extended-thinking budget for assistant/internal chat when
+    # the agent has thinking_budget=0. Set to 0 to disable globally.
+    chat_thinking_budget: int = 1024
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
 
     vapid_public_key: str = ""
     vapid_private_key: str = ""
     vapid_claims_email: str = "mailto:admin@bokito.ai"
+
+    # Transactional email (invites, password reset, email verification).
+    # When smtp_host is empty, mail is logged instead and non-production
+    # responses include dev magic links so flows stay testable without SMTP.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "Bokito <no-reply@bokito.ai>"
+    smtp_use_tls: bool = True
 
     worker_inbound_secret: str = "dev-worker-secret"
     orchestra_enabled: bool = False
@@ -94,8 +114,28 @@ def validate_production_settings(settings: "Settings") -> list[str]:
         )
     if settings.llm_mode == "live" and not settings.anthropic_api_key:
         errors.append("ANTHROPIC_API_KEY is required when LLM_MODE=live.")
+    if settings.llm_mode != "live":
+        errors.append("LLM_MODE must be 'live' in production (mock responses are dev-only).")
+    if settings.bokito_mock_execution:
+        errors.append("BOKITO_MOCK_EXECUTION must be disabled in production.")
     if any(host in settings.cors_origins for host in ("localhost", "127.0.0.1")):
         errors.append("CORS_ORIGINS must not contain localhost/127.0.0.1 in production.")
+    if settings.worker_inbound_secret == "dev-worker-secret" or len(settings.worker_inbound_secret) < 16:
+        errors.append(
+            "WORKER_INBOUND_SECRET must be a strong, non-default value (>=16 chars) in production."
+        )
+    # OAuth pairs must be complete: a client id without its secret means the
+    # provider flow would silently fall back to the dev mock in prod.
+    oauth_pairs = (
+        ("GITHUB", settings.github_oauth_client_id, settings.github_oauth_client_secret),
+        ("GOOGLE", settings.google_oauth_client_id, settings.google_oauth_client_secret),
+        ("MICROSOFT", settings.microsoft_oauth_client_id, settings.microsoft_oauth_client_secret),
+    )
+    for name, client_id, client_secret in oauth_pairs:
+        if bool(client_id) != bool(client_secret):
+            errors.append(
+                f"{name}_OAUTH_CLIENT_ID and {name}_OAUTH_CLIENT_SECRET must both be set (or both empty)."
+            )
     return errors
 
 

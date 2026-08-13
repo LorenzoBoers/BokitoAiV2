@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import RunEvent
 from app.models.learning import EvalScore, Feedback
 from app.models.notification import DecisionRequest
-from app.models.orchestra import WorkstreamStepRun
 from app.models.signal import Signal, SignalMessage
 from app.models.usage import UsageLedger
 
@@ -202,22 +201,6 @@ async def activity_timeline(session: AsyncSession, tenant_id: UUID, limit: int =
                 "event_type": ev.event_type,
                 "message": ev.message,
                 "created_at": ev.created_at.isoformat(),
-            }
-        )
-
-    step_runs = await session.execute(
-        select(WorkstreamStepRun)
-        .where(WorkstreamStepRun.tenant_id == tenant_id)
-        .order_by(WorkstreamStepRun.created_at.desc())
-        .limit(limit)
-    )
-    for sr in step_runs.scalars().all():
-        events.append(
-            {
-                "kind": "workstream_step",
-                "event_type": sr.status,
-                "message": sr.log_text[:200] if sr.log_text else "",
-                "created_at": sr.created_at.isoformat(),
             }
         )
 

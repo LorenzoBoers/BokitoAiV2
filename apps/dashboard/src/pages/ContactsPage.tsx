@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   ArrowLeft,
   Building2,
@@ -7,16 +8,22 @@ import {
   Loader2,
   Mail,
   MessageSquare,
-  Phone,
+  Plus,
   RefreshCw,
   Search,
   ShieldBan,
   ShieldCheck,
+  Trash2,
   UserRound,
+  X,
 } from 'lucide-react'
+import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
+import { PageContent } from '../components/layout/PageContent'
 import {
+  createContact,
+  deleteContact,
   getContact,
   getContactThreads,
   listContacts,
@@ -24,6 +31,7 @@ import {
   type ContactRow,
   type ContactStatus,
 } from '../lib/contacts-api'
+import { inboxPath } from '../lib/messages-paths'
 import type { InboxThread } from '../lib/inbox-api'
 
 const STATUS_STYLE: Record<ContactStatus, string> = {
@@ -80,9 +88,10 @@ function ContactDetail({ contactId }: { contactId: string }) {
         })
       }
       setDirty(false)
-    } catch {
+    } catch (err) {
       setContact(null)
       setThreads([])
+      toast.error(formatApiErrorMessage(err, 'Could not load contact.'))
     } finally {
       setLoading(false)
     }
@@ -105,8 +114,9 @@ function ContactDetail({ contactId }: { contactId: string }) {
       })
       if (updated) setContact(updated)
       setDirty(false)
-    } catch {
-      // keep draft
+      toast.success('Contact saved')
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Could not save contact.'))
     } finally {
       setSaving(false)
     }
@@ -118,7 +128,25 @@ function ContactDetail({ contactId }: { contactId: string }) {
     try {
       const updated = await updateContact(token, contact.id, { status })
       if (updated) setContact((prev) => (prev ? { ...prev, status: updated.status } : updated))
+      toast.success(status === 'blocked' ? 'Contact blocked' : status === 'approved' ? 'Contact approved' : 'Status updated')
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Could not update contact status.'))
     } finally {
+      setSaving(false)
+    }
+  }
+
+  const removeContact = async () => {
+    if (!token || !contact || saving) return
+    const label = contact.displayName || contact.address || 'this contact'
+    if (!window.confirm(`Delete ${label}? Conversations are kept but unlinked.`)) return
+    setSaving(true)
+    try {
+      await deleteContact(token, contact.id)
+      toast.success('Contact deleted')
+      navigate('/contacts')
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Could not delete contact.'))
       setSaving(false)
     }
   }
@@ -162,7 +190,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
   )
 
   return (
-    <div>
+    <PageContent width="xl">
       <ContentHeader
         title={contact.displayName || contact.address || 'Contact'}
         subtitle={[contact.title, contact.company].filter(Boolean).join(' - ') || CHANNEL_LABELS[contact.channel] || contact.channel}
@@ -197,6 +225,15 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 Block
               </button>
             ) : null}
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void removeContact()}
+              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+            >
+              <Trash2 size={12} />
+              Delete
+            </button>
           </>
         }
       />
@@ -255,7 +292,9 @@ function ContactDetail({ contactId }: { contactId: string }) {
         <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
           <h2 className="text-[14px] font-semibold text-text-heading">Conversations</h2>
           <p className="text-[12px] text-text-muted">
-            {threads.length} thread{threads.length === 1 ? '' : 's'} with this contact
+            {threads.length === 1
+              ? '1 thread with this contact'
+              : `${threads.length} threads with this contact`}
           </p>
           <div className="mt-3 space-y-1.5">
             {threads.length === 0 ? (
@@ -266,7 +305,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
               threads.map((t) => (
                 <Link
                   key={String(t.id)}
-                  to={`/communication/customers/all/t/${encodeURIComponent(String(t.id))}`}
+                  to={inboxPath('all', String(t.id))}
                   className="group flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <MessageSquare size={13} className="shrink-0 text-text-muted" />
@@ -285,9 +324,16 @@ function ContactDetail({ contactId }: { contactId: string }) {
           </div>
         </section>
       </div>
-    </div>
+    </PageContent>
   )
 }
+
+const STATUS_FILTERS: ReadonlyArray<{ key: ContactStatus | 'all'; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'blocked', label: 'Blocked' },
+]
 
 export default function ContactsPage() {
   const { contactId } = useParams<{ contactId?: string }>()
@@ -295,26 +341,63 @@ export default function ContactsPage() {
   const navigate = useNavigate()
   const [contacts, setContacts] = useState<ContactRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createDraft, setCreateDraft] = useState({ address: '', displayName: '', company: '' })
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
     setLoading(true)
+    setListError(null)
     try {
-      const rows = await listContacts(token, search.trim() ? { search: search.trim() } : {})
+      const rows = await listContacts(token, {
+        ...(search.trim() ? { search: search.trim() } : {}),
+        ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+      })
       setContacts(rows)
-    } catch {
+    } catch (err) {
       setContacts([])
+      setListError(err instanceof Error ? err.message : 'Could not load contacts.')
     } finally {
       setLoading(false)
     }
-  }, [token, search])
+  }, [token, search, statusFilter])
 
   useEffect(() => {
     if (contactId) return
     const timer = window.setTimeout(() => void load(), search ? 250 : 0)
     return () => window.clearTimeout(timer)
   }, [load, contactId, search])
+
+  const handleCreate = async () => {
+    if (!token || creating) return
+    const address = createDraft.address.trim()
+    if (!address) {
+      setCreateError('Email address is required.')
+      return
+    }
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const created = await createContact(token, {
+        channel: 'email',
+        address,
+        display_name: createDraft.displayName.trim(),
+        company: createDraft.company.trim(),
+      })
+      setCreateOpen(false)
+      setCreateDraft({ address: '', displayName: '', company: '' })
+      if (created) navigate(`/contacts/${created.id}`)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create contact.')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const sorted = useMemo(
     () =>
@@ -331,23 +414,33 @@ export default function ContactsPage() {
   }
 
   return (
-    <div>
+    <PageContent width="xl">
       <ContentHeader
         title="Contacts"
         subtitle="People across your channels"
         meta={
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover"
+            >
+              <Plus size={12} />
+              New contact
+            </button>
+          </>
         }
       />
 
-      <div className="mb-4 flex items-center gap-2 rounded-lg border border-border/70 bg-bg-surface px-3 py-2 focus-within:border-accent/50">
+      <div className="mb-3 flex items-center gap-2 rounded-lg border border-border/70 bg-bg-surface px-3 py-2 focus-within:border-accent/50">
         <Search size={14} className="shrink-0 text-text-muted" />
         <input
           value={search}
@@ -357,16 +450,98 @@ export default function ContactsPage() {
         />
       </div>
 
+      <div className="mb-4 flex items-center gap-1.5">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setStatusFilter(f.key)}
+            className={
+              statusFilter === f.key
+                ? 'rounded-full bg-accent/15 px-2.5 py-0.5 text-[12px] font-medium text-accent'
+                : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-[12px] text-text-secondary hover:text-text-primary'
+            }
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {createOpen ? (
+        <div className="mb-4 rounded-xl border border-border/60 bg-bg-surface/90 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[14px] font-semibold text-text-heading">New contact</h2>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setCreateOpen(false)}
+              className="rounded p-1 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input
+              value={createDraft.address}
+              onChange={(e) => setCreateDraft((p) => ({ ...p, address: e.target.value }))}
+              placeholder="Email address *"
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            <input
+              value={createDraft.displayName}
+              onChange={(e) => setCreateDraft((p) => ({ ...p, displayName: e.target.value }))}
+              placeholder="Full name"
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            <input
+              value={createDraft.company}
+              onChange={(e) => setCreateDraft((p) => ({ ...p, company: e.target.value }))}
+              placeholder="Company"
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+          </div>
+          {createError ? <p className="mt-2 text-[12px] text-status-error">{createError}</p> : null}
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              disabled={creating || !createDraft.address.trim()}
+              onClick={() => void handleCreate()}
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            >
+              {creating ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              {creating ? 'Creating...' : 'Create contact'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {loading && contacts.length === 0 ? (
         <div className="flex justify-center pt-16 text-text-muted">
           <Loader2 size={18} className="animate-spin" />
         </div>
+      ) : listError ? (
+        <div className="rounded-xl border border-dashed border-status-error/40 px-4 py-12 text-center">
+          <UserRound size={22} className="mx-auto text-text-muted" />
+          <h2 className="mt-3 text-[15px] font-semibold text-text-heading">Could not load contacts</h2>
+          <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">{listError}</p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="mt-4 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:border-accent/40 hover:text-text-primary"
+          >
+            Try again
+          </button>
+        </div>
       ) : sorted.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />
-          <h2 className="mt-3 text-[15px] font-semibold text-text-heading">No contacts yet</h2>
+          <h2 className="mt-3 text-[15px] font-semibold text-text-heading">
+            {search.trim() || statusFilter !== 'all' ? 'No matching contacts' : 'No contacts yet'}
+          </h2>
           <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">
-            Contacts are created automatically when customers reach out through your channels.
+            {search.trim() || statusFilter !== 'all'
+              ? 'Try a different search or clear the status filter.'
+              : 'Contacts are created automatically when customers reach out through your channels.'}
           </p>
         </div>
       ) : (
@@ -436,6 +611,6 @@ export default function ContactsPage() {
           </table>
         </div>
       )}
-    </div>
+    </PageContent>
   )
 }

@@ -286,6 +286,16 @@ async def update_agent(
     )
 
 
+@router.delete("/agents/{agent_id}")
+async def archive_agent(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    return await svc.archive_agent(session, auth.tenant.id, agent_id)
+
+
 @router.get("/timeline")
 async def timeline(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -523,6 +533,7 @@ async def force_wake(
     session: Annotated[AsyncSession, Depends(get_session)],
     body: dict[str, Any] | None = None,
 ):
+    auth.require_role("owner", "admin")
     del body
     agents = await svc.list_runtime_agents(session, auth.tenant.id)
     manager = next((a for a in agents if a.get("role_slug") in ("manager", "orchestrator")), None)

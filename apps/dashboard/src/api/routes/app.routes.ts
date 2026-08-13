@@ -5,22 +5,17 @@ import { withQuery } from '../url'
  * Reconstructed from `origin/master` string literals in workspace, backlog, custom-db, and projects.
  */
 export const appRoutes = {
-  docs: {
-    list: '/docs',
-  },
-  backlog: {
-    items: '/backlog/items',
-    item: (id: number) => `/backlog/items/${id}`,
-    itemComments: (id: number) => `/backlog/items/${id}/comments`,
-    triage: (id: number) => `/backlog/triage/${id}`,
-    roadmapReorder: '/backlog/roadmap/reorder',
-    config: '/backlog/config',
+  onboarding: {
+    status: '/onboarding',
   },
   workspaces: {
     list: '/workspaces',
     byId: (id: number | string) => `/workspaces/${id}`,
     members: (id: number | string) => `/workspaces/${id}/members`,
+    member: (id: number | string, memberId: number | string) =>
+      `/workspaces/${id}/members/${memberId}`,
     invites: (id: number | string) => `/workspaces/${id}/invites`,
+    invite: (id: number | string, inviteId: string) => `/workspaces/${id}/invites/${inviteId}`,
   },
   workspaceInvites: {
     create: '/workspace-invites',
@@ -70,23 +65,31 @@ export const appRoutes = {
     threadMarkUnread: (threadId: string) => `/signals/${threadId}/mark-unread`,
     threadPin: (threadId: string) => `/signals/${threadId}/pin`,
     threadReply: (threadId: string) => `/signals/${threadId}/reply`,
+    threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadTakeover: (threadId: string) => `/signals/${threadId}/takeover`,
     threadRelease: (threadId: string) => `/signals/${threadId}/release`,
+    threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
     messageResolve: (threadId: string, messageId: string) =>
       `/signals/${threadId}/messages/${messageId}/resolve`,
     pins: '/signals/pins',
     members: '/signals/members',
     syncStatus: '/signals/sync-status',
     badgeCounts: '/signals/badge-counts',
+    bulk: '/signals/bulk',
+    savedReplies: '/signals/saved-replies',
+    savedReply: (replyId: string) => `/signals/saved-replies/${replyId}`,
     note: (threadId: string, messageId: string) => `/signals/${threadId}/notes/${messageId}`,
+    messageFeedback: (messageId: string) => `/messages/${messageId}/feedback`,
   },
   uploads: {
     create: '/uploads',
     file: (tenantId: string, filename: string) => `/uploads/files/${tenantId}/${filename}`,
   },
   orchestration: {
+    settings: '/orchestration/settings',
     runtimeProfiles: '/orchestration/runtime-profiles',
+    workstreams: '/orchestration/workstreams',
     tasks: '/orchestration/tasks',
     task: (id: string) => `/orchestration/tasks/${id}`,
     taskCancel: (id: string) => `/orchestration/tasks/${id}/cancel`,
@@ -94,6 +97,8 @@ export const appRoutes = {
     taskArtifacts: (id: string) => `/orchestration/tasks/${id}/artifacts`,
     workstreamRun: (id: string) => `/orchestration/workstreams/${id}/run`,
     workstreamSteps: (id: string) => `/orchestration/workstreams/${id}/steps`,
+    workstreamStep: (workstreamId: string, stepId: string) =>
+      `/orchestration/workstreams/${workstreamId}/steps/${stepId}`,
     runEvents: (runId: string) => `/orchestration/runs/${runId}/events`,
   },
   triggers: {
@@ -111,11 +116,17 @@ export const appRoutes = {
     list: '/channels/accounts',
   },
   contacts: {
+    list: '/channels/contacts',
     listQuery: (params: URLSearchParams) => withQuery('/channels/contacts', params),
     byId: (id: string) => `/channels/contacts/${id}`,
     threads: (id: string) => `/channels/contacts/${id}/threads`,
   },
   agenda: {
     occurrencesQuery: (params: URLSearchParams) => withQuery('/agenda', params),
+  },
+  notifications: {
+    list: '/notifications',
+    markRead: (id: string) => `/notifications/${id}/read`,
+    markAllRead: '/notifications/read-all',
   },
 } as const

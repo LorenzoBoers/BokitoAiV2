@@ -29,7 +29,7 @@ export function FileUpload({
 
   const validateFile = useCallback((file: File): string | null => {
     if (maxSize && file.size > maxSize) {
-      return `Bestand is te groot. Maximum grootte is ${Math.round(maxSize / 1024 / 1024)}MB.`;
+      return `File is too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB.`;
     }
     
     if (accept) {
@@ -49,7 +49,7 @@ export function FileUpload({
       });
       
       if (!isAccepted) {
-        return `Bestandstype niet ondersteund. Toegestane types: ${accept}`;
+        return `File type not supported. Allowed types: ${accept}`;
       }
     }
     
@@ -163,7 +163,7 @@ export function FileUpload({
             )} />
             <div>
               <p className="text-sm font-medium text-text-primary">
-                Sleep een bestand hierheen of klik om te selecteren
+                Drag a file here or click to select
               </p>
               <p className="text-xs text-text-secondary mt-1">
                 {accept && `Ondersteunde formaten: ${accept}`}

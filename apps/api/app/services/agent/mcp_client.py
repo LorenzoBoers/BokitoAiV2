@@ -10,6 +10,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.integration import McpServer
 from app.services.mcp_auth import mcp_auth_headers
 
@@ -66,12 +67,111 @@ def _mock_trading_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
     return {"ok": True, "tool": tool_name, "echo": arguments}
 
 
+def _mock_accounting_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Mock Björn Lundén / King responses so the accountancy flow works end to end
+    before real client credentials exist."""
+    if tool_name == "search_customers":
+        query = str(arguments.get("query") or arguments.get("name") or "")
+        return {
+            "customers": [
+                {
+                    "id": "cust-1001",
+                    "number": "1001",
+                    "name": query.title() or "Andersson Bygg AB",
+                    "email": "ekonomi@anderssonbygg.se",
+                    "open_balance": 12450.0,
+                    "currency": "SEK",
+                }
+            ]
+        }
+    if tool_name == "get_customer":
+        return {
+            "id": str(arguments.get("customer_id") or "cust-1001"),
+            "number": "1001",
+            "name": "Andersson Bygg AB",
+            "email": "ekonomi@anderssonbygg.se",
+            "phone": "+46 8 123 456",
+            "open_balance": 12450.0,
+            "currency": "SEK",
+            "payment_terms_days": 30,
+        }
+    if tool_name == "list_invoices":
+        return {
+            "invoices": [
+                {
+                    "id": "inv-2024-081",
+                    "number": "2024-081",
+                    "customer_id": str(arguments.get("customer_id") or "cust-1001"),
+                    "status": "open",
+                    "total": 12450.0,
+                    "currency": "SEK",
+                    "due_date": "2026-08-15",
+                },
+                {
+                    "id": "inv-2024-069",
+                    "number": "2024-069",
+                    "customer_id": str(arguments.get("customer_id") or "cust-1001"),
+                    "status": "paid",
+                    "total": 8300.0,
+                    "currency": "SEK",
+                    "due_date": "2026-06-30",
+                },
+            ]
+        }
+    if tool_name == "get_invoice":
+        return {
+            "id": str(arguments.get("invoice_id") or "inv-2024-081"),
+            "number": "2024-081",
+            "status": "open",
+            "total": 12450.0,
+            "currency": "SEK",
+            "due_date": "2026-08-15",
+            "lines": [
+                {"description": "Consulting services July", "amount": 9960.0},
+                {"description": "VAT 25%", "amount": 2490.0},
+            ],
+        }
+    if tool_name == "list_ledger_entries":
+        return {
+            "entries": [
+                {"account": "1930", "description": "Bank", "debit": 8300.0, "credit": 0.0},
+                {"account": "1510", "description": "Accounts receivable", "debit": 0.0, "credit": 8300.0},
+            ],
+            "period": str(arguments.get("period") or "2026-07"),
+        }
+    if tool_name == "get_account_balance":
+        return {
+            "account": str(arguments.get("account") or "1930"),
+            "balance": 145200.0,
+            "currency": "SEK",
+        }
+    if tool_name == "list_vat_reports":
+        return {
+            "reports": [
+                {"period": "2026-Q2", "status": "submitted", "amount": 31200.0},
+                {"period": "2026-Q3", "status": "draft", "amount": 0.0},
+            ]
+        }
+    return {"ok": True, "tool": tool_name, "echo": arguments}
+
+
+def _is_accounting_server(server_name: str) -> bool:
+    lowered = server_name.lower()
+    return any(k in lowered for k in ("björn", "bjorn", "lunden", "lundén", "king", "account"))
+
+
 def _mock_mcp_response(server_name: str, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     if "trading" in server_name.lower():
         return {
             "server": server_name,
             "tool": tool_name,
             "result": _mock_trading_tool(tool_name, arguments or {}),
+        }
+    if _is_accounting_server(server_name):
+        return {
+            "server": server_name,
+            "tool": tool_name,
+            "result": _mock_accounting_tool(tool_name, arguments or {}),
         }
     return {
         "server": server_name,
@@ -97,6 +197,13 @@ async def call_mcp_tool(
         return {"error": f"MCP server {server_name} not found"}
 
     if server.server_url.startswith("mock://"):
+        if get_settings().is_production:
+            return {
+                "error": (
+                    f"MCP server {server_name} has a mock URL, which is not allowed "
+                    "in production. Reinstall it with a real server URL."
+                )
+            }
         return _mock_mcp_response(server_name, tool_name, arguments)
 
     payload = {

@@ -1,0 +1,73 @@
+name: Mobile Dev APK
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-dev-apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android-dev-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "${GOOGLE_SERVICES_JSON:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/google-services.json
+          fi
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Prepare managed EAS build
+        working-directory: apps/mobile
+        run: rm -rf android ios
+
+      - name: Build Android dev APK (EAS dev-apk)
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          eas build -p android --profile dev-apk --non-interactive --wait --json > build-output.json
+          node <<'NODE'
+          const fs = require('fs');
+          const parsed = JSON.parse(fs.readFileSync('build-output.json', 'utf8'));
+          const build = Array.isArray(parsed) ? parsed[0] : parsed;
+          const url =
+            build?.artifacts?.applicationArchiveUrl ||
+            build?.artifacts?.buildUrl ||
+            '';
+          if (!url) {
+            console.error('No APK artifact URL in EAS build output');
+            process.exit(1);
+          }
+          fs.writeFileSync('apk-url.txt', url);
+          NODE
+
+      - name: Download APK artifact
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          curl -fsSL "$(cat apk-url.txt)" -o bokito-mobile-dev.apk
+          ls -lh bokito-mobile-dev.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bokito-android-dev-apk
+          path: apps/mobile/bokito-mobile-dev.apk
+          retention-days: 30

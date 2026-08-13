@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { RefreshCw, AlertCircle, CheckCircle, Folder } from 'lucide-react'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { useAuth } from '../../context/AuthContext'
+import { syncMailboxes } from '../../lib/email-api'
 import { getSyncStatus, type SyncConnectionStatus } from '../../lib/inbox-api'
 import { cn } from '../../lib/utils'
 
 function formatDate(iso: string | null): string {
-  if (!iso) return 'Nooit'
+  if (!iso) return 'Never'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '–'
-  return d.toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 type Props = {
@@ -19,6 +22,7 @@ export default function SyncStatusPanel({ className }: Props) {
   const { token } = useAuth()
   const [statuses, setStatuses] = useState<SyncConnectionStatus[]>([])
   const [loading, setLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -29,11 +33,29 @@ export default function SyncStatusPanel({ className }: Props) {
       const result = await getSyncStatus(token)
       setStatuses(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kon sync-status niet laden.')
+      setError(err instanceof Error ? err.message : 'Could not load sync status.')
     } finally {
       setLoading(false)
     }
   }, [token])
+
+  const syncNow = useCallback(async () => {
+    if (!token || syncing) return
+    setSyncing(true)
+    try {
+      const result = await syncMailboxes(token)
+      toast.success(
+        result.synced > 0
+          ? `Synced ${result.synced} new message${result.synced === 1 ? '' : 's'}`
+          : 'Mailboxes synced — no new messages',
+      )
+      await load()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Could not sync mailboxes.'))
+    } finally {
+      setSyncing(false)
+    }
+  }, [token, syncing, load])
 
   useEffect(() => {
     void load()
@@ -41,17 +63,27 @@ export default function SyncStatusPanel({ className }: Props) {
 
   return (
     <div className={cn('space-y-3', className)}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-text-heading">Sync status</h3>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="text-text-muted hover:text-text-primary transition-colors disabled:opacity-40"
-          title="Refresh"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void syncNow()}
+            disabled={loading || syncing}
+            className="rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-elevated disabled:opacity-40"
+          >
+            {syncing ? 'Syncing...' : 'Sync now'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading || syncing}
+            className="text-text-muted hover:text-text-primary transition-colors disabled:opacity-40"
+            title="Refresh status"
+          >
+            <RefreshCw size={14} className={loading || syncing ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -79,7 +111,7 @@ export default function SyncStatusPanel({ className }: Props) {
             </div>
 
             <div className="text-xs text-text-secondary">
-              Laatste sync: {formatDate(conn.lastSyncAt)}
+              Last sync: {formatDate(conn.lastSyncAt)}
             </div>
 
             {conn.lastError ? (
@@ -99,7 +131,7 @@ export default function SyncStatusPanel({ className }: Props) {
                         <span className="text-xs text-text-secondary truncate">{f.folderName}</span>
                       </div>
                       <div className="flex items-center gap-3 shrink-0 text-xs text-text-muted">
-                        <span>{f.messagesSynced} berichten</span>
+                        <span>{f.messagesSynced} messages</span>
                         {f.lastError ? (
                           <span title={f.lastError}>
                             <AlertCircle size={11} className="text-status-error" />

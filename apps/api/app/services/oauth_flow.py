@@ -36,13 +36,17 @@ logger = logging.getLogger(__name__)
 async def start_real_oauth(
     session: AsyncSession,
     *,
-    tenant_id: UUID,
+    tenant_id: UUID | None,
     user_id: UUID | None,
     provider: str,
     flow: str,
     return_url: str,
 ) -> str | None:
-    """Return a real authorize URL, or None when the provider is unconfigured."""
+    """Return a real authorize URL, or None when the provider is unconfigured.
+
+    `tenant_id` is None for pre-auth login flows (`flow="login"`); those use
+    identity-only scopes instead of the mailbox scopes.
+    """
     if not oauth_providers.is_configured(provider):
         return None
     redirect_uri = get_settings().oauth_redirect_uri
@@ -59,8 +63,11 @@ async def start_real_oauth(
         )
     )
     await session.commit()
+    scopes = None
+    if flow == "login" and provider == oauth_providers.MICROSOFT:
+        scopes = oauth_providers.MICROSOFT_SSO_SCOPES
     return oauth_providers.build_authorize_url(
-        provider, state=state, redirect_uri=redirect_uri
+        provider, state=state, redirect_uri=redirect_uri, scopes=scopes
     )
 
 
@@ -73,6 +80,10 @@ def _success_params(flow: str, provider: str) -> dict[str, str]:
 
 
 def _error_redirect(return_url: str, flow: str, provider: str, reason: str) -> str:
+    if flow == "login":
+        return _append_query(
+            return_url or get_settings().public_app_url, {"sso_error": reason}
+        )
     params = {"oauth_status": "error", "oauth_error": reason}
     if flow != "email":
         params["provider"] = provider
@@ -108,6 +119,17 @@ async def _store_email_credentials(
     account.is_enabled = True
     session.add(account)
     await session.commit()
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant_id,
+        action="email:mailbox_connected",
+        actor_type="user",
+        resource_type="channel_account",
+        resource_id=account.id,
+        payload={"address": email, "provider": provider},
+    )
 
 
 async def _store_integration_credentials(
@@ -143,55 +165,104 @@ async def _store_integration_credentials(
     await session.commit()
 
 
+async def _complete_sso_login(
+    session: AsyncSession,
+    *,
+    return_url: str,
+    provider: str,
+    identity: dict[str, Any],
+) -> tuple[str, str | None]:
+    """Provision the user and mint a refresh session for an SSO login."""
+    from app.services.auth import create_refresh_session
+    from app.services.sso import provision_sso_user
+
+    email = str(identity.get("email") or "").strip().lower()
+    if not email:
+        return _error_redirect(return_url, "login", provider, "no_email"), None
+    try:
+        user, _tenant = await provision_sso_user(
+            session, email=email, name=str(identity.get("name") or "")
+        )
+    except Exception:
+        logger.exception("SSO provisioning failed for %s", email)
+        return _error_redirect(return_url, "login", provider, "provisioning_failed"), None
+    refresh_token, _ = await create_refresh_session(session, user.id)
+    url = _append_query(
+        return_url or get_settings().public_app_url, {"sso": "connected"}
+    )
+    return url, refresh_token
+
+
 async def complete_oauth(
     session: AsyncSession,
     *,
     state: str,
     code: str | None,
     error: str | None = None,
-) -> str:
-    """Handle the OAuth callback; returns the dashboard URL to redirect to."""
+) -> tuple[str, str | None]:
+    """Handle the OAuth callback.
+
+    Returns (redirect_url, refresh_token). The refresh token is only set for
+    SSO login flows; the callback route turns it into the session cookie.
+    """
     result = await session.execute(select(OAuthState).where(OAuthState.state == state))
     row = result.scalar_one_or_none()
     if not row:
-        return _append_query(
-            get_settings().public_app_url, {"oauth_status": "error", "oauth_error": "invalid_state"}
+        return (
+            _append_query(
+                get_settings().public_app_url,
+                {"oauth_status": "error", "oauth_error": "invalid_state"},
+            ),
+            None,
         )
+    # Capture every field before delete+commit: expired ORM attributes on an
+    # async session cannot be lazily refreshed afterwards.
     return_url, flow, provider = row.return_url, row.flow, row.provider
+    tenant_id = row.tenant_id
+    redirect_uri = row.redirect_uri
+    expires_at = row.expires_at
     # One-shot: consume the state immediately.
     await session.delete(row)
     await session.commit()
 
     if error:
-        return _error_redirect(return_url, flow, provider, error)
-    if row.expires_at < datetime.utcnow():
-        return _error_redirect(return_url, flow, provider, "expired_state")
+        return _error_redirect(return_url, flow, provider, error), None
+    if expires_at < datetime.utcnow():
+        return _error_redirect(return_url, flow, provider, "expired_state"), None
     if not code:
-        return _error_redirect(return_url, flow, provider, "missing_code")
+        return _error_redirect(return_url, flow, provider, "missing_code"), None
 
     try:
         tokens = await oauth_providers.exchange_code(
-            provider, code=code, redirect_uri=row.redirect_uri
+            provider, code=code, redirect_uri=redirect_uri
         )
         identity = await oauth_providers.fetch_identity(
             provider, tokens.get("access_token", "")
         )
     except Exception:
         logger.exception("OAuth token exchange failed for provider=%s", provider)
-        return _error_redirect(return_url, flow, provider, "token_exchange_failed")
+        return _error_redirect(return_url, flow, provider, "token_exchange_failed"), None
+
+    if flow == "login":
+        return await _complete_sso_login(
+            session, return_url=return_url, provider=provider, identity=identity
+        )
 
     try:
         if flow == "email":
             email = identity.get("email") or f"{provider}@bokito.local"
-            await _store_email_credentials(session, row.tenant_id, provider, email, tokens)
+            await _store_email_credentials(session, tenant_id, provider, email, tokens)
         else:
             await _store_integration_credentials(
-                session, row.tenant_id, provider, identity, tokens
+                session, tenant_id, provider, identity, tokens
             )
     except Exception:
         logger.exception("OAuth credential storage failed for provider=%s", provider)
-        return _error_redirect(return_url, flow, provider, "storage_failed")
+        return _error_redirect(return_url, flow, provider, "storage_failed"), None
 
-    return _append_query(
-        return_url or get_settings().public_app_url, _success_params(flow, provider)
+    return (
+        _append_query(
+            return_url or get_settings().public_app_url, _success_params(flow, provider)
+        ),
+        None,
     )

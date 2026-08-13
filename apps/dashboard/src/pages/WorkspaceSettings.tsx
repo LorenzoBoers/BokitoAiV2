@@ -11,17 +11,17 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { PageContent } from '../components/layout/PageContent';
 import { SettingsSection } from '../components/layout/SettingsSection';
-
+import { APP_API_BASE } from '../lib/api.config';
 
 export default function WorkspaceSettings() {
   const { t, i18n } = useTranslation(['workspace', 'common']);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { currentWorkspace, updateWorkspace, deleteWorkspace } = useWorkspace();
   const canManageWorkspace = usePermission('delete_workspace') || usePermission('invite_members');
+  const canDeleteWorkspace = usePermission('delete_workspace');
 
   const [workspaceName, setWorkspaceName] = useState(currentWorkspace?.name || user?.tenant.name || '');
   const language = (i18n.resolvedLanguage === 'nl' ? 'nl' : 'en') as 'nl' | 'en';
-  const [require2FA, setRequire2FA] = useState(currentWorkspace?.require_2fa ?? false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -29,8 +29,22 @@ export default function WorkspaceSettings() {
 
   useEffect(() => {
     if (currentWorkspace?.name) setWorkspaceName(currentWorkspace.name);
-    setRequire2FA(currentWorkspace?.require_2fa ?? false);
-  }, [currentWorkspace?.id, currentWorkspace?.name, currentWorkspace?.require_2fa]);
+  }, [currentWorkspace?.id, currentWorkspace?.name]);
+
+  useEffect(() => {
+    if (!token) return;
+    void fetch(`${APP_API_BASE}/me/preferences`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { ui_language?: string } | null) => {
+        if (data?.ui_language === 'nl' || data?.ui_language === 'en') {
+          void i18n.changeLanguage(data.ui_language);
+        }
+      })
+      .catch(() => undefined);
+  }, [token, i18n]);
 
   const handleSave = async () => {
     if (!currentWorkspace) return;
@@ -38,13 +52,30 @@ export default function WorkspaceSettings() {
     try {
       await updateWorkspace(currentWorkspace.id, {
         name: workspaceName.trim(),
-        require_2fa: require2FA,
       });
       toast.success(t('saveSuccess'));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Save failed');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const setLanguage = async (next: 'nl' | 'en') => {
+    void i18n.changeLanguage(next);
+    if (!token) return;
+    try {
+      await fetch(`${APP_API_BASE}/me/preferences`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ ui_language: next }),
+      });
+    } catch {
+      // Language still applied locally for this session.
     }
   };
 
@@ -79,7 +110,6 @@ export default function WorkspaceSettings() {
         }
       >
         <div className="space-y-6">
-          {/* Workspace Name */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
               {t('workspaceName')}
@@ -92,7 +122,6 @@ export default function WorkspaceSettings() {
             />
           </div>
 
-          {/* Branding link */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
               Branding
@@ -106,66 +135,45 @@ export default function WorkspaceSettings() {
                   <Paintbrush size={15} className="text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-text-heading">Organisatie branding</p>
-                  <p className="text-xs text-text-muted">Logo, kleuren en huisstijl beheren</p>
+                  <p className="text-sm font-medium text-text-heading">Organization branding</p>
+                  <p className="text-xs text-text-muted">Manage logo, colors and branding</p>
                 </div>
               </div>
               <ArrowRight size={15} className="text-text-muted group-hover:text-text-secondary transition-colors" />
             </Link>
           </div>
-
-          {/* Language */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              <Globe size={16} className="inline mr-2" />
-              {t('language')}
-            </label>
-            <div className="flex gap-2">
-              <Button
-                variant={language === 'nl' ? 'default' : 'secondary'}
-                size="sm"
-                onClick={() => i18n.changeLanguage('nl')}
-                disabled={!canManageWorkspace}
-              >
-                {t('languageDutch')}
-              </Button>
-              <Button
-                variant={language === 'en' ? 'default' : 'secondary'}
-                size="sm"
-                onClick={() => i18n.changeLanguage('en')}
-                disabled={!canManageWorkspace}
-              >
-                {t('languageEnglish')}
-              </Button>
-            </div>
-          </div>
         </div>
       </SettingsSection>
 
-      <SettingsSection title={t('securityTitle')}>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-text-primary">
-                {t('require2faTitle')}
-              </h3>
-              <p className="text-sm text-text-muted">
-                {t('require2faDescription')}
-              </p>
-            </div>
+      <SettingsSection title="Your language">
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">
+            <Globe size={16} className="inline mr-2" />
+            {t('language')}
+          </label>
+          <p className="mb-3 text-xs text-text-muted">
+            Personal preference for your account — applied immediately.
+          </p>
+          <div className="flex gap-2">
             <Button
-              variant={require2FA ? 'default' : 'secondary'}
+              variant={language === 'nl' ? 'default' : 'secondary'}
               size="sm"
-              onClick={() => setRequire2FA(!require2FA)}
-              disabled={!usePermission('delete_workspace')}
+              onClick={() => void setLanguage('nl')}
             >
-              {require2FA ? t('enabled') : t('disabled')}
+              {t('languageDutch')}
+            </Button>
+            <Button
+              variant={language === 'en' ? 'default' : 'secondary'}
+              size="sm"
+              onClick={() => void setLanguage('en')}
+            >
+              {t('languageEnglish')}
             </Button>
           </div>
         </div>
       </SettingsSection>
 
-      {usePermission('delete_workspace') && (
+      {canDeleteWorkspace && (
         <Card className="border-status-error/40 bg-status-error/5">
           <CardContent>
             <h2 className="mb-3 text-base font-semibold text-status-error">
@@ -191,39 +199,29 @@ export default function WorkspaceSettings() {
         </Card>
       )}
 
-      {/* Delete Confirmation Dialog */}
       {showDeleteDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-text-heading mb-4">
               {t('deleteDialogTitle')}
             </h3>
-            
-            <p className="text-text-muted mb-4">
+            <p className="text-sm text-text-secondary mb-4">
               {t('deleteDialogPrompt', { name: workspaceName })}
             </p>
-            
             <Input
               value={deleteConfirmation}
               onChange={(e) => setDeleteConfirmation(e.target.value)}
-              placeholder={t('workspaceNamePlaceholder')}
+              placeholder={workspaceName}
               className="mb-4"
             />
-            
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setShowDeleteDialog(false);
-                  setDeleteConfirmation('');
-                }}
-              >
-                {t('common:actions.cancel')}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowDeleteDialog(false)}>
+                {t('common:cancel', { defaultValue: 'Cancel' })}
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => void handleDeleteWorkspace()}
                 disabled={deleteConfirmation !== workspaceName || deleting}
+                onClick={() => void handleDeleteWorkspace()}
               >
                 {t('deleteConfirmButton')}
               </Button>

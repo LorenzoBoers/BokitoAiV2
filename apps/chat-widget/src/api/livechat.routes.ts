@@ -5,12 +5,7 @@
 export const livechatRoutes = {
   session: {
     start: '/session/start',
-  },
-  auth: {
-    login: '/auth/login',
-    logout: '/auth/logout',
-    forgotPassword: '/auth/forgot-password',
-    register: '/auth/register',
+    identify: '/session/identify',
   },
   hostAuth: {
     me: '/me',
@@ -18,7 +13,6 @@ export const livechatRoutes = {
   attachment: '/attachment',
   streamChat: '/stream-chat',
   streamChatContinue: '/stream-chat-continue',
-  transcribe: '/transcribe',
   user: {
     conversations: '/user/conversations',
     preferences: '/user/preferences',

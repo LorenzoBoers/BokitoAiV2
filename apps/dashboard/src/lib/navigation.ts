@@ -1,91 +1,74 @@
 /**
- * Navigation model for the OpenClaw-style control shell.
+ * Navigation model for the control shell.
  *
- * Mirrors OpenClaw's `navigation.ts`: tabs live in labeled sidebar groups,
- * each tab maps to a route path, an icon, a title and a subtitle. The Inbox
- * hub (assistant chat + customers + agents) is the default surface.
+ * Target rail (7 items): Cockpit, Communication, Contacts, Agenda,
+ * Agents, Knowledge, Settings. Cockpit hosts Overview/Activity/Usage as
+ * inner tabs; Knowledge hosts workspace docs including skills and memory.
  */
 
 import {
-  Activity,
-  BarChart3,
   BookOpen,
   Bot,
   CalendarDays,
   Contact,
+  Gauge,
   MessageSquare,
   Settings,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 
 export type Tab =
-  | 'overview'
+  | 'cockpit'
   | 'communication'
   | 'contacts'
-  | 'activity'
   | 'agenda'
-  | 'usage'
   | 'agents'
-  | 'skills'
-  | 'memory'
+  | 'knowledge'
   | 'settings'
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Control', tabs: ['overview', 'communication', 'contacts', 'activity', 'agenda', 'usage'] },
-  { label: 'Agent', tabs: ['agents', 'skills', 'memory'] },
+  { label: 'Control', tabs: ['cockpit', 'communication', 'contacts', 'agenda'] },
+  { label: 'Agent', tabs: ['agents', 'knowledge'] },
   { label: 'Settings', tabs: ['settings'] },
 ]
 
 export const TAB_PATHS: Record<Tab, string> = {
-  overview: '/overview',
+  cockpit: '/cockpit',
   communication: '/communication/inbox/all',
   contacts: '/contacts',
-  activity: '/activity',
   agenda: '/agenda',
-  usage: '/usage',
   agents: '/agents',
-  skills: '/skills',
-  memory: '/workspace',
+  knowledge: '/knowledge',
   settings: '/settings',
 }
 
 const TAB_ICONS: Record<Tab, LucideIcon> = {
-  overview: BarChart3,
+  cockpit: Gauge,
   communication: MessageSquare,
   contacts: Contact,
-  activity: Activity,
   agenda: CalendarDays,
-  usage: BarChart3,
   agents: Bot,
-  skills: Zap,
-  memory: BookOpen,
+  knowledge: BookOpen,
   settings: Settings,
 }
 
 const TAB_TITLES: Record<Tab, string> = {
-  overview: 'Overview',
+  cockpit: 'Cockpit',
   communication: 'Communication',
   contacts: 'Contacts',
-  activity: 'Activity',
   agenda: 'Agenda',
-  usage: 'Usage',
   agents: 'Agents',
-  skills: 'Skills',
-  memory: 'Memory',
+  knowledge: 'Knowledge',
   settings: 'Settings',
 }
 
 const TAB_SUBTITLES: Record<Tab, string> = {
-  overview: 'Workspace health at a glance',
+  cockpit: 'Overview, activity and usage',
   communication: 'Chats, customer and agent threads',
   contacts: 'People across your channels',
-  activity: 'Live agent runs and tool calls',
   agenda: 'Scheduled wakes, tasks and events',
-  usage: 'Model spend and run volume',
   agents: 'Your agent workforce',
-  skills: 'Reusable instructions for agents',
-  memory: 'Workspace documents and memory',
+  knowledge: 'Docs, skills and memory',
   settings: 'Workspace configuration',
 }
 
@@ -109,14 +92,22 @@ export function pathForTab(tab: Tab): string {
 export function tabFromPath(pathname: string): Tab | null {
   if (pathname === '/' || pathname.startsWith('/communication') || pathname.startsWith('/inbox'))
     return 'communication'
-  if (pathname.startsWith('/overview')) return 'overview'
+  if (
+    pathname.startsWith('/cockpit') ||
+    pathname.startsWith('/overview') ||
+    pathname.startsWith('/activity') ||
+    pathname.startsWith('/usage')
+  )
+    return 'cockpit'
   if (pathname.startsWith('/contacts')) return 'contacts'
-  if (pathname.startsWith('/activity')) return 'activity'
   if (pathname.startsWith('/agenda')) return 'agenda'
-  if (pathname.startsWith('/usage')) return 'usage'
   if (pathname.startsWith('/agents')) return 'agents'
-  if (pathname.startsWith('/skills')) return 'skills'
-  if (pathname.startsWith('/workspace')) return 'memory'
+  if (
+    pathname.startsWith('/knowledge') ||
+    pathname.startsWith('/workspace') ||
+    pathname.startsWith('/skills')
+  )
+    return 'knowledge'
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
   return null
 }

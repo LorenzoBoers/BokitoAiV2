@@ -93,6 +93,8 @@ async def resolve_decision_message(
     *,
     action: str,
     user_id: UUID | None = None,
+    option_id: str | None = None,
+    payload_override: dict[str, Any] | None = None,
 ) -> None:
     result = await session.execute(
         select(DecisionRequest).where(
@@ -105,24 +107,44 @@ async def resolve_decision_message(
         raise HTTPException(status_code=404, detail="Decision not found")
 
     options = json.loads(decision.options_json or "[]")
-    if action == "approved":
-        option_id = next(
-            (o.get("id") for o in options if o.get("id") in ("approve", "connect", "always_auto")),
+    always_auto = False
+    if option_id:
+        resolved_option_id = option_id
+        chosen = next((o for o in options if o.get("id") == option_id), None)
+        always_auto = option_id == "always_auto" or bool(chosen and chosen.get("always_auto"))
+        if action in ("approved", "approve") or always_auto:
+            resolved_action = "approved"
+        elif action in ("rejected", "reject"):
+            resolved_action = "rejected"
+        else:
+            resolved_action = "deferred"
+    elif action in ("approved", "approve"):
+        resolved_option_id = next(
+            (o.get("id") for o in options if o.get("id") in ("approve", "send", "connect", "always_auto")),
             options[0].get("id") if options else "approve",
         )
         resolved_action = "approved"
-    elif action == "rejected":
-        option_id = next((o.get("id") for o in options if o.get("id") == "reject"), "reject")
+        always_auto = resolved_option_id == "always_auto"
+    elif action in ("rejected", "reject"):
+        resolved_option_id = next(
+            (o.get("id") for o in options if o.get("id") in ("reject", "escalate")),
+            "reject",
+        )
         resolved_action = "rejected"
     else:
-        option_id = next((o.get("id") for o in options if o.get("id") == "later"), "later")
+        resolved_option_id = next(
+            (o.get("id") for o in options if o.get("id") in ("later", "edit", "defer")),
+            "later",
+        )
         resolved_action = "deferred"
 
     await resolve_decision(
         session,
         tenant_id,
         decision_id,
-        option_id,
+        resolved_option_id,
         resolved_action,
         user_id=user_id,
+        always_auto=always_auto,
+        payload_override=payload_override,
     )

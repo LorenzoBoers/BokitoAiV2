@@ -2,13 +2,46 @@
   "loadingMailboxes": "Loading mailboxes...",
   "missingOrganisation": "Your account does not have an organization context yet. Ask an admin to link your user to an organization, or sign in again if you just accepted an invite.",
   "noActiveMailboxTitle": "No active mailbox",
-  "noActiveMailboxDescription": "Connect a mailbox to view your inbox here. You can do this under Settings, in Email.",
-  "openEmailSettings": "Open Email settings",
+  "noActiveMailboxDescription": "Connect a mailbox or channel to view conversations here. You can do this under Settings → Channels.",
+  "openEmailSettings": "Open channel settings",
   "inboxSearchPlaceholder": "Search this folder...",
   "inboxSearchClear": "Clear search",
   "listFilters": {
     "all": "All",
     "unread": "Unread",
     "pinned": "Pinned"
+  },
+  "onboarding": {
+    "title": "Get your workspace ready",
+    "subtitle": "A few steps and Bokito runs on your organization's knowledge.",
+    "progress": "{{done}} of {{total}} completed",
+    "dismiss": "Hide checklist",
+    "steps": {
+      "email": {
+        "title": "Connect Outlook or Gmail",
+        "description": "Link your mailbox so client email lands in your inbox and agents can help with replies.",
+        "cta": "Connect mailbox"
+      },
+      "company": {
+        "title": "Tell us about your company",
+        "description": "Describe what your organization does so agents answer in your context.",
+        "cta": "Open company settings"
+      },
+      "assistant": {
+        "title": "Chat with your assistant",
+        "description": "Ask anything about your workspace; it knows your agents and settings.",
+        "cta": "Open assistant"
+      },
+      "channel": {
+        "title": "Connect a channel",
+        "description": "Add live chat, Slack, or another channel next to email.",
+        "cta": "Open channels"
+      },
+      "team": {
+        "title": "Invite your team",
+        "description": "Add teammates so decisions and threads reach the right people.",
+        "cta": "Invite members"
+      }
+    }
   }
 }

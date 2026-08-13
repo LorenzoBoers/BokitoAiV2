@@ -35,18 +35,15 @@ from app.routers import (
     notifications,
     projects,
     push,
-    settings_orchestra,
+    inbox_settings,
     signals,
     learning,
-    tenant_secrets,
     triggers,
-    widget,
     workforce,
     workspace,
     orchestration,
     uploads,
 )
-from app.routers.settings_orchestra import orchestra_router
 from app.gateway.bus import event_bus
 from app.gateway.router import router as gateway_router
 from app.services.trigger_scheduler import trigger_scheduler_enabled, trigger_scheduler_loop
@@ -95,6 +92,59 @@ app.add_middleware(
 )
 app.add_middleware(TenantHostMiddleware)
 
+
+class LivechatCorsMiddleware:
+    """Open CORS for the embeddable widget API only.
+
+    The chat widget is embedded on arbitrary customer domains, so
+    `/api/livechat/*` must be callable cross-origin. It authenticates with
+    Bearer session tokens (never cookies), so a wildcard origin without
+    credentials is safe. All other API routes keep the strict allowlist above.
+    """
+
+    def __init__(self, app):  # noqa: ANN001 - ASGI app
+        self.app = app
+        self.prefix = f"{settings.api_prefix}/livechat"
+
+    async def __call__(self, scope, receive, send):  # noqa: ANN001 - ASGI signature
+        if scope["type"] != "http" or not scope["path"].startswith(self.prefix):
+            await self.app(scope, receive, send)
+            return
+
+        cors_headers = [
+            (b"access-control-allow-origin", b"*"),
+            (b"access-control-allow-methods", b"GET, POST, PATCH, OPTIONS"),
+            (b"access-control-allow-headers", b"Authorization, Content-Type, X-Idempotency-Key"),
+            (b"access-control-max-age", b"600"),
+        ]
+
+        if scope["method"] == "OPTIONS":
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 204,
+                    "headers": cors_headers,
+                }
+            )
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        async def send_with_cors(message):  # noqa: ANN001
+            if message["type"] == "http.response.start":
+                headers = [
+                    (k, v)
+                    for k, v in message.get("headers", [])
+                    if not k.lower().startswith(b"access-control-")
+                ]
+                headers.extend(cors_headers)
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_cors)
+
+
+app.add_middleware(LivechatCorsMiddleware)
+
 api_prefix = settings.api_prefix
 app.include_router(gateway_router, prefix=api_prefix)
 app.include_router(health.router, prefix=api_prefix)
@@ -109,10 +159,8 @@ app.include_router(kb.router, prefix=api_prefix)
 app.include_router(channels.router, prefix=api_prefix)
 app.include_router(push.router, prefix=api_prefix)
 app.include_router(cockpit.router, prefix=api_prefix)
-app.include_router(settings_orchestra.router, prefix=api_prefix)
-app.include_router(orchestra_router, prefix=api_prefix)
+app.include_router(inbox_settings.router, prefix=api_prefix)
 app.include_router(triggers.router, prefix=api_prefix)
-app.include_router(widget.router, prefix=api_prefix)
 app.include_router(livechat.router, prefix=api_prefix)
 app.include_router(workspace.router, prefix=api_prefix)
 app.include_router(projects.router, prefix=api_prefix)
@@ -122,7 +170,6 @@ app.include_router(mcp.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
-app.include_router(tenant_secrets.router, prefix=api_prefix)
 app.include_router(models.router, prefix=api_prefix)
 app.include_router(models.staff_router, prefix=api_prefix)
 app.include_router(orchestration.router, prefix=api_prefix)

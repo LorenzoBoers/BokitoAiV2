@@ -29,14 +29,14 @@ export default function ResetPassword() {
     { password, passwordConfirmation },
     {
       password: [
-        ValidationRules.required('Wachtwoord'),
-        ValidationRules.minLength(8, 'Wachtwoord'),
+        ValidationRules.required('Password'),
+        ValidationRules.minLength(8, 'Password'),
       ],
       passwordConfirmation: [
-        ValidationRules.required('Wachtwoord bevestiging'),
+        ValidationRules.required('Password confirmation'),
         (value: string) => {
           if (value !== password) {
-            return 'Wachtwoorden komen niet overeen';
+            return 'Passwords do not match';
           }
           return null;
         },
@@ -61,7 +61,7 @@ export default function ResetPassword() {
         navigate('/login');
       }, 3000);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Er ging iets mis';
+      const message = err instanceof Error ? err.message : 'Something went wrong';
       setError(message);
     } finally {
       setIsLoading(false);
@@ -92,22 +92,22 @@ export default function ResetPassword() {
           <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
-              Wachtwoord gereset!
+              Password reset
             </h1>
             <p className="text-text-secondary mb-6">
-              Je wachtwoord is succesvol gewijzigd. Je wordt automatisch doorgestuurd naar de inlogpagina.
+              Your password has been changed. You will be redirected to the sign-in page.
             </p>
             
             <Link
               to="/login"
               className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
             >
-              Nu inloggen
+              Sign in now
             </Link>
           </div>
 
           <p className="text-center text-xs text-text-muted mt-6">
-            © {new Date().getFullYear()} Bokito.ai · Alle rechten voorbehouden
+            © {new Date().getFullYear()} Bokito.ai · All rights reserved
           </p>
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function ResetPassword() {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">Nieuw wachtwoord instellen</span>
+          <span className="text-sm text-text-secondary mt-1">Set a new password</span>
         </div>
 
         {/* Card */}
@@ -140,7 +140,7 @@ export default function ResetPassword() {
             {/* New Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Nieuw wachtwoord *
+                New password *
               </label>
               <div className="relative">
                 <input
@@ -149,7 +149,7 @@ export default function ResetPassword() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
-                  placeholder="Minimaal 8 karakters"
+                  placeholder="At least 8 characters"
                   autoFocus
                 />
                 <button
@@ -172,7 +172,7 @@ export default function ResetPassword() {
             {/* Confirm Password */}
             <div>
               <label htmlFor="passwordConfirmation" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Wachtwoord bevestigen *
+                Confirm password *
               </label>
               <div className="relative">
                 <input
@@ -181,7 +181,7 @@ export default function ResetPassword() {
                   value={passwordConfirmation}
                   onChange={(e) => setPasswordConfirmation(e.target.value)}
                   className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
-                  placeholder="Herhaal je nieuwe wachtwoord"
+                  placeholder="Repeat your new password"
                 />
                 <button
                   type="button"
@@ -223,13 +223,13 @@ export default function ResetPassword() {
               className="inline-flex items-center gap-2 text-sm text-accent hover:text-accent-hover transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Terug naar inloggen
+              Back to sign in
             </Link>
           </div>
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · Alle rechten voorbehouden
+          © {new Date().getFullYear()} Bokito.ai · All rights reserved
         </p>
       </div>
     </div>

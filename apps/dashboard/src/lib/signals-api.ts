@@ -1,5 +1,6 @@
 import { appRoutes } from '../api/routes/app.routes'
 import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { normalizeMyFeedback } from './inbox-api'
 import type {
   InboxEvent,
   InboxMember,
@@ -71,6 +72,7 @@ function normalizeSignalThread(row: unknown): InboxThread | null {
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),
     status,
+    snoozedUntil: asNullableTimestampString(raw.snoozed_until),
     priority,
     assignedToUserId:
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0
@@ -81,6 +83,9 @@ function normalizeSignalThread(row: unknown): InboxThread | null {
     hasUnread: Boolean(raw.has_unread),
     isPinned: Boolean(raw.is_pinned),
     aiPaused: Boolean(raw.ai_paused),
+    suggestedActions: Array.isArray(raw.suggested_actions)
+      ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
+      : [],
     channel: asString(raw.channel, 'email'),
     folder: asString(raw.folder, raw.channel === 'internal' ? 'internal' : 'external'),
     projectId: raw.project_id ? asString(raw.project_id) : null,
@@ -124,8 +129,35 @@ function normalizeSignalMessage(row: unknown): InboxMessage | null {
     attachments: Array.isArray(raw.attachments) ? raw.attachments : null,
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
+    myFeedback: normalizeMyFeedback(raw),
+    agentTrace: normalizeAgentTrace(raw),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asString(raw.created_at),
+  }
+}
+
+function normalizeAgentTrace(raw: Record<string, unknown>): InboxMessage['agentTrace'] {
+  const payload = raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : null
+  const fromPayload = payload?.agent_trace
+  const fromRoot = raw.agent_trace
+  const trace = (fromPayload && typeof fromPayload === 'object' ? fromPayload : null)
+    ?? (fromRoot && typeof fromRoot === 'object' ? fromRoot : null)
+  if (!trace || typeof trace !== 'object') return null
+  const t = trace as Record<string, unknown>
+  const usage =
+    t.usage && typeof t.usage === 'object'
+      ? (t.usage as { input_tokens?: number; output_tokens?: number })
+      : undefined
+  const steps = Array.isArray(t.steps) ? t.steps : undefined
+  const thinking =
+    t.thinking && typeof t.thinking === 'object'
+      ? (t.thinking as { text?: string; ms?: number; budget?: number })
+      : undefined
+  if (!usage && (!steps || steps.length === 0) && !thinking) return null
+  return {
+    usage,
+    steps: steps as NonNullable<InboxMessage['agentTrace']>['steps'],
+    thinking,
   }
 }
 
@@ -197,8 +229,70 @@ export async function patchSignalThread(
   if (patch.tags !== undefined) body.tags = patch.tags
   if (patch.priority !== undefined) body.priority = patch.priority
   if (patch.projectId !== undefined) body.project_id = patch.projectId
+  if (patch.snoozedUntil !== undefined) body.snoozed_until = patch.snoozedUntil
   const payload = await apiPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
   return normalizeSignalThread(payload)
+}
+
+export async function bulkUpdateSignalThreads(
+  token: string,
+  signalIds: string[],
+  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign',
+  assigneeId?: number,
+): Promise<number> {
+  const body: Record<string, unknown> = { signal_ids: signalIds, action }
+  if (assigneeId !== undefined) body.assignee_id = assigneeId
+  const payload = await apiPost<{ updated?: number }>(appRoutes.signals.bulk, body, token)
+  return typeof payload.updated === 'number' ? payload.updated : 0
+}
+
+// ---------------------------------------------------------------------------
+// Saved replies (canned responses for the composer)
+// ---------------------------------------------------------------------------
+
+export type SavedReplyRow = { id: string; title: string; bodyText: string }
+
+function normalizeSavedReply(row: unknown): SavedReplyRow | null {
+  if (!row || typeof row !== 'object') return null
+  const raw = row as Record<string, unknown>
+  const id = asString(raw.id)
+  if (!id) return null
+  return { id, title: asString(raw.title), bodyText: asString(raw.body_text) }
+}
+
+export async function listSavedReplies(token: string): Promise<SavedReplyRow[]> {
+  const payload = await apiGet<unknown>(appRoutes.signals.savedReplies, token)
+  const source = Array.isArray(payload) ? payload : []
+  return source.map(normalizeSavedReply).filter((r): r is SavedReplyRow => r !== null)
+}
+
+export async function createSavedReply(
+  token: string,
+  input: { title: string; bodyText: string },
+): Promise<SavedReplyRow | null> {
+  const payload = await apiPost<unknown>(
+    appRoutes.signals.savedReplies,
+    { title: input.title, body_text: input.bodyText },
+    token,
+  )
+  return normalizeSavedReply(payload)
+}
+
+export async function updateSavedReply(
+  token: string,
+  replyId: string,
+  input: { title: string; bodyText: string },
+): Promise<SavedReplyRow | null> {
+  const payload = await apiPatch<unknown>(
+    appRoutes.signals.savedReply(replyId),
+    { title: input.title, body_text: input.bodyText },
+    token,
+  )
+  return normalizeSavedReply(payload)
+}
+
+export async function deleteSavedReply(token: string, replyId: string): Promise<void> {
+  await apiDelete<unknown>(appRoutes.signals.savedReply(replyId), token)
 }
 
 export async function deleteSignalThread(token: string, threadId: string): Promise<void> {
@@ -240,6 +334,7 @@ export async function replyToSignalThread(
   }
   if (input.bodyHtml) body.body_html = input.bodyHtml
   if (input.attachments?.length) body.attachments = input.attachments
+  if (input.snoozeMinutes && input.snoozeMinutes > 0) body.snooze_minutes = input.snoozeMinutes
   const payload = await apiPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
   return normalizeSignalMessage(payload)
 }
@@ -278,17 +373,78 @@ export async function addNoteToSignalThread(
   return normalizeSignalMessage(payload)
 }
 
+export type InvokeAgentResult = {
+  output: 'note' | 'reply_suggestion'
+  message?: InboxMessage
+}
+
+/** Invoke an agent inline on a thread (@agent mention or explicit ask). */
+export async function invokeSignalAgent(
+  token: string,
+  threadId: string,
+  params: { agentId: string; instruction?: string; output?: 'note' | 'reply_suggestion' },
+): Promise<InvokeAgentResult> {
+  const payload = await apiPost<Record<string, unknown>>(
+    appRoutes.signals.threadInvokeAgent(threadId),
+    {
+      agent_id: params.agentId,
+      instruction: params.instruction ?? '',
+      output: params.output ?? 'note',
+    },
+    token,
+  )
+  const result: InvokeAgentResult = {
+    output: payload.output === 'reply_suggestion' ? 'reply_suggestion' : 'note',
+  }
+  if (payload.message) {
+    const message = normalizeSignalMessage(payload.message)
+    if (message) result.message = message
+  }
+  return result
+}
+
 export async function resolveSignalDecision(
   token: string,
   threadId: string,
   messageId: string,
   action: 'approve' | 'defer' | 'reject',
+  opts?: {
+    optionId?: string
+    body?: string
+    bodyHtml?: string
+    subject?: string
+    responseText?: string
+  },
 ): Promise<void> {
   const backendAction =
     action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'deferred'
+  const payload: Record<string, unknown> = { action: backendAction }
+  if (opts?.optionId) payload.option_id = opts.optionId
+  if (opts?.body != null) {
+    payload.body = opts.body
+    payload.body_text = opts.body
+  }
+  if (opts?.bodyHtml != null) payload.body_html = opts.bodyHtml
+  if (opts?.subject != null) payload.subject = opts.subject
+  if (opts?.responseText != null && opts.responseText.trim()) {
+    payload.response_text = opts.responseText.trim()
+  }
   await apiPost<unknown>(
     appRoutes.signals.messageResolve(threadId, messageId),
-    { action: backendAction },
+    payload,
+    token,
+  )
+}
+
+export async function submitMessageFeedback(
+  token: string,
+  messageId: string,
+  sentiment: 'up' | 'down',
+  comment = '',
+): Promise<void> {
+  await apiPost<unknown>(
+    appRoutes.signals.messageFeedback(messageId),
+    { sentiment, comment },
     token,
   )
 }
@@ -306,7 +462,7 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
         id,
         name: asString(raw.name, `User ${id}`),
         email: asString(raw.email),
-        avatarUrl: null,
+        avatarUrl: typeof raw.avatar_url === 'string' && raw.avatar_url ? raw.avatar_url : null,
       }
     })
     .filter((m): m is InboxMember => m !== null)

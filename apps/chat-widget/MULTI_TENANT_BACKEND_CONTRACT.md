@@ -10,10 +10,10 @@ Request body (new fields are optional):
 
 ```json
 {
-  "agent_slug": "demo",
+  "agent_slug": "assistant",
   "customer_id": "optional-existing-customer-id",
   "identity_token": "optional-jwt",
-  "tenant_subdomain": "optional-host-subdomain",
+  "tenant_subdomain": "explicit data-tenant or host-subdomain",
   "host_auth_token": "optional-host-cookie-token",
   "auth_mode": "anonymous|optional|required",
   "auth_cookie_name": "optional_cookie_name"
@@ -32,9 +32,7 @@ Response:
     "auth_mode": "required",
     "auth_cookie_name": "host_session",
     "auth_token_validation_url": "https://...",
-    "allow_registration": true,
-    "forgot_password_url": "https://...",
-    "registration_url": "https://...",
+    "login_url": "https://host-platform/signin",
     "mcp_servers": []
   },
   "user": {
@@ -62,23 +60,31 @@ Response:
 }
 ```
 
-## Widget login fallback
+## Sign-in handling
 
-- `POST /api/livechat/auth/login`
-  - Input: `{ email, password, agent_slug, session_token? }`
-  - Output: same shape as `session/start` (including `session_token`, `user`, `tenant`, `preferences`)
-- `POST /api/livechat/auth/logout`
-- `POST /api/livechat/auth/forgot-password`
-- `POST /api/livechat/auth/register`
+The widget never collects credentials; the host platform owns authentication. When `auth_mode` is `required` and no valid token is available, the widget shows a "Sign in required" panel linking to `agent_config.login_url` (or `data-signin-url`). Tokens arrive via `host_auth_token` (cookie), `data-auth-token`, or `window.BokitoConfig.getAuthToken`.
+
+## Conversations
+
+All conversation endpoints require `Authorization: Bearer <session_token>`. Ownership is enforced server-side: logged-in users see their own assistant threads; anonymous visitors see threads linked to the `customer_id` embedded in their session token.
+
+- `POST /api/livechat/conversation` — creates (or reuses) a widget thread. Returns a flat shape: `{ "conversation_id": "<id>", "id": "<id>", "session_token": "<token>" }`. The widget reads `conversation_id` (with `id` as fallback). For anonymous sessions the backend links the thread to the token's `customer_id` so history survives page reloads.
+- `GET /api/livechat/conversation/{id}` — basic thread info: `{ id, conversation_id, title, updated_at }`. 404 when the caller does not own the thread.
+- `GET /api/livechat/conversation/{id}/messages?per_page=100` — ordered messages: `{ items: [{ id, sender_type: "customer"|"ai", message_content, created_at, attachments }] }`.
+
+Timestamps are naive ISO strings in UTC (no `Z` suffix); the widget normalizes them before parsing.
 
 ## User scoped chat data
 
-- `GET /api/livechat/user/conversations?per_page=10`
+- `GET /api/livechat/user/conversations?per_page=10` (logged-in users)
+- `GET /api/livechat/customer/conversations?per_page=10` (anonymous visitors, keyed by `customer_id`)
 - `GET /api/livechat/user/preferences`
 - `PATCH /api/livechat/user/preferences`
   - Input: `{ "preferences": { ...partial_patch } }`
 
-If `user/*` endpoints are unavailable, the widget falls back to `customer/*` endpoints.
+## Attachments
+
+- `POST /api/livechat/attachment` — multipart `file` (images only, max 10MB), `Authorization: Bearer <session_token>`; returns `{ id, url, name, mime, size }`. Attachment refs (`{ id, url }`) are passed in the `attachments` array of `stream-chat`.
 
 ## Stream context contract
 

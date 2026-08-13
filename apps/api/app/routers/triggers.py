@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
+from app.middleware.rate_limit import rate_limit
 from app.models.channel import ChannelBinding
 from app.models.trigger import TRIGGER_KINDS, Trigger
 from app.services import triggers as svc
@@ -43,6 +44,7 @@ class TriggerCreateBody(BaseModel):
 
 class TriggerUpdateBody(BaseModel):
     name: str | None = None
+    kind: str | None = None
     cron_expr: str | None = None
     interval_minutes: int | None = None
     agent_id: UUID | None = None
@@ -130,6 +132,9 @@ async def update_trigger(
     trigger = await svc.get_trigger(session, auth.tenant.id, trigger_id)
     updates = body.model_dump(exclude_unset=True)
     run_at = _naive_utc(updates.pop("run_at", None))
+    new_kind = updates.get("kind")
+    if new_kind is not None and new_kind not in TRIGGER_KINDS:
+        raise HTTPException(status_code=400, detail=f"Invalid trigger kind: {new_kind}")
     for field, value in updates.items():
         setattr(trigger, field, value)
     if trigger.kind == "cron" and svc.next_cron_run(trigger.cron_expr, trigger.created_at) is None:
@@ -138,6 +143,9 @@ async def update_trigger(
         # One-shots keep their scheduled moment unless explicitly rescheduled.
         if run_at is not None:
             trigger.next_run_at = run_at
+        elif "kind" in updates:
+            # Kind changed into a one-shot without a new run_at — keep existing next_run_at if set.
+            pass
     else:
         trigger.next_run_at = svc.compute_next_run(trigger)
     session.add(trigger)
@@ -192,7 +200,7 @@ async def test_webhook(
     return await svc.test_webhook_trigger(session, auth.tenant.id, trigger_id)
 
 
-@router.post("/hooks/{trigger_id}")
+@router.post("/hooks/{trigger_id}", dependencies=[Depends(rate_limit("webhook-fire", limit=60))])
 async def webhook_fire(
     trigger_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],

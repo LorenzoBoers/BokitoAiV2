@@ -62,11 +62,17 @@ class Signal(SQLModel, table=True):
     contact_phone: str = ""
 
     status: str = Field(default="open", index=True)
+    # Snooze: while status is "pending" a wake time may be set; the scheduler
+    # reopens the thread (status -> open, unread) once it passes.
+    snoozed_until: Optional[datetime] = Field(default=None, index=True)
     priority: str = Field(default="normal", index=True)
     assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     tags_json: str = Field(default="[]")
     has_unread: bool = True
     ai_paused: bool = False
+    # Compact next-action chips set during AI inbound processing
+    # (subset of: close, assign, create_task).
+    suggested_actions_json: str = Field(default="[]")
 
     category: Optional[str] = Field(default=None, index=True)
     urgency: Optional[int] = None
@@ -81,6 +87,11 @@ class Signal(SQLModel, table=True):
     # LLM-eligible messages; durable facts are flushed to the memory doc first.
     compact_summary: str = ""
     compacted_count: int = 0
+
+    # Assistant conversations opened from a customer thread (Ask assistant):
+    # the referenced thread's transcript is injected into the LLM history each
+    # turn so answers stay grounded in the live thread.
+    context_signal_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -128,6 +139,20 @@ class SignalEvent(SQLModel, table=True):
     actor_id: str = ""
     payload_json: str = Field(default="{}")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SavedReply(SQLModel, table=True):
+    """Tenant-scoped canned response for the reply composer."""
+
+    __tablename__ = "saved_replies"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    title: str = ""
+    body_text: str = ""
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class SignalThreadPin(SQLModel, table=True):

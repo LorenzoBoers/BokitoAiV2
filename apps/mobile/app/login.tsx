@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +8,7 @@ import {
   View,
 } from 'react-native'
 import { router } from 'expo-router'
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller'
 import { useAuth } from '../src/context/AuthContext'
 import { colors, spacing } from '../src/theme'
 
@@ -35,9 +34,10 @@ export default function Login() {
   }
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
     >
       <View style={styles.card}>
         <Text style={styles.brand}>Bokito</Text>
@@ -73,7 +73,7 @@ export default function Login() {
           )}
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   )
 }
 
@@ -81,6 +81,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  content: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,

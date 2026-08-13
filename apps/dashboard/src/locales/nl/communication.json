@@ -10,5 +10,38 @@
     "all": "Alles",
     "unread": "Ongelezen",
     "pinned": "Gepind"
+  },
+  "onboarding": {
+    "title": "Maak je workspace klaar",
+    "subtitle": "Een paar stappen en Bokito draait op de kennis van jouw organisatie.",
+    "progress": "{{done}} van {{total}} afgerond",
+    "dismiss": "Checklist verbergen",
+    "steps": {
+      "email": {
+        "title": "Koppel Outlook of Gmail",
+        "description": "Verbind je mailbox zodat klantmail in je inbox landt en agents kunnen helpen met antwoorden.",
+        "cta": "Koppel mailbox"
+      },
+      "company": {
+        "title": "Vertel over je bedrijf",
+        "description": "Beschrijf wat je organisatie doet zodat agents in jouw context antwoorden.",
+        "cta": "Open bedrijfsinstellingen"
+      },
+      "assistant": {
+        "title": "Chat met je assistent",
+        "description": "Vraag alles over je workspace; hij kent je agents en instellingen.",
+        "cta": "Open assistent"
+      },
+      "channel": {
+        "title": "Koppel een kanaal",
+        "description": "Voeg live chat, Slack of een ander kanaal toe naast e-mail.",
+        "cta": "Open kanalen"
+      },
+      "team": {
+        "title": "Nodig je team uit",
+        "description": "Voeg teamleden toe zodat beslissingen en threads de juiste mensen bereiken.",
+        "cta": "Leden uitnodigen"
+      }
+    }
   }
 }

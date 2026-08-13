@@ -63,7 +63,7 @@ export function McpServerSetupTab() {
             The MCP URL must be reachable from the Bokito API server (Docker internal hostnames are fine).
           </p>
           <Link
-            to="/integrations/docs"
+            to="/settings/integrations"
             className="text-xs text-accent hover:underline mt-2 inline-block"
           >
             {t('integrations.mcp.servers.docsLink')}

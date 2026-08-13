@@ -8,21 +8,21 @@ import ControlPlaneRoute from './components/auth/ControlPlaneRoute'
 import { useWorkspace } from './context/WorkspaceContext'
 import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
-import { ASSISTENT_DEFAULT_PATH } from './lib/assistent-settings-path'
+import { ASSISTANT_DEFAULT_PATH } from './lib/assistant-settings-path'
 
 // Public pages
 import Login from './pages/Login'
+import Signup from './pages/Signup'
 import ForgotPassword from './pages/ForgotPassword'
+import AcceptInvite from './pages/AcceptInvite'
 import ResetPassword from './pages/ResetPassword'
 import VerifyEmail from './pages/VerifyEmail'
-import Onboarding from './pages/Onboarding'
-
 // Chat (default surface)
 import NewConversationPage from './pages/NewConversationPage'
 import { agentChatPath, agentRunsPath, assistantPath, channelPath, inboxPath } from './lib/messages-paths'
 
 // Control
-import OverviewPage from './pages/OverviewPage'
+import CockpitPage from './pages/CockpitPage'
 import ContactsPage from './pages/ContactsPage'
 import Communication from './pages/Communication'
 import DirectCommunication from './pages/DirectCommunication'
@@ -33,7 +33,6 @@ import UsagePage from './pages/UsagePage'
 // Agent
 import AiAgents from './pages/AiAgents'
 import AiAgentDetail from './pages/AiAgentDetail'
-import SkillsPage from './pages/SkillsPage'
 import WorkspaceDocs from './pages/WorkspaceDocs'
 
 // Settings sections
@@ -57,9 +56,7 @@ import GovernPage from './pages/GovernPage'
 
 // Control plane hub
 import Workspaces from './pages/Workspaces'
-import WorkspaceBilling from './pages/WorkspaceBilling'
 import WorkspaceAccount from './pages/WorkspaceAccount'
-import WorkspaceSupport from './pages/WorkspaceSupport'
 
 function HomeRoute() {
   const { workspaceLoading, workspaces } = useWorkspace()
@@ -84,6 +81,18 @@ function HomeRoute() {
       <Workspaces />
     </WorkspaceHubLayout>
   )
+}
+
+/** `/workspace/:docId` → `/knowledge/:docId`. */
+function LegacyWorkspaceDocRedirect() {
+  const { docId } = useParams<{ docId: string }>()
+  return <Navigate to={`/knowledge/${docId ?? ''}`} replace />
+}
+
+/** Preserve query string on simple path redirects (OAuth callbacks, hub filters). */
+function RedirectPreserveSearch({ to }: { to: string }) {
+  const location = useLocation()
+  return <Navigate to={`${to}${location.search}`} replace />
 }
 
 /** `/c/:conversationId` → `/communication/assistant/t/:conversationId`. */
@@ -185,19 +194,18 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/onboarding" element={<Onboarding />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<HomeRoute />} />
 
         <Route element={<ControlPlaneRoute />}>
           <Route element={<WorkspaceHubLayout />}>
-            <Route path="/billing" element={<WorkspaceBilling />} />
             <Route path="/account" element={<WorkspaceAccount />} />
-            <Route path="/support" element={<WorkspaceSupport />} />
             <Route path="/workspaces" element={<Workspaces />} />
           </Route>
         </Route>
@@ -230,12 +238,6 @@ export default function App() {
             <Route path="/communication/channel/:channelKey" element={<Communication />} />
             <Route path="/communication/channel/:channelKey/t/:threadId" element={<Communication />} />
 
-            {/* Views + labels (presets) */}
-            <Route path="/communication/view/:viewKey" element={<Communication />} />
-            <Route path="/communication/view/:viewKey/t/:threadId" element={<Communication />} />
-            <Route path="/communication/label/:labelKey" element={<Communication />} />
-            <Route path="/communication/label/:labelKey/t/:threadId" element={<Communication />} />
-
             {/* Legacy hub routes */}
             <Route path="/communication/chat" element={<LegacyChatRedirect />} />
             <Route path="/communication/chat/:conversationId" element={<LegacyChatRedirect />} />
@@ -255,22 +257,21 @@ export default function App() {
           </Route>
 
           {/* Control */}
-          <Route path="/overview" element={<OverviewPage />} />
+          <Route path="/cockpit" element={<CockpitPage />} />
+          <Route path="/cockpit/activity" element={<ActivityPage />} />
+          <Route path="/cockpit/usage" element={<UsagePage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
-          <Route path="/activity" element={<ActivityPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/integrations/setup" element={<IntegrationSetupPage />} />
           <Route path="/triggers" element={<Navigate to="/agenda" replace />} />
-          <Route path="/usage" element={<UsagePage />} />
 
           {/* Agent */}
           <Route path="/agents" element={<AiAgents />} />
           <Route path="/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
-          <Route path="/skills" element={<SkillsPage />} />
-          <Route path="/workspace" element={<WorkspaceDocs />} />
-          <Route path="/workspace/:docId" element={<WorkspaceDocs />} />
+          <Route path="/knowledge" element={<WorkspaceDocs />} />
+          <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
 
           {/* Settings */}
           <Route element={<SettingsLayout />}>
@@ -278,11 +279,11 @@ export default function App() {
             <Route path="/settings/profile" element={<ProfileSettings />} />
             <Route path="/settings/assistant" element={<MyAssistantSettings />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />
-            <Route path="/settings/access-security" element={<ProfileSettings />} />
+            <Route path="/settings/access-security" element={<Navigate to="/settings/profile" replace />} />
             <Route path="/settings/general" element={<WorkspaceSettings />} />
             <Route path="/settings/branding" element={<CompanyConfig />} />
             <Route path="/settings/members" element={<MemberManagement />} />
-            <Route path="/settings/teams" element={<MemberManagement />} />
+            <Route path="/settings/teams" element={<Navigate to="/settings/members" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
             <Route path="/settings/help-centers" element={<HelpCentersSettings />} />
@@ -292,12 +293,20 @@ export default function App() {
             <Route path="/settings/autonomy" element={<GovernPage />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/projects" element={<ProjectsSettings />} />
-            <Route path="/ai/assistent" element={<Navigate to={ASSISTENT_DEFAULT_PATH} replace />} />
-            <Route path="/ai/assistent/:audience/:section" element={<MessengerSettings />} />
+            <Route path="/ai/assistant" element={<Navigate to={ASSISTANT_DEFAULT_PATH} replace />} />
+            <Route path="/ai/assistant/:audience/:section" element={<MessengerSettings />} />
+            {/* Legacy Dutch route name */}
+            <Route path="/ai/assistent/*" element={<Navigate to={ASSISTANT_DEFAULT_PATH} replace />} />
           </Route>
 
           {/* Legacy redirects */}
-          <Route path="/home" element={<Navigate to="/overview" replace />} />
+          <Route path="/home" element={<Navigate to="/cockpit" replace />} />
+          <Route path="/overview" element={<Navigate to="/cockpit" replace />} />
+          <Route path="/activity" element={<Navigate to="/cockpit/activity" replace />} />
+          <Route path="/usage" element={<Navigate to="/cockpit/usage" replace />} />
+          <Route path="/skills" element={<Navigate to="/knowledge" replace />} />
+          <Route path="/workspace" element={<Navigate to="/knowledge" replace />} />
+          <Route path="/workspace/:docId" element={<LegacyWorkspaceDocRedirect />} />
           <Route path="/chat" element={<Navigate to={assistantPath()} replace />} />
           <Route path="/c/:conversationId" element={<LegacyConversationRedirect />} />
           <Route path="/sessions" element={<Navigate to={assistantPath()} replace />} />
@@ -305,22 +314,22 @@ export default function App() {
           <Route path="/messages" element={<LegacyMessagesRedirect />} />
           <Route path="/inbox/*" element={<LegacyInboxRedirect />} />
           <Route path="/inbox" element={<LegacyInboxRedirect />} />
-          <Route path="/govern" element={<Navigate to="/settings/autonomy" replace />} />
+          <Route path="/govern" element={<RedirectPreserveSearch to="/settings/autonomy" />} />
           <Route path="/automations" element={<Navigate to="/agenda" replace />} />
           <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
-          <Route path="/integrations" element={<Navigate to="/settings/integrations" replace />} />
-          <Route path="/integrations/connected" element={<Navigate to="/settings/integrations" replace />} />
-          <Route path="/integrations/marketplace" element={<Navigate to="/settings/marketplace" replace />} />
-          <Route path="/integrations/mcp" element={<Navigate to="/settings/mcp" replace />} />
-          <Route path="/integrations/docs" element={<Navigate to="/settings/integrations" replace />} />
-          <Route path="/integrations/api" element={<Navigate to="/settings/integrations" replace />} />
+          <Route path="/integrations" element={<RedirectPreserveSearch to="/settings/integrations" />} />
+          <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/settings/integrations" />} />
+          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/settings/marketplace" />} />
+          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
+          <Route path="/integrations/docs" element={<RedirectPreserveSearch to="/settings/integrations" />} />
+          <Route path="/integrations/api" element={<RedirectPreserveSearch to="/settings/integrations" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
           <Route path="/ai/communicatie" element={<Navigate to="/settings/communication" replace />} />
           <Route path="/os" element={<Navigate to="/agents" replace />} />
           <Route path="/os/agents" element={<Navigate to="/agents" replace />} />
-          <Route path="/os/docs" element={<Navigate to="/workspace" replace />} />
-          <Route path="/os/docs/:docId" element={<Navigate to="/workspace" replace />} />
+          <Route path="/os/docs" element={<Navigate to="/knowledge" replace />} />
+          <Route path="/os/docs/:docId" element={<Navigate to="/knowledge" replace />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

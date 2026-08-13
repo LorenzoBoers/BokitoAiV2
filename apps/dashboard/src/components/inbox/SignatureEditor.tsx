@@ -67,7 +67,7 @@ export default function SignatureEditor({
   const defaultTemplates = [
     {
       name: 'Standard business',
-      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: +31 20 123 4567</p>`
+      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: {{phone}}</p>`
     },
     {
       name: 'Short',
@@ -207,12 +207,12 @@ export default function SignatureEditor({
                   <div 
                     dangerouslySetInnerHTML={{ 
                       __html: signature
-                        .replace(/\{\{name\}\}/g, 'Jan Jansen')
-                        .replace(/\{\{company\}\}/g, 'VBA Accountancy')
-                        .replace(/\{\{function\}\}/g, 'Senior Accountant')
-                        .replace(/\{\{address\}\}/g, 'Hoofdstraat 123, 1234 AB Amsterdam')
-                        .replace(/\{\{phone\}\}/g, '+31 20 123 4567')
-                        .replace(/\{\{website\}\}/g, 'www.vba-accountancy.nl')
+                        .replace(/\{\{name\}\}/g, 'Jane Doe')
+                        .replace(/\{\{company\}\}/g, 'Acme Inc.')
+                        .replace(/\{\{function\}\}/g, 'Support Lead')
+                        .replace(/\{\{address\}\}/g, '123 Main Street, Springfield')
+                        .replace(/\{\{phone\}\}/g, '+1 555 0100')
+                        .replace(/\{\{website\}\}/g, 'www.example.com')
                     }} 
                   />
                 </div>

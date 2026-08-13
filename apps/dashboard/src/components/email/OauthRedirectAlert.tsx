@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils'
 
 type OauthRedirectAlertProps = {
   variant: 'success' | 'error'
-  /** Optional headline, e.g. "Outlook koppelen mislukt" */
+  /** Optional headline, e.g. "Failed to connect Outlook" */
   title?: string
   /** Main explanation (short) */
   children: ReactNode
@@ -47,7 +47,7 @@ export function OauthRedirectAlert({
           {!isSuccess && technicalDetail ? (
             <details className="text-text-secondary" open>
               <summary className="cursor-pointer select-none text-2xs underline underline-offset-2 hover:opacity-90">
-                Technische details (van provider)
+                Technical details (from provider)
               </summary>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-border/60 bg-bg-elevated/90 p-2 font-mono text-2xs text-text-primary">
                 {technicalDetail}
@@ -56,7 +56,7 @@ export function OauthRedirectAlert({
           ) : null}
           {!isSuccess && !technicalDetail && import.meta.env.DEV ? (
             <p className="text-2xs text-text-muted">
-              Ontbrekende technische details: laat de Outlook-callback bij fout de Microsoft-respons (error / error_description) als query-parameter meesturen (bijv. aad_detail), dan verschijnt die hier.
+              Missing technical details: have the Outlook callback forward the Microsoft response (error / error_description) as a query parameter (for example aad_detail) on failure, and it will appear here.
             </p>
           ) : null}
         </div>
@@ -65,7 +65,7 @@ export function OauthRedirectAlert({
           className="ml-auto shrink-0 self-start underline opacity-90 hover:opacity-100 sm:ml-0"
           onClick={onDismiss}
         >
-          Sluiten
+          Close
         </button>
       </div>
     </div>

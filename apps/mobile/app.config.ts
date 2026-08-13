@@ -33,6 +33,7 @@ const config: ExpoConfig = {
     ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
   },
   plugins: [
+    'expo-dev-client',
     'expo-router',
     'expo-secure-store',
     [

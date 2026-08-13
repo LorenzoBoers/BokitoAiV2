@@ -5,7 +5,7 @@ Monorepo for the Bokito portal (React dashboard), embeddable chat widget, and Fa
 ## Layout
 
 - `apps/dashboard` — portal (Vite + React). Build output: `apps/dashboard/dist/`.
-- `apps/chat-widget` — embeddable livechat widget (TypeScript + Vite). Run `npm run build` to produce `dist/bokito-chat.js` (IIFE) plus copied `public/` assets. The dashboard dev server serves `/chat-widget/internal/*` and `/chat-widget/external/*` from that build output.
+- `apps/chat-widget` — embeddable livechat widget (TypeScript + Vite). Run `npm run build` to produce `dist/bokito-chat.js` (IIFE) plus copied `public/` assets. The dashboard dev server serves `/chat-widget/*` from that build output.
 - `apps/api` — FastAPI backend (auth, signals, workforce, livechat, govern, orchestration).
 
 ## Local development
@@ -55,10 +55,9 @@ Human onboarding: `apps/dashboard/docs/API.md`.
 
 ## Public embed URL
 
-After building the widget, bundles are served from the same origin as the portal:
+After building the widget, the bundle is served from the same origin as the portal:
 
-- `/chat-widget/internal/bokito-chat.js` — team widget (logged-in users; `data-auth-mode` typically `optional` or `required`)
-- `/chat-widget/external/bokito-chat.js` — public widget (anonymous visitors)
+- `/chat-widget/bokito-chat.js` — one bundle for both audiences; the embed snippet sets `data-auth-mode="anonymous"` (site visitors) or `"required"` (logged-in platform users) plus `data-tenant`
 
 Livechat API: `/api/livechat/*` (`session/start`, `stream-chat`, theme from workspace branding).
 

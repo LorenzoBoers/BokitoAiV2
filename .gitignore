@@ -70,3 +70,4 @@ widget-wink-build.zip
 
 # Local upload storage (dev)
 data/uploads/
+apps/api/data/uploads/

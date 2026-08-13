@@ -15,7 +15,11 @@ from app.services.workspaces_portal import (
     list_invites,
     list_members,
     list_workspaces,
+    onboarding_status,
+    remove_member,
     resolve_tenant_for_workspace,
+    revoke_invite,
+    update_member_role,
     update_workspace,
 )
 
@@ -42,6 +46,14 @@ class WorkspaceInviteBody(BaseModel):
     workspace_id: str | int
     email: EmailStr
     role: str = "member"
+
+
+@router.get("/onboarding")
+async def get_onboarding_status(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await onboarding_status(session, auth.tenant.id)
 
 
 @router.get("/workspaces")
@@ -121,6 +133,82 @@ async def get_workspace_invites(
     )
     auth.require_role("owner", "admin")
     return await list_invites(session, tenant.id, auth.user)
+
+
+class MemberRolePatchBody(BaseModel):
+    role: str
+
+
+@router.patch("/workspaces/{workspace_id}/members/{member_id}")
+async def patch_workspace_member(
+    workspace_id: str,
+    member_id: str,
+    body: MemberRolePatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant, _role = await resolve_tenant_for_workspace(
+        session, workspace_id, auth.user, is_staff=auth.is_staff
+    )
+    auth.require_role("owner", "admin")
+    if body.role == "owner":
+        # Only an owner can promote someone to owner.
+        auth.require_role("owner")
+    updated = await update_member_role(session, tenant.id, member_id, body.role)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant.id,
+        action="user:role_changed",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="membership",
+        resource_id=member_id,
+        payload={"role": body.role},
+    )
+    return updated
+
+
+@router.delete("/workspaces/{workspace_id}/members/{member_id}")
+async def delete_workspace_member(
+    workspace_id: str,
+    member_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant, _role = await resolve_tenant_for_workspace(
+        session, workspace_id, auth.user, is_staff=auth.is_staff
+    )
+    auth.require_role("owner", "admin")
+    await remove_member(session, tenant.id, member_id, acting_user=auth.user)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant.id,
+        action="user:member_removed",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="membership",
+        resource_id=member_id,
+    )
+    return {"ok": True}
+
+
+@router.delete("/workspaces/{workspace_id}/invites/{invite_id}")
+async def delete_workspace_invite(
+    workspace_id: str,
+    invite_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant, _role = await resolve_tenant_for_workspace(
+        session, workspace_id, auth.user, is_staff=auth.is_staff
+    )
+    auth.require_role("owner", "admin")
+    await revoke_invite(session, tenant.id, invite_id)
+    return {"ok": True}
 
 
 @router.post("/workspace-invites")

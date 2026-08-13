@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import ContentHeader from './ContentHeader'
-import { ASSISTENT_DEFAULT_PATH } from '../../lib/assistent-settings-path'
+import { ASSISTANT_DEFAULT_PATH } from '../../lib/assistant-settings-path'
 
 type SettingsLink = { label: string; to: string; match?: string }
 type SettingsGroup = { label: string; links: SettingsLink[] }
@@ -9,10 +9,9 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     label: 'Personal',
     links: [
-      { label: 'Profile', to: '/settings/profile' },
+      { label: 'Profile & security', to: '/settings/profile' },
       { label: 'My assistant', to: '/settings/assistant' },
       { label: 'Notifications', to: '/settings/notifications' },
-      { label: 'Access & security', to: '/settings/access-security' },
     ],
   },
   {
@@ -21,16 +20,17 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { label: 'General', to: '/settings/general' },
       { label: 'Projects', to: '/settings/projects' },
       { label: 'Branding', to: '/settings/branding' },
-      { label: 'Members & teams', to: '/settings/members' },
+      { label: 'Members', to: '/settings/members' },
     ],
   },
   {
     label: 'Channels',
     links: [
       { label: 'Email & messages', to: '/settings/channels' },
-      { label: 'Assistant widget', to: ASSISTENT_DEFAULT_PATH, match: '/ai/assistent' },
+      { label: 'Assistant widget', to: ASSISTANT_DEFAULT_PATH, match: '/ai/assistant' },
       { label: 'Communication agent', to: '/settings/communication', match: '/settings/communication' },
-      { label: 'Knowledge base', to: '/settings/help-centers' },
+      { label: 'Knowledge', to: '/knowledge' },
+      { label: 'Document index', to: '/settings/help-centers' },
     ],
   },
   {

@@ -234,32 +234,9 @@ export interface BulkAction {
   value?: unknown;
 }
 
-export const FIELD_TYPE_META: Record<FieldType, { label: string; icon: string; description: string }> = {
-  text:         { label: 'Tekst',        icon: 'Type',         description: 'Enkele regel tekst' },
-  long_text:    { label: 'Lange tekst',  icon: 'AlignLeft',    description: 'Meerdere regels tekst' },
-  number:       { label: 'Nummer',       icon: 'Hash',         description: 'Geheel getal of decimaal' },
-  boolean:      { label: 'Checkbox',     icon: 'CheckSquare',  description: 'Aan/uit schakelaar' },
-  date:         { label: 'Datum',        icon: 'Calendar',     description: 'Datum zonder tijd' },
-  datetime:     { label: 'Datum & Tijd', icon: 'Clock',        description: 'Datum met tijd' },
-  email:        { label: 'E-mail',       icon: 'Mail',         description: 'E-mailadres' },
-  url:          { label: 'URL',          icon: 'Link',         description: 'Webadres' },
-  phone:        { label: 'Telefoon',     icon: 'Phone',        description: 'Telefoonnummer' },
-  select:       { label: 'Select',       icon: 'List',         description: 'Keuze uit opties' },
-  multi_select: { label: 'Multi-select', icon: 'ListChecks',   description: 'Meerdere opties kiezen' },
-  file:         { label: 'Bestand',      icon: 'File',         description: 'Bestand uploaden' },
-  attachment:   { label: 'Bijlage',      icon: 'Paperclip',    description: 'Bestanden uploaden' },
-  currency:     { label: 'Valuta',       icon: 'DollarSign',   description: 'Geldbedrag' },
-  rating:       { label: 'Beoordeling',  icon: 'Star',         description: 'Sterren-beoordeling' },
-  relation:     { label: 'Relatie',      icon: 'Link2',        description: 'Link naar andere tabel' },
-  lookup:       { label: 'Opzoeken',     icon: 'Search',       description: 'Waarde uit gerelateerde tabel' },
-  formula:      { label: 'Formule',      icon: 'Calculator',   description: 'Berekend veld' },
-  json:         { label: 'JSON',         icon: 'Braces',       description: 'Gestructureerde data' },
-  created_at:   { label: 'Aangemaakt op', icon: 'Calendar',    description: 'Automatische aanmaakdatum' },
-  updated_at:   { label: 'Bijgewerkt op', icon: 'Clock',       description: 'Automatische wijzigingsdatum' },
-};
-
-// Role-based access control types
-export const USER_ROLES = ['owner', 'admin', 'editor', 'viewer'] as const;
+// Role-based access control types. Canonical workspace roles mirror the
+// backend membership roles: owner | admin | member.
+export const USER_ROLES = ['owner', 'admin', 'member'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const PERMISSION_ACTIONS = [
@@ -487,20 +464,6 @@ export interface SemanticSearchResult {
   record_id: number;
   score: number;
   highlights?: Record<string, string>;
-}
-
-// Onboarding wizard (legacy flow; types kept for compile)
-export interface OnboardingStep1Data {
-  workspace_name: string;
-  timezone: string;
-}
-
-export interface OnboardingStep2Data {
-  first_surface: 'channel' | 'project' | 'skip'
-}
-
-export interface OnboardingStep3Data {
-  invites: Array<{ email: string; role: 'admin' | 'member' | 'viewer' }>;
 }
 
 // Magic table config

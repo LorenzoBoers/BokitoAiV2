@@ -9,6 +9,8 @@ import { listAgents } from '../lib/agents-api'
 import { listMcpIntegrationRows } from '../lib/mcp-integrations'
 import { listProjects } from '../lib/projects-api'
 import { listTriggers } from '../lib/orchestration-api'
+import { listThreads } from '../lib/inbox-api'
+import { useAuth } from '../context/AuthContext'
 
 type Step = {
   id: string
@@ -19,20 +21,25 @@ type Step = {
 }
 
 export default function IntegrationSetupPage() {
+  const { token } = useAuth()
   const [loading, setLoading] = useState(true)
   const [steps, setSteps] = useState<Step[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [agents, mcpRows, projects, triggers] = await Promise.all([
+      const [agents, mcpRows, projects, triggers, threads] = await Promise.all([
         listAgents().catch(() => []),
         listMcpIntegrationRows().catch(() => []),
         listProjects().catch(() => []),
         listTriggers().catch(() => []),
+        token
+          ? listThreads(token, { perPage: 50 }).catch(() => ({ items: [] as Awaited<ReturnType<typeof listThreads>>['items'] }))
+          : Promise.resolve({ items: [] as Awaited<ReturnType<typeof listThreads>>['items'] }),
       ])
       const webhookTriggers = triggers.filter((t) => t.kind === 'webhook')
       const projectWithPo = projects.some((p) => Boolean(p.po_agent_id))
+      const linkedThread = threads.items.some((t) => Boolean(t.projectId))
 
       setSteps([
         {
@@ -67,8 +74,8 @@ export default function IntegrationSetupPage() {
           id: 'thread',
           title: 'Link a thread to the project',
           description: 'Open an internal thread and assign it to the project from the agent context panel.',
-          href: '/messages/internal',
-          done: false,
+          href: '/communication/runs/all',
+          done: linkedThread,
         },
         {
           id: 'test',
@@ -81,7 +88,7 @@ export default function IntegrationSetupPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [token])
 
   useEffect(() => {
     void load()

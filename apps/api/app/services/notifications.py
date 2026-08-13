@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -22,6 +23,7 @@ async def resolve_decision(
     *,
     user_id: UUID | None = None,
     always_auto: bool = False,
+    payload_override: dict[str, Any] | None = None,
 ) -> DecisionRequest:
     result = await session.execute(
         select(DecisionRequest).where(
@@ -47,9 +49,23 @@ async def resolve_decision(
         if notification:
             notification.status = "read"
 
+    action_type = ""
     if action == "approved" and chosen:
         action_type = chosen.get("action_type", "")
         payload = chosen.get("payload") or {}
+        if not isinstance(payload, dict):
+            payload = {}
+        else:
+            payload = dict(payload)
+        if payload_override:
+            for key, value in payload_override.items():
+                if value is not None:
+                    payload[key] = value
+                    if key == "body":
+                        payload.setdefault("body_text", value)
+                    if key == "body_text":
+                        payload.setdefault("body", value)
+
         if always_auto and user_id and action_type:
             await set_tool_override(session, tenant_id, action_type, "allow")
 
@@ -69,18 +85,23 @@ async def resolve_decision(
         elif action_type and action_type not in (
             "reject",
             "defer",
+            "draft",
+            "escalate",
             "setup_integration",
             "accept_platform_change",
             "orchestration_continue",
         ):
             from app.tools import execute_tool
 
+            if decision.signal_id and "signal_id" not in payload:
+                payload["signal_id"] = str(decision.signal_id)
+
             tool_result = await execute_tool(
                 session,
                 tenant_id,
                 user_id,
                 action_type,
-                payload if isinstance(payload, dict) else {},
+                payload,
                 signal_id=decision.signal_id,
                 approved=True,
             )
@@ -98,28 +119,54 @@ async def resolve_decision(
                 after=tool_result if isinstance(tool_result, dict) else None,
             )
 
-        # Continue thread when decision was inline in a signal thread
-        if decision.signal_id:
-            follow_up = SignalMessage(
-                signal_id=decision.signal_id,
+    # Resolution is reflected on the decision itself (status + chosen option) and
+    # via the `decision_{action}` SignalEvent written by the resolve endpoint; no
+    # extra chat message is appended here to keep threads free of noise.
+
+    # Escalate (reject + escalate option, or approved escalate): pause AI and leave a system note.
+    escalate_chosen = chosen and (
+        chosen.get("id") == "escalate" or chosen.get("action_type") == "escalate"
+    )
+    if decision.signal_id and escalate_chosen and action in ("approved", "rejected"):
+        sig_result = await session.execute(select(Signal).where(Signal.id == decision.signal_id))
+        signal = sig_result.scalar_one_or_none()
+        if signal:
+            signal.ai_paused = True
+            signal.updated_at = datetime.utcnow()
+            if user_id and not signal.assigned_user_id:
+                signal.assigned_user_id = user_id
+            from app.models.signal import SignalEvent
+
+            session.add(
+                SignalEvent(
+                    signal_id=signal.id,
+                    tenant_id=tenant_id,
+                    event_type="escalated",
+                    actor_type="user" if user_id else "system",
+                    actor_id=str(user_id) if user_id else "",
+                    payload_json=json.dumps(
+                        {
+                            "decision_id": str(decision.id),
+                            "option_id": option_id,
+                            "ai_paused": True,
+                        }
+                    ),
+                )
+            )
+            escalate_msg = SignalMessage(
+                signal_id=signal.id,
                 tenant_id=tenant_id,
-                kind="agent_message",
-                direction="outbound",
-                role="assistant",
-                body_text=f"Decision resolved: {chosen.get('label', option_id)}. Continuing with the approved action.",
-                body_preview=f"Decision resolved: {chosen.get('label', option_id)}"[:200],
-                metadata_json=json.dumps({"decision_id": str(decision.id), "option_id": option_id}),
+                kind="system_event",
+                direction="internal",
+                role="system",
+                body_text="Escalated to a human. AI suggestions are paused on this thread.",
+                body_preview="Escalated to a human",
+                metadata_json=json.dumps({"decision_id": str(decision.id)}),
             )
-            session.add(follow_up)
-            sig_result = await session.execute(
-                select(Signal).where(Signal.id == decision.signal_id)
-            )
-            signal = sig_result.scalar_one_or_none()
-            if signal:
-                signal.last_message_at = datetime.utcnow()
-                signal.updated_at = datetime.utcnow()
-                await session.flush()
-                await publish_signal_message(signal, follow_up)
+            session.add(escalate_msg)
+            signal.last_message_at = datetime.utcnow()
+            await session.flush()
+            await publish_signal_message(signal, escalate_msg)
 
     await session.commit()
     await session.refresh(decision)

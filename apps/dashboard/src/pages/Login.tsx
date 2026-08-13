@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { appendDevLocalhostCrossHostAccessHash, needsDevLocalhostCrossHostHandoff, sanitizeCrossHostReturnTo } from '../lib/host-routing';
 import { APP_VERSION } from '../lib/app-version';
+import { startMicrosoftSso } from '../lib/api';
+import { MicrosoftSignInButton, describeSsoError } from '../components/auth/MicrosoftSignInButton';
 
 function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
   if (!rawReturnTo) return '/';
@@ -26,8 +28,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSsoLoading, setIsSsoLoading] = useState(false);
   const rawReturnTo = searchParams.get('return_to');
   const absoluteReturnTo = sanitizeCrossHostReturnTo(rawReturnTo);
+  const ssoError = searchParams.get('sso_error');
+
+  useEffect(() => {
+    if (ssoError) setError(describeSsoError(ssoError));
+  }, [ssoError]);
 
   function resolvePostLoginTarget(): string {
     if (absoluteReturnTo) return absoluteReturnTo;
@@ -54,6 +62,24 @@ export default function Login() {
 
     return () => window.clearTimeout(schedule);
   }, [authLoading, user, token, rawReturnTo]);
+
+  async function handleMicrosoftSignIn() {
+    setError('');
+    setIsSsoLoading(true);
+    try {
+      const returnUrl = `${window.location.origin}/login`;
+      const { authorize_url } = await startMicrosoftSso(returnUrl);
+      window.location.assign(authorize_url);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      setError(
+        message.includes('503') || message.toLowerCase().includes('not configured')
+          ? 'Microsoft sign-in is not configured on this server.'
+          : 'Could not start Microsoft sign-in. Please try again.'
+      );
+      setIsSsoLoading(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -169,13 +195,29 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Forgot Password */}
-          <div className="mt-4 text-center">
+          {/* SSO */}
+          <div className="mt-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-text-muted">or</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            <MicrosoftSignInButton onClick={() => void handleMicrosoftSignIn()} isLoading={isSsoLoading} />
+          </div>
+
+          {/* Forgot Password / Signup */}
+          <div className="mt-4 flex items-center justify-between text-sm">
             <Link
               to="/forgot-password"
-              className="text-sm text-accent hover:text-accent-hover transition-colors"
+              className="text-accent hover:text-accent-hover transition-colors"
             >
               Forgot password?
+            </Link>
+            <Link
+              to="/signup"
+              className="text-accent hover:text-accent-hover transition-colors"
+            >
+              Create account
             </Link>
           </div>
         </div>

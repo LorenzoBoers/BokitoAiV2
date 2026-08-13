@@ -108,7 +108,7 @@ export default function IntegrationsConnected() {
   const hasAnyConnection = counts.all > 0
 
   async function addGithubAccount() {
-    const returnUrl = `${window.location.origin}/integrations/connected`
+    const returnUrl = `${window.location.origin}/settings/integrations`
     const { authorize_url } = await startGithubOAuth(returnUrl)
     window.location.href = authorize_url
   }
@@ -196,7 +196,7 @@ export default function IntegrationsConnected() {
           description={t('integrations.connected.emptyAllDescription')}
           action={
             <Button size="sm" asChild>
-              <Link to="/integrations/marketplace">
+              <Link to="/settings/marketplace">
                 {t('integrations.connected.goToMarketplace')}
               </Link>
             </Button>
@@ -256,7 +256,7 @@ export default function IntegrationsConnected() {
                     </div>
                   </div>
                   <Button size="sm" variant="secondary" className="mt-4" asChild>
-                    <Link to="/settings/inbox">{t('integrations.connections.manageInbox')}</Link>
+                    <Link to="/settings/channels">{t('integrations.connections.manageInbox')}</Link>
                   </Button>
                 </>
               )}
@@ -325,7 +325,7 @@ export default function IntegrationsConnected() {
                 <p className="text-xs text-text-secondary">{t('integrations.connected.mcpHint')}</p>
                 <div className="flex gap-2 shrink-0">
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/integrations/mcp">{t('integrations.connected.manageMcp')}</Link>
+                    <Link to="/settings/mcp">{t('integrations.connected.manageMcp')}</Link>
                   </Button>
                   <Button
                     size="sm"

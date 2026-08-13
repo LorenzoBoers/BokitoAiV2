@@ -1,0 +1,253 @@
+"""Cycle 12: full-text search, snooze, bulk actions and saved replies."""
+
+from datetime import datetime, timedelta
+
+import pytest
+from httpx import AsyncClient
+
+from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+
+async def _login(client: AsyncClient, email: str, password: str) -> dict:
+    r = await client.post("/api/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+async def _create_thread(
+    client: AsyncClient,
+    headers: dict,
+    *,
+    subject: str = "Order question",
+    body_text: str = "Where is my package?",
+    contact_email: str = "customer@example.com",
+    contact_name: str = "Customer",
+) -> str:
+    r = await client.post(
+        "/api/signals/inbound",
+        headers=headers,
+        json={
+            "channel": "email",
+            "source": "test",
+            "subject": subject,
+            "body_text": body_text,
+            "contact_email": contact_email,
+            "contact_name": contact_name,
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["id"]
+
+
+async def _list(client: AsyncClient, headers: dict, **params) -> list[dict]:
+    r = await client.get("/api/signals", headers=headers, params=params)
+    assert r.status_code == 200, r.text
+    return r.json()["items"]
+
+
+# ---------------------------------------------------------------------------
+# Search
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_search_matches_message_bodies(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    hit = await _create_thread(
+        client, owner, subject="Generic subject", body_text="My tracking code is ZX-9981."
+    )
+    await _create_thread(client, owner, subject="Other thread", body_text="Unrelated text")
+
+    items = await _list(client, owner, search="ZX-9981", view="all")
+    assert [t["id"] for t in items] == [hit]
+
+
+@pytest.mark.asyncio
+async def test_search_matches_contact_name(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    hit = await _create_thread(client, owner, contact_name="Miriam Vandenberg")
+    await _create_thread(client, owner, contact_name="Someone Else")
+
+    items = await _list(client, owner, search="vandenberg", view="all")
+    assert [t["id"] for t in items] == [hit]
+
+
+# ---------------------------------------------------------------------------
+# Snooze
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_snooze_sets_pending_and_wake_time(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    signal_id = await _create_thread(client, owner)
+
+    until = (datetime.utcnow() + timedelta(hours=2)).isoformat()
+    r = await client.patch(
+        f"/api/signals/{signal_id}", headers=owner, json={"snoozed_until": until}
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "pending"
+    assert body["snoozed_until"] is not None
+
+    # Shows up in the snoozed view.
+    items = await _list(client, owner, view="snoozed")
+    assert signal_id in [t["id"] for t in items]
+
+    # Reopening clears the wake time.
+    r = await client.patch(f"/api/signals/{signal_id}", headers=owner, json={"status": "open"})
+    assert r.status_code == 200
+    assert r.json()["snoozed_until"] is None
+
+
+@pytest.mark.asyncio
+async def test_reply_send_and_pending_with_snooze_minutes(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    signal_id = await _create_thread(client, owner)
+
+    r = await client.post(
+        f"/api/signals/{signal_id}/reply",
+        headers=owner,
+        json={"body_text": "We will follow up.", "action": "send_and_pending", "snooze_minutes": 90},
+    )
+    assert r.status_code == 200, r.text
+
+    r = await client.get(f"/api/signals/{signal_id}", headers=owner)
+    thread = r.json()["thread"]
+    assert thread["status"] == "pending"
+    assert thread["snoozed_until"] is not None
+
+
+@pytest.mark.asyncio
+async def test_wake_snoozed_threads_reopens_due(client: AsyncClient, session_override):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    signal_id = await _create_thread(client, owner)
+
+    past = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+    r = await client.patch(
+        f"/api/signals/{signal_id}", headers=owner, json={"snoozed_until": past}
+    )
+    assert r.status_code == 200
+
+    from app.services.signal_threads import wake_snoozed_threads
+
+    woken = await wake_snoozed_threads(session_override)
+    assert woken == 1
+
+    r = await client.get(f"/api/signals/{signal_id}", headers=owner)
+    thread = r.json()["thread"]
+    assert thread["status"] == "open"
+    assert thread["snoozed_until"] is None
+    assert thread["has_unread"] is True
+
+
+# ---------------------------------------------------------------------------
+# Bulk actions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_bulk_close_and_spam(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    a = await _create_thread(client, owner, subject="A")
+    b = await _create_thread(client, owner, subject="B")
+    c = await _create_thread(client, owner, subject="C")
+
+    r = await client.post(
+        "/api/signals/bulk", headers=owner, json={"signal_ids": [a, b], "action": "close"}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["updated"] == 2
+
+    closed_ids = [t["id"] for t in await _list(client, owner, view="closed")]
+    assert a in closed_ids and b in closed_ids
+
+    r = await client.post(
+        "/api/signals/bulk", headers=owner, json={"signal_ids": [c], "action": "spam"}
+    )
+    assert r.status_code == 200
+    spam_ids = [t["id"] for t in await _list(client, owner, view="spam")]
+    assert c in spam_ids
+
+
+@pytest.mark.asyncio
+async def test_bulk_assign_and_read(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    a = await _create_thread(client, owner, subject="Assign me")
+
+    r = await client.get("/api/signals/members", headers=owner)
+    me = next(m["id"] for m in r.json() if m["email"] == TEST_EMAIL)
+
+    r = await client.post(
+        "/api/signals/bulk",
+        headers=owner,
+        json={"signal_ids": [a], "action": "assign", "assignee_id": me},
+    )
+    assert r.status_code == 200, r.text
+
+    r = await client.post(
+        "/api/signals/bulk", headers=owner, json={"signal_ids": [a], "action": "read"}
+    )
+    assert r.status_code == 200
+
+    items = await _list(client, owner, view="mine")
+    row = next(t for t in items if t["id"] == a)
+    assert row["assigned_to_user_id"] == me
+    assert row["has_unread"] is False
+
+
+@pytest.mark.asyncio
+async def test_bulk_rejects_unknown_action(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    a = await _create_thread(client, owner)
+    r = await client.post(
+        "/api/signals/bulk", headers=owner, json={"signal_ids": [a], "action": "explode"}
+    )
+    assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Saved replies
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_saved_replies_crud(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+
+    r = await client.post(
+        "/api/signals/saved-replies",
+        headers=owner,
+        json={"title": "Refund policy", "body_text": "Refunds take 5 business days."},
+    )
+    assert r.status_code == 200, r.text
+    reply_id = r.json()["id"]
+
+    r = await client.get("/api/signals/saved-replies", headers=owner)
+    assert r.status_code == 200
+    rows = r.json()
+    assert any(row["id"] == reply_id for row in rows)
+
+    r = await client.patch(
+        f"/api/signals/saved-replies/{reply_id}",
+        headers=owner,
+        json={"title": "Refund policy v2", "body_text": "Refunds take 3 business days."},
+    )
+    assert r.status_code == 200
+    assert r.json()["title"] == "Refund policy v2"
+
+    r = await client.delete(f"/api/signals/saved-replies/{reply_id}", headers=owner)
+    assert r.status_code == 200
+
+    r = await client.get("/api/signals/saved-replies", headers=owner)
+    assert all(row["id"] != reply_id for row in r.json())
+
+
+@pytest.mark.asyncio
+async def test_saved_reply_requires_title_and_body(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    r = await client.post(
+        "/api/signals/saved-replies", headers=owner, json={"title": " ", "body_text": ""}
+    )
+    assert r.status_code == 400

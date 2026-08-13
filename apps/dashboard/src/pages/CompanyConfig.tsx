@@ -1,22 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, CheckCircle2, Globe, Image, Loader2, MessageSquare, Sparkles, Upload, X } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Image, Loader2, MessageSquare, Upload } from 'lucide-react'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
 import { AUTH_API_BASE } from '../lib/api'
-import { ASSISTENT_DEFAULT_PATH } from '../lib/assistent-settings-path'
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-type ScanState = 'idle' | 'scanning' | 'done'
-
-type ScannedBrand = {
-  name: string
-  primaryColor: string
-  bgColor: string
-  logoUrl?: string
-}
+import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
 
 const SUPPORTED_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] as const
 const SUBDOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
@@ -28,9 +17,9 @@ function isSupportedImageFile(file: File): boolean {
 
 function validateSubdomain(value: string): string | null {
   const v = value.trim().toLowerCase()
-  if (!v) return 'Subdomein is verplicht.'
+  if (!v) return 'Subdomain is required.'
   if (!SUBDOMAIN_REGEX.test(v)) {
-    return 'Gebruik 3-63 tekens: a-z, 0-9, en "-" (niet starten/eindigen met "-").'
+    return 'Use 3-63 characters: a-z, 0-9 and "-" (cannot start or end with "-").'
   }
   return null
 }
@@ -45,7 +34,7 @@ function loadImageFromBlobUrl(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new window.Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('SVG kon niet worden geladen'))
+    img.onerror = () => reject(new Error('Could not load SVG'))
     img.src = url
   })
 }
@@ -66,7 +55,7 @@ async function convertSvgToPng(file: File): Promise<File> {
     const pngBlob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (!blob) {
-          reject(new Error('SVG kon niet naar PNG worden omgezet'))
+          reject(new Error('Could not convert SVG to PNG'))
           return
         }
         resolve(blob)
@@ -134,157 +123,6 @@ function ColorField({
   )
 }
 
-// ── Brand Scanner ──────────────────────────────────────────────────────────
-
-function BrandScanner({
-  onApply,
-}: {
-  onApply: (brand: ScannedBrand) => void
-}) {
-  const [url, setUrl] = useState('')
-  const [state, setScanState] = useState<ScanState>('idle')
-  const [scanned, setScanned] = useState<ScannedBrand | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const steps = [
-    'Website ophalen…',
-    'Logo detecteren…',
-    'Kleuren analyseren…',
-    'Bedrijfsnaam herkennen…',
-  ]
-  const [stepIndex, setStepIndex] = useState(0)
-
-  const handleScan = () => {
-    if (!url.trim()) return
-    setScanState('scanning')
-    setScanned(null)
-    setStepIndex(0)
-
-    let i = 0
-    const interval = setInterval(() => {
-      i += 1
-      if (i < steps.length) setStepIndex(i)
-      else clearInterval(interval)
-    }, 600)
-
-    timerRef.current = setTimeout(() => {
-      clearInterval(interval)
-      setScanState('done')
-      const hostname = url.replace(/https?:\/\/(www\.)?/, '').split('/')[0]
-      const name = hostname.split('.')[0]
-      setScanned({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        primaryColor: '#4652f2',
-        bgColor: '#13161f',
-      })
-    }, 2800)
-  }
-
-  const handleApply = () => {
-    if (scanned) onApply(scanned)
-    setScanState('idle')
-    setScanned(null)
-    setUrl('')
-  }
-
-  return (
-    <div className="relative rounded-xl border border-accent/30 bg-gradient-to-br from-accent/8 via-accent/4 to-transparent overflow-hidden mb-7">
-      {/* Background glow */}
-      <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-accent/6 blur-2xl pointer-events-none" />
-
-      <div className="relative p-6">
-        <div className="flex items-start gap-4 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent/30 flex items-center justify-center shrink-0">
-            <Sparkles size={18} className="text-accent" />
-          </div>
-          <div>
-            <h3 className="text-[15px] font-semibold text-text-heading">Huisstijl automatisch detecteren</h3>
-            <p className="text-[13px] text-text-secondary mt-0.5 leading-relaxed">
-              Vul je website-URL in en Bokito detecteert automatisch je logo, merkkleur en bedrijfsnaam.
-            </p>
-          </div>
-        </div>
-
-        {/* Input row */}
-        <div className="flex gap-2.5">
-          <div className="relative flex-1">
-            <Globe size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://jouwbedrijf.nl"
-              disabled={state === 'scanning'}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleScan() }}
-              className="w-full bg-bg-surface/70 border border-border/60 rounded-lg pl-9 pr-3 py-2.5 text-[13px] text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/60 transition-colors disabled:opacity-50"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleScan}
-            disabled={state === 'scanning' || !url.trim()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent text-white text-[13px] font-semibold hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-[0_4px_14px_rgba(70,82,242,0.35)]"
-          >
-            {state === 'scanning'
-              ? <><Loader2 size={14} className="animate-spin" />Scannen…</>
-              : <><Sparkles size={14} />Detecteren</>
-            }
-          </button>
-        </div>
-
-        {/* Scanning steps */}
-        {state === 'scanning' && (
-          <div className="mt-4 flex flex-col gap-1.5">
-            {steps.map((step, i) => (
-              <div
-                key={step}
-                className={`flex items-center gap-2 text-[12px] transition-opacity ${i <= stepIndex ? 'opacity-100' : 'opacity-25'}`}
-              >
-                {i < stepIndex ? (
-                  <CheckCircle2 size={12} className="text-accent shrink-0" />
-                ) : i === stepIndex ? (
-                  <Loader2 size={12} className="animate-spin text-accent shrink-0" />
-                ) : (
-                  <span className="w-3 h-3 rounded-full border border-border/50 shrink-0" />
-                )}
-                <span className={i <= stepIndex ? 'text-text-secondary' : 'text-text-muted'}>{step}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Result */}
-        {state === 'done' && scanned && (
-          <div className="mt-4 flex items-center gap-4 p-4 bg-bg-elevated/80 border border-border/50 rounded-xl">
-            <CheckCircle2 size={16} className="text-accent shrink-0" />
-            <div className="flex-1 flex items-center gap-4 flex-wrap">
-              <span className="text-[13px] font-medium text-text-primary">{scanned.name}</span>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="w-5 h-5 rounded-md border border-border/60 shrink-0"
-                  style={{ background: scanned.primaryColor }}
-                />
-                <span className="text-[12px] text-text-muted font-mono">{scanned.primaryColor.toUpperCase()}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleApply}
-              className="px-3 py-1.5 rounded-lg bg-accent text-white text-[12px] font-semibold hover:bg-accent-hover transition-colors shrink-0"
-            >
-              Overnemen
-            </button>
-            <button type="button" onClick={() => { setScanState('idle'); setScanned(null) }}>
-              <X size={14} className="text-text-muted hover:text-text-primary transition-colors" />
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function CompanyConfig() {
@@ -295,11 +133,12 @@ export default function CompanyConfig() {
   const [name, setName] = useState('Bokito AI')
   const [subdomain, setSubdomain] = useState('bokito')
   const [brandColor, setBrandColor] = useState('#4652f2')
-  const [, setBgColor] = useState('#13161f')
   const [logoSrc, setLogoSrc] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [clearLogo, setClearLogo] = useState(false)
   const [faviconSrc, setFaviconSrc] = useState<string | null>(null)
   const [faviconFile, setFaviconFile] = useState<File | null>(null)
+  const [clearFavicon, setClearFavicon] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -317,19 +156,24 @@ export default function CompanyConfig() {
       setLogoSrc(user.tenant.logo)
     }
     setFaviconSrc(currentWorkspace.favicon || null)
+    setClearLogo(false)
+    setClearFavicon(false)
+    setLogoFile(null)
+    setFaviconFile(null)
   }, [currentWorkspace, user?.tenant?.logo, user?.tenant?.slug])
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!isSupportedImageFile(file)) {
-      setSaveError('Ongeldig bestandstype. Gebruik PNG, JPG, JPEG, GIF, WebP of SVG.')
+      setSaveError('Invalid file type. Use PNG, JPG, JPEG, GIF, WebP or SVG.')
       return
     }
     try {
       setSaveError(null)
       const uploadFile = isSvgFile(file) ? await convertSvgToPng(file) : file
       setLogoFile(uploadFile)
+      setClearLogo(false)
       const reader = new FileReader()
       reader.onload = (ev) => setLogoSrc(ev.target?.result as string)
       reader.readAsDataURL(uploadFile)
@@ -342,25 +186,20 @@ export default function CompanyConfig() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!isSupportedImageFile(file)) {
-      setSaveError('Ongeldig bestandstype. Gebruik PNG, JPG, JPEG, GIF, WebP of SVG.')
+      setSaveError('Invalid file type. Use PNG, JPG, JPEG, GIF, WebP or SVG.')
       return
     }
     try {
       setSaveError(null)
       const uploadFile = isSvgFile(file) ? await convertSvgToPng(file) : file
       setFaviconFile(uploadFile)
+      setClearFavicon(false)
       const reader = new FileReader()
       reader.onload = (ev) => setFaviconSrc(ev.target?.result as string)
       reader.readAsDataURL(uploadFile)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'SVG upload failed')
     }
-  }
-
-  const handleApplyBrand = (brand: ScannedBrand) => {
-    if (brand.name) setName(brand.name)
-    if (brand.primaryColor) setBrandColor(brand.primaryColor)
-    if (brand.bgColor) setBgColor(brand.bgColor)
   }
 
   const handleSave = async () => {
@@ -388,6 +227,12 @@ export default function CompanyConfig() {
       if (faviconFile) {
         form.append('favicon', faviconFile)
       }
+      if (clearLogo && !logoFile) {
+        form.append('clear_logo', 'true')
+      }
+      if (clearFavicon && !faviconFile) {
+        form.append('clear_favicon', 'true')
+      }
 
       const res = await fetch(`${AUTH_API_BASE}${authRoutes.workspaceBranding(currentWorkspace.id)}`, {
         method: 'POST',
@@ -407,6 +252,8 @@ export default function CompanyConfig() {
       await refreshUser()
       setLogoFile(null)
       setFaviconFile(null)
+      setClearLogo(false)
+      setClearFavicon(false)
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2500)
     } catch (error) {
@@ -421,16 +268,13 @@ export default function CompanyConfig() {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[896px] py-1 space-y-8">
 
-          {/* ── Auto-detect banner ───────────────────────────────────────── */}
-          <BrandScanner onApply={handleApplyBrand} />
-
           {/* ── Branding ─────────────────────────────────────────────────── */}
           <div>
             <h2 className="text-[15px] font-semibold text-text-heading mb-1">Branding</h2>
-            <p className="text-[13px] text-text-secondary mb-4">Beheer de branding van je workspace, inclusief naam, logo en merkkleur.</p>
+            <p className="text-[13px] text-text-secondary mb-4">Manage your workspace branding, including name, logo and brand color.</p>
 
             <div className="rounded-xl border border-border/55 bg-bg-elevated/30 px-5">
-              <SettingRow label="Naam">
+              <SettingRow label="Name">
                 <input
                   type="text"
                   value={name}
@@ -439,7 +283,7 @@ export default function CompanyConfig() {
                 />
               </SettingRow>
 
-              <SettingRow label="Logo" description="Zichtbaar in de portal en widgets. PNG, JPG, JPEG, GIF, WebP of SVG (SVG wordt automatisch geoptimaliseerd voor upload).">
+              <SettingRow label="Logo" description="Shown in the portal and widgets. PNG, JPG, JPEG, GIF, WebP or SVG (SVG is automatically optimized for upload).">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-surface/60 flex items-center justify-center shrink-0 overflow-hidden">
                     {logoSrc
@@ -453,6 +297,7 @@ export default function CompanyConfig() {
                       onClick={() => {
                         setLogoSrc(null)
                         setLogoFile(null)
+                        setClearLogo(true)
                       }}
                       className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
@@ -465,14 +310,14 @@ export default function CompanyConfig() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       <Upload size={12} />
-                      Uploaden
+                      Upload
                     </button>
                   )}
                   <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleLogoUpload(e) }} />
                 </div>
               </SettingRow>
 
-              <SettingRow label="Favicon" description="Browser tab icoon van de tenant. Gebruik PNG, JPG, JPEG, GIF, WebP of SVG (SVG wordt automatisch geoptimaliseerd voor upload).">
+              <SettingRow label="Favicon" description="Browser tab icon for the tenant. Use PNG, JPG, JPEG, GIF, WebP or SVG (SVG is automatically optimized for upload).">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-surface/60 flex items-center justify-center shrink-0 overflow-hidden">
                     {faviconSrc
@@ -486,6 +331,7 @@ export default function CompanyConfig() {
                       onClick={() => {
                         setFaviconSrc(null)
                         setFaviconFile(null)
+                        setClearFavicon(true)
                       }}
                       className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
@@ -498,18 +344,18 @@ export default function CompanyConfig() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       <Upload size={12} />
-                      Uploaden
+                      Upload
                     </button>
                   )}
                   <input ref={faviconInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleFaviconUpload(e) }} />
                 </div>
               </SettingRow>
 
-              <SettingRow label="Merkkleur" description="Primaire accentkleur gebruikt in de portal en widgets.">
+              <SettingRow label="Brand color" description="Primary accent color used in the portal and widgets.">
                 <ColorField value={brandColor} onChange={setBrandColor} />
               </SettingRow>
 
-              <SettingRow label="Workspace subdomein" description="Waar mensen je workspace kunnen bereiken.">
+              <SettingRow label="Workspace subdomain" description="Where people can reach your workspace.">
                 <div className="flex items-center">
                   <input
                     type="text"
@@ -521,13 +367,7 @@ export default function CompanyConfig() {
                     }}
                     className="flex-1 bg-bg-surface/50 border border-border/55 rounded-l-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                   />
-                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/55 text-[12px] text-text-muted whitespace-nowrap">.bokito.ai</span>
-                  <button
-                    type="button"
-                    className="ml-2 px-3 py-2 rounded-lg bg-accent text-white text-[12px] font-semibold hover:bg-accent-hover transition-colors shrink-0"
-                  >
-                    Wijzigen
-                  </button>
+                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/55 rounded-r-lg text-[12px] text-text-muted whitespace-nowrap">.bokito.ai</span>
                 </div>
                 {subdomainError ? (
                   <p className="mt-2 text-xs text-status-error">{subdomainError}</p>
@@ -536,18 +376,18 @@ export default function CompanyConfig() {
             </div>
           </div>
 
-          {/* ── Chat assistent stijl link ─────────────────────────────────── */}
+          {/* ── Chat assistant style link ─────────────────────────────────── */}
           <button
             type="button"
-            onClick={() => navigate(ASSISTENT_DEFAULT_PATH)}
+            onClick={() => navigate(ASSISTANT_DEFAULT_PATH)}
             className="w-full flex items-center gap-4 rounded-xl border border-border/55 bg-bg-elevated/30 px-5 py-4 hover:border-accent/35 hover:bg-bg-hover/40 transition-all group text-left"
           >
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
               <MessageSquare size={16} className="text-accent" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-text-primary">Chat assistent stijl</p>
-              <p className="text-[12px] text-text-muted mt-0.5">Pas kleuren, lettertype en gedrag van de chatwidget aan.</p>
+              <p className="text-[13px] font-medium text-text-primary">Chat assistant style</p>
+              <p className="text-[12px] text-text-muted mt-0.5">Customize colors, typography and behavior of the chat widget.</p>
             </div>
             <ArrowRight size={15} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
           </button>

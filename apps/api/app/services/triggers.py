@@ -264,12 +264,20 @@ async def _surface_result(
     from app.services.assistant_threads import append_signal_chat_message
     from app.services.signal_decisions import get_or_create_internal_thread
 
-    ops_signal_id = await _operations_signal_id(session, trigger.tenant_id)
     signal: Signal | None = None
-    if ops_signal_id:
-        signal = await session.get(Signal, ops_signal_id)
+    # 1. Reuse the trigger's own thread so recurring fires land in one place.
+    if trigger.signal_id:
+        signal = await session.get(Signal, trigger.signal_id)
         if signal and signal.tenant_id != trigger.tenant_id:
             signal = None
+    # 2. Fall back to the tenant-wide operations thread when configured.
+    if not signal:
+        ops_signal_id = await _operations_signal_id(session, trigger.tenant_id)
+        if ops_signal_id:
+            signal = await session.get(Signal, ops_signal_id)
+            if signal and signal.tenant_id != trigger.tenant_id:
+                signal = None
+    # 3. Otherwise create one thread for this trigger and remember it.
     if not signal:
         signal = await get_or_create_internal_thread(
             session,
@@ -278,6 +286,9 @@ async def _surface_result(
             contact_name=agent.name,
             agent_id=agent.id,
         )
+    if trigger.signal_id != signal.id:
+        trigger.signal_id = signal.id
+        session.add(trigger)
     await append_signal_chat_message(
         session,
         signal,

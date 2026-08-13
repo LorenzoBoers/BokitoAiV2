@@ -22,48 +22,52 @@ npm run start -w bokito-mobile
 
 Open in Expo Go or a dev build on iOS/Android.
 
-### Android emulator (Windows)
+### Android emulator hot reload (Windows, recommended)
 
-The emulator has no internet by default — use `adb reverse` so it reaches Metro and the local API on the host.
+No phone, QR code, or tunnel required. Uses the local AVD `Medium_Phone_API_36.1`, a **dev-client debug APK**, and Metro over `adb reverse`.
 
-1. Start the API (`apps/api` on port 8000).
-2. If stuck on `unauthorized`, cold-boot with auth skipped (first-time or after key reset):
+```powershell
+cd apps/mobile
+.\scripts\dev-emulator.ps1
+```
+
+This boots the emulator (if needed), installs the debug dev-client APK, starts Metro with `--dev-client --lan` (bound to all interfaces for `adb reverse`), and opens the dev client at `http://127.0.0.1:8081`.
+
+- **API:** production `https://app.bokito.ai` (default)
+- **Login:** `trader@bokito.ai` with your production password
+- **Hot reload:** edit files under `app/` or `src/`; Metro Fast Refresh applies automatically
+
+The **production preview APK** (`dist/bokito-mobile.apk`) does not hot reload — it looks for Expo OTA updates, not Metro. Use the dev client from this script instead.
+
+For a **local mock API** instead of production:
+
+```powershell
+.\scripts\dev-android.ps1 -ApiUrl "http://127.0.0.1:8000" -StartMetro
+```
+
+Login with `admin@bokito.ai` / `bokito-test-password`.
+
+If stuck on `unauthorized` when the emulator boots, cold-boot once:
 
 ```powershell
 adb emu kill
 emulator -avd Medium_Phone_API_36.1 -port 5556 -wipe-data -skip-adb-auth -no-snapshot-load
 ```
 
-Or use `.\scripts\dev-android.ps1` (passes `-skip-adb-auth` when starting the AVD).
-
-After first successful setup, save an AVD snapshot for faster boots (emulator console port = AVD port):
+After first successful setup, save an AVD snapshot for faster boots:
 
 ```text
 auth <token from %USERPROFILE%\.emulator_console_auth_token>
 avd snapshot save bokito-dev
 ```
 
-The dev script loads snapshot `bokito-dev` automatically when it exists.
-
-3. Run the bootstrap script (builds APK if missing, sets port reverse, installs app):
-
-```powershell
-cd apps/mobile
-.\scripts\dev-android.ps1
-```
-
-Manual equivalent:
-
-```powershell
-adb reverse tcp:8081 tcp:8081
-adb reverse tcp:8000 tcp:8000
-$env:BOKITO_API_URL="http://127.0.0.1:8000"
-npm run start:offline
-```
-
-**Expo Go** works for UI testing; push notifications require the **native debug APK** (`npm run android:build`).
-
 Gradle wrapper must stay on **8.13** (9.0 fails on Windows with `JvmVendorSpec IBM_SEMERU`). Re-pin after `expo prebuild`.
+
+Rebuild the debug APK after native dependency changes:
+
+```powershell
+.\scripts\dev-android.ps1 -ForceRebuild -ApiUrl "https://app.bokito.ai"
+```
 
 ## Production APK
 

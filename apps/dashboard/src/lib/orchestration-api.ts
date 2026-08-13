@@ -46,6 +46,30 @@ export type WorkstreamStep = {
   eval_kind?: string
 }
 
+export type OrchestrationSettings = {
+  orchestra_enabled: boolean
+  monthly_budget_cents: number
+}
+
+export type Workstream = {
+  id: string
+  name: string
+  description?: string
+  enabled: boolean
+}
+
+export async function getOrchestrationSettings(): Promise<OrchestrationSettings> {
+  return apiGet<OrchestrationSettings>(appRoutes.orchestration.settings)
+}
+
+export async function listWorkstreams(): Promise<Workstream[]> {
+  return apiGet<Workstream[]>(appRoutes.orchestration.workstreams)
+}
+
+export async function createWorkstream(body: { name: string; description?: string }): Promise<{ id: string }> {
+  return apiPost<{ id: string }>(appRoutes.orchestration.workstreams, body)
+}
+
 export async function listRuntimeProfiles(): Promise<RuntimeProfile[]> {
   return apiGet<RuntimeProfile[]>(appRoutes.orchestration.runtimeProfiles)
 }
@@ -67,6 +91,7 @@ export async function createAgentTask(body: {
   project_id?: string
   workstream_id?: string
   agent_id?: string
+  signal_id?: string
   default_runtime_profile_id?: string
   success_criteria_json?: string
 }): Promise<AgentTask> {
@@ -102,6 +127,10 @@ export async function createWorkstreamStep(
   body: Partial<WorkstreamStep> & { name: string; order?: number },
 ): Promise<{ id: string }> {
   return apiPost<{ id: string }>(appRoutes.orchestration.workstreamSteps(workstreamId), body)
+}
+
+export async function deleteWorkstreamStep(workstreamId: string, stepId: string): Promise<void> {
+  await apiDelete(appRoutes.orchestration.workstreamStep(workstreamId, stepId))
 }
 
 export async function fetchRunEvents(runId: string): Promise<{

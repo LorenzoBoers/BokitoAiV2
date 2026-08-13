@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { KeyboardProvider } from 'react-native-keyboard-controller'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider } from '../src/context/AuthContext'
 import { useGatewayInvalidation } from '../src/hooks/useMessagingQueries'
 import { useNotificationRouting } from '../src/lib/notification-routing'
@@ -38,12 +40,16 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <GatewaySync />
-        <StatusBar style="light" />
-        <RootNavigator />
-      </AuthProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <KeyboardProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <GatewaySync />
+            <StatusBar style="light" />
+            <RootNavigator />
+          </AuthProvider>
+        </QueryClientProvider>
+      </KeyboardProvider>
+    </SafeAreaProvider>
   )
 }

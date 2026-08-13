@@ -12,4 +12,10 @@ def mcp_auth_headers(auth: dict[str, Any]) -> dict[str, str]:
     elif auth.get("api_key"):
         headers["Authorization"] = f"Bearer {auth['api_key']}"
         headers["X-API-Key"] = str(auth["api_key"])
+    # Custom header passthrough (e.g. vendor-specific auth schemes).
+    extra = auth.get("headers")
+    if isinstance(extra, dict):
+        for key, value in extra.items():
+            if isinstance(key, str) and key.strip() and value is not None:
+                headers[key.strip()] = str(value)
     return headers

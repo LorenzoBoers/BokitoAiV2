@@ -121,7 +121,6 @@ class GatewayClient {
     this.setStatus('connecting')
     this.sentTopics.clear()
     this.ws.onopen = () => {
-      this.reconnectDelay = RECONNECT_MIN_MS
       this.setStatus('connected')
       this.syncSubscriptions()
       this.startPing()
@@ -131,6 +130,19 @@ class GatewayClient {
       try {
         frame = JSON.parse(String(raw.data))
       } catch {
+        return
+      }
+      if (frame.type === 'connected') {
+        // Only a server-acknowledged session resets the backoff; a bare socket
+        // open followed by an auth rejection must keep backing off, otherwise
+        // an expired token turns into a 1s reconnect storm.
+        this.reconnectDelay = RECONNECT_MIN_MS
+        return
+      }
+      if (frame.type === 'error' && frame.message === 'unauthorized') {
+        // Token rejected (expired/invalid). Back off to the max delay; the next
+        // attempt picks up whatever token the auth layer has by then.
+        this.reconnectDelay = RECONNECT_MAX_MS
         return
       }
       if (frame.type !== 'event') return

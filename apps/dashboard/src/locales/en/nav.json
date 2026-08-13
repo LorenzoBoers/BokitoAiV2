@@ -1,5 +1,46 @@
 {
   "comingSoon": "Coming soon",
+  "tabs": {
+    "cockpit": { "title": "Cockpit", "subtitle": "Overview, activity and usage" },
+    "communication": { "title": "Communication", "subtitle": "Chats, customer and agent threads" },
+    "contacts": { "title": "Contacts", "subtitle": "People across your channels" },
+    "agenda": { "title": "Agenda", "subtitle": "Scheduled wakes, tasks and events" },
+    "agents": { "title": "Agents", "subtitle": "Your agent workforce" },
+    "knowledge": { "title": "Knowledge", "subtitle": "Docs, skills and memory" },
+    "settings": { "title": "Settings", "subtitle": "Workspace configuration" }
+  },
+  "tabGroups": {
+    "control": "Control",
+    "agent": "Agent",
+    "settings": "Settings"
+  },
+  "palette": {
+    "placeholder": "Search pages, threads, contacts, actions...",
+    "noResults": "No results",
+    "groupGoTo": "Go to",
+    "groupSessions": "Sessions",
+    "groupActions": "Actions",
+    "groupThreads": "Threads",
+    "groupContacts": "Contacts",
+    "unnamedContact": "Unnamed contact",
+    "untitledConversation": "Untitled conversation",
+    "newChat": "New chat",
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode"
+  },
+  "topbar": {
+    "search": "Search",
+    "openPalette": "Open command palette",
+    "openNavigation": "Open navigation",
+    "openUserMenu": "Open user menu",
+    "switchWorkspace": "Switch workspace",
+    "allWorkspaces": "All workspaces",
+    "current": "current",
+    "profile": "Profile",
+    "notifications": "Notifications",
+    "workspaces": "Workspaces",
+    "signOut": "Sign out"
+  },
   "rail": {
     "home": "Cockpit",
     "orchestra": "Orchestra",
@@ -278,7 +319,9 @@
       "mine": "Mine",
       "open": "Open",
       "unassigned": "Unassigned",
-      "closed": "Closed"
+      "snoozed": "Snoozed",
+      "closed": "Closed",
+      "spam": "Spam"
     },
     "section": {
       "inbox": "Inbox",
@@ -383,7 +426,7 @@
     "pageMeta": {
       "communication": {
         "title": "AI communication settings",
-        "description": "Configure AI suggestions, auto-labeling, and reply behavior per connected mailbox."
+        "description": "Choose how the AI handles inbound customer messages per channel: suggest a reply, answer directly, or stay off."
       }
     },
     "communication": {
@@ -394,30 +437,28 @@
       "saving": "Saving…",
       "saved": "Saved.",
       "saveError": "Save failed.",
+      "channelDefaultsTitle": "Channel defaults",
+      "channelDefaultsDescription": "The workspace-wide AI mode for new inbound customer messages.",
+      "channelEmail": "Email",
+      "channelWidget": "Website chat",
+      "modeOptions": {
+        "suggest": "Suggest replies",
+        "auto": "Reply automatically",
+        "off": "Off"
+      },
+      "modeHints": {
+        "suggest": "The AI drafts a reply as a card your team can send, edit, or escalate.",
+        "auto": "The AI answers directly. Take over a thread to pause it.",
+        "off": "No AI involvement; your team handles every message."
+      },
+      "mailboxOverrideTitle": "Per-mailbox override",
+      "mailboxOverrideDescription": "Give a specific mailbox its own AI mode instead of the email default.",
+      "useDefault": "Workspace default",
       "noMailboxTitle": "No active mailbox",
       "noMailboxDescription": "Connect a mailbox under Settings before configuring AI communication per inbox.",
       "goToMailboxes": "Go to mailboxes",
       "mailboxLabel": "Mailbox",
-      "mailboxPlaceholder": "Choose a mailbox",
-      "suggestionsEnabled": "AI suggestions in inbox",
-      "suggestionsEnabledHint": "Show draft suggestions and actions while reading messages.",
-      "autoLabelEnabled": "Auto-labeling",
-      "autoLabelEnabledHint": "Let AI assign labels based on message content.",
-      "autoReplyEnabled": "Auto-reply",
-      "autoReplyEnabledHint": "Send replies only when confidence is high enough.",
-      "autoReplyThreshold": "Minimum confidence",
-      "tone": "Tone",
-      "language": "Language",
-      "toneOptions": {
-        "formeel": "Formal",
-        "informeel": "Informal",
-        "match": "Match sender"
-      },
-      "languageOptions": {
-        "nl": "Dutch",
-        "en": "English",
-        "auto": "Automatic"
-      }
+      "mailboxPlaceholder": "Choose a mailbox"
     },
     "cloudAgent": {
       "title": "Cloud agents",

@@ -176,8 +176,15 @@ export function useThreadMutations(threadId: string) {
   })
 
   const resolveDecision = useMutation({
-    mutationFn: ({ messageId, action }: { messageId: string; action: ResolveAction }) =>
-      resolveThreadDecision(threadId, messageId, action),
+    mutationFn: ({
+      messageId,
+      action,
+      optionId,
+    }: {
+      messageId: string
+      action: ResolveAction
+      optionId?: string
+    }) => resolveThreadDecision(threadId, messageId, action, { optionId }),
     onSuccess: invalidate,
   })
 

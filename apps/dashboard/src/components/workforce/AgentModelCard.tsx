@@ -26,20 +26,25 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
   const [models, setModels] = useState<ModelOption[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     if (!token) return
+    setLoadError(null)
     getTenantModels(token)
       .then((data) => {
         if (cancelled) return
         setModels(selectableChatModels(data))
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setLoadError('Could not load the model list.')
+      })
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, reloadKey])
 
   const current = models.find((m) => m.slug === currentModel || m.model_id === currentModel)
 
@@ -103,6 +108,18 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
         ) : null}
       </div>
 
+      {loadError ? (
+        <p className="mt-2 text-[12px] text-status-error">
+          {loadError}{' '}
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="underline hover:text-text-primary"
+          >
+            Retry
+          </button>
+        </p>
+      ) : null}
       {error ? <p className="mt-2 text-[12px] text-status-error">{error}</p> : null}
 
       {canEdit ? (

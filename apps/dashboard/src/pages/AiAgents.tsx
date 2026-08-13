@@ -12,6 +12,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
+import { inboxPath } from '../lib/messages-paths'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import {
@@ -63,7 +64,7 @@ export default function AiAgents() {
   }, [load])
 
   if (!isAdmin) {
-    return <Navigate to="/messages" replace />
+    return <Navigate to={inboxPath('all')} replace />
   }
 
   return (

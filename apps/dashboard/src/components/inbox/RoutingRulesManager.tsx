@@ -26,8 +26,9 @@ import type {
 } from '../../types/inbox';
 import { ROUTING_CONDITION_LABELS } from '../../types/inbox';
 
-// Mock labels
-const availableLabels = [
+// Suggested starter labels; the picker also offers every label already used
+// by existing rules plus free-form custom labels.
+const suggestedLabels = [
   'urgent', 'support', 'sales', 'billing', 'general', 'follow-up', 'vip'
 ];
 
@@ -177,6 +178,27 @@ export default function RoutingRulesManager({
         : [...prev.labels, label]
     }));
   }, []);
+
+  // Labels offered in the picker: starter suggestions + everything already in
+  // use across this mailbox's rules (so real tenant labels always show up).
+  const [customLabel, setCustomLabel] = useState('');
+  const availableLabels = Array.from(
+    new Set([
+      ...suggestedLabels,
+      ...localRules.flatMap((r) => r.labels),
+      ...ruleForm.labels,
+    ]),
+  );
+
+  const handleAddCustomLabel = useCallback(() => {
+    const label = customLabel.trim().toLowerCase();
+    if (!label) return;
+    setRuleForm(prev => ({
+      ...prev,
+      labels: prev.labels.includes(label) ? prev.labels : [...prev.labels, label]
+    }));
+    setCustomLabel('');
+  }, [customLabel]);
 
   const sortedRules = [...localRules].sort((a, b) => a.priority - b.priority);
 
@@ -439,6 +461,29 @@ export default function RoutingRulesManager({
                       {label}
                     </button>
                   ))}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    value={customLabel}
+                    onChange={(e) => setCustomLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomLabel();
+                      }
+                    }}
+                    placeholder="Add custom label"
+                    className="h-8 max-w-[200px] text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={!customLabel.trim()}
+                    onClick={handleAddCustomLabel}
+                  >
+                    Add
+                  </Button>
                 </div>
               </div>
 

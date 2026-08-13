@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
-import AgentSteps from './AgentSteps'
 import type { AgentStep } from '../hooks/useSignalStream'
 import { colors, spacing } from '../theme'
+import ThinkingTrace from './ThinkingTrace'
 
 type Props = {
   text: string
@@ -10,16 +10,18 @@ type Props = {
 }
 
 export default function StreamingBubble({ text, steps = [], active }: Props) {
-  if (!text && steps.length === 0 && !active) return null
+  const showTrace = active || steps.length > 0
+  if (!text && !showTrace) return null
 
   return (
     <View style={styles.root}>
-      {steps.length > 0 ? <AgentSteps steps={steps} /> : null}
-      <View style={styles.bubble}>
-        {text ? <Text style={styles.text}>{text}</Text> : null}
-        {active && !text ? <Text style={styles.placeholder}>Thinking...</Text> : null}
-        {active && text ? <View style={styles.cursor} /> : null}
-      </View>
+      {showTrace ? <ThinkingTrace steps={steps} active={!!active} /> : null}
+      {text ? (
+        <View style={styles.bubble}>
+          <Text style={styles.text}>{text}</Text>
+          {active ? <View style={styles.cursor} /> : null}
+        </View>
+      ) : null}
     </View>
   )
 }
@@ -39,7 +41,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   text: { color: colors.textHeading, fontSize: 15, lineHeight: 21 },
-  placeholder: { color: colors.textMuted, fontSize: 14, fontStyle: 'italic' },
   cursor: {
     width: 6,
     height: 14,

@@ -33,7 +33,7 @@ export default function MessagesHub() {
               <Settings2 size={14} />
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <MessagesHubNav />
           </div>
         </aside>

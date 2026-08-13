@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pause, Play, RefreshCw, Trash2 } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
+import CockpitTabs from '../components/shell/CockpitTabs'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent, type GatewayEvent } from '../lib/gateway'
 import { bokitoGetCockpitActivity, type CockpitActivityEvent } from '../lib/bokito-api'
@@ -57,16 +58,19 @@ export default function ActivityPage() {
   const [filter, setFilter] = useState('')
   const [autoFollow, setAutoFollow] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     if (!token) return
     setLoading(true)
+    setLoadError('')
     try {
       const rows = await bokitoGetCockpitActivity(token, 100)
       setEntries(rows.map(fromCockpit).reverse())
     } catch {
       setEntries([])
+      setLoadError('Could not load activity history.')
     } finally {
       setLoading(false)
     }
@@ -111,7 +115,7 @@ export default function ActivityPage() {
   return (
     <div>
       <ContentHeader
-        title="Activity"
+        title="Cockpit"
         subtitle="Live agent runs and tool calls"
         meta={
           <>
@@ -127,6 +131,21 @@ export default function ActivityPage() {
           </>
         }
       />
+
+      <CockpitTabs />
+
+      {loadError ? (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-status-error/30 bg-status-error/10 px-3 py-2 text-[12.5px] text-status-error">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-md border border-status-error/40 px-2 py-0.5 text-[11.5px] font-medium hover:bg-status-error/15"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       {/* Filter bar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">

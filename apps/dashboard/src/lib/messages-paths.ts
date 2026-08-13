@@ -9,11 +9,9 @@
  * - `agent`     — direct chats with a company agent
  * - `runs`      — internal agent activity (updates, results, decisions)
  * - `channel`   — threads of one connected channel (email mailbox, webchat, ...)
- * - `view`      — preset cross-channel views (Support, Sales, ...)
- * - `label`     — preset labels
  */
 
-export const INBOX_QUEUES = ['all', 'mine', 'open', 'unassigned', 'closed'] as const
+export const INBOX_QUEUES = ['all', 'mine', 'open', 'unassigned', 'snoozed', 'closed', 'spam'] as const
 export type InboxQueue = (typeof INBOX_QUEUES)[number]
 
 export const RUNS_QUEUES = ['all', 'updates', 'results', 'awaiting-decision'] as const
@@ -22,29 +20,12 @@ export type RunsQueue = (typeof RUNS_QUEUES)[number]
 export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'whatsapp', 'slack'] as const
 export type ChannelKey = (typeof CHANNEL_KEYS)[number]
 
-export const VIEW_PRESETS = [
-  { key: 'support', label: 'Support' },
-  { key: 'sales', label: 'Sales' },
-  { key: 'operations', label: 'Operations' },
-  { key: 'partners', label: 'Partner communication' },
-  { key: 'agent-handoffs', label: 'Agent handoffs' },
-] as const
-
-export const LABEL_PRESETS = [
-  { key: 'urgent', label: 'Urgent' },
-  { key: 'vip', label: 'VIP' },
-  { key: 'follow-up', label: 'Follow-up' },
-  { key: 'billing', label: 'Billing' },
-] as const
-
 export type HubLeaf =
   | { type: 'inbox'; queue: InboxQueue }
   | { type: 'assistant' }
   | { type: 'agent'; agentId: string }
   | { type: 'runs'; queue: RunsQueue }
   | { type: 'channel'; channelKey: ChannelKey; connectionId?: string }
-  | { type: 'view'; key: string }
-  | { type: 'label'; key: string }
 
 function withThread(base: string, threadId?: string | null): string {
   return threadId ? `${base}/t/${encodeURIComponent(String(threadId))}` : base
@@ -77,14 +58,6 @@ export function channelPath(
   return withThread(base, options.threadId)
 }
 
-export function viewPath(key: string, threadId?: string | null): string {
-  return withThread(`/communication/view/${encodeURIComponent(key)}`, threadId)
-}
-
-export function labelPath(key: string, threadId?: string | null): string {
-  return withThread(`/communication/label/${encodeURIComponent(key)}`, threadId)
-}
-
 /** URL of the composer-first "New conversation" surface. */
 export function newConversationPath(): string {
   return '/communication/new'
@@ -103,10 +76,6 @@ export function leafPath(leaf: HubLeaf, threadId?: string | null): string {
       return agentRunsPath(leaf.queue, threadId)
     case 'channel':
       return channelPath(leaf.channelKey, { connectionId: leaf.connectionId, threadId })
-    case 'view':
-      return viewPath(leaf.key, threadId)
-    case 'label':
-      return labelPath(leaf.key, threadId)
   }
 }
 
@@ -155,14 +124,6 @@ export function leafFromPath(pathname: string): HubLeaf | null {
       }
       return { type: 'channel', channelKey: key }
     }
-    case 'view': {
-      if (!parts[0]) return null
-      return { type: 'view', key: decodeURIComponent(parts[0]) }
-    }
-    case 'label': {
-      if (!parts[0]) return null
-      return { type: 'label', key: decodeURIComponent(parts[0]) }
-    }
     default:
       return null
   }
@@ -181,9 +142,5 @@ export function leafKey(leaf: HubLeaf): string {
       return `runs:${leaf.queue}`
     case 'channel':
       return `channel:${leaf.channelKey}:${leaf.connectionId ?? ''}`
-    case 'view':
-      return `view:${leaf.key}`
-    case 'label':
-      return `label:${leaf.key}`
   }
 }

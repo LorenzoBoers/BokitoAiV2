@@ -68,30 +68,6 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
             if agent:
                 return agent
 
-        from app.models.orchestra import AgentProfile
-
-        profile_id = config.get("agent_profile_id") or (step.agent_profile_id if step else None)
-        if profile_id:
-            profile = (
-                await session.execute(
-                    select(AgentProfile).where(
-                        AgentProfile.id == UUID(str(profile_id)),
-                        AgentProfile.tenant_id == tenant_id,
-                    )
-                )
-            ).scalar_one_or_none()
-            if profile:
-                return Agent(
-                    tenant_id=tenant_id,
-                    name=profile.name,
-                    role="assistant",
-                    model=profile.model,
-                    provider=profile.provider,
-                    system_prompt=profile.system_prompt or instructions,
-                    tools_json=profile.tools_json,
-                    max_loops=10,
-                )
-
         agent_id = config.get("agent_id")
         if agent_id:
             agent = (
@@ -135,7 +111,6 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
             tenant_id,
             agent=agent,
             step_runtime_profile_id=step.runtime_profile_id if step else None,
-            legacy_agent_profile_id=step.agent_profile_id if step else config.get("agent_profile_id"),
         )
         runtime_agent = apply_snapshot_to_agent(agent, snapshot)
 

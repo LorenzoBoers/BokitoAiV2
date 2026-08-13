@@ -14,6 +14,11 @@ type Props = {
   onDelete: (id: ThreadId) => void
   deleting?: boolean
   variant?: 'customer' | 'direct'
+  /** Bulk selection (checkbox) state; undefined hides the checkbox entirely. */
+  checked?: boolean
+  onToggleChecked?: (id: ThreadId) => void
+  /** True while any thread is selected: keeps all checkboxes visible. */
+  selectionActive?: boolean
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -48,6 +53,9 @@ export default function ThreadListItem({
   onDelete,
   deleting = false,
   variant = 'customer',
+  checked,
+  onToggleChecked,
+  selectionActive = false,
 }: Props) {
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
@@ -80,6 +88,22 @@ export default function ThreadListItem({
       )}
     >
       <div className="flex items-start gap-2 min-w-0">
+        {onToggleChecked ? (
+          <input
+            type="checkbox"
+            checked={Boolean(checked)}
+            aria-label="Select thread"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            onChange={() => onToggleChecked(thread.id)}
+            className={cn(
+              'mt-1 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border accent-[rgb(var(--color-accent))] transition-opacity',
+              selectionActive || checked
+                ? 'opacity-100'
+                : 'opacity-0 group-hover/thread:opacity-100 focus-visible:opacity-100',
+            )}
+          />
+        ) : null}
         <ThreadIndicatorMenu
           hasUnread={thread.hasUnread}
           isPinned={thread.isPinned}

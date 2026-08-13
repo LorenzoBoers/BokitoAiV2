@@ -9,8 +9,10 @@ import {
 
 type SidebarPrefsContextValue = {
   prefs: SidebarPrefs
-  /** Visible sections in render order. */
+  /** Visible middle sections in render order (Settings excluded — anchored separately). */
   visibleSections: SidebarSection[]
+  /** Whether the anchored Settings block should render. */
+  settingsVisible: boolean
   setOrder: (order: SidebarSection[]) => void
   setSectionHidden: (section: SidebarSection, hidden: boolean) => void
   setSectionCollapsed: (section: SidebarSection, collapsed: boolean) => void
@@ -31,7 +33,12 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setOrder = useCallback(
-    (order: SidebarSection[]) => update((prev) => ({ ...prev, order })),
+    (order: SidebarSection[]) =>
+      update((prev) => {
+        // Settings stays anchored at the bottom of the rail.
+        const middle = order.filter((s) => s !== 'settings')
+        return { ...prev, order: [...middle, 'settings'] }
+      }),
     [update],
   )
 
@@ -62,14 +69,33 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
     [update],
   )
 
+  /** Visible middle sections (excludes anchored Settings). */
   const visibleSections = useMemo(
-    () => prefs.order.filter((s) => !prefs.hidden.includes(s)),
+    () => prefs.order.filter((s) => s !== 'settings' && !prefs.hidden.includes(s)),
     [prefs.order, prefs.hidden],
   )
 
+  const settingsVisible = useMemo(() => !prefs.hidden.includes('settings'), [prefs.hidden])
+
   const value = useMemo(
-    () => ({ prefs, visibleSections, setOrder, setSectionHidden, setSectionCollapsed, resetPrefs }),
-    [prefs, visibleSections, setOrder, setSectionHidden, setSectionCollapsed, resetPrefs],
+    () => ({
+      prefs,
+      visibleSections,
+      settingsVisible,
+      setOrder,
+      setSectionHidden,
+      setSectionCollapsed,
+      resetPrefs,
+    }),
+    [
+      prefs,
+      visibleSections,
+      settingsVisible,
+      setOrder,
+      setSectionHidden,
+      setSectionCollapsed,
+      resetPrefs,
+    ],
   )
 
   return <SidebarPrefsContext.Provider value={value}>{children}</SidebarPrefsContext.Provider>

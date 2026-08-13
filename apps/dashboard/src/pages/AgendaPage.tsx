@@ -16,6 +16,7 @@ import { listAgents } from '../lib/agents-api'
 import {
   listAgendaOccurrences,
   listTriggers,
+  listWorkstreams,
   type AgendaItem,
   type Trigger,
 } from '../lib/orchestration-api'
@@ -139,7 +140,13 @@ export default function AgendaPage() {
   }, [view, weekStart])
 
   const load = useCallback(async () => {
-    if (!token || view === 'automations') return
+    if (!token) return
+    if (view === 'automations') {
+      // AutomationsPanel loads itself; still bump reloadKey so Refresh works.
+      setLoading(false)
+      setError(null)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -149,7 +156,7 @@ export default function AgendaPage() {
           to: window.to.toISOString(),
           agentId: agentFilter !== 'all' ? agentFilter : undefined,
         }),
-        listTriggers().catch(() => []),
+        listTriggers(),
       ])
       setItems(occurrences)
       setTriggers(triggerRows)
@@ -170,12 +177,7 @@ export default function AgendaPage() {
       try {
         const [agentRows, wsRes] = await Promise.all([
           listAgents().catch(() => []),
-          fetch('/api/orchestra/workstreams', {
-            credentials: 'include',
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then((r) => (r.ok ? (r.json() as Promise<Array<{ id: string; name: string }>>) : []))
-            .catch(() => []),
+          listWorkstreams().catch(() => []),
         ])
         setAgents(agentRows.map((a) => ({ id: a.id, name: a.name })))
         setWorkstreams((Array.isArray(wsRes) ? wsRes : []).map((w) => ({ id: w.id, name: w.name })))
@@ -211,7 +213,10 @@ export default function AgendaPage() {
   const openEdit = (item: AgendaItem) => {
     if (!item.trigger_id) return
     const trigger = triggers.find((t) => t.id === item.trigger_id)
-    if (!trigger) return
+    if (!trigger) {
+      setError('Could not load that schedule for editing. Refresh and try again.')
+      return
+    }
     setEditingTrigger(trigger)
     setInitialRunAt(null)
     setDialogOpen(true)
@@ -234,7 +239,16 @@ export default function AgendaPage() {
         subtitle="Scheduled agent wakes, one-off tasks, and events."
         meta={
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (view === 'automations') setReloadKey((k) => k + 1)
+                else void load()
+              }}
+              disabled={loading}
+            >
               <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} aria-hidden />
             </Button>
             <Button type="button" size="sm" onClick={() => openCreate()}>

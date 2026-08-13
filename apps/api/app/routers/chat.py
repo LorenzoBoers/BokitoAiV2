@@ -21,6 +21,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.agent import Agent, AgentRun
+from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
 from app.services.agent.loop import AgentLoop
 from app.services.assistant_threads import (
@@ -46,6 +47,8 @@ class ConversationCreate(BaseModel):
     audience: str = "internal"
     channel: str = "assistant"
     agent_id: UUID | None = None
+    # Ask-assistant: ground the conversation in this customer thread.
+    context_signal_id: UUID | None = None
 
 
 class ConversationUpdate(BaseModel):
@@ -136,6 +139,15 @@ async def create_conversation(
     agent = await resolve_chat_target(
         session, auth.tenant.id, auth.user, body.agent_id, is_admin=auth.role in ("owner", "admin")
     )
+    context_signal_id: UUID | None = None
+    if body.context_signal_id:
+        ctx_result = await session.execute(
+            select(Signal).where(
+                Signal.id == body.context_signal_id, Signal.tenant_id == auth.tenant.id
+            )
+        )
+        if ctx_result.scalar_one_or_none():
+            context_signal_id = body.context_signal_id
     signal = Signal(
         tenant_id=auth.tenant.id,
         channel="assistant",
@@ -145,6 +157,7 @@ async def create_conversation(
         agent_id=agent.id,
         contact_name=auth.user.display_name or auth.user.email,
         has_unread=False,
+        context_signal_id=context_signal_id,
     )
     session.add(signal)
     await session.commit()
@@ -230,7 +243,25 @@ async def list_messages(
         )
         .order_by(SignalMessage.created_at)
     )
-    return [serialize_chat_message(m) for m in result.scalars().all()]
+    messages = result.scalars().all()
+
+    # Batch-load attached decisions so cards render server-driven state
+    # (options, resolved status) that survives reloads.
+    decision_ids = [m.decision_id for m in messages if m.decision_id]
+    decisions_by_id: dict[UUID, DecisionRequest] = {}
+    if decision_ids:
+        dec_result = await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.id.in_(decision_ids),
+                DecisionRequest.tenant_id == auth.tenant.id,
+            )
+        )
+        decisions_by_id = {d.id: d for d in dec_result.scalars().all()}
+
+    return [
+        serialize_chat_message(m, decision=decisions_by_id.get(m.decision_id))
+        for m in messages
+    ]
 
 
 @router.post("/conversations/{conversation_id}/messages")
@@ -261,7 +292,8 @@ async def send_message(
     agent, run = await _agent_run(session, auth, signal, body.content)
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(
-        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id
+        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
+        enable_chat_thinking=True,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
     try:
@@ -297,18 +329,19 @@ async def send_message(
         role="assistant",
         content=reply_text,
         author_agent_id=agent.id if agent else None,
-        metadata={"usage": tokens, **llm_meta},
+        metadata={
+            "usage": tokens,
+            "steps": list(loop.trace_steps),
+            **({"thinking": loop.thinking_payload()} if loop.thinking_payload() else {}),
+            **llm_meta,
+        },
     )
     if signal.subject == "New conversation":
         signal.subject = body.content[:60]
     await session.commit()
     await session.refresh(assistant_msg)
     return {
-        "message": {
-            "id": str(assistant_msg.id),
-            "role": "assistant",
-            "content": reply_text,
-        },
+        "message": serialize_chat_message(assistant_msg),
         "usage": tokens,
         **llm_meta,
     }
@@ -342,7 +375,8 @@ async def stream_message(
     agent, run = await _agent_run(session, auth, signal, body.content)
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(
-        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id
+        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
+        enable_chat_thinking=True,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
 
@@ -350,25 +384,44 @@ async def stream_message(
         full_text = ""
         try:
             async for event in loop.stream_chat(history, attachments=body.attachments):
-                if event["type"] == "delta":
+                if event["type"] == "thinking":
+                    yield {
+                        "event": "thinking",
+                        "data": json.dumps({"text": event.get("text", "")}),
+                    }
+                elif event["type"] == "delta":
                     full_text += event["text"]
                     yield {"event": "delta", "data": json.dumps({"text": event["text"]})}
                 elif event["type"] == "done":
                     final = event.get("text", full_text)
+                    thinking_meta = loop.thinking_payload()
                     await append_signal_chat_message(
                         session,
                         signal,
                         role="assistant",
                         content=final,
                         author_agent_id=agent.id if agent else None,
-                        metadata={"usage": event.get("usage", {}), **llm_meta},
+                        metadata={
+                            "usage": event.get("usage", {}),
+                            "steps": event.get("steps") or list(loop.trace_steps),
+                            **({"thinking": thinking_meta} if thinking_meta else {}),
+                            **llm_meta,
+                        },
                     )
                     if signal.subject == "New conversation":
                         signal.subject = body.content[:60]
                     await session.commit()
+                    done_payload: dict = {
+                        "text": final,
+                        "usage": event.get("usage", {}),
+                        "steps": event.get("steps") or list(loop.trace_steps),
+                        **llm_meta,
+                    }
+                    if thinking_meta:
+                        done_payload["thinking"] = thinking_meta
                     yield {
                         "event": "done",
-                        "data": json.dumps({"text": final, **llm_meta}),
+                        "data": json.dumps(done_payload),
                     }
         except Exception as exc:
             logger.exception("assistant stream failed for signal %s", signal.id)

@@ -37,4 +37,7 @@ class McpServer(SQLModel, table=True):
     server_url: str
     auth_json: str = Field(default="{}")
     is_active: bool = True
+    # Cached tools/list discovery result: [{"name", "description"}, ...]
+    tools_json: str = Field(default="[]")
+    tools_synced_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

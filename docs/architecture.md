@@ -95,7 +95,7 @@ Channel → Signal mapping:
 - **Folders (UI):** `?folder=external|internal|all` — not separate tables
 - **Queues (views):** `all_open`, `mine`, `unassigned`, `pending`, `closed`, `pinned`, `awaiting_decision`, `updates`, `results`
 - **Decision cards:** `SignalMessage.kind=decision_request` renders inline in thread timeline; resolve via `POST /api/signals/{id}/messages/{msgId}/resolve`. `DecisionRequest.signal_id` is the only thread link (`conversation_id` removed)
-- **Chat APIs:** `/api/chat/*`, `/api/widget/*`, and `/api/livechat/*` keep their contracts but persist to Signal threads; inbound email processing runs through the `process_inbound_signal` worker task
+- **Chat APIs:** `/api/chat/*` and `/api/livechat/*` keep their contracts but persist to Signal threads (`/api/widget` was removed in favor of `/api/livechat`); inbound email processing runs through the `process_inbound_signal` worker task
 - **Legacy redirects:** `/messages`, `/communication`, `/os/communication`, `/project/:id/communication` → Messages hub with folder/queue filters
 
 ## Decisions (unified)
@@ -167,7 +167,7 @@ Navigation is eight sections: **Home** (Cockpit), **Messages**, **Agents**, **Wo
 - **Gateway:** WS client connects to `/api/ws?access_token=...&device=mobile`, subscribes to `threads`, `signal:<id>`, and `decisions` topics, and reconnects with backoff + automatic re-subscribe
 - **Surfaces:** Assistant tab (Signal-backed chat via `/api/chat/conversations*`), Messages tab (unified inbox via `/api/signals` with Open/Mine/Unassigned/Decisions views), Decisions tab (`/api/notifications/decisions` approve/reject), thread detail with inline decision cards (`POST /api/signals/{id}/messages/{mid}/resolve`) and a reply composer
 - **Push:** Expo push tokens register via `POST /api/push/subscribe` with an `expo:` endpoint prefix; `services/push.py` delivers `expo:` endpoints through the Expo push API and everything else through web push (VAPID)
-- **Retired:** the `apps/messenger` PWA and the legacy `packages/messenger-ui/embed` script are deleted; the native app replaces them
+- **Retired:** the `apps/messenger` PWA and the entire `packages/messenger-ui` package are deleted; the native app and the `apps/chat-widget` embed replace them
 
 ## Workspace (markdown memory, persona, skills)
 

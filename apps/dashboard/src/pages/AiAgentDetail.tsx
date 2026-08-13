@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, MessageSquare, Network, ShieldCheck } from 'lucide-react'
+import { Archive, CalendarDays, MessageSquare, Network, Pause, Play, ShieldCheck } from 'lucide-react'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { AgentChatAccessCard } from '../components/workforce/AgentChatAccessCard'
@@ -14,7 +14,9 @@ import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
-import { listAgentPassports } from '../lib/govern-api'
+import { inboxPath } from '../lib/messages-paths'
+import { archiveAgent, updateAgentStatus } from '../lib/workforce-api'
+import { listAgentPassports, updateAgentPassport } from '../lib/govern-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
@@ -46,6 +48,7 @@ type AgentPassport = {
 export default function AiAgentDetail() {
   const { t } = useTranslation(['nav', 'common'])
   const { agentId, workLogId } = useParams<{ agentId: string; workLogId?: string }>()
+  const navigate = useNavigate()
   const isAdmin = useIsAdmin()
   const [agent, setAgent] = useState<RuntimeAgent | null>(null)
   const [passport, setPassport] = useState<AgentPassport | null>(null)
@@ -54,6 +57,10 @@ export default function AiAgentDetail() {
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [statusBusy, setStatusBusy] = useState(false)
+  const [archiveBusy, setArchiveBusy] = useState(false)
+  const [autonomyBusy, setAutonomyBusy] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!agentId || workLogId) return
@@ -117,8 +124,61 @@ export default function AiAgentDetail() {
     return projects.find((project) => project.po_agent_id === agent.id) ?? null
   }, [agent, projects])
 
+  const handleToggleStatus = useCallback(async () => {
+    if (!agent || statusBusy) return
+    setStatusBusy(true)
+    setActionError(null)
+    try {
+      const next = agent.status === 'active' ? 'standby' : 'active'
+      const result = await updateAgentStatus(undefined, agent.id, next)
+      setAgent(result.agent)
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not update agent status.')
+    } finally {
+      setStatusBusy(false)
+    }
+  }, [agent, statusBusy])
+
+  const handleArchive = useCallback(async () => {
+    if (!agent || archiveBusy) return
+    const confirmed = window.confirm(
+      t('workforce.agents.archiveConfirm', {
+        defaultValue: 'Archive this agent? It will disappear from the workforce list. Run history is preserved.',
+      }),
+    )
+    if (!confirmed) return
+    setArchiveBusy(true)
+    setActionError(null)
+    try {
+      await archiveAgent(undefined, agent.id)
+      navigate(AGENTS_DEFAULT_PATH, { replace: true })
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not archive agent.')
+      setArchiveBusy(false)
+    }
+  }, [agent, archiveBusy, navigate, t])
+
+  const handleAutonomyChange = useCallback(
+    async (level: string) => {
+      if (!agent || autonomyBusy) return
+      setAutonomyBusy(true)
+      setActionError(null)
+      try {
+        const result = await updateAgentPassport(agent.id, { autonomy_level: level })
+        setPassport(result.passport as unknown as AgentPassport)
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Could not update autonomy level.')
+      } finally {
+        setAutonomyBusy(false)
+      }
+    },
+    [agent, autonomyBusy],
+  )
+
+  const isDefaultAssistant = agent?.slug === 'assistant'
+
   if (!isAdmin) {
-    return <Navigate to="/messages" replace />
+    return <Navigate to={inboxPath('all')} replace />
   }
 
   if (!agentId) {
@@ -209,7 +269,39 @@ export default function AiAgentDetail() {
                   {t('workforce.agents.openThreads', { defaultValue: 'Agent threads' })}
                 </Link>
               </Button>
+              {isAdmin ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={statusBusy}
+                  onClick={() => void handleToggleStatus()}
+                >
+                  {agent.status === 'active' ? (
+                    <Pause size={14} className="mr-1.5" aria-hidden />
+                  ) : (
+                    <Play size={14} className="mr-1.5" aria-hidden />
+                  )}
+                  {agent.status === 'active'
+                    ? t('workforce.agents.pause', { defaultValue: 'Pause' })
+                    : t('workforce.agents.wake', { defaultValue: 'Wake' })}
+                </Button>
+              ) : null}
+              {isAdmin && !isDefaultAssistant ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={archiveBusy}
+                  className="text-status-error hover:text-status-error"
+                  onClick={() => void handleArchive()}
+                >
+                  <Archive size={14} className="mr-1.5" aria-hidden />
+                  {t('workforce.agents.archive', { defaultValue: 'Archive' })}
+                </Button>
+              ) : null}
             </div>
+            {actionError ? <p className="mt-2 text-sm text-status-error">{actionError}</p> : null}
           </Card>
 
           {agendaItems.length > 0 ? (
@@ -298,11 +390,34 @@ export default function AiAgentDetail() {
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
                   {t('workforce.agents.autonomyLevel', { defaultValue: 'Autonomy level' })}
                 </p>
-                <p className="mt-1 text-sm font-medium capitalize text-text-heading">
-                  {passport?.autonomy_level != null && passport.autonomy_level !== ''
-                    ? String(passport.autonomy_level)
-                    : t('workforce.agents.autonomyDefault', { defaultValue: 'Workspace default' })}
-                </p>
+                {isAdmin ? (
+                  <select
+                    className="mt-1 w-full max-w-[180px] rounded-md border border-border bg-bg-input px-2 py-1.5 text-sm text-text-heading focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
+                    value={
+                      passport?.autonomy_level != null && passport.autonomy_level !== ''
+                        ? String(passport.autonomy_level)
+                        : 'approval'
+                    }
+                    disabled={autonomyBusy}
+                    onChange={(e) => void handleAutonomyChange(e.target.value)}
+                  >
+                    <option value="manual">
+                      {t('workforce.agents.autonomyManual', { defaultValue: 'Manual — always ask' })}
+                    </option>
+                    <option value="approval">
+                      {t('workforce.agents.autonomyApproval', { defaultValue: 'Approval — gated actions' })}
+                    </option>
+                    <option value="auto">
+                      {t('workforce.agents.autonomyAuto', { defaultValue: 'Auto — act independently' })}
+                    </option>
+                  </select>
+                ) : (
+                  <p className="mt-1 text-sm font-medium capitalize text-text-heading">
+                    {passport?.autonomy_level != null && passport.autonomy_level !== ''
+                      ? String(passport.autonomy_level)
+                      : t('workforce.agents.autonomyDefault', { defaultValue: 'Workspace default' })}
+                  </p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">

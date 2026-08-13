@@ -1,8 +1,5 @@
 """Initial schema baseline."""
 
-from alembic import op
-import sqlalchemy as sa
-import sqlmodel
 
 revision = "001_initial"
 down_revision = None

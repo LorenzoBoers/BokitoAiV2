@@ -11,7 +11,7 @@ export function buildIntegrationSetupReturnUrl(integrationId: string): string {
     connect: integrationId,
     step: 'detail',
   })
-  return `${window.location.origin}/integrations/marketplace?${params.toString()}`
+  return `${window.location.origin}/settings/marketplace?${params.toString()}`
 }
 
 export function parseHubConnectParam(searchParams: URLSearchParams): {

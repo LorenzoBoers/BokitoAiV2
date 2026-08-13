@@ -14,13 +14,6 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
@@ -30,12 +23,11 @@ import { authRoutes } from '../api/routes/auth.routes'
 import { policyRoutes } from '../api/routes/policy.routes'
 import { AUTH_API_BASE } from '../lib/api'
 import {
-  CHAT_WIDGET_SCRIPT_PATH_EXTERNAL,
-  CHAT_WIDGET_SCRIPT_PATH_INTERNAL,
+  CHAT_WIDGET_SCRIPT_PATH,
   DASHBOARD_CHAT_AGENT_SLUG,
-  livechatWidgetHostedScriptUrl,
   livechatWidgetHttpOrigin,
 } from '../lib/api.config'
+import { ensureChatWidgetScript } from '../lib/chat-widget-loader'
 import {
   DEFAULT_MESSENGER_APPEARANCE,
   MESSENGER_MODULE_KEYS,
@@ -46,19 +38,22 @@ import {
   type MessengerAppearance,
 } from '../lib/messenger-appearance'
 import {
-  ASSISTENT_DEFAULT_PATH,
-  assistentSettingsPath,
-  parseAssistentSettingsParams,
-  type AssistentAudience,
-  type AssistentSection,
-} from '../lib/assistent-settings-path'
+  ASSISTANT_DEFAULT_PATH,
+  assistantSettingsPath,
+  parseAssistantSettingsParams,
+  type AssistantAudience,
+  type AssistantSection,
+} from '../lib/assistant-settings-path'
+import {
+  getWidgetSettings,
+  saveWidgetSettings,
+  type WidgetSettings,
+} from '../lib/inbox-api'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 
 type CustomizationPanel = 'content' | 'styling'
 type PreviewTheme = 'light' | 'dark'
-type AgentModelSource = 'bokito_ai' | 'custom'
-type AgentReplyLength = 'concise' | 'balanced' | 'detailed'
 function ColorField({
   value,
   onChange,
@@ -173,8 +168,8 @@ function MessengerSettingsContent({
   audience,
   section,
 }: {
-  audience: AssistentAudience
-  section: AssistentSection
+  audience: AssistantAudience
+  section: AssistantSection
 }) {
   const navigate = useNavigate()
   const { currentWorkspace, refreshWorkspaces } = useWorkspace()
@@ -196,83 +191,59 @@ function MessengerSettingsContent({
   const [personaTone, setPersonaTone] = useState('')
   const [personaDo, setPersonaDo] = useState('')
   const [personaDont, setPersonaDont] = useState('')
-  const [agentModelSource, setAgentModelSource] = useState<AgentModelSource>('bokito_ai')
-  const [customModelId, setCustomModelId] = useState('')
-  const [customTemperature, setCustomTemperature] = useState('0.7')
-  const [streamResponses, setStreamResponses] = useState(true)
-  const [allowToolUse, setAllowToolUse] = useState(true)
-  const [includeVisitorPageContext, setIncludeVisitorPageContext] = useState(false)
-  const [handoffToHuman, setHandoffToHuman] = useState(true)
-  const [maxContextTurns, setMaxContextTurns] = useState('12')
-  const [replyLength, setReplyLength] = useState<AgentReplyLength>('balanced')
   const [installSnippetCopied, setInstallSnippetCopied] = useState(false)
+
+  const [widgetBehaviour, setWidgetBehaviour] = useState<WidgetSettings | null>(null)
+  const [widgetBehaviourSaving, setWidgetBehaviourSaving] = useState(false)
 
   const previewPanelActive = section === 'customization' || section === 'installation'
 
-  const embedNavOptions: { value: AssistentAudience; label: string; icon: ReactNode }[] = [
-    { value: 'internal', label: 'Intern', icon: <Users className="h-3.5 w-3.5 opacity-70" /> },
-    { value: 'external', label: 'Extern', icon: <Globe className="h-3.5 w-3.5 opacity-70" /> },
+  const embedNavOptions: { value: AssistantAudience; label: string; icon: ReactNode }[] = [
+    { value: 'internal', label: 'Internal', icon: <Users className="h-3.5 w-3.5 opacity-70" /> },
+    { value: 'external', label: 'External', icon: <Globe className="h-3.5 w-3.5 opacity-70" /> },
   ]
 
   const installationHtmlSnippet = useMemo(() => {
     const apiOrigin = livechatWidgetHttpOrigin()
     const slug = DASHBOARD_CHAT_AGENT_SLUG
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const hostedInternal = livechatWidgetHostedScriptUrl('internal')
-    const hostedExternal = livechatWidgetHostedScriptUrl('external')
+    const tenantSlug = (currentWorkspace?.slug || '').trim().toLowerCase()
+    const tenantAttr = tenantSlug ? `  data-tenant="${tenantSlug}"\n` : ''
 
     if (audience === 'internal') {
       return (
-        `<!-- Bokito team-widget: ingelogde gebruikers met rechten (zelfde host als portal) -->\n` +
+        `<!-- Bokito assistant for logged-in users of your platform. -->\n` +
+        `<!-- Pass the user's Bokito access token so the assistant knows who they are: -->\n` +
+        `<!--   window.BokitoConfig = { getAuthToken: () => yourAccessToken }        -->\n` +
         `<script\n` +
-        `  src="${origin}${CHAT_WIDGET_SCRIPT_PATH_INTERNAL}"\n` +
+        `  src="${origin}${CHAT_WIDGET_SCRIPT_PATH}"\n` +
         `  data-bokito-chat-widget\n` +
         `  data-agent-slug="${slug}"\n` +
         `  data-api-url="${apiOrigin}"\n` +
-        `  data-auth-mode="optional"\n` +
+        tenantAttr +
+        `  data-auth-mode="required"\n` +
         `  defer\n` +
-        `></script>\n` +
-        `\n` +
-        `<!-- Alternatief: absolute URL naar het team-widget script op dezelfde host -->\n` +
-        `<!--\n` +
-        `<script\n` +
-        `  src="${hostedInternal}"\n` +
-        `  data-agent-slug="${slug}"\n` +
-        `  data-api-url="${apiOrigin}"\n` +
-        `  data-auth-mode="optional"\n` +
-        `  defer\n` +
-        `></script>\n` +
-        `-->`
+        `></script>`
       )
     }
     return (
-      `<!-- Bokito publieke widget: anonieme websitebezoekers (zelfde host als portal) -->\n` +
+      `<!-- Bokito chat widget for anonymous website visitors. -->\n` +
       `<script\n` +
-      `  src="${origin}${CHAT_WIDGET_SCRIPT_PATH_EXTERNAL}"\n` +
+      `  src="${origin}${CHAT_WIDGET_SCRIPT_PATH}"\n` +
       `  data-bokito-chat-widget\n` +
       `  data-agent-slug="${slug}"\n` +
       `  data-api-url="${apiOrigin}"\n` +
+      tenantAttr +
       `  data-auth-mode="anonymous"\n` +
       `  defer\n` +
-      `></script>\n` +
-      `\n` +
-      `<!-- Alternatief: absolute URL naar het publieke widget script op dezelfde host -->\n` +
-      `<!--\n` +
-      `<script\n` +
-      `  src="${hostedExternal}"\n` +
-      `  data-agent-slug="${slug}"\n` +
-      `  data-api-url="${apiOrigin}"\n` +
-      `  data-auth-mode="anonymous"\n` +
-      `  defer\n` +
-      `></script>\n` +
-      `-->`
+      `></script>`
     )
-  }, [audience])
+  }, [audience, currentWorkspace?.slug])
 
   const copyInstallationSnippet = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(installationHtmlSnippet)
-      toast.success('HTML gekopieerd naar klembord')
+      toast.success('HTML copied to clipboard')
       setInstallSnippetCopied(true)
       window.setTimeout(() => setInstallSnippetCopied(false), 2000)
     } catch {
@@ -308,6 +279,33 @@ function MessengerSettingsContent({
       })
   }, [token])
 
+  useEffect(() => {
+    if (!token) return
+    getWidgetSettings(token)
+      .then(setWidgetBehaviour)
+      .catch(() => {
+        // keep defaults; the section shows a loading placeholder
+      })
+  }, [token])
+
+  const handleSaveWidgetBehaviour = useCallback(async () => {
+    if (!token || !widgetBehaviour) return
+    setWidgetBehaviourSaving(true)
+    try {
+      const next = await saveWidgetSettings(token, {
+        preChatForm: widgetBehaviour.preChatForm,
+        offlineMessage: widgetBehaviour.offlineMessage,
+        officeHours: widgetBehaviour.officeHours,
+      })
+      setWidgetBehaviour(next)
+      toast.success('Widget availability saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save widget availability')
+    } finally {
+      setWidgetBehaviourSaving(false)
+    }
+  }, [token, widgetBehaviour])
+
   const dirty = useMemo(() => {
     if (widgetFaviconFile) return true
     return !messengerAppearanceEquals(draft, saved)
@@ -336,20 +334,31 @@ function MessengerSettingsContent({
     if (!host || !token) return
     if (previewWidgetRef.current && host.contains(previewWidgetRef.current)) return
 
-    const el = document.createElement('bokito-chat')
-    el.dataset.agentSlug = DASHBOARD_CHAT_AGENT_SLUG
-    el.dataset.apiUrl = livechatWidgetHttpOrigin()
-    el.dataset.authMode = 'optional'
-    el.dataset.previewMode = 'true'
-    el.dataset.previewOverrides = previewOverridesJson
-    host.appendChild(el)
-    previewWidgetRef.current = el
+    let cancelled = false
+    let el: HTMLElement | null = null
+    void ensureChatWidgetScript()
+      .then(() => {
+        if (cancelled || !previewHostRef.current) return
+        el = document.createElement('bokito-chat')
+        el.dataset.agentSlug = DASHBOARD_CHAT_AGENT_SLUG
+        el.dataset.apiUrl = livechatWidgetHttpOrigin()
+        el.dataset.authMode = 'optional'
+        if (currentWorkspace?.slug) el.dataset.tenant = currentWorkspace.slug
+        el.dataset.previewMode = 'true'
+        el.dataset.previewOverrides = previewOverridesJson
+        previewHostRef.current.appendChild(el)
+        previewWidgetRef.current = el
+      })
+      .catch(() => {
+        // Bundle missing (widget not built); the preview stage stays empty.
+      })
 
     return () => {
+      cancelled = true
       previewWidgetRef.current = null
-      el.remove()
+      el?.remove()
     }
-  }, [token, previewPanelActive])
+  }, [token, previewPanelActive, currentWorkspace?.slug])
 
   useEffect(() => {
     const w = previewWidgetRef.current
@@ -371,7 +380,7 @@ function MessengerSettingsContent({
     e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setSaveError('Kies een afbeeldingsbestand.')
+      setSaveError('Choose an image file.')
       return
     }
     setSaveError(null)
@@ -454,15 +463,10 @@ function MessengerSettingsContent({
     }
   }
 
-  const mainOptions: { value: AssistentSection; label: string }[] = [
+  const mainOptions: { value: AssistantSection; label: string }[] = [
     { value: 'customization', label: 'Customization' },
     { value: 'agent', label: 'Agent settings' },
     { value: 'installation', label: 'Installation' },
-  ]
-
-  const agentModelOptions: { value: AgentModelSource; label: string }[] = [
-    { value: 'bokito_ai', label: 'Bokito AI' },
-    { value: 'custom', label: 'Custom' },
   ]
 
   const customizationOptions: { value: CustomizationPanel; label: string; icon: ReactNode }[] = [
@@ -479,16 +483,16 @@ function MessengerSettingsContent({
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex flex-col gap-3 border-b border-border/60 pb-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
-          <h2 className="shrink-0 text-[17px] font-semibold leading-none text-text-heading">Assistent</h2>
+          <h2 className="shrink-0 text-[17px] font-semibold leading-none text-text-heading">Assistant</h2>
           <SegmentedControl
             value={audience}
-            onChange={(v) => navigate(assistentSettingsPath(v, section))}
+            onChange={(v) => navigate(assistantSettingsPath(v, section))}
             options={embedNavOptions}
             className="max-w-md"
           />
           <SegmentedControl
             value={section}
-            onChange={(v) => navigate(assistentSettingsPath(audience, v))}
+            onChange={(v) => navigate(assistantSettingsPath(audience, v))}
             options={mainOptions}
             className="max-w-xl"
           />
@@ -525,10 +529,10 @@ function MessengerSettingsContent({
           <div className="flex flex-col gap-4 p-4 sm:p-6">
             {section === 'installation' ? (
               <p className="text-2xs leading-relaxed text-text-muted">
-                <span className="font-medium text-text-secondary">Team</span> gebruikt het pad{' '}
-                <span className="font-mono text-text-muted">/chat-widget/internal/</span>;{' '}
-                <span className="font-medium text-text-secondary">publiek</span> gebruikt{' '}
-                <span className="font-mono text-text-muted">/chat-widget/external/</span>. Livechat API:{' '}
+                One script at{' '}
+                <span className="font-mono text-text-muted">/chat-widget/bokito-chat.js</span> serves both
+                audiences; <span className="font-mono text-text-muted">data-auth-mode</span> controls whether
+                visitors chat anonymously or must be signed in. Livechat API:{' '}
                 <span className="font-mono text-text-muted">/api/livechat/*</span>.
               </p>
             ) : null}
@@ -586,7 +590,7 @@ function MessengerSettingsContent({
                             className="mt-2"
                             value={draft.welcome_title}
                             onChange={(e) => patchDraft({ welcome_title: e.target.value })}
-                            placeholder="Hallo!"
+                            placeholder="Hi!"
                           />
                         </div>
                         <div>
@@ -595,7 +599,7 @@ function MessengerSettingsContent({
                             className="mt-2"
                             value={draft.welcome_subtitle}
                             onChange={(e) => patchDraft({ welcome_subtitle: e.target.value })}
-                            placeholder="Stel je vraag aan ..."
+                            placeholder="Ask your question..."
                           />
                         </div>
                       </div>
@@ -681,109 +685,160 @@ function MessengerSettingsContent({
                         />
                       </div>
                       <p className="text-xs text-text-secondary">
-                        Saved with the Save button (same as customization). Advanced model options below are not persisted yet.
+                        Saved with the Save button (same as customization). The assistant model is managed per agent
+                        on the agent detail page.
                       </p>
                     </div>
                 </FoldableSection>
 
-                <div>
-                  <p className="mb-2 text-sm font-medium text-text-heading">Model</p>
-                  <SegmentedControl
-                    value={agentModelSource}
-                    onChange={setAgentModelSource}
-                    options={agentModelOptions}
-                    className="max-w-md"
-                  />
-                  {agentModelSource === 'custom' ? (
-                    <div className="mt-4 space-y-4 rounded-xl border border-border/55 bg-bg-surface/50 p-4 dark:bg-bg-surface/25">
-                      <div>
-                        <p className="text-sm font-medium text-text-heading">Model id</p>
-                        <Input
-                          className="mt-2"
-                          value={customModelId}
-                          onChange={(e) => setCustomModelId(e.target.value)}
-                          placeholder="provider/model-name"
-                          autoComplete="off"
+                <FoldableSection title="Availability" defaultOpen>
+                  {!widgetBehaviour ? (
+                    <p className="pt-1 text-sm text-text-muted">Loading…</p>
+                  ) : (
+                    <div className="space-y-4 pt-1">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
+                        <div>
+                          <span className="text-sm text-text-primary">Pre-chat form</span>
+                          <p className="text-2xs text-text-muted">
+                            Ask anonymous visitors for a name and email before their first message.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={widgetBehaviour.preChatForm}
+                          onCheckedChange={(checked) =>
+                            setWidgetBehaviour({ ...widgetBehaviour, preChatForm: checked })
+                          }
+                          aria-label="Pre-chat form"
                         />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-text-heading">Temperature</p>
-                        <Input
-                          className="mt-2 max-w-[120px]"
-                          type="number"
-                          min={0}
-                          max={2}
-                          step={0.05}
-                          value={customTemperature}
-                          onChange={(e) => setCustomTemperature(e.target.value)}
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
+                        <div>
+                          <span className="text-sm text-text-primary">Office hours</span>
+                          <p className="text-2xs text-text-muted">
+                            Outside these hours the widget shows your offline message.
+                            {widgetBehaviour.officeHours.enabled
+                              ? widgetBehaviour.officeOpen
+                                ? ' Currently open.'
+                                : ' Currently closed.'
+                              : ''}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={widgetBehaviour.officeHours.enabled}
+                          onCheckedChange={(checked) =>
+                            setWidgetBehaviour({
+                              ...widgetBehaviour,
+                              officeHours: { ...widgetBehaviour.officeHours, enabled: checked },
+                            })
+                          }
+                          aria-label="Office hours"
                         />
                       </div>
+                      {widgetBehaviour.officeHours.enabled ? (
+                        <div className="space-y-3 rounded-lg border border-border/55 bg-bg-surface/50 p-3 dark:bg-bg-surface/25">
+                          <div className="flex flex-wrap gap-1.5">
+                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, day) => {
+                              const active = widgetBehaviour.officeHours.days.includes(day)
+                              return (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={() =>
+                                    setWidgetBehaviour({
+                                      ...widgetBehaviour,
+                                      officeHours: {
+                                        ...widgetBehaviour.officeHours,
+                                        days: active
+                                          ? widgetBehaviour.officeHours.days.filter((d) => d !== day)
+                                          : [...widgetBehaviour.officeHours.days, day].sort(),
+                                      },
+                                    })
+                                  }
+                                  className={cn(
+                                    'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                                    active
+                                      ? 'border-accent/50 bg-accent/10 text-accent'
+                                      : 'border-border/60 text-text-secondary hover:text-text-primary',
+                                  )}
+                                >
+                                  {label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div>
+                              <p className="text-2xs font-medium text-text-muted">From</p>
+                              <Input
+                                className="mt-1 w-[110px]"
+                                type="time"
+                                value={widgetBehaviour.officeHours.start}
+                                onChange={(e) =>
+                                  setWidgetBehaviour({
+                                    ...widgetBehaviour,
+                                    officeHours: { ...widgetBehaviour.officeHours, start: e.target.value },
+                                  })
+                                }
+                              />
+                            </div>
+                            <div>
+                              <p className="text-2xs font-medium text-text-muted">Until</p>
+                              <Input
+                                className="mt-1 w-[110px]"
+                                type="time"
+                                value={widgetBehaviour.officeHours.end}
+                                onChange={(e) =>
+                                  setWidgetBehaviour({
+                                    ...widgetBehaviour,
+                                    officeHours: { ...widgetBehaviour.officeHours, end: e.target.value },
+                                  })
+                                }
+                              />
+                            </div>
+                            <div>
+                              <p className="text-2xs font-medium text-text-muted">Timezone</p>
+                              <Input
+                                className="mt-1 w-[200px]"
+                                value={widgetBehaviour.officeHours.timezone}
+                                onChange={(e) =>
+                                  setWidgetBehaviour({
+                                    ...widgetBehaviour,
+                                    officeHours: { ...widgetBehaviour.officeHours, timezone: e.target.value },
+                                  })
+                                }
+                                placeholder="Europe/Amsterdam"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                      <div>
+                        <p className="text-sm font-medium text-text-heading">Offline message</p>
+                        <textarea
+                          className="mt-2 w-full min-h-[64px] rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                          value={widgetBehaviour.offlineMessage}
+                          onChange={(e) =>
+                            setWidgetBehaviour({ ...widgetBehaviour, offlineMessage: e.target.value })
+                          }
+                          placeholder="We are currently offline. Leave a message and we will get back to you."
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={widgetBehaviourSaving}
+                        onClick={() => void handleSaveWidgetBehaviour()}
+                      >
+                        {widgetBehaviourSaving ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            Saving
+                          </>
+                        ) : (
+                          'Save availability'
+                        )}
+                      </Button>
                     </div>
-                  ) : null}
-                </div>
-
-                <FoldableSection title="Replies" defaultOpen>
-                  <div className="space-y-4 pt-1">
-                    <div>
-                      <p className="text-sm font-medium text-text-heading">Default length</p>
-                      <Select value={replyLength} onValueChange={(v) => setReplyLength(v as AgentReplyLength)}>
-                        <SelectTrigger className="mt-2 max-w-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="concise">Concise</SelectItem>
-                          <SelectItem value="balanced">Balanced</SelectItem>
-                          <SelectItem value="detailed">Detailed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
-                      <span className="text-sm text-text-primary">Stream responses</span>
-                      <Switch checked={streamResponses} onCheckedChange={setStreamResponses} aria-label="Stream responses" />
-                    </div>
-                  </div>
-                </FoldableSection>
-
-                <FoldableSection title="Context and tools" defaultOpen>
-                  <div className="space-y-4 pt-1">
-                    <div>
-                      <p className="text-sm font-medium text-text-heading">Conversation memory (turns)</p>
-                      <Input
-                        className="mt-2 max-w-[120px]"
-                        type="number"
-                        min={1}
-                        max={64}
-                        value={maxContextTurns}
-                        onChange={(e) => setMaxContextTurns(e.target.value)}
-                      />
-                      <p className="mt-1.5 text-2xs text-text-muted">How many prior turns the agent may consider.</p>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
-                      <span className="text-sm text-text-primary">Allow tool use</span>
-                      <Switch checked={allowToolUse} onCheckedChange={setAllowToolUse} aria-label="Allow tool use" />
-                    </div>
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
-                      <span className="text-sm text-text-primary">Include visitor page context</span>
-                      <Switch
-                        checked={includeVisitorPageContext}
-                        onCheckedChange={setIncludeVisitorPageContext}
-                        aria-label="Include visitor page context"
-                      />
-                    </div>
-                  </div>
-                </FoldableSection>
-
-                <FoldableSection title="Handoff" defaultOpen={false}>
-                  <div className="space-y-3 pt-1">
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
-                      <span className="text-sm text-text-primary">Offer human handoff when unsure</span>
-                      <Switch checked={handoffToHuman} onCheckedChange={setHandoffToHuman} aria-label="Human handoff" />
-                    </div>
-                    <p className="text-2xs text-text-muted">
-                      When enabled, the agent can suggest routing to a teammate. Routing rules will be configured in
-                      Inbox later.
-                    </p>
-                  </div>
+                  )}
                 </FoldableSection>
               </div>
             ) : null}
@@ -794,8 +849,8 @@ function MessengerSettingsContent({
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/55 px-4 py-3">
                     <p className="text-sm font-medium text-text-heading">
                       {audience === 'internal'
-                        ? 'Team-widget (/chat-widget/internal/)'
-                        : 'Publieke widget (/chat-widget/external/)'}
+                        ? 'Assistant for logged-in users'
+                        : 'Widget for website visitors'}
                     </p>
                     <Button
                       type="button"
@@ -803,28 +858,35 @@ function MessengerSettingsContent({
                       variant="secondary"
                       className="shrink-0 gap-1.5"
                       onClick={() => void copyInstallationSnippet()}
-                      aria-label="Kopieer embed-HTML"
+                      aria-label="Copy embed HTML"
                     >
                       {installSnippetCopied ? (
                         <>
                           <Check className="h-3.5 w-3.5" />
-                          Gekopieerd
+                          Copied
                         </>
                       ) : (
                         <>
                           <Copy className="h-3.5 w-3.5" />
-                          Kopiëren
+                          Copy
                         </>
                       )}
                     </Button>
                   </div>
                   <p className="px-4 pt-3 text-xs text-text-secondary">
-                    Gebruik het <strong>eerste</strong> actieve scriptblok. Het tweede blok staat in HTML-commentaar als
-                    absolute URL naar hetzelfde script op deze host. Team: zet{' '}
-                    <span className="font-mono text-text-muted">data-auth-mode</span> op{' '}
-                    <span className="font-mono text-text-muted">optional</span> of{' '}
-                    <span className="font-mono text-text-muted">required</span> als je sessies wilt koppelen. Publiek:
-                    houd <span className="font-mono text-text-muted">anonymous</span>.
+                    {audience === 'internal' ? (
+                      <>
+                        Paste this snippet into your platform for signed-in users. Provide the user's access token
+                        via <span className="font-mono text-text-muted">window.BokitoConfig.getAuthToken</span> so
+                        conversations are linked to their account; the widget shows a sign-in prompt when the token
+                        is missing.
+                      </>
+                    ) : (
+                      <>
+                        Paste this snippet into any website. Visitors chat anonymously; conversations land in your
+                        Communication inbox on the webchat channel.
+                      </>
+                    )}
                   </p>
                   <div className="p-4 pt-2">
                     <pre className="max-h-[min(60vh,420px)] overflow-auto rounded-lg border border-border/60 bg-[#141824] p-4 text-left shadow-inner">
@@ -869,11 +931,11 @@ function MessengerSettingsContent({
 export default function MessengerSettings() {
   const params = useParams<{ audience: string; section: string }>()
   const parsed = useMemo(
-    () => parseAssistentSettingsParams(params.audience, params.section),
+    () => parseAssistantSettingsParams(params.audience, params.section),
     [params.audience, params.section],
   )
   if (!parsed) {
-    return <Navigate to={ASSISTENT_DEFAULT_PATH} replace />
+    return <Navigate to={ASSISTANT_DEFAULT_PATH} replace />
   }
   return <MessengerSettingsContent audience={parsed.audience} section={parsed.section} />
 }

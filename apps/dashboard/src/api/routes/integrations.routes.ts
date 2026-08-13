@@ -24,7 +24,6 @@ export const integrationsRoutes = {
       if (projectId) params.set('project_id', projectId)
       return withQuery('/integrations/oauth/start', params)
     },
-    workerCredentials: '/integrations/worker/credentials',
     mcpBindings: '/integrations/mcp/bindings',
     mcpInstall: '/integrations/mcp/install',
     mcpTest: (serverId: string) => `/integrations/mcp/${serverId}/test`,
@@ -35,8 +34,6 @@ export const integrationsRoutes = {
       })
       return withQuery('/integrations/mcp/oauth/start', params)
     },
-    workerMcpCredentials: '/integrations/worker/mcp-credentials',
-    mcpOAuthRefresh: '/integrations/mcp/oauth/refresh',
   },
   email: {
     connections: {
@@ -56,6 +53,7 @@ export const integrationsRoutes = {
       googleStart: (encodedReturnUrl: string) => `/email/google/oauth/start?return_url=${encodedReturnUrl}`,
     },
     send: '/email/send',
+    sync: '/email/sync',
     routingRules: {
       withMailbox: (mailboxId: number) => `/email/routing-rules?mailbox_id=${mailboxId}`,
       base: '/email/routing-rules',
@@ -72,18 +70,5 @@ export const integrationsRoutes = {
       byId: (documentId: number) => `/kb/documents/${documentId}`,
     },
     searchQuery: (params: URLSearchParams) => withQuery('/kb/search', params),
-  },
-  inbox: {
-    threadsQuery: (params: URLSearchParams) => withQuery('/inbox/threads', params),
-    thread: (threadId: number) => `/inbox/threads/${threadId}`,
-    threadDelete: (threadId: number) => `/inbox/threads/${threadId}`,
-    threadMarkRead: (threadId: number) => `/inbox/threads/${threadId}/mark-read`,
-    threadMarkUnread: (threadId: number) => `/inbox/threads/${threadId}/mark-unread`,
-    threadPin: (threadId: number) => `/inbox/threads/${threadId}/pin`,
-    threadReply: (threadId: number) => `/inbox/threads/${threadId}/reply`,
-    threadNotes: (threadId: number) => `/inbox/threads/${threadId}/notes`,
-    pins: '/inbox/pins',
-    members: '/inbox/members',
-    syncStatus: '/inbox/sync-status',
   },
 } as const

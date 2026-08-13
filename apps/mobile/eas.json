@@ -17,6 +17,16 @@
         "BOKITO_API_URL": "https://app.bokito.ai"
       }
     },
+    "dev-apk": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "BOKITO_API_URL": "https://app.bokito.ai"
+      }
+    },
     "production": {
       "android": {
         "buildType": "app-bundle"

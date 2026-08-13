@@ -26,6 +26,52 @@ class AssistantPatch(BaseModel):
     default_chat_agent_id: UUID | None = None
 
 
+class PreferencesPatch(BaseModel):
+    ui_language: str | None = None
+
+
+@router.get("/preferences")
+async def get_my_preferences(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    import json
+
+    try:
+        stored = json.loads(auth.user.settings_json or "{}")
+    except (TypeError, json.JSONDecodeError):
+        stored = {}
+    if not isinstance(stored, dict):
+        stored = {}
+    lang = stored.get("ui_language")
+    if lang not in ("en", "nl"):
+        lang = "en"
+    return {"ui_language": lang}
+
+
+@router.patch("/preferences")
+async def patch_my_preferences(
+    body: PreferencesPatch,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    import json
+
+    try:
+        stored = json.loads(auth.user.settings_json or "{}")
+    except (TypeError, json.JSONDecodeError):
+        stored = {}
+    if not isinstance(stored, dict):
+        stored = {}
+    if body.ui_language is not None:
+        if body.ui_language not in ("en", "nl"):
+            raise HTTPException(status_code=400, detail="ui_language must be en or nl")
+        stored["ui_language"] = body.ui_language
+    auth.user.settings_json = json.dumps(stored)
+    session.add(auth.user)
+    await session.commit()
+    return {"ui_language": stored.get("ui_language", "en")}
+
+
 async def _assistant_payload(session: AsyncSession, auth: AuthContext) -> dict:
     agent = await get_or_create_personal_agent(session, auth.tenant.id, auth.user)
     pref = await get_user_preference(session, auth.tenant.id, auth.user.id)

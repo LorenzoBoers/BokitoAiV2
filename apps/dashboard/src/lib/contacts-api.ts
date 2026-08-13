@@ -1,7 +1,7 @@
 /** CRM contacts API (channel contacts with profile fields and thread history). */
 
 import { appRoutes } from '../api/routes/app.routes'
-import { apiGet, apiPatch } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import type { InboxThread } from './inbox-api'
 import { normalizeThreadRow } from './inbox-api'
 
@@ -90,4 +90,26 @@ export async function updateContact(
 ): Promise<ContactRow | null> {
   const payload = await apiPatch<unknown>(appRoutes.contacts.byId(contactId), patch, token)
   return normalizeContact(payload)
+}
+
+export type ContactCreateInput = {
+  channel?: string
+  address: string
+  display_name?: string
+  company?: string
+  title?: string
+  phone?: string
+  notes?: string
+}
+
+export async function createContact(
+  token: string,
+  input: ContactCreateInput,
+): Promise<ContactRow | null> {
+  const payload = await apiPost<unknown>(appRoutes.contacts.list, input, token)
+  return normalizeContact(payload)
+}
+
+export async function deleteContact(token: string, contactId: string): Promise<void> {
+  await apiDelete<unknown>(appRoutes.contacts.byId(contactId), token)
 }

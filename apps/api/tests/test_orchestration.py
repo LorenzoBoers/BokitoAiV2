@@ -69,7 +69,7 @@ async def test_runtime_profiles_and_task(client: AsyncClient):
 async def test_workstream_steps(client: AsyncClient):
     headers = await _login(client)
 
-    ws = await client.post("/api/orchestra/workstreams", headers=headers, json={"name": "Test WS"})
+    ws = await client.post(f"{API}/workstreams", headers=headers, json={"name": "Test WS"})
     assert ws.status_code == 200
     ws_id = ws.json()["id"]
 
@@ -86,11 +86,64 @@ async def test_workstream_steps(client: AsyncClient):
     steps = await client.get(f"{API}/workstreams/{ws_id}/steps", headers=headers)
     assert steps.status_code == 200
     assert len(steps.json()) == 1
+    step_id = steps.json()[0]["id"]
 
     run = await client.post(f"{API}/workstreams/{ws_id}/run", headers=headers)
     assert run.status_code == 200
     body = run.json()
     assert body.get("workstream_id") == ws_id or body.get("id")
+
+    deleted = await client.delete(f"{API}/workstreams/{ws_id}/steps/{step_id}", headers=headers)
+    assert deleted.status_code == 200
+    steps_after = await client.get(f"{API}/workstreams/{ws_id}/steps", headers=headers)
+    assert steps_after.status_code == 200
+    assert steps_after.json() == []
+
+
+@pytest.mark.asyncio
+async def test_workstream_human_gate_pauses_and_resumes(client: AsyncClient):
+    headers = await _login(client)
+
+    ws = await client.post(f"{API}/workstreams", headers=headers, json={"name": "Gated WS"})
+    assert ws.status_code == 200
+    ws_id = ws.json()["id"]
+
+    agents = await client.get("/api/workforce/agents", headers=headers)
+    agent_id = agents.json()["items"][0]["id"]
+
+    steps = [
+        {"name": "Draft", "order": 0, "agent_id": agent_id, "step_kind": "agent"},
+        {"name": "Review", "order": 1, "step_kind": "human_gate", "prompt_template": "Approve to continue."},
+        {"name": "Finalize", "order": 2, "agent_id": agent_id, "step_kind": "agent"},
+    ]
+    for payload in steps:
+        res = await client.post(f"{API}/workstreams/{ws_id}/steps", headers=headers, json=payload)
+        assert res.status_code == 200
+
+    # Inline mock execution runs step 1, then pauses at the approval gate.
+    run = await client.post(f"{API}/workstreams/{ws_id}/run", headers=headers)
+    assert run.status_code == 200
+    task = run.json()
+    assert task["status"] == "awaiting_decision"
+    assert task["pause_reason"] == "human_gate"
+
+    # Resuming records the gate as passed and finishes the remaining step.
+    resumed = await client.post(f"{API}/tasks/{task['id']}/resume", headers=headers)
+    assert resumed.status_code == 200
+    assert resumed.json()["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_workstream_run_requires_steps(client: AsyncClient):
+    headers = await _login(client)
+    ws = await client.post(f"{API}/workstreams", headers=headers, json={"name": "Empty WS"})
+    assert ws.status_code == 200
+    ws_id = ws.json()["id"]
+    run = await client.post(f"{API}/workstreams/{ws_id}/run", headers=headers)
+    assert run.status_code == 400
+    payload = run.json()
+    detail = payload.get("detail") or payload.get("error", {}).get("message") or ""
+    assert "step" in str(detail).lower()
 
 
 @pytest.mark.asyncio

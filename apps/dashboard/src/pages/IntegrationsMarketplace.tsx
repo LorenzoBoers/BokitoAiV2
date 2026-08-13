@@ -67,7 +67,7 @@ function providerToIntegration(
     id,
     name: p.name,
     description: p.description || staticRow?.description || '',
-    category: staticRow?.category ?? 'Productiviteit',
+    category: staticRow?.category ?? 'Productivity',
     status,
     kind: staticRow?.kind ?? resolveIntegrationKind(p.slug, p.capabilities),
     color: brand.color,

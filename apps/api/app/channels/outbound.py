@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,20 +13,43 @@ from app.models.channel import ChannelAccount
 from app.models.signal import Signal, SignalMessage
 
 
-async def _last_inbound_external_id(session: AsyncSession, signal_id) -> str | None:
+def _message_metadata(message: SignalMessage) -> dict:
+    try:
+        data = json.loads(message.metadata_json or "{}")
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+async def _reply_context(
+    session: AsyncSession, signal_id
+) -> tuple[str | None, str | None, str | None]:
+    """(In-Reply-To, References, provider message id) for replying in-thread.
+
+    In-Reply-To/References use the RFC 5322 Message-ID captured at ingest —
+    provider ids (Gmail/Graph API ids) are useless as threading headers. The
+    provider id is returned separately for Graph's reply endpoint.
+    """
     result = await session.execute(
         select(SignalMessage)
         .where(
             SignalMessage.signal_id == signal_id,
             SignalMessage.direction == "inbound",
-            SignalMessage.external_id.isnot(None),
-            SignalMessage.external_id != "",
         )
         .order_by(SignalMessage.created_at.desc())
         .limit(1)
     )
     message = result.scalar_one_or_none()
-    return message.external_id if message else None
+    if not message:
+        return None, None, None
+    provider_id = (message.external_id or "").strip() or None
+    metadata = _message_metadata(message)
+    rfc_id = str(metadata.get("rfc_message_id") or "").strip()
+    if not rfc_id:
+        return None, None, provider_id
+    prior_refs = str(metadata.get("references") or "").strip()
+    references = f"{prior_refs} {rfc_id}".strip() if prior_refs else rfc_id
+    return rfc_id, references, provider_id
 
 
 async def deliver_outbound(
@@ -36,6 +61,7 @@ async def deliver_outbound(
     body_html: str | None = None,
     cc: str | None = None,
     bcc: str | None = None,
+    attachments: list[dict] | None = None,
 ) -> str:
     """Send `body_text` to the external party of this thread.
 
@@ -56,8 +82,7 @@ async def deliver_outbound(
     if signal.channel == "email":
         if not signal.contact_email:
             return "failed:no_recipient"
-        in_reply_to = await _last_inbound_external_id(session, signal.id)
-        references = in_reply_to
+        in_reply_to, references, reply_to_provider_id = await _reply_context(session, signal.id)
         return await email_adapter.send_via_provider(
             account,
             to_address=signal.contact_email,
@@ -68,6 +93,10 @@ async def deliver_outbound(
             bcc=bcc,
             in_reply_to=in_reply_to,
             references=references,
+            reply_to_provider_id=reply_to_provider_id,
+            thread_provider_id=(signal.external_id or "").strip() or None,
+            attachments=attachments,
+            session=session,
         )
     return await slack_adapter.send_message(
         account, thread_external_id=signal.external_id, body_text=body_text

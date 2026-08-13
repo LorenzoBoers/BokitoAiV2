@@ -3,9 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,11 +11,15 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack, router, useLocalSearchParams } from 'expo-router'
+import { KeyboardAvoidingView, KeyboardStickyView } from 'react-native-keyboard-controller'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import DaySeparator from '../../src/components/DaySeparator'
 import EventRow from '../../src/components/EventRow'
 import MessageBubble from '../../src/components/MessageBubble'
 import StreamingBubble from '../../src/components/StreamingBubble'
+import ThinkingTrace from '../../src/components/ThinkingTrace'
 import ThreadComposer from '../../src/components/ThreadComposer'
+import { useLastAgentSteps } from '../../src/hooks/useLastAgentSteps'
 import { useSignalStream } from '../../src/hooks/useSignalStream'
 import { useThreadDetail, useThreadMutations } from '../../src/hooks/useMessagingQueries'
 import type { Attachment, ReplyAction, ThreadEvent, ThreadMessage } from '../../src/lib/api'
@@ -95,6 +97,7 @@ function buildTimeline(messages: ThreadMessage[], events: ThreadEvent[]): Timeli
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const threadId = id ?? ''
+  const insets = useSafeAreaInsets()
   const [menuOpen, setMenuOpen] = useState(false)
   const listRef = useRef<FlatList<TimelineItem>>(null)
 
@@ -109,6 +112,17 @@ export default function ThreadScreen() {
   const timeline = useMemo(() => buildTimeline(messages, events), [messages, events])
 
   const showStreamBubble = gatewayStream.streaming || !!gatewayStream.streamText || gatewayStream.steps.length > 0
+  const lastCompletedSteps = useLastAgentSteps(gatewayStream.streaming, gatewayStream.steps)
+
+  const lastAssistantMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i]
+      if (message.kind === 'event' || message.kind === 'system_event') continue
+      if (message.kind === 'note' || message.kind === 'internal_note') continue
+      if (message.direction === 'outbound') return message.id
+    }
+    return null
+  }, [messages])
 
   const saving =
     mutations.reply.isPending ||
@@ -185,8 +199,8 @@ export default function ThreadScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
+      behavior="padding"
+      keyboardVerticalOffset={insets.top}
     >
       <Stack.Screen
         options={{
@@ -204,19 +218,27 @@ export default function ThreadScreen() {
         data={timeline}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item }) => {
           if (item.type === 'day') return <DaySeparator label={item.label} />
           if (item.type === 'event') return <EventRow event={item.data} />
+          const showThought =
+            item.data.id === lastAssistantMessageId &&
+            lastCompletedSteps.length > 0 &&
+            !gatewayStream.streaming
           return (
-            <MessageBubble
-              message={item.data}
-              events={events}
-              resolveBusy={mutations.resolveDecision.isPending}
-              onResolve={(messageId, action) =>
-                void mutations.resolveDecision.mutateAsync({ messageId, action }).then(() => refetch())
-              }
-            />
+            <View style={styles.messageBlock}>
+              {showThought ? <ThinkingTrace steps={lastCompletedSteps} compact /> : null}
+              <MessageBubble
+                message={item.data}
+                events={events}
+                resolveBusy={mutations.resolveDecision.isPending}
+                onResolve={(messageId, action) =>
+                  void mutations.resolveDecision.mutateAsync({ messageId, action }).then(() => refetch())
+                }
+              />
+            </View>
           )
         }}
         ListEmptyComponent={<Text style={styles.empty}>No messages yet.</Text>}
@@ -231,15 +253,19 @@ export default function ThreadScreen() {
         }
       />
 
-      <ThreadComposer
-        saving={saving}
-        onReply={async (bodyText, action, attachments: Attachment[]) => {
-          await mutations.reply.mutateAsync({ bodyText, action: action as ReplyAction, attachments })
-        }}
-        onNote={async (bodyText, attachments: Attachment[]) => {
-          await mutations.note.mutateAsync({ bodyText, attachments })
-        }}
-      />
+      <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
+        <ThreadComposer
+          saving={saving}
+          streaming={gatewayStream.streaming}
+          onStop={() => undefined}
+          onReply={async (bodyText, action, attachments: Attachment[]) => {
+            await mutations.reply.mutateAsync({ bodyText, action: action as ReplyAction, attachments })
+          }}
+          onNote={async (bodyText, attachments: Attachment[]) => {
+            await mutations.note.mutateAsync({ bodyText, attachments })
+          }}
+        />
+      </KeyboardStickyView>
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={closeMenu}>
         <Pressable style={styles.menuBackdrop} onPress={closeMenu}>
@@ -270,6 +296,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   headerButton: { marginRight: spacing.sm },
   list: { padding: spacing.lg, gap: spacing.sm, flexGrow: 1 },
+  messageBlock: { gap: spacing.xs },
   empty: { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl * 2 },
   menuBackdrop: {
     flex: 1,

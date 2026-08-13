@@ -1,9 +1,12 @@
 /**
  * Bokito Chat Widget
  * Embed on any website:
- *   <script src="https://app.example.com/chat-widget/external/bokito-chat.js"
- *           data-agent-slug="demo"
+ *   <script src="https://app.example.com/chat-widget/bokito-chat.js"
+ *           data-bokito-chat-widget
+ *           data-agent-slug="assistant"
  *           data-api-url="https://app.example.com"
+ *           data-tenant="my-tenant"
+ *           data-auth-mode="anonymous"
  *           defer></script>
  */
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
@@ -50,14 +53,23 @@ class PIIFilter {
 }
 
 /* ── Time formatter ─────────────────────────────────────────── */
+/** The API emits naive ISO timestamps in UTC (no Z suffix); normalize so the browser does not parse them as local time. */
+function normalizeServerTimestamp(ts) {
+  if (typeof ts === 'string' && /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(ts.trim())) {
+    return ts.trim().replace(' ', 'T') + 'Z';
+  }
+  return ts;
+}
+
 function formatTime(ts) {
-  const d = new Date(ts), now = new Date(), diff = now - d;
+  const d = new Date(normalizeServerTimestamp(ts)), now = new Date(), diff = now - d;
+  if (!Number.isFinite(d.getTime())) return '';
   const m = Math.floor(diff/60000), h = Math.floor(diff/3600000), dy = Math.floor(diff/86400000);
-  if (m < 1)  return 'nu';
+  if (m < 1)  return 'now';
   if (m < 60) return `${m}m`;
-  if (h < 24) return `${h}u`;
+  if (h < 24) return `${h}h`;
   if (dy < 7) return `${dy}d`;
-  return d.toLocaleDateString('nl-NL', { day:'numeric', month:'short' });
+  return d.toLocaleDateString(undefined, { day:'numeric', month:'short' });
 }
 
 const LIVECHAT_STREAM_SEGMENT = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -81,6 +93,7 @@ const LS_THEME_KEY = 'bokito_theme';
 const LS_SOUND_EFFECTS_KEY = 'bokito_sound_effects';
 const LS_SOUND_NOTIFICATIONS_KEY = 'bokito_sound_notifications';
 const LS_CUSTOMER_ID_KEY = 'bokito_customer_id';
+const LS_VISITOR_IDENTITY_KEY = 'bokito_visitor_identity';
 const LS_HIDDEN_CONVERSATIONS_KEY = 'bokito_hidden_conversations';
 const LS_AUTH_TOKEN_KEY = 'bokito_auth_token';
 const LS_PREFERENCES_CACHE_KEY = 'bokito_user_preferences_cache';
@@ -104,7 +117,7 @@ function readCookieValue(cookieName = '') {
 /* ── API client ─────────────────────────────────────────────── */
 class ApiClient {
   #baseUrl; #token = null; #agentSlug; #onSessionExpired; #stateMachine; #identityTokenGetter;
-  #hostAuthTokenGetter; #authModeGetter; #authCookieNameGetter; #customerIdGetter;
+  #hostAuthTokenGetter; #authModeGetter; #authCookieNameGetter; #customerIdGetter; #tenantSubdomainGetter;
 
   constructor({
     baseUrl,
@@ -116,6 +129,7 @@ class ApiClient {
     authModeGetter,
     authCookieNameGetter,
     customerIdGetter,
+    tenantSubdomainGetter,
   }) {
     this.#baseUrl = normalizeLivechatApiBase(baseUrl);
     this.#agentSlug = agentSlug;
@@ -125,6 +139,7 @@ class ApiClient {
     this.#hostAuthTokenGetter = hostAuthTokenGetter;
     this.#authModeGetter = authModeGetter;
     this.#authCookieNameGetter = authCookieNameGetter;
+    this.#tenantSubdomainGetter = tenantSubdomainGetter;
     this.#customerIdGetter =
       typeof customerIdGetter === 'function' ? customerIdGetter : () => localStorage.getItem(LS_CUSTOMER_ID_KEY);
   }
@@ -146,7 +161,7 @@ class ApiClient {
       const hostAuthToken = this.#hostAuthTokenGetter?.();
       const authMode = this.#authModeGetter?.();
       const authCookieName = this.#authCookieNameGetter?.();
-      const tenantSubdomain = resolveTenantSubdomainFromHost();
+      const tenantSubdomain = this.#tenantSubdomainGetter?.() || resolveTenantSubdomainFromHost();
       const body = { agent_slug: this.#agentSlug, customer_id: cid };
       if (identityToken) body.identity_token = identityToken;
       if (hostAuthToken) body.host_auth_token = hostAuthToken;
@@ -192,9 +207,9 @@ class ApiClient {
   }
 
   async get(path) {
-    const sep = path.includes('?') ? '&' : '?';
-    const fullPath = this.#token ? `${path}${sep}session_token=${encodeURIComponent(this.#token)}` : path;
-    const r = await this.request(fullPath, { method: 'GET' });
+    // Token travels via the Authorization header only; never in the query
+    // string, where it would leak into server access logs.
+    const r = await this.request(path, { method: 'GET' });
     if (!r?.ok) { await this.#logErrorResponse('GET', path, r); return null; }
     return r.json();
   }
@@ -786,20 +801,23 @@ const WIDGET_CSS = `
 .bk-login-icon svg{width:48px;height:48px;color:var(--bk-text-muted);}
 .bk-login-title{font-size:17px;font-weight:700;color:var(--bk-text);}
 .bk-login-sub{font-size:14px;color:var(--bk-text-muted);line-height:1.5;}
-.bk-login-form{width:100%;max-width:280px;display:flex;flex-direction:column;gap:10px;margin-top:2px;}
-.bk-login-field{display:flex;flex-direction:column;gap:5px;text-align:left;}
-.bk-login-field span{font-size:12px;color:var(--bk-text-muted);font-weight:600;}
-.bk-login-field input{width:100%;border:1px solid var(--bk-border);border-radius:10px;background:var(--bk-bg-surface);color:var(--bk-text);font-size:14px;padding:10px 12px;outline:none;transition:border-color var(--bk-transition),box-shadow var(--bk-transition);}
-.bk-login-field input:focus{border-color:var(--bk-primary);box-shadow:0 0 0 3px var(--bk-primary-light);}
-.bk-login-error{font-size:12px;color:#DC2626;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 10px;}
-.bk-login-submit{margin-top:2px;border:none;border-radius:10px;background:var(--bk-primary);color:var(--bk-text-inverse);font-weight:700;font-size:14px;padding:10px 12px;cursor:pointer;transition:transform var(--bk-transition),opacity var(--bk-transition);}
-.bk-login-submit:hover{transform:translateY(-1px);}
-.bk-login-submit:disabled{opacity:.6;cursor:not-allowed;transform:none;}
-.bk-login-links{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-top:2px;}
-.bk-login-links a{color:var(--bk-primary);text-decoration:none;}
+.bk-login-links{display:flex;justify-content:center;gap:8px;font-size:13px;margin-top:4px;}
+.bk-login-links a{color:var(--bk-primary);text-decoration:none;font-weight:600;}
 .bk-login-links a:hover{text-decoration:underline;}
 .bk-agent-banner{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#FFF7ED;border-bottom:1px solid #FED7AA;font-size:13px;color:#C2410C;font-weight:500;}
 .bk-agent-banner svg{width:16px;height:16px;flex-shrink:0;}
+.bk-offline-banner{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bk-bg-hover);border-bottom:1px solid var(--bk-border);font-size:13px;color:var(--bk-text-muted);font-weight:500;}
+.bk-offline-banner svg{width:16px;height:16px;flex-shrink:0;}
+.bk-prechat{margin:8px 0;padding:14px;border:1px solid var(--bk-border);border-radius:12px;background:var(--bk-bg-surface);display:flex;flex-direction:column;gap:8px;}
+.bk-prechat-title{font-size:13px;font-weight:600;color:var(--bk-text);}
+.bk-prechat-sub{font-size:12px;color:var(--bk-text-muted);margin-top:-4px;}
+.bk-prechat input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--bk-border);border-radius:8px;background:var(--bk-bg);color:var(--bk-text);font-size:13px;font-family:inherit;outline:none;}
+.bk-prechat input:focus{border-color:var(--bk-primary);}
+.bk-prechat-actions{display:flex;gap:8px;align-items:center;margin-top:2px;}
+.bk-prechat-submit{padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:#0B0F14;font-size:13px;font-weight:600;cursor:pointer;}
+.bk-prechat-submit:disabled{opacity:0.6;cursor:default;}
+.bk-prechat-skip{padding:8px 10px;border:none;background:none;color:var(--bk-text-muted);font-size:12px;cursor:pointer;}
+.bk-prechat-error{font-size:12px;color:#DC2626;}
 .bk-worklog-stack{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:var(--bk-surface-muted,#f3f4f6);font-size:13px;color:var(--bk-text-secondary,#4b5563);}
 .bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#00D986);}
 .bk-worklog-title{font-weight:500;margin-bottom:6px;}
@@ -817,10 +835,10 @@ class BokitoChatWidget extends HTMLElement {
   #identityToken = null; #identityType = 'anonymous'; #conversationId = null;
   #hostAuthToken = null; #authCookieName = '';
   #authMode = 'anonymous'; #authTokenValidationUrl = null;
+  #tenantSubdomain = null;
   #sessionUser = null; #sessionTenant = null; #tenantMcpServers = [];
-  #loginEmailEl = null; #loginPasswordEl = null; #loginSubmitBtn = null; #loginErrorEl = null;
-  #loginForgotEl = null; #loginRegisterEl = null;
-  #isSubmittingLogin = false; #isPreferencesHydrated = false;
+  #loginSigninEl = null;
+  #isPreferencesHydrated = false;
   #messageRateWindowMs = 12000; #messageRateMax = 12; #messageRateTimestamps = [];
   #sessionRefreshTimer = null;
   #sm = new StateMachine(); #api = null; #realtime = null; #workLogRealtime = null; #workLogStackEl = null;
@@ -964,13 +982,13 @@ class BokitoChatWidget extends HTMLElement {
     const subEl = this.#root?.querySelector('.bk-home-hero-sub');
     if (titleEl) {
       titleEl.textContent =
-        typeof t.welcome_title === 'string' && t.welcome_title.trim() ? t.welcome_title.trim() : 'Hallo!';
+        typeof t.welcome_title === 'string' && t.welcome_title.trim() ? t.welcome_title.trim() : 'Hi!';
     }
     if (subEl) {
       subEl.textContent =
         typeof t.welcome_subtitle === 'string' && t.welcome_subtitle.trim()
           ? t.welcome_subtitle.trim()
-          : `Stel je vraag aan ${name}`;
+          : `Ask ${name} a question`;
     }
   }
 
@@ -1093,6 +1111,22 @@ class BokitoChatWidget extends HTMLElement {
     return false;
   }
 
+  /** Public API: open the chat window programmatically. */
+  open() {
+    if (this.#sm.state === 'idle') void this.#openWidget();
+  }
+
+  /** Public API: close the chat window programmatically. */
+  close() {
+    if (this.#sm.state !== 'idle') this.#closeWindow();
+  }
+
+  /** Public API: toggle the chat window programmatically. */
+  toggle() {
+    if (this.#sm.state === 'idle') void this.#openWidget();
+    else this.#closeWindow();
+  }
+
   async identify(identityToken) {
     this.#identityToken = identityToken;
     if (this.#sessionToken) {
@@ -1111,19 +1145,8 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   async logout() {
-    try {
-      if (this.#sessionToken) {
-        await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.logout), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.#sessionToken ? { Authorization: `Bearer ${this.#sessionToken}` } : {}),
-            ...(this.dataset.csrfToken ? { 'X-CSRF-Token': this.dataset.csrfToken } : {}),
-          },
-          body: JSON.stringify({ session_token: this.#sessionToken }),
-        });
-      }
-    } catch {}
+    // The host platform owns the user session; the widget only drops its own
+    // livechat session and cached identity so the next open starts fresh.
     this.#sessionToken = null;
     this.#sessionUser = null;
     this.#sessionTenant = null;
@@ -1154,6 +1177,8 @@ class BokitoChatWidget extends HTMLElement {
     this.#authCookieName = (this.dataset.authCookieName || '').trim();
     this.#authMode = (this.dataset.authMode || 'anonymous').trim().toLowerCase();
     if (!['anonymous', 'optional', 'required'].includes(this.#authMode)) this.#authMode = 'anonymous';
+    // Explicit tenant wins over host-based resolution (needed on customer domains).
+    this.#tenantSubdomain = (this.dataset.tenant || '').trim() || null;
     this.#hostAuthToken = this.#resolveHostAuthToken();
     this.#nonBlockingSend = this.dataset.nonBlockingSend !== 'false';
     this.#processingTimeoutMs = Number(this.dataset.processingTimeoutMs || 30000);
@@ -1161,7 +1186,9 @@ class BokitoChatWidget extends HTMLElement {
     this.#bundleIdleMs = Number(this.dataset.bundleIdleMs || 900);
     this.#timestampClusterWindowMs = Number(this.dataset.timestampClusterWindowMs || 300000);
     this.#staleSuppressGraceMs = Number(this.dataset.staleSuppressGraceMs || 500);
-    this.#root = this.attachShadow({ mode: 'closed' });
+    // Open shadow root: styles stay fully scoped, but E2E tooling (Playwright)
+    // and host-page debugging can reach the internals when needed.
+    this.#root = this.attachShadow({ mode: 'open' });
 
     const style = document.createElement('style');
     style.textContent = WIDGET_CSS;
@@ -1174,6 +1201,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#initSounds();
     this.#loadUserPreferences();
     this.#syncLoginLinks();
+    this.#syncVoiceAvailability();
     this.#idleWatcher = new IdleWatcher(() => this.#onUserIdle(), { idleMs: 3000, maxTriggers: 3 });
     this.#idleWatcher.start();
     if (import.meta.env.MODE !== 'production' && this.dataset.debug === 'true') {
@@ -1216,7 +1244,7 @@ class BokitoChatWidget extends HTMLElement {
       <div class="bk-proactive-bubbles" hidden></div>
       <div class="bk-window" style="display:none">
         <div class="bk-header">
-          <button class="bk-icon-btn bk-btn-back" title="Terug naar menu" aria-label="Terug naar menu" hidden>
+          <button class="bk-icon-btn bk-btn-back" title="Back to menu" aria-label="Back to menu" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
           <div class="bk-header-avatar">
@@ -1236,14 +1264,14 @@ class BokitoChatWidget extends HTMLElement {
           </div>
           <div class="bk-header-actions">
             <div class="bk-chat-actions">
-              <button class="bk-icon-btn bk-btn-more" title="Chat acties" aria-label="Chat acties" aria-expanded="false">
+              <button class="bk-icon-btn bk-btn-more" title="Chat actions" aria-label="Chat actions" aria-expanded="false">
                 <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
               </button>
               <div class="bk-chat-actions-menu" hidden>
-                <button class="bk-chat-actions-item" type="button" data-action="stop">Stop generatie</button>
-                <button class="bk-chat-actions-item" type="button" data-action="archive">Archiveren</button>
-                <button class="bk-chat-actions-item" type="button" data-action="delete">Verwijderen</button>
-                <button class="bk-chat-actions-item" type="button" data-action="export">Exporteren</button>
+                <button class="bk-chat-actions-item" type="button" data-action="stop">Stop generating</button>
+                <button class="bk-chat-actions-item" type="button" data-action="archive">Archive</button>
+                <button class="bk-chat-actions-item" type="button" data-action="delete">Delete</button>
+                <button class="bk-chat-actions-item" type="button" data-action="export">Export</button>
               </div>
             </div>
             <div class="bk-user-wrap">
@@ -1258,37 +1286,24 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-login-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
-          <div class="bk-login-title">Inloggen vereist</div>
-          <div class="bk-login-sub">Log in om met de assistent te praten</div>
-          <form class="bk-login-form" novalidate>
-            <label class="bk-login-field">
-              <span>E-mailadres</span>
-              <input class="bk-login-email" type="email" autocomplete="email" placeholder="naam@bedrijf.nl" required />
-            </label>
-            <label class="bk-login-field">
-              <span>Wachtwoord</span>
-              <input class="bk-login-password" type="password" autocomplete="current-password" placeholder="Wachtwoord" required />
-            </label>
-            <div class="bk-login-error" hidden></div>
-            <button class="bk-login-submit" type="submit">Inloggen</button>
-            <div class="bk-login-links">
-              <a class="bk-login-forgot" href="#" hidden>Wachtwoord vergeten?</a>
-              <a class="bk-login-register" href="#" hidden>Registreren</a>
-            </div>
-          </form>
+          <div class="bk-login-title">Sign in required</div>
+          <div class="bk-login-sub">Sign in on this website to chat with the assistant.</div>
+          <div class="bk-login-links">
+            <a class="bk-login-signin" href="#" hidden>Sign in</a>
+          </div>
         </div>
         <div class="bk-home" style="display:none">
           <div class="bk-home-content">
             <div class="bk-home-tab" data-tab="home">
               <div class="bk-home-hero">
-                <div class="bk-home-hero-title">Hallo!</div>
+                <div class="bk-home-hero-title">Hi!</div>
                 <div class="bk-home-hero-sub">Hoe kunnen we je helpen?</div>
               </div>
               <button class="bk-home-new-btn">
                 <div class="bk-home-new-btn-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 </div>
-                <span>Nieuw gesprek starten</span>
+                <span>Start new conversation</span>
               </button>
             </div>
             <div class="bk-home-tab" data-tab="messages" hidden>
@@ -1298,9 +1313,9 @@ class BokitoChatWidget extends HTMLElement {
             </div>
             <div class="bk-home-tab" data-tab="tools" hidden>
               <div class="bk-home-section">
-                <div class="bk-tools-intro">Beschikbare tools voor deze assistent</div>
+                <div class="bk-tools-intro">Available tools for this assistant</div>
                 <div class="bk-toolbox-pills"></div>
-                <div class="bk-tools-empty" hidden>Nog geen tools beschikbaar.</div>
+                <div class="bk-tools-empty" hidden>No tools available yet.</div>
               </div>
             </div>
           </div>
@@ -1310,9 +1325,9 @@ class BokitoChatWidget extends HTMLElement {
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M2.35157 13.2135C1.99855 10.9162 1.82204 9.76763 2.25635 8.74938C2.69065 7.73112 3.65421 7.03443 5.58132 5.64106L7.02117 4.6C9.41847 2.86667 10.6171 2 12.0002 2C13.3832 2 14.5819 2.86667 16.9792 4.6L18.419 5.64106C20.3462 7.03443 21.3097 7.73112 21.744 8.74938C22.1783 9.76763 22.0018 10.9162 21.6488 13.2135L21.3478 15.1724C20.8473 18.4289 20.5971 20.0572 19.4292 21.0286C18.2613 22 16.5538 22 13.139 22H10.8614C7.44652 22 5.73909 22 4.57118 21.0286C3.40327 20.0572 3.15305 18.4289 2.65261 15.1724L2.35157 13.2135Z" fill="currentColor"/><path class="bk-icon-detail" d="M15.0002 17C14.2007 17.6224 13.1504 18 12.0002 18C10.8499 18 9.79971 17.6224 9.00018 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
                 <span class="bk-tab-label">Home</span>
               </button>
-              <button type="button" class="bk-tab-btn" data-tab="messages" role="tab" aria-selected="false" aria-label="Berichten">
+              <button type="button" class="bk-tab-btn" data-tab="messages" role="tab" aria-selected="false" aria-label="Messages">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M14.1706 20.8905C18.3536 20.6125 21.6856 17.2332 21.9598 12.9909C22.0134 12.1607 22.0134 11.3009 21.9598 10.4707C21.6856 6.22838 18.3536 2.84913 14.1706 2.57107C12.7435 2.47621 11.2536 2.47641 9.8294 2.57107C5.64639 2.84913 2.31441 6.22838 2.04024 10.4707C1.98659 11.3009 1.98659 12.1607 2.04024 12.9909C2.1401 14.536 2.82343 15.9666 3.62791 17.1746C4.09501 18.0203 3.78674 19.0758 3.30021 19.9978C2.94941 20.6626 2.77401 20.995 2.91484 21.2351C3.05568 21.4752 3.37026 21.4829 3.99943 21.4982C5.24367 21.5285 6.08268 21.1757 6.74868 20.6846C7.1264 20.4061 7.31527 20.2668 7.44544 20.2508C7.5756 20.2348 7.83177 20.3403 8.34401 20.5513C8.8044 20.7409 9.33896 20.8579 9.8294 20.8905C11.2536 20.9852 12.7435 20.9854 14.1706 20.8905Z" fill="currentColor"/><circle class="bk-icon-detail" cx="8" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="12" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="16" cy="12" r="1" fill="currentColor"/></svg>
-                <span class="bk-tab-label">Berichten</span>
+                <span class="bk-tab-label">Messages</span>
                 <span class="bk-tab-badge" hidden>0</span>
               </button>
               <button type="button" class="bk-tab-btn" data-tab="tools" role="tab" aria-selected="false" aria-label="Tools">
@@ -1325,7 +1340,11 @@ class BokitoChatWidget extends HTMLElement {
         <div class="bk-chat-view" style="display:none">
           <div class="bk-agent-banner" style="display:none">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>Je wordt geholpen door een medewerker</span>
+            <span>A team member is helping you</span>
+          </div>
+          <div class="bk-offline-banner" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="bk-offline-text">We are currently offline. Leave a message and we will get back to you.</span>
           </div>
           <div class="bk-messages">
             <div class="bk-thinking" style="display:none">
@@ -1333,7 +1352,7 @@ class BokitoChatWidget extends HTMLElement {
                 <div class="bk-thinking-dot"></div>
                 <div class="bk-thinking-dot"></div>
                 <div class="bk-thinking-dot"></div>
-                <span class="bk-thinking-label">Bezig...</span>
+                <span class="bk-thinking-label">Working...</span>
               </div>
               <div class="bk-thinking-steps"></div>
             </div>
@@ -1342,16 +1361,16 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-preview-strip" style="display:none"></div>
           <div class="bk-inputbar">
             <div class="bk-inputbar-inner">
-              <button class="bk-attach-btn" type="button" aria-label="Afbeelding bijvoegen">
+              <button class="bk-attach-btn" type="button" aria-label="Attach image">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               </button>
               <input class="bk-file-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple style="display:none">
-              <textarea class="bk-textarea" placeholder="Stel een vraag..." rows="1" maxlength="4000"></textarea>
+              <textarea class="bk-textarea" placeholder="Ask a question..." rows="1" maxlength="4000"></textarea>
               <div class="bk-record-actions" hidden>
-                <button type="button" class="bk-record-btn bk-record-cancel" aria-label="Opname annuleren">
+                <button type="button" class="bk-record-btn bk-record-cancel" aria-label="Cancel recording">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
-                <button type="button" class="bk-record-btn bk-record-confirm bk-record-confirm--recording" aria-label="Opname versturen">
+                <button type="button" class="bk-record-btn bk-record-confirm bk-record-confirm--recording" aria-label="Send recording">
                   <svg class="bk-record-wave" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <rect class="bk-wave-bar" x="1" y="16" width="3" height="8" rx="1.5"/>
                     <rect class="bk-wave-bar" x="6" y="8" width="3" height="16" rx="1.5"/>
@@ -1361,10 +1380,10 @@ class BokitoChatWidget extends HTMLElement {
                   </svg>
                 </button>
               </div>
-              <button type="button" class="bk-record-btn bk-record-start" aria-label="Spraak opnemen">
+              <button type="button" class="bk-record-btn bk-record-start" aria-label="Record voice" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               </button>
-              <button class="bk-send-btn" disabled aria-label="Verstuur">
+              <button class="bk-send-btn" disabled aria-label="Send">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </div>
@@ -1372,29 +1391,29 @@ class BokitoChatWidget extends HTMLElement {
         </div>
         <div class="bk-settings" style="display:none">
           <div class="bk-settings-inner">
-            <h2 class="bk-settings-title">Instellingen</h2>
+            <h2 class="bk-settings-title">Settings</h2>
             <section class="bk-settings-section">
-              <h3 class="bk-settings-section-title">Weergave</h3>
+              <h3 class="bk-settings-section-title">Appearance</h3>
               <div class="bk-settings-option">
-                <span class="bk-settings-label">Thema</span>
-                <div class="bk-settings-options-row" role="radiogroup" aria-label="Thema">
-                  <label class="bk-settings-radio"><input type="radio" name="bk-theme" value="light"> Licht</label>
-                  <label class="bk-settings-radio"><input type="radio" name="bk-theme" value="dark"> Donker</label>
-                  <label class="bk-settings-radio"><input type="radio" name="bk-theme" value="system"> Systeem</label>
+                <span class="bk-settings-label">Theme</span>
+                <div class="bk-settings-options-row" role="radiogroup" aria-label="Theme">
+                  <label class="bk-settings-radio"><input type="radio" name="bk-theme" value="light"> Light</label>
+                  <label class="bk-settings-radio"><input type="radio" name="bk-theme" value="dark"> Dark</label>
+                  <label class="bk-settings-radio"><input type="radio" name="bk-theme" value="system"> System</label>
                 </div>
               </div>
             </section>
             <section class="bk-settings-section">
-              <h3 class="bk-settings-section-title">Geluid</h3>
+              <h3 class="bk-settings-section-title">Sound</h3>
               <div class="bk-settings-option bk-settings-toggle-wrap">
-                <span class="bk-settings-label">Geluidseffecten</span>
+                <span class="bk-settings-label">Sound effects</span>
                 <label class="bk-settings-toggle">
                   <input type="checkbox" id="bk-sound-effects-pref" checked>
                   <span class="bk-settings-toggle-slider"></span>
                 </label>
               </div>
               <div class="bk-settings-option bk-settings-toggle-wrap">
-                <span class="bk-settings-label">Notificatiegeluiden</span>
+                <span class="bk-settings-label">Notification sounds</span>
                 <label class="bk-settings-toggle">
                   <input type="checkbox" id="bk-sound-notifications-pref" checked>
                   <span class="bk-settings-toggle-slider"></span>
@@ -1404,12 +1423,12 @@ class BokitoChatWidget extends HTMLElement {
           </div>
         </div>
         <div class="bk-image-viewer" hidden>
-          <button class="bk-image-viewer-close" type="button" aria-label="Afbeelding sluiten">
+          <button class="bk-image-viewer-close" type="button" aria-label="Close image">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
-          <img alt="Vergrote afbeelding" />
+          <img alt="Enlarged image" />
         </div>
-        <a class="bk-window-powered" href="https://bokito.ai" target="_blank" rel="noopener noreferrer" hidden aria-label="Website Bokito AI openen">
+        <a class="bk-window-powered" href="https://bokito.ai" target="_blank" rel="noopener noreferrer" hidden aria-label="Open Bokito AI website">
           <span>Powered by</span>
           <strong>Bokito AI</strong>
         </a>
@@ -1455,12 +1474,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#imageViewer       = this.#root.querySelector('.bk-image-viewer');
     this.#imageViewerImg    = this.#root.querySelector('.bk-image-viewer img');
     this.#imageViewerClose  = this.#root.querySelector('.bk-image-viewer-close');
-    this.#loginEmailEl      = this.#root.querySelector('.bk-login-email');
-    this.#loginPasswordEl   = this.#root.querySelector('.bk-login-password');
-    this.#loginSubmitBtn    = this.#root.querySelector('.bk-login-submit');
-    this.#loginErrorEl      = this.#root.querySelector('.bk-login-error');
-    this.#loginForgotEl     = this.#root.querySelector('.bk-login-forgot');
-    this.#loginRegisterEl   = this.#root.querySelector('.bk-login-register');
+    this.#loginSigninEl     = this.#root.querySelector('.bk-login-signin');
 
     this.#api = new ApiClient({
       baseUrl: this.#apiUrl,
@@ -1470,6 +1484,7 @@ class BokitoChatWidget extends HTMLElement {
       hostAuthTokenGetter: () => this.#hostAuthToken,
       authModeGetter: () => this.#authMode,
       authCookieNameGetter: () => this.#authCookieName,
+      tenantSubdomainGetter: () => this.#tenantSubdomain,
       customerIdGetter: () => this.#storGet(LS_CUSTOMER_ID_KEY),
       onSessionExpired: (data) => {
         this.#applySessionPayload(data);
@@ -1558,20 +1573,6 @@ class BokitoChatWidget extends HTMLElement {
     this.#root.addEventListener('click', () => {
       this.#closeChatActionsMenu();
       this.#closeUserPopover();
-    });
-
-    const loginForm = this.#root.querySelector('.bk-login-form');
-    loginForm?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await this.#submitLogin();
-    });
-    this.#loginForgotEl?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      await this.#requestPasswordReset();
-    });
-    this.#loginRegisterEl?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      await this.#registerFromWidget();
     });
 
     this.#attachBtn.addEventListener('click', () => this.#fileInput.click());
@@ -1711,160 +1712,25 @@ class BokitoChatWidget extends HTMLElement {
         this.#idleWatcher?.pause();
         this.#animateWindowOpen();
         this.#showView('login');
-        this.#setLoginError('');
-        requestAnimationFrame(() => this.#loginEmailEl?.focus());
         break;
     }
   }
 
-  #setLoginError(message = '') {
-    if (!this.#loginErrorEl) return;
-    const text = String(message || '').trim();
-    if (!text) {
-      this.#loginErrorEl.hidden = true;
-      this.#loginErrorEl.textContent = '';
-      return;
-    }
-    this.#loginErrorEl.hidden = false;
-    this.#loginErrorEl.textContent = text;
-  }
-
-  #setLoginBusy(busy) {
-    this.#isSubmittingLogin = !!busy;
-    if (this.#loginSubmitBtn) this.#loginSubmitBtn.disabled = !!busy;
-    if (this.#loginEmailEl) this.#loginEmailEl.disabled = !!busy;
-    if (this.#loginPasswordEl) this.#loginPasswordEl.disabled = !!busy;
-  }
-
-  async #submitLogin() {
-    if (this.#isSubmittingLogin) return;
-    const email = (this.#loginEmailEl?.value || '').trim();
-    const password = this.#loginPasswordEl?.value || '';
-    if (!email || !password) {
-      this.#setLoginError('Vul e-mailadres en wachtwoord in.');
-      return;
-    }
-    this.#setLoginError('');
-    this.#setLoginBusy(true);
-    try {
-      const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.login), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.dataset.csrfToken ? { 'X-CSRF-Token': this.dataset.csrfToken } : {}),
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          agent_slug: this.#agentSlug,
-          session_token: this.#sessionToken || undefined,
-        }),
-      });
-      let payload = {};
-      try { payload = await res.json(); } catch {}
-      if (!res.ok) {
-        throw new Error(payload?.message || payload?.error || 'Inloggen mislukt.');
-      }
-      const authToken = payload?.auth_token || payload?.host_auth_token || null;
-      if (authToken) {
-        this.#hostAuthToken = String(authToken);
-        this.#storSet(LS_AUTH_TOKEN_KEY, this.#hostAuthToken);
-      }
-      this.#applySessionPayload(payload);
-      this.#setLoginError('');
-      if (this.#loginPasswordEl) this.#loginPasswordEl.value = '';
-      this.dispatchEvent(new CustomEvent('bokito:authenticated', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          user: this.#sessionUser,
-          tenant: this.#sessionTenant,
-          auth_mode: this.#authMode,
-        },
-      }));
-      this.#sm.transition('home');
-    } catch (e) {
-      this.#setLoginError(e?.message || 'Inloggen mislukt.');
-    } finally {
-      this.#setLoginBusy(false);
-    }
-  }
-
   #syncLoginLinks() {
-    const forgotUrl = this.#agentConfig?.forgot_password_url || this.dataset.forgotPasswordUrl || '';
-    const registerUrl = this.#agentConfig?.registration_url || this.dataset.registrationUrl || '';
-    const allowRegistration = this.#agentConfig?.allow_registration === true || this.dataset.allowRegistration === 'true';
-
-    if (this.#loginForgotEl) {
-      if (forgotUrl) {
-        this.#loginForgotEl.href = forgotUrl;
-        this.#loginForgotEl.hidden = false;
-      } else {
-        this.#loginForgotEl.hidden = false;
-        this.#loginForgotEl.href = '#';
-      }
-    }
-    if (this.#loginRegisterEl) {
-      if (allowRegistration || registerUrl) {
-        this.#loginRegisterEl.hidden = false;
-        this.#loginRegisterEl.href = registerUrl || '#';
-      } else {
-        this.#loginRegisterEl.hidden = true;
-      }
-    }
-  }
-
-  async #requestPasswordReset() {
-    const email = (this.#loginEmailEl?.value || '').trim();
-    if (!email) {
-      this.#setLoginError('Vul eerst je e-mailadres in.');
-      return;
-    }
-    const forgotUrl = this.#agentConfig?.forgot_password_url || this.dataset.forgotPasswordUrl || '';
-    if (forgotUrl) {
-      window.open(forgotUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    try {
-      const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.forgotPassword), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, agent_slug: this.#agentSlug }),
-      });
-      if (!res.ok) throw new Error('Kan reset-link niet versturen.');
-      this.#setLoginError('Reset-link verzonden. Controleer je e-mail.');
-    } catch (e) {
-      this.#setLoginError(e?.message || 'Kan reset-link niet versturen.');
-    }
-  }
-
-  async #registerFromWidget() {
-    const registerUrl = this.#agentConfig?.registration_url || this.dataset.registrationUrl || '';
-    if (registerUrl) {
-      window.open(registerUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    const email = (this.#loginEmailEl?.value || '').trim();
-    const password = this.#loginPasswordEl?.value || '';
-    if (!email || !password) {
-      this.#setLoginError('Vul e-mailadres en wachtwoord in om te registreren.');
-      return;
-    }
-    try {
-      const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.auth.register), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          name: email.split('@')[0],
-          agent_slug: this.#agentSlug,
-        }),
-      });
-      if (!res.ok) throw new Error('Registreren mislukt.');
-      this.#setLoginError('Registratie gelukt. Log nu in.');
-    } catch (e) {
-      this.#setLoginError(e?.message || 'Registreren mislukt.');
+    // Host-platform sign-in only: the widget never collects credentials itself.
+    // Configure a sign-in URL via agent config or the data-signin-url attribute.
+    if (!this.#loginSigninEl) return;
+    const signinUrl =
+      this.#agentConfig?.login_url ||
+      this.dataset.signinUrl ||
+      '';
+    if (signinUrl) {
+      this.#loginSigninEl.href = signinUrl;
+      this.#loginSigninEl.target = '_blank';
+      this.#loginSigninEl.rel = 'noopener noreferrer';
+      this.#loginSigninEl.hidden = false;
+    } else {
+      this.#loginSigninEl.hidden = true;
     }
   }
 
@@ -1951,8 +1817,8 @@ class BokitoChatWidget extends HTMLElement {
     el.innerHTML = '';
 
     if (!isLoggedIn) {
-      el.title = 'Niet ingelogd';
-      el.setAttribute('aria-label', 'Niet ingelogd');
+      el.title = 'Not signed in';
+      el.setAttribute('aria-label', 'Not signed in');
       el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
       this.#refreshUserPopoverIfOpen();
       return;
@@ -2046,7 +1912,7 @@ class BokitoChatWidget extends HTMLElement {
     nameEl.className = 'bk-user-popover-name';
     nameEl.textContent = isLoggedIn
       ? String(user.name || user.email || 'Ingelogd')
-      : 'Niet ingelogd';
+      : 'Not signed in';
     info.appendChild(nameEl);
     if (isLoggedIn && user.email && user.email !== user.name) {
       const emailEl = document.createElement('div');
@@ -2092,7 +1958,7 @@ class BokitoChatWidget extends HTMLElement {
     const settingsBtn = document.createElement('button');
     settingsBtn.type = 'button';
     settingsBtn.className = 'bk-user-popover-btn';
-    settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-.4-1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6c.38 0 .74-.14 1-.4.26-.26.4-.62.4-1V3a2 2 0 1 1 4 0v.1c0 .38.14.74.4 1 .26.26.62.4 1 .4.7 0 1.37-.28 1.87-.78l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1 .26.26.62.4 1 .4h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1 .4c-.26.26-.4.62-.4 1z"/></svg><span>Instellingen</span>';
+    settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-.4-1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6c.38 0 .74-.14 1-.4.26-.26.4-.62.4-1V3a2 2 0 1 1 4 0v.1c0 .38.14.74.4 1 .26.26.62.4 1 .4.7 0 1.37-.28 1.87-.78l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1 .26.26.62.4 1 .4h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1 .4c-.26.26-.4.62-.4 1z"/></svg><span>Settings</span>';
     settingsBtn.addEventListener('click', () => {
       this.#closeUserPopover();
       this.#showSettings();
@@ -2103,7 +1969,7 @@ class BokitoChatWidget extends HTMLElement {
       const logoutBtn = document.createElement('button');
       logoutBtn.type = 'button';
       logoutBtn.className = 'bk-user-popover-btn bk-user-popover-btn--danger';
-      logoutBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Uitloggen</span>';
+      logoutBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sign out</span>';
       logoutBtn.addEventListener('click', async () => {
         this.#closeUserPopover();
         try { await this.logout(); } catch {}
@@ -2454,11 +2320,101 @@ class BokitoChatWidget extends HTMLElement {
     this._toolDisplayNames = this.#agentConfig?.tool_display_names || this._toolDisplayNames || {};
     this.#renderToolbox();
     this.#refreshChromeFromThemeAndPreview();
+    this.#syncOfflineBanner();
     this.#syncLoginLinks();
+    this.#syncVoiceAvailability();
     this.#renderHeaderUser();
     this.#scheduleSessionRefresh(data);
 
     if (data.preferences) this.#hydrateUserPreferences(data.preferences);
+  }
+
+  #syncOfflineBanner() {
+    const banner = this.#root?.querySelector('.bk-offline-banner');
+    if (!banner) return;
+    const isOpen = this.#agentConfig?.office_open !== false;
+    if (isOpen) {
+      banner.style.display = 'none';
+      return;
+    }
+    const textEl = banner.querySelector('.bk-offline-text');
+    const custom = String(this.#agentConfig?.offline_message || '').trim();
+    if (textEl && custom) textEl.textContent = custom;
+    banner.style.display = 'flex';
+  }
+
+  #visitorIdentity() {
+    try {
+      const parsed = JSON.parse(this.#storGet(LS_VISITOR_IDENTITY_KEY) || 'null');
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  #maybeShowPreChatForm() {
+    if (!this.#agentConfig?.pre_chat_form) return;
+    if (this.#sessionUser?.id) return;
+    if (this.#visitorIdentity()) return;
+    if (this.#messageList.querySelector('.bk-prechat')) return;
+
+    const card = document.createElement('div');
+    card.className = 'bk-prechat';
+    card.innerHTML = `
+      <div class="bk-prechat-title">Before we start</div>
+      <div class="bk-prechat-sub">Leave your name and email so we can follow up if needed.</div>
+      <input type="text" class="bk-prechat-name" placeholder="Your name" maxlength="120" autocomplete="name">
+      <input type="email" class="bk-prechat-email" placeholder="you@example.com" maxlength="254" autocomplete="email">
+      <div class="bk-prechat-error" hidden></div>
+      <div class="bk-prechat-actions">
+        <button type="button" class="bk-prechat-submit">Start chatting</button>
+        <button type="button" class="bk-prechat-skip">Skip</button>
+      </div>
+    `;
+    const nameInput = card.querySelector('.bk-prechat-name');
+    const emailInput = card.querySelector('.bk-prechat-email');
+    const errorEl = card.querySelector('.bk-prechat-error');
+    const submitBtn = card.querySelector('.bk-prechat-submit');
+    const skipBtn = card.querySelector('.bk-prechat-skip');
+
+    submitBtn.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+      if (!name && !email) {
+        errorEl.textContent = 'Enter a name or email address.';
+        errorEl.hidden = false;
+        return;
+      }
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errorEl.textContent = 'That email address does not look right.';
+        errorEl.hidden = false;
+        return;
+      }
+      errorEl.hidden = true;
+      submitBtn.disabled = true;
+      try {
+        await this.#api.post('session/identify', {
+          name,
+          email,
+          conversation_id: this.#conversationId || undefined,
+        });
+        this.#storSet(LS_VISITOR_IDENTITY_KEY, JSON.stringify({ name, email }));
+        card.remove();
+        this.#textarea?.focus();
+      } catch (e) {
+        submitBtn.disabled = false;
+        errorEl.textContent = 'Could not save your details. Try again.';
+        errorEl.hidden = false;
+      }
+    });
+    skipBtn.addEventListener('click', () => {
+      this.#storSet(LS_VISITOR_IDENTITY_KEY, JSON.stringify({ skipped: true }));
+      card.remove();
+      this.#textarea?.focus();
+    });
+
+    this.#messageList.appendChild(card);
+    nameInput.focus();
   }
 
   #scheduleSessionRefresh(data = {}) {
@@ -2496,7 +2452,7 @@ class BokitoChatWidget extends HTMLElement {
     try {
       await this.#refreshHostAuthToken();
       const customerId = this.#storGet(LS_CUSTOMER_ID_KEY);
-      const tenantSubdomain = resolveTenantSubdomainFromHost();
+      const tenantSubdomain = this.#tenantSubdomain || resolveTenantSubdomainFromHost();
       const body = { agent_slug: this.#agentSlug, customer_id: customerId || undefined };
       if (this.#identityToken) body.identity_token = this.#identityToken;
       if (this.#hostAuthToken) body.host_auth_token = this.#hostAuthToken;
@@ -2674,12 +2630,15 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#deltaRaf) { cancelAnimationFrame(this.#deltaRaf); this.#deltaRaf = null; }
     try {
       const data = await this.#api.post('conversation', {});
-      this.#conversationId = data.conversation.id;
+      const conversationId = data?.conversation_id || data?.id || data?.conversation?.id || null;
+      if (!conversationId) throw new Error('Conversation create returned no id');
+      this.#conversationId = conversationId;
       if (data.customer_id) this.#storSet(LS_CUSTOMER_ID_KEY, data.customer_id);
       this.#pageCtx?.setConversationId(this.#conversationId);
       this.#connectRealtime();
       if (data.greeting_message) this.#appendMessage(data.greeting_message);
       this.#sm.transition('active');
+      this.#maybeShowPreChatForm();
       this.#loadSuggestions();
     } catch (e) {
       console.error('[Bokito] startNewConversation failed:', { message: e.message });
@@ -2729,7 +2688,7 @@ class BokitoChatWidget extends HTMLElement {
   async #loadConversationHistory() {
     const list = this.#root.querySelector('.bk-conv-list');
     if (!list) return;
-    list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">Laden...</div>';
+    list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">Loading...</div>';
     try {
       const endpoint = this.#sessionUser?.id ? 'user/conversations?per_page=10' : 'customer/conversations?per_page=10';
       let data = await this.#api.get(endpoint);
@@ -2739,7 +2698,7 @@ class BokitoChatWidget extends HTMLElement {
       const hiddenIds = this.#getHiddenConversationIds();
       const items = (data?.items || []).filter((item) => !hiddenIds.includes(item.id));
       if (!items.length) {
-        list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">Nog geen gesprekken</div>';
+        list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">No conversations yet</div>';
         this.#updateUnreadBadge(0);
         return;
       }
@@ -2750,13 +2709,13 @@ class BokitoChatWidget extends HTMLElement {
         const el = document.createElement('button');
         el.className = 'bk-conv-item';
         el.dataset.convId = conv.id;
-        const preview = conv.title || conv.last_message_preview || 'Gesprek';
+        const preview = conv.title || conv.last_message_preview || 'Conversation';
         el.innerHTML = `
           <div class="bk-conv-item-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
           <div class="bk-conv-item-body">
             <div class="bk-conv-item-row">
               <span class="bk-conv-item-title">${preview.slice(0,60)}</span>
-              <span class="bk-conv-item-time">${formatTime(conv.last_message_at || conv.created_at)}</span>
+              <span class="bk-conv-item-time">${formatTime(conv.last_message_at || conv.updated_at || conv.created_at)}</span>
             </div>
           </div>
           ${conv.unread_count > 0 ? `<div class="bk-conv-unread">${conv.unread_count}</div>` : ''}
@@ -2765,7 +2724,7 @@ class BokitoChatWidget extends HTMLElement {
         list.appendChild(el);
       });
     } catch {
-      list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">Kan gesprekken niet laden</div>';
+      list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">Could not load conversations</div>';
     }
   }
 
@@ -2823,7 +2782,7 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#globalImageViewer && this.#globalImageViewerImg) return;
     const overlay = document.createElement('div');
     overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-label', 'Afbeelding viewer');
+    overlay.setAttribute('aria-label', 'Image viewer');
     overlay.style.cssText = [
       'position:fixed',
       'inset:0',
@@ -2851,7 +2810,7 @@ class BokitoChatWidget extends HTMLElement {
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'Sluiten');
+    closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     closeBtn.style.cssText = [
       'position:absolute',
@@ -2871,7 +2830,7 @@ class BokitoChatWidget extends HTMLElement {
     closeBtn.querySelector('svg').style.cssText = 'width:18px;height:18px;';
 
     const img = document.createElement('img');
-    img.alt = 'Vergrote afbeelding';
+    img.alt = 'Enlarged image';
     img.style.cssText = [
       'display:block',
       'max-width:min(88vw,1040px)',
@@ -2910,7 +2869,7 @@ class BokitoChatWidget extends HTMLElement {
 
   async #deleteCurrentConversation() {
     if (!this.#conversationId) return;
-    const confirmed = window.confirm('Weet je zeker dat je dit gesprek wilt verwijderen uit je overzicht?');
+    const confirmed = window.confirm('Remove this conversation from your list?');
     if (!confirmed) return;
     this.#hideConversationFromHistory(this.#conversationId);
     try {
@@ -2922,7 +2881,7 @@ class BokitoChatWidget extends HTMLElement {
   #exportCurrentConversation() {
     const messages = [...this.#messageList.querySelectorAll('.bk-msg')];
     if (!messages.length) {
-      this.#showError('Geen berichten om te exporteren.');
+      this.#showError('No messages to export.');
       return;
     }
     const lines = messages.map((msg) => {
@@ -2955,7 +2914,7 @@ class BokitoChatWidget extends HTMLElement {
   #toEpochMs(value) {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string') {
-      const trimmed = value.trim();
+      const trimmed = normalizeServerTimestamp(value.trim());
       if (!trimmed) return null;
       if (/^\d+$/.test(trimmed)) {
         const asNum = Number(trimmed);
@@ -2979,10 +2938,9 @@ class BokitoChatWidget extends HTMLElement {
     const now = new Date();
     const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
     const diffDays = Math.round((start(now) - start(d)) / 86400000);
-    if (diffDays === 0) return 'vandaag';
-    if (diffDays === 1) return 'gisteren';
-    if (diffDays === 2) return 'eergisteren';
-    const parts = new Intl.DateTimeFormat('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }).formatToParts(d);
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return 'yesterday';
+    const parts = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' }).formatToParts(d);
     const weekday = (parts.find((p) => p.type === 'weekday')?.value || '').replace('.', '').toLowerCase();
     const day = parts.find((p) => p.type === 'day')?.value || '';
     const month = (parts.find((p) => p.type === 'month')?.value || '').replace('.', '').toLowerCase();
@@ -3189,14 +3147,14 @@ class BokitoChatWidget extends HTMLElement {
   #updateThinkingLabel() {
     if (!this.#thinkingLabel) return;
     if (!this.#isResponding) {
-      this.#thinkingLabel.textContent = 'Bezig...';
+      this.#thinkingLabel.textContent = 'Working...';
       return;
     }
     if (this.#sendQueue.length > 0) {
-      this.#thinkingLabel.textContent = `Bezig... (+${this.#sendQueue.length} in wachtrij)`;
+      this.#thinkingLabel.textContent = `Working... (+${this.#sendQueue.length} queued)`;
       return;
     }
-    this.#thinkingLabel.textContent = 'Bezig...';
+    this.#thinkingLabel.textContent = 'Working...';
   }
 
   async #drainSendQueue() {
@@ -3218,7 +3176,7 @@ class BokitoChatWidget extends HTMLElement {
     try {
       await this.#streamChat(next.text, next.attachments, this.#activeSend);
     } catch {
-      this.#handleSendError('Bericht versturen mislukt.');
+      this.#handleSendError('Could not send your message.');
     }
   }
 
@@ -3296,7 +3254,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#messageRateTimestamps = this.#messageRateTimestamps.filter((ts) => (now - ts) <= this.#messageRateWindowMs);
     if (this.#messageRateTimestamps.length >= this.#messageRateMax) {
       const waitMs = this.#messageRateWindowMs - (now - this.#messageRateTimestamps[0]);
-      this.#showError(`Te veel berichten tegelijk. Probeer opnieuw over ${Math.max(1, Math.ceil(waitMs / 1000))}s.`);
+      this.#showError(`Too many messages at once. Try again in ${Math.max(1, Math.ceil(waitMs / 1000))}s.`);
       return false;
     }
     this.#messageRateTimestamps.push(now);
@@ -3310,7 +3268,7 @@ class BokitoChatWidget extends HTMLElement {
     if (!this.#canSendMessageNow()) return;
 
     if (this.#pendingAttachments.some(a => a.uploading)) {
-      this.#showError('Afbeeldingen worden nog geüpload, even geduld...');
+      this.#showError('Images are still uploading, one moment...');
       return;
     }
 
@@ -3336,7 +3294,10 @@ class BokitoChatWidget extends HTMLElement {
       created_at: createdAt,
       attachments,
     });
-    if (!this.#conversationId) return;
+    if (!this.#conversationId) {
+      this.#showError('No active conversation. Close and reopen the chat to try again.');
+      return;
+    }
     if (!this.#nonBlockingSend) {
       this.#sm.transition('processing');
       try {
@@ -3344,7 +3305,7 @@ class BokitoChatWidget extends HTMLElement {
       } catch {
         this.#stopPolling();
         this.#sm.transition('active');
-        this.#showError('Bericht versturen mislukt.');
+        this.#showError('Could not send your message.');
       }
       return;
     }
@@ -3360,7 +3321,15 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #transcribePath() {
-    return livechatStreamSegment(this.#agentConfig?.transcribe_path, 'transcribe');
+    // No default: the core livechat API has no transcribe endpoint, so voice
+    // input is only offered when the agent config provides an explicit path.
+    return livechatStreamSegment(this.#agentConfig?.transcribe_path, null);
+  }
+
+  #syncVoiceAvailability() {
+    if (!this.#recordStartBtn) return;
+    const hasRecorder = typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+    this.#recordStartBtn.hidden = !(hasRecorder && this.#transcribePath());
   }
 
   /** Mutable bag for incremental SSE (`evt.t`) → one streaming AI bubble. */
@@ -3524,6 +3493,7 @@ class BokitoChatWidget extends HTMLElement {
         signal: sendMeta?.abortController?.signal,
         headers: {
           'Content-Type': 'application/json',
+          ...(this.#sessionToken ? { Authorization: `Bearer ${this.#sessionToken}` } : {}),
           ...(sendMeta?.idempotencyKey ? { 'X-Idempotency-Key': sendMeta.idempotencyKey } : {}),
         },
         body: JSON.stringify({
@@ -3550,7 +3520,7 @@ class BokitoChatWidget extends HTMLElement {
       });
     } catch {
       if (sendMeta?.abortController?.signal?.aborted) return;
-      if (sendMeta) this.#handleSendError('Bericht versturen mislukt.');
+      if (sendMeta) this.#handleSendError('Could not send your message.');
       else {
         this.#thinkingEl.style.display = 'none';
         this.#startPolling();
@@ -3559,7 +3529,7 @@ class BokitoChatWidget extends HTMLElement {
     }
 
     if (!response.ok || !response.body) {
-      if (sendMeta) this.#handleSendError('Bericht versturen mislukt.');
+      if (sendMeta) this.#handleSendError('Could not send your message.');
       else {
         this.#thinkingEl.style.display = 'none';
         this.#startPolling();
@@ -3654,11 +3624,14 @@ class BokitoChatWidget extends HTMLElement {
       response = await fetch(livechatHttpUrl(this.#apiUrl, this.#streamChatContinuePath()), {
         method: 'POST',
         signal: sendMeta?.abortController?.signal,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.#sessionToken ? { Authorization: `Bearer ${this.#sessionToken}` } : {}),
+        },
         body: JSON.stringify({
           conversation_id: this.#conversationId,
           session_token: this.#sessionToken,
-          page_content: text || `[URL: ${window.location.href}] [Geen verdere inhoud beschikbaar]`,
+          page_content: text || `[URL: ${window.location.href}] [No further content available]`,
           tenant_context: this.#sessionTenant ? {
             id: this.#sessionTenant.id || null,
             slug: this.#sessionTenant.slug || null,
@@ -3671,13 +3644,13 @@ class BokitoChatWidget extends HTMLElement {
       });
     } catch {
       if (sendMeta?.abortController?.signal?.aborted) return;
-      if (sendMeta) this.#handleSendError('Bericht versturen mislukt.');
+      if (sendMeta) this.#handleSendError('Could not send your message.');
       else this.#startPolling();
       return;
     }
 
     if (!response.ok || !response.body) {
-      if (sendMeta) this.#handleSendError('Bericht versturen mislukt.');
+      if (sendMeta) this.#handleSendError('Could not send your message.');
       else this.#startPolling();
       return;
     }
@@ -3731,7 +3704,7 @@ class BokitoChatWidget extends HTMLElement {
       // Read error — use whatever we accumulated
     }
 
-    if (this.#thinkingLabel) this.#thinkingLabel.textContent = 'Bezig...';
+    if (this.#thinkingLabel) this.#thinkingLabel.textContent = 'Working...';
     await this.#sseMaybeSimulateClientChunks(state, sendMeta);
     if (this.#sseFinalizeAssistantMessage(state, sendMeta)) {
       if (sendMeta) this.#finishAssistantTurn('stream_continue_done');
@@ -3795,9 +3768,9 @@ class BokitoChatWidget extends HTMLElement {
         if (errMsg && this.#sm.state === 'processing') {
           this.#stopPolling();
           this.#thinkingEl.style.display = 'none';
-          if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError('De AI kon geen antwoord genereren. Probeer opnieuw.');
+          if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError('The AI could not generate a reply. Try again.');
           else {
-            this.#showError('De AI kon geen antwoord genereren. Probeer opnieuw.');
+            this.#showError('The AI could not generate a reply. Try again.');
             this.#sm.transition('active');
           }
         }
@@ -3966,9 +3939,9 @@ class BokitoChatWidget extends HTMLElement {
       case 'agent_error':
         this.#stopPolling();
         this.#thinkingEl.style.display = 'none';
-        if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError('De AI kon geen antwoord genereren. Probeer opnieuw.');
+        if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError('The AI could not generate a reply. Try again.');
         else {
-          this.#showError('De AI kon geen antwoord genereren. Probeer opnieuw.');
+          this.#showError('The AI could not generate a reply. Try again.');
           if (this.#sm.state === 'processing') this.#sm.transition('active');
         }
         break;
@@ -4249,7 +4222,7 @@ class BokitoChatWidget extends HTMLElement {
       </style>
       <div class="bk-dbg-label">Bokito debug</div>
       <div class="bk-dbg-row">
-        <button class="bk-dbg-proactive" title="Stuur een contextuele proactieve vraag">▶ Proactief</button>
+        <button class="bk-dbg-proactive" title="Send a contextual proactive question">▶ Proactive</button>
         <button class="bk-dbg-reset" title="Reset trigger-teller en verberg wolkjes">↺ Reset</button>
       </div>
       <div class="bk-dbg-status"></div>
@@ -4272,14 +4245,14 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   async #triggerProactiveForce() {
-    if (this.#proactivePending) { this.#debugStatus('Bezig…'); return; }
+    if (this.#proactivePending) { this.#debugStatus('Working…'); return; }
     this.#debugStatus('Ophalen…');
     this.#proactivePending = true;
     try {
       const ctx = this.#buildProactiveContext();
       const data = await this.#api.post('proactive-suggestions', ctx);
       const suggestions = (data?.suggestions || []).filter(s => typeof s === 'string' && s.trim()).slice(0, 3);
-      if (!suggestions.length) { this.#debugStatus('Geen suggesties terug'); return; }
+      if (!suggestions.length) { this.#debugStatus('No suggestions returned'); return; }
       this.#shownProactiveSuggestions.push(...suggestions);
       this.#renderProactiveBubbles(suggestions);
       this.#debugStatus(`${suggestions.length} wolkje(s) getoond`);
@@ -4355,7 +4328,7 @@ class BokitoChatWidget extends HTMLElement {
   async #handleFileSelect(files) {
     for (const file of files) {
       if (!file.type.startsWith('image/')) continue;
-      if (file.size > 10 * 1024 * 1024) { this.#showError('Afbeelding mag max. 10 MB zijn.'); continue; }
+      if (file.size > 10 * 1024 * 1024) { this.#showError('Images can be up to 10 MB.'); continue; }
 
       const localUrl = URL.createObjectURL(file);
       const entry = { localUrl, id: null, url: null, uploading: true };
@@ -4367,7 +4340,11 @@ class BokitoChatWidget extends HTMLElement {
         const fd = new FormData();
         fd.append('session_token', this.#sessionToken);
         fd.append('file', file);
-        const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.attachment), { method: 'POST', body: fd });
+        const res = await fetch(livechatHttpUrl(this.#apiUrl, livechatRoutes.attachment), {
+          method: 'POST',
+          headers: this.#sessionToken ? { Authorization: `Bearer ${this.#sessionToken}` } : {},
+          body: fd,
+        });
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
         entry.id = data.id;
@@ -4378,7 +4355,7 @@ class BokitoChatWidget extends HTMLElement {
         const idx = this.#pendingAttachments.indexOf(entry);
         if (idx !== -1) this.#pendingAttachments.splice(idx, 1);
         URL.revokeObjectURL(localUrl);
-        this.#showError('Uploaden mislukt. Probeer opnieuw.');
+        this.#showError('Upload failed. Try again.');
       }
       this.#renderPreviewStrip();
       this.#updateSendBtnState();
@@ -4419,7 +4396,7 @@ class BokitoChatWidget extends HTMLElement {
       } else {
         const rm = document.createElement('button');
         rm.className = 'bk-preview-remove';
-        rm.setAttribute('aria-label', 'Verwijder afbeelding');
+        rm.setAttribute('aria-label', 'Remove image');
         rm.textContent = '×';
         rm.addEventListener('click', () => {
           URL.revokeObjectURL(att.localUrl);
@@ -4591,12 +4568,12 @@ class BokitoChatWidget extends HTMLElement {
     const dark = this.#effectiveUserThemeIsDark();
     if (dark) {
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>';
-      cap.textContent = 'Lichte modus';
-      btn.setAttribute('aria-label', 'Schakel naar lichte weergave');
+      cap.textContent = 'Light mode';
+      btn.setAttribute('aria-label', 'Switch to light theme');
     } else {
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-      cap.textContent = 'Donkere modus';
-      btn.setAttribute('aria-label', 'Schakel naar donkere weergave');
+      cap.textContent = 'Dark mode';
+      btn.setAttribute('aria-label', 'Switch to dark theme');
     }
   }
 
@@ -4650,7 +4627,7 @@ class BokitoChatWidget extends HTMLElement {
         this.#speechRecognition = new SpeechRecognition();
         this.#speechRecognition.continuous = true;
         this.#speechRecognition.interimResults = true;
-        this.#speechRecognition.lang = 'nl-NL';
+        this.#speechRecognition.lang = document.documentElement.lang || 'en-US';
         this.#speechRecognition.onresult = (e) => {
           const last = e.results.length - 1;
           const transcript = e.results[last][0].transcript;
@@ -4671,8 +4648,8 @@ class BokitoChatWidget extends HTMLElement {
       this.#recordStartBtn.hidden = true;
       this.#recordActionsWrap.hidden = false;
     } catch (err) {
-      console.warn('[Bokito] Microfoon niet beschikbaar:', err);
-      this.#showError('Microfoon niet beschikbaar. Controleer de toestemming.');
+      console.warn('[Bokito] Microphone unavailable:', err);
+      this.#showError('Microphone unavailable. Check the browser permission.');
     }
   }
 
@@ -4721,12 +4698,13 @@ class BokitoChatWidget extends HTMLElement {
 
   async #postTranscribe(blob) {
     const path = this.#transcribePath();
+    if (!path) return null;
     const url = livechatHttpUrl(this.#apiUrl, path);
     const buildFd = () => {
       const fd = new FormData();
       if (this.#sessionToken) fd.append('session_token', this.#sessionToken);
       fd.append('audio', blob, 'recording.webm');
-      fd.append('language', 'nl');
+      fd.append('language', (document.documentElement.lang || 'en').slice(0, 2));
       return fd;
     };
     if (!this.#sessionToken) await this.#initSession();
@@ -4754,7 +4732,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#recordActionsWrap.hidden = true;
 
     const prevPh = this.#textarea ? this.#textarea.placeholder : '';
-    if (this.#textarea) this.#textarea.placeholder = 'Transcriberen…';
+    if (this.#textarea) this.#textarea.placeholder = 'Transcribing…';
     if (this.#recordConfirmBtn) this.#recordConfirmBtn.disabled = true;
     if (this.#recordCancelBtn) this.#recordCancelBtn.disabled = true;
 
@@ -4781,7 +4759,7 @@ class BokitoChatWidget extends HTMLElement {
     }
     if (!text) text = speechFallback;
     if (text) this.#sendMessageWithContent(text, []);
-    else this.#showError('Geen spraak herkend. Probeer opnieuw.');
+    else this.#showError('No speech recognized. Try again.');
   }
 
   #initSounds() {
@@ -4859,6 +4837,8 @@ if (!customElements.get('bokito-chat')) {
   const authToken = scriptEl?.dataset?.authToken || cfg.authToken || null;
   const authCookieName = scriptEl?.dataset?.authCookieName || cfg.authCookieName || '';
   const authMode = scriptEl?.dataset?.authMode || cfg.authMode || '';
+  const tenant = scriptEl?.dataset?.tenant || cfg.tenant || '';
+  const signinUrl = scriptEl?.dataset?.signinUrl || cfg.signinUrl || '';
   const csrfToken = scriptEl?.dataset?.csrfToken || cfg.csrfToken || '';
   const qp = new URLSearchParams(window.location.search);
   const debug   = scriptEl?.dataset?.debug === 'true' || cfg.debug === true
@@ -4875,6 +4855,8 @@ if (!customElements.get('bokito-chat')) {
     if (authToken) widget.dataset.authToken = String(authToken);
     if (authCookieName) widget.dataset.authCookieName = String(authCookieName);
     if (authMode) widget.dataset.authMode = String(authMode);
+    if (tenant) widget.dataset.tenant = String(tenant);
+    if (signinUrl) widget.dataset.signinUrl = String(signinUrl);
     if (csrfToken) widget.dataset.csrfToken = String(csrfToken);
     if (debug)   widget.dataset.debug = 'true';
     if (cfg.clientSimulateStream === false || qp.get('bk_sse_smooth') === '0') {

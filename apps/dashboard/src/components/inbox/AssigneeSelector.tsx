@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { UserRound } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
-import { listInboxMembers, type InboxMember } from '../../lib/inbox-api'
+import { useMembers } from '../../hooks/useMembers'
+import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
 import {
   DropdownMenu,
@@ -20,22 +20,14 @@ type Props = {
 }
 
 export default function AssigneeSelector({ currentAssigneeId, onChange, disabled }: Props) {
-  const { token } = useAuth()
-  const [members, setMembers] = useState<InboxMember[]>([])
-
-  useEffect(() => {
-    if (!token) return
-    listInboxMembers(token)
-      .then(setMembers)
-      .catch(() => {})
-  }, [token])
+  const { members } = useMembers()
 
   const currentMember = useMemo(
     () => members.find((m) => m.id === currentAssigneeId) ?? null,
     [members, currentAssigneeId],
   )
 
-  const tooltip = currentMember ? `Toegewezen aan ${currentMember.name}` : 'Toewijzen'
+  const tooltip = currentMember ? `Assigned to ${currentMember.name}` : 'Assign'
 
   return (
     <DropdownMenu>
@@ -63,7 +55,7 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
       </Tooltip>
       <DropdownMenuContent align="end" className="min-w-[11rem]">
         <DropdownMenuLabel className="normal-case tracking-normal font-medium text-text-secondary">
-          Toewijzen
+          Assign
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -76,8 +68,9 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
           <DropdownMenuItem
             key={m.id}
             onSelect={() => onChange(m.id)}
-            className={cn('text-xs', currentAssigneeId === m.id && 'bg-bg-hover/80')}
+            className={cn('gap-2 text-xs', currentAssigneeId === m.id && 'bg-bg-hover/80')}
           >
+            <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={18} />
             {m.name}
           </DropdownMenuItem>
         ))}

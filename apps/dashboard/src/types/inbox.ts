@@ -1,10 +1,9 @@
 export type MailboxProvider = 'outlook' | 'gmail';
 
-export type MailboxStatus = 'connected' | 'syncing' | 'error' | 'token_expired';
+export type MailboxStatus = 'connected' | 'syncing' | 'error' | 'token_expired' | 'needs_auth' | 'paused';
 
 export interface MailboxConnection {
   id: number;
-  workspace_id: number;
   provider: MailboxProvider;
   email_address: string;
   display_name: string;
@@ -67,21 +66,25 @@ export interface SyncStats {
 }
 
 export const MAILBOX_STATUS_LABELS: Record<MailboxStatus, string> = {
-  connected: 'Verbonden',
-  syncing: 'Synchroniseren...',
-  error: 'Fout',
-  token_expired: 'Token verlopen'
+  connected: 'Connected',
+  syncing: 'Syncing...',
+  error: 'Error',
+  token_expired: 'Token expired',
+  needs_auth: 'Needs connection',
+  paused: 'Paused',
 };
 
 export const MAILBOX_STATUS_VARIANTS: Record<MailboxStatus, 'success' | 'warning' | 'error' | 'neutral'> = {
   connected: 'success',
   syncing: 'warning',
   error: 'error',
-  token_expired: 'warning'
+  token_expired: 'warning',
+  needs_auth: 'warning',
+  paused: 'neutral',
 };
 
 export const ROUTING_CONDITION_LABELS: Record<RoutingConditionType, string> = {
-  sender_domain: 'Afzender domein',
-  subject_contains: 'Onderwerp bevat',
-  mailbox: 'Mailbox'
+  sender_domain: 'Sender domain',
+  subject_contains: 'Subject contains',
+  mailbox: 'Mailbox',
 };

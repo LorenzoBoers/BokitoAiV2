@@ -28,6 +28,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="bokito"/>
+        <data android:scheme="exp+bokito-mobile"/>
       </intent-filter>
     </activity>
   </application>

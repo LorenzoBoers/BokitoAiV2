@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, Trash2, Copy } from 'lucide-react'
+import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, Trash2, Copy, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
+import { agentRunsPath } from '../lib/messages-paths'
 import { PageContent } from '../components/layout/PageContent'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -19,8 +21,10 @@ import {
   listGovernAudit,
   listGovernChanges,
   rejectGovernChange,
+  rollbackGovernChange,
   revokeApiToken,
   setPosture,
+  setToolOverride,
   updateAllowances,
   type AllowanceMode,
   type ApiTokenRow,
@@ -204,6 +208,26 @@ export default function GovernPage() {
     }
   }
 
+  async function handleToolOverride(toolName: string, mode: AllowanceMode | null) {
+    setTools((prev) =>
+      prev.map((tool) => (tool.name === toolName ? { ...tool, override: mode } : tool)),
+    )
+    setSavingModes(true)
+    try {
+      await setToolOverride(toolName, mode)
+      toast.success(
+        mode
+          ? t('allowances.toolOverrideSaved', { defaultValue: `${toolName}: ${mode}` })
+          : t('allowances.toolOverrideCleared', { defaultValue: `${toolName}: category default` }),
+      )
+    } catch (err) {
+      setError(formatApiErrorMessage(err, 'Could not save tool override.'))
+      load()
+    } finally {
+      setSavingModes(false)
+    }
+  }
+
   async function handleCreateToken() {
     const name = newTokenName.trim()
     if (!name) return
@@ -299,7 +323,15 @@ export default function GovernPage() {
                           </button>
                           {expandedId === change.id ? <DiffPreview change={change} /> : null}
                         </div>
-                        <div className="flex shrink-0 gap-2">
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          {change.signal_id ? (
+                            <Button size="sm" variant="ghost" asChild>
+                              <Link to={agentRunsPath('awaiting-decision', change.signal_id)}>
+                                <ExternalLink className="h-4 w-4 mr-1" aria-hidden />
+                                Open in Messages
+                              </Link>
+                            </Button>
+                          ) : null}
                           <Button
                             size="sm"
                             disabled={busyId === change.id}
@@ -424,10 +456,68 @@ export default function GovernPage() {
                       </div>
                       <p className="mt-1.5 text-[11px] text-text-muted">
                         {ALLOWANCE_MODE_LABELS[current]?.hint}
-                        {categoryTools.length > 0
-                          ? ` · ${categoryTools.map((tool) => tool.name).join(', ')}`
-                          : null}
                       </p>
+                      {categoryTools.length > 0 ? (
+                        <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
+                          {categoryTools.map((tool) => {
+                            const effective = tool.override ?? current
+                            return (
+                              <div
+                                key={tool.name}
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <span
+                                  className="truncate font-mono text-[11px] text-text-secondary"
+                                  title={tool.description}
+                                >
+                                  {tool.name}
+                                  {tool.override ? (
+                                    <span className="ml-1.5 text-[10px] text-accent">override</span>
+                                  ) : null}
+                                </span>
+                                <div className="inline-flex shrink-0 rounded-md border border-border/50 p-0.5">
+                                  {(['inherit', 'deny', 'ask', 'allow'] as const).map((mode) => {
+                                    const isInherit = mode === 'inherit'
+                                    const selected = isInherit ? !tool.override : tool.override === mode
+                                    return (
+                                      <button
+                                        key={mode}
+                                        type="button"
+                                        disabled={savingModes}
+                                        onClick={() =>
+                                          void handleToolOverride(
+                                            tool.name,
+                                            isInherit ? null : (mode as AllowanceMode),
+                                          )
+                                        }
+                                        className={cn(
+                                          'rounded px-2 py-0.5 text-[10px] transition-colors',
+                                          selected
+                                            ? mode === 'deny'
+                                              ? 'bg-destructive/10 font-medium text-destructive'
+                                              : mode === 'allow'
+                                                ? 'bg-accent/10 font-medium text-accent'
+                                                : 'bg-bg-muted font-medium text-text-heading'
+                                            : 'text-text-muted hover:text-text-heading',
+                                        )}
+                                        title={
+                                          isInherit
+                                            ? `Use category default (${current})`
+                                            : `Effective now: ${effective}`
+                                        }
+                                      >
+                                        {isInherit
+                                          ? 'Default'
+                                          : ALLOWANCE_MODE_LABELS[mode]?.label ?? mode}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                   )
                 })}
@@ -521,12 +611,37 @@ export default function GovernPage() {
                   <p className="text-sm text-text-muted">{t('history.empty')}</p>
                 ) : (
                   history.slice(0, 20).map((row) => (
-                    <div key={row.id} className="text-sm border-b border-border pb-2 last:border-0">
-                      <p className="font-medium text-text-heading">{row.summary}</p>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        {formatChangeMeta(row.resource_type, row.change_kind, row.status)} · v{row.version} ·{' '}
-                        {formatGovernTimestamp(row.resolved_at ?? row.created_at)}
-                      </p>
+                    <div
+                      key={row.id}
+                      className="flex items-start justify-between gap-3 text-sm border-b border-border pb-2 last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-text-heading">{row.summary}</p>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {formatChangeMeta(row.resource_type, row.change_kind, row.status)} · v{row.version} ·{' '}
+                          {formatGovernTimestamp(row.resolved_at ?? row.created_at)}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          setBusyId(row.id)
+                          void rollbackGovernChange(row.id)
+                            .then(() => {
+                              toast.success('Change rolled back')
+                              load()
+                            })
+                            .catch((err) => {
+                              toast.error(formatApiErrorMessage(err, 'Could not roll back.'))
+                            })
+                            .finally(() => setBusyId(null))
+                        }}
+                      >
+                        Rollback
+                      </Button>
                     </div>
                   ))
                 )}
@@ -537,23 +652,40 @@ export default function GovernPage() {
           <TabsContent value="passports" className="mt-4">
             <Card>
               <CardContent className="space-y-2 pt-6">
-                {passports.map((row) => (
-                  <div key={String(row.id)} className="rounded-lg border border-border p-3">
-                    <p className="text-sm font-medium text-text-heading">
-                      {String(row.name)}{' '}
-                      <span className="text-text-muted font-normal">({String(row.role)})</span>
+                {passports.length === 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-text-muted">
+                      No agent passports yet. Create an agent first, then edit autonomy on the agent detail page.
                     </p>
-                    <p className="text-xs text-text-muted mt-1">
-                      Autonomy: {String(row.autonomy_level)}
-                    </p>
-                    <p className="text-xs text-text-muted mt-1 break-words">
-                      Scopes:{' '}
-                      {Array.isArray(row.permission_scopes)
-                        ? (row.permission_scopes as string[]).join(', ') || 'role defaults'
-                        : 'role defaults'}
-                    </p>
+                    <Button type="button" size="sm" variant="secondary" asChild>
+                      <Link to="/agents">Open agents</Link>
+                    </Button>
                   </div>
-                ))}
+                ) : (
+                  passports.map((row) => (
+                    <div key={String(row.id)} className="rounded-lg border border-border p-3">
+                      <p className="text-sm font-medium text-text-heading">
+                        {String(row.name)}{' '}
+                        <span className="text-text-muted font-normal">({String(row.role)})</span>
+                      </p>
+                      <p className="text-xs text-text-muted mt-1">
+                        Autonomy: {String(row.autonomy_level)}
+                      </p>
+                      <p className="text-xs text-text-muted mt-1 break-words">
+                        Scopes:{' '}
+                        {Array.isArray(row.permission_scopes)
+                          ? (row.permission_scopes as string[]).join(', ') || 'role defaults'
+                          : 'role defaults'}
+                      </p>
+                      <Link
+                        to={`/agents/${String(row.id)}`}
+                        className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+                      >
+                        Edit on agent detail
+                      </Link>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </TabsContent>

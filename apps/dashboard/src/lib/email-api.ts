@@ -36,13 +36,11 @@ export type RoutingRuleApi = {
   updated_at: string
 }
 
+export type MailboxAiMode = 'suggest' | 'auto' | 'off'
+
 export type AiInboxConfig = {
-  suggestions_enabled: boolean
-  auto_reply_enabled: boolean
-  auto_reply_threshold: number
-  auto_label_enabled: boolean
-  tone: 'formeel' | 'informeel' | 'match'
-  language: 'nl' | 'en' | 'auto'
+  /** Empty string = follow the workspace default for email. */
+  mode: MailboxAiMode | ''
 }
 
 export type KbCollection = {
@@ -73,7 +71,7 @@ export function ensureOutlookAuthorizeUrlHasClientId(url: string): void {
   try {
     parsed = new URL(url)
   } catch {
-    throw new Error('Ongeldige authorize-URL ontvangen van de server.')
+    throw new Error('Invalid authorize URL received from the server.')
   }
   const host = parsed.hostname.toLowerCase()
   const isMicrosoft =
@@ -86,7 +84,7 @@ export function ensureOutlookAuthorizeUrlHasClientId(url: string): void {
   const clientId = parsed.searchParams.get('client_id')
   if (!clientId?.trim()) {
     throw new Error(
-      'Microsoft OAuth mist client_id in de authorize-URL. Zet MICROSOFT_CLIENT_ID (en het juiste secret) in de API-omgeving voor de integrations-router die /email/oauth/start uitvoert.',
+      'Microsoft OAuth is missing a client_id in the authorize URL. Set MICROSOFT_CLIENT_ID (and the matching secret) in the API environment used by the integrations router that serves /email/oauth/start.',
     )
   }
 }
@@ -125,7 +123,17 @@ function normalizeConnection(row: unknown): EmailConnection | null {
   if (!Number.isFinite(id)) return null
   const statusValue = asString(raw.status).toLowerCase()
   const status: ConnectionStatus =
-    statusValue === 'error' ? 'error' : statusValue === 'revoked' ? 'revoked' : 'active'
+    statusValue === 'error'
+      ? 'error'
+      : statusValue === 'needs_auth'
+        ? 'needs_auth'
+        : statusValue === 'paused' || statusValue === 'revoked'
+          ? statusValue === 'paused'
+            ? 'paused'
+            : 'revoked'
+          : statusValue === 'connected' || statusValue === 'active'
+            ? 'connected'
+            : 'needs_auth'
   const rawEnabled = raw.is_enabled ?? raw.isEnabled
   const isEnabled = rawEnabled === false ? false : true
   const rawPrimary = raw.is_primary ?? raw.isPrimary
@@ -202,6 +210,11 @@ export async function disconnectEmailConnection(token: string, connectionId: num
   await apiDelete(integrationsRoutes.email.connections.byId(connectionId), token)
 }
 
+export async function syncMailboxes(token: string): Promise<{ synced: number }> {
+  const payload = await apiPost<{ synced?: number }>(integrationsRoutes.email.sync, {}, token)
+  return { synced: typeof payload.synced === 'number' ? payload.synced : 0 }
+}
+
 export async function updateMailboxSettings(
   token: string,
   connectionId: number,
@@ -268,25 +281,23 @@ export async function deleteRoutingRule(token: string, ruleId: number): Promise<
   await apiDelete(integrationsRoutes.email.routingRules.byId(ruleId), token)
 }
 
-const DEFAULT_AI_CONFIG: AiInboxConfig = {
-  suggestions_enabled: true,
-  auto_reply_enabled: false,
-  auto_reply_threshold: 0.85,
-  auto_label_enabled: false,
-  tone: 'formeel',
-  language: 'nl',
-}
-
 export async function getAiConfig(token: string, connectionId: number): Promise<AiInboxConfig> {
-  const payload = await apiGet<{ ai_config?: Partial<AiInboxConfig> }>(integrationsRoutes.email.connections.aiConfig(connectionId), token)
-  return {
-    ...DEFAULT_AI_CONFIG,
-    ...(payload.ai_config ?? {}),
+  const payload = await apiGet<{ ai_config?: Record<string, unknown> }>(integrationsRoutes.email.connections.aiConfig(connectionId), token)
+  const raw = payload.ai_config ?? {}
+  const mode = raw.mode
+  if (mode === 'suggest' || mode === 'auto' || mode === 'off') {
+    return { mode }
   }
+  // Legacy per-mailbox toggle written by the previous AI settings UI.
+  if (raw.suggestions_enabled === false) {
+    return { mode: 'off' }
+  }
+  return { mode: '' }
 }
 
 export async function saveAiConfig(token: string, connectionId: number, config: AiInboxConfig): Promise<void> {
-  await apiPut(integrationsRoutes.email.connections.aiConfig(connectionId), { ai_config: config }, token)
+  const aiConfig = config.mode ? { mode: config.mode } : {}
+  await apiPut(integrationsRoutes.email.connections.aiConfig(connectionId), { ai_config: aiConfig }, token)
 }
 
 export async function listKbCollections(token: string): Promise<KbCollection[]> {

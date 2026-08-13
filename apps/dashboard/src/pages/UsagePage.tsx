@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
+import CockpitTabs from '../components/shell/CockpitTabs'
 import { useAuth } from '../context/AuthContext'
 import {
   bokitoGetCockpitSummary,
@@ -63,7 +64,7 @@ export default function UsagePage() {
   return (
     <div>
       <ContentHeader
-        title="Usage"
+        title="Cockpit"
         subtitle="Model spend and run volume"
         meta={
           <button
@@ -76,6 +77,8 @@ export default function UsagePage() {
           </button>
         }
       />
+
+      <CockpitTabs />
 
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
 

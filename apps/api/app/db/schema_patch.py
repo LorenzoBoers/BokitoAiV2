@@ -17,6 +17,10 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "avatar_url": "VARCHAR",
         "is_staff": "BOOLEAN DEFAULT 0",
         "email_verified": "BOOLEAN DEFAULT 0",
+        "settings_json": "VARCHAR DEFAULT '{}'",
+    },
+    "invites": {
+        "invited_by_user_id": "VARCHAR",
     },
     "agents": {
         "slug": "VARCHAR DEFAULT ''",
@@ -31,6 +35,8 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
     },
     "signals": {
         "agent_id": "VARCHAR",
+        "context_signal_id": "VARCHAR",
+        "snoozed_until": "DATETIME",
     },
     "agent_runs": {
         "tenant_id": "VARCHAR",
@@ -44,7 +50,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "started_at": "DATETIME",
         "completed_at": "DATETIME",
         "task_id": "VARCHAR",
-        "workstream_run_id": "VARCHAR",
         "step_id": "VARCHAR",
         "parent_run_id": "VARCHAR",
         "run_role": "VARCHAR DEFAULT 'main'",
@@ -429,6 +434,15 @@ def _drop_legacy_policy_tables(connection: Connection) -> None:
             connection.execute(text(f"DROP TABLE {table}{cascade}"))
 
 
+def _drop_legacy_orchestra_tables(connection: Connection) -> None:
+    """Cycle 2: AgentProfile/WorkstreamRun replaced by RuntimeProfile + AgentTask/AgentRun."""
+    inspector = inspect(connection)
+    cascade = " CASCADE" if connection.dialect.name == "postgresql" else ""
+    for table in ("workstream_step_runs", "workstream_runs", "agent_profiles"):
+        if inspector.has_table(table):
+            connection.execute(text(f"DROP TABLE {table}{cascade}"))
+
+
 def _block_markdown(content_json: str | None) -> str:
     try:
         content = json.loads(content_json or "{}")
@@ -695,10 +709,31 @@ def _normalize_agent_chat_columns(connection: Connection) -> None:
         )
 
 
+def _relax_oauth_states_tenant(connection: Connection) -> None:
+    """SSO login flows create OAuthState rows before a tenant exists, so
+    tenant_id must be nullable. oauth_states is ephemeral (15-minute CSRF
+    states), so SQLite simply rebuilds the table."""
+    inspector = inspect(connection)
+    if not inspector.has_table("oauth_states"):
+        return
+    tenant_col = next(
+        (c for c in inspector.get_columns("oauth_states") if c["name"] == "tenant_id"), None
+    )
+    if tenant_col is None or tenant_col.get("nullable", True):
+        return
+    if connection.dialect.name == "postgresql":
+        connection.execute(text("ALTER TABLE oauth_states ALTER COLUMN tenant_id DROP NOT NULL"))
+    else:
+        connection.execute(text("DROP TABLE oauth_states"))
+        SQLModel.metadata.tables["oauth_states"].create(connection)
+
+
 def apply_data_repairs(connection: Connection) -> None:
     """Idempotent data fixes that ALTER cannot express (legacy role cleanup)."""
+    _relax_oauth_states_tenant(connection)
     _migrate_legacy_threads_to_signals(connection)
     _drop_legacy_policy_tables(connection)
+    _drop_legacy_orchestra_tables(connection)
     _migrate_blueprint_to_workspace_docs(connection)
     _migrate_schedules_to_triggers(connection)
     _backfill_contacts_from_signals(connection)

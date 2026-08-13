@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
@@ -12,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import MessageAttachments from './MessageAttachments'
+import SendStopButton from './SendStopButton'
 import { uploadFile, type Attachment, type ReplyAction } from '../lib/api'
 import { colors, spacing } from '../theme'
 
@@ -22,15 +22,25 @@ type Props = {
   onNote: (bodyText: string, attachments: Attachment[]) => Promise<void>
   saving?: boolean
   showNoteTab?: boolean
+  streaming?: boolean
+  onStop?: () => void
 }
 
-export default function ThreadComposer({ onReply, onNote, saving, showNoteTab = true }: Props) {
+export default function ThreadComposer({
+  onReply,
+  onNote,
+  saving,
+  showNoteTab = true,
+  streaming = false,
+  onStop,
+}: Props) {
   const [tab, setTab] = useState<Tab>('reply')
   const [body, setBody] = useState('')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [uploading, setUploading] = useState(false)
 
   const busy = saving || uploading
+  const runActive = streaming || busy
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -139,32 +149,28 @@ export default function ThreadComposer({ onReply, onNote, saving, showNoteTab = 
           multiline
           editable={!busy}
         />
-        <Pressable
-          style={[styles.sendButton, (!body.trim() || busy) && styles.disabled]}
-          onPress={() => void submit('send')}
-          disabled={!body.trim() || busy}
-        >
-          {busy ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Ionicons name="send" size={16} color="#fff" />
-          )}
-        </Pressable>
+        <SendStopButton
+          streaming={streaming}
+          canSend={!!body.trim()}
+          busy={busy}
+          onSend={() => void submit('send')}
+          onStop={() => onStop?.()}
+        />
       </View>
 
       {!isNote ? (
         <View style={styles.secondaryActions}>
           <Pressable
-            style={[styles.secondaryButton, busy && styles.disabled]}
+            style={[styles.secondaryButton, runActive && styles.disabled]}
             onPress={() => void submit('send_and_pending')}
-            disabled={!body.trim() || busy}
+            disabled={!body.trim() || runActive}
           >
             <Text style={styles.secondaryText}>Send and pending</Text>
           </Pressable>
           <Pressable
-            style={[styles.secondaryButton, busy && styles.disabled]}
+            style={[styles.secondaryButton, runActive && styles.disabled]}
             onPress={() => void submit('send_and_close')}
-            disabled={!body.trim() || busy}
+            disabled={!body.trim() || runActive}
           >
             <Text style={styles.secondaryText}>Send and close</Text>
           </Pressable>
@@ -216,14 +222,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 15,
     paddingVertical: 4,
-  },
-  sendButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 10,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   disabled: { opacity: 0.5 },
   secondaryActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.md },

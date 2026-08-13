@@ -11,8 +11,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels import deliver_outbound
+from app.config import get_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
+from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.models.channel import ChannelAccount
 from app.models.email_routing import ROUTING_CONDITION_TYPES, EmailRoutingRule
@@ -58,9 +60,30 @@ def _load_settings(account: ChannelAccount) -> dict[str, Any]:
         return {}
 
 
+def _has_access_token(account: ChannelAccount) -> bool:
+    try:
+        creds = json.loads(account.credentials_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return bool(isinstance(creds, dict) and creds.get("access_token"))
+
+
+def _connection_status(account: ChannelAccount) -> str:
+    """Derive UI status from enablement + real credentials (not is_enabled alone)."""
+    settings = _load_settings(account)
+    if settings.get("last_error") and _has_access_token(account) and account.is_enabled:
+        return "error"
+    if not account.is_enabled:
+        return "paused"
+    if not _has_access_token(account):
+        return "needs_auth"
+    return "connected"
+
+
 def _serialize_connection(account: ChannelAccount, *, is_primary: bool) -> dict[str, Any]:
     settings = _load_settings(account)
-    provider = account.provider if account.provider in ("gmail", "outlook") else "gmail"
+    # Never coerce mock/unknown to gmail — only real OAuth providers are listed.
+    provider = account.provider if account.provider in ("gmail", "outlook") else account.provider
     return {
         # Numeric id matches the `email_connection_id` filter on /api/signals.
         "id": user_numeric_id(account.id),
@@ -74,7 +97,9 @@ def _serialize_connection(account: ChannelAccount, *, is_primary: bool) -> dict[
         "signature_html": settings.get("signature_html"),
         "last_sync_at": settings.get("last_sync_at"),
         "last_error": settings.get("last_error"),
-        "status": "active" if account.is_enabled else "revoked",
+        "status": _connection_status(account),
+        # Backward-compatible alias used by older clients that only know active/revoked.
+        "legacy_status": "active" if account.is_enabled and _has_access_token(account) else "revoked",
     }
 
 
@@ -84,7 +109,12 @@ async def _list_email_accounts(session: AsyncSession, tenant_id: UUID) -> list[C
         .where(ChannelAccount.tenant_id == tenant_id, ChannelAccount.channel == "email")
         .order_by(ChannelAccount.created_at)
     )
-    return list(result.scalars().all())
+    # Hide phantom seed/mock rows — settings only show connectable providers.
+    return [
+        a
+        for a in result.scalars().all()
+        if a.provider in ("gmail", "outlook")
+    ]
 
 
 async def _get_account_by_numeric(
@@ -106,51 +136,6 @@ async def list_accounts(
     return [
         _serialize_connection(a, is_primary=(not explicit_primary and index == 0))
         for index, a in enumerate(accounts)
-    ]
-
-
-@router.get("/threads")
-async def list_threads(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    result = await session.execute(
-        select(Signal)
-        .where(Signal.tenant_id == auth.tenant.id, Signal.channel == "email")
-        .order_by(Signal.updated_at.desc())
-    )
-    return [
-        {
-            "id": str(s.id),
-            "subject": s.subject,
-            "has_unread": s.has_unread,
-            "updated_at": s.updated_at.isoformat(),
-        }
-        for s in result.scalars().all()
-    ]
-
-
-@router.get("/threads/{thread_id}/messages")
-async def list_thread_messages(
-    thread_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    result = await session.execute(
-        select(SignalMessage)
-        .where(SignalMessage.signal_id == thread_id, SignalMessage.tenant_id == auth.tenant.id)
-        .order_by(SignalMessage.created_at)
-    )
-    return [
-        {
-            "id": str(m.id),
-            "direction": m.direction,
-            "from_address": m.from_address,
-            "subject": m.subject,
-            "body_text": m.body_text,
-            "created_at": m.created_at.isoformat(),
-        }
-        for m in result.scalars().all()
     ]
 
 
@@ -243,11 +228,24 @@ async def send_email(
         )
         recipients = to_addresses
 
+    attachments = [a for a in (body.attachments or []) if isinstance(a, dict)]
     send_status = await deliver_outbound(
-        session, signal, body_text=body.body_text, subject=body.subject or signal.subject
+        session,
+        signal,
+        body_text=body.body_text,
+        subject=body.subject or signal.subject,
+        body_html=body.body_html,
+        cc=body.cc,
+        bcc=body.bcc,
+        attachments=attachments,
     )
     if send_status == "skipped":
         send_status = "sent"
+    message_meta: dict[str, Any] = {}
+    if body.cc:
+        message_meta["cc"] = body.cc
+    if body.bcc:
+        message_meta["bcc"] = body.bcc
     msg = SignalMessage(
         signal_id=signal.id,
         tenant_id=auth.tenant.id,
@@ -259,7 +257,10 @@ async def send_email(
         to_addresses=json.dumps(recipients),
         subject=body.subject or signal.subject,
         body_text=body.body_text,
+        body_html=body.body_html or "",
         body_preview=body.body_text[:200],
+        attachments_json=json.dumps(attachments),
+        metadata_json=json.dumps(message_meta) if message_meta else "{}",
         send_status=send_status,
         received_at=now,
     )
@@ -284,6 +285,8 @@ async def mock_inbound_email(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Dev-only: simulate inbound email and trigger AI proposal flow."""
+    if get_settings().is_production:
+        raise HTTPException(status_code=404, detail="Not available in production")
     account_result = await session.execute(
         select(ChannelAccount)
         .where(
@@ -375,6 +378,62 @@ async def get_signature(
     return {"signature_html": _load_settings(account).get("signature_html") or ""}
 
 
+class FolderSelection(BaseModel):
+    id: str
+    display_name: str = ""
+    is_selected: bool = True
+
+
+class UpdateFoldersRequest(BaseModel):
+    folders: list[FolderSelection]
+
+
+@router.get("/connections/{connection_id}/folders")
+async def list_connection_folders(
+    connection_id: int,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.email_sync import account_sync_folders
+
+    account = await _require_account(session, auth.tenant.id, connection_id)
+    settings = _load_settings(account)
+    last_sync_at = settings.get("last_sync_at")
+    folders = []
+    for folder in account_sync_folders(settings):
+        selected = bool(folder.get("is_selected"))
+        folders.append(
+            {
+                "id": str(folder.get("id") or ""),
+                "display_name": str(folder.get("display_name") or folder.get("id") or ""),
+                "is_selected": selected,
+                "last_sync_at": last_sync_at if selected and folder.get("id") == "inbox" else None,
+            }
+        )
+    return {"folders": folders}
+
+
+@router.put("/connections/{connection_id}/folders")
+async def update_connection_folders(
+    connection_id: int,
+    body: UpdateFoldersRequest,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    account = await _require_account(session, auth.tenant.id, connection_id)
+    if not body.folders:
+        raise HTTPException(status_code=400, detail="Provide at least one folder")
+    if not any(f.is_selected for f in body.folders):
+        raise HTTPException(status_code=400, detail="Select at least one folder to sync")
+    selection = [
+        {"id": f.id, "display_name": f.display_name or f.id, "is_selected": f.is_selected}
+        for f in body.folders
+        if f.id
+    ]
+    await _save_account_settings(session, account, {"sync_folders": selection})
+    return {"ok": True, "folders": selection}
+
+
 @router.delete("/connections/{connection_id}")
 async def disconnect_email_connection(
     connection_id: int,
@@ -382,8 +441,22 @@ async def disconnect_email_connection(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     account = await _require_account(session, auth.tenant.id, connection_id)
+    address = account.address
+    provider = account.provider
     await session.delete(account)
     await session.commit()
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="email:mailbox_disconnected",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="channel_account",
+        resource_id=connection_id,
+        payload={"address": address, "provider": provider},
+    )
     return {"ok": True}
 
 
@@ -570,7 +643,7 @@ async def delete_routing_rule(
 # --- Inbound sync (poll connected Gmail/Outlook mailboxes) ---
 
 
-@router.post("/sync")
+@router.post("/sync", dependencies=[Depends(rate_limit("email-sync", limit=6))])
 async def sync_all_mailboxes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -605,7 +678,17 @@ async def _email_oauth_response(
     )
     if real_url:
         return {"authorize_url": real_url}
-    await ensure_email_account(session, tenant_id, provider, email)
+    if get_settings().is_production:
+        raise HTTPException(
+            status_code=503,
+            detail=f"OAuth for {provider} is not configured on this server.",
+        )
+    # Dev-only mock connect: seed placeholder credentials so the mailbox shows
+    # as connected in the UI (sync/send recognize the mock flag and skip the
+    # real provider APIs).
+    await ensure_email_account(
+        session, tenant_id, provider, email, seed_mock_credentials=True
+    )
     return {
         "authorize_url": mock_authorize_url(
             return_url, {"oauth_provider": provider, "oauth_status": "connected"}

@@ -70,6 +70,40 @@ async def test_email_oauth_start_mock_when_unconfigured(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_mock_connect_shows_connected_and_sync_skips(client: AsyncClient, session_override):
+    """Dev mock connect must not leave a mailbox stuck on needs_auth.
+
+    The mock flow seeds placeholder credentials so the account reads as
+    connected, and sync short-circuits instead of calling the provider.
+    """
+    headers = await _auth_headers(client)
+    res = await client.get(
+        "/api/email/oauth/start",
+        headers=headers,
+        params={"provider": "outlook", "return_url": "http://localhost:5174/settings"},
+    )
+    assert res.status_code == 200
+
+    def _mine(rows):
+        return next(
+            a for a in rows if a["provider"] == "outlook" and a["mailbox_email"] == "admin@bokito.ai"
+        )
+
+    accounts = await client.get("/api/email/accounts", headers=headers)
+    assert accounts.status_code == 200
+    assert _mine(accounts.json())["status"] == "connected"
+
+    sync = await client.post("/api/email/sync", headers=headers)
+    assert sync.status_code == 200
+    statuses = {r["status"] for r in sync.json()["results"]}
+    assert "mock_skipped" in statuses
+    assert "error" not in statuses
+    # No last_error may appear after syncing a mock mailbox.
+    accounts_after = await client.get("/api/email/accounts", headers=headers)
+    assert _mine(accounts_after.json())["status"] == "connected"
+
+
+@pytest.mark.asyncio
 async def test_oauth_start_real_when_configured(client: AsyncClient, session_override, monkeypatch):
     from app.services import oauth_providers
 
@@ -132,17 +166,22 @@ async def test_email_sync_ingests_messages(session_override, monkeypatch):
     await session_override.commit()
     await session_override.refresh(account)
 
-    async def fake_fetch(acct, token):
-        return [
-            {
-                "from_address": "lead@customer.test",
-                "from_name": "Lead",
-                "subject": "Quote request",
-                "body_text": "Can you send a quote?",
-                "message_id": "gmail-msg-1",
-                "thread_id": "gmail-thread-1",
-            }
-        ]
+    async def fake_fetch(acct, token, folder_id, cursor):
+        if folder_id != "inbox":
+            return None
+        return (
+            [
+                {
+                    "from_address": "lead@customer.test",
+                    "from_name": "Lead",
+                    "subject": "Quote request",
+                    "body_text": "Can you send a quote?",
+                    "message_id": "gmail-msg-1",
+                    "thread_id": "gmail-thread-1",
+                }
+            ],
+            "history-cursor-1",
+        )
 
     monkeypatch.setattr(email_sync, "_fetch_messages", fake_fetch)
 

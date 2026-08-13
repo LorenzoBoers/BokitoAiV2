@@ -38,6 +38,10 @@ class Trigger(SQLModel, table=True):
     # Webhook triggers are fired via POST /api/hooks/{id} with this shared secret.
     webhook_secret: str = ""
 
+    # Internal Signal thread that collects this trigger's results. Reused on
+    # every fire so a recurring trigger never floods Messages with new threads.
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id")
+
     enabled: bool = True
     last_run_at: Optional[datetime] = None
     next_run_at: Optional[datetime] = Field(default=None, index=True)

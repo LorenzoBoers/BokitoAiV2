@@ -159,13 +159,24 @@ async def create_workspace(
     session.add(tenant)
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
+    user.last_tenant_id = tenant.id
+    session.add(user)
     await bootstrap_tenant(session, tenant.id)
     from app.services.personal_agents import get_or_create_personal_agent
 
     await get_or_create_personal_agent(session, tenant.id, user, commit=False)
     await session.commit()
     await session.refresh(tenant)
-    return workspace_payload(tenant, "owner")
+    from app.services.auth import create_access_token
+
+    payload = workspace_payload(tenant, "owner")
+    # The dashboard applies this token immediately so the UI and every API
+    # call are scoped to the new workspace (JWT is the source of truth).
+    payload["session"] = {
+        "access_token": create_access_token(user.id, tenant.id, user.email, staff=user.is_staff),
+        "tenant": {"id": str(tenant.id), "slug": tenant.slug, "name": tenant.name},
+    }
+    return payload
 
 
 async def update_workspace(
@@ -242,12 +253,119 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
             {
                 "id": user_numeric_id(user.id),
                 "user_id": user_numeric_id(user.id),
+                "uuid": str(user.id),
                 "name": user.display_name or user.email,
                 "email": user.email,
                 "role": membership.role,
+                "avatar_url": user.avatar_url,
             }
         )
     return rows
+
+
+async def _resolve_membership(
+    session: AsyncSession, tenant_id: UUID, member_id: str
+) -> tuple[User, Membership]:
+    """Find a member by UUID or by the derived numeric id used in the dashboard."""
+    result = await session.execute(
+        select(User, Membership)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.tenant_id == tenant_id)
+    )
+    for user, membership in result.all():
+        if str(user.id) == member_id or str(user_numeric_id(user.id)) == member_id:
+            return user, membership
+    raise AppError("Member not found", status_code=404)
+
+
+async def _ensure_not_last_owner(
+    session: AsyncSession, tenant_id: UUID, membership: Membership
+) -> None:
+    """Guard: a workspace must always keep at least one owner."""
+    if membership.role != "owner":
+        return
+    result = await session.execute(
+        select(Membership).where(
+            Membership.tenant_id == tenant_id,
+            Membership.role == "owner",
+            Membership.id != membership.id,
+        )
+    )
+    if result.scalars().first() is None:
+        raise AppError("A workspace needs at least one owner.", status_code=400)
+
+
+async def update_member_role(
+    session: AsyncSession,
+    tenant_id: UUID,
+    member_id: str,
+    role: str,
+) -> dict[str, Any]:
+    if role not in ("owner", "admin", "member"):
+        raise AppError("Role must be owner, admin or member.", status_code=400)
+    user, membership = await _resolve_membership(session, tenant_id, member_id)
+    if membership.role == "owner" and role != "owner":
+        await _ensure_not_last_owner(session, tenant_id, membership)
+    if role == "owner" and membership.role != "owner":
+        # Single-owner model: promoting transfers ownership, so existing
+        # owners step down to admin.
+        owners_result = await session.execute(
+            select(Membership).where(
+                Membership.tenant_id == tenant_id,
+                Membership.role == "owner",
+                Membership.id != membership.id,
+            )
+        )
+        for other in owners_result.scalars().all():
+            other.role = "admin"
+    membership.role = role
+    await session.commit()
+    return {
+        "id": user_numeric_id(user.id),
+        "uuid": str(user.id),
+        "email": user.email,
+        "role": membership.role,
+    }
+
+
+async def remove_member(
+    session: AsyncSession,
+    tenant_id: UUID,
+    member_id: str,
+    *,
+    acting_user: User,
+) -> None:
+    user, membership = await _resolve_membership(session, tenant_id, member_id)
+    if user.id == acting_user.id:
+        raise AppError("You cannot remove yourself from the workspace.", status_code=400)
+    await _ensure_not_last_owner(session, tenant_id, membership)
+    await session.delete(membership)
+    if user.last_tenant_id == tenant_id:
+        user.last_tenant_id = None
+    await session.commit()
+
+
+async def revoke_invite(session: AsyncSession, tenant_id: UUID, invite_id: str) -> None:
+    try:
+        parsed = UUID(invite_id)
+    except ValueError:
+        raise AppError("Invite not found", status_code=404)
+    result = await session.execute(
+        select(Invite).where(Invite.id == parsed, Invite.tenant_id == tenant_id)
+    )
+    invite = result.scalar_one_or_none()
+    if not invite or invite.accepted_at:
+        raise AppError("Invite not found", status_code=404)
+    await session.delete(invite)
+    await session.commit()
+
+
+def invite_link_for_token(token: str) -> str:
+    """Absolute accept-invite URL on the dashboard for an invite token."""
+    from app.config import get_settings
+
+    base = get_settings().public_app_url.rstrip("/")
+    return f"{base}/accept-invite?token={token}"
 
 
 async def list_invites(session: AsyncSession, tenant_id: UUID, inviter: User | None) -> list[dict[str, Any]]:
@@ -256,16 +374,31 @@ async def list_invites(session: AsyncSession, tenant_id: UUID, inviter: User | N
         .where(Invite.tenant_id == tenant_id, Invite.accepted_at.is_(None))
         .order_by(Invite.created_at.desc())
     )
-    inviter_name = (inviter.display_name or inviter.email) if inviter else "System"
+    invites = result.scalars().all()
+
+    # Resolve inviter names per invite; fall back to the requesting admin for
+    # legacy rows created before invited_by_user_id existed.
+    inviter_ids = {i.invited_by_user_id for i in invites if i.invited_by_user_id}
+    names_by_id: dict[UUID, str] = {}
+    if inviter_ids:
+        users_result = await session.execute(select(User).where(User.id.in_(inviter_ids)))
+        names_by_id = {
+            u.id: (u.display_name or u.email) for u in users_result.scalars().all()
+        }
+    fallback_name = (inviter.display_name or inviter.email) if inviter else "System"
+
     rows: list[dict[str, Any]] = []
-    for invite in result.scalars().all():
+    for invite in invites:
         rows.append(
             {
                 "id": str(invite.id),
                 "email": invite.email,
                 "role": invite.role,
-                "invited_by_name": inviter_name,
+                "invited_by_name": names_by_id.get(invite.invited_by_user_id, fallback_name)
+                if invite.invited_by_user_id
+                else fallback_name,
                 "invited_at": invite.created_at.isoformat() if invite.created_at else None,
+                "invite_link": invite_link_for_token(invite.token),
             }
         )
     return rows
@@ -288,17 +421,30 @@ async def create_workspace_invite(
         email=email.strip().lower(),
         role=normalized_role,
         token=token,
+        invited_by_user_id=inviter.id,
         expires_at=datetime.utcnow() + timedelta(days=7),
     )
     session.add(invite)
     await session.commit()
     await session.refresh(invite)
+
+    link = invite_link_for_token(token)
+    from app.services.transactional_mail import send_invite_mail
+
+    mailed = await send_invite_mail(
+        invite.email,
+        invite_link=link,
+        tenant_name=tenant.name,
+        inviter_name=inviter.display_name or inviter.email,
+    )
     return {
         "id": str(invite.id),
         "email": invite.email,
         "role": invite.role,
         "invited_by_name": inviter.display_name or inviter.email,
         "invited_at": invite.created_at.isoformat() if invite.created_at else None,
+        "invite_link": link,
+        "mail_sent": mailed,
     }
 
 
@@ -316,6 +462,8 @@ async def apply_branding(
     appearance_json: str | None = None,
     widget_favicon_bytes: bytes | None = None,
     widget_favicon_content_type: str | None = None,
+    clear_logo: bool = False,
+    clear_favicon: bool = False,
 ) -> dict[str, Any]:
     if name and name.strip():
         tenant.name = name.strip()
@@ -349,30 +497,126 @@ async def apply_branding(
         color = brand_color.strip()
         appearance["main_color"] = color
         livechat["main_color"] = color
-    if logo_bytes:
+    if clear_logo:
+        tenant.logo_url = None
+        livechat.pop("logo", None)
+    elif logo_bytes:
         if len(logo_bytes) > MAX_UPLOAD_BYTES:
             raise AppError("Logo file too large", status_code=400)
         mime = logo_content_type or "image/png"
         encoded = base64.b64encode(logo_bytes).decode("ascii")
         tenant.logo_url = f"data:{mime};base64,{encoded}"
         livechat["logo"] = _asset_object(tenant.logo_url)
-    widget_favicon_source = widget_favicon_bytes if widget_favicon_bytes else favicon_bytes
-    widget_favicon_mime = widget_favicon_content_type if widget_favicon_bytes else favicon_content_type
-    if widget_favicon_source:
-        if len(widget_favicon_source) > MAX_UPLOAD_BYTES:
-            raise AppError("Favicon file too large", status_code=400)
-        mime = widget_favicon_mime or "image/png"
-        encoded = base64.b64encode(widget_favicon_source).decode("ascii")
-        favicon_url = f"data:{mime};base64,{encoded}"
-        if favicon_bytes and not widget_favicon_bytes:
-            settings["favicon_url"] = favicon_url
-            livechat["favicon"] = _asset_object(favicon_url)
-        appearance["widget_favicon"] = _asset_object(favicon_url)
+    if clear_favicon:
+        settings.pop("favicon_url", None)
+        livechat.pop("favicon", None)
+        appearance.pop("widget_favicon", None)
+        appearance.pop("widget_favicon_url", None)
+    else:
+        widget_favicon_source = widget_favicon_bytes if widget_favicon_bytes else favicon_bytes
+        widget_favicon_mime = widget_favicon_content_type if widget_favicon_bytes else favicon_content_type
+        if widget_favicon_source:
+            if len(widget_favicon_source) > MAX_UPLOAD_BYTES:
+                raise AppError("Favicon file too large", status_code=400)
+            mime = widget_favicon_mime or "image/png"
+            encoded = base64.b64encode(widget_favicon_source).decode("ascii")
+            favicon_url = f"data:{mime};base64,{encoded}"
+            if favicon_bytes and not widget_favicon_bytes:
+                settings["favicon_url"] = favicon_url
+                livechat["favicon"] = _asset_object(favicon_url)
+            appearance["widget_favicon"] = _asset_object(favicon_url)
     livechat["subdomain"] = tenant.slug
     save_settings(tenant, settings)
     await session.commit()
     await session.refresh(tenant)
     return workspace_payload(tenant, "owner")
+
+
+async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    """Computed onboarding checklist for a workspace, derived from real data.
+
+    Steps: company profile documented, first assistant conversation, a channel
+    connected, and team invited. No stored state — always reflects reality.
+    """
+    from sqlalchemy import func
+
+    from app.models.channel import ChannelAccount
+    from app.models.signal import Signal
+    from app.models.workspace import WorkspaceDoc
+    from app.services.tenant_bootstrap import DEFAULT_DOCS
+
+    company_template = next(
+        (content for path, _kind, content in DEFAULT_DOCS if path == "company.md"), ""
+    )
+    doc_result = await session.execute(
+        select(WorkspaceDoc).where(
+            WorkspaceDoc.tenant_id == tenant_id, WorkspaceDoc.path == "company.md"
+        )
+    )
+    doc = doc_result.scalars().first()
+    company_done = False
+    if doc and doc.content.strip():
+        if doc.content.strip() != company_template.strip():
+            company_done = True
+        elif getattr(doc, "updated_at", None) and getattr(doc, "created_at", None):
+            # Any explicit save after bootstrap counts as "set up". Allow a
+            # small tolerance for rows created before timestamps were aligned.
+            company_done = (doc.updated_at - doc.created_at).total_seconds() > 1
+
+    assistant_done = bool(
+        (
+            await session.execute(
+                select(Signal.id)
+                .where(Signal.tenant_id == tenant_id, Signal.channel == "assistant")
+                .limit(1)
+            )
+        ).first()
+    )
+
+    channel_done = bool(
+        (
+            await session.execute(
+                select(ChannelAccount.id).where(ChannelAccount.tenant_id == tenant_id).limit(1)
+            )
+        ).first()
+    )
+
+    # A real mailbox (Outlook/Gmail OAuth) is the flagship channel for the
+    # accountancy journey, so it gets its own first-class step.
+    email_done = bool(
+        (
+            await session.execute(
+                select(ChannelAccount.id)
+                .where(
+                    ChannelAccount.tenant_id == tenant_id,
+                    ChannelAccount.channel == "email",
+                    ChannelAccount.provider.in_(["outlook", "gmail"]),  # type: ignore[attr-defined]
+                )
+                .limit(1)
+            )
+        ).first()
+    )
+
+    member_count = (
+        await session.execute(
+            select(func.count()).select_from(Membership).where(Membership.tenant_id == tenant_id)
+        )
+    ).scalar_one()
+    invite_count = (
+        await session.execute(
+            select(func.count()).select_from(Invite).where(Invite.tenant_id == tenant_id)
+        )
+    ).scalar_one()
+    team_done = member_count > 1 or invite_count > 0
+
+    steps = [
+        {"id": "email", "done": email_done},
+        {"id": "company", "done": company_done},
+        {"id": "assistant", "done": assistant_done},
+        {"id": "channel", "done": channel_done},
+        {"id": "team", "done": team_done},
+    ]
+    return {"steps": steps, "completed": all(step["done"] for step in steps)}
 
 
 async def tenant_by_subdomain(session: AsyncSession, subdomain: str) -> Tenant | None:

@@ -7,6 +7,8 @@ can reference them via provider_id without a database seed table.
 import uuid
 from typing import Any
 
+from app.config import get_settings
+
 NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 
@@ -107,12 +109,16 @@ PROVIDERS: list[dict[str, Any]] = [
     _provider(
         "bjorn_lunden_mcp",
         "Bjorn Lunden MCP",
-        "Boekhoudkoppeling via Bjorn Lunden MCP-server.",
+        "Accounting integration via the Bjorn Lunden MCP server.",
         "Productiviteit",
         "api_key",
         host_slug="bjorn_lunden",
         capabilities={"mcp_tools": True},
         sort_order=10,
+        # Real endpoint comes from BJORN_LUNDEN_MCP_URL; unset means dev mock
+        # fallback (prod refuses installs without an explicit URL).
+        mcp_remote_url=get_settings().bjorn_lunden_mcp_url or None,
+        mcp_transport="streamable_http",
     ),
     _provider(
         "custom_mcp",

@@ -2,26 +2,27 @@
  * Persisted customization for the Communication hub's inner rail.
  *
  * Fixed at the top (never customizable): New chat + Inbox.
- * Everything below is a section the user can reorder, hide, and collapse.
+ * Fixed at the bottom (anchored): Settings.
+ * Middle sections (agents, channels) can be reordered, hidden, and collapsed.
+ *
+ * Note: the former 'assistant' section was merged into 'agents'. Stored prefs
+ * that still list 'assistant' are repaired by normalizeSidebarPrefs.
  */
 
-export type SidebarSection =
-  | 'assistant'
-  | 'channels'
-  | 'agents'
-  | 'settings'
+export type SidebarSection = 'agents' | 'channels' | 'settings'
 
-export const ALL_SECTIONS: readonly SidebarSection[] = [
-  'assistant',
-  'channels',
+/** Sections that sit in the scrollable middle and can be reordered. */
+export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
   'agents',
-  'settings',
+  'channels',
 ]
+
+export const ALL_SECTIONS: readonly SidebarSection[] = [...MOVABLE_SECTIONS, 'settings']
 
 export const DEFAULT_SECTION_ORDER: readonly SidebarSection[] = ALL_SECTIONS
 
 export type SidebarPrefs = {
-  /** Render order of the customizable sections. */
+  /** Render order of sections (settings is always forced last by normalize). */
   order: SidebarSection[]
   /** Sections the user has hidden entirely. */
   hidden: SidebarSection[]
@@ -41,14 +42,22 @@ function isSection(value: unknown): value is SidebarSection {
   return typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)
 }
 
-/** Repair stored prefs: drop unknown sections, append newly added ones. */
+/** Keep Settings anchored last; drop unknowns (e.g. legacy 'assistant'). */
+function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
+  const middle = order.filter((s) => s !== 'settings')
+  for (const section of MOVABLE_SECTIONS) {
+    if (!middle.includes(section)) middle.push(section)
+  }
+  return [...middle, 'settings']
+}
+
+/** Repair stored prefs: drop unknown sections (e.g. legacy 'assistant'), append newly added ones. */
 export function normalizeSidebarPrefs(raw: unknown): SidebarPrefs {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_SIDEBAR_PREFS, order: [...DEFAULT_SECTION_ORDER] }
   const data = raw as Partial<Record<keyof SidebarPrefs, unknown>>
-  const order = (Array.isArray(data.order) ? data.order.filter(isSection) : []) as SidebarSection[]
-  for (const section of ALL_SECTIONS) {
-    if (!order.includes(section)) order.push(section)
-  }
+  const order = withSettingsLast(
+    (Array.isArray(data.order) ? data.order.filter(isSection) : []) as SidebarSection[],
+  )
   const hidden = (Array.isArray(data.hidden) ? data.hidden.filter(isSection) : []) as SidebarSection[]
   const collapsed = (Array.isArray(data.collapsed) ? data.collapsed.filter(isSection) : []) as SidebarSection[]
   return { order, hidden, collapsed }

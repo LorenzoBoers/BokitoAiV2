@@ -12,7 +12,6 @@ COPY apps/dashboard/package.json apps/dashboard/
 COPY apps/chat-widget/package.json apps/chat-widget/
 COPY apps/mobile/package.json apps/mobile/
 COPY packages/shared/package.json packages/shared/
-COPY packages/messenger-ui/package.json packages/messenger-ui/
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
 

@@ -311,6 +311,12 @@ function buildAuthProxyUrl(path: string): string {
   return `${AUTH_PROXY_BASE}${path}`;
 }
 
+export async function startMicrosoftSso(returnUrl: string): Promise<{ authorize_url: string }> {
+  const url = `${AUTH_API_BASE}${authRoutes.sso.microsoftStart}?return_url=${encodeURIComponent(returnUrl)}`;
+  const res = await fetchWithTimeout(url, { method: 'GET', credentials: 'include' });
+  return readJsonResponse<{ authorize_url: string }>(res, authRoutes.errorContext.microsoftStart);
+}
+
 export async function authLogin(email: string, password: string): Promise<AuthSessionResponse> {
   const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.proxy.login), {
     method: 'POST',
@@ -319,6 +325,63 @@ export async function authLogin(email: string, password: string): Promise<AuthSe
     body: JSON.stringify({ email, password }),
   });
   return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.login);
+}
+
+export type SignupParams = {
+  email: string;
+  password: string;
+  tenantSlug: string;
+  tenantName: string;
+  displayName?: string;
+};
+
+export async function authSignup(params: SignupParams): Promise<AuthSessionResponse> {
+  const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.proxy.signup), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      email: params.email,
+      password: params.password,
+      tenant_slug: params.tenantSlug,
+      tenant_name: params.tenantName,
+      display_name: params.displayName ?? '',
+    }),
+  });
+  return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.signup);
+}
+
+export type InviteInfo = {
+  email: string;
+  role: string;
+  tenant_name: string;
+  existing_user: boolean;
+};
+
+export async function authInviteInfo(inviteToken: string): Promise<InviteInfo> {
+  const res = await fetchWithTimeout(
+    `${buildAuthProxyUrl(authRoutes.proxy.inviteInfo)}?token=${encodeURIComponent(inviteToken)}`,
+    { method: 'GET' },
+  );
+  return readJsonResponse<InviteInfo>(res, authRoutes.proxy.inviteInfo);
+}
+
+export async function authAcceptInvite(params: {
+  token: string;
+  password: string;
+  displayName?: string;
+}): Promise<AuthSessionResponse> {
+  const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.proxy.acceptInvite), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      token: params.token,
+      password: params.password,
+      display_name: params.displayName ?? '',
+    }),
+  });
+  return readJsonResponse<AuthSessionResponse>(res, authRoutes.proxy.acceptInvite);
 }
 
 export async function authRefresh(): Promise<AuthSessionResponse> {
@@ -350,6 +413,10 @@ export async function authMeForTenant(token: string | undefined, tenantSubdomain
     headers,
   });
   return readJsonResponse<unknown>(res, authRoutes.errorContext.me);
+}
+
+export async function authSwitchWorkspace(tenantId: string, token?: string): Promise<AuthSessionResponse> {
+  return apiPostAuth<AuthSessionResponse>(authRoutes.session.switchWorkspace, { tenant_id: tenantId }, token);
 }
 
 export async function authLogout(token?: string): Promise<void> {

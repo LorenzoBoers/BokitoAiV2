@@ -34,7 +34,6 @@ import {
   newConversationPath,
   type HubLeaf,
   type InboxQueue,
-  type RunsQueue,
 } from '../../lib/messages-paths'
 import NavCountBadge from '../layout/NavCountBadge'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -54,20 +53,14 @@ const INBOX_QUEUE_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string; de
   { queue: 'mine', labelKey: 'support.inbox.mine', defaultLabel: 'Mine' },
   { queue: 'open', labelKey: 'support.inbox.open', defaultLabel: 'Open' },
   { queue: 'unassigned', labelKey: 'support.inbox.unassigned', defaultLabel: 'Unassigned' },
+  { queue: 'snoozed', labelKey: 'support.inbox.snoozed', defaultLabel: 'Snoozed' },
   { queue: 'closed', labelKey: 'support.inbox.closed', defaultLabel: 'Closed' },
-]
-
-const RUNS_QUEUE_ITEMS: ReadonlyArray<{ queue: RunsQueue; labelKey: string; defaultLabel: string }> = [
-  { queue: 'all', labelKey: 'support.links.agentAll', defaultLabel: 'All activity' },
-  { queue: 'updates', labelKey: 'support.links.updates', defaultLabel: 'Updates' },
-  { queue: 'results', labelKey: 'support.links.results', defaultLabel: 'Results' },
-  { queue: 'awaiting-decision', labelKey: 'support.links.agentDecisions', defaultLabel: 'Decisions' },
+  { queue: 'spam', labelKey: 'support.inbox.spam', defaultLabel: 'Spam' },
 ]
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
-  assistant: { labelKey: 'support.section.assistant', defaultLabel: 'Assistant' },
-  channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   agents: { labelKey: 'support.section.agents', defaultLabel: 'Agents' },
+  channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   settings: { labelKey: 'support.section.settings', defaultLabel: 'Settings' },
 }
 
@@ -119,20 +112,6 @@ function CollapsibleSection({ section, title, children }: CollapsibleSectionProp
       </button>
       {collapsed ? null : children}
     </section>
-  )
-}
-
-function AssistantSection({ assistant, activeLeaf }: { assistant: ChatTarget | null; activeLeaf: HubLeaf | null }) {
-  return (
-    <div className="space-y-0.5">
-      <LeafLink
-        leaf={{ type: 'assistant' }}
-        to={assistantPath()}
-        label={assistant?.name ?? 'Personal assistant'}
-        icon={<Sparkles size={14} className="shrink-0 text-text-muted" />}
-        activeLeaf={activeLeaf}
-      />
-    </div>
   )
 }
 
@@ -201,13 +180,6 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
         icon={<MessageSquare size={14} className="shrink-0 text-text-muted" />}
         activeLeaf={activeLeaf}
       />
-      <LeafLink
-        leaf={{ type: 'channel', channelKey: 'agent' }}
-        to={channelPath('agent')}
-        label={t('support.channels.agent', { defaultValue: 'Agent messages' })}
-        icon={<Bot size={14} className="shrink-0 text-text-muted" />}
-        activeLeaf={activeLeaf}
-      />
       {hasWhatsApp ? (
         <LeafLink
           leaf={{ type: 'channel', channelKey: 'whatsapp' }}
@@ -231,19 +203,33 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
 }
 
 type AgentsSectionProps = {
+  assistant: ChatTarget | null
   agents: ChatTarget[]
   loading: boolean
   activeLeaf: HubLeaf | null
   t: TFn
 }
 
-function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
+function AgentsSection({ assistant, agents, loading, activeLeaf, t }: AgentsSectionProps) {
+  const activityActive =
+    activeLeaf?.type === 'runs' ||
+    (activeLeaf?.type === 'channel' && activeLeaf.channelKey === 'agent')
+
   return (
     <div className="space-y-0.5">
+      {assistant ? (
+        <LeafLink
+          leaf={{ type: 'assistant' }}
+          to={assistantPath()}
+          label={assistant.name}
+          icon={<Sparkles size={14} className="shrink-0 text-text-muted" />}
+          activeLeaf={activeLeaf}
+        />
+      ) : null}
       {loading ? (
         <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.agents.loading', { defaultValue: 'Loading agents...' })}</p>
       ) : null}
-      {!loading && agents.length === 0 ? (
+      {!loading && agents.length === 0 && !assistant ? (
         <p className="px-3 py-1 text-[12px] text-text-muted">
           {t('support.agents.empty', { defaultValue: 'No agents available for chat.' })}
         </p>
@@ -258,19 +244,15 @@ function AgentsSection({ agents, loading, activeLeaf, t }: AgentsSectionProps) {
           activeLeaf={activeLeaf}
         />
       ))}
-      <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted/80">
-        {t('support.agents.runs', { defaultValue: 'Agent runs' })}
-      </p>
-      {RUNS_QUEUE_ITEMS.map((item) => (
-        <LeafLink
-          key={item.queue}
-          leaf={{ type: 'runs', queue: item.queue }}
-          to={agentRunsPath(item.queue)}
-          label={t(item.labelKey, { defaultValue: item.defaultLabel })}
-          icon={<Bot size={14} className="shrink-0 text-text-muted" />}
-          activeLeaf={activeLeaf}
-        />
-      ))}
+      <NavLink
+        to={agentRunsPath('all')}
+        className={() => navLinkClass(Boolean(activityActive))}
+      >
+        <Bot size={14} className="shrink-0 text-text-muted" />
+        <span className="min-w-0 flex-1 truncate">
+          {t('support.links.activity', { defaultValue: 'Activity' })}
+        </span>
+      </NavLink>
     </div>
   )
 }
@@ -297,14 +279,15 @@ function SettingsSection({ t }: { t: TFn }) {
 /**
  * Communication hub inner rail.
  *
- * Fixed top: New chat + Inbox queues. Below: user-customizable sections
- * (order, visibility, collapse) persisted via SidebarPrefsContext.
+ * Fixed top: New chat + Inbox.
+ * Scrollable middle: Agents / Channels (user order).
+ * Anchored bottom: Settings.
  */
 export default function MessagesHubNav() {
   const { t } = useTranslation('nav')
   const { user, token } = useAuth()
   const { counts } = useNavBadges()
-  const { visibleSections } = useSidebarPrefs()
+  const { visibleSections, settingsVisible } = useSidebarPrefs()
   const location = useLocation()
   const activeLeaf = leafFromPath(location.pathname)
 
@@ -334,71 +317,89 @@ export default function MessagesHubNav() {
   const assistant = targets.find((target) => target.kind === 'personal') ?? null
   const companyAgents = targets.filter((target) => target.kind === 'company')
 
-  const sectionContent: Record<SidebarSection, ReactNode> = {
-    assistant: <AssistantSection assistant={assistant} activeLeaf={activeLeaf} />,
+  const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
     channels: <ChannelsSection activeLeaf={activeLeaf} t={t} />,
-    agents: <AgentsSection agents={companyAgents} loading={targetsLoading} activeLeaf={activeLeaf} t={t} />,
-    settings: <SettingsSection t={t} />,
+    agents: (
+      <AgentsSection
+        assistant={assistant}
+        agents={companyAgents}
+        loading={targetsLoading}
+        activeLeaf={activeLeaf}
+        t={t}
+      />
+    ),
   }
 
   return (
-    <div className="space-y-4">
-      {/* Fixed block: New chat + Inbox */}
-      <section className="space-y-0.5">
-        <NavLink
-          to={newConversationPath()}
-          className={({ isActive }) =>
-            cn(
-              'flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors',
-              isActive
-                ? 'border-accent/40 bg-accent/10 text-text-heading'
-                : 'border-border/70 bg-bg-elevated/70 text-text-primary hover:border-accent/50 hover:bg-bg-hover/70',
-            )
-          }
-        >
-          <Plus size={14} className="shrink-0 text-accent" />
-          <span>{t('support.newChat', { defaultValue: 'New chat' })}</span>
-        </NavLink>
-      </section>
-
-      <section className="space-y-0.5">
-        <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-          {t('support.section.inbox', { defaultValue: 'Inbox' })}
-        </p>
-        {INBOX_QUEUE_ITEMS.map((item) => (
-          <LeafLink
-            key={item.queue}
-            leaf={{ type: 'inbox', queue: item.queue }}
-            to={inboxPath(item.queue)}
-            label={t(item.labelKey, { defaultValue: item.defaultLabel })}
-            icon={
-              item.queue === 'mine' ? (
-                <UserAvatar
-                  name={user?.name ?? '?'}
-                  email={user?.email ?? ''}
-                  avatarUrl={user?.avatarUrl}
-                  size={14}
-                />
-              ) : (
-                <Inbox size={14} className="shrink-0 text-text-muted" />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        {/* Fixed block: New chat + Inbox */}
+        <section className="space-y-0.5">
+          <NavLink
+            to={newConversationPath()}
+            className={({ isActive }) =>
+              cn(
+                'flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors',
+                isActive
+                  ? 'border-accent/40 bg-accent/10 text-text-heading'
+                  : 'border-border/70 bg-bg-elevated/70 text-text-primary hover:border-accent/50 hover:bg-bg-hover/70',
               )
             }
-            badgeCount={countForInboxQueue(counts, item.queue)}
-            activeLeaf={activeLeaf}
-          />
-        ))}
-      </section>
+          >
+            <Plus size={14} className="shrink-0 text-accent" />
+            <span>{t('support.newChat', { defaultValue: 'New chat' })}</span>
+          </NavLink>
+        </section>
 
-      {/* Customizable sections */}
-      {visibleSections.map((section) => (
-        <CollapsibleSection
-          key={section}
-          section={section}
-          title={t(SECTION_LABELS[section].labelKey, { defaultValue: SECTION_LABELS[section].defaultLabel })}
-        >
-          {sectionContent[section]}
-        </CollapsibleSection>
-      ))}
+        <section className="space-y-0.5">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+            {t('support.section.inbox', { defaultValue: 'Inbox' })}
+          </p>
+          {INBOX_QUEUE_ITEMS.map((item) => (
+            <LeafLink
+              key={item.queue}
+              leaf={{ type: 'inbox', queue: item.queue }}
+              to={inboxPath(item.queue)}
+              label={t(item.labelKey, { defaultValue: item.defaultLabel })}
+              icon={
+                item.queue === 'mine' ? (
+                  <UserAvatar
+                    name={user?.name ?? '?'}
+                    email={user?.email ?? ''}
+                    avatarUrl={user?.avatarUrl}
+                    size={14}
+                  />
+                ) : (
+                  <Inbox size={14} className="shrink-0 text-text-muted" />
+                )
+              }
+              badgeCount={countForInboxQueue(counts, item.queue)}
+              activeLeaf={activeLeaf}
+            />
+          ))}
+        </section>
+
+        {visibleSections.map((section) => (
+          <CollapsibleSection
+            key={section}
+            section={section}
+            title={t(SECTION_LABELS[section].labelKey, { defaultValue: SECTION_LABELS[section].defaultLabel })}
+          >
+            {sectionContent[section as Exclude<SidebarSection, 'settings'>]}
+          </CollapsibleSection>
+        ))}
+      </div>
+
+      {settingsVisible ? (
+        <div className="shrink-0 border-t border-border/40 pt-3 mt-2">
+          <CollapsibleSection
+            section="settings"
+            title={t(SECTION_LABELS.settings.labelKey, { defaultValue: SECTION_LABELS.settings.defaultLabel })}
+          >
+            <SettingsSection t={t} />
+          </CollapsibleSection>
+        </div>
+      ) : null}
     </div>
   )
 }

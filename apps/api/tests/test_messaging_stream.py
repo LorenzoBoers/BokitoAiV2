@@ -14,7 +14,8 @@ async def test_agent_loop_stream_yields_real_deltas():
     from app.services.agent.loop import AgentLoop
 
     class FakeLLM:
-        async def stream_chat(self, messages, tools=None, model=None):
+        async def stream_chat(self, messages, tools=None, model=None, **kwargs):
+            yield {"type": "thinking", "text": "Considering... "}
             yield {"type": "delta", "text": "Hello "}
             yield {"type": "delta", "text": "world"}
             yield {
@@ -24,17 +25,18 @@ async def test_agent_loop_stream_yields_real_deltas():
                 "stop_reason": "end_turn",
             }
 
-        async def chat(self, messages, tools=None, model=None):
+        async def chat(self, messages, tools=None, model=None, **kwargs):
             return {
                 "stop_reason": "end_turn",
                 "content": [{"type": "text", "text": "Hello world"}],
                 "usage": {"input_tokens": 5, "output_tokens": 3},
             }
 
-    loop = AgentLoop(AsyncMock(), __import__("uuid").uuid4(), None)
+    loop = AgentLoop(AsyncMock(), __import__("uuid").uuid4(), None, enable_chat_thinking=True)
     loop.tools = []
     loop.max_loops = 1
     loop.llm = FakeLLM()
+    loop.thinking_budget = 1024
     loop.resolved_call = type(
         "Call",
         (),
@@ -50,19 +52,23 @@ async def test_agent_loop_stream_yields_real_deltas():
 
     with patch.object(loop, "_prepare_chat", new=AsyncMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
         with patch.object(loop, "_record_usage", new=AsyncMock()):
-            events = []
-            async for event in loop.stream_chat([{"role": "user", "content": "Hi"}]):
-                events.append(event)
+            with patch.object(loop, "_resolve_thinking_budget", return_value=1024):
+                events = []
+                async for event in loop.stream_chat([{"role": "user", "content": "Hi"}]):
+                    events.append(event)
 
+    thinking = [e["text"] for e in events if e["type"] == "thinking"]
     deltas = [e["text"] for e in events if e["type"] == "delta"]
+    assert thinking == ["Considering... "]
     assert deltas == ["Hello ", "world"]
     assert events[-1]["type"] == "done"
     assert events[-1]["text"] == "Hello world"
+    assert events[-1]["thinking"] == "Considering... "
 
 
 @pytest.mark.asyncio
 async def test_publish_message_delta_and_agent_step():
-    from app.gateway.publish import publish_agent_step, publish_message_delta
+    from app.gateway.publish import publish_agent_step, publish_agent_thinking, publish_message_delta
 
     published: list[tuple] = []
 
@@ -76,11 +82,14 @@ async def test_publish_message_delta_and_agent_step():
         await publish_agent_step(
             tid, sid, step_type="tool_call", name="search_index", payload={"q": "x"}, stream_id="s1"
         )
+        await publish_agent_thinking(tid, sid, delta="Hmm...", stream_id="s1")
 
     assert published[0][0] == "message.delta"
     assert published[0][1]["delta"] == "Hi"
     assert published[1][0] == "agent.step"
     assert published[1][1]["step_type"] == "tool_call"
+    assert published[2][0] == "agent.thinking"
+    assert published[2][1]["delta"] == "Hmm..."
 
 
 @pytest.mark.asyncio

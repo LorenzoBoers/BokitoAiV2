@@ -28,6 +28,7 @@ They are not imported by FastAPI runtime code.
 | `vps-inspect-trading-engine.py` | Worker logs + recent MMXM Trader agent runs |
 | `vps-live-path-smoke.py` | Decide webhook with `all_passed=true` (validates MCP + AM window gate) |
 | `vps-show-latest-trader-run.py` | Latest webhook run + Messages thread output |
+| `vps-set-trader-default-agent.py` | Re-run `seed_trading_stack`: workspace docs + MMXM Trader as default chat agent for `trader@bokito.ai` |
 | `vps-validate-reporting.py` | Fire `kind: report` webhook; verify `OperationalOutcome` row |
 | `vps-validate-strategy-review.py` | Fire weekly strategy review trigger; verify workstream task starts |
 

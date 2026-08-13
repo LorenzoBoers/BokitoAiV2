@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,10 +43,10 @@
   <div class="demo-page">
     <div class="demo-header">
       <h1>Bokito Chat</h1>
-      <p>Klik op de chat-knop rechtsonder om te beginnen</p>
+      <p>Click the chat button in the bottom-right corner to start.</p>
       <p style="font-size:13px;color:#64748B;max-width:520px;margin-top:10px">
-        Als de API alleen één <code>done</code>-event stuurt (geen <code>t</code>-chunks), vloeiend tonen:
-        standaard aan (woorden in stappen). Uitzetten: <code>?bk_sse_smooth=0</code> op deze URL.
+        Query overrides: <code>?agent_slug=…&amp;api_url=…&amp;tenant=…&amp;auth_mode=anonymous|required</code>.
+        Smooth streaming is on by default; disable with <code>?bk_sse_smooth=0</code>.
       </p>
     </div>
 
@@ -56,31 +56,34 @@
     </div>
 
     <div style="display:flex;align-items:center;gap:16px">
-      <span class="demo-badge" id="agentLabel">Verbinden...</span>
-      <a class="demo-back" href="index.html">← Terug naar tests</a>
+      <span class="demo-badge" id="agentLabel">Connecting...</span>
+      <a class="demo-back" href="index.html">← Back to test pages</a>
     </div>
   </div>
 
   <script>
-    // Config: read from URL querystring, fallback to defaults
+    // Config: read from URL querystring, fallback to local dev defaults.
     const _q = new URLSearchParams(window.location.search);
-    const _slug    = _q.get('agent_slug')     || 'demo';
-    const _apiUrl  = _q.get('api_url')        || 'https://api.bokito.nl';
+    const _slug    = _q.get('agent_slug')     || 'assistant';
+    const _apiUrl  = _q.get('api_url')        || 'http://127.0.0.1:8000';
+    const _tenant  = _q.get('tenant')         || '';
     const _idToken = _q.get('identity_token') || null;
     const _authToken = _q.get('auth_token') || null;
     const _authCookieName = _q.get('auth_cookie_name') || null;
-    const _authMode = _q.get('auth_mode') || null;
+    const _authMode = _q.get('auth_mode') || 'anonymous';
 
     document.getElementById('agentLabel').textContent = _slug;
 
-    const _scriptUrl = _q.get('script_url') || (_apiUrl + '/api/livechat/script/main');
+    // The production snippet, as shown in Settings > Messenger in the dashboard.
+    const _scriptUrl = _q.get('script_url') || (window.location.origin + '/chat-widget/bokito-chat.js');
     document.getElementById('embedSnippet').textContent =
-      `<script\n  src="${_scriptUrl}"\n  data-agent-slug="${_slug}"\n  data-api-url="${_apiUrl}"${_authCookieName ? `\n  data-auth-cookie-name="${_authCookieName}"` : ''}${_authMode ? `\n  data-auth-mode="${_authMode}"` : ''}\n  defer\n><\/script>`;
+      `<script\n  src="${_scriptUrl}"\n  data-bokito-chat-widget\n  data-agent-slug="${_slug}"\n  data-api-url="${_apiUrl}"${_tenant ? `\n  data-tenant="${_tenant}"` : ''}${_authCookieName ? `\n  data-auth-cookie-name="${_authCookieName}"` : ''}\n  data-auth-mode="${_authMode}"\n  defer\n><\/script>`;
 
-    // Pass config to the widget before loading the script
+    // Pass config to the widget before loading the script.
     window.BokitoConfig = {
       agentSlug: _slug,
       apiUrl: _apiUrl,
+      tenant: _tenant || undefined,
       identityToken: _idToken || undefined,
       authToken: _authToken || undefined,
       authCookieName: _authCookieName || undefined,
@@ -89,10 +92,10 @@
   </script>
 
   <!--
-    The widget is loaded as an external script — exactly as any website would embed it.
-    Locally:  after `npm run build`, served from /bokito-chat.js (Vite dev) or dist/bokito-chat.js
-    On FastAPI:  served via /api/livechat/script/main (which redirects to the hosted file)
+    The widget is loaded as an external script - exactly as any website would embed it.
+    Locally: after `npm run build`, Vite dev serves dist/bokito-chat.js at /bokito-chat.js.
+    In production: served by Caddy at /chat-widget/bokito-chat.js.
   -->
-  <script src="/bokito-chat.js" defer></script>
+  <script src="/bokito-chat.js" data-bokito-chat-widget defer></script>
 </body>
 </html>

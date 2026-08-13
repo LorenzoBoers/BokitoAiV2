@@ -26,7 +26,12 @@ async def list_notifications(
     session: Annotated[AsyncSession, Depends(get_session)],
     status_filter: str | None = None,
 ):
-    query = select(Notification).where(Notification.tenant_id == auth.tenant.id)
+    # Personal feed: rows addressed to this user plus tenant-wide broadcasts
+    # (user_id is NULL). Other members' mentions/assignments stay private.
+    query = select(Notification).where(
+        Notification.tenant_id == auth.tenant.id,
+        (Notification.user_id == auth.user.id) | (Notification.user_id.is_(None)),  # type: ignore[union-attr]
+    )
     if status_filter:
         query = query.where(Notification.status == status_filter)
     result = await session.execute(query.order_by(Notification.created_at.desc()))
@@ -42,6 +47,46 @@ async def list_notifications(
         }
         for n in result.scalars().all()
     ]
+
+
+@router.post("/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    result = await session.execute(
+        select(Notification).where(
+            Notification.id == notification_id, Notification.tenant_id == auth.tenant.id
+        )
+    )
+    notification = result.scalar_one_or_none()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notification.status = "read"
+    session.add(notification)
+    await session.commit()
+    return {"id": str(notification.id), "status": notification.status}
+
+
+@router.post("/read-all")
+async def mark_all_notifications_read(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    result = await session.execute(
+        select(Notification).where(
+            Notification.tenant_id == auth.tenant.id,
+            Notification.status == "unread",
+            (Notification.user_id == auth.user.id) | (Notification.user_id.is_(None)),  # type: ignore[union-attr]
+        )
+    )
+    rows = result.scalars().all()
+    for notification in rows:
+        notification.status = "read"
+        session.add(notification)
+    await session.commit()
+    return {"updated": len(rows)}
 
 
 @router.get("/decisions")

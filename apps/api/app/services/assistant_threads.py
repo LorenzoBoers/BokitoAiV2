@@ -14,11 +14,43 @@ from app.gateway.publish import publish_signal_message
 from app.models.signal import Signal, SignalMessage
 
 
-def serialize_chat_message(message: SignalMessage) -> dict[str, Any]:
-    """Serialize a SignalMessage in the chat client shape."""
+def serialize_decision_for_chat(decision: Any) -> dict[str, Any]:
+    """Compact decision shape for chat clients (card rendering + resolved state)."""
+    try:
+        options = json.loads(decision.options_json or "[]")
+    except json.JSONDecodeError:
+        options = []
     return {
+        "id": str(decision.id),
+        "status": decision.status,
+        "title": decision.title,
+        "summary": decision.summary,
+        "options": [
+            {
+                "id": o.get("id"),
+                "label": o.get("label"),
+                "action_type": o.get("action_type"),
+            }
+            for o in options
+            if isinstance(o, dict)
+        ],
+        "chosen_option_id": decision.chosen_option_id,
+        "resolved_at": decision.resolved_at.isoformat() if decision.resolved_at else None,
+    }
+
+
+def serialize_chat_message(
+    message: SignalMessage, decision: Any | None = None
+) -> dict[str, Any]:
+    """Serialize a SignalMessage in the chat client shape."""
+    try:
+        meta = json.loads(message.metadata_json or "{}")
+    except json.JSONDecodeError:
+        meta = {}
+    out: dict[str, Any] = {
         "id": str(message.id),
         "role": message.role,
+        "kind": message.kind,
         "content": message.body_text,
         "attachments": json.loads(message.attachments_json or "[]"),
         "certainty": message.certainty,
@@ -26,6 +58,18 @@ def serialize_chat_message(message: SignalMessage) -> dict[str, Any]:
         "decision_request_id": str(message.decision_id) if message.decision_id else None,
         "created_at": message.created_at.isoformat(),
     }
+    if decision is not None:
+        out["decision"] = serialize_decision_for_chat(decision)
+    usage = meta.get("usage")
+    steps = meta.get("steps")
+    thinking = meta.get("thinking")
+    if isinstance(usage, dict) and usage:
+        out["usage"] = usage
+    if isinstance(steps, list) and steps:
+        out["steps"] = steps
+    if isinstance(thinking, dict) and thinking:
+        out["thinking"] = thinking
+    return out
 
 
 async def append_signal_chat_message(
@@ -159,6 +203,42 @@ async def _compact_signal_history(
     await session.commit()
 
 
+async def context_thread_transcript(
+    session: AsyncSession, signal_id: UUID, *, max_chars: int = 6000
+) -> str:
+    """Readable transcript of a thread for grounding assistant conversations."""
+    signal = await session.get(Signal, signal_id)
+    if signal is None:
+        return ""
+    result = await session.execute(
+        select(SignalMessage)
+        .where(SignalMessage.signal_id == signal_id)
+        .order_by(SignalMessage.created_at)
+    )
+    lines: list[str] = []
+    header = (
+        f"Thread: {signal.subject or '(no subject)'} | channel: {signal.channel} | "
+        f"contact: {signal.contact_name or signal.contact_email or 'unknown'} | "
+        f"status: {signal.status}"
+    )
+    for m in result.scalars().all():
+        if m.kind == "system_event" or not m.body_text:
+            continue
+        if m.kind == "internal_note":
+            speaker = "Internal note"
+        elif m.direction == "inbound":
+            speaker = signal.contact_name or "Customer"
+        elif m.author_agent_id:
+            speaker = "AI agent"
+        else:
+            speaker = "Team"
+        lines.append(f"{speaker}: {m.body_text.strip()}")
+    transcript = "\n".join(lines)
+    if len(transcript) > max_chars:
+        transcript = "...\n" + transcript[-max_chars:]
+    return f"{header}\n---\n{transcript}"
+
+
 async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[dict[str, Any]]:
     """Thread history in LLM message format, with old turns compacted to a summary."""
     result = await session.execute(
@@ -185,9 +265,26 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
         remaining = history[signal.compacted_count :]
 
     if signal.compact_summary and signal.compacted_count:
-        return [
+        remaining = [
             {"role": "user", "content": f"[Summary of earlier conversation]\n{signal.compact_summary}"},
             {"role": "assistant", "content": "Understood, continuing from that context."},
             *remaining,
         ]
+
+    # Ask-assistant conversations opened from a customer thread: inject the
+    # live transcript of that thread so every turn stays grounded.
+    if signal.context_signal_id:
+        transcript = await context_thread_transcript(session, signal.context_signal_id)
+        if transcript:
+            remaining = [
+                {
+                    "role": "user",
+                    "content": (
+                        "[Context] The teammate is working on this customer thread; "
+                        "use it to ground your answers:\n" + transcript
+                    ),
+                },
+                {"role": "assistant", "content": "Got it, I have the thread context."},
+                *remaining,
+            ]
     return remaining

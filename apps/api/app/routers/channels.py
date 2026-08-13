@@ -126,6 +126,16 @@ class ContactUpdateBody(BaseModel):
     notes: str | None = None
 
 
+class ContactCreateBody(BaseModel):
+    channel: str = "email"
+    address: str
+    display_name: str = ""
+    company: str = ""
+    title: str = ""
+    phone: str = ""
+    notes: str = ""
+
+
 def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict:
     data = {
         "id": str(row.id),
@@ -197,6 +207,66 @@ async def list_contacts(
             _serialize_contact(c, thread_count=counts.get(c.id, 0)) for c in contacts
         ]
     }
+
+
+@router.post("/contacts")
+async def create_contact(
+    body: ContactCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Manually add a contact (channels create them automatically on inbound)."""
+    address = body.address.strip().lower()
+    if not address:
+        raise HTTPException(status_code=400, detail="Address is required")
+    if body.channel not in CHANNEL_ACCOUNT_CHANNELS:
+        raise HTTPException(status_code=400, detail=f"Invalid channel: {body.channel}")
+    existing = await session.execute(
+        select(Contact).where(
+            Contact.tenant_id == auth.tenant.id,
+            Contact.channel == body.channel,
+            Contact.address == address,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Contact already exists for this channel")
+    contact = Contact(
+        tenant_id=auth.tenant.id,
+        channel=body.channel,
+        address=address,
+        display_name=body.display_name.strip(),
+        status="approved",
+        company=body.company.strip(),
+        title=body.title.strip(),
+        phone=body.phone.strip(),
+        notes=body.notes,
+    )
+    session.add(contact)
+    await session.commit()
+    await session.refresh(contact)
+    return _serialize_contact(contact, thread_count=0)
+
+
+@router.delete("/contacts/{contact_id}")
+async def delete_contact(
+    contact_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Remove a contact; existing threads are kept but unlinked."""
+    auth.require_role("owner", "admin")
+    contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    linked = await session.execute(
+        select(Signal).where(
+            Signal.tenant_id == auth.tenant.id, Signal.contact_id == contact_id
+        )
+    )
+    for signal in linked.scalars().all():
+        signal.contact_id = None
+        session.add(signal)
+    await session.delete(contact)
+    await session.commit()
+    return {"ok": True}
 
 
 @router.get("/contacts/{contact_id}")

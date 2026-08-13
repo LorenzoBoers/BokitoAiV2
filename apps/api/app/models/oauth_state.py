@@ -17,11 +17,12 @@ class OAuthState(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     # Opaque CSRF token sent to the provider and returned on the callback.
     state: str = Field(index=True, unique=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    # Null for pre-auth login flows (no tenant exists before SSO completes).
+    tenant_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tenants.id", index=True)
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     # Provider slug (github | gmail | outlook | ...).
     provider: str = ""
-    # Which surface initiated the flow: "email" | "github" | "integration".
+    # Which surface initiated the flow: "email" | "github" | "integration" | "login".
     flow: str = "integration"
     # Where to send the browser back to after the callback completes.
     return_url: str = ""

@@ -23,40 +23,105 @@ def _last_user_text(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _resolve_max_tokens(max_tokens: int | None, thinking_budget: int) -> int:
+    base = max_tokens if max_tokens and max_tokens > 0 else 4096
+    if thinking_budget > 0:
+        # Anthropic requires max_tokens > budget_tokens.
+        return max(base, thinking_budget + 1024)
+    return base
+
+
+def _anthropic_content_blocks(response_content: Any) -> list[dict[str, Any]]:
+    """Serialize Anthropic content blocks, preserving thinking for tool-use replay."""
+    content: list[dict[str, Any]] = []
+    for block in response_content:
+        btype = getattr(block, "type", None)
+        if btype == "text":
+            content.append({"type": "text", "text": block.text})
+        elif btype == "tool_use":
+            content.append(
+                {
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input,
+                }
+            )
+        elif btype == "thinking":
+            entry: dict[str, Any] = {
+                "type": "thinking",
+                "thinking": getattr(block, "thinking", "") or "",
+            }
+            signature = getattr(block, "signature", None)
+            if signature:
+                entry["signature"] = signature
+            content.append(entry)
+        elif btype == "redacted_thinking":
+            content.append(
+                {
+                    "type": "redacted_thinking",
+                    "data": getattr(block, "data", "") or "",
+                }
+            )
+    return content
+
+
 class MockLLMProvider:
     async def chat(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        *,
+        thinking_budget: int = 0,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
         last_user = _last_user_text(messages)
         tool_loop_count = sum(
             1 for m in messages if m.get("role") == "user" and isinstance(m.get("content"), list)
         )
-        if tools and tool_loop_count < 2:
-            for tool in tools:
-                if tool["name"] == "create_decision_request" and "email" in last_user.lower():
-                    return {
-                        "stop_reason": "tool_use",
-                        "content": [
-                            {
-                                "type": "tool_use",
-                                "id": "tool_mock_1",
-                                "name": "create_decision_request",
-                                "input": {
-                                    "title": "Reply to customer email",
-                                    "summary": "Draft reply prepared for review.",
-                                    "options": [
-                                        {"id": "send", "label": "Send reply", "action_type": "send_email"},
-                                        {"id": "edit", "label": "Edit first", "action_type": "draft"},
-                                        {"id": "escalate", "label": "Escalate", "action_type": "escalate"},
-                                    ],
-                                },
-                            }
-                        ],
-                        "usage": {"input_tokens": 10, "output_tokens": 20},
+        # Suggest-only email drafts run with an empty toolset.
+        if (not tools) and (
+            "Draft a concise" in last_user or "inbound email" in last_user.lower()
+        ):
+            return {
+                "stop_reason": "end_turn",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Thank you for your message. We have received your request "
+                            "and will follow up shortly."
+                        ),
                     }
+                ],
+                "usage": {"input_tokens": 10, "output_tokens": 20},
+            }
+        if tools and tool_loop_count < 1:
+            tool_names = {t.get("name") for t in tools if isinstance(t, dict)}
+            lowered = last_user.lower()
+            wants_decision = "decision" in lowered or "approval" in lowered
+            if "create_decision_request" in tool_names and wants_decision:
+                return {
+                    "stop_reason": "tool_use",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "tool_mock_1",
+                            "name": "create_decision_request",
+                            "input": {
+                                "title": "Reply to customer message",
+                                "summary": "Draft reply prepared for review.",
+                                "options": [
+                                    {"id": "approve", "label": "Approve", "action_type": "approve"},
+                                    {"id": "later", "label": "Defer", "action_type": "defer"},
+                                    {"id": "reject", "label": "Reject", "action_type": "reject"},
+                                ],
+                            },
+                        }
+                    ],
+                    "usage": {"input_tokens": 10, "output_tokens": 20},
+                }
             return {
                 "stop_reason": "tool_use",
                 "content": [
@@ -68,6 +133,21 @@ class MockLLMProvider:
                     }
                 ],
                 "usage": {"input_tokens": 10, "output_tokens": 5},
+            }
+        if "preparing a response for a human teammate" in last_user:
+            return {
+                "stop_reason": "end_turn",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Thank you for reaching out. I looked into your question and "
+                            "prepared the details below. Let us know if anything is missing "
+                            "and we will follow up right away."
+                        ),
+                    }
+                ],
+                "usage": {"input_tokens": 10, "output_tokens": 25},
             }
         return {
             "stop_reason": "end_turn",
@@ -86,8 +166,24 @@ class MockLLMProvider:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        *,
+        thinking_budget: int = 0,
+        max_tokens: int | None = None,
     ):
-        result = await self.chat(messages, tools, model)
+        result = await self.chat(
+            messages,
+            tools,
+            model,
+            thinking_budget=thinking_budget,
+            max_tokens=max_tokens,
+        )
+        if thinking_budget > 0:
+            for chunk in (
+                "Considering the user's request... ",
+                "Checking context and tools... ",
+                "Drafting a clear reply.",
+            ):
+                yield {"type": "thinking", "text": chunk}
         for block in result["content"]:
             if block.get("type") == "text":
                 text = block["text"]
@@ -106,43 +202,60 @@ class AnthropicLLMProvider:
         self.api_key = api_key or settings.anthropic_api_key
         self.base_url = (base_url or "").strip() or None
 
+    def _client_kwargs(self) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {"api_key": self.api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        return kwargs
+
+    @staticmethod
+    def _create_kwargs(
+        *,
+        model: str | None,
+        system: str,
+        chat_messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        thinking_budget: int,
+        max_tokens: int | None,
+    ) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "model": model or settings.default_chat_model,
+            "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
+            "system": system,
+            "messages": chat_messages,
+            "tools": tools or [],
+        }
+        if thinking_budget > 0:
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        return kwargs
+
     async def chat(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        *,
+        thinking_budget: int = 0,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
         from anthropic import AsyncAnthropic
 
-        kwargs: dict[str, Any] = {"api_key": self.api_key}
-        if self.base_url:
-            kwargs["base_url"] = self.base_url
-        client = AsyncAnthropic(**kwargs)
+        client = AsyncAnthropic(**self._client_kwargs())
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
         response = await client.messages.create(
-            model=model or settings.default_chat_model,
-            max_tokens=4096,
-            system=system,
-            messages=chat_messages,
-            tools=tools or [],
+            **self._create_kwargs(
+                model=model,
+                system=system,
+                chat_messages=chat_messages,
+                tools=tools,
+                thinking_budget=thinking_budget,
+                max_tokens=max_tokens,
+            )
         )
-        content = []
-        for block in response.content:
-            if block.type == "text":
-                content.append({"type": "text", "text": block.text})
-            elif block.type == "tool_use":
-                content.append(
-                    {
-                        "type": "tool_use",
-                        "id": block.id,
-                        "name": block.name,
-                        "input": block.input,
-                    }
-                )
         return {
             "stop_reason": response.stop_reason,
-            "content": content,
+            "content": _anthropic_content_blocks(response.content),
             "usage": {
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
@@ -154,45 +267,50 @@ class AnthropicLLMProvider:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        *,
+        thinking_budget: int = 0,
+        max_tokens: int | None = None,
     ):
         from anthropic import AsyncAnthropic
 
-        kwargs: dict[str, Any] = {"api_key": self.api_key}
-        if self.base_url:
-            kwargs["base_url"] = self.base_url
-        client = AsyncAnthropic(**kwargs)
+        client = AsyncAnthropic(**self._client_kwargs())
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
-        async with client.messages.stream(
-            model=model or settings.default_chat_model,
-            max_tokens=4096,
+        create_kwargs = self._create_kwargs(
+            model=model,
             system=system,
-            messages=chat_messages,
-            tools=tools or [],
-        ) as stream:
-            async for text in stream.text_stream:
-                yield {"type": "delta", "text": text}
+            chat_messages=chat_messages,
+            tools=tools,
+            thinking_budget=thinking_budget,
+            max_tokens=max_tokens,
+        )
+
+        async with client.messages.stream(**create_kwargs) as stream:
+            async for event in stream:
+                etype = getattr(event, "type", None)
+                if etype != "content_block_delta":
+                    continue
+                delta = getattr(event, "delta", None)
+                if delta is None:
+                    continue
+                dtype = getattr(delta, "type", None)
+                if dtype == "thinking_delta":
+                    text = getattr(delta, "thinking", "") or ""
+                    if text:
+                        yield {"type": "thinking", "text": text}
+                elif dtype == "text_delta":
+                    text = getattr(delta, "text", "") or ""
+                    if text:
+                        yield {"type": "delta", "text": text}
+
             final = await stream.get_final_message()
-            content: list[dict[str, Any]] = []
-            for block in final.content:
-                if block.type == "text":
-                    content.append({"type": "text", "text": block.text})
-                elif block.type == "tool_use":
-                    content.append(
-                        {
-                            "type": "tool_use",
-                            "id": block.id,
-                            "name": block.name,
-                            "input": block.input,
-                        }
-                    )
             yield {
                 "type": "done",
                 "usage": {
                     "input_tokens": final.usage.input_tokens,
                     "output_tokens": final.usage.output_tokens,
                 },
-                "content": content,
+                "content": _anthropic_content_blocks(final.content),
                 "stop_reason": final.stop_reason,
             }
 
@@ -255,6 +373,7 @@ class OpenAILLMProvider:
                                 },
                             }
                         )
+                    # Skip thinking/redacted_thinking for OpenAI replay.
                 msg: dict[str, Any] = {"role": "assistant", "content": "\n".join(text_parts)}
                 if tool_calls:
                     msg["tool_calls"] = tool_calls
@@ -278,6 +397,9 @@ class OpenAILLMProvider:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        *,
+        thinking_budget: int = 0,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
         from openai import AsyncOpenAI
 
@@ -286,15 +408,15 @@ class OpenAILLMProvider:
             kwargs["base_url"] = self.base_url
         client = AsyncOpenAI(**kwargs)
         oai_messages = self._messages_to_openai(messages)
-        kwargs: dict[str, Any] = {
+        create_kwargs: dict[str, Any] = {
             "model": model or "gpt-4o",
             "messages": oai_messages,
-            "max_tokens": 4096,
+            "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
         }
         oai_tools = self._tools_to_openai(tools)
         if oai_tools:
-            kwargs["tools"] = oai_tools
-        response = await client.chat.completions.create(**kwargs)
+            create_kwargs["tools"] = oai_tools
+        response = await client.chat.completions.create(**create_kwargs)
         choice = response.choices[0]
         msg = choice.message
         content: list[dict[str, Any]] = []
@@ -329,6 +451,9 @@ class OpenAILLMProvider:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        *,
+        thinking_budget: int = 0,
+        max_tokens: int | None = None,
     ):
         from openai import AsyncOpenAI
 
@@ -340,7 +465,7 @@ class OpenAILLMProvider:
         create_kwargs: dict[str, Any] = {
             "model": model or "gpt-4o",
             "messages": oai_messages,
-            "max_tokens": 4096,
+            "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
             "stream": True,
         }
         oai_tools = self._tools_to_openai(tools)
@@ -359,6 +484,10 @@ class OpenAILLMProvider:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
+            # Best-effort: some OpenAI-compatible reasoning endpoints expose this.
+            reasoning = getattr(delta, "reasoning", None) or getattr(delta, "reasoning_content", None)
+            if isinstance(reasoning, str) and reasoning:
+                yield {"type": "thinking", "text": reasoning}
             if delta.content:
                 text_parts.append(delta.content)
                 yield {"type": "delta", "text": delta.content}

@@ -38,17 +38,16 @@ export function livechatWidgetHttpOrigin(): string {
   return ''
 }
 
-/** Same-origin path to the team widget bundle (ingelogde gebruikers met rechten). */
-export const CHAT_WIDGET_SCRIPT_PATH_INTERNAL = '/chat-widget/internal/bokito-chat.js'
+/**
+ * Same-origin path to the canonical widget bundle. One flat bundle serves both
+ * anonymous visitors and logged-in users; behavior is controlled by the
+ * `data-auth-mode` attribute on the embed script, not by separate builds.
+ */
+export const CHAT_WIDGET_SCRIPT_PATH = '/chat-widget/bokito-chat.js'
 
-/** Same-origin path to the public visitor widget bundle (anonymous website visitors). */
-export const CHAT_WIDGET_SCRIPT_PATH_EXTERNAL = '/chat-widget/external/bokito-chat.js'
-
-export function livechatWidgetHostedScriptUrl(kind: 'internal' | 'external'): string {
-  const base = livechatWidgetHttpOrigin()
-  const path = kind === 'internal' ? CHAT_WIDGET_SCRIPT_PATH_INTERNAL : CHAT_WIDGET_SCRIPT_PATH_EXTERNAL
-  return `${base}${path}`
+export function livechatWidgetHostedScriptUrl(): string {
+  return `${livechatWidgetHttpOrigin()}${CHAT_WIDGET_SCRIPT_PATH}`
 }
 
-/** Agent slug for the chat widget embedded in the dashboard portal. */
-export const DASHBOARD_CHAT_AGENT_SLUG = import.meta.env.VITE_DASHBOARD_CHAT_AGENT_SLUG || 'bokito-dashboard'
+/** Agent slug for the chat widget embed (matches tenant bootstrap `assistant`). */
+export const DASHBOARD_CHAT_AGENT_SLUG = import.meta.env.VITE_DASHBOARD_CHAT_AGENT_SLUG || 'assistant'

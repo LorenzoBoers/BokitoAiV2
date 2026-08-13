@@ -1,4 +1,4 @@
-import { CircleHelp, CreditCard, LayoutGrid, UserCircle2 } from 'lucide-react'
+import { LayoutGrid, UserCircle2 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -33,14 +33,6 @@ export default function WorkspaceHubNav() {
         <NavLink to="/" end className={({ isActive }) => navItemClass(isActive)}>
           <LayoutGrid size={15} className="text-text-muted" />
           <span>{t('nav.workspaces')}</span>
-        </NavLink>
-        <NavLink to="/billing" className={({ isActive }) => navItemClass(isActive)}>
-          <CreditCard size={15} className="text-text-muted" />
-          <span>{t('nav.billing')}</span>
-        </NavLink>
-        <NavLink to="/support" className={({ isActive }) => navItemClass(isActive)}>
-          <CircleHelp size={15} className="text-text-muted" />
-          <span>{t('nav.support')}</span>
         </NavLink>
       </nav>
 

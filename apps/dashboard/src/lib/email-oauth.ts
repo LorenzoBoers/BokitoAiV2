@@ -1,6 +1,6 @@
 export type OAuthProvider = 'outlook' | 'gmail'
 export type Provider = OAuthProvider | 'smtp_imap'
-export type ConnectionStatus = 'active' | 'error' | 'revoked'
+export type ConnectionStatus = 'active' | 'error' | 'revoked' | 'connected' | 'needs_auth' | 'paused'
 
 export type OAuthProviderConfig = {
   id: OAuthProvider
@@ -77,12 +77,12 @@ export function parseOAuthCallback(searchParams: URLSearchParams): OAuthCallback
 export function logOAuthRedirectDebugInDev(searchParams: URLSearchParams, callback: OAuthCallbackResult): void {
   if (!import.meta.env.DEV || !callback.handled) return
   console.info('[OAuth redirect debug]')
-  console.info('  raw query:', searchParams.toString() || '(leeg)')
-  console.info('  provider:', callback.provider ?? '(geen)')
-  console.info('  error code:', callback.error ?? '(geen)')
+  console.info('  raw query:', searchParams.toString() || '(empty)')
+  console.info('  provider:', callback.provider ?? '(none)')
+  console.info('  error code:', callback.error ?? '(none)')
   console.info(
     '  detail (aad/oauth):',
-    callback.detail ?? '(geen — de OAuth-callback stuurt geen aad_detail/oauth_detail mee in de redirect)',
+    callback.detail ?? '(none — the OAuth callback did not include aad_detail/oauth_detail in the redirect)',
   )
 }
 

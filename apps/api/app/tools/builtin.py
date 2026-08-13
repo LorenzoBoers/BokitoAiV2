@@ -72,6 +72,7 @@ async def _platform_change(
         user_id=ctx.user_id,
         tool_name=tool_name,
         mode=ctx.mode,
+        signal_id=ctx.signal_id,
     )
     if meta.get("mode") == "apply":
         return meta.get("applied", {"status": "applied", "mode": "apply"})
@@ -109,6 +110,109 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
 
 
 # ── messaging / decisions ────────────────────────────────────────
+
+
+async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Send a reply on an external signal thread (used by approved suggestion decisions).
+
+    Email/Slack replies are delivered via the channel provider; widget/chat
+    replies reach the visitor live via the gateway publish.
+    """
+    from datetime import datetime
+
+    from app.channels.outbound import deliver_outbound
+    from app.gateway.publish import publish_signal_message
+    from app.models.signal import Signal, SignalEvent, SignalMessage
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            pass
+    if not signal_id:
+        return {"error": "signal_id required"}
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+    if signal.channel in ("internal", "assistant"):
+        return {"error": f"Channel {signal.channel} has no external party to reply to"}
+
+    body_text = str(tool_input.get("body_text") or tool_input.get("body") or "").strip()
+    body_html = tool_input.get("body_html")
+    if isinstance(body_html, str) and not body_html.strip():
+        body_html = None
+    if not body_text and not body_html:
+        return {"error": "body_text or body_html required"}
+    if not body_text and body_html:
+        body_text = body_html
+
+    subject = str(tool_input.get("subject") or "").strip()
+    if not subject:
+        subject = f"Re: {signal.subject}" if signal.subject else "Reply"
+
+    to_override = str(tool_input.get("to") or "").strip()
+    if to_override and not signal.contact_email:
+        signal.contact_email = to_override
+
+    delivery = await deliver_outbound(
+        ctx.session,
+        signal,
+        body_text=body_text,
+        subject=subject,
+        body_html=body_html if isinstance(body_html, str) else None,
+    )
+    if delivery == "skipped":
+        # Channels without provider delivery (widget/chat): the visitor
+        # receives the message live via the gateway publish below.
+        delivery = "sent"
+    if not delivery.startswith("sent"):
+        return {"error": f"Delivery failed: {delivery}", "delivery": delivery}
+
+    message = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=ctx.tenant_id,
+        kind="agent_message",
+        direction="outbound",
+        role="assistant" if ctx.agent else "user",
+        author_agent_id=ctx.agent.id if ctx.agent else None,
+        author_user_id=ctx.user_id,
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html if isinstance(body_html, str) else "",
+        body_preview=body_text[:200],
+        send_status=delivery,
+        auto_sent=False,
+        received_at=datetime.utcnow(),
+        metadata_json=json.dumps({"source": "send_reply_tool", "delivery": delivery}),
+    )
+    ctx.session.add(message)
+    signal.last_message_at = datetime.utcnow()
+    signal.updated_at = datetime.utcnow()
+    ctx.session.add(signal)
+    ctx.session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=ctx.tenant_id,
+            event_type="replied",
+            actor_type="agent" if ctx.agent else "user",
+            actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+            payload_json=json.dumps({"delivery": delivery, "via": "send_reply"}),
+        )
+    )
+    await ctx.session.flush()
+    await publish_signal_message(signal, message)
+    return {
+        "ok": True,
+        "delivery": delivery,
+        "message_id": str(message.id),
+        "signal_id": str(signal.id),
+    }
 
 
 async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -420,8 +524,33 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="send_reply",
+        description="Send a reply to the external party on a signal thread (typically after human approval).",
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "body_text": {"type": "string"},
+                "body_html": {"type": "string"},
+                "body": {"type": "string"},
+                "subject": {"type": "string"},
+                "to": {"type": "string"},
+            },
+            "required": [],
+        },
+        handler=_send_reply,
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="create_decision_request",
-        description="Ask the human to choose an action via multiple choice.",
+        description=(
+            "Ask the human to choose between concrete options via an inline card. "
+            "Set input_type to 'text' on an option to let the human answer with "
+            "free text instead of clicking a fixed choice."
+        ),
         category="messaging",
         input_schema={
             "type": "object",
@@ -438,6 +567,12 @@ register_tool(
                             "label": {"type": "string"},
                             "action_type": {"type": "string"},
                             "payload": {"type": "object"},
+                            "input_type": {
+                                "type": "string",
+                                "enum": ["text"],
+                                "description": "Ask for a free-text answer when this option is chosen.",
+                            },
+                            "input_placeholder": {"type": "string"},
                         },
                     },
                 },
@@ -702,5 +837,162 @@ register_tool(
             "connect_graph_nodes", "canvas_edge", "connect", lambda i: "Connect canvas nodes"
         ),
         handles_ask=True,
+    )
+)
+
+
+# ── tenant introspection (read-only) ─────────────────────────────
+
+
+async def _get_tenant_overview(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.cockpit import cockpit_summary
+    from app.services.tenant_introspection import collect_tenant_snapshot
+
+    snapshot = await collect_tenant_snapshot(ctx.session, ctx.tenant_id)
+    try:
+        usage = await cockpit_summary(ctx.session, ctx.tenant_id)
+    except Exception:
+        usage = {}
+    return {
+        **snapshot,
+        "usage": {
+            "volume_week": usage.get("volume_week"),
+            "open_decisions": usage.get("open_decisions"),
+            "autonomy_rate_pct": usage.get("autonomy_rate_pct"),
+            "tokens_month": usage.get("tokens_month"),
+            "cost_cents_month": usage.get("cost_cents_month"),
+        },
+    }
+
+
+async def _list_recent_activity(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.tenant_introspection import list_recent_activity
+
+    items = await list_recent_activity(
+        ctx.session, ctx.tenant_id, limit=int(tool_input.get("limit") or 20)
+    )
+    return {"items": items}
+
+
+async def _list_tasks(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.tenant_introspection import list_tasks
+
+    items = await list_tasks(
+        ctx.session,
+        ctx.tenant_id,
+        status=tool_input.get("status"),
+        project_id=tool_input.get("project_id"),
+        limit=int(tool_input.get("limit") or 30),
+    )
+    return {"tasks": items}
+
+
+async def _get_usage_summary(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.cockpit import usage_breakdown
+
+    days = int(tool_input.get("days") or 30)
+    return await usage_breakdown(ctx.session, ctx.tenant_id, days=days)
+
+
+async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.tenant_introspection import list_threads_summary
+
+    items = await list_threads_summary(
+        ctx.session,
+        ctx.tenant_id,
+        status=tool_input.get("status", "open"),
+        channel=tool_input.get("channel"),
+        limit=int(tool_input.get("limit") or 25),
+    )
+    return {"threads": items}
+
+
+register_tool(
+    ToolSpec(
+        name="get_tenant_overview",
+        description=(
+            "Live tenant snapshot: agents, projects, enabled triggers (schedule + last run), "
+            "open decisions/tasks/internal threads, integrations/MCP servers, and usage totals. "
+            "Call this before claiming you lack information about the tenant or a project."
+        ),
+        category="govern",
+        input_schema={"type": "object", "properties": {}},
+        handler=_get_tenant_overview,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="list_recent_activity",
+        description=(
+            "Recent agent runs, trigger firings, and operational outcomes. "
+            "Use to answer what happened lately in the tenant or a project."
+        ),
+        category="govern",
+        input_schema={
+            "type": "object",
+            "properties": {"limit": {"type": "integer"}},
+        },
+        handler=_list_recent_activity,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="list_tasks",
+        description="List orchestration AgentTasks (queued/running/completed). Optional status and project_id filters.",
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "status": {"type": "string"},
+                "project_id": {"type": "string"},
+                "limit": {"type": "integer"},
+            },
+        },
+        handler=_list_tasks,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="get_usage_summary",
+        description="Token and cost breakdown by model and agent for the recent period (default 30 days).",
+        category="govern",
+        input_schema={
+            "type": "object",
+            "properties": {"days": {"type": "integer"}},
+        },
+        handler=_get_usage_summary,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="list_threads",
+        description=(
+            "Summarize Signal threads (subject, channel, status, last activity). "
+            "Defaults to open/pending threads. Optional channel filter (internal, assistant, widget, email)."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "status": {"type": "string"},
+                "channel": {"type": "string"},
+                "limit": {"type": "integer"},
+            },
+        },
+        handler=_list_threads,
+        mutating=False,
+        gated=False,
     )
 )

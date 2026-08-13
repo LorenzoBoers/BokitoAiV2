@@ -120,7 +120,7 @@ async def _create_policy_decision(
         },
         {
             "id": "always_auto",
-            "label": "Voortaan automatisch oppakken",
+            "label": "Always allow",
             "action_type": tool_name,
             "payload": tool_input,
             "always_auto": True,

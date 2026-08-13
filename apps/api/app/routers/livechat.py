@@ -6,7 +6,7 @@ import secrets
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select as sa_select
 
 from app.db.session import get_session
+from app.middleware.rate_limit import rate_limit
 from app.models.auth import Tenant, User
 from app.models.signal import Signal
 from app.services.livechat_compat import (
@@ -68,7 +69,7 @@ async def _optional_widget_auth(
         raise HTTPException(status_code=401, detail="Invalid session") from exc
 
 
-@router.post("/session/start")
+@router.post("/session/start", dependencies=[Depends(rate_limit("livechat-session", limit=30))])
 async def session_start(
     body: SessionStartBody,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -99,6 +100,93 @@ async def session_start(
         auth_mode=auth_mode,
         customer_id=customer_id,
     )
+
+
+class SessionIdentifyBody(BaseModel):
+    name: str = ""
+    email: str = ""
+    conversation_id: str | None = None
+
+
+@router.post("/session/identify", dependencies=[Depends(rate_limit("livechat-identify", limit=10))])
+async def session_identify(
+    body: SessionIdentifyBody,
+    ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Pre-chat identification: link the visitor's widget Contact to a name/email."""
+    import json as _json
+
+    from app.models.channel import Contact
+
+    tenant, _user, token = ctx
+    name = body.name.strip()[:120]
+    email = body.email.strip().lower()[:254]
+    if not name and not email:
+        raise HTTPException(status_code=400, detail="Provide a name or email")
+    if email and ("@" not in email or "." not in email.split("@")[-1]):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    customer_id = None
+    try:
+        customer_id = decode_widget_session_token(token).get("customer_id")
+    except Exception:
+        customer_id = None
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="No visitor session")
+
+    result = await session.execute(
+        select(Contact).where(
+            Contact.tenant_id == tenant.id,
+            Contact.channel == "widget",
+            Contact.address == customer_id,
+        )
+    )
+    contact = result.scalar_one_or_none()
+    if not contact:
+        contact = Contact(
+            tenant_id=tenant.id,
+            channel="widget",
+            address=customer_id,
+            status="approved",
+        )
+        session.add(contact)
+    if name:
+        contact.display_name = name
+    try:
+        meta = _json.loads(contact.metadata_json or "{}")
+    except Exception:
+        meta = {}
+    if not isinstance(meta, dict):
+        meta = {}
+    if email:
+        meta["email"] = email
+    contact.metadata_json = _json.dumps(meta)
+    await session.flush()
+
+    # Reflect the identity on the active thread so operators see a real name.
+    if body.conversation_id:
+        try:
+            sig_uuid = UUID(body.conversation_id)
+        except ValueError:
+            sig_uuid = None
+        if sig_uuid:
+            sig_result = await session.execute(
+                select(Signal).where(
+                    Signal.id == sig_uuid,
+                    Signal.tenant_id == tenant.id,
+                    Signal.contact_id == contact.id,
+                )
+            )
+            signal = sig_result.scalar_one_or_none()
+            if signal and name:
+                signal.contact_name = name
+                session.add(signal)
+    await session.commit()
+    return {
+        "ok": True,
+        "contact": {"name": contact.display_name, "email": email or meta.get("email") or ""},
+    }
 
 
 @router.get("/me")
@@ -146,36 +234,210 @@ async def user_conversations(
     return {"items": items, "conversations": items, "per_page": per_page}
 
 
+@router.get("/customer/conversations")
+async def customer_conversations(
+    ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    per_page: int = 10,
+):
+    """Recent widget threads for an anonymous visitor (keyed by customer_id)."""
+    tenant, _user, token = ctx
+    customer_id = None
+    try:
+        customer_id = decode_widget_session_token(token).get("customer_id")
+    except Exception:
+        customer_id = None
+    if not customer_id:
+        return {"items": [], "conversations": [], "per_page": per_page}
+    from app.models.channel import Contact
+
+    contact_result = await session.execute(
+        sa_select(Contact).where(
+            Contact.tenant_id == tenant.id,
+            Contact.channel == "widget",
+            Contact.address == customer_id,
+        )
+    )
+    contact = contact_result.scalar_one_or_none()
+    if not contact:
+        return {"items": [], "conversations": [], "per_page": per_page}
+    result = await session.execute(
+        sa_select(Signal)
+        .where(
+            Signal.tenant_id == tenant.id,
+            Signal.channel == "widget",
+            Signal.contact_id == contact.id,
+        )
+        .order_by(Signal.updated_at.desc())
+        .limit(per_page)
+    )
+    items = [
+        {
+            "id": str(s.id),
+            "conversation_id": str(s.id),
+            "title": s.subject,
+            "updated_at": s.updated_at.isoformat(),
+        }
+        for s in result.scalars().all()
+    ]
+    return {"items": items, "conversations": items, "per_page": per_page}
+
+
+async def _get_owned_conversation(
+    session: AsyncSession,
+    tenant: Tenant,
+    user: User | None,
+    token: str,
+    conversation_id: str,
+) -> Signal:
+    """Resolve a conversation the caller owns: the logged-in user's own thread,
+    or the anonymous visitor's thread matched via the token's customer_id."""
+    try:
+        sig_uuid = UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    result = await session.execute(
+        sa_select(Signal).where(Signal.id == sig_uuid, Signal.tenant_id == tenant.id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if user is not None and signal.owner_user_id == user.id:
+        return signal
+    customer_id = None
+    try:
+        customer_id = decode_widget_session_token(token).get("customer_id")
+    except Exception:
+        customer_id = None
+    if customer_id and signal.contact_id:
+        from app.models.channel import Contact
+
+        contact = await session.get(Contact, signal.contact_id)
+        if contact and contact.channel == "widget" and contact.address == customer_id:
+            return signal
+    raise HTTPException(status_code=404, detail="Conversation not found")
+
+
+@router.get("/conversation/{conversation_id}")
+async def get_conversation(
+    conversation_id: str,
+    ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant, user, token = ctx
+    signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
+    return {
+        "id": str(signal.id),
+        "conversation_id": str(signal.id),
+        "title": signal.subject,
+        "updated_at": signal.updated_at.isoformat() if signal.updated_at else None,
+    }
+
+
+@router.get("/conversation/{conversation_id}/messages")
+async def conversation_messages(
+    conversation_id: str,
+    ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    per_page: int = 100,
+):
+    import json as _json
+
+    from app.models.signal import SignalMessage
+
+    tenant, user, token = ctx
+    signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
+    result = await session.execute(
+        sa_select(SignalMessage)
+        .where(SignalMessage.signal_id == signal.id)
+        .order_by(SignalMessage.created_at)
+        .limit(min(per_page, 200))
+    )
+    items = []
+    for m in result.scalars().all():
+        if m.kind in ("system_event", "internal_note"):
+            continue
+        if not m.body_text:
+            continue
+        try:
+            attachments = _json.loads(m.attachments_json or "[]")
+        except Exception:
+            attachments = []
+        created = m.received_at or m.created_at
+        items.append(
+            {
+                "id": str(m.id),
+                "sender_type": "customer" if m.direction == "inbound" else "ai",
+                "message_content": m.body_text or "",
+                "created_at": created.isoformat() if created else None,
+                "attachments": attachments,
+            }
+        )
+    return {"items": items, "per_page": per_page}
+
+
+_DEFAULT_WIDGET_PREFS: dict[str, Any] = {
+    "theme": "system",
+    "sound_effects": True,
+    "sound_notifications": True,
+    "hidden_conversations": [],
+}
+
+
+def _user_widget_prefs(user: User | None) -> dict[str, Any]:
+    import json as _json
+
+    if not user:
+        return dict(_DEFAULT_WIDGET_PREFS)
+    try:
+        stored = _json.loads(user.settings_json or "{}").get("widget_preferences")
+    except Exception:
+        stored = None
+    if not isinstance(stored, dict):
+        stored = {}
+    return {**_DEFAULT_WIDGET_PREFS, **stored}
+
+
 @router.get("/user/preferences")
 async def user_preferences(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
 ):
-    return {
-        "preferences": {
-            "theme": "system",
-            "sound_effects": True,
-            "sound_notifications": True,
-            "hidden_conversations": [],
-        }
-    }
+    _tenant, user, _token = ctx
+    return {"preferences": _user_widget_prefs(user)}
 
 
 @router.patch("/user/preferences")
 async def patch_user_preferences(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
     body: dict[str, Any] | None = None,
 ):
+    """Persist widget preferences for logged-in users; anonymous visitors keep
+    their preferences in localStorage on the widget side."""
+    import json as _json
+
+    _tenant, user, _token = ctx
     prefs = (body or {}).get("preferences") if isinstance(body, dict) else {}
     if not isinstance(prefs, dict):
         prefs = {}
-    return {
-        "preferences": {
-            "theme": prefs.get("theme", "system"),
-            "sound_effects": bool(prefs.get("sound_effects", True)),
-            "sound_notifications": bool(prefs.get("sound_notifications", True)),
-            "hidden_conversations": prefs.get("hidden_conversations") or [],
-        }
+    merged = {
+        "theme": prefs.get("theme", "system"),
+        "sound_effects": bool(prefs.get("sound_effects", True)),
+        "sound_notifications": bool(prefs.get("sound_notifications", True)),
+        "hidden_conversations": prefs.get("hidden_conversations") or [],
     }
+    if user:
+        try:
+            stored = _json.loads(user.settings_json or "{}")
+        except Exception:
+            stored = {}
+        if not isinstance(stored, dict):
+            stored = {}
+        stored["widget_preferences"] = merged
+        user.settings_json = _json.dumps(stored)
+        session.add(user)
+        await session.commit()
+    return {"preferences": merged}
 
 
 @router.post("/conversation")
@@ -188,12 +450,45 @@ async def create_conversation(
     customer_id = None
     if isinstance(body, dict):
         customer_id = body.get("customer_id")
+    if not customer_id:
+        # The session token embeds the visitor's customer_id; use it so
+        # anonymous threads stay linked to the same Contact across visits.
+        try:
+            customer_id = decode_widget_session_token(token).get("customer_id")
+        except Exception:
+            customer_id = None
     signal = await get_or_create_widget_thread(
         session, tenant, user, customer_id=customer_id
     )
     await session.commit()
     conv_id = str(signal.id)
     return {"conversation_id": conv_id, "id": conv_id, "session_token": token}
+
+
+@router.post("/attachment", dependencies=[Depends(rate_limit("livechat-attachment", limit=20))])
+async def upload_attachment(
+    ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    file: UploadFile = File(...),
+):
+    from app.services.storage import get_storage_backend, guess_mime
+
+    tenant, _user, _token = ctx
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    mime = guess_mime(file.filename or "file", file.content_type)
+    if not mime.startswith("image/"):
+        raise HTTPException(status_code=415, detail="Only image attachments are supported")
+    backend = get_storage_backend()
+    stored = await backend.store(
+        data=data,
+        filename=file.filename or "file",
+        mime=mime,
+        tenant_id=str(tenant.id),
+    )
+    return stored.to_attachment()
 
 
 class StreamChatBody(BaseModel):

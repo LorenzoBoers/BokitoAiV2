@@ -13,13 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.notification import DecisionRequest
 from app.models.orchestration import AgentTask
-from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep, WorkstreamStepRun
+from app.models.orchestra import Workstream, WorkstreamStep
 from app.services.agent.loop import AgentLoop
 from app.services.orchestration.dispatcher import add_task_artifact
 from app.services.orchestration.eval import run_eval_checkpoint
 from app.services.orchestration.profiles import apply_snapshot_to_agent, resolve_runtime_snapshot
 from app.services.orchestration.queue import enqueue_agent_task_segment
-from app.gateway.publish import publish_run_event
+from app.gateway.publish import publish_run_event, publish_signal_message
+from app.models.signal import Signal, SignalMessage
 from app.services.signal_decisions import append_decision_to_signal
 
 
@@ -35,6 +36,54 @@ def _merge_context(task: AgentTask, key: str, value: Any) -> None:
     ctx = _parse_json(task.context_json)
     ctx[key] = value
     task.context_json = json.dumps(ctx)
+
+
+async def _mirror_task_message(
+    session: AsyncSession,
+    task: AgentTask,
+    *,
+    kind: str,
+    body: str,
+    agent_id: UUID | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Surface orchestration progress in the linked Messages thread."""
+    if not task.signal_id:
+        return
+    text = (body or "").strip()
+    if not text:
+        return
+    signal = (
+        await session.execute(select(Signal).where(Signal.id == task.signal_id, Signal.tenant_id == task.tenant_id))
+    ).scalar_one_or_none()
+    if not signal:
+        return
+    now = datetime.utcnow()
+    message = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=task.tenant_id,
+        kind=kind,
+        direction="internal",
+        role="assistant",
+        author_agent_id=agent_id,
+        body_text=text[:8000],
+        body_preview=text[:200],
+        metadata_json=json.dumps(
+            {
+                "task_id": str(task.id),
+                "workstream_id": str(task.workstream_id) if task.workstream_id else None,
+                **(metadata or {}),
+            }
+        ),
+        received_at=now,
+    )
+    session.add(message)
+    signal.last_message_at = now
+    signal.has_unread = True
+    signal.updated_at = now
+    session.add(signal)
+    await session.flush()
+    await publish_signal_message(signal, message)
 
 
 async def _next_event_sequence(session: AsyncSession, run_id: UUID) -> int:
@@ -118,27 +167,6 @@ async def _resolve_step_agent(
         if agent:
             return agent
 
-    if step.agent_profile_id:
-        from app.models.orchestra import AgentProfile
-
-        prof = (
-            await session.execute(
-                select(AgentProfile).where(
-                    AgentProfile.id == step.agent_profile_id, AgentProfile.tenant_id == tenant_id
-                )
-            )
-        ).scalar_one_or_none()
-        if prof:
-            return Agent(
-                tenant_id=tenant_id,
-                name=prof.name,
-                role="assistant",
-                model=prof.model,
-                provider=prof.provider,
-                system_prompt=prof.system_prompt,
-                tools_json=prof.tools_json,
-            )
-
     fallback = (
         await session.execute(
             select(Agent)
@@ -158,7 +186,6 @@ async def _execute_agent_segment(
     *,
     step: WorkstreamStep | None,
     prompt: str,
-    workstream_run: WorkstreamRun | None,
     parent_run_id: UUID | None = None,
     run_role: str = "main",
     segment_index: int = 0,
@@ -169,7 +196,6 @@ async def _execute_agent_segment(
         agent=agent,
         step_runtime_profile_id=step.runtime_profile_id if step else None,
         task_runtime_profile_id=task.default_runtime_profile_id,
-        legacy_agent_profile_id=step.agent_profile_id if step else None,
     )
     runtime_agent = apply_snapshot_to_agent(agent, snapshot)
 
@@ -192,7 +218,6 @@ async def _execute_agent_segment(
         agent_id=agent.id,
         project_id=task.project_id,
         task_id=task.id,
-        workstream_run_id=workstream_run.id if workstream_run else None,
         step_id=step.id if step else None,
         parent_run_id=parent_run_id,
         run_role=run_role,
@@ -272,6 +297,16 @@ async def _execute_agent_segment(
         run_id=run.id,
     )
 
+    step_label = step.name if step else task.title
+    await _mirror_task_message(
+        session,
+        task,
+        kind="status_update",
+        body=f"**{step_label}**\n\n{text}",
+        agent_id=agent.id,
+        metadata={"run_id": str(run.id), "segment_index": segment_index, "agent_name": agent.name},
+    )
+
     agent.runtime_status = "standby"
     session.add(agent)
     await session.flush()
@@ -294,12 +329,6 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
     ctx = _parse_json(task.context_json)
     step_outputs: dict[str, Any] = ctx.get("step_outputs") or {}
     segment_index = int(ctx.get("segment_index") or 0)
-
-    workstream_run: WorkstreamRun | None = None
-    if task.workstream_run_id:
-        workstream_run = (
-            await session.execute(select(WorkstreamRun).where(WorkstreamRun.id == task.workstream_run_id))
-        ).scalar_one_or_none()
 
     step: WorkstreamStep | None = None
     if task.workstream_id:
@@ -325,7 +354,40 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 task.current_step_id = step.id
                 session.add(task)
 
-    if step and step.step_kind == "human_gate":
+    while step and step.step_kind == "human_gate":
+        passed_gates = {str(g) for g in (ctx.get("passed_gates") or [])}
+        if str(step.id) in passed_gates:
+            # Gate already approved — advance to the next step or finish.
+            next_step = (
+                await session.execute(
+                    select(WorkstreamStep)
+                    .where(
+                        WorkstreamStep.workstream_id == task.workstream_id,
+                        WorkstreamStep.order > step.order,
+                    )
+                    .order_by(WorkstreamStep.order)
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if next_step is None:
+                task.status = "completed"
+                task.completed_at = datetime.utcnow()
+                session.add(task)
+                ctx_agent_id = ctx.get("agent_id")
+                await _mirror_task_message(
+                    session,
+                    task,
+                    kind="task_result",
+                    body=f"Workstream completed: {task.title}",
+                    agent_id=UUID(ctx_agent_id) if ctx_agent_id else None,
+                    metadata={"status": "completed"},
+                )
+                await session.commit()
+                return {"completed": True}
+            step = next_step
+            task.current_step_id = next_step.id
+            session.add(task)
+            continue
         gate_payload = {"task_id": str(task.id), "step_id": str(step.id)}
         decision = DecisionRequest(
             tenant_id=tenant_id,
@@ -347,8 +409,13 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
         )
         session.add(decision)
         await session.flush()
-        if task.signal_id:
-            await append_decision_to_signal(session, tenant_id, decision, project_id=task.project_id)
+        await append_decision_to_signal(
+            session,
+            tenant_id,
+            decision,
+            project_id=task.project_id,
+            signal_id=task.signal_id,
+        )
         task.status = "awaiting_decision"
         task.pause_reason = "human_gate"
         session.add(task)
@@ -378,21 +445,17 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
         task.status = "failed"
         task.completed_at = datetime.utcnow()
         session.add(task)
+        await _mirror_task_message(
+            session,
+            task,
+            kind="status_update",
+            body="Workstream run failed: no active agent available for this step.",
+            metadata={"reason": "no_agent"},
+        )
         await session.commit()
         return {"failed": True, "reason": "no_agent"}
 
     prompt = _build_handoff_prompt(step, task, step_outputs) if step else (task.description or task.title)
-    step_run: WorkstreamStepRun | None = None
-    if workstream_run and step:
-        step_run = WorkstreamStepRun(
-            run_id=workstream_run.id,
-            step_id=step.id,
-            tenant_id=tenant_id,
-            status="running",
-            iteration=segment_index + 1,
-        )
-        session.add(step_run)
-        await session.flush()
 
     run, text = await _execute_agent_segment(
         session,
@@ -401,7 +464,6 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
         agent,
         step=step,
         prompt=prompt,
-        workstream_run=workstream_run,
         segment_index=segment_index,
     )
 
@@ -459,7 +521,8 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 task.context_json = json.dumps(ctx)
                 session.add(task)
                 await session.commit()
-                await enqueue_agent_task_segment(str(tenant_id), str(task.id))
+                if not await enqueue_agent_task_segment(str(tenant_id), str(task.id)):
+                    return await run_agent_task_segment(session, tenant_id, task_id)
                 return {"retry": True, "retry_count": retries + 1}
 
             next_step_id = step.on_eval_fail_step if step else None
@@ -469,26 +532,23 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 task.context_json = json.dumps(ctx)
                 session.add(task)
                 await session.commit()
-                await enqueue_agent_task_segment(str(tenant_id), str(task.id))
+                if not await enqueue_agent_task_segment(str(tenant_id), str(task.id)):
+                    return await run_agent_task_segment(session, tenant_id, task_id)
                 return {"advanced": True, "on_eval_fail": True}
 
             task.status = "failed"
             task.completed_at = datetime.utcnow()
             session.add(task)
-            if step_run:
-                step_run.status = "failed"
-                step_run.log_text = text[:2000]
-                session.add(step_run)
+            await _mirror_task_message(
+                session,
+                task,
+                kind="status_update",
+                body=f"Step evaluation failed after retries{f' ({step.name})' if step else ''}.",
+                agent_id=agent.id if agent else None,
+                metadata={"reason": "eval_failed"},
+            )
             await session.commit()
             return {"failed": True, "reason": "eval_failed"}
-
-    if step_run:
-        step_run.status = "success"
-        step_run.log_text = text[:4000]
-        step_run.output_json = json.dumps({"text": text[:2000]})
-        step_run.tokens_in = run.tokens_input
-        step_run.tokens_out = run.tokens_output
-        session.add(step_run)
 
     if step:
         step_outputs[str(step.id)] = {"name": step.name, "text": text[:4000], "agent_id": str(agent.id)}
@@ -513,25 +573,21 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
             task.current_step_id = next_step_id
             session.add(task)
             await session.commit()
-            await enqueue_agent_task_segment(str(tenant_id), str(task.id))
+            if not await enqueue_agent_task_segment(str(tenant_id), str(task.id)):
+                return await run_agent_task_segment(session, tenant_id, task_id)
             return {"continued": True, "next_step_id": str(next_step_id)}
 
     task.status = "completed"
     task.completed_at = datetime.utcnow()
     session.add(task)
-    if workstream_run:
-        workstream_run.status = "completed"
-        workstream_run.completed_at = datetime.utcnow()
-        workstream_run.report_json = json.dumps(
-            {
-                "task_id": str(task.id),
-                "workstream_id": str(task.workstream_id) if task.workstream_id else None,
-                "step_outputs": step_outputs,
-                "segment_count": segment_index + 1,
-                "completed_at": datetime.utcnow().isoformat(),
-            }
-        )
-        session.add(workstream_run)
+    await _mirror_task_message(
+        session,
+        task,
+        kind="task_result",
+        body=f"Workstream completed: {task.title}",
+        agent_id=agent.id if agent else None,
+        metadata={"run_id": str(run.id), "status": "completed"},
+    )
     await session.commit()
     return {"completed": True, "run_id": str(run.id)}
 
@@ -553,15 +609,6 @@ async def start_workstream_as_task(
     if not ws:
         raise ValueError("Workstream not found")
 
-    ws_run = WorkstreamRun(
-        tenant_id=tenant_id,
-        workstream_id=workstream_id,
-        trigger_type=trigger_type,
-        status="running",
-    )
-    session.add(ws_run)
-    await session.flush()
-
     first_step = (
         await session.execute(
             select(WorkstreamStep)
@@ -582,7 +629,6 @@ async def start_workstream_as_task(
         trigger_type=trigger_type,
         auto_start=False,
     )
-    task.workstream_run_id = ws_run.id
     task.current_step_id = first_step.id if first_step else None
     session.add(task)
     await session.commit()

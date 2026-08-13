@@ -24,7 +24,7 @@ export function FormValidation({ errors, className }: FormValidationProps) {
         <AlertCircle className="w-5 h-5 text-status-error flex-shrink-0 mt-0.5" />
         <div className="flex-1">
           <h4 className="text-sm font-medium text-status-error mb-2">
-            Corrigeer de volgende fouten:
+            Please correct the following errors:
           </h4>
           <ul className="space-y-1">
             {errors.map((error, index) => (
@@ -225,28 +225,28 @@ export function useFormValidation<T extends Record<string, any>>(
 export const ValidationRules = {
   required: (fieldName: string) => (value: any) => {
     if (value === null || value === undefined || value === '') {
-      return `${fieldName} is verplicht`;
+      return `${fieldName} is required`;
     }
     return null;
   },
 
   minLength: (min: number, fieldName: string) => (value: string) => {
     if (value && value.length < min) {
-      return `${fieldName} moet minimaal ${min} karakters bevatten`;
+      return `${fieldName} must be at least ${min} characters`;
     }
     return null;
   },
 
   maxLength: (max: number, fieldName: string) => (value: string) => {
     if (value && value.length > max) {
-      return `${fieldName} mag maximaal ${max} karakters bevatten`;
+      return `${fieldName} must be at most ${max} characters`;
     }
     return null;
   },
 
   email: (fieldName: string) => (value: string) => {
     if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      return `${fieldName} moet een geldig e-mailadres zijn`;
+      return `${fieldName} must be a valid email address`;
     }
     return null;
   },
@@ -256,7 +256,7 @@ export const ValidationRules = {
       try {
         new URL(value);
       } catch {
-        return `${fieldName} moet een geldige URL zijn`;
+        return `${fieldName} must be a valid URL`;
       }
     }
     return null;
@@ -264,21 +264,21 @@ export const ValidationRules = {
 
   number: (fieldName: string) => (value: any) => {
     if (value !== null && value !== undefined && value !== '' && isNaN(Number(value))) {
-      return `${fieldName} moet een geldig nummer zijn`;
+      return `${fieldName} must be a valid number`;
     }
     return null;
   },
 
   min: (min: number, fieldName: string) => (value: number) => {
     if (value !== null && value !== undefined && value < min) {
-      return `${fieldName} moet minimaal ${min} zijn`;
+      return `${fieldName} must be at least ${min}`;
     }
     return null;
   },
 
   max: (max: number, fieldName: string) => (value: number) => {
     if (value !== null && value !== undefined && value > max) {
-      return `${fieldName} mag maximaal ${max} zijn`;
+      return `${fieldName} must be at most ${max}`;
     }
     return null;
   },

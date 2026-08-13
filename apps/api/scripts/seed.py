@@ -331,18 +331,8 @@ async def _seed_tenant_data(session, tenant):
             commit=False,
         )
 
-    if not (
-        await session.execute(
-            select(ChannelAccount).where(
-                ChannelAccount.tenant_id == tenant.id, ChannelAccount.channel == "email"
-            )
-        )
-    ).scalar_one_or_none():
-        session.add(
-            ChannelAccount(
-                tenant_id=tenant.id, channel="email", address="support@bokito.ai", provider="mock"
-            )
-        )
+    # Do not seed a phantom mock mailbox — the settings UI must only show
+    # mailboxes that were actually connected (OAuth or explicit admin create).
 
     if not (await session.execute(select(McpServer).where(McpServer.tenant_id == tenant.id))).scalar_one_or_none():
         session.add(McpServer(tenant_id=tenant.id, name="mock-tools", server_url="mock://local", auth_json="{}"))

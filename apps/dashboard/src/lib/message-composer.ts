@@ -70,8 +70,8 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       channel,
       defaultTab: 'reply',
       tabs: ['reply', 'note'],
-      replyLabel: channel === 'assistant' ? 'Chat' : 'Bericht',
-      replyPlaceholder: `Bericht aan ${name}...`,
+      replyLabel: channel === 'assistant' ? 'Chat' : 'Message',
+      replyPlaceholder: `Message ${name}...`,
       includeSignature: false,
       showRecipient: true,
       recipientLabel: channel === 'assistant' ? 'Assistant' : 'Agent',
@@ -86,11 +86,11 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       channel: 'email',
       defaultTab: 'reply',
       tabs: ['reply', 'note'],
-      replyLabel: 'E-mail',
-      replyPlaceholder: email ? `Antwoord naar ${email}...` : 'Typ een e-mail...',
+      replyLabel: 'Email',
+      replyPlaceholder: email ? `Reply to ${email}...` : 'Type an email...',
       includeSignature: true,
       showRecipient: Boolean(email || name),
-      recipientLabel: 'Aan',
+      recipientLabel: 'To',
       recipientValue: name && email ? `${name} <${email}>` : email || name || '',
     }
   }
@@ -103,10 +103,10 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       defaultTab: 'reply',
       tabs: ['reply', 'note'],
       replyLabel: 'WhatsApp',
-      replyPlaceholder: phone ? `WhatsApp naar ${phone}...` : 'Typ een WhatsApp-bericht...',
+      replyPlaceholder: phone ? `WhatsApp ${phone}...` : 'Type a WhatsApp message...',
       includeSignature: false,
       showRecipient: Boolean(phone || name),
-      recipientLabel: 'Aan',
+      recipientLabel: 'To',
       recipientValue: name && phone ? `${name} (${phone})` : phone || name || '',
     }
   }
@@ -117,25 +117,25 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       defaultTab: 'reply',
       tabs: ['reply', 'note'],
       replyLabel: 'Slack',
-      replyPlaceholder: 'Typ een Slack-bericht...',
+      replyPlaceholder: 'Type a Slack message...',
       includeSignature: false,
       showRecipient: Boolean(thread.contactName),
-      recipientLabel: 'Kanaal',
+      recipientLabel: 'Channel',
       recipientValue: thread.contactName || 'Slack thread',
     }
   }
 
   // widget / chat / integration
-  const name = thread.contactName?.trim() || 'bezoeker'
+  const name = thread.contactName?.trim() || 'visitor'
   return {
     channel: 'chat',
     defaultTab: 'reply',
     tabs: ['reply', 'note'],
     replyLabel: 'Chat',
-    replyPlaceholder: `Antwoord in chat aan ${name}...`,
+    replyPlaceholder: `Reply in chat to ${name}...`,
     includeSignature: false,
     showRecipient: Boolean(thread.contactName || thread.contactEmail),
-    recipientLabel: 'Met',
+    recipientLabel: 'With',
     recipientValue: thread.contactName || thread.contactEmail || '',
   }
 }

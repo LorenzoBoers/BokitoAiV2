@@ -45,12 +45,29 @@ async def test_mock_trading_mcp_risk_status(session_override):
 
 @pytest.mark.asyncio
 async def test_orchestration_continue_resumes_task(session_override):
+    from app.models.orchestra import Workstream, WorkstreamStep
+
     tenant = Tenant(slug="orch-resume", name="Orch Resume")
     session_override.add(tenant)
     await session_override.flush()
 
+    workstream = Workstream(tenant_id=tenant.id, name="Gated")
+    session_override.add(workstream)
+    await session_override.flush()
+    gate = WorkstreamStep(
+        tenant_id=tenant.id,
+        workstream_id=workstream.id,
+        name="Review",
+        order=0,
+        step_kind="human_gate",
+    )
+    session_override.add(gate)
+    await session_override.flush()
+
     task = AgentTask(
         tenant_id=tenant.id,
+        workstream_id=workstream.id,
+        current_step_id=gate.id,
         title="Paused workstream",
         status="awaiting_decision",
         pause_reason="human_gate",
@@ -89,7 +106,10 @@ async def test_orchestration_continue_resumes_task(session_override):
     refreshed = (
         await session_override.execute(select(AgentTask).where(AgentTask.id == task.id))
     ).scalar_one()
-    assert refreshed.status == "running"
+    # Resume executes inline (no queue in tests): the approved gate is skipped
+    # and the gate-only workstream runs to completion.
+    assert refreshed.pause_reason is None
+    assert refreshed.status == "completed"
 
 
 @pytest.mark.asyncio

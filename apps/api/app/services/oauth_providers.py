@@ -37,6 +37,13 @@ _MICROSOFT_SCOPES = [
     "https://graph.microsoft.com/Mail.Send",
     "https://graph.microsoft.com/User.Read",
 ]
+# Platform sign-in only needs identity, not mailbox access.
+MICROSOFT_SSO_SCOPES = [
+    "openid",
+    "email",
+    "profile",
+    "https://graph.microsoft.com/User.Read",
+]
 _GITHUB_SCOPES = ["repo", "read:user", "user:email"]
 
 
@@ -88,13 +95,19 @@ def _scopes(provider: str) -> list[str]:
     return []
 
 
-def build_authorize_url(provider: str, *, state: str, redirect_uri: str) -> str:
+def build_authorize_url(
+    provider: str,
+    *,
+    state: str,
+    redirect_uri: str,
+    scopes: list[str] | None = None,
+) -> str:
     client_id, _ = _credentials(provider)
     params: dict[str, str] = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "state": state,
-        "scope": " ".join(_scopes(provider)),
+        "scope": " ".join(scopes or _scopes(provider)),
     }
     if provider == GITHUB:
         params["allow_signup"] = "false"

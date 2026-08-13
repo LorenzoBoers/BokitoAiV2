@@ -1,6 +1,8 @@
-import { Mail, Phone, StickyNote, User } from 'lucide-react'
+import { Bot, Mail, Phone, StickyNote, ThumbsDown, ThumbsUp, User } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { cn } from '../../lib/utils'
+import { submitMessageFeedback } from '../../lib/signals-api'
 import { getDomainFaviconUrl } from '../../lib/domain-favicon'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -8,8 +10,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment } from '../../lib/inbox-api'
+import { mentionMarkupToHtmlChips } from '../../lib/mentions'
 import MessageAttachments from './MessageAttachments'
 import MessageMarkdown from './MessageMarkdown'
+import ReasoningDisclosure from './ReasoningDisclosure'
 
 type MessageLayout = 'chat' | 'email'
 
@@ -31,7 +35,7 @@ export function formatHourMinute(iso: string | null): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('nl-NL', {
+  return date.toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -158,7 +162,7 @@ function SimpleMessageHtml({ html }: { html: string }) {
   return (
     <div
       className="text-xs text-text-primary leading-relaxed break-words [&_img]:mt-4 [&_img]:block [&_img]:max-w-[260px] [&_img]:h-auto"
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: mentionMarkupToHtmlChips(html) }}
     />
   )
 }
@@ -249,16 +253,16 @@ function MessageHtmlBody({ html }: { html: string }) {
 }
 
 const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName?: string) => string> = {
-  thread_created: () => 'Thread aangemaakt',
-  assigned: (p, name) => `Toegewezen aan ${name ?? `gebruiker ${p.assignee_id}`}`,
-  unassigned: () => 'Toewijzing verwijderd',
-  status_changed: (p) => `Status gewijzigd naar ${p.to_status ?? ''}`,
-  tag_added: (p) => `Label toegevoegd: ${Array.isArray(p.tags) ? p.tags.join(', ') : ''}`,
-  tag_removed: () => 'Label verwijderd',
-  priority_changed: (p) => `Prioriteit: ${p.priority ?? ''}`,
-  replied: () => 'Antwoord verstuurd',
-  note_added: () => 'Notitie toegevoegd',
-  reopened: () => 'Heropend',
+  thread_created: () => 'Thread created',
+  assigned: (p, name) => `Assigned to ${name ?? `user ${p.assignee_id}`}`,
+  unassigned: () => 'Assignment removed',
+  status_changed: (p) => `Status changed to ${p.to_status ?? ''}`,
+  tag_added: (p) => `Label added: ${Array.isArray(p.tags) ? p.tags.join(', ') : ''}`,
+  tag_removed: () => 'Label removed',
+  priority_changed: (p) => `Priority: ${p.priority ?? ''}`,
+  replied: () => 'Reply sent',
+  note_added: () => 'Note added',
+  reopened: () => 'Reopened',
 }
 
 // Chat-style bubble: avatar on one side, message bubble constrained to a
@@ -330,6 +334,75 @@ function EmailMessageBlock({
   )
 }
 
+// Thumbs up/down on agent replies. Votes feed the learning loop
+// (`POST /api/messages/{id}/feedback`) and drive the Usage "Avg feedback" metric.
+function MessageFeedbackControls({
+  messageId,
+  initial,
+}: {
+  messageId: string
+  initial?: InboxMessage['myFeedback']
+}) {
+  const { token } = useAuth()
+  const [sentiment, setSentiment] = useState<'up' | 'down' | null>(initial?.sentiment ?? null)
+  const [busy, setBusy] = useState(false)
+
+  const vote = useCallback(
+    async (value: 'up' | 'down') => {
+      if (!token || busy || sentiment === value) return
+      const previous = sentiment
+      setSentiment(value)
+      setBusy(true)
+      try {
+        await submitMessageFeedback(token, messageId, value)
+      } catch {
+        setSentiment(previous)
+        toast.error('Could not save feedback.')
+      } finally {
+        setBusy(false)
+      }
+    },
+    [token, busy, sentiment, messageId],
+  )
+
+  const buttonClass = (active: boolean) =>
+    cn(
+      'flex h-5 w-5 items-center justify-center rounded transition-colors',
+      active ? 'text-accent bg-accent/10' : 'text-text-muted/60 hover:text-text-body hover:bg-bg-elevated',
+    )
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Good response"
+            className={buttonClass(sentiment === 'up')}
+            onClick={() => vote('up')}
+          >
+            <ThumbsUp size={11} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Good response</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Poor response"
+            className={buttonClass(sentiment === 'down')}
+            onClick={() => vote('down')}
+          >
+            <ThumbsDown size={11} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Poor response</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
 export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById }: MessageItemProps) {
   const { user } = useAuth()
   const currentUserId = user?.id ?? null
@@ -339,13 +412,13 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
 
   // Resolve author info for outbound / internal bubbles
   const author = message.authorUserId != null ? membersById?.[message.authorUserId] : undefined
-  const authorName = author?.name ?? (isOutbound ? 'Jij' : 'Teamlid')
+  const authorName = author?.name ?? (isOutbound ? 'You' : 'Team member')
   const authorEmail = author?.email ?? ''
   const authorAvatarUrl = author?.avatarUrl ?? null
 
   // Inbound contact info: prefer thread contact, fallback to message fromAddress
   const inboundEmail = message.fromAddress || contactEmail || ''
-  const inboundName = contactName || inboundEmail || 'Afzender'
+  const inboundName = contactName || inboundEmail || 'Sender'
 
   const attachmentItems: MessageAttachment[] = Array.isArray(message.attachments)
     ? message.attachments.filter(
@@ -386,21 +459,46 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       {isInternal ? <StickyNote size={12} className="text-yellow-600 shrink-0" /> : null}
       <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
       <span className="text-[10px] text-text-muted shrink-0">
-        {isInternal ? 'Interne notitie' : 'Verstuurd'}
+        {isInternal ? 'Internal note' : 'Sent'}
       </span>
     </div>
   )
 
+  const isAgentMessage =
+    message.kind === 'agent_message' ||
+    Boolean(message.payload?.agent_id) ||
+    Boolean(message.agentTrace)
+
+  const feedbackRow =
+    isAgentMessage && typeof message.id === 'string' ? (
+      <MessageFeedbackControls messageId={message.id} initial={message.myFeedback} />
+    ) : null
+
   // Email threads: never use chat-style left/right alignment. Render every
   // message as a full-width, left-aligned card.
   if (layout === 'email') {
-    return (
+    const emailBlock = (
       <EmailMessageBlock
         avatar={isInbound ? contactAvatar : userAvatar}
         header={isInbound ? inboundHeader : outboundHeader}
         body={bubbleBody}
         internal={isInternal}
       />
+    )
+    if (!message.agentTrace && !feedbackRow) return emailBlock
+    return (
+      <div className="space-y-0.5">
+        {message.agentTrace ? (
+          <ReasoningDisclosure
+            thinking={message.agentTrace.thinking}
+            steps={message.agentTrace.steps}
+            usage={message.agentTrace.usage}
+            className="ml-9 max-w-full"
+          />
+        ) : null}
+        {emailBlock}
+        {feedbackRow ? <div className="ml-9">{feedbackRow}</div> : null}
+      </div>
     )
   }
 
@@ -418,14 +516,49 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     currentUserId != null &&
     message.authorUserId === currentUserId
 
-  return (
+  const bubble = (
     <ChatMessageBubble
       side={isOwn ? 'right' : 'left'}
-      avatar={userAvatar}
-      header={outboundHeader}
+      avatar={
+        isAgentMessage ? (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
+            <Bot size={14} />
+          </span>
+        ) : (
+          userAvatar
+        )
+      }
+      header={
+        isAgentMessage ? (
+          <div className="mb-1 flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-xs font-medium text-text-heading">Agent</span>
+          </div>
+        ) : (
+          outboundHeader
+        )
+      }
       body={bubbleBody}
       internal={isInternal}
     />
+  )
+
+  if (!message.agentTrace && !feedbackRow) {
+    return bubble
+  }
+
+  return (
+    <div className={cn('space-y-0.5', isOwn ? 'items-end' : 'items-start', 'flex flex-col')}>
+      {message.agentTrace ? (
+        <ReasoningDisclosure
+          thinking={message.agentTrace.thinking}
+          steps={message.agentTrace.steps}
+          usage={message.agentTrace.usage}
+          className={cn(isOwn ? 'ml-auto mr-9' : 'ml-9', 'max-w-[78%]')}
+        />
+      ) : null}
+      {bubble}
+      {feedbackRow ? <div className={cn(isOwn ? 'mr-9' : 'ml-9')}>{feedbackRow}</div> : null}
+    </div>
   )
 }
 

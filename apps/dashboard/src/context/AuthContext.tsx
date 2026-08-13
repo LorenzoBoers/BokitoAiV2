@@ -1,11 +1,15 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import {
   ACCESS_TOKEN_TTL_S,
+  authAcceptInvite,
   authLogin,
   authLogout,
+  authSignup,
+  type SignupParams,
   authMe,
   authMeForTenant,
   authRefresh,
+  authSwitchWorkspace,
   requestPasswordReset,
   resetPassword as resetPasswordRequest,
   setAccessTokenProvider,
@@ -36,6 +40,22 @@ function rememberSkipServerAuthRefresh(): void {
     sessionStorage.setItem(SKIP_SERVER_AUTH_REFRESH_KEY, '1');
   } catch {
     // Ignore storage failures in private mode.
+  }
+}
+
+/** Detect the `?sso=connected` return from the Microsoft SSO callback and strip
+ * it from the URL. The callback set the refresh cookie, so the regular
+ * cookie-based hydration below picks up the session; we just make sure a stale
+ * "skip refresh" flag doesn't block it. */
+function consumeSsoReturnFlag(): boolean {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('sso') !== 'connected') return false;
+    url.searchParams.delete('sso');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -99,6 +119,8 @@ interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<string>;
+  signup: (params: SignupParams) => Promise<string>;
+  acceptInvite: (params: { token: string; password: string; displayName?: string }) => Promise<string>;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
@@ -110,6 +132,10 @@ interface AuthContextValue {
   hasTenantAccess: (tenantSubdomain: string) => boolean;
   isStaff: boolean;
   switchStaffTenant: (tenantId: string) => Promise<void>;
+  /** Switch the session to another workspace: new JWT + full reload. */
+  switchWorkspaceTenant: (tenantId: string) => Promise<void>;
+  /** Adopt an access token issued out-of-band (e.g. workspace create) + full reload. */
+  adoptWorkspaceSession: (accessToken: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -179,8 +205,7 @@ function mapTenantRoleToUserRole(role: unknown): UserRole {
   const normalized = toString(role).toLowerCase();
   if (normalized === 'owner') return 'owner';
   if (normalized === 'admin') return 'admin';
-  if (normalized === 'editor') return 'editor';
-  return 'viewer';
+  return 'member';
 }
 
 function normalizeMemberships(payload: Record<string, unknown>): TenantMembership[] {
@@ -284,10 +309,9 @@ const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
     'edit_record', 'delete_record', 'create_table', 'edit_schema',
     'manage_api_keys', 'manage_webhooks', 'invite_members', 'view_audit_log'
   ],
-  editor: [
-    'edit_record', 'delete_record', 'create_table', 'edit_schema'
-  ],
-  viewer: []
+  member: [
+    'edit_record', 'delete_record', 'create_table'
+  ]
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -376,6 +400,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function hydrateSession() {
       setIsLoading(true);
       const tenantSubdomain = resolveTenantSubdomainFromHost();
+      if (consumeSsoReturnFlag()) {
+        try {
+          sessionStorage.removeItem(SKIP_SERVER_AUTH_REFRESH_KEY);
+        } catch {
+          // Ignore storage failures in private mode.
+        }
+      }
       try {
         const handoffToken = consumeDevLocalhostAccessHashFromLocation();
         if (handoffToken) {
@@ -437,7 +468,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message.toLowerCase() : '';
-        const isUnauthorized = message.includes('401') || message.includes('403') || message.includes('niet geauthenticeerd');
+        const isUnauthorized = message.includes('401') || message.includes('403');
         if (isUnauthorized) {
           const tokenAfterRace = (() => {
             try {
@@ -508,6 +539,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return nextToken;
   }, [applySession]);
 
+  const signup = useCallback(async (params: SignupParams): Promise<string> => {
+    const data = await authSignup(params) as AuthTokens;
+    const nextToken = applySession(data);
+    try {
+      const me = await authMe(nextToken);
+      setUser(normalizeAuthUser(me));
+    } catch {
+      setUser(buildFallbackUserFromLogin(data, params.email));
+    }
+    return nextToken;
+  }, [applySession]);
+
+  const acceptInvite = useCallback(
+    async (params: { token: string; password: string; displayName?: string }): Promise<string> => {
+      const data = await authAcceptInvite(params) as AuthTokens;
+      const nextToken = applySession(data);
+      try {
+        const me = await authMe(nextToken);
+        setUser(normalizeAuthUser(me));
+      } catch {
+        setUser(buildFallbackUserFromLogin(data, data.email ?? ''));
+      }
+      return nextToken;
+    },
+    [applySession],
+  );
+
   const hasPermission = useCallback((action: PermissionAction): boolean => {
     if (!user) return false;
     const tenantSubdomain = resolveTenantSubdomainFromHost();
@@ -570,6 +628,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applySession, token],
   );
 
+  const adoptWorkspaceSession = useCallback((accessToken: string) => {
+    try {
+      sessionStorage.setItem(ACCESS_TOKEN_FALLBACK_KEY, accessToken);
+    } catch {
+      // Ignore storage failures in private mode.
+    }
+    // Full reload so every context, cache and stream reconnects scoped to the
+    // new tenant. The JWT in sessionStorage is the source of truth.
+    window.location.assign('/');
+  }, []);
+
+  const switchWorkspaceTenant = useCallback(
+    async (tenantId: string) => {
+      if (!token) throw new Error('Not authenticated');
+      const session = await authSwitchWorkspace(tenantId, token);
+      const nextToken = session.authToken ?? session.access_token;
+      if (!nextToken) throw new Error('No access token received');
+      adoptWorkspaceSession(nextToken);
+    },
+    [adoptWorkspaceSession, token],
+  );
+
   useEffect(() => {
     if (!user) {
       publishDashboardUserToWidget(null);
@@ -604,6 +684,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         isLoading,
         login,
+        signup,
+        acceptInvite,
         logout,
         sendPasswordReset,
         resetPassword,
@@ -615,6 +697,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasTenantAccess,
         isStaff: Boolean(user?.isStaff),
         switchStaffTenant,
+        switchWorkspaceTenant,
+        adoptWorkspaceSession,
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, Bot, Hand, Loader2, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, Bot, Clock, Hand, ListPlus, OctagonAlert, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -14,14 +14,27 @@ import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
 import { Button } from '../ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
+import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso } from '../../lib/snooze'
 import {
   isInternalThread,
   resolveComposerSurface,
   threadCounterpartyName,
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
-import AgentSteps from './AgentSteps'
+import ThinkingTrace from './ThinkingTrace'
+import { draftThreadReply, resolveThreadDecision } from '../../lib/inbox-api'
+import { invokeSignalAgent } from '../../lib/signals-api'
+import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
+import { stripMentionMarkup, tokenizeMentions, type MentionItem } from '../../lib/mentions'
+import { createAgentTask } from '../../lib/orchestration-api'
+import { toast } from 'sonner'
 
 type TimelineEntry =
   | { kind: 'message'; time: string; id: string; data: ThreadDetailType['messages'][number] }
@@ -39,7 +52,7 @@ type Props = {
   /**
    * Non-null when the most recent fetch of the selected thread failed. Used
    * to show explicit feedback in the empty area instead of silently falling
-   * back to the "Selecteer een thread" placeholder, which made it look like
+   * back to the "Select a thread" placeholder, which made it look like
    * nothing happened.
    */
   error: string | null
@@ -56,11 +69,12 @@ type Props = {
     action: 'send' | 'send_and_close' | 'send_and_pending',
     format?: 'email' | 'plain',
     attachments?: MessageAttachment[],
+    snoozeMinutes?: number,
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   onRefresh: () => void
   onTogglePin?: () => void | Promise<void>
-  /** Human takeover toggle for AI-handled channels (widget/chat/assistant). */
+  /** Human takeover toggle for AI-handled channels (email/widget/chat/assistant). */
   onToggleTakeover?: () => void | Promise<void>
   onDelete?: () => void | Promise<void>
   deleting?: boolean
@@ -75,10 +89,93 @@ type Props = {
   mode?: 'customer' | 'agent'
   /** Start an assistant chat pre-filled with this thread's context. */
   onAskAssistant?: () => void
+  /** Prefill the composer from outside (e.g. Ask-assistant copy-to-composer). */
+  externalDraft?: { body: string; key: string } | null
 }
 
 const HEADER_ICON =
   'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
+
+/**
+ * "Draft with AI" with an optional guidance field: click opens a small
+ * popover where the operator can steer the draft (tone, decisions, facts).
+ */
+function DraftWithAiButton({
+  drafting,
+  disabled,
+  onDraft,
+}: {
+  drafting: boolean
+  disabled: boolean
+  onDraft: (instruction: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [instruction, setInstruction] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [open])
+
+  const submit = () => {
+    setOpen(false)
+    onDraft(instruction.trim())
+    setInstruction('')
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={drafting || disabled}
+        onClick={() => setOpen((v) => !v)}
+        className="gap-1.5"
+      >
+        {drafting ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+        {drafting ? 'Drafting…' : 'Draft with AI'}
+      </Button>
+      {open ? (
+        <div className="absolute bottom-full right-0 z-30 mb-1.5 w-80 rounded-xl border border-border/70 bg-bg-surface p-3 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.45)]">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+            Guidance (optional)
+          </p>
+          <textarea
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                submit()
+              }
+              if (e.key === 'Escape') setOpen(false)
+            }}
+            autoFocus
+            rows={2}
+            placeholder="e.g. Apologize for the delay and offer a replacement"
+            className="mb-2 w-full resize-none rounded-lg border border-border/60 bg-bg-input px-2.5 py-1.5 text-[12.5px] text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
+          />
+          <div className="flex justify-end gap-1.5">
+            <Button size="sm" variant="ghost" onClick={() => setOpen(false)} className="h-7 px-2 text-[11.5px]">
+              Cancel
+            </Button>
+            <Button size="sm" onClick={submit} className="h-7 gap-1 px-2.5 text-[11.5px]">
+              <Sparkles size={11} />
+              Draft reply
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 const DAY_FORMATTER = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
@@ -121,8 +218,8 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
-  const { token } = useAuth()
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, externalDraft }: Props) {
+  const { token, user } = useAuth()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -136,6 +233,46 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const programmaticScrollRef = useRef<boolean>(false)
   const [membersById, setMembersById] = useState<Record<number, InboxMember>>({})
   const [activeDayLabel, setActiveDayLabel] = useState<string | null>(null)
+  const [composerDraft, setComposerDraft] = useState<{
+    body: string
+    subject?: string
+    key: string
+    /** Set when the draft came from a suggestion card; sending resolves that decision. */
+    decisionMessageId?: string
+  } | null>(null)
+  const [drafting, setDrafting] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
+
+  // Active agents are @-mentionable in notes; a mention invokes the agent on
+  // this thread and its answer lands as an internal note.
+  const [agents, setAgents] = useState<RuntimeAgent[]>([])
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    getAgents(token)
+      .then((rows) => {
+        if (!cancelled) setAgents(rows)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast.error('Could not load agents; @agent mentions are unavailable.', {
+            id: 'thread-agents-load',
+          })
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+  const mentionAgents: MentionItem[] = useMemo(
+    () =>
+      agents.map((a) => ({
+        type: 'agent' as const,
+        id: String(a.id),
+        name: a.name,
+      })),
+    [agents],
+  )
 
   useEffect(() => {
     if (!token) return
@@ -149,7 +286,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         }
         setMembersById(map)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) {
+          toast.error('Could not load team members; @mentions may be incomplete.', {
+            id: 'thread-members-load',
+          })
+        }
+      })
     return () => {
       cancelled = true
     }
@@ -168,7 +311,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         data: m,
       })),
       ...detail.events
-        .filter((e) => e.eventType !== 'replied' && e.eventType !== 'note_added')
+        .filter(
+          (e) =>
+            e.eventType !== 'replied' &&
+            e.eventType !== 'note_added' &&
+            e.eventType !== 'reply_sent',
+        )
         .map((e) => ({
           kind: 'event' as const,
           time: e.createdAt,
@@ -339,28 +487,179 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [detail],
   )
 
+  useEffect(() => {
+    setComposerDraft(null)
+    setDraftError(null)
+  }, [threadId])
+
+  // Prefill from outside (Ask-assistant "Copy to composer").
+  useEffect(() => {
+    if (externalDraft?.body) {
+      setComposerDraft({ body: externalDraft.body, key: externalDraft.key })
+    }
+  }, [externalDraft?.key, externalDraft?.body])
+
+  const myMemberId = useMemo(() => {
+    const email = user?.email?.toLowerCase()
+    if (!email) return null
+    const me = Object.values(membersById).find((m) => m.email?.toLowerCase() === email)
+    return me?.id ?? null
+  }, [membersById, user?.email])
+
+  const [creatingTask, setCreatingTask] = useState(false)
+
+  const handleCreateTaskFromThread = useCallback(async () => {
+    if (!detail || creatingTask) return
+    setCreatingTask(true)
+    try {
+      const task = await createAgentTask({
+        title: detail.thread.emailSubject || `Follow up: ${detail.thread.contactName || 'thread'}`,
+        description: `Created from communication thread ${detail.thread.id} (${detail.thread.contactEmail || detail.thread.contactName || 'unknown contact'}).`,
+        signal_id: String(detail.thread.id),
+      })
+      toast.success(`Task created: ${task.title}`, {
+        description: 'Progress appears in this thread and under Activity.',
+      })
+      onRefresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not create a task.')
+    } finally {
+      setCreatingTask(false)
+    }
+  }, [detail, creatingTask])
+
+  const handleDraftWithAi = useCallback(async (instruction = '') => {
+    if (!token || !detail || drafting) return
+    setDrafting(true)
+    setDraftError(null)
+    try {
+      const draft = await draftThreadReply(token, detail.thread.id, instruction)
+      if (draft) {
+        setComposerDraft({ body: draft, key: `ai-draft-${Date.now()}` })
+      } else {
+        setDraftError('The AI returned an empty draft. Try again.')
+      }
+    } catch (err) {
+      setDraftError(err instanceof Error ? err.message : 'Could not draft a reply.')
+    } finally {
+      setDrafting(false)
+    }
+  }, [token, detail, drafting])
+
+  const agentIdsAtStreamStartRef = useRef<Set<string>>(new Set())
+  const wasStreamingRef = useRef(false)
+
+  useEffect(() => {
+    if (gatewayStream.streaming && !wasStreamingRef.current) {
+      agentIdsAtStreamStartRef.current = new Set(
+        (detail?.messages ?? [])
+          .filter(
+            (m) =>
+              m.kind === 'agent_message' ||
+              Boolean(m.payload?.agent_id) ||
+              Boolean(m.agentTrace),
+          )
+          .map((m) => String(m.id)),
+      )
+    }
+    wasStreamingRef.current = gatewayStream.streaming
+  }, [gatewayStream.streaming, detail?.messages])
+
+  // Safety net: once a NEW persisted agent reply lands, force-clear the live
+  // ThinkingTrace (covers missed/late gateway stream events).
+  useEffect(() => {
+    if (!gatewayStream.streaming || !detail?.messages.length) return
+    const last = detail.messages[detail.messages.length - 1]
+    const isAgent =
+      last.kind === 'agent_message' ||
+      Boolean(last.payload?.agent_id) ||
+      Boolean(last.agentTrace)
+    if (!isAgent) return
+    if (agentIdsAtStreamStartRef.current.has(String(last.id))) return
+    gatewayStream.reset()
+  }, [detail?.messages, gatewayStream.streaming, gatewayStream.reset])
+
   const handleReply = useCallback(
     async (
       bodyText: string,
       action: 'send' | 'send_and_close' | 'send_and_pending',
       attachments?: MessageAttachment[],
+      snoozeMinutes?: number,
     ) => {
+      const pendingDecisionId = composerDraft?.decisionMessageId
+      if (pendingDecisionId && token && detail) {
+        await resolveThreadDecision(token, detail.thread.id, pendingDecisionId, 'approve', {
+          optionId: 'send',
+          body: bodyText,
+          subject: composerDraft?.subject,
+        })
+        setComposerDraft(null)
+        onDecisionResolved?.()
+        if (action === 'send_and_close') {
+          await onPatch({ status: 'closed' })
+        } else if (action === 'send_and_pending') {
+          await onPatch({
+            status: 'pending',
+            snoozedUntil:
+              snoozeMinutes && snoozeMinutes > 0
+                ? new Date(Date.now() + snoozeMinutes * 60_000).toISOString()
+                : null,
+          })
+        }
+        window.setTimeout(() => scrollToBottom('smooth'), 80)
+        return
+      }
       const format = composerSurface?.includeSignature ? 'email' : 'plain'
-      await onReply(bodyText, action, format, attachments)
+      await onReply(bodyText, action, format, attachments, snoozeMinutes)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
-    [onReply, scrollToBottom, composerSurface],
+    [
+      onReply,
+      scrollToBottom,
+      composerSurface,
+      composerDraft,
+      token,
+      detail,
+      onDecisionResolved,
+      onPatch,
+    ],
   )
 
   const handleNote = useCallback(
     async (bodyText: string, attachments?: MessageAttachment[]) => {
       await onNote(bodyText, attachments)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
+      // @agent mentions in the note invoke those agents on this thread.
+      if (!token || !detail) return
+      const mentionedAgentIds = tokenizeMentions(bodyText)
+        .filter((t) => t.kind === 'mention' && t.targetType === 'agent')
+        .map((t) => (t.kind === 'mention' ? t.id : ''))
+      const uniqueIds = [...new Set(mentionedAgentIds.filter(Boolean))]
+      if (uniqueIds.length === 0) return
+      const instruction = stripMentionMarkup(bodyText)
+      for (const agentId of uniqueIds) {
+        const agentName = agents.find((a) => String(a.id) === agentId)?.name ?? 'Agent'
+        toast.info(`${agentName} is working on this thread...`)
+        try {
+          await invokeSignalAgent(token, String(detail.thread.id), {
+            agentId,
+            instruction,
+            output: 'note',
+          })
+          onRefresh()
+          window.setTimeout(() => scrollToBottom('smooth'), 120)
+        } catch {
+          toast.error(`${agentName} could not complete the request.`)
+        }
+      }
     },
-    [onNote, scrollToBottom],
+    [onNote, scrollToBottom, token, detail, agents, onRefresh],
   )
 
-  if (loading) {
+  const detailMatchesRoute =
+    detail != null && threadId != null && String(detail.thread.id) === String(threadId)
+
+  if (loading || (threadId != null && detail != null && !detailMatchesRoute)) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <RefreshCw size={18} className="animate-spin text-text-muted" />
@@ -369,7 +668,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }
 
   // The detail fetch failed. Surface the actual error to the user instead
-  // of silently showing the "Selecteer een thread" placeholder, which hides
+  // of silently showing the "Select a thread" placeholder, which hides
   // backend issues (e.g. runtime errors that previously slipped
   // through unnoticed).
   if (error && threadId != null) {
@@ -378,13 +677,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <AlertCircle size={28} className="text-status-error" />
         <div className="space-y-1">
           <p className="text-sm font-medium text-text-heading">
-            Thread #{threadId} kon niet worden geladen.
+            Thread #{threadId} could not be loaded.
           </p>
           <p className="text-xs text-text-muted max-w-md break-words">{error}</p>
         </div>
         <Button size="sm" variant="secondary" onClick={onRefresh} className="gap-1.5">
           <RefreshCw size={13} />
-          Opnieuw proberen
+          Try again
         </Button>
       </div>
     )
@@ -408,14 +707,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           <h2 className="text-[13px] font-medium text-text-heading truncate">{thread.emailSubject}</h2>
           <p className="text-[11px] text-text-muted truncate">
             {isInternalThread(thread)
-              ? `Intern · ${threadCounterpartyName(thread)}`
+              ? `Internal · ${threadCounterpartyName(thread)}`
               : thread.contactEmail || thread.contactName}
           </p>
         </div>
         <div
           className="flex items-center shrink-0 rounded-lg border border-border/50 bg-bg-surface-hover/30 p-0.5"
           role="toolbar"
-          aria-label="Thread acties"
+          aria-label="Thread actions"
         >
           <AssigneeSelector
             currentAssigneeId={thread.assignedToUserId}
@@ -430,16 +729,78 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 onClick={() =>
                   void onPatch({ status: thread.status === 'closed' ? 'open' : 'closed' })
                 }
-                aria-label={thread.status === 'closed' ? 'Heropenen' : 'Sluiten'}
+                aria-label={thread.status === 'closed' ? 'Reopen' : 'Close'}
                 className={HEADER_ICON}
               >
                 {thread.status === 'closed' ? <ArchiveRestore size={14} /> : <Archive size={14} />}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {thread.status === 'closed' ? 'Heropenen' : 'Sluiten'}
+              {thread.status === 'closed' ? 'Reopen' : 'Close'}
             </TooltipContent>
           </Tooltip>
+          {!isInternalThread(thread) ? (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      aria-label={thread.status === 'pending' ? 'Snoozed' : 'Snooze'}
+                      className={`${HEADER_ICON}${thread.status === 'pending' ? ' text-accent' : ''}`}
+                    >
+                      <Clock size={14} />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {thread.status === 'pending'
+                    ? formatWakeTime(thread.snoozedUntil) ?? 'Snoozed until reply'
+                    : 'Snooze'}
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-52">
+                {SNOOZE_PRESETS.map((preset) => (
+                  <DropdownMenuItem
+                    key={preset.key}
+                    className="text-xs"
+                    onSelect={() => void onPatch({ status: 'pending', snoozedUntil: snoozeUntilIso(preset) })}
+                  >
+                    {preset.label}
+                  </DropdownMenuItem>
+                ))}
+                {thread.status === 'pending' ? (
+                  <DropdownMenuItem
+                    className="text-xs text-accent"
+                    onSelect={() => void onPatch({ status: 'open', snoozedUntil: null })}
+                  >
+                    Unsnooze now
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          {!isInternalThread(thread) ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() =>
+                    void onPatch({ status: thread.status === 'spam' ? 'open' : 'spam' })
+                  }
+                  aria-label={thread.status === 'spam' ? 'Not spam' : 'Mark as spam'}
+                  className={`${HEADER_ICON}${thread.status === 'spam' ? ' text-status-error' : ''}`}
+                >
+                  <OctagonAlert size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {thread.status === 'spam' ? 'Not spam' : 'Mark as spam'}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           {onDelete ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -456,7 +817,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               <TooltipContent side="bottom">Delete</TooltipContent>
             </Tooltip>
           ) : null}
-          {onToggleTakeover && ['widget', 'chat', 'assistant'].includes(thread.channel ?? '') ? (
+          {onToggleTakeover &&
+          ['email', 'widget', 'chat', 'assistant'].includes(thread.channel ?? '') ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -515,6 +877,50 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         </div>
       </div>
 
+      {!isInternalThread(thread) &&
+      thread.status !== 'closed' &&
+      thread.status !== 'spam' &&
+      (thread.suggestedActions?.length ?? 0) > 0 ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-surface/60 px-3 py-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+            Next
+          </span>
+          {thread.suggestedActions?.includes('close') ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onPatch({ status: 'closed' })}
+              className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
+            >
+              <Archive size={11} />
+              Close thread
+            </button>
+          ) : null}
+          {thread.suggestedActions?.includes('assign') && !thread.assignedToUserId && myMemberId != null ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onPatch({ assignedToUserId: myMemberId })}
+              className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
+            >
+              <UserPlus size={11} />
+              Assign to me
+            </button>
+          ) : null}
+          {thread.suggestedActions?.includes('create_task') ? (
+            <button
+              type="button"
+              disabled={creatingTask}
+              onClick={() => void handleCreateTaskFromThread()}
+              className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
+            >
+              <ListPlus size={11} />
+              {creatingTask ? 'Creating…' : 'Create task'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="relative flex-1 min-h-0">
         <div
           ref={scrollRef}
@@ -523,8 +929,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <div ref={contentRef} className="mx-auto w-full max-w-[860px]">
         {groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-xs text-text-muted">
-            <p>No messages in this thread.</p>
-            <p className="mt-1 text-[11px] opacity-70">De berichten worden bij de volgende synchronisatie geladen.</p>
+            <p>No messages in this thread yet.</p>
+            <p className="mt-1 text-[11px] opacity-70">
+              {thread.channel === 'email'
+                ? 'New email will appear after the next mailbox sync.'
+                : 'Send a message or wait for the agent to post an update.'}
+            </p>
           </div>
         ) : (
           groups.map((group) => (
@@ -534,13 +944,19 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   {group.label}
                 </span>
               </div>
-              {group.entries.map((entry) => (
+              {group.entries.map((entry, index) => {
+                const prev = index > 0 ? group.entries[index - 1] : null
+                const showTime =
+                  !prev || formatHourMinute(prev.time) !== formatHourMinute(entry.time)
+                return (
                 <div key={entry.id} className="mb-3">
-                  <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
-                    <span className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40">
-                      {formatHourMinute(entry.time)}
-                    </span>
-                  </div>
+                  {showTime ? (
+                    <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
+                      <span className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40">
+                        {formatHourMinute(entry.time)}
+                      </span>
+                    </div>
+                  ) : null}
                   {entry.kind === 'message' ? (
                     entry.data.kind === 'decision_request' ? (
                       <DecisionRequestMessage
@@ -548,6 +964,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                         threadId={thread.id}
                         events={detail.events}
                         onResolved={onDecisionResolved}
+                        onEditDraft={(draft) => {
+                          setComposerDraft({
+                            body: draft.body,
+                            subject: draft.subject,
+                            key: `${draft.decisionMessageId}-${Date.now()}`,
+                            decisionMessageId: draft.decisionMessageId,
+                          })
+                        }}
                       />
                     ) : (
                       <MessageTimelineItem
@@ -568,7 +992,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     />
                   )}
                 </div>
-              ))}
+                )
+              })}
             </section>
           ))
         )}
@@ -577,25 +1002,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
               <Bot size={14} />
             </span>
-            <div className="min-w-0 max-w-[82%] space-y-2">
-              <AgentSteps steps={gatewayStream.steps} />
-              <div className="rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-                {gatewayStream.streamText ? (
-                  <p className="whitespace-pre-wrap break-words">{gatewayStream.streamText}</p>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-text-muted">
-                    <Loader2 size={12} className="animate-spin" />
-                    Agent working
-                  </span>
-                )}
-              </div>
-            </div>
+            <ThinkingTrace
+              steps={gatewayStream.steps}
+              active
+              streamText={gatewayStream.streamText}
+              thinkingText={gatewayStream.thinkingText}
+            />
           </div>
         ) : null}
         </div>
         </div>
         {/* Fade overlay tegen de bovenzijde van het thread inhoud venster.
-            Volledige breedte, kleur uit het thema (light/dark via --color-bg).
+            Full width, color from the theme (light/dark via --color-bg).
             z-[5] zit onder de dagpil (z-20) en tijdpil (z-10), maar boven de
             statische berichtinhoud, zodat berichten vervagen naar boven toe. */}
         <div
@@ -611,12 +1029,32 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onNote={handleNote}
           saving={saving}
           disabled={thread.status === 'closed' || thread.status === 'spam'}
+          draftBody={composerDraft?.body ?? null}
+          draftKey={composerDraft?.key ?? null}
+          mentionExtras={mentionAgents}
           extraActions={
             onAskAssistant && isInternalThread(thread) ? (
               <Button size="sm" variant="secondary" onClick={onAskAssistant} className="gap-1.5">
                 <Sparkles size={12} />
                 Ask assistant
               </Button>
+            ) : !isInternalThread(thread) ? (
+              <div className="flex items-center gap-2">
+                {draftError ? (
+                  <span className="text-[11px] text-status-error">{draftError}</span>
+                ) : null}
+                {onAskAssistant ? (
+                  <Button size="sm" variant="ghost" onClick={onAskAssistant} className="gap-1.5 text-text-secondary">
+                    <Sparkles size={12} />
+                    Ask assistant
+                  </Button>
+                ) : null}
+                <DraftWithAiButton
+                  drafting={drafting}
+                  disabled={saving || thread.status === 'closed' || thread.status === 'spam'}
+                  onDraft={(instruction) => void handleDraftWithAi(instruction)}
+                />
+              </div>
             ) : null
           }
         />

@@ -1,9 +1,6 @@
 export const projectsRoutes = {
   list: '/projects',
   byId: (projectId: string) => `/projects/${encodeURIComponent(projectId)}`,
-  /** Worker plane (API key). */
-  budget: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/budget`,
-  /** Portal user session. */
   usageBudget: (projectId: string) =>
     `/projects/${encodeURIComponent(projectId)}/usage/budget`,
   orchestration: (projectId: string) =>

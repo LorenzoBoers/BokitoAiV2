@@ -1,5 +1,46 @@
 {
   "comingSoon": "Binnenkort",
+  "tabs": {
+    "cockpit": { "title": "Cockpit", "subtitle": "Overzicht, activiteit en verbruik" },
+    "communication": { "title": "Communicatie", "subtitle": "Chats, klant- en agentthreads" },
+    "contacts": { "title": "Contacten", "subtitle": "Mensen uit al je kanalen" },
+    "agenda": { "title": "Agenda", "subtitle": "Geplande wakes, taken en events" },
+    "agents": { "title": "Agents", "subtitle": "Je agent-workforce" },
+    "knowledge": { "title": "Kennis", "subtitle": "Documenten, skills en geheugen" },
+    "settings": { "title": "Instellingen", "subtitle": "Workspace-configuratie" }
+  },
+  "tabGroups": {
+    "control": "Control",
+    "agent": "Agent",
+    "settings": "Instellingen"
+  },
+  "palette": {
+    "placeholder": "Zoek pagina's, threads, contacten, acties...",
+    "noResults": "Geen resultaten",
+    "groupGoTo": "Ga naar",
+    "groupSessions": "Sessies",
+    "groupActions": "Acties",
+    "groupThreads": "Threads",
+    "groupContacts": "Contacten",
+    "unnamedContact": "Naamloos contact",
+    "untitledConversation": "Naamloos gesprek",
+    "newChat": "Nieuwe chat",
+    "switchToLight": "Schakel naar lichte modus",
+    "switchToDark": "Schakel naar donkere modus"
+  },
+  "topbar": {
+    "search": "Zoeken",
+    "openPalette": "Open commandopalet",
+    "openNavigation": "Open navigatie",
+    "openUserMenu": "Open gebruikersmenu",
+    "switchWorkspace": "Workspace wisselen",
+    "allWorkspaces": "Alle workspaces",
+    "current": "huidig",
+    "profile": "Profiel",
+    "notifications": "Notificaties",
+    "workspaces": "Workspaces",
+    "signOut": "Uitloggen"
+  },
   "rail": {
     "home": "Home",
     "support": "Communicatie",
@@ -264,7 +305,9 @@
       "mine": "Van mij",
       "open": "Open",
       "unassigned": "Niet toegewezen",
-      "closed": "Gesloten"
+      "snoozed": "Gesnoozed",
+      "closed": "Gesloten",
+      "spam": "Spam"
     },
     "section": {
       "inbox": "Inbox",
@@ -353,7 +396,7 @@
     "pageMeta": {
       "communication": {
         "title": "AI communicatie instellingen",
-        "description": "Configureer AI-suggesties, automatische labels en antwoordgedrag per gekoppelde mailbox."
+        "description": "Kies per kanaal hoe de AI omgaat met inkomende klantberichten: een antwoord voorstellen, direct antwoorden, of uit."
       }
     },
     "communication": {
@@ -364,30 +407,28 @@
       "saving": "Opslaan…",
       "saved": "Opgeslagen.",
       "saveError": "Opslaan mislukt.",
+      "channelDefaultsTitle": "Kanaalstandaarden",
+      "channelDefaultsDescription": "De workspace-brede AI-modus voor nieuwe inkomende klantberichten.",
+      "channelEmail": "E-mail",
+      "channelWidget": "Websitechat",
+      "modeOptions": {
+        "suggest": "Antwoorden voorstellen",
+        "auto": "Automatisch antwoorden",
+        "off": "Uit"
+      },
+      "modeHints": {
+        "suggest": "De AI stelt een antwoord op als kaart die je team kan versturen, bewerken of escaleren.",
+        "auto": "De AI antwoordt direct. Neem een gesprek over om de AI te pauzeren.",
+        "off": "Geen AI; je team behandelt elk bericht."
+      },
+      "mailboxOverrideTitle": "Uitzondering per mailbox",
+      "mailboxOverrideDescription": "Geef een specifieke mailbox een eigen AI-modus in plaats van de e-mailstandaard.",
+      "useDefault": "Workspace-standaard",
       "noMailboxTitle": "Geen actieve mailbox",
       "noMailboxDescription": "Koppel eerst een mailbox onder Instellingen om AI-communicatie per inbox te configureren.",
       "goToMailboxes": "Naar mailboxen",
       "mailboxLabel": "Mailbox",
-      "mailboxPlaceholder": "Kies een mailbox",
-      "suggestionsEnabled": "AI-suggesties in inbox",
-      "suggestionsEnabledHint": "Toon concept-suggesties en acties bij het lezen van berichten.",
-      "autoLabelEnabled": "Automatisch labelen",
-      "autoLabelEnabledHint": "Laat AI labels toekennen op basis van berichtinhoud.",
-      "autoReplyEnabled": "Automatisch antwoorden",
-      "autoReplyEnabledHint": "Verstuur antwoorden alleen bij hoge betrouwbaarheid.",
-      "autoReplyThreshold": "Minimale betrouwbaarheid",
-      "tone": "Toon",
-      "language": "Taal",
-      "toneOptions": {
-        "formeel": "Formeel",
-        "informeel": "Informeel",
-        "match": "Aansluiten op afzender"
-      },
-      "languageOptions": {
-        "nl": "Nederlands",
-        "en": "Engels",
-        "auto": "Automatisch"
-      }
+      "mailboxPlaceholder": "Kies een mailbox"
     },
     "cloudAgent": {
       "title": "Cloud agents",

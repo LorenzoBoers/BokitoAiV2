@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.inbox import InboxSettings
 from app.models.policy import AssistantPersona
-from app.models.project import Project, ProjectOrchestration
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
 
@@ -67,14 +66,21 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             created_by_type="system",
             commit=False,
         )
-    await seed_demo_project(session, tenant_id)
-    from app.services.orchestration.bootstrap import (
-        seed_demo_workstream,
-        seed_tenant_runtime_profiles,
-    )
+    # Fresh tenants stay empty: no demo project, orchestrator or workstream.
+    # Only runtime profiles (infra defaults), the assistant, docs and a
+    # disabled heartbeat trigger are seeded.
+    from app.services.orchestration.bootstrap import seed_tenant_runtime_profiles
 
-    await seed_tenant_runtime_profiles(session, tenant_id)
-    await seed_demo_workstream(session, tenant_id)
+    from sqlalchemy import select
+
+    profiles = await seed_tenant_runtime_profiles(session, tenant_id)
+    assistant = (
+        await session.execute(
+            select(Agent).where(Agent.tenant_id == tenant_id, Agent.role == "assistant").limit(1)
+        )
+    ).scalars().first()
+    if assistant and profiles.get("executor-standard"):
+        assistant.default_runtime_profile_id = profiles["executor-standard"].id
     await seed_default_triggers(session, tenant_id)
 
 
@@ -102,43 +108,6 @@ async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:
     session.add(trigger)
 
 
-async def seed_demo_project(session: AsyncSession, tenant_id: UUID) -> None:
-    """Default demo project so project hub and workforce surfaces are usable."""
-    from sqlalchemy import select
-
-    existing = await session.execute(select(Project).where(Project.tenant_id == tenant_id))
-    if existing.scalar_one_or_none():
-        return
-    orchestrator_result = await session.execute(
-        select(Agent).where(
-            Agent.tenant_id == tenant_id, Agent.role.in_(("orchestrator", "po"))
-        )
-    )
-    orchestrator = orchestrator_result.scalars().first()
-    if not orchestrator:
-        orchestrator = Agent(
-            tenant_id=tenant_id,
-            name="Demo Project Orchestrator",
-            role="orchestrator",
-            slug="orchestrator",
-            runtime_status="standby",
-            system_prompt="You are the orchestrator for the default demo project. Plan work, route agents, and keep project knowledge current.",
-        )
-        session.add(orchestrator)
-        await session.flush()
-    project = Project(
-        tenant_id=tenant_id,
-        name="Demo Project",
-        slug="demo-project",
-        description="Auto-seeded project for onboarding and local development.",
-        autonomous_scope="Explore Bokito AI OS features with a starter project.",
-        po_agent_id=orchestrator.id,
-    )
-    session.add(project)
-    await session.flush()
-    session.add(ProjectOrchestration(tenant_id=tenant_id, project_id=project.id))
-
-
 def default_tenant_settings() -> dict:
     base = {
         "appearance": {
@@ -150,6 +119,12 @@ def default_tenant_settings() -> dict:
         },
         "orchestra_enabled": False,
         "monthly_budget_cents": 0,
+        # How the AI handles inbound customer messages per channel:
+        # suggest (draft for human approval) | auto (reply directly) | off.
+        "channel_ai_modes": {
+            "email": "suggest",
+            "widget": "auto",
+        },
         "widget_capabilities": {
             "anonymous": ["qa"],
             "member": ["qa", "capture", "actions", "handoff"],

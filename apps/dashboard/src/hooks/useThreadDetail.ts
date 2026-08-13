@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
 import {
@@ -51,6 +51,18 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // Bumps whenever the open thread changes (or a new fetch starts) so in-flight
+  // responses for a previous thread cannot overwrite the current detail pane.
+  const fetchGeneration = useRef(0)
+
+  // Drop the previous conversation before paint when the route thread changes,
+  // otherwise one frame still renders the old detail under the new URL.
+  useLayoutEffect(() => {
+    fetchGeneration.current += 1
+    setRawDetail(null)
+    setError(null)
+    setLoading(Boolean(token && threadId))
+  }, [token, threadId])
 
   // `quiet` reloads (gateway-driven and post-reply reconciles) skip the loading
   // spinner and never clear the thread on transient errors, so live updates
@@ -58,14 +70,20 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
   const fetchDetail = useCallback(
     async (quiet = false) => {
       if (!token || !threadId) {
+        fetchGeneration.current += 1
         setRawDetail(null)
         setError(null)
+        setLoading(false)
         return
       }
-      if (!quiet) setLoading(true)
-      setError(null)
+      const generation = ++fetchGeneration.current
+      if (!quiet) {
+        setLoading(true)
+        setError(null)
+      }
       try {
         const result = await getThread(token, threadId)
+        if (generation !== fetchGeneration.current) return
         // Auto-mark as read when a thread is opened. The server call is
         // fire-and-forget so the UI never blocks on it; the local state already
         // reflects the read status. If the request fails the next list poll
@@ -77,12 +95,13 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
           setRawDetail(result)
         }
       } catch (err) {
+        if (generation !== fetchGeneration.current) return
         if (!quiet) {
-          setError(err instanceof Error ? err.message : 'Thread kon niet worden geladen.')
+          setError(err instanceof Error ? err.message : 'Thread could not be loaded.')
           setRawDetail(null)
         }
       } finally {
-        if (!quiet) setLoading(false)
+        if (!quiet && generation === fetchGeneration.current) setLoading(false)
       }
     },
     [token, threadId],
@@ -95,9 +114,17 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
   // Live updates for the open thread: agent replies (and any other new
   // messages/events) are published on the `signal:{id}` topic. Reload quietly
   // so an incoming agent reply appears without a manual refresh.
+  // Skip high-frequency stream events — those only drive the live ThinkingTrace.
   useEffect(() => {
     if (!token || !threadId) return
-    const unsub = onGatewayEvent(`signal:${threadId}`, () => {
+    const unsub = onGatewayEvent(`signal:${threadId}`, (event) => {
+      if (
+        event.event === 'message.delta' ||
+        event.event === 'agent.thinking' ||
+        event.event === 'agent.step'
+      ) {
+        return
+      }
       void fetchDetail(true)
     })
     return () => unsub()
@@ -122,6 +149,8 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         if (updated) {
           setRawDetail((prev) => (prev ? { ...prev, thread: updated } : prev))
         }
+      } catch (err) {
+        throw err instanceof Error ? err : new Error('Could not update thread.')
       } finally {
         setSaving(false)
       }
@@ -149,25 +178,34 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         }
         const msg = await replyToThread(token, threadId, { ...input, bodyHtml })
         if (msg) {
-          setRawDetail((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  messages: [...prev.messages, msg],
-                  thread: {
-                    ...prev.thread,
-                    lastMessageAt: msg.receivedAt,
-                    status: input.action === 'send_and_close' ? 'closed' : input.action === 'send_and_pending' ? 'pending' : prev.thread.status,
-                  },
-                }
-              : prev,
-          )
+          setRawDetail((prev) => {
+            if (!prev) return prev
+            // Gateway may have already quiet-refreshed this message while the
+            // reply HTTP was in flight — never append a duplicate.
+            const already = prev.messages.some((m) => String(m.id) === String(msg.id))
+            return {
+              ...prev,
+              messages: already ? prev.messages : [...prev.messages, msg],
+              thread: {
+                ...prev.thread,
+                lastMessageAt: msg.receivedAt ?? prev.thread.lastMessageAt,
+                status:
+                  input.action === 'send_and_close'
+                    ? 'closed'
+                    : input.action === 'send_and_pending'
+                      ? 'pending'
+                      : prev.thread.status,
+              },
+            }
+          })
         }
         // Agent threads generate a reply synchronously inside the reply
         // request; pull authoritative state so the assistant message shows.
         // The gateway event for the assistant fires while `saving` is still
         // true, so a quiet reload here guarantees it appears.
         void fetchDetail(true)
+      } catch (err) {
+        throw err instanceof Error ? err : new Error('Could not send message.')
       } finally {
         setSaving(false)
       }
@@ -184,6 +222,8 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         if (msg) {
           setRawDetail((prev) => (prev ? { ...prev, messages: [...prev.messages, msg] } : prev))
         }
+      } catch (err) {
+        throw err instanceof Error ? err : new Error('Could not save note.')
       } finally {
         setSaving(false)
       }
@@ -200,7 +240,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
       await markThreadUnread(token, threadId)
     } catch {
       setRawDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: false } } : prev))
-      throw new Error('Kon thread niet als ongelezen markeren.')
+      throw new Error('Could not mark thread as unread.')
     }
   }, [token, threadId])
 
@@ -220,7 +260,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         }
         return next
       } catch {
-        throw new Error(next ? 'Kon thread niet pinnen.' : 'Kon pin niet verwijderen.')
+        throw new Error(next ? 'Could not pin thread.' : 'Could not unpin thread.')
       }
     },
     [token, threadId],
@@ -248,7 +288,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         setRawDetail((prev) =>
           prev ? { ...prev, thread: { ...prev.thread, aiPaused: currentPaused } } : prev,
         )
-        throw new Error(next ? 'Kon thread niet overnemen.' : 'Kon AI niet hervatten.')
+        throw new Error(next ? 'Could not take over thread.' : 'Could not resume AI.')
       }
     },
     [token, threadId],

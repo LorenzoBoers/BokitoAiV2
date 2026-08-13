@@ -87,6 +87,64 @@ async def test_approve_message_executes_tool(client: AsyncClient, session_overri
 
 
 @pytest.mark.asyncio
+async def test_always_auto_sets_tool_override(client: AsyncClient, session_override):
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant, User
+    from app.services.decisions import resolve_decision_message
+    from scripts.seed import TEST_EMAIL
+
+    # Ensure seed ran (client fixture) before reading tenant/user rows.
+    await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        title="Always allow tool",
+        summary="Persist override",
+        status="awaiting_human",
+        options_json=json.dumps(
+            [
+                {
+                    "id": "approve",
+                    "label": "Approve",
+                    "action_type": "create_task",
+                    "payload": {"title": "Once"},
+                },
+                {
+                    "id": "always_auto",
+                    "label": "Always allow",
+                    "action_type": "create_task",
+                    "payload": {"title": "Always"},
+                    "always_auto": True,
+                },
+                {"id": "reject", "label": "Reject", "action_type": "reject"},
+            ]
+        ),
+    )
+    session_override.add(decision)
+    await session_override.commit()
+    await session_override.refresh(decision)
+
+    await resolve_decision_message(
+        session_override,
+        tenant.id,
+        decision.id,
+        action="approved",
+        user_id=user.id,
+        option_id="always_auto",
+    )
+    await session_override.commit()
+    await session_override.refresh(tenant)
+
+    settings = tenant_settings(tenant)
+    assert settings.get("tool_overrides", {}).get("create_task") == "allow"
+    row = (
+        await session_override.execute(select(DecisionRequest).where(DecisionRequest.id == decision.id))
+    ).scalar_one()
+    assert row.status == "approved"
+
+
+@pytest.mark.asyncio
 async def test_decision_accepts_linked_platform_change(client: AsyncClient, session_override):
     from app.models.auth import Tenant
 

@@ -52,10 +52,10 @@ export default function ThreadIndicatorMenu({
           }}
           aria-label={
             isPinned
-              ? 'Thread acties (gepind)'
+              ? 'Thread actions (pinned)'
               : hasUnread
-                ? 'Thread acties (ongelezen)'
-                : 'Thread acties'
+                ? 'Thread actions (unread)'
+                : 'Thread actions'
           }
           className={cn(
             'group/indicator mt-1.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full',
@@ -99,7 +99,7 @@ export default function ThreadIndicatorMenu({
             className="gap-2"
           >
             <MailOpen size={14} className="text-text-muted" />
-            Markeer als gelezen
+            Mark as read
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
@@ -110,7 +110,7 @@ export default function ThreadIndicatorMenu({
             className="gap-2"
           >
             <Mail size={14} className="text-text-muted" />
-            Markeer als ongelezen
+            Mark as unread
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
@@ -123,12 +123,12 @@ export default function ThreadIndicatorMenu({
           {isPinned ? (
             <>
               <PinOff size={14} className="text-text-muted" />
-              Losmaken
+              Unpin
             </>
           ) : (
             <>
               <Pin size={14} className="text-text-muted" />
-              Pinnen
+              Pin
             </>
           )}
         </DropdownMenuItem>

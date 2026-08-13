@@ -22,7 +22,13 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    # Passwordless (SSO-only) accounts store an empty hash: never matches.
+    if not hashed:
+        return False
+    try:
+        return pwd_context.verify(plain, hashed)
+    except ValueError:
+        return False
 
 
 def create_access_token(
@@ -66,7 +72,26 @@ async def get_user_membership(
     return result.scalars().first()
 
 
-async def get_tenant_for_user(session: AsyncSession, user_id: UUID) -> tuple[Tenant, Membership] | None:
+async def get_tenant_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    preferred_tenant_id: UUID | None = None,
+) -> tuple[Tenant, Membership] | None:
+    """Resolve the tenant to scope a session to.
+
+    Prefers the user's last-used workspace (when they still hold a membership
+    there); otherwise falls back to the oldest membership.
+    """
+    if preferred_tenant_id:
+        result = await session.execute(
+            select(Tenant, Membership)
+            .join(Membership, Membership.tenant_id == Tenant.id)
+            .where(Membership.user_id == user_id, Tenant.id == preferred_tenant_id)
+        )
+        row = result.first()
+        if row:
+            return row[0], row[1]
     result = await session.execute(
         select(Tenant, Membership)
         .join(Membership, Membership.tenant_id == Tenant.id)
@@ -95,13 +120,19 @@ async def ensure_single_owner(session: AsyncSession, tenant_id: UUID, exclude_me
         raise AppError("Tenant can only have one owner", code="multiple_owners")
 
 
+def _refresh_token_digest(raw_token: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
 async def create_refresh_session(session: AsyncSession, user_id: UUID) -> tuple[str, Session]:
     import secrets
 
     raw = secrets.token_urlsafe(48)
     db_session = Session(
         user_id=user_id,
-        refresh_token_hash=hash_password(raw),
+        refresh_token_hash=_refresh_token_digest(raw),
         expires_at=datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days),
     )
     session.add(db_session)
@@ -111,13 +142,17 @@ async def create_refresh_session(session: AsyncSession, user_id: UUID) -> tuple[
 
 
 async def verify_refresh_token(session: AsyncSession, raw_token: str) -> User | None:
-    result = await session.execute(select(Session).where(Session.expires_at > datetime.utcnow()))
-    sessions = result.scalars().all()
-    for db_session in sessions:
-        if verify_password(raw_token, db_session.refresh_token_hash):
-            user_result = await session.execute(select(User).where(User.id == db_session.user_id))
-            return user_result.scalar_one_or_none()
-    return None
+    result = await session.execute(
+        select(Session).where(
+            Session.refresh_token_hash == _refresh_token_digest(raw_token),
+            Session.expires_at > datetime.utcnow(),
+        )
+    )
+    db_session = result.scalars().first()
+    if not db_session:
+        return None
+    user_result = await session.execute(select(User).where(User.id == db_session.user_id))
+    return user_result.scalar_one_or_none()
 
 
 async def create_invite_token() -> str:

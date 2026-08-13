@@ -71,7 +71,7 @@ export function useThreads(
       setTotal(result.itemsTotal)
       setSyncedFilterKey(keyAtStart)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kon threads niet laden.')
+      setError(err instanceof Error ? err.message : 'Could not load threads.')
       setRawThreads([])
       setSyncedFilterKey(keyAtStart)
     } finally {

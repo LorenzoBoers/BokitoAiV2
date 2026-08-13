@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CornerDownLeft, MessageSquare, Moon, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { CornerDownLeft, Inbox, MessageSquare, Moon, Plus, User } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
-import { assistantPath } from '../../lib/messages-paths'
+import { assistantPath, inboxPath } from '../../lib/messages-paths'
+import { listSignalThreads } from '../../lib/signals-api'
+import { listContacts, type ContactRow } from '../../lib/contacts-api'
+import type { InboxThread } from '../../lib/inbox-api'
 import type { LucideIcon } from 'lucide-react'
 
 type PaletteItem = {
@@ -23,57 +28,113 @@ type CommandPaletteProps = {
 
 export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation('nav')
+  const { token } = useAuth()
   const { toggleMode, isDark } = useTheme()
   const { conversations, startNewChat } = useChatSessions()
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [threadResults, setThreadResults] = useState<InboxThread[]>([])
+  const [contactResults, setContactResults] = useState<ContactRow[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // Remote search: threads and contacts matching the typed query (debounced).
+  useEffect(() => {
+    const q = query.trim()
+    if (!token || q.length < 2) {
+      setThreadResults([])
+      setContactResults([])
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void listSignalThreads(token, { search: q, perPage: 5 })
+        .then((res) => {
+          if (!cancelled) setThreadResults(res.items)
+        })
+        .catch(() => {
+          if (!cancelled) setThreadResults([])
+        })
+      void listContacts(token, { search: q })
+        .then((rows) => {
+          if (!cancelled) setContactResults(rows.slice(0, 5))
+        })
+        .catch(() => {
+          if (!cancelled) setContactResults([])
+        })
+    }, 200)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [token, query])
 
   const items = useMemo<PaletteItem[]>(() => {
     const nav: PaletteItem[] = TAB_GROUPS.flatMap((group) =>
       group.tabs.map((tab) => ({
         id: `nav-${tab}`,
-        label: titleForTab(tab),
-        hint: subtitleForTab(tab),
-        group: 'Go to',
+        label: t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) }),
+        hint: t(`tabs.${tab}.subtitle`, { defaultValue: subtitleForTab(tab) }),
+        group: t('palette.groupGoTo'),
         icon: iconForTab(tab),
         run: () => navigate(pathForTab(tab)),
       })),
     )
     const sessions: PaletteItem[] = conversations.slice(0, 8).map((c) => ({
       id: `session-${c.id}`,
-      label: c.title || 'Untitled conversation',
-      group: 'Sessions',
+      label: c.title || t('palette.untitledConversation'),
+      group: t('palette.groupSessions'),
       icon: MessageSquare,
       run: () => navigate(assistantPath(c.id)),
     }))
     const actions: PaletteItem[] = [
       {
         id: 'action-new-chat',
-        label: 'New chat',
-        group: 'Actions',
+        label: t('palette.newChat'),
+        group: t('palette.groupActions'),
         icon: Plus,
         run: () => startNewChat(),
       },
       {
         id: 'action-theme',
-        label: isDark ? 'Switch to light mode' : 'Switch to dark mode',
-        group: 'Actions',
+        label: isDark ? t('palette.switchToLight') : t('palette.switchToDark'),
+        group: t('palette.groupActions'),
         icon: Moon,
         run: () => toggleMode(),
       },
     ]
     return [...nav, ...sessions, ...actions]
-  }, [conversations, navigate, startNewChat, toggleMode, isDark])
+  }, [conversations, navigate, startNewChat, toggleMode, isDark, t])
+
+  const remoteItems = useMemo<PaletteItem[]>(() => {
+    const threads: PaletteItem[] = threadResults.map((thread) => ({
+      id: `thread-${thread.id}`,
+      label: thread.emailSubject || t('palette.untitledConversation'),
+      hint: thread.contactName || thread.contactEmail || undefined,
+      group: t('palette.groupThreads'),
+      icon: Inbox,
+      run: () => navigate(inboxPath('all', String(thread.id))),
+    }))
+    const contacts: PaletteItem[] = contactResults.map((contact) => ({
+      id: `contact-${contact.id}`,
+      label: contact.displayName || contact.address || t('palette.unnamedContact'),
+      hint: contact.address || undefined,
+      group: t('palette.groupContacts'),
+      icon: User,
+      run: () => navigate(`/contacts/${contact.id}`),
+    }))
+    return [...threads, ...contacts]
+  }, [threadResults, contactResults, navigate, t])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
-    return items.filter(
+    const local = items.filter(
       (item) => item.label.toLowerCase().includes(q) || item.hint?.toLowerCase().includes(q),
     )
-  }, [items, query])
+    return [...local, ...remoteItems]
+  }, [items, remoteItems, query])
 
   useEffect(() => {
     if (open) {
@@ -136,12 +197,12 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Search pages, sessions, actions..."
+          placeholder={t('palette.placeholder')}
           className="w-full border-b border-border/60 bg-transparent px-4 py-3.5 text-[14px] text-text-primary placeholder:text-text-muted focus:outline-none"
         />
         <div ref={listRef} className="max-h-[340px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[13px] text-text-muted">No results</p>
+            <p className="px-3 py-6 text-center text-[13px] text-text-muted">{t('palette.noResults')}</p>
           ) : (
             filtered.map((item, index) => {
               const showGroup = item.group !== lastGroup

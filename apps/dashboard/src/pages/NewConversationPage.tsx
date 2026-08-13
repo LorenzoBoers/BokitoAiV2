@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowUp, Bot, Check, ChevronDown, Loader2, Mail, Sparkles, Users } from 'lucide-react'
+import { ArrowUp, Bot, Check, ChevronDown, Loader2, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
 import {
@@ -213,27 +213,6 @@ export default function NewConversationPage() {
                       </button>
                     ))
                   )}
-                  {/* Coming soon rows: make the wider mental model visible early. */}
-                  <div className="mt-1 border-t border-border/40 pt-1">
-                    <div className="flex w-full cursor-not-allowed items-center gap-2.5 rounded-lg px-2.5 py-2 opacity-50" title="Coming soon">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-text-muted">
-                        <Mail size={12} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[12.5px] text-text-primary">Send email</span>
-                        <span className="block text-[10.5px] text-text-muted">Coming soon</span>
-                      </span>
-                    </div>
-                    <div className="flex w-full cursor-not-allowed items-center gap-2.5 rounded-lg px-2.5 py-2 opacity-50" title="Coming soon">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-text-muted">
-                        <Users size={12} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[12.5px] text-text-primary">Teammate chat</span>
-                        <span className="block text-[10.5px] text-text-muted">Coming soon</span>
-                      </span>
-                    </div>
-                  </div>
                 </div>
               </div>
             ) : null}
@@ -249,20 +228,6 @@ export default function NewConversationPage() {
               <Sparkles size={11} />
               Message an agent
             </button>
-            <span
-              title="Coming soon"
-              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border/50 bg-bg-surface/40 px-2.5 py-1 text-[11.5px] text-text-muted opacity-60"
-            >
-              <Mail size={11} />
-              Send email
-            </span>
-            <span
-              title="Coming soon"
-              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border/50 bg-bg-surface/40 px-2.5 py-1 text-[11.5px] text-text-muted opacity-60"
-            >
-              <Users size={11} />
-              Teammate
-            </span>
           </div>
 
           {/* Composer */}

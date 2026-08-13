@@ -17,7 +17,7 @@ export async function listStaffTenants(token?: string): Promise<StaffTenantOptio
     headers: buildAuthHeaders(resolved, false),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Onbekende fout' }))
+    const err = await res.json().catch(() => ({ message: 'Unknown error' }))
     const message =
       typeof err === 'object' && err && 'error' in err && typeof (err as { error?: { message?: string } }).error?.message === 'string'
         ? (err as { error: { message: string } }).error.message

@@ -1,5 +1,7 @@
 """Unified SENSING endpoints (Signal model) with inbox-parity for Messages hub."""
 
+import json
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -9,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
+from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.services import signal_threads as svc
 from app.services.interpretation import triage_signal
@@ -33,6 +36,14 @@ class ThreadPatch(BaseModel):
     tags: list[str] | None = None
     priority: str | None = None
     project_id: UUID | None = None
+    # Set a wake time to snooze (status flips to pending); null clears it.
+    snoozed_until: datetime | None = None
+
+
+class BulkBody(BaseModel):
+    signal_ids: list[UUID]
+    action: str  # close | reopen | spam | read | unread | assign
+    assignee_id: int | None = None
 
 
 class ReplyBody(BaseModel):
@@ -40,11 +51,19 @@ class ReplyBody(BaseModel):
     body_html: str | None = None
     action: str = "send"
     attachments: list[dict] | None = None
+    # For action=send_and_pending: optional snooze duration (wake time).
+    snooze_minutes: int | None = None
 
 
 class NoteBody(BaseModel):
     body_text: str
     attachments: list[dict] | None = None
+
+
+class DraftBody(BaseModel):
+    """Optional operator guidance for the AI draft (e.g. 'decline politely')."""
+
+    instruction: str = ""
 
 
 class NotePatchBody(BaseModel):
@@ -53,6 +72,12 @@ class NotePatchBody(BaseModel):
 
 class ResolveBody(BaseModel):
     action: str
+    option_id: str | None = None
+    body: str | None = None
+    body_text: str | None = None
+    body_html: str | None = None
+    subject: str | None = None
+    response_text: str | None = None
 
 
 def _num(auth: AuthContext) -> int:
@@ -76,6 +101,9 @@ async def ingest_inbound_signal(
         contact_name=body.contact_name,
         external_id=body.external_id,
     )
+    from app.workers.tasks import enqueue_signal_processing
+
+    await enqueue_signal_processing(str(auth.tenant.id), str(signal.id))
     return serialize_signal(signal)
 
 
@@ -93,6 +121,107 @@ async def list_members(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await svc.list_members(session, auth.tenant.id)
+
+
+class SavedReplyBody(BaseModel):
+    title: str
+    body_text: str
+
+
+@router.get("/saved-replies")
+async def list_saved_replies(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from sqlalchemy import select
+
+    from app.models.signal import SavedReply
+
+    result = await session.execute(
+        select(SavedReply)
+        .where(SavedReply.tenant_id == auth.tenant.id)
+        .order_by(SavedReply.title)
+    )
+    return [
+        {
+            "id": str(row.id),
+            "title": row.title,
+            "body_text": row.body_text,
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+        for row in result.scalars().all()
+    ]
+
+
+@router.post("/saved-replies")
+async def create_saved_reply(
+    body: SavedReplyBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.models.signal import SavedReply
+
+    title = body.title.strip()
+    text = body.body_text.strip()
+    if not title or not text:
+        raise HTTPException(status_code=400, detail="Title and body are required")
+    row = SavedReply(
+        tenant_id=auth.tenant.id,
+        title=title[:120],
+        body_text=text,
+        created_by_user_id=auth.user.id,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return {"id": str(row.id), "title": row.title, "body_text": row.body_text}
+
+
+@router.patch("/saved-replies/{reply_id}")
+async def update_saved_reply(
+    reply_id: UUID,
+    body: SavedReplyBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from sqlalchemy import select
+
+    from app.models.signal import SavedReply
+
+    result = await session.execute(
+        select(SavedReply).where(SavedReply.id == reply_id, SavedReply.tenant_id == auth.tenant.id)
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Saved reply not found")
+    row.title = body.title.strip()[:120] or row.title
+    row.body_text = body.body_text.strip() or row.body_text
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return {"id": str(row.id), "title": row.title, "body_text": row.body_text}
+
+
+@router.delete("/saved-replies/{reply_id}")
+async def delete_saved_reply(
+    reply_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from sqlalchemy import select
+
+    from app.models.signal import SavedReply
+
+    result = await session.execute(
+        select(SavedReply).where(SavedReply.id == reply_id, SavedReply.tenant_id == auth.tenant.id)
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Saved reply not found")
+    await session.delete(row)
+    await session.commit()
+    return {"ok": True}
 
 
 @router.get("/sync-status")
@@ -175,6 +304,8 @@ async def patch_signal(
     updates = body.model_dump(exclude_unset=True)
     project_id_set = "project_id" in updates
     project_id = updates.pop("project_id", None)
+    snoozed_until_set = "snoozed_until" in updates
+    snoozed_until = updates.pop("snoozed_until", None)
     thread = await svc.patch_thread(
         session,
         auth.tenant.id,
@@ -187,10 +318,29 @@ async def patch_signal(
         priority=updates.get("priority"),
         project_id=project_id,
         project_id_set=project_id_set,
+        snoozed_until=snoozed_until,
+        snoozed_until_set=snoozed_until_set,
     )
     if not thread:
         raise HTTPException(status_code=404, detail="Signal not found")
     return thread
+
+
+@router.post("/bulk")
+async def bulk_update(
+    body: BulkBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Bulk operator actions on threads (close/reopen/spam/read/unread/assign)."""
+    return await svc.bulk_update_threads(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        signal_ids=body.signal_ids,
+        action=body.action,
+        assignee_id=body.assignee_id,
+    )
 
 
 @router.delete("/{signal_id}")
@@ -250,10 +400,192 @@ async def reply(
         body_html=body.body_html,
         action=body.action,
         attachments=body.attachments,
+        snooze_minutes=body.snooze_minutes,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")
     return message
+
+
+@router.post("/{signal_id}/draft")
+async def draft_reply(
+    signal_id: UUID,
+    body: DraftBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Draft a reply with AI on demand (one tool-less agent turn over the thread).
+
+    Returns the draft text for the composer; nothing is sent or persisted.
+    """
+    from sqlalchemy import select
+
+    from app.models.signal import Signal
+    from app.services.agent.loop import AgentLoop
+    from app.services.assistant_threads import signal_chat_history
+    from app.services.routing import resolve_agent_for_signal
+
+    result = await session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == auth.tenant.id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+
+    agent = await resolve_agent_for_signal(session, signal)
+    if not agent:
+        raise HTTPException(status_code=409, detail="No active agent for this workspace")
+
+    history = await signal_chat_history(session, signal.id)
+    instruction = (
+        "Draft a concise, professional reply to the latest customer message in this thread. "
+        "Return only the reply body text (no meta-commentary)."
+    )
+    extra = (body.instruction or "").strip()
+    if extra:
+        instruction += f"\nOperator guidance: {extra}"
+
+    loop = AgentLoop(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        agent=agent,
+        signal_id=signal.id,
+    )
+    loop.tools = []
+    draft_text, tokens = await loop.run_chat(
+        [*history, {"role": "user", "content": instruction}]
+    )
+    return {"draft": (draft_text or "").strip(), "usage": tokens}
+
+
+class InvokeAgentBody(BaseModel):
+    agent_id: UUID
+    instruction: str = ""
+    output: str = "note"  # note | reply_suggestion
+
+
+@router.post(
+    "/{signal_id}/invoke-agent",
+    dependencies=[Depends(rate_limit("invoke-agent", limit=20))],
+)
+async def invoke_agent(
+    signal_id: UUID,
+    body: InvokeAgentBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Invoke an agent inline on a thread (via @agent mention or explicit ask).
+
+    The agent gets the thread transcript plus the operator's instruction. Its
+    output lands as an internal note for the team, or as a reply suggestion
+    (decision card) when `output=reply_suggestion`.
+    """
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+    from app.models.signal import Signal
+    from app.services.agent.loop import AgentLoop
+    from app.services.assistant_threads import signal_chat_history
+
+    result = await session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == auth.tenant.id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+
+    agent_result = await session.execute(
+        select(Agent).where(Agent.id == body.agent_id, Agent.tenant_id == auth.tenant.id)
+    )
+    agent = agent_result.scalar_one_or_none()
+    if not agent or not agent.is_active:
+        raise HTTPException(status_code=404, detail="Agent not found or inactive")
+
+    history = await signal_chat_history(session, signal.id)
+    operator = (body.instruction or "").strip()
+    if body.output == "reply_suggestion":
+        instruction = (
+            "A teammate asked you to draft a reply to the customer in this thread. "
+            "Return only the reply body text (no meta-commentary)."
+        )
+    else:
+        instruction = (
+            "A teammate invoked you on this conversation. Help them: answer their "
+            "question, look things up, or propose next steps. Reply as a concise "
+            "internal note for the team (the customer will not see it)."
+        )
+    if operator:
+        instruction += f"\nTeammate's request: {operator}"
+
+    loop = AgentLoop(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        agent=agent,
+        signal_id=signal.id,
+    )
+    reply_text, tokens = await loop.run_chat(
+        [*history, {"role": "user", "content": instruction}]
+    )
+    text = (reply_text or "").strip() or "No output produced."
+
+    if body.output == "reply_suggestion":
+        from app.services.inbound_agent import create_reply_suggestion
+
+        outcome = await create_reply_suggestion(
+            session, auth.tenant.id, signal, agent, reply_text=text
+        )
+        return {"output": "reply_suggestion", "usage": tokens, **outcome}
+
+    from app.gateway.publish import publish_signal_message
+    from app.models.signal import SignalEvent, SignalMessage
+
+    now = datetime.utcnow()
+    message = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=auth.tenant.id,
+        kind="internal_note",
+        direction="internal",
+        role="assistant",
+        author_agent_id=agent.id,
+        from_address="",
+        to_addresses="",
+        subject=signal.subject,
+        body_text=text,
+        body_preview=text[:200],
+        body_html=f"<p>{text}</p>",
+        metadata_json=json.dumps(
+            {
+                "usage": tokens,
+                "steps": list(loop.trace_steps),
+                "invoked_by_user_id": str(auth.user.id),
+                "agent_name": agent.name,
+            }
+        ),
+        received_at=now,
+    )
+    session.add(message)
+    signal.updated_at = now
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=auth.tenant.id,
+            event_type="agent_invoked",
+            actor_type="user",
+            actor_id=str(auth.user.id),
+            payload_json=json.dumps({"agent_id": str(agent.id), "agent_name": agent.name}),
+        )
+    )
+    await session.commit()
+    await session.refresh(message)
+    await publish_signal_message(signal, message)
+    return {
+        "output": "note",
+        "usage": tokens,
+        "message": svc.serialize_message(message),
+    }
 
 
 @router.post("/{signal_id}/takeover")
@@ -389,6 +721,11 @@ async def resolve_decision(
         signal_id,
         message_id,
         action=body.action,
+        option_id=body.option_id,
+        body=body.body or body.body_text,
+        body_html=body.body_html,
+        subject=body.subject,
+        response_text=body.response_text,
     )
 
 

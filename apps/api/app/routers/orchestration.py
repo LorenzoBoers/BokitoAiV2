@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.dependencies import AuthContext, get_current_auth
+from app.dependencies import AuthContext, get_current_auth, tenant_settings
 from app.models.agent import AgentRun, RunEvent
 from app.models.orchestration import AgentTask, RuntimeProfile, TaskArtifact
 from app.models.orchestra import Workstream, WorkstreamStep
@@ -49,8 +49,14 @@ class AgentTaskCreate(BaseModel):
     project_id: UUID | None = None
     workstream_id: UUID | None = None
     agent_id: UUID | None = None
+    signal_id: UUID | None = None
     default_runtime_profile_id: UUID | None = None
     success_criteria_json: str = "{}"
+
+
+class WorkstreamCreate(BaseModel):
+    name: str
+    description: str = ""
 
 
 class WorkstreamStepCreate(BaseModel):
@@ -58,7 +64,6 @@ class WorkstreamStepCreate(BaseModel):
     order: int = 0
     agent_id: UUID | None = None
     runtime_profile_id: UUID | None = None
-    agent_profile_id: UUID | None = None
     step_kind: str = "agent"
     prompt_template: str = ""
     handoff_template: str = ""
@@ -135,6 +140,7 @@ async def create_task(
         project_id=body.project_id,
         workstream_id=body.workstream_id,
         agent_id=body.agent_id,
+        signal_id=body.signal_id,
         default_runtime_profile_id=body.default_runtime_profile_id,
         success_criteria_json=body.success_criteria_json,
         created_by=auth.user.id,
@@ -198,8 +204,6 @@ async def resume_task(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     task = await resume_agent_task(session, auth.tenant.id, task_id)
-    if not await enqueue_agent_task_segment(str(auth.tenant.id), str(task.id)):
-        await run_agent_task_segment(session, auth.tenant.id, task.id)
     return serialize_agent_task(task)
 
 
@@ -228,13 +232,71 @@ async def list_artifacts(
     ]
 
 
+@router.get("/settings")
+async def orchestration_settings(auth: Annotated[AuthContext, Depends(get_current_auth)]):
+    settings = tenant_settings(auth.tenant)
+    return {
+        "orchestra_enabled": settings.get("orchestra_enabled", False),
+        "monthly_budget_cents": settings.get("monthly_budget_cents", 0),
+    }
+
+
+@router.get("/workstreams")
+async def list_workstreams(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    rows = (
+        await session.execute(
+            select(Workstream).where(Workstream.tenant_id == auth.tenant.id).order_by(Workstream.name)
+        )
+    ).scalars().all()
+    return [
+        {"id": str(w.id), "name": w.name, "description": w.description, "enabled": w.enabled}
+        for w in rows
+    ]
+
+
+@router.post("/workstreams")
+async def create_workstream(
+    body: WorkstreamCreate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    ws = Workstream(tenant_id=auth.tenant.id, **body.model_dump())
+    session.add(ws)
+    await session.commit()
+    await session.refresh(ws)
+    return {"id": str(ws.id)}
+
+
 @router.post("/workstreams/{workstream_id}/run")
 async def run_workstream(
     workstream_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    first_step = (
+        await session.execute(
+            select(WorkstreamStep)
+            .where(
+                WorkstreamStep.workstream_id == workstream_id,
+                WorkstreamStep.tenant_id == auth.tenant.id,
+            )
+            .order_by(WorkstreamStep.order)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if not first_step:
+        raise HTTPException(
+            status_code=400,
+            detail="Add at least one step before running this workstream.",
+        )
     task = await start_workstream_as_task(session, auth.tenant.id, workstream_id, trigger_type="manual")
+    if not await enqueue_agent_task_segment(str(auth.tenant.id), str(task.id)):
+        await run_agent_task_segment(session, auth.tenant.id, task.id)
+        await session.refresh(task)
     return serialize_agent_task(task)
 
 
@@ -287,6 +349,30 @@ async def create_workstream_step(
     await session.commit()
     await session.refresh(step)
     return {"id": str(step.id)}
+
+
+@router.delete("/workstreams/{workstream_id}/steps/{step_id}")
+async def delete_workstream_step(
+    workstream_id: UUID,
+    step_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    step = (
+        await session.execute(
+            select(WorkstreamStep).where(
+                WorkstreamStep.id == step_id,
+                WorkstreamStep.workstream_id == workstream_id,
+                WorkstreamStep.tenant_id == auth.tenant.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not step:
+        raise HTTPException(status_code=404, detail="Step not found")
+    await session.delete(step)
+    await session.commit()
+    return {"ok": True}
 
 
 @router.get("/runs/{run_id}/events")

@@ -174,6 +174,12 @@ async def ingest_inbound(
             )
         )
         created = True
+        if inbound.channel == "email":
+            # Labels + assignee from the mailbox routing rules (same behavior
+            # as manually created inbound signals).
+            from app.services.signals import apply_email_routing
+
+            await apply_email_routing(session, tenant_id, signal)
 
     message = SignalMessage(
         signal_id=signal.id,

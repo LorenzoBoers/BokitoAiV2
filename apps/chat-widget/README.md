@@ -2,9 +2,8 @@
 
 ## Deploy artifact (source of truth)
 
-- **Production script:** run `npm run build` in this folder; Vite emits **`dist/bokito-chat.js`** (IIFE: stream-chat SSE, attachments, voice, settings, Happy Bokito launcher, etc.). Static files from **`public/`** (for example `css/`, `assets/`) are copied into `dist/`. This bundle is what FastAPI static hosting and `/api/livechat/script/main` should serve (merged into the portal zip by root `deploy.ps1`).
-- **Source:** [`src/widget-main.ts`](./src/widget-main.ts) (bootstrap in [`src/index.ts`](./src/index.ts)); livechat URL helpers live under [`src/api/`](./src/api/).
-- **Legacy / alternate:** [`js/chat-module.js`](./js/chat-module.js) — smaller, older build. Do **not** use for new integrations unless you explicitly maintain that path. Prefer the Vite bundle for parity with the mobile app and current backend.
+- **Production script:** run `npm run build` in this folder; Vite emits **`dist/bokito-chat.js`** (IIFE: stream-chat SSE, attachments, optional voice, settings, Happy Bokito launcher, etc.). Static files from **`public/`** (for example `css/`, `assets/`) are copied into `dist/`. In production Caddy serves the bundle at **`/chat-widget/bokito-chat.js`** (copied into the dashboard image from `apps/chat-widget/dist`).
+- **Source:** [`src/widget-main.ts`](./src/widget-main.ts); livechat URL helpers and route constants live under [`src/api/`](./src/api/).
 
 ## Shared branding
 
@@ -25,40 +24,48 @@ This runs **Vite** on `http://127.0.0.1:8787` and opens your **system default br
 
 **Cursor / VS Code Simple Browser:** opening `http://localhost:8787` in the built-in Simple Browser tab often shows a **blank white page** even when the server is fine (webview / localhost quirks). Use the browser window that `npm run dev` opens, or open the same URL manually in Chrome or Edge.
 
-**Dashboard dev:** the portal Vite server serves `/chat-widget/*` from **`apps/chat-widget/dist/`** only, mapping both `/chat-widget/internal/*` and `/chat-widget/external/*` onto the same files. Build the widget (`npm run build` here) before loading `/chat-widget/internal/bokito-chat.js` or `/chat-widget/external/bokito-chat.js` from the dashboard.
+**Dashboard dev:** the portal Vite server serves `/chat-widget/*` from **`apps/chat-widget/dist/`**. Build the widget (`npm run build` here) before loading `/chat-widget/bokito-chat.js` from the dashboard (for example the Messenger settings preview).
 
 **Alternative:** any static server works (for example `npx serve -l 8787` pointed at `dist/`), then open the URL in an external browser.
 
-- [`index.html`](./index.html) — hub with links to all local demos.
+- [`index.html`](./index.html) — hub with a link to the local demo.
 - [`chat-standalone.html`](./chat-standalone.html) loads `/bokito-chat.js` like a real embed (after a local build).
 
 ## Livechat stream endpoints (optional)
 
-If FastAPI `session/start` returns `agent_config.stream_chat_path` / `stream_chat_continue_path` (each must match `[a-zA-Z0-9_-]{1,64}`), the widget POSTs to those paths under `/api/livechat/` instead of `stream-chat` / `stream-chat-continue`. Defaults apply when omitted. See `BOKITO_KNOWLEDGE.md` (livechat dual pipeline).
+If FastAPI `session/start` returns `agent_config.stream_chat_path` / `stream_chat_continue_path` (each must match `[a-zA-Z0-9_-]{1,64}`), the widget POSTs to those paths under `/api/livechat/` instead of `stream-chat` / `stream-chat-continue`. Defaults apply when omitted.
 
-Optional `agent_config.transcribe_path` overrides the default `POST /api/livechat/transcribe` used after voice recording (server-side faster-whisper proxy; see `BOKITO_KNOWLEDGE.md` and `apps/asr-service/`).
+Voice input is **off by default**: the mic button only appears when `agent_config.transcribe_path` is set (the core livechat API has no transcribe endpoint).
+
+## Programmatic API
+
+The `<bokito-chat>` element exposes a small host-facing API, mirroring common chat widgets:
+
+- `el.open()` / `el.close()` / `el.toggle()` — control the chat window.
+- `el.identify(identityToken)` — elevate an anonymous session to a known user.
+- `el.logout()` — drop the widget's own session (the host owns real auth).
+
+The shadow root is **open** so host pages and E2E tooling (Playwright) can reach the internals; all styles remain scoped to the shadow tree.
 
 ## Multi-tenant auth flow
 
 The widget supports tenant/user-aware auth bootstrapping:
 
+- **Explicit tenant:** set `data-tenant="my-tenant"` (or `window.BokitoConfig.tenant`) to pin the tenant on customer domains; this wins over host-based resolution.
 - **Host auth cookie:** set `data-auth-cookie-name="host_auth_cookie"` and the widget reads `document.cookie` to forward `host_auth_token` in `POST /api/livechat/session/start`.
 - **Host subdomain routing:** on tenant hosts like `foo.bokito.ai`, the widget forwards `tenant_subdomain: "foo"` in `POST /api/livechat/session/start` so backend tenant resolution can stay host-driven.
 - **Direct token handoff:** set `data-auth-token` or `window.BokitoConfig.authToken`.
 - **Dynamic token handoff:** set `window.BokitoConfig.getAuthToken = async () => token`.
 - **Auth mode override:** set `data-auth-mode="anonymous|optional|required"` (fallback to backend `agent_config.auth_mode`).
 
-### Login fallback
+### Sign-in handling
 
-When auth is required and no valid token is available, the widget shows an in-widget login form and calls:
-
-- `POST /api/livechat/auth/login` with `{ email, password, agent_slug, session_token? }`
-- `POST /api/livechat/auth/logout` to invalidate the current session
+The widget never collects credentials itself; the **host platform owns authentication**. When auth is required and no valid token is available, the widget shows a "Sign in required" panel with an optional link to the host's sign-in page (`agent_config.login_url` or `data-signin-url`).
 
 The widget emits:
 
 - `bokito:login-required` when host-side auth is needed
-- `bokito:authenticated` after a successful login/token handoff
+- `bokito:authenticated` after a successful token handoff
 
 ### Preferences sync
 

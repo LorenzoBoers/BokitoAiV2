@@ -38,7 +38,7 @@ interface WorkspaceContextValue {
   deleteWorkspace: (id: number | string) => Promise<void>;
   switchWorkspace: (workspaceId: number | string) => Promise<void>;
   
-  inviteUser: (email: string, role: 'admin' | 'member' | 'viewer') => Promise<void>;
+  inviteUser: (email: string, role: 'admin' | 'member') => Promise<void>;
   loadInvites: () => Promise<void>;
   
   refreshWorkspaces: () => Promise<void>;
@@ -47,7 +47,7 @@ interface WorkspaceContextValue {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const { user, token } = useAuth();
+  const { user, token, switchWorkspaceTenant, adoptWorkspaceSession } = useAuth();
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
@@ -277,16 +277,27 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
     const fallbackSubdomain = normalizeSubdomainCandidate(data.name || 'workspace');
     const normalizedSubdomain = normalizeSubdomainCandidate(data.subdomain || fallbackSubdomain).slice(0, 63);
-    const workspace = await appScopedPost<Workspace>(appRoutes.workspaces.list, { ...data, subdomain: normalizedSubdomain }, token);
-    setWorkspaces(prev => [...prev, workspace]);
-    setCurrentWorkspace(workspace);
+    const workspace = await appScopedPost<Workspace & { session?: { access_token?: string } }>(
+      appRoutes.workspaces.list,
+      { ...data, subdomain: normalizedSubdomain },
+      token,
+    );
     try {
       localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, String(workspace.id));
     } catch {
       // Ignore storage failures.
     }
+    const sessionToken = workspace.session?.access_token;
+    if (sessionToken) {
+      // Backend issued a JWT scoped to the new workspace; adopt it and do a
+      // full reload so the whole app lands in the fresh tenant.
+      adoptWorkspaceSession(sessionToken);
+      return workspace;
+    }
+    setWorkspaces(prev => [...prev, workspace]);
+    setCurrentWorkspace(workspace);
     return workspace;
-  }, [token]);
+  }, [adoptWorkspaceSession, token]);
 
   const updateWorkspace = useCallback(async (id: number | string, data: Partial<Workspace>) => {
     if (!token) throw new Error('Not authenticated');
@@ -328,15 +339,25 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const workspace = workspaces.find(w => workspaceIdKey(w.id) === workspaceIdKey(workspaceId));
-    if (workspace) {
-      setCurrentWorkspace(workspace);
-      // Store preference in localStorage
-      localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(workspaceId));
+    const targetKey = workspaceIdKey(workspaceId);
+    const workspace = workspaces.find(w => workspaceIdKey(w.id) === targetKey);
+    if (!workspace) return;
+    try {
+      localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, targetKey);
+    } catch {
+      // Ignore storage failures.
     }
-  }, [workspaces, workspaceIdKey]);
+    // The JWT is the source of truth for the active tenant. If the target
+    // matches the token's tenant, only local state needs updating; otherwise
+    // ask the backend for a workspace-scoped token and fully reload.
+    if (user?.organisationId && workspaceIdKey(user.organisationId) === targetKey) {
+      setCurrentWorkspace(workspace);
+      return;
+    }
+    await switchWorkspaceTenant(targetKey);
+  }, [switchWorkspaceTenant, user?.organisationId, workspaces, workspaceIdKey]);
 
-  const inviteUser = useCallback(async (email: string, role: 'admin' | 'member' | 'viewer') => {
+  const inviteUser = useCallback(async (email: string, role: 'admin' | 'member') => {
     if (!token || !currentWorkspace) throw new Error('Not authenticated or no workspace');
     
     await appScopedPost(appRoutes.workspaceInvites.create, {

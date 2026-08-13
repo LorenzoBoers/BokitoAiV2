@@ -185,12 +185,17 @@ export async function listMcpIntegrationRows(
 
 export async function installMcpConnection(input: InstallMcpConnectionInput): Promise<void> {
   const mcpServerId = MCP_PROVIDER_SERVER_IDS[input.provider]
+  const auth =
+    input.auth_type === 'bearer' && input.api_key
+      ? { bearer_token: input.api_key, auth_type: 'bearer' }
+      : undefined
   await installMcpIntegration({
     provider: input.provider,
     api_key: input.api_key,
     display_name: input.display_name,
     server_url: input.server_url,
     auth_type: input.auth_type,
+    ...(auth ? { auth } : {}),
     ...(mcpServerId != null ? { mcp_server_id: mcpServerId } : {}),
   })
 }

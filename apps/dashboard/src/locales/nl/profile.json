@@ -31,7 +31,7 @@
   },
   "security": {
     "title": "Beveiliging",
-    "description": "Beheer je wachtwoord en tweefactorauthenticatie.",
+    "description": "Beheer het wachtwoord van je account.",
     "passwordTitle": "Wachtwoord",
     "passwordDescription": "Wijzig het wachtwoord van je account.",
     "changePassword": "Wachtwoord wijzigen",
@@ -40,10 +40,7 @@
     "confirmPassword": "Bevestig nieuw wachtwoord",
     "passwordMismatch": "Wachtwoorden komen niet overeen",
     "passwordSuccess": "Wachtwoord gewijzigd",
-    "cancel": "Annuleren",
-    "twoFactorTitle": "Tweefactorauthenticatie",
-    "twoFactorDescription": "Voeg een extra beveiligingslaag toe. Momenteel niet beschikbaar.",
-    "twoFactorComingSoon": "Binnenkort beschikbaar"
+    "cancel": "Annuleren"
   },
   "account": {
     "title": "Account",
@@ -51,7 +48,10 @@
     "signOutTitle": "Uitloggen",
     "signOutDescription": "Log uit van je huidige sessie op dit apparaat.",
     "deleteTitle": "Account verwijderen",
-    "deleteDescription": "Verwijder je account en alle gekoppelde data permanent. Dit kan niet ongedaan worden gemaakt."
+    "deleteDescription": "Verwijder je account en alle gekoppelde data permanent. Dit kan niet ongedaan worden gemaakt.",
+    "deleteConfirm": "Je account permanent verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "deletePasswordPrompt": "Voer je wachtwoord in om verwijdering te bevestigen:",
+    "deleting": "Verwijderen..."
   },
   "links": {
     "openInboxSettings": "Open inbox-instellingen"

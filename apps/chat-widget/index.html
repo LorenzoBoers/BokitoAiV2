@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bokito chat-widget — lokaal</title>
+  <title>Bokito chat widget — local dev</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -41,47 +41,24 @@
       line-height: 1.55;
     }
     code { font-size: 12px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; }
-    .cursor-note {
-      margin-bottom: 22px;
-      padding: 12px 14px;
-      font-size: 13px;
-      line-height: 1.5;
-      color: #334155;
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 10px;
-    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Bokito chat-widget</h1>
-    <p class="cursor-note">
-      <strong>Cursor Simple Browser</strong> laat bij <code>http://localhost:8787</code> vaak een wit scherm zien (bekende webview-beperking).
-      Start hier <code>npm install</code> en <code>npm run dev</code>: Vite opent je <strong>normale browser</strong> (Chrome/Edge) waar alles wel werkt, inclusief calls naar FastAPI.
+    <h1>Bokito chat widget</h1>
+    <p class="lead">
+      Run <code>npm install</code>, <code>npm run build</code>, then <code>npm run dev</code>.
+      Vite serves the demo page in your regular browser, with the built bundle at <code>/bokito-chat.js</code>.
     </p>
-    <p class="lead">Kies een pagina. De widget zelf staat op <strong>Standalone</strong> (embed zoals productie).</p>
     <ul>
       <li>
         <a href="chat-standalone.html">
           <strong>Standalone demo</strong>
-          <span>Laadt <code>bokito-chat.js</code> zoals een echte embed. Standaard tegen FastAPI; query <code>agent_slug</code> en <code>api_url</code> aanpasbaar.</span>
-        </a>
-      </li>
-      <li>
-        <a href="api-test.html">
-          <strong>API-testpagina</strong>
-          <span>Sequentiele tests en inline widget.</span>
-        </a>
-      </li>
-      <li>
-        <a href="chat-demo.html">
-          <strong>Legacy demo</strong>
-          <span><code>chat-module.js</code> met lokale API-URL in het bestand.</span>
+          <span>Loads <code>bokito-chat.js</code> exactly like a real embed. Defaults to the local FastAPI; override via query params <code>agent_slug</code>, <code>api_url</code>, <code>tenant</code>, and <code>auth_mode</code>.</span>
         </a>
       </li>
     </ul>
-    <p class="hint">Voorbeeld met eigen slug en host: <code>chat-standalone.html?agent_slug=demo&amp;api_url=https://…platform.io</code></p>
+    <p class="hint">Example with a custom slug and host: <code>chat-standalone.html?agent_slug=assistant&amp;api_url=http://127.0.0.1:8000&amp;tenant=my-tenant</code></p>
   </div>
 </body>
 </html>

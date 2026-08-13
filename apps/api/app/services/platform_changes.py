@@ -49,7 +49,7 @@ def _enforce_agent_scope(agent: Agent | None, resource_type: str, change_kind: s
         raise HTTPException(status_code=403, detail=f"Missing scope: {scope}")
 
 
-def serialize_change(row: PlatformChange) -> dict[str, Any]:
+def serialize_change(row: PlatformChange, *, signal_id: UUID | None = None) -> dict[str, Any]:
     return {
         "id": str(row.id),
         "resource_type": row.resource_type,
@@ -65,9 +65,31 @@ def serialize_change(row: PlatformChange) -> dict[str, Any]:
         "agent_id": str(row.agent_id) if row.agent_id else None,
         "run_id": str(row.run_id) if row.run_id else None,
         "decision_id": str(row.decision_id) if row.decision_id else None,
+        "signal_id": str(signal_id) if signal_id else None,
         "created_at": row.created_at.isoformat(),
         "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None,
     }
+
+
+async def enrich_changes_with_signal_ids(
+    session: AsyncSession, rows: list[PlatformChange]
+) -> list[dict[str, Any]]:
+    """Attach Messages thread ids from linked DecisionRequest rows."""
+    from app.models.notification import DecisionRequest
+
+    decision_ids = [r.decision_id for r in rows if r.decision_id]
+    signal_by_decision: dict[UUID, UUID] = {}
+    if decision_ids:
+        decisions = (
+            await session.execute(select(DecisionRequest).where(DecisionRequest.id.in_(decision_ids)))
+        ).scalars().all()
+        for decision in decisions:
+            if decision.signal_id:
+                signal_by_decision[decision.id] = decision.signal_id
+    return [
+        serialize_change(row, signal_id=signal_by_decision.get(row.decision_id) if row.decision_id else None)
+        for row in rows
+    ]
 
 
 async def _next_version(
@@ -116,6 +138,7 @@ async def propose_platform_change(
     user_id: UUID | None = None,
     tool_name: str | None = None,
     mode: str = "apply",
+    signal_id: UUID | None = None,
 ) -> tuple[PlatformChange, dict[str, Any]]:
     """Record (and apply or queue) a platform mutation.
 
@@ -223,6 +246,7 @@ async def propose_platform_change(
         summary=summary,
         status="awaiting_human",
         platform_change_id=change.id,
+        signal_id=signal_id,
         options_json=json.dumps(
             [
                 {
@@ -238,6 +262,20 @@ async def propose_platform_change(
     session.add(decision)
     change.decision_id = decision.id
     await session.flush()
+
+    # Land the approval in Messages (same thread as the agent that proposed it
+    # when signal_id is known; otherwise create an internal Activity thread).
+    from app.services.signal_decisions import append_decision_to_signal
+
+    await append_decision_to_signal(
+        session,
+        tenant.id,
+        decision,
+        user_id=user_id,
+        agent_id=agent.id if agent else None,
+        signal_id=signal_id,
+    )
+
     from app.gateway.publish import publish_decision
 
     await publish_decision(
@@ -245,6 +283,7 @@ async def propose_platform_change(
         decision_id=decision.id,
         status=decision.status,
         title=decision.title,
+        signal_id=decision.signal_id,
     )
 
     await record_audit(

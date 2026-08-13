@@ -363,6 +363,9 @@ async def upsert_doc(
         doc.updated_at = datetime.utcnow()
     else:
         inferred_kind = kind or _infer_kind(norm)
+        # Keep created_at == updated_at on first write so "explicitly saved
+        # after bootstrap" checks (e.g. onboarding) compare cleanly.
+        now = datetime.utcnow()
         doc = WorkspaceDoc(
             tenant_id=tenant_id,
             path=norm,
@@ -372,6 +375,8 @@ async def upsert_doc(
             frontmatter_json=json.dumps(meta),
             created_by_type=created_by_type,
             created_by_id=created_by_id,
+            created_at=now,
+            updated_at=now,
         )
         session.add(doc)
     await session.flush()
@@ -426,8 +431,11 @@ async def skills_overview(session: AsyncSession, tenant_id: UUID) -> str:
 
 
 async def build_workspace_context(session: AsyncSession, tenant_id: UUID) -> str:
-    """Persona doc + long-term memory + compact skills list for the system prompt."""
+    """Company + persona + memory + skills + live tenant snapshot for the system prompt."""
     parts: list[str] = []
+    company = await get_doc_by_path(session, tenant_id, "company.md")
+    if company and company.content.strip():
+        parts.append(f"## Company\n{company.content[:2000]}")
     persona = await list_docs(session, tenant_id, kind="persona")
     if persona and persona[0].content.strip():
         parts.append(f"## Persona\n{persona[0].content[:2000]}")
@@ -439,4 +447,13 @@ async def build_workspace_context(session: AsyncSession, tenant_id: UUID) -> str
         parts.append(
             "## Skills (read the full doc with the read_doc tool before using one)\n" + skills
         )
+    try:
+        from app.services.tenant_introspection import build_tenant_snapshot_prompt
+
+        snapshot = await build_tenant_snapshot_prompt(session, tenant_id)
+        if snapshot.strip():
+            parts.append(snapshot)
+    except Exception:
+        # Never break chat if snapshot queries fail.
+        pass
     return "\n\n".join(parts)

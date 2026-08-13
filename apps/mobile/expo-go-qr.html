@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bokito Mobile – Dev connect</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0b0f1a; color: #e8eaef; max-width: 520px; margin: 0 auto; padding: 24px; line-height: 1.5; }
+    .warn { background: #3a1a1a; border: 1px solid #8b3a3a; padding: 12px; border-radius: 8px; margin: 16px 0; }
+    .ok { background: #1a2a1a; border: 1px solid #3a6b3a; padding: 12px; border-radius: 8px; margin: 16px 0; }
+    img { background: #fff; padding: 12px; border-radius: 8px; display: block; margin: 16px auto; }
+    code { background: #1a2234; padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>Bokito Mobile dev</h1>
+
+  <div class="warn">
+    <strong>Production APK cannot hot reload.</strong><br>
+    If you open <code>bokito-mobile.apk</code> you get
+    <em>Failed to download remote update</em> — that app looks for Expo OTA updates, not Metro.
+  </div>
+
+  <div class="ok">
+    <strong>Recommended:</strong> install the <strong>dev APK</strong>
+    (<code>dist/bokito-mobile-dev.apk</code>), then run Metro with
+    <code>.\apps\mobile\scripts\dev-expo-phone.ps1</code> and open the dev app.
+  </div>
+
+  <h2>Expo Go (alternative)</h2>
+  <p>Install <code>dist/Expo-Go-55.0.7.apk</code> (SDK 55). Play Store Expo Go is SDK 54 and fails.</p>
+  <p>Uninstall or ignore the production Bokito app while testing.</p>
+
+  <img id="qr" alt="QR" width="280" height="280" />
+  <p>Tunnel URL: <code id="url"></code></p>
+
+  <script>
+    const expUrl = new URLSearchParams(location.search).get("url")
+      || "exp://nhulkaa-anonymous-8081.exp.direct";
+    document.getElementById("url").textContent = expUrl;
+    document.getElementById("qr").src =
+      "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(expUrl);
+  </script>
+</body>
+</html>

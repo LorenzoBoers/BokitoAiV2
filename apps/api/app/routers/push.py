@@ -1,7 +1,7 @@
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,4 +47,6 @@ async def subscribe_push(
 
 @router.get("/vapid-public-key")
 async def vapid_public_key():
-    return {"public_key": settings.vapid_public_key or "mock-vapid-public-key"}
+    if not settings.vapid_public_key:
+        raise HTTPException(status_code=503, detail="Web push is not configured (VAPID keys unset)")
+    return {"public_key": settings.vapid_public_key}

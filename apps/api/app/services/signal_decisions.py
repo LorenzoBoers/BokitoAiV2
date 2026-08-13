@@ -35,7 +35,14 @@ async def get_or_create_internal_thread(
         if existing:
             if agent_id and not existing.agent_id:
                 existing.agent_id = agent_id
-            if contact_name and contact_name != "Agent" and existing.contact_name in ("", "Agent"):
+            # Only relabel internal threads; an external thread's contact_name
+            # belongs to the customer, never the agent posting a decision.
+            if (
+                existing.channel == "internal"
+                and contact_name
+                and contact_name != "Agent"
+                and existing.contact_name in ("", "Agent")
+            ):
                 existing.contact_name = contact_name
             return existing
 
@@ -97,7 +104,7 @@ async def append_decision_to_signal(
     )
     if agent_id and not signal.agent_id:
         signal.agent_id = agent_id
-        if agent_name != "Agent":
+        if agent_name != "Agent" and signal.channel == "internal":
             signal.contact_name = agent_name
     message = SignalMessage(
         signal_id=signal.id,

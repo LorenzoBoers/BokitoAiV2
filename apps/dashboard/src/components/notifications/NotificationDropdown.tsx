@@ -1,15 +1,17 @@
 import React from 'react';
-import { Bell, MessageSquare, UserCheck, AlertTriangle, AtSign } from 'lucide-react';
-import { useNotifications } from '../../context/NotificationContext';
+import { useNavigate } from 'react-router-dom';
+import { AtSign, Bell, CalendarClock, MessageSquare, ShieldCheck, UserCheck } from 'lucide-react';
+import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
 import { Button } from '../ui/button';
 import { Dropdown } from '../ui/dropdown';
-import { NotificationType } from '../../types/custom-db';
+import { agentRunsPath, inboxPath } from '../../lib/messages-paths';
 
-const NOTIFICATION_ICONS: Record<NotificationType, React.ComponentType<{ size?: number; className?: string }>> = {
+const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
+  status_update: CalendarClock,
+  decision_request: ShieldCheck,
+  proactive: MessageSquare,
   mention: AtSign,
   assignment: UserCheck,
-  comment: MessageSquare,
-  webhook_failure: AlertTriangle
 };
 
 function formatTimeAgo(timestamp: string): string {
@@ -26,16 +28,34 @@ function formatTimeAgo(timestamp: string): string {
   return `${diffDays}d ago`;
 }
 
+/** Route a notification to the surface that owns it. */
+function notificationTarget(notification: AppNotification): string | null {
+  const payload = notification.payload;
+  const signalId = typeof payload.signal_id === 'string' ? payload.signal_id : null;
+  if (signalId) {
+    // Agent activity / decisions surface under Activity; customer mentions stay in Inbox.
+    if (notification.kind === 'decision_request' || notification.kind === 'status_update') {
+      return agentRunsPath('all', signalId);
+    }
+    return inboxPath('all', signalId);
+  }
+  if (typeof payload.platform_change_id === 'string') return '/settings/autonomy';
+  if (typeof payload.trigger_id === 'string') return '/agenda';
+  if (notification.kind === 'decision_request') return agentRunsPath('awaiting-decision');
+  if (notification.kind === 'status_update') return agentRunsPath('all');
+  return null;
+}
+
 export default function NotificationDropdown() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
 
-  const handleNotificationClick = (notification: typeof notifications[0]) => {
-    if (!notification.read) {
+  const handleNotificationClick = (notification: AppNotification) => {
+    if (notification.status === 'unread') {
       markAsRead(notification.id);
     }
-    if (notification.recordId && notification.tableName) {
-      console.log(`Navigate to record ${notification.recordId} in table ${notification.tableName}`);
-    }
+    const target = notificationTarget(notification);
+    if (target) navigate(target);
   };
 
   const trigger = (
@@ -80,8 +100,9 @@ export default function NotificationDropdown() {
             </div>
           ) : (
             notifications.map((notification) => {
-              const IconComponent = NOTIFICATION_ICONS[notification.type];
-              
+              const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare;
+              const unread = notification.status === 'unread';
+
               return (
                 <div
                   key={notification.id}
@@ -89,25 +110,25 @@ export default function NotificationDropdown() {
                   className={`
                     p-3 rounded-lg cursor-pointer transition-colors
                     hover:bg-bg-muted/50
-                    ${!notification.read ? 'bg-accent/5 border-l-2 border-l-accent' : ''}
+                    ${unread ? 'bg-accent/5 border-l-2 border-l-accent' : ''}
                   `}
                 >
                   <div className="flex gap-3">
                     <div className={`
                       w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
-                      ${!notification.read ? 'bg-accent/10 text-accent' : 'bg-bg-muted text-text-muted'}
+                      ${unread ? 'bg-accent/10 text-accent' : 'bg-bg-muted text-text-muted'}
                     `}>
                       <IconComponent size={14} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notification.read ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
+                      <p className={`text-sm ${unread ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
                         {notification.title}
                       </p>
                       <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
-                        {notification.message}
+                        {notification.body}
                       </p>
                       <p className="text-xs text-text-muted mt-1">
-                        {formatTimeAgo(notification.timestamp)}
+                        {formatTimeAgo(notification.createdAt)}
                       </p>
                     </div>
                   </div>

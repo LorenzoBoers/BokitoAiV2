@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Building2, Check, Loader2, Mail, MessageSquare, Phone, ShieldBan, UserRound } from 'lucide-react'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { useAuth } from '../../context/AuthContext'
 import {
   getContact,
@@ -10,6 +12,7 @@ import {
   type ContactStatus,
 } from '../../lib/contacts-api'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
+import { inboxPath } from '../../lib/messages-paths'
 
 type Props = {
   contactId: string | null
@@ -69,9 +72,10 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
       setThreads(history)
       setNotesDraft(row?.notes ?? '')
       setNotesDirty(false)
-    } catch {
+    } catch (err) {
       setContact(null)
       setThreads([])
+      toast.error(formatApiErrorMessage(err, 'Could not load contact.'))
     } finally {
       setLoading(false)
     }
@@ -88,8 +92,9 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
       const updated = await updateContact(token, contact.id, { notes: notesDraft })
       if (updated) setContact(updated)
       setNotesDirty(false)
-    } catch {
-      // keep draft for retry
+      toast.success('Notes saved')
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Could not save notes.'))
     } finally {
       setSaving(false)
     }
@@ -101,8 +106,8 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
     try {
       const updated = await updateContact(token, contact.id, { status })
       if (updated) setContact((prev) => (prev ? { ...prev, status: updated.status } : updated))
-    } catch {
-      // non-fatal
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Could not update contact status.'))
     } finally {
       setSaving(false)
     }
@@ -227,7 +232,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
             {previousThreads.slice(0, 8).map((t) => (
               <Link
                 key={String(t.id)}
-                to={`/communication/customers/all/t/${encodeURIComponent(String(t.id))}`}
+                to={inboxPath('all', String(t.id))}
                 className="flex items-center gap-2 rounded-lg border border-border/45 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
                 <MessageSquare size={12} className="shrink-0 text-text-muted" />

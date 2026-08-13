@@ -1,5 +1,6 @@
 import { integrationsRoutes } from '../api/routes/integrations.routes'
 import { appRoutes } from '../api/routes/app.routes'
+import { policyRoutes } from '../api/routes/policy.routes'
 import {
   apiGet,
   apiPost,
@@ -33,6 +34,8 @@ export type InboxThread = {
   contactName: string
   contactPhone: string
   status: ThreadStatus
+  /** ISO wake time while snoozed (status pending); null = wait for reply. */
+  snoozedUntil: string | null
   priority: ThreadPriority
   assignedToUserId: number | null
   tags: string[]
@@ -41,6 +44,8 @@ export type InboxThread = {
   isPinned: boolean
   /** True when a human operator has taken over and the AI is paused. */
   aiPaused?: boolean
+  /** Next-action chips set by AI inbound processing (close / assign / create_task). */
+  suggestedActions?: string[]
   createdAt: string
   channel?: string
   folder?: MessageFolder | string
@@ -71,6 +76,23 @@ export type InboxMessage = {
   attachments: unknown[] | null
   decisionId?: string | null
   payload?: Record<string, unknown>
+  /** The signed-in user's feedback on this message (thumbs state). */
+  myFeedback?: { score: number | null; sentiment: 'up' | 'down' | null } | null
+  /** Persisted agent tool/think steps + token usage for Cursor-style activity log. */
+  agentTrace?: {
+    usage?: { input_tokens?: number; output_tokens?: number }
+    steps?: Array<{
+      step_type?: string
+      stepType?: string
+      name?: string
+      payload?: Record<string, unknown>
+    }>
+    thinking?: {
+      text?: string
+      ms?: number
+      budget?: number
+    }
+  } | null
   receivedAt: string | null
   createdAt: string
 }
@@ -120,6 +142,7 @@ export type ThreadFilters = {
     | 'unassigned'
     | 'mine'
     | 'pending'
+    | 'snoozed'
     | 'closed'
     | 'spam'
     | 'outbound'
@@ -164,6 +187,8 @@ export type ReplyInput = {
   attachments?: MessageAttachment[]
   /** When `email`, a mailbox signature may be appended. Plain chat/internal skips it. */
   format?: 'email' | 'plain'
+  /** With action=send_and_pending: snooze duration; omit = until customer replies. */
+  snoozeMinutes?: number
 }
 
 export type PatchThreadInput = {
@@ -172,6 +197,16 @@ export type PatchThreadInput = {
   tags?: string[]
   priority?: ThreadPriority
   projectId?: string | null
+  /** ISO wake time to snooze the thread; null clears the wake time. */
+  snoozedUntil?: string | null
+}
+
+export type BulkThreadAction = 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign'
+
+export type SavedReply = {
+  id: string
+  title: string
+  bodyText: string
 }
 
 export type SyncFolderStatus = {
@@ -263,6 +298,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),
     status,
+    snoozedUntil: asNullableTimestampString(raw.snoozed_until),
     priority,
     assignedToUserId:
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0 ? null : asNumber(raw.assigned_to_user_id),
@@ -271,10 +307,38 @@ function normalizeThread(row: unknown): InboxThread | null {
     hasUnread: Boolean(raw.has_unread),
     isPinned: Boolean(raw.is_pinned),
     aiPaused: Boolean(raw.ai_paused),
+    suggestedActions: Array.isArray(raw.suggested_actions)
+      ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
+      : [],
     createdAt: asTimestampString(raw.created_at),
     channel: asString(raw.channel) || undefined,
     folder: asString(raw.folder) || undefined,
     projectId: asNullableString(raw.project_id),
+  }
+}
+
+function normalizeAgentTrace(raw: Record<string, unknown>): InboxMessage['agentTrace'] {
+  const payload = raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : null
+  const fromPayload = payload?.agent_trace
+  const fromRoot = raw.agent_trace
+  const trace = (fromPayload && typeof fromPayload === 'object' ? fromPayload : null)
+    ?? (fromRoot && typeof fromRoot === 'object' ? fromRoot : null)
+  if (!trace || typeof trace !== 'object') return null
+  const t = trace as Record<string, unknown>
+  const usage =
+    t.usage && typeof t.usage === 'object'
+      ? (t.usage as { input_tokens?: number; output_tokens?: number })
+      : undefined
+  const steps = Array.isArray(t.steps) ? t.steps : undefined
+  const thinking =
+    t.thinking && typeof t.thinking === 'object'
+      ? (t.thinking as { text?: string; ms?: number; budget?: number })
+      : undefined
+  if (!usage && (!steps || steps.length === 0) && !thinking) return null
+  return {
+    usage,
+    steps: steps as NonNullable<InboxMessage['agentTrace']>['steps'],
+    thinking,
   }
 }
 
@@ -306,11 +370,13 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     id,
     threadId,
     connectionId: raw.connection_id == null || raw.connection_id === 0 ? null : asNumber(raw.connection_id),
+    kind: asString(raw.kind) || undefined,
     direction,
     fromAddress: asString(raw.from_address),
     toAddresses: asString(raw.to_addresses),
     subject: asString(raw.subject),
     bodyPreview: asString(raw.body_preview),
+    bodyText: asString(raw.body_text) || undefined,
     bodyHtml: asNullableString(raw.body_html),
     graphMessageId: asString(raw.graph_message_id),
     inReplyTo: asNullableString(raw.in_reply_to),
@@ -318,9 +384,23 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     isRead: Boolean(raw.is_read),
     sendStatus,
     attachments: Array.isArray(raw.attachments) ? raw.attachments : null,
+    decisionId: raw.decision_id ? asString(raw.decision_id) : null,
+    payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
+    myFeedback: normalizeMyFeedback(raw),
+    agentTrace: normalizeAgentTrace(raw),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asTimestampString(raw.created_at),
   }
+}
+
+export function normalizeMyFeedback(raw: Record<string, unknown>): InboxMessage['myFeedback'] {
+  const fb = raw.my_feedback
+  if (!fb || typeof fb !== 'object') return null
+  const f = fb as Record<string, unknown>
+  const sentiment = f.sentiment === 'up' || f.sentiment === 'down' ? f.sentiment : null
+  const score = typeof f.score === 'number' ? f.score : null
+  if (sentiment == null && score == null) return null
+  return { score, sentiment }
 }
 
 function normalizeEvent(row: unknown): InboxEvent | null {
@@ -479,6 +559,20 @@ export async function addNoteToThread(
   return addNoteToSignalThread(token, String(threadId), bodyText, attachments)
 }
 
+/** Ask the AI to draft a reply for the composer (nothing is sent). */
+export async function draftThreadReply(
+  token: string,
+  threadId: ThreadId,
+  instruction = '',
+): Promise<string> {
+  const payload = await apiPost<{ draft?: string }>(
+    appRoutes.signals.threadDraft(String(threadId)),
+    { instruction },
+    token,
+  )
+  return typeof payload.draft === 'string' ? payload.draft : ''
+}
+
 /** Human takeover: pause the AI on a thread so an operator owns the reply. */
 export async function takeoverThread(token: string, threadId: ThreadId): Promise<boolean> {
   return takeoverSignalThread(token, String(threadId))
@@ -494,8 +588,15 @@ export async function resolveThreadDecision(
   threadId: ThreadId,
   messageId: ThreadId,
   action: 'approve' | 'defer' | 'reject',
+  opts?: {
+    optionId?: string
+    body?: string
+    bodyHtml?: string
+    subject?: string
+    responseText?: string
+  },
 ): Promise<void> {
-  return resolveSignalDecision(token, String(threadId), String(messageId), action)
+  return resolveSignalDecision(token, String(threadId), String(messageId), action, opts)
 }
 
 // ---------------------------------------------------------------------------
@@ -546,4 +647,101 @@ export async function getSyncStatus(token: string): Promise<SyncConnectionStatus
       } satisfies SyncConnectionStatus
     })
     .filter((c): c is SyncConnectionStatus => c !== null)
+}
+
+// ---------------------------------------------------------------------------
+// Channel AI modes (tenant-wide: how the AI handles inbound customer messages)
+// ---------------------------------------------------------------------------
+
+export type AiMode = 'suggest' | 'auto' | 'off'
+
+export type ChannelAiModes = {
+  email: AiMode
+  widget: AiMode
+}
+
+export async function getChannelAiModes(token: string): Promise<ChannelAiModes> {
+  const payload = await apiGet<{ channel_ai_modes?: Record<string, string> }>(
+    policyRoutes.aiModes(),
+    token,
+  )
+  const modes = payload.channel_ai_modes ?? {}
+  const valid = (value: unknown, fallback: AiMode): AiMode =>
+    value === 'suggest' || value === 'auto' || value === 'off' ? value : fallback
+  return {
+    email: valid(modes.email, 'suggest'),
+    widget: valid(modes.widget, 'auto'),
+  }
+}
+
+export async function saveChannelAiModes(
+  token: string,
+  modes: Partial<ChannelAiModes>,
+): Promise<void> {
+  await apiPut(policyRoutes.aiModes(), { channel_ai_modes: modes }, token)
+}
+
+// ---------------------------------------------------------------------------
+// Widget behaviour (pre-chat form, office hours, offline message)
+// ---------------------------------------------------------------------------
+
+export type WidgetOfficeHours = {
+  enabled: boolean
+  timezone: string
+  days: number[]
+  start: string
+  end: string
+}
+
+export type WidgetSettings = {
+  preChatForm: boolean
+  offlineMessage: string
+  officeHours: WidgetOfficeHours
+  officeOpen: boolean
+}
+
+const DEFAULT_WIDGET_OFFICE_HOURS: WidgetOfficeHours = {
+  enabled: false,
+  timezone: 'Europe/Amsterdam',
+  days: [0, 1, 2, 3, 4],
+  start: '09:00',
+  end: '17:00',
+}
+
+function normalizeWidgetSettings(raw: Record<string, unknown>): WidgetSettings {
+  const hours =
+    raw.office_hours && typeof raw.office_hours === 'object'
+      ? (raw.office_hours as Record<string, unknown>)
+      : {}
+  return {
+    preChatForm: Boolean(raw.pre_chat_form),
+    offlineMessage: asString(raw.offline_message),
+    officeOpen: raw.office_open !== false,
+    officeHours: {
+      enabled: Boolean(hours.enabled),
+      timezone: asString(hours.timezone) || DEFAULT_WIDGET_OFFICE_HOURS.timezone,
+      days: Array.isArray(hours.days)
+        ? hours.days.map((d) => Number(d)).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+        : DEFAULT_WIDGET_OFFICE_HOURS.days,
+      start: asString(hours.start) || DEFAULT_WIDGET_OFFICE_HOURS.start,
+      end: asString(hours.end) || DEFAULT_WIDGET_OFFICE_HOURS.end,
+    },
+  }
+}
+
+export async function getWidgetSettings(token: string): Promise<WidgetSettings> {
+  const payload = await apiGet<Record<string, unknown>>(policyRoutes.widgetSettings(), token)
+  return normalizeWidgetSettings(payload)
+}
+
+export async function saveWidgetSettings(
+  token: string,
+  input: { preChatForm?: boolean; offlineMessage?: string; officeHours?: WidgetOfficeHours },
+): Promise<WidgetSettings> {
+  const body: Record<string, unknown> = {}
+  if (input.preChatForm !== undefined) body.pre_chat_form = input.preChatForm
+  if (input.offlineMessage !== undefined) body.offline_message = input.offlineMessage
+  if (input.officeHours !== undefined) body.office_hours = input.officeHours
+  const payload = await apiPut<Record<string, unknown>>(policyRoutes.widgetSettings(), body, token)
+  return normalizeWidgetSettings(payload)
 }

@@ -69,7 +69,6 @@ class AgentRun(SQLModel, table=True):
     tokens_output: int = 0
     result_json: str = Field(default="{}")
     task_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_tasks.id", index=True)
-    workstream_run_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_runs.id")
     step_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_steps.id")
     parent_run_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_runs.id", index=True)
     run_role: str = Field(default="main")  # main | delegate | judge | orchestrator

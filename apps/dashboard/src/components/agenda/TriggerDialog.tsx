@@ -108,13 +108,13 @@ export default function TriggerDialog({
       setRunAt(dateToLocalInputValue(base))
       setCronExpr('0 9 * * 1-5')
       setIntervalMinutes(60)
-      setTarget('none')
+      setTarget(agents[0] ? `agent:${agents[0].id}` : workstreams[0] ? `ws:${workstreams[0].id}` : 'none')
       setInstructions('')
       setEnabled(true)
     }
     setSavedWebhook(null)
     setRevealedSecret(null)
-  }, [open, trigger, initialRunAt])
+  }, [open, trigger, initialRunAt, agents, workstreams])
 
   const kindHint = useMemo(() => KIND_OPTIONS.find((k) => k.value === kind)?.hint ?? '', [kind])
   const needsRunAt = kind === 'once' || kind === 'event'
@@ -124,7 +124,8 @@ export default function TriggerDialog({
     name.trim().length > 0 &&
     (!needsRunAt || runAt.length > 0) &&
     (kind !== 'cron' || cronExpr.trim().length > 0) &&
-    (kind !== 'interval' || intervalMinutes > 0)
+    (kind !== 'interval' || intervalMinutes > 0) &&
+    (!needsTarget || target !== 'none')
 
   const save = async () => {
     setSaving(true)
@@ -289,7 +290,6 @@ export default function TriggerDialog({
                   <SelectValue placeholder="Pick an agent or workstream" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No specific target</SelectItem>
                   {agents.map((a) => (
                     <SelectItem key={a.id} value={`agent:${a.id}`}>
                       Agent: {a.name}
@@ -302,6 +302,11 @@ export default function TriggerDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {agents.length === 0 && workstreams.length === 0 ? (
+                <p className="text-xs text-status-error">Create an agent first — schedules need a target to run.</p>
+              ) : target === 'none' ? (
+                <p className="text-xs text-text-muted">Required for agent wakes and webhooks.</p>
+              ) : null}
             </div>
           ) : null}
 

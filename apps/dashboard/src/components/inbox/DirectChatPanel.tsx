@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowUp, Bot, Check, Loader2, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
+import { ArrowUp, Bot, Check, ClipboardCopy, Loader2, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { agentChatPath, assistantPath } from '../../lib/messages-paths'
@@ -11,14 +11,18 @@ import {
   bokitoListMessages,
   bokitoRenameConversation,
   bokitoStreamMessage,
+  type ChatDecision,
+  type ChatDecisionOption,
   type ChatMessage,
 } from '../../lib/bokito-api'
 import { UserAvatar } from '../ui/UserAvatar'
-import AgentSteps from './AgentSteps'
+import ThinkingTrace from './ThinkingTrace'
+import ReasoningDisclosure from './ReasoningDisclosure'
 import { useSignalStream } from '../../hooks/useSignalStream'
 
 type StreamState = {
   text: string
+  thinking: string
   active: boolean
 }
 
@@ -31,6 +35,22 @@ export type DirectChatPanelProps = {
   onRefreshThreads?: () => void
   onToggleContext?: () => void
   contextOpen?: boolean
+  /** Embedded mode (e.g. Ask-assistant side panel): no header bar. */
+  hideHeader?: boolean
+  /** Sent automatically once when the conversation is still empty. */
+  initialMessage?: string | null
+  /** When set, assistant replies get a copy action (e.g. copy to composer). */
+  onCopyText?: (text: string) => void
+}
+
+function SystemEventDivider({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-3 py-0.5">
+      <span className="h-px flex-1 bg-border/40" />
+      <span className="max-w-[70%] truncate text-[11px] text-text-muted">{text}</span>
+      <span className="h-px flex-1 bg-border/40" />
+    </div>
+  )
 }
 
 function MessageBubble({
@@ -40,6 +60,7 @@ function MessageBubble({
   userAvatarUrl,
   conversationId,
   onDecisionResolved,
+  onCopyText,
 }: {
   message: ChatMessage
   userName: string
@@ -47,8 +68,13 @@ function MessageBubble({
   userAvatarUrl?: string | null
   conversationId: string
   onDecisionResolved: () => void
+  onCopyText?: (text: string) => void
 }) {
   const isUser = message.role === 'user'
+
+  if (message.kind === 'system_event' || message.role === 'system') {
+    return <SystemEventDivider text={message.content} />
+  }
 
   if (isUser) {
     return (
@@ -63,48 +89,98 @@ function MessageBubble({
     )
   }
 
+  const hasDecision = Boolean(message.decision_request_id)
+
   return (
     <div className="flex items-start gap-2.5">
       <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
         <Bot size={14} />
       </span>
-      <div className="min-w-0 max-w-[82%] space-y-2">
-        <div className="rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
-        </div>
-        {message.decision_request_id ? (
+      <div className="min-w-0 max-w-[82%] space-y-1">
+        <ReasoningDisclosure
+          thinking={message.thinking}
+          steps={message.steps}
+          usage={message.usage}
+          className="max-w-full"
+        />
+        {hasDecision ? (
+          // The decision card carries the title/summary itself; skip the plain
+          // bubble so the request is not shown twice.
           <ChatDecisionCard
             conversationId={conversationId}
             messageId={message.id}
+            decision={message.decision ?? null}
+            fallbackText={message.content}
             onResolved={onDecisionResolved}
           />
+        ) : (
+          <div className="rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
+            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          </div>
+        )}
+        {!hasDecision && onCopyText && message.content.trim() ? (
+          <button
+            type="button"
+            onClick={() => onCopyText(message.content)}
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+          >
+            <ClipboardCopy size={11} />
+            Copy to composer
+          </button>
         ) : null}
       </div>
     </div>
   )
 }
 
+const FALLBACK_DECISION_OPTIONS: ChatDecisionOption[] = [
+  { id: 'approve', label: 'Approve' },
+  { id: 'later', label: 'Later' },
+  { id: 'reject', label: 'Reject' },
+]
+
+function decisionActionFor(option: ChatDecisionOption): 'approve' | 'defer' | 'reject' {
+  if (option.id === 'reject' || option.id === 'escalate') return 'reject'
+  if (option.action_type === 'reject' || option.action_type === 'escalate') return 'reject'
+  if (option.id === 'later' || option.id === 'defer' || option.id === 'edit') return 'defer'
+  if (option.action_type === 'defer' || option.action_type === 'draft') return 'defer'
+  return 'approve'
+}
+
 function ChatDecisionCard({
   conversationId,
   messageId,
+  decision,
+  fallbackText,
   onResolved,
 }: {
   conversationId: string
   messageId: string
+  decision: ChatDecision | null
+  fallbackText: string
   onResolved: () => void
 }) {
   const { token } = useAuth()
   const [busy, setBusy] = useState(false)
-  const [resolved, setResolved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const act = async (action: 'approve' | 'defer' | 'reject') => {
+  // Server-driven resolved state: survives reloads and other clients resolving.
+  const resolved = decision != null && decision.status !== 'awaiting_human'
+  const options =
+    decision && decision.options.length > 0 ? decision.options : FALLBACK_DECISION_OPTIONS
+  const chosenLabel = decision?.chosen_option_id
+    ? options.find((o) => o.id === decision.chosen_option_id)?.label ?? decision.chosen_option_id
+    : null
+  const bodyText = decision?.summary || fallbackText
+
+  const act = async (option: ChatDecisionOption) => {
     if (!token || busy || resolved) return
     setBusy(true)
     setError(null)
     try {
-      await resolveThreadDecision(token, conversationId, messageId, action)
-      setResolved(true)
+      await resolveThreadDecision(token, conversationId, messageId, decisionActionFor(option), {
+        optionId: option.id,
+      })
       onResolved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not resolve decision.')
@@ -119,35 +195,45 @@ function ChatDecisionCard({
         resolved ? 'border-border/50 bg-bg-surface/70' : 'border-accent/35 bg-accent/6'
       }`}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-        Decision {resolved ? '- resolved' : 'needed'}
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+          Decision
+        </p>
+        {resolved ? (
+          <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
+            {decision?.status === 'approved'
+              ? `Approved${chosenLabel ? ` - ${chosenLabel}` : ''}`
+              : decision?.status === 'rejected'
+                ? 'Rejected'
+                : 'Deferred'}
+          </span>
+        ) : null}
+      </div>
+      {decision?.title ? (
+        <p className="mt-1 text-[13px] font-medium text-text-primary">{decision.title}</p>
+      ) : null}
+      {bodyText && bodyText !== decision?.title ? (
+        <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text-secondary">
+          {bodyText}
+        </p>
+      ) : null}
       {!resolved ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void act('approve')}
-            className="rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void act('defer')}
-            className="rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
-          >
-            Defer
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void act('reject')}
-            className="rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
-          >
-            Reject
-          </button>
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {options.map((option, idx) => (
+            <button
+              key={option.id ?? idx}
+              type="button"
+              disabled={busy}
+              onClick={() => void act(option)}
+              className={
+                decisionActionFor(option) === 'approve'
+                  ? 'rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50'
+                  : 'rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50'
+              }
+            >
+              {option.label ?? option.id}
+            </button>
+          ))}
         </div>
       ) : null}
       {error ? <p className="mt-1.5 text-[11px] text-status-error">{error}</p> : null}
@@ -168,6 +254,9 @@ export default function DirectChatPanel({
   onRefreshThreads,
   onToggleContext,
   contextOpen,
+  hideHeader,
+  initialMessage,
+  onCopyText,
 }: DirectChatPanelProps) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -175,8 +264,9 @@ export default function DirectChatPanel({
   const { refresh: refreshSessions } = useChatSessions()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [draft, setDraft] = useState('')
-  const [stream, setStream] = useState<StreamState>({ text: '', active: false })
+  const [stream, setStream] = useState<StreamState>({ text: '', thinking: '', active: false })
   const gatewayStream = useSignalStream(conversationId)
   const [error, setError] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
@@ -200,6 +290,7 @@ export default function DirectChatPanel({
       setMessages([])
     } finally {
       setLoadingMessages(false)
+      setHasLoadedOnce(true)
     }
   }, [token, conversationId])
 
@@ -218,9 +309,10 @@ export default function DirectChatPanel({
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [messages, stream.text, gatewayStream.streamText])
+  }, [messages, stream.text, stream.thinking, gatewayStream.streamText, gatewayStream.thinkingText])
 
   const activeStreamText = stream.active ? stream.text : gatewayStream.streamText
+  const activeThinkingText = stream.active ? stream.thinking : gatewayStream.thinkingText
   const showStreamBubble = stream.active || gatewayStream.streaming
   const agentSteps = gatewayStream.steps
 
@@ -242,7 +334,7 @@ export default function DirectChatPanel({
         created_at: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, optimistic])
-      setStream({ text: '', active: true })
+      setStream({ text: '', thinking: '', active: true })
       streamingRef.current = true
       const controller = new AbortController()
       abortRef.current = controller
@@ -253,9 +345,12 @@ export default function DirectChatPanel({
           conversationId,
           content,
           (delta) => {
-            setStream((prev) => ({ text: prev.text + delta, active: true }))
+            setStream((prev) => ({ ...prev, text: prev.text + delta, active: true }))
           },
           controller.signal,
+          (thinkingDelta) => {
+            setStream((prev) => ({ ...prev, thinking: prev.thinking + thinkingDelta, active: true }))
+          },
         )
       } catch (err) {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
@@ -264,7 +359,7 @@ export default function DirectChatPanel({
       } finally {
         streamingRef.current = false
         abortRef.current = null
-        setStream({ text: '', active: false })
+        setStream({ text: '', thinking: '', active: false })
         if (token && conversationId) {
           try {
             const rows = await bokitoListMessages(token, conversationId)
@@ -287,6 +382,14 @@ export default function DirectChatPanel({
     navigate(location.pathname, { replace: true, state: null })
     void send(state.autoSend)
   }, [location.state, location.pathname, navigate, send])
+
+  // Embedded mode: seed the conversation once with the provided context message.
+  useEffect(() => {
+    if (!initialMessage || autoSentRef.current || !hasLoadedOnce || loadingMessages) return
+    autoSentRef.current = true
+    if (messages.length > 0) return
+    void send(initialMessage)
+  }, [initialMessage, hasLoadedOnce, loadingMessages, messages.length, send])
 
   const stopStreaming = () => {
     abortRef.current?.abort()
@@ -332,6 +435,7 @@ export default function DirectChatPanel({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      {hideHeader ? null : (
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/40 px-4">
         {renaming ? (
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -387,6 +491,7 @@ export default function DirectChatPanel({
           </>
         )}
       </div>
+      )}
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[820px] px-4 py-6">
@@ -405,6 +510,7 @@ export default function DirectChatPanel({
                   userAvatarUrl={user?.avatarUrl}
                   conversationId={conversationId}
                   onDecisionResolved={() => void loadMessages()}
+                  onCopyText={onCopyText}
                 />
               ))}
               {showStreamBubble ? (
@@ -412,19 +518,12 @@ export default function DirectChatPanel({
                   <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
                     <Bot size={14} />
                   </span>
-                  <div className="min-w-0 max-w-[82%] space-y-2">
-                    <AgentSteps steps={agentSteps} />
-                    <div className="rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-                      {activeStreamText ? (
-                        <p className="whitespace-pre-wrap break-words">{activeStreamText}</p>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-text-muted">
-                          <Loader2 size={12} className="animate-spin" />
-                          Thinking
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  <ThinkingTrace
+                    steps={agentSteps}
+                    active={stream.active || gatewayStream.streaming}
+                    streamText={activeStreamText}
+                    thinkingText={activeThinkingText}
+                  />
                 </div>
               ) : null}
             </div>

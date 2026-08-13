@@ -20,6 +20,7 @@ from app.models.auth import Tenant
 from app.services.audit import record_audit, search_audit, serialize_audit
 from app.services.platform_changes import (
     accept_platform_change,
+    enrich_changes_with_signal_ids,
     list_platform_changes,
     reject_platform_change,
     rollback_platform_change,
@@ -264,6 +265,80 @@ async def list_passports(
     }
 
 
+class PassportUpdate(BaseModel):
+    autonomy_level: str | None = None  # manual | approval | auto
+    allowed_tools: list[str] | None = None
+    permission_scopes: list[str] | None = None
+
+
+@router.patch("/passports/{agent_id}")
+async def update_passport(
+    agent_id: UUID,
+    body: PassportUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    result = await session.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.tenant_id == auth.tenant.id)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    changed: dict[str, object] = {}
+    if body.autonomy_level is not None:
+        if body.autonomy_level not in ("manual", "approval", "auto"):
+            raise HTTPException(status_code=400, detail="Invalid autonomy level")
+        agent.autonomy_level = body.autonomy_level
+        changed["autonomy_level"] = body.autonomy_level
+    if body.allowed_tools is not None:
+        agent.tools_json = json.dumps([str(t) for t in body.allowed_tools])
+        changed["allowed_tools"] = body.allowed_tools
+    if body.permission_scopes is not None:
+        agent.permission_scopes_json = json.dumps([str(s) for s in body.permission_scopes])
+        changed["permission_scopes"] = body.permission_scopes
+
+    if changed:
+        agent.updated_at = datetime.utcnow()
+        session.add(agent)
+        await record_audit(
+            session,
+            auth.tenant.id,
+            action="agent_passport.update",
+            actor_type="user",
+            actor_id=str(auth.user.id) if auth.user else "",
+            resource_type="agent_passport",
+            resource_id=str(agent.id),
+            payload=changed,
+            commit=False,
+        )
+        await session.commit()
+
+    def _list(raw: str) -> list:
+        try:
+            value = json.loads(raw or "[]")
+            return value if isinstance(value, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    return {
+        "ok": True,
+        "passport": {
+            "id": str(agent.id),
+            "name": agent.name,
+            "role": agent.role,
+            "model": agent.model,
+            "provider": agent.provider,
+            "autonomy_level": agent.autonomy_level,
+            "allowed_tools": _list(agent.tools_json),
+            "permission_scopes": _list(agent.permission_scopes_json),
+            "is_active": agent.is_active,
+            "runtime_status": agent.runtime_status,
+        },
+    }
+
+
 @router.get("/changes")
 async def list_changes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -283,7 +358,7 @@ async def list_changes(
         limit=limit,
         offset=offset,
     )
-    return {"items": [serialize_change(r) for r in rows]}
+    return {"items": await enrich_changes_with_signal_ids(session, list(rows))}
 
 
 @router.get("/changes/{change_id}")
@@ -302,7 +377,8 @@ async def get_change(
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Change not found")
-    return serialize_change(row)
+    items = await enrich_changes_with_signal_ids(session, [row])
+    return items[0]
 
 
 @router.post("/changes/{change_id}/accept")
@@ -374,6 +450,7 @@ async def list_tokens(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    auth.require_role("owner", "admin")
     result = await session.execute(
         select(ApiToken).where(ApiToken.tenant_id == auth.tenant.id).order_by(ApiToken.created_at.desc())
     )

@@ -143,6 +143,29 @@ async def widget_stream_events(
             }
             yield f"data: {json.dumps(payload)}\n\n"
             return
+        # Visitor threads honour the tenant's widget AI mode. `auto` streams a
+        # live reply below; `suggest` drafts a reply card for the team instead;
+        # `off` leaves the thread to humans entirely.
+        if signal.channel == "widget":
+            from app.services.channel_ai import resolve_ai_mode
+
+            ai_mode = resolve_ai_mode(tenant, None, "widget")
+            if ai_mode != "auto":
+                if signal.subject == "Website chat" and message:
+                    signal.subject = message[:60]
+                    await session.commit()
+                if ai_mode == "suggest":
+                    from app.workers.tasks import enqueue_signal_processing
+
+                    await enqueue_signal_processing(str(tenant.id), str(signal.id))
+                payload = {
+                    "type": "done",
+                    "content": "",
+                    "ai_paused": True,
+                    "conversation_id": str(signal.id),
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                return
         history = await signal_chat_history(session, signal.id)
     else:
         history = [{"role": "user", "content": message or "Hello"}]
@@ -171,6 +194,10 @@ async def widget_stream_events(
                 )
                 if signal.subject in ("New conversation", "Website chat") and message:
                     signal.subject = message[:60]
+                if signal.channel == "widget":
+                    from app.services.inbound_agent import apply_suggested_actions
+
+                    apply_suggested_actions(signal)
                 await session.commit()
             payload: dict[str, Any] = {"type": "done", "content": final}
             if signal:

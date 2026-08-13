@@ -1,55 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bell, Mail, Monitor, Smartphone } from 'lucide-react'
+import { Bell, Monitor } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import { policyRoutes } from '../api/routes/policy.routes'
-type ChannelKey = 'desktop' | 'email' | 'mobile'
 
 type NotificationRow = {
   id: string
   label: string
-  channels: Record<ChannelKey, boolean>
+  channels: { desktop: boolean; email: boolean; mobile: boolean }
 }
 
+// Only categories the backend actually enforces at the emission point.
 const DEFAULT_ROWS: NotificationRow[] = [
   {
-    id: 'unassigned',
-    label: 'Activity from all unassigned conversations',
-    channels: { desktop: true, email: false, mobile: false },
-  },
-  {
     id: 'assigned-to-me',
-    label: 'Activity for conversations assigned to you',
-    channels: { desktop: true, email: true, mobile: true },
-  },
-  {
-    id: 'team-conversations',
-    label: 'Activity from your team conversations',
+    label: 'When a conversation is assigned to you',
     channels: { desktop: true, email: false, mobile: false },
-  },
-  {
-    id: 'assigned-to-others',
-    label: 'Activity from conversations assigned to other teammates',
-    channels: { desktop: false, email: false, mobile: false },
   },
   {
     id: 'mentions',
     label: 'When you are mentioned in conversations',
-    channels: { desktop: true, email: true, mobile: true },
-  },
-  {
-    id: 'started-by-you',
-    label: 'Activity on conversations you started',
-    channels: { desktop: true, email: true, mobile: true },
-  },
-  {
-    id: 'status-changes',
-    label: 'Ticket status changes',
-    channels: { desktop: true, email: true, mobile: true },
+    channels: { desktop: true, email: false, mobile: false },
   },
 ]
+
+const KNOWN_ROW_IDS = new Set(DEFAULT_ROWS.map((row) => row.id))
 
 const STORAGE_KEY = 'bokito_notification_settings_v1'
 
@@ -79,22 +56,19 @@ export default function NotificationSettings() {
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Load failed'))))
       .then((data: { rows?: NotificationRow[] }) => {
-        if (Array.isArray(data.rows) && data.rows.length > 0) setRows(data.rows)
+        if (Array.isArray(data.rows) && data.rows.length > 0) {
+          const filtered = data.rows.filter((row) => KNOWN_ROW_IDS.has(row.id))
+          setRows(filtered.length > 0 ? filtered : DEFAULT_ROWS)
+        }
       })
       .catch(() => setRows(DEFAULT_ROWS))
       .finally(() => setLoading(false))
   }, [token])
 
-  const summary = useMemo(() => {
-    return rows.reduce(
-      (acc, row) => ({
-        desktop: acc.desktop + (row.channels.desktop ? 1 : 0),
-        email: acc.email + (row.channels.email ? 1 : 0),
-        mobile: acc.mobile + (row.channels.mobile ? 1 : 0),
-      }),
-      { desktop: 0, email: 0, mobile: 0 },
-    )
-  }, [rows])
+  const desktopEnabled = useMemo(
+    () => rows.reduce((acc, row) => acc + (row.channels.desktop ? 1 : 0), 0),
+    [rows],
+  )
 
   const persistRows = useCallback(
     async (next: NotificationRow[]) => {
@@ -123,11 +97,11 @@ export default function NotificationSettings() {
     [token],
   )
 
-  function updateRow(rowId: string, channel: ChannelKey, checked: boolean) {
+  function updateDesktop(rowId: string, checked: boolean) {
     setRows((prev) => {
       const next = prev.map((row) =>
         row.id === rowId
-          ? { ...row, channels: { ...row.channels, [channel]: checked } }
+          ? { ...row, channels: { ...row.channels, desktop: checked } }
           : row,
       )
       void persistRows(next)
@@ -138,72 +112,42 @@ export default function NotificationSettings() {
   return (
     <PageContent width="lg" className="space-y-5 py-1">
       <p className="text-sm text-text-secondary">
-        Change what notifications you receive from Bokito.
+        Choose which in-app notifications you receive in Bokito.
       </p>
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[1fr_96px_88px_88px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
+        <div className="grid grid-cols-[1fr_120px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
           <span>Notify me about</span>
-          <span className="text-center">Desktop</span>
-          <span className="text-center">Email</span>
-          <span className="text-center">Mobile</span>
+          <span className="text-center">In-app</span>
         </div>
 
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid grid-cols-[1fr_96px_88px_88px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
+            className="grid grid-cols-[1fr_120px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
           >
             <p className="pr-3 text-sm text-text-primary">{row.label}</p>
             <div className="flex justify-center">
               <Switch
                 checked={row.channels.desktop}
-                onCheckedChange={(checked) => updateRow(row.id, 'desktop', checked)}
-                aria-label={`${row.label} desktop`}
-              />
-            </div>
-            <div className="flex justify-center">
-              <Switch
-                checked={row.channels.email}
-                onCheckedChange={(checked) => updateRow(row.id, 'email', checked)}
-                aria-label={`${row.label} email`}
-              />
-            </div>
-            <div className="flex justify-center">
-              <Switch
-                checked={row.channels.mobile}
-                onCheckedChange={(checked) => updateRow(row.id, 'mobile', checked)}
-                aria-label={`${row.label} mobile`}
+                onCheckedChange={(checked) => updateDesktop(row.id, checked)}
+                aria-label={`${row.label} in-app`}
               />
             </div>
           </div>
         ))}
       </Card>
 
-      <Card className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+      <Card className="p-4">
         <div className="space-y-1">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
             <Monitor size={14} className="text-text-muted" />
-            Desktop
+            In-app notifications
           </p>
-          <p className="text-xs text-text-secondary">A banner in the corner of your screen.</p>
-          <p className="text-xs font-medium text-text-muted">{summary.desktop} enabled</p>
-        </div>
-        <div className="space-y-1">
-          <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
-            <Mail size={14} className="text-text-muted" />
-            Email
+          <p className="text-xs text-text-secondary">
+            Shown in the bell menu in the top bar. Email and mobile push are not available yet.
           </p>
-          <p className="text-xs text-text-secondary">Conversations sent to your inbox.</p>
-          <p className="text-xs font-medium text-text-muted">{summary.email} enabled</p>
-        </div>
-        <div className="space-y-1">
-          <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
-            <Smartphone size={14} className="text-text-muted" />
-            Mobile
-          </p>
-          <p className="text-xs text-text-secondary">Push notifications on your phone.</p>
-          <p className="text-xs font-medium text-text-muted">{summary.mobile} enabled</p>
+          <p className="text-xs font-medium text-text-muted">{desktopEnabled} enabled</p>
         </div>
       </Card>
 

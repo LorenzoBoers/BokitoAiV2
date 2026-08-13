@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.orchestra import AgentProfile
 from app.models.orchestration import RuntimeProfile
 
 
@@ -40,7 +39,6 @@ async def resolve_runtime_snapshot(
     agent: Agent,
     step_runtime_profile_id: UUID | None = None,
     task_runtime_profile_id: UUID | None = None,
-    legacy_agent_profile_id: UUID | None = None,
 ) -> dict[str, Any]:
     """Resolve model/tools/autonomy with override chain: step > task > agent default > agent fields."""
     profile: RuntimeProfile | None = None
@@ -50,35 +48,20 @@ async def resolve_runtime_snapshot(
             if profile:
                 break
 
-    legacy: AgentProfile | None = None
-    if not profile and legacy_agent_profile_id:
-        result = await session.execute(
-            select(AgentProfile).where(
-                AgentProfile.id == legacy_agent_profile_id,
-                AgentProfile.tenant_id == tenant_id,
-            )
-        )
-        legacy = result.scalar_one_or_none()
-
     tools_override: list = []
     if profile and profile.tools_json.strip() not in ("", "[]"):
         try:
             tools_override = json.loads(profile.tools_json)
         except json.JSONDecodeError:
             tools_override = []
-    elif legacy and legacy.tools_json.strip() not in ("", "[]"):
-        try:
-            tools_override = json.loads(legacy.tools_json)
-        except json.JSONDecodeError:
-            tools_override = []
 
     snapshot = {
         "agent_id": str(agent.id),
         "agent_name": agent.name,
-        "provider": profile.provider if profile else (legacy.provider if legacy else agent.provider),
-        "model": profile.model if profile else (legacy.model if legacy else agent.model),
+        "provider": profile.provider if profile else agent.provider,
+        "model": profile.model if profile else agent.model,
         "thinking_budget": profile.thinking_budget if profile else agent.thinking_budget,
-        "max_tokens": profile.max_tokens if profile else (legacy.max_tokens if legacy else agent.max_tokens),
+        "max_tokens": profile.max_tokens if profile else agent.max_tokens,
         "max_loops": profile.max_loops if profile else agent.max_loops,
         "autonomy_level": profile.autonomy_level if profile else agent.autonomy_level,
         "cost_aware": profile.cost_aware if profile else agent.cost_aware,
@@ -86,7 +69,7 @@ async def resolve_runtime_snapshot(
         "runtime_profile_id": str(profile.id) if profile else None,
         "role_tag": profile.role_tag if profile else "executor",
         "tools_override": tools_override,
-        "system_prompt_extra": legacy.system_prompt if legacy else "",
+        "system_prompt_extra": "",
     }
     return snapshot
 

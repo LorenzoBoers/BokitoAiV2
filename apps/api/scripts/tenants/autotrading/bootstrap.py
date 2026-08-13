@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.auth import Tenant
+from app.models.auth import Membership, Tenant, User, UserPreference
 from app.models.integration import McpServer
 from app.models.orchestra import Workstream, WorkstreamStep
 from app.models.project import Project, ProjectOrchestration
@@ -46,6 +46,71 @@ use them to read setup state, validate entries, and report execution status clea
 
 Default posture follows risk_status: shadow until live is enabled; when live, place orders only inside caps and AM window.
 Always state execution_mode, blockers, and what is needed to trade. Be concise and operational."""
+
+TRADER_EMAIL = "trader@bokito.ai"
+
+TRADING_WORKSPACE_DOCS: list[tuple[str, str, str]] = [
+    (
+        "company.md",
+        "doc",
+        """# MMXM Autotrading
+
+Live discretionary-style execution via DeGiro. Operator: Trading Operator (`trader@bokito.ai`).
+
+## Operations
+- AM entry window: 09:45-11:15 America/New_York
+- Execution ladder: virtual → shadow → live (prod runs live when enabled)
+- Risk caps and blockers come from Trading pipeline MCP `risk_status`
+- Main operations thread is the Messages hub for digests and operator chat
+
+## Integrations
+- MCP server: Trading pipeline MCP (setups, positions, risk_status, execution)
+- Bokito bridge webhook from `/opt/trading` stack posts pipeline events to MMXM Trader
+""",
+    ),
+    (
+        "persona.md",
+        "persona",
+        """You are MMXM Trader — the autotrading execution specialist for this workspace.
+
+Speak in short, operational sentences. Lead with execution_mode, blockers, and next actions.
+Use Trading pipeline MCP before guessing portfolio or setup state. Respect AM window and risk caps.
+Escalate structural strategy changes via Govern / human_gate; routine scans and digests post to Messages.
+""",
+    ),
+    (
+        "memory.md",
+        "memory",
+        """## Execution ladder
+virtual < shadow < live. Live orders only when `risk_status` allows and AM window is open.
+
+## Risk and caps
+Always read `risk_status` from Trading pipeline MCP before entries. Honor max position size and daily loss caps.
+
+## Strategy rules (baseline)
+- MMXM setups require SMT alignment and session context before entry
+- No new entries outside AM window unless operator explicitly overrides in thread
+- Weekly strategy review updates `strategy/mmxm-review.md` via workstream + human_gate
+""",
+    ),
+    (
+        "strategy/mmxm-review.md",
+        "doc",
+        """# MMXM strategy review (baseline)
+
+## Purpose
+Weekly governed review of win/loss patterns, rule violations, and proposed doc updates.
+
+## Baseline rules
+- Entries inside AM window with MCP-confirmed setup state
+- Shadow mode for validation; live only when execution ladder and operator posture allow
+- Document material rule changes here; apply via Govern draft unless yolo posture
+
+## Last review
+Not yet run — seeded by autotrading bootstrap.
+""",
+    ),
+]
 
 
 async def refresh_retired_agent_models(session: AsyncSession, tenant_id: UUID) -> int:
@@ -441,6 +506,59 @@ async def get_or_create_weekly_strategy_trigger(
     return trigger
 
 
+async def seed_trading_workspace_docs(session: AsyncSession, tenant_id: UUID) -> int:
+    """Upsert trading workspace docs (company, persona, memory, strategy)."""
+    from app.services.workspace import upsert_doc
+
+    count = 0
+    for path, kind, content in TRADING_WORKSPACE_DOCS:
+        await upsert_doc(
+            session,
+            tenant_id,
+            path=path,
+            content=content,
+            kind=kind,
+            created_by_type="system",
+            commit=False,
+        )
+        count += 1
+    return count
+
+
+async def set_trader_default_chat_agent(
+    session: AsyncSession, tenant_id: UUID, trader_agent_id: UUID
+) -> bool:
+    """Set default chat target to MMXM Trader for the trading operator."""
+    result = await session.execute(
+        select(User)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.tenant_id == tenant_id, User.email == TRADER_EMAIL)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        return False
+
+    pref_result = await session.execute(
+        select(UserPreference).where(
+            UserPreference.tenant_id == tenant_id,
+            UserPreference.user_id == user.id,
+        )
+    )
+    pref = pref_result.scalar_one_or_none()
+    if pref:
+        pref.default_chat_agent_id = trader_agent_id
+        session.add(pref)
+    else:
+        session.add(
+            UserPreference(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                default_chat_agent_id=trader_agent_id,
+            )
+        )
+    return True
+
+
 async def configure_trading_tenant_settings(
     session: AsyncSession,
     tenant_id: UUID,
@@ -511,6 +629,8 @@ async def seed_trading_stack(
         operations_signal_id=ops_signal,
         strategy_workstream_id=strategy_ws.id,
     )
+    docs_seeded = await seed_trading_workspace_docs(session, tenant_id)
+    default_set = await set_trader_default_chat_agent(session, tenant_id, trader.id)
     await session.commit()
     return {
         "orchestrator_id": str(orchestrator.id),
@@ -524,4 +644,6 @@ async def seed_trading_stack(
         "models_updated": str(models_updated),
         "signal_linked": str(linked).lower(),
         "operations_signal_id": str(ops_signal) if ops_signal else "",
+        "workspace_docs_seeded": str(docs_seeded),
+        "trader_default_agent_set": str(default_set).lower(),
     }

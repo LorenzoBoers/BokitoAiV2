@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { FilePlus, FileText, Pencil, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -213,9 +215,13 @@ export default function WorkspaceDocs() {
       const updated = await updateWorkspaceDoc(active.id, { content: draft })
       setActive(updated)
       setEditing(false)
+      setError(null)
+      toast.success('Document saved')
       await refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed.')
+      const message = formatApiErrorMessage(err, 'Save failed.')
+      setError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -228,20 +234,32 @@ export default function WorkspaceDocs() {
       const doc = await createWorkspaceDoc({ path, content: `# ${path.replace(/\.md$/, '')}\n` })
       setCreating(false)
       setNewPath('')
+      setError(null)
+      toast.success('Document created')
       await refresh()
-      navigate(`/workspace/${doc.id}`)
+      navigate(`/knowledge/${doc.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Create failed.')
+      const message = formatApiErrorMessage(err, 'Create failed.')
+      setError(message)
+      toast.error(message)
     }
   }, [navigate, newPath, refresh])
 
   const handleDelete = useCallback(async () => {
     if (!active) return
     if (!window.confirm(`Delete ${active.path}?`)) return
-    await deleteWorkspaceDoc(active.id)
-    setActive(null)
-    await refresh()
-    navigate('/workspace')
+    try {
+      await deleteWorkspaceDoc(active.id)
+      setActive(null)
+      setError(null)
+      toast.success('Document deleted')
+      await refresh()
+      navigate('/knowledge')
+    } catch (err) {
+      const message = formatApiErrorMessage(err, 'Could not delete document.')
+      setError(message)
+      toast.error(message)
+    }
   }, [active, navigate, refresh])
 
   return (
@@ -249,7 +267,7 @@ export default function WorkspaceDocs() {
       <aside className="flex w-72 shrink-0 flex-col border-r bg-background">
         <div className="space-y-2 border-b p-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Workspace</h2>
+            <h2 className="text-sm font-semibold">Knowledge</h2>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => void refresh()}>
                 <RefreshCw className="h-3.5 w-3.5" />
@@ -314,7 +332,7 @@ export default function WorkspaceDocs() {
                     key={idx}
                     className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-muted"
                     onClick={() => {
-                      if (hit.doc_id) navigate(`/workspace/${hit.doc_id}`)
+                      if (hit.doc_id) navigate(`/knowledge/${hit.doc_id}`)
                     }}
                   >
                     <span className="block truncate text-xs font-medium">{hit.title}</span>
@@ -329,6 +347,10 @@ export default function WorkspaceDocs() {
             <p className="px-2 py-4 text-xs text-muted-foreground">Loading…</p>
           ) : error ? (
             <p className="px-2 py-4 text-xs text-destructive">{error}</p>
+          ) : docs.length === 0 ? (
+            <p className="px-2 py-4 text-xs text-muted-foreground">
+              No docs yet. Use the + button to add your first one.
+            </p>
           ) : (
             KIND_ORDER.map((kind) => {
               const rows = grouped.get(kind) ?? []
@@ -345,7 +367,7 @@ export default function WorkspaceDocs() {
                         'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted',
                         active?.id === doc.id && 'bg-muted font-medium',
                       )}
-                      onClick={() => navigate(`/workspace/${doc.id}`)}
+                      onClick={() => navigate(`/knowledge/${doc.id}`)}
                     >
                       <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <span className="truncate">{doc.title || doc.path}</span>
@@ -360,11 +382,25 @@ export default function WorkspaceDocs() {
 
       <main className="min-w-0 flex-1 overflow-y-auto">
         {!active ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Select a doc, or create one with the + button.
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+            {!loading && docs.length === 0 ? (
+              <>
+                <p className="max-w-sm text-center">
+                  Knowledge holds workspace docs, skills, and memory that your agents read and
+                  maintain. Create your first doc to get started.
+                </p>
+                <Button size="sm" onClick={() => setCreating(true)}>
+                  <FilePlus className="mr-1.5 h-3.5 w-3.5" />
+                  Create first doc
+                </Button>
+              </>
+            ) : (
+              <p>Select a doc, or create one with the + button.</p>
+            )}
           </div>
         ) : (
           <div className="mx-auto max-w-3xl px-8 py-6">
+            {error ? <p className="mb-3 text-xs text-destructive">{error}</p> : null}
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">{active.title || active.path}</h1>

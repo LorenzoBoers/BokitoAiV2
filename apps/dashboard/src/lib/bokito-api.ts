@@ -1,21 +1,85 @@
-import type {
-  AuthMeResponse,
-  ChatMessage,
-  CockpitSummary,
-  Conversation,
-  PushSubscriptionPayload,
-  TenantAppearance,
-} from '@bokito/messenger-ui'
-import type { ApiConfig } from '@bokito/messenger-ui'
 import type { RuntimeAgent } from './workforce-api'
 
-export type {
-  AuthMeResponse,
-  ChatMessage,
-  CockpitSummary,
-  Conversation,
-  PushSubscriptionPayload,
-  TenantAppearance,
+export type AuthUser = {
+  id: string
+  email: string
+  display_name: string
+  role: string
+  is_staff?: boolean
+  tenant?: { id: string; slug: string; name: string }
+}
+
+export type AuthMeResponse = {
+  user: AuthUser
+  tenant: { id: string; slug: string; name: string; logo?: string | null }
+}
+
+export type Conversation = {
+  id: string
+  title: string
+  channel?: string
+  audience?: string
+  ai_paused?: boolean
+  updated_at: string
+}
+
+export type ChatDecisionOption = {
+  id: string
+  label?: string
+  action_type?: string
+}
+
+export type ChatDecision = {
+  id: string
+  status: string
+  title?: string | null
+  summary?: string | null
+  options: ChatDecisionOption[]
+  chosen_option_id?: string | null
+  resolved_at?: string | null
+}
+
+export type ChatMessage = {
+  id: string
+  role: string
+  kind?: string
+  content: string
+  created_at?: string
+  decision_request_id?: string | null
+  decision?: ChatDecision | null
+  certainty?: number | null
+  auto_sent?: boolean
+  attachments?: unknown[]
+  usage?: {
+    input_tokens?: number
+    output_tokens?: number
+  }
+  steps?: Array<{
+    step_type?: string
+    stepType?: string
+    name?: string
+    payload?: Record<string, unknown>
+  }>
+  thinking?: {
+    text?: string
+    ms?: number
+    budget?: number
+  }
+}
+
+export type CockpitSummary = {
+  volume_week: number
+  open_decisions: number
+  autonomy_rate_pct: number
+  avg_feedback_score: number
+  tokens_month: number
+  cost_cents_month: number
+  time_saved_minutes_week: number
+}
+
+export type PushSubscriptionPayload = {
+  endpoint: string
+  keys: Record<string, string>
 }
 
 function resolveBaseUrl(): string {
@@ -24,13 +88,6 @@ function resolveBaseUrl(): string {
   }
   const configured = (import.meta.env.VITE_BOKITO_API_URL || '').replace(/\/$/, '')
   return configured
-}
-
-export function createBokitoApiConfig(getToken: () => string | null): ApiConfig {
-  return {
-    baseUrl: resolveBaseUrl(),
-    getToken,
-  }
 }
 
 async function bokitoFetch<T>(path: string, token: string | null, init?: RequestInit): Promise<T> {
@@ -116,23 +173,6 @@ export async function bokitoPatchMyAssistant(
   })
 }
 
-export type LlmProvider = 'anthropic' | 'openai'
-
-export type LlmKeyStatus = {
-  provider: LlmProvider
-  is_set: boolean
-  last4: string
-  updated_at: string | null
-}
-
-export type LlmKeysStatus = {
-  providers: LlmKeyStatus[]
-  chat_mode: 'live' | 'mock'
-  embeddings_mode: 'live' | 'mock'
-  chat_key_source?: 'tenant' | 'platform' | 'none'
-  embeddings_key_source?: 'tenant' | 'platform' | 'none'
-}
-
 // Model/provider types and API — see lib/models-api.ts
 export type {
   CatalogModel,
@@ -152,23 +192,6 @@ export {
   staffDeletePlatformKey as bokitoStaffDeletePlatformKey,
   staffSetMarkup as bokitoStaffSetMarkup,
 } from './models-api'
-
-export async function bokitoGetLlmKeys(token: string) {
-  return bokitoFetch<LlmKeysStatus>('/api/settings/llm-keys', token)
-}
-
-export async function bokitoSetLlmKey(token: string, provider: LlmProvider, apiKey: string) {
-  return bokitoFetch<LlmKeysStatus>(`/api/settings/llm-keys/${provider}`, token, {
-    method: 'PUT',
-    body: JSON.stringify({ api_key: apiKey }),
-  })
-}
-
-export async function bokitoDeleteLlmKey(token: string, provider: LlmProvider) {
-  return bokitoFetch<LlmKeysStatus>(`/api/settings/llm-keys/${provider}`, token, {
-    method: 'DELETE',
-  })
-}
 
 export async function bokitoUpdateTenantModels(
   token: string,
@@ -252,7 +275,14 @@ export async function bokitoCreateConversation(
   token: string,
   title = 'New conversation',
   agentId?: string | null,
+  options?: {
+    /** Ground the conversation in a customer thread (Ask assistant). */
+    contextSignalId?: string
+  },
 ) {
+  const body: Record<string, unknown> = { title }
+  if (agentId) body.agent_id = agentId
+  if (options?.contextSignalId) body.context_signal_id = options.contextSignalId
   return bokitoFetch<{
     id: string
     title: string
@@ -262,7 +292,7 @@ export async function bokitoCreateConversation(
     agent_kind?: string
   }>('/api/chat/conversations', token, {
     method: 'POST',
-    body: JSON.stringify(agentId ? { title, agent_id: agentId } : { title }),
+    body: JSON.stringify(body),
   })
 }
 
@@ -281,7 +311,7 @@ export async function bokitoDeleteConversation(token: string, conversationId: st
 
 /**
  * Send a message and stream the assistant reply over SSE.
- * Calls `onDelta` for each text chunk; resolves with the final text.
+ * Calls `onDelta` for each text chunk; optional `onThinking` for reasoning deltas.
  */
 export async function bokitoStreamMessage(
   token: string,
@@ -289,6 +319,7 @@ export async function bokitoStreamMessage(
   content: string,
   onDelta: (text: string) => void,
   signal?: AbortSignal,
+  onThinking?: (text: string) => void,
 ): Promise<string> {
   const res = await fetch(`${resolveBaseUrl()}/api/chat/conversations/${conversationId}/stream`, {
     method: 'POST',
@@ -311,7 +342,9 @@ export async function bokitoStreamMessage(
   const handleEvent = (name: string, data: string) => {
     try {
       const payload = JSON.parse(data) as { text?: string }
-      if (name === 'delta' && payload.text) {
+      if (name === 'thinking' && payload.text) {
+        onThinking?.(payload.text)
+      } else if (name === 'delta' && payload.text) {
         onDelta(payload.text)
       } else if (name === 'done') {
         finalText = payload.text ?? finalText
@@ -347,14 +380,4 @@ export async function bokitoSubscribePush(token: string, subscription: PushSubsc
     method: 'POST',
     body: JSON.stringify(subscription),
   })
-}
-
-export async function bokitoTenantAppearance(token: string): Promise<TenantAppearance> {
-  const me = await bokitoMe(token)
-  return {
-    chatbot_name: me.tenant.name,
-    logo: me.tenant.logo ?? undefined,
-    main_color: '#111827',
-    powered_by: true,
-  }
 }

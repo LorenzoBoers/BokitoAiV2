@@ -4,7 +4,6 @@ import { getAvatarColor } from '../lib/avatar'
 import { useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useTranslation } from 'react-i18next'
-import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { buildTenantOrigin } from '../lib/host-routing'
@@ -27,9 +26,9 @@ function normalizeSubdomainInput(value: string): string {
 
 function validateSubdomain(value: string): string | null {
   const v = value.trim().toLowerCase()
-  if (!v) return 'Subdomein is verplicht.'
+  if (!v) return 'Subdomain is required.'
   if (!SUBDOMAIN_REGEX.test(v)) {
-    return 'Gebruik 3-63 tekens: a-z, 0-9, en "-" (niet starten/eindigen met "-").'
+    return 'Use 3-63 characters: a-z, 0-9 and "-" (must not start or end with "-").'
   }
   return null
 }
@@ -59,16 +58,16 @@ export default function Workspaces() {
     setError(null)
     setSubdomainError(null)
     try {
-      const createdWorkspace = await createWorkspace({
+      await createWorkspace({
         name: workspaceName.trim(),
         timezone: DEFAULT_TIMEZONE,
         subdomain: normalizedSubdomain,
       })
+      // createWorkspace adopts the new workspace session and fully reloads
+      // the app into the fresh tenant; nothing else to do here.
       setWorkspaceName('')
       setWorkspaceSubdomain('')
-      await switchWorkspace(createdWorkspace.id)
       setCreateDialogOpen(false)
-      navigate('/settings/general', { replace: true })
     } catch (createError) {
       const message = createError instanceof Error ? createError.message : t('cards.create.error')
       setError(message)
@@ -151,7 +150,7 @@ export default function Workspaces() {
                         {tenantUrl ? (
                           <p className="text-[11px] text-text-secondary truncate">{tenantUrl}</p>
                         ) : (
-                          <p className="text-[11px] text-status-error">Subdomein vereist om tenant te openen</p>
+                          <p className="text-[11px] text-status-error">Subdomain required to open this workspace</p>
                         )}
                       </div>
                     </div>
@@ -163,7 +162,7 @@ export default function Workspaces() {
                   </div>
                   <div className="mt-5 flex items-center gap-2 text-sm text-text-secondary">
                     <Building2 size={14} className="text-text-muted" />
-                    <span>{hasSubdomain ? t('cards.workspace.openCta') : 'Stel eerst subdomein in'}</span>
+                    <span>{hasSubdomain ? t('cards.workspace.openCta') : 'Set a subdomain first'}</span>
                     <ExternalLink size={13} className="text-text-muted" />
                   </div>
                 </button>
@@ -192,23 +191,6 @@ export default function Workspaces() {
             </button>
           </div>
 
-          <Card className="space-y-3 p-5">
-            <p className="text-sm font-medium text-text-heading">{t('help.title')}</p>
-            <div className="space-y-2">
-              <a href="#" className="block rounded-md px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary">
-                {t('help.items.docs')}
-              </a>
-              <a href="#" className="block rounded-md px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary">
-                {t('help.items.community')}
-              </a>
-              <a href="#" className="block rounded-md px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary">
-                {t('help.items.videos')}
-              </a>
-              <a href="#" className="block rounded-md px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary">
-                {t('help.items.support')}
-              </a>
-            </div>
-          </Card>
         </div>
       </div>
 
@@ -233,7 +215,7 @@ export default function Workspaces() {
                     setWorkspaceSubdomain(next)
                     if (subdomainError) setSubdomainError(validateSubdomain(next))
                   }}
-                  placeholder="subdomein"
+                  placeholder="subdomain"
                   className="rounded-r-none"
                 />
                 <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/55 text-[12px] text-text-muted whitespace-nowrap rounded-r-md">

@@ -25,13 +25,7 @@ function chatWidgetDevPlugin() {
           return
         }
 
-        let relativePath = requestPath.slice('/chat-widget/'.length)
-        if (relativePath.startsWith('internal/')) {
-          relativePath = relativePath.slice('internal/'.length)
-        } else if (relativePath.startsWith('external/')) {
-          relativePath = relativePath.slice('external/'.length)
-        }
-
+        const relativePath = requestPath.slice('/chat-widget/'.length)
         const absolutePath = path.resolve(chatWidgetServeRoot, relativePath)
         if (!absolutePath.startsWith(chatWidgetServeRoot)) {
           next()

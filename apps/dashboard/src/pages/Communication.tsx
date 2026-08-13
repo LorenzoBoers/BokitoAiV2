@@ -3,10 +3,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { inboxPath, leafFromPath, leafKey, leafPath, type HubLeaf, type InboxQueue } from '../lib/messages-paths'
+import {
+  agentRunsPath,
+  inboxPath,
+  leafFromPath,
+  leafKey,
+  leafPath,
+  type HubLeaf,
+  type InboxQueue,
+  type RunsQueue,
+} from '../lib/messages-paths'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
+import AskAssistantPanel from '../components/inbox/AskAssistantPanel'
+import { isInternalThread } from '../lib/message-composer'
+import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
 import {
@@ -23,12 +35,14 @@ import {
   pinThread as apiPinThread,
   unpinThread as apiUnpinThread,
   deleteThread as apiDeleteThread,
+  type BulkThreadAction,
   type InboxThread,
   type MessageAttachment,
   type PatchThreadInput,
   type ThreadFilters,
   type ThreadId,
 } from '../lib/inbox-api'
+import { bulkUpdateSignalThreads } from '../lib/signals-api'
 
 type View = NonNullable<ThreadFilters['view']>
 
@@ -37,7 +51,9 @@ const INBOX_QUEUE_TO_VIEW: Record<InboxQueue, View> = {
   mine: 'mine',
   open: 'all_open',
   unassigned: 'unassigned',
+  snoozed: 'snoozed',
   closed: 'closed',
+  spam: 'spam',
 }
 
 const RUNS_QUEUE_TO_VIEW: Record<string, View> = {
@@ -46,6 +62,13 @@ const RUNS_QUEUE_TO_VIEW: Record<string, View> = {
   results: 'results',
   'awaiting-decision': 'awaiting_decision',
 }
+
+const ACTIVITY_CHIPS: ReadonlyArray<{ queue: RunsQueue; label: string }> = [
+  { queue: 'all', label: 'All' },
+  { queue: 'updates', label: 'Updates' },
+  { queue: 'results', label: 'Results' },
+  { queue: 'awaiting-decision', label: 'Decisions' },
+]
 
 type LeafConfig = {
   filters: Omit<ThreadFilters, 'search' | 'projectId'>
@@ -63,6 +86,16 @@ function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     case 'runs':
+      // Decisions can sit on email/widget threads as well as internal run
+      // threads — do not scope that queue to folder=internal or Cockpit's
+      // "Awaiting decision" count will open an empty list.
+      if (leaf.queue === 'awaiting-decision') {
+        return {
+          filters: { view: 'awaiting_decision' },
+          mode: 'agent',
+          variant: 'customer',
+        }
+      }
       return {
         filters: { folder: 'internal', view: RUNS_QUEUE_TO_VIEW[leaf.queue] ?? 'internal' },
         mode: 'agent',
@@ -91,10 +124,6 @@ function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     }
-    case 'view':
-      return { filters: { folder: 'inbox', view: 'all', tag: leaf.key }, mode: 'customer', variant: 'customer' }
-    case 'label':
-      return { filters: { folder: 'inbox', view: 'all', tag: leaf.key }, mode: 'customer', variant: 'customer' }
     default:
       // assistant/agent chats are handled by DirectCommunication
       return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
@@ -111,8 +140,12 @@ function threadFitsInboxQueue(thread: InboxThread, queue: InboxQueue, userId: nu
       return thread.status === 'open'
     case 'unassigned':
       return thread.status === 'open' && thread.assignedToUserId == null
+    case 'snoozed':
+      return thread.status === 'pending'
     case 'closed':
       return thread.status === 'closed'
+    case 'spam':
+      return thread.status === 'spam'
     default:
       return true
   }
@@ -167,6 +200,8 @@ export default function Communication() {
 
   const { search, setSearch, quickFilter, setQuickFilter, resetQuickFilter } = useInboxCommunication()
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
+  const [showAssistantPanel, setShowAssistantPanel] = useState(false)
+  const [assistantDraft, setAssistantDraft] = useState<{ body: string; key: string } | null>(null)
   const [showContactPanel, setShowContactPanel] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
     const stored = window.localStorage.getItem('inbox.contactPanel.open')
@@ -192,6 +227,14 @@ export default function Communication() {
     needsOrganisation,
   } = useMailboxConnections()
 
+  const {
+    status: onboardingStatus,
+    error: onboardingError,
+    retry: retryOnboarding,
+    dismissed: onboardingDismissed,
+    dismiss: dismissOnboarding,
+  } = useOnboardingStatus()
+
   const enabledConnections = connections.filter(
     (c) => c.status !== 'revoked' && c.isEnabled !== false,
   )
@@ -214,6 +257,25 @@ export default function Communication() {
     setSearch('')
     resetQuickFilter()
   }, [listContextKey, setSearch, resetQuickFilter])
+
+  // Bulk selection lives per list context; switching leaves clears it.
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<ReadonlySet<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  useEffect(() => {
+    setBulkSelectedIds(new Set())
+  }, [listContextKey])
+
+  const handleToggleBulkSelect = useCallback((id: ThreadId) => {
+    setBulkSelectedIds((prev) => {
+      const next = new Set(prev)
+      const key = String(id)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const handleClearBulkSelection = useCallback(() => setBulkSelectedIds(new Set()), [])
 
   const filteredThreads = useMemo(
     () => applyQuickFilter(threads, quickFilter),
@@ -247,6 +309,11 @@ export default function Communication() {
     },
     [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
+
+  // Assistant copy-to-composer drafts are thread-specific.
+  useEffect(() => {
+    setAssistantDraft(null)
+  }, [selectedThreadId])
 
   const firstThreadId = filteredThreads[0]?.id ?? null
 
@@ -321,8 +388,8 @@ export default function Communication() {
     if (selectedThreadId == null || !detail) return
     try {
       await toggleTakeover(Boolean(detail.thread.aiPaused))
-    } catch {
-      // Optimistic state is reverted inside the hook; surface nothing here.
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not change AI takeover.')
     }
   }, [selectedThreadId, detail, toggleTakeover])
 
@@ -385,14 +452,39 @@ export default function Communication() {
     [patch, refreshThreads, refreshNavBadges],
   )
 
+  const handleBulkAction = useCallback(
+    async (action: BulkThreadAction, assigneeId?: number) => {
+      if (!token || bulkSelectedIds.size === 0) return
+      setBulkBusy(true)
+      try {
+        const updated = await bulkUpdateSignalThreads(
+          token,
+          [...bulkSelectedIds],
+          action,
+          assigneeId,
+        )
+        toast.success(`${updated} thread${updated === 1 ? '' : 's'} updated`)
+        setBulkSelectedIds(new Set())
+        void refreshThreads()
+        void refreshNavBadges()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Bulk action failed.')
+      } finally {
+        setBulkBusy(false)
+      }
+    },
+    [token, bulkSelectedIds, refreshThreads, refreshNavBadges],
+  )
+
   const handleReply = useCallback(
     async (
       bodyText: string,
       action: 'send' | 'send_and_close' | 'send_and_pending',
       format?: 'email' | 'plain',
       attachments?: MessageAttachment[],
+      snoozeMinutes?: number,
     ) => {
-      await reply({ bodyText, action, format, attachments })
+      await reply({ bodyText, action, format, attachments, snoozeMinutes })
       void refreshThreads()
     },
     [reply, refreshThreads],
@@ -414,10 +506,14 @@ export default function Communication() {
 
   const handleThreadUpdated = handleDecisionResolved
 
-  // "Ask assistant": open a fresh assistant chat pre-filled with this
-  // thread's context so the user can reason about it with their AI.
+  // "Ask assistant": external threads get an inline assistant panel next to
+  // the thread (copy-to-composer); internal agent threads open a fresh chat.
   const handleAskAssistant = useCallback(() => {
     if (!detail) return
+    if (!isInternalThread(detail.thread)) {
+      setShowAssistantPanel((prev) => !prev)
+      return
+    }
     const subject = detail.thread.emailSubject || detail.thread.contactName || 'this thread'
     const prefill = `Help me with the thread "${subject}" (thread id ${detail.thread.id}). Summarize what happened and suggest the next step.`
     navigate(`/communication/new?prefill=${encodeURIComponent(prefill)}`)
@@ -443,9 +539,34 @@ export default function Communication() {
     (leaf.type === 'inbox' || (leaf.type === 'channel' && leaf.channelKey === 'email')) &&
     enabledConnections.length === 0 &&
     threadsReady &&
-    threads.length === 0
+    threads.length === 0 &&
+    // An active search with zero hits is "no results", not "no mailbox".
+    search.trim().length === 0
 
   if (showEmptyMailboxState) {
+    // Fresh workspaces land here: show the onboarding checklist until the
+    // basics (company, assistant, channel, team) are in place.
+    if (onboardingStatus && !onboardingStatus.completed && !onboardingDismissed) {
+      return (
+        <div className="h-full min-h-0 overflow-y-auto">
+          <OnboardingChecklist status={onboardingStatus} onDismiss={dismissOnboarding} />
+        </div>
+      )
+    }
+    if (onboardingError && !onboardingDismissed) {
+      return (
+        <div className="h-full min-h-0 flex flex-col items-center justify-center gap-3 py-8 px-4 text-center">
+          <p className="text-sm text-status-error">{onboardingError}</p>
+          <button
+            type="button"
+            onClick={retryOnboarding}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+          >
+            Retry
+          </button>
+        </div>
+      )
+    }
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
@@ -465,8 +586,34 @@ export default function Communication() {
     )
   }
 
+  const runsQueue: RunsQueue = leaf.type === 'runs' ? leaf.queue : 'all'
+  const showActivityChips = leaf.type === 'runs' || (leaf.type === 'channel' && leaf.channelKey === 'agent')
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+      {showActivityChips ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-2">
+          <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
+            Activity
+          </span>
+          {ACTIVITY_CHIPS.map((chip) => {
+            const active = runsQueue === chip.queue
+            return (
+              <Link
+                key={chip.queue}
+                to={agentRunsPath(chip.queue)}
+                className={
+                  active
+                    ? 'rounded-full bg-accent/15 px-2.5 py-0.5 text-[12px] font-medium text-accent'
+                    : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-[12px] text-text-secondary hover:text-text-primary'
+                }
+              >
+                {chip.label}
+              </Link>
+            )
+          })}
+        </div>
+      ) : null}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <ThreadList
           threads={filteredThreads}
@@ -483,6 +630,11 @@ export default function Communication() {
           onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
           deletingThreadId={deletingThreadId}
           variant={variant}
+          bulkSelectedIds={mode === 'customer' ? bulkSelectedIds : undefined}
+          onToggleBulkSelect={mode === 'customer' ? handleToggleBulkSelect : undefined}
+          onBulkAction={mode === 'customer' ? (a, uid) => void handleBulkAction(a, uid) : undefined}
+          onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
+          bulkBusy={bulkBusy}
         />
         <ThreadDetail
           detail={detail}
@@ -503,7 +655,18 @@ export default function Communication() {
           onDecisionResolved={handleDecisionResolved}
           mode={mode}
           onAskAssistant={detail ? handleAskAssistant : undefined}
+          externalDraft={assistantDraft}
         />
+        {detail && showAssistantPanel && !isInternalThread(detail.thread) ? (
+          <AskAssistantPanel
+            thread={detail.thread}
+            onClose={() => setShowAssistantPanel(false)}
+            onCopyToComposer={(text) => {
+              setAssistantDraft({ body: text, key: `assist-${Date.now()}` })
+              toast.success('Copied to reply composer')
+            }}
+          />
+        ) : null}
         {detail && showContactPanel ? (
           <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} onThreadUpdated={handleThreadUpdated} />
         ) : null}

@@ -36,7 +36,6 @@ class AgentTask(SQLModel, table=True):
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
     current_step_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_steps.id")
-    workstream_run_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstream_runs.id")
     default_runtime_profile_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="runtime_profiles.id"
     )

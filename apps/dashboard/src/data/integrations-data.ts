@@ -39,9 +39,9 @@ const REMOTE_LOGO_META: Record<string, { initials: string; color: string }> = {
 
 /** Business categories kept for API rows; marketplace filters by IntegrationKind instead. */
 export type IntegrationCategory =
-  | 'Communicatie'
-  | 'Ontwikkeling'
-  | 'Productiviteit'
+  | 'Communication'
+  | 'Development'
+  | 'Productivity'
 
 export type IntegrationStatus = 'connected' | 'available' | 'coming_soon'
 
@@ -112,8 +112,8 @@ export const INTEGRATIONS: Integration[] = [
   {
     id: 'github',
     name: 'GitHub',
-    description: 'Koppel repositories voor code-indexering en agentcontext.',
-    category: 'Ontwikkeling',
+    description: 'Connect repositories for code indexing and agent context.',
+    category: 'Development',
     kind: 'repository',
     status: 'available',
     color: '#24292E',
@@ -124,8 +124,8 @@ export const INTEGRATIONS: Integration[] = [
   {
     id: 'microsoft-365',
     name: 'Microsoft 365',
-    description: 'Outlook-mailboxen voor inbox en e-mail in Bokito.',
-    category: 'Communicatie',
+    description: 'Outlook mailboxes for inbox and email in Bokito.',
+    category: 'Communication',
     kind: 'inbox',
     status: 'available',
     color: '#0078D4',
@@ -136,8 +136,8 @@ export const INTEGRATIONS: Integration[] = [
   {
     id: 'google-workspace',
     name: 'Google Workspace',
-    description: 'Gmail-mailboxen voor inbox en e-mail in Bokito.',
-    category: 'Communicatie',
+    description: 'Gmail mailboxes for inbox and email in Bokito.',
+    category: 'Communication',
     kind: 'inbox',
     status: 'available',
     color: '#4285F4',
@@ -148,8 +148,8 @@ export const INTEGRATIONS: Integration[] = [
   {
     id: 'bjorn_lunden_mcp',
     name: 'Bjorn Lunden MCP',
-    description: 'Model Context Protocol-koppeling voor boekhoud- en ERP-tools.',
-    category: 'Productiviteit',
+    description: 'Model Context Protocol connection for accounting and ERP tools.',
+    category: 'Productivity',
     kind: 'mcp',
     status: 'available',
     color: '#0F766E',
@@ -160,7 +160,7 @@ export const INTEGRATIONS: Integration[] = [
     id: 'custom_mcp',
     name: 'Custom MCP server',
     description: 'Connect any external MCP server by URL with API key or bearer token.',
-    category: 'Productiviteit',
+    category: 'Productivity',
     kind: 'mcp',
     status: 'available',
     color: '#475569',
@@ -170,8 +170,8 @@ export const INTEGRATIONS: Integration[] = [
   {
     id: 'shopify',
     name: 'Shopify',
-    description: 'Koppel een Shopify-winkel voor producten, orders en storefront MCP (per winkel).',
-    category: 'Productiviteit',
+    description: 'Connect a Shopify store for products, orders and storefront MCP (per store).',
+    category: 'Productivity',
     kind: 'mcp',
     status: 'coming_soon',
     color: '#96BF48',

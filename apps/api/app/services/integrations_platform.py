@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDERS, PROVIDER_BY_SLUG, provider_id
@@ -170,15 +171,36 @@ async def install_mcp(
     server_url: str | None = None,
     auth_type: str = "api_key",
     mcp_server_id: int | None = None,
+    auth: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
-    url = server_url or PROVIDER_BY_SLUG[provider].get("mcp_remote_url") or "mock://local/mcp"
+    url = server_url or PROVIDER_BY_SLUG[provider].get("mcp_remote_url") or ""
+    if not url:
+        if get_settings().is_production:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "This integration has no MCP server URL configured. "
+                    "Provide server_url (the provider's MCP endpoint) to install it."
+                ),
+            )
+        url = "mock://local/mcp"
+    if url.startswith("mock://") and get_settings().is_production:
+        raise HTTPException(
+            status_code=422,
+            detail="Mock MCP servers are not allowed in production. Provide a real server_url.",
+        )
+    auth_payload: dict[str, Any] = {"api_key": api_key, "auth_type": auth_type}
+    if isinstance(auth, dict):
+        # Preserve bearer_token / custom headers alongside the api_key.
+        auth_payload.update({k: v for k, v in auth.items() if v is not None})
+        auth_payload["auth_type"] = auth.get("auth_type") or auth_type
     server = McpServer(
         tenant_id=tenant_id,
         name=display_name or PROVIDER_BY_SLUG[provider]["name"],
         server_url=url,
-        auth_json=json.dumps({"api_key": api_key, "auth_type": auth_type}),
+        auth_json=json.dumps(auth_payload),
     )
     session.add(server)
     await session.flush()
@@ -216,9 +238,16 @@ async def install_mcp(
     await session.commit()
     await session.refresh(conn)
     await session.refresh(binding)
+    # Best-effort tool discovery so agents see the server's tools immediately.
+    discovery: dict[str, Any] | None = None
+    try:
+        discovery = await test_mcp_server(session, tenant_id, server.id)
+    except Exception:
+        discovery = None
     return {
         "connection": serialize_connection(conn),
         "binding": {"id": str(binding.id), "config": _parse_json(binding.config_json)},
+        "discovery": discovery,
     }
 
 
@@ -286,6 +315,41 @@ async def list_mcp_bindings(session: AsyncSession, tenant_id: UUID) -> dict[str,
     return {"bindings": bindings, "mcp_server_ids": list(server_ids)}
 
 
+# Mock discovery set for accounting-suite MCP servers (Björn Lundén / King)
+# so tenants can wire the full flow before real credentials exist.
+_ACCOUNTING_MOCK_TOOLS: list[dict[str, str]] = [
+    {"name": "search_customers", "description": "Search customers by name, number, or email"},
+    {"name": "get_customer", "description": "Fetch one customer with contact and balance details"},
+    {"name": "list_invoices", "description": "List invoices filtered by customer, status, or period"},
+    {"name": "get_invoice", "description": "Fetch a single invoice with lines and payment status"},
+    {"name": "list_ledger_entries", "description": "List general ledger entries for an account/period"},
+    {"name": "get_account_balance", "description": "Get the balance of a ledger account"},
+    {"name": "list_vat_reports", "description": "List VAT report periods and their status"},
+]
+
+
+def _is_accounting_server(name: str) -> bool:
+    lowered = name.lower()
+    return any(k in lowered for k in ("björn", "bjorn", "lunden", "lundén", "king", "account"))
+
+
+def _mock_discovery_tools(server_name: str) -> list[dict[str, str]]:
+    if _is_accounting_server(server_name):
+        return [dict(t) for t in _ACCOUNTING_MOCK_TOOLS]
+    return [{"name": "mock_tool", "description": "Mock MCP tool for local development"}]
+
+
+async def _persist_discovered_tools(
+    session: AsyncSession, server: McpServer, tools: list[dict[str, str]]
+) -> None:
+    from datetime import datetime
+
+    server.tools_json = json.dumps(tools)
+    server.tools_synced_at = datetime.utcnow()
+    session.add(server)
+    await session.commit()
+
+
 async def test_mcp_server(
     session: AsyncSession, tenant_id: UUID, server_id: UUID
 ) -> dict[str, Any]:
@@ -299,12 +363,23 @@ async def test_mcp_server(
         raise HTTPException(status_code=404, detail="MCP server not found")
 
     if server.server_url.startswith("mock://"):
+        if get_settings().is_production:
+            return {
+                "ok": False,
+                "server_id": str(server.id),
+                "server_name": server.name,
+                "tool_count": 0,
+                "tools": [],
+                "error": "Mock MCP servers are not allowed in production.",
+            }
+        tools = _mock_discovery_tools(server.name)
+        await _persist_discovered_tools(session, server, tools)
         return {
             "ok": True,
             "server_id": str(server.id),
             "server_name": server.name,
-            "tool_count": 1,
-            "tools": [{"name": "mock_tool"}],
+            "tool_count": len(tools),
+            "tools": tools,
         }
 
     auth = _parse_json(server.auth_json)
@@ -327,7 +402,15 @@ async def test_mcp_server(
         }
 
     tools_raw = body.get("result", {}).get("tools", []) if isinstance(body, dict) else []
-    tools = [{"name": t.get("name", "")} for t in tools_raw if isinstance(t, dict) and t.get("name")]
+    tools = [
+        {
+            "name": str(t.get("name", "")),
+            "description": str(t.get("description", ""))[:200],
+        }
+        for t in tools_raw
+        if isinstance(t, dict) and t.get("name")
+    ]
+    await _persist_discovered_tools(session, server, tools)
     return {
         "ok": True,
         "server_id": str(server.id),
@@ -407,11 +490,33 @@ async def list_github_connections(session: AsyncSession, tenant_id: UUID) -> lis
     return rows
 
 
+def _seed_mock_creds_if_missing(account: ChannelAccount) -> None:
+    """Give a dev mock mailbox placeholder credentials so it reads as connected.
+
+    Never overwrites real tokens and never runs in production (the mock OAuth
+    paths are already blocked there). Sync and send recognize the `mock` flag
+    and short-circuit instead of calling the real provider APIs.
+    """
+    if get_settings().is_production:
+        return
+    try:
+        creds = json.loads(account.credentials_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        creds = {}
+    if isinstance(creds, dict) and creds.get("access_token"):
+        return
+    account.credentials_json = json.dumps(
+        {"access_token": "mock-access-token", "mock": True}
+    )
+
+
 async def ensure_email_account(
     session: AsyncSession,
     tenant_id: UUID,
     provider: str,
     email: str,
+    *,
+    seed_mock_credentials: bool = False,
 ) -> ChannelAccount:
     result = await session.execute(
         select(ChannelAccount).where(
@@ -424,6 +529,8 @@ async def ensure_email_account(
     if existing:
         existing.provider = provider
         existing.is_enabled = True
+        if seed_mock_credentials:
+            _seed_mock_creds_if_missing(existing)
         session.add(existing)
         await session.commit()
         await session.refresh(existing)
@@ -435,6 +542,8 @@ async def ensure_email_account(
         provider=provider,
         is_enabled=True,
     )
+    if seed_mock_credentials:
+        _seed_mock_creds_if_missing(account)
     session.add(account)
     await session.commit()
     await session.refresh(account)

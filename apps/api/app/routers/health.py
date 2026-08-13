@@ -43,4 +43,7 @@ async def health_ready(response: Response):
 
     if not ok:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    return {"ok": ok, "checks": checks}
+
+    from app.services.runtime_health import runtime_health_snapshot
+
+    return {"ok": ok, "checks": checks, "runtime": runtime_health_snapshot()}

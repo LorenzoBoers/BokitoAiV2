@@ -20,6 +20,7 @@ import { listAgentTasks, type AgentTask } from '../../lib/orchestration-api'
 import type { GovernToolRow } from '../../lib/govern-api'
 import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
+import { agentRunsPath } from '../../lib/messages-paths'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ThreadProjectPicker } from './ThreadProjectPicker'
 
@@ -331,13 +332,17 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
       {task ? (
         <div className="border-b border-border/40 px-4 py-3">
           <SectionHeading title="Active task" />
-          <div className="rounded-lg border border-border/55 bg-bg-elevated/50 px-3 py-2">
+          <Link
+            to={agentRunsPath('all', task.signal_id || String(thread.id))}
+            className="block rounded-lg border border-border/55 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-accent/40"
+          >
             <p className="truncate text-[12.5px] font-medium text-text-primary">{task.title}</p>
             <p className="mt-0.5 text-[11px] capitalize text-text-muted">
               {task.status.replace(/_/g, ' ')}
               {task.pause_reason ? ` (${task.pause_reason.replace(/_/g, ' ')})` : ''}
+              {' · Open in Activity'}
             </p>
-          </div>
+          </Link>
         </div>
       ) : null}
 

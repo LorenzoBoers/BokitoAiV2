@@ -141,8 +141,13 @@ function buildHeaders(token?: string): Record<string, string> {
 
 async function readResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(err.message || `HTTP ${res.status}`)
+    const err = await res.json().catch(() => ({}))
+    const message =
+      (typeof err?.error?.message === 'string' && err.error.message) ||
+      (typeof err?.detail === 'string' && err.detail) ||
+      (typeof err?.message === 'string' && err.message) ||
+      `HTTP ${res.status}`
+    throw new Error(message)
   }
   return res.json() as Promise<T>
 }
@@ -312,6 +317,18 @@ export async function updateAgentStatus(
     body: JSON.stringify({ status }),
   })
   return readResponse<{ ok: boolean; agent: RuntimeAgent }>(res)
+}
+
+export async function archiveAgent(
+  token: string | undefined,
+  agentId: string,
+): Promise<{ ok: boolean; id: string }> {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.detail(agentId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: buildHeaders(token),
+  })
+  return readResponse<{ ok: boolean; id: string }>(res)
 }
 
 // --- Chat access (who may DM a company agent) ---

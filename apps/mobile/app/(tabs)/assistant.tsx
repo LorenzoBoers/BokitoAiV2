@@ -2,8 +2,6 @@ import { useCallback, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -12,19 +10,25 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { Stack } from 'expo-router'
+import { KeyboardAvoidingView, KeyboardStickyView } from 'react-native-keyboard-controller'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import ConversationPicker from '../../src/components/ConversationPicker'
+import SendStopButton from '../../src/components/SendStopButton'
 import StreamingBubble from '../../src/components/StreamingBubble'
+import ThinkingTrace from '../../src/components/ThinkingTrace'
 import {
   useChatMessages,
   useChatTargets,
   useConversationMutations,
   useConversations,
 } from '../../src/hooks/useMessagingQueries'
+import { useLastAgentSteps } from '../../src/hooks/useLastAgentSteps'
 import { useSignalStream } from '../../src/hooks/useSignalStream'
 import { streamChatMessage, type ChatMessage } from '../../src/lib/api'
 import { colors, spacing } from '../../src/theme'
 
 export default function AssistantScreen() {
+  const insets = useSafeAreaInsets()
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -45,10 +49,14 @@ export default function AssistantScreen() {
   const { create, rename, remove } = useConversationMutations()
 
   const visibleMessages = messages.filter((m) => m.role === 'user' || m.role === 'assistant')
+  const isStreaming = streaming || gatewayStream.streaming
   const showStreamBubble =
-    streaming || gatewayStream.streaming || !!streamText || gatewayStream.steps.length > 0
+    isStreaming || !!streamText || !!gatewayStream.streamText || gatewayStream.steps.length > 0
   const activeStreamText = streaming ? streamText : gatewayStream.streamText
   const activeSteps = gatewayStream.steps
+  const lastCompletedSteps = useLastAgentSteps(isStreaming, activeSteps)
+
+  const lastAssistantId = [...visibleMessages].reverse().find((m) => m.role === 'assistant')?.id
 
   const ensureConversation = useCallback(async () => {
     if (activeId) return activeId
@@ -61,7 +69,7 @@ export default function AssistantScreen() {
 
   const send = async () => {
     const content = draft.trim()
-    if (!content || streaming) return
+    if (!content || isStreaming) return
     setDraft('')
     setStreaming(true)
     setStreamText('')
@@ -102,11 +110,7 @@ export default function AssistantScreen() {
   const loading = loadingConversations && !activeId
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-    >
+    <KeyboardAvoidingView style={styles.root} behavior="padding" keyboardVerticalOffset={insets.top}>
       <Stack.Screen
         options={{
           headerRight: () => (
@@ -127,15 +131,21 @@ export default function AssistantScreen() {
           data={visibleMessages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           renderItem={({ item }) => (
-            <View
-              style={[
-                styles.bubble,
-                item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant,
-              ]}
-            >
-              <Text style={styles.bubbleText}>{item.content}</Text>
+            <View style={styles.messageRow}>
+              {item.id === lastAssistantId && lastCompletedSteps.length > 0 && !isStreaming ? (
+                <ThinkingTrace steps={lastCompletedSteps} compact />
+              ) : null}
+              <View
+                style={[
+                  styles.bubble,
+                  item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant,
+                ]}
+              >
+                <Text style={styles.bubbleText}>{item.content}</Text>
+              </View>
             </View>
           )}
           ListEmptyComponent={
@@ -143,39 +153,35 @@ export default function AssistantScreen() {
           }
           ListFooterComponent={
             showStreamBubble ? (
-              <StreamingBubble text={activeStreamText} steps={activeSteps} active={streaming || gatewayStream.streaming} />
+              <StreamingBubble
+                text={activeStreamText}
+                steps={activeSteps}
+                active={isStreaming}
+              />
             ) : null
           }
         />
       )}
 
-      <View style={styles.composer}>
-        {streaming ? (
-          <Pressable style={styles.stopButton} onPress={stopStreaming}>
-            <Ionicons name="stop" size={16} color="#fff" />
-            <Text style={styles.stopText}>Stop</Text>
-          </Pressable>
-        ) : null}
-        <TextInput
-          style={styles.input}
-          placeholder="Message your assistant"
-          placeholderTextColor={colors.textMuted}
-          value={draft}
-          onChangeText={setDraft}
-          multiline
-          editable={!streaming}
-        />
-        <Pressable
-          style={[styles.sendButton, (streaming || !draft.trim()) && styles.sendDisabled]}
-          onPress={() => void send()}
-        >
-          {streaming ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.sendText}>Send</Text>
-          )}
-        </Pressable>
-      </View>
+      <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
+        <View style={styles.composer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Message your assistant"
+            placeholderTextColor={colors.textMuted}
+            value={draft}
+            onChangeText={setDraft}
+            multiline
+            editable={!isStreaming}
+          />
+          <SendStopButton
+            streaming={isStreaming}
+            canSend={!!draft.trim()}
+            onSend={() => void send()}
+            onStop={stopStreaming}
+          />
+        </View>
+      </KeyboardStickyView>
 
       <ConversationPicker
         visible={pickerOpen}
@@ -199,6 +205,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerButton: { marginRight: spacing.sm },
   list: { padding: spacing.lg, gap: spacing.sm, flexGrow: 1 },
+  messageRow: { gap: spacing.xs },
   bubble: {
     maxWidth: '85%',
     borderRadius: 14,
@@ -228,16 +235,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     backgroundColor: colors.surface,
   },
-  stopButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.error,
-    borderRadius: 10,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 10,
-  },
-  stopText: { color: '#fff', fontWeight: '600', fontSize: 12 },
   input: {
     flex: 1,
     maxHeight: 120,
@@ -250,12 +247,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 15,
   },
-  sendButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 11,
-  },
-  sendDisabled: { opacity: 0.5 },
-  sendText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 })

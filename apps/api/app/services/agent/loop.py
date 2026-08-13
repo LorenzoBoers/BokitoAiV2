@@ -1,11 +1,13 @@
 import base64
 import json
+import time
 import uuid
 from typing import Any, AsyncGenerator
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.services.agent.llm import get_chat_provider, get_llm_provider
 from app.services.agent.tools import (
@@ -14,6 +16,20 @@ from app.services.agent.tools import (
     get_tool_definitions,
 )
 from app.services.workspace import build_workspace_context, hybrid_search
+
+
+def _truncate_trace_value(value: Any, max_chars: int = 480) -> Any:
+    """Keep persisted step payloads small enough for message metadata."""
+    try:
+        if isinstance(value, (dict, list)):
+            text = json.dumps(value, default=str)
+        else:
+            text = str(value)
+    except Exception:
+        text = str(value)
+    if len(text) <= max_chars:
+        return value
+    return f"{text[:max_chars]}..."
 
 
 class AgentLoop:
@@ -26,6 +42,9 @@ class AgentLoop:
         run: AgentRun | None = None,
         signal_id: UUID | None = None,
         trust: str = "operator",
+        *,
+        allowed_tool_names: set[str] | None = None,
+        enable_chat_thinking: bool = False,
     ):
         self.session = session
         self.tenant_id = tenant_id
@@ -34,6 +53,7 @@ class AgentLoop:
         self.run = run
         self.signal_id = signal_id
         self.trust = trust
+        self.enable_chat_thinking = enable_chat_thinking
         self.llm = get_llm_provider()
         # Set during run_chat once the model call is resolved (drives metering).
         self.resolved_call = None
@@ -41,8 +61,42 @@ class AgentLoop:
         self.usage_scope = "chat"
         self.usage_call_type = "chat"
         # Passport: an agent only sees the tools it is permitted to use.
-        self.tools = filter_tools_for_agent(get_tool_definitions(), agent)
+        tools = filter_tools_for_agent(get_tool_definitions(), agent)
+        if allowed_tool_names is not None:
+            tools = [t for t in tools if t["name"] in allowed_tool_names]
+        self.tools = tools
         self.max_loops = agent.max_loops if agent else 15
+        # Compact step log for chat history (tool calls / think) + token usage UI.
+        self.trace_steps: list[dict[str, Any]] = []
+        self.thinking_text = ""
+        self.thinking_ms = 0
+        self.thinking_budget = 0
+
+    def _resolve_thinking_budget(self) -> int:
+        """Agent override, else global chat fallback when chat thinking is enabled."""
+        agent_budget = int(getattr(self.agent, "thinking_budget", 0) or 0) if self.agent else 0
+        if agent_budget > 0:
+            return agent_budget
+        if not self.enable_chat_thinking:
+            return 0
+        return max(0, int(get_settings().chat_thinking_budget or 0))
+
+    def _resolve_max_tokens(self) -> int | None:
+        if self.agent and getattr(self.agent, "max_tokens", None):
+            return int(self.agent.max_tokens)
+        return None
+
+    def thinking_payload(self) -> dict[str, Any] | None:
+        text = (self.thinking_text or "").strip()
+        if len(text) > 8000:
+            text = f"{text[:8000]}..."
+        if not text and not self.thinking_ms and not self.thinking_budget:
+            return None
+        return {
+            "text": text,
+            "ms": self.thinking_ms,
+            "budget": self.thinking_budget,
+        }
 
     async def _log_event(self, event_type: str, message: str, payload: dict | None = None) -> None:
         if not self.run:
@@ -67,6 +121,27 @@ class AgentLoop:
             status=self.run.status,
         )
 
+    def _append_trace_step(
+        self,
+        step_type: str,
+        name: str = "",
+        payload: dict | None = None,
+    ) -> None:
+        """Record a compact step for persistence on the assistant message."""
+        raw = payload or {}
+        compact: dict[str, Any] = {}
+        if "input" in raw:
+            compact["input"] = _truncate_trace_value(raw["input"])
+        if "result" in raw:
+            compact["result"] = _truncate_trace_value(raw["result"])
+        self.trace_steps.append(
+            {
+                "step_type": step_type,
+                "name": name,
+                "payload": compact,
+            }
+        )
+
     async def _publish_agent_step(
         self,
         step_type: str,
@@ -74,6 +149,7 @@ class AgentLoop:
         payload: dict | None = None,
         stream_id: str | None = None,
     ) -> None:
+        self._append_trace_step(step_type, name=name, payload=payload)
         if not self.signal_id:
             return
         from app.gateway.publish import publish_agent_step
@@ -84,6 +160,18 @@ class AgentLoop:
             step_type=step_type,
             name=name,
             payload=payload,
+            stream_id=stream_id,
+        )
+
+    async def _publish_agent_thinking(self, delta: str, stream_id: str | None = None) -> None:
+        if not self.signal_id or not delta:
+            return
+        from app.gateway.publish import publish_agent_thinking
+
+        await publish_agent_thinking(
+            self.tenant_id,
+            self.signal_id,
+            delta=delta,
             stream_id=stream_id,
         )
 
@@ -106,10 +194,23 @@ class AgentLoop:
             hits = await hybrid_search(self.session, self.tenant_id, user_query, top_k=5)
             if hits:
                 rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
-        base = self.agent.system_prompt if self.agent else "You are the Bokito AI OS assistant."
+        default_prompt = (
+            "You are the Bokito AI OS assistant. "
+            "You have introspection tools (get_tenant_overview, list_recent_activity, "
+            "list_tasks, list_threads, get_usage_summary) and a Tenant snapshot in context — "
+            "use them before saying you lack information about the tenant, projects, or activity."
+        )
+        base = self.agent.system_prompt if self.agent and self.agent.system_prompt else default_prompt
         parts = [base]
         if workspace:
             parts.append(workspace)
+        # Always remind agents with custom prompts that live tenant tools exist.
+        if self.agent and self.agent.system_prompt:
+            parts.append(
+                "## Introspection\n"
+                "Before claiming you lack information, call get_tenant_overview or "
+                "list_recent_activity. Strategy and project docs may require read_doc."
+            )
         if rag_context:
             parts.append(f"## Relevant context\n{rag_context}")
         if extra_context:
@@ -307,16 +408,26 @@ class AgentLoop:
     ) -> tuple[str, dict[str, int]]:
         llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
         final_text = ""
+        self.thinking_budget = self._resolve_thinking_budget()
+        max_tokens = self._resolve_max_tokens()
+        started = time.monotonic()
 
         for loop_idx in range(self.max_loops):
             await self._log_event("think", f"Loop {loop_idx + 1}")
+            await self._publish_agent_step("think", name=f"Loop {loop_idx + 1}")
             response = await self.llm.chat(
                 llm_messages,
                 tools=self.tools,
                 model=self.resolved_call.model_id if self.resolved_call else None,
+                thinking_budget=self.thinking_budget,
+                max_tokens=max_tokens,
             )
             tokens["input_tokens"] += response.get("usage", {}).get("input_tokens", 0)
             tokens["output_tokens"] += response.get("usage", {}).get("output_tokens", 0)
+
+            for block in response.get("content") or []:
+                if block.get("type") == "thinking" and block.get("thinking"):
+                    self.thinking_text += str(block["thinking"])
 
             tool_uses = [b for b in response["content"] if b.get("type") == "tool_use"]
             text_blocks = [b["text"] for b in response["content"] if b.get("type") == "text"]
@@ -330,6 +441,7 @@ class AgentLoop:
             tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
             llm_messages.append({"role": "user", "content": tool_results})
 
+        self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
         return final_text or "Done.", tokens
 
@@ -342,6 +454,9 @@ class AgentLoop:
         llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
         stream_id = str(uuid.uuid4())
         final_text = ""
+        self.thinking_budget = self._resolve_thinking_budget()
+        max_tokens = self._resolve_max_tokens()
+        started = time.monotonic()
 
         for loop_idx in range(self.max_loops):
             await self._log_event("think", f"Loop {loop_idx + 1}")
@@ -354,8 +469,16 @@ class AgentLoop:
                 llm_messages,
                 tools=self.tools,
                 model=self.resolved_call.model_id if self.resolved_call else None,
+                thinking_budget=self.thinking_budget,
+                max_tokens=max_tokens,
             ):
-                if event["type"] == "delta":
+                if event["type"] == "thinking":
+                    delta = event.get("text", "")
+                    if delta:
+                        self.thinking_text += delta
+                        yield {"type": "thinking", "text": delta}
+                        await self._publish_agent_thinking(delta, stream_id=stream_id)
+                elif event["type"] == "delta":
                     delta = event.get("text", "")
                     if delta:
                         final_text += delta
@@ -367,6 +490,10 @@ class AgentLoop:
                     tokens["output_tokens"] += usage.get("output_tokens", 0)
                     response_content = event.get("content") or []
                     stop_reason = event.get("stop_reason", "end_turn")
+                    if not self.thinking_text:
+                        for block in response_content:
+                            if block.get("type") == "thinking" and block.get("thinking"):
+                                self.thinking_text += str(block["thinking"])
 
             tool_uses = [b for b in response_content if b.get("type") == "tool_use"]
             text_blocks = [b["text"] for b in response_content if b.get("type") == "text"]
@@ -381,6 +508,16 @@ class AgentLoop:
             llm_messages.append({"role": "user", "content": tool_results})
             final_text = ""
 
+        self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
         text = final_text or "Done."
-        yield {"type": "done", "text": text, "usage": tokens, "stream_id": stream_id}
+        yield {
+            "type": "done",
+            "text": text,
+            "usage": tokens,
+            "stream_id": stream_id,
+            "steps": list(self.trace_steps),
+            "thinking": self.thinking_text,
+            "thinking_ms": self.thinking_ms,
+            "thinking_budget": self.thinking_budget,
+        }
