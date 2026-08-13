@@ -36,7 +36,8 @@ dev = [
   "pytest-cov>=6.0.0",
   "httpx>=0.28.0",
   "aiosqlite>=0.20.0",
-  "ruff>=0.8.0",
+  # Pinned so CI and local lint agree on the rule set.
+  "ruff==0.15.17",
 ]
 storage = ["boto3>=1.35.0"]
 
