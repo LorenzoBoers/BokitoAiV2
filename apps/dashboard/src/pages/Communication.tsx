@@ -436,6 +436,10 @@ export default function Communication() {
     await handleDeleteThread(selectedThreadId, detail?.thread.emailSubject)
   }, [selectedThreadId, detail?.thread.emailSubject, handleDeleteThread])
 
+  // Set while a resolve action (close/spam/snooze) is advancing to the next
+  // thread, so the queue-mismatch redirect below does not fight the advance.
+  const advancingRef = useRef(false)
+
   // When a thread's status changes so it no longer fits the active inbox
   // queue (e.g. closed while viewing Open), hop to the All queue.
   const redirectCheckedForThreadRef = useRef<ThreadId | null>(null)
@@ -444,6 +448,7 @@ export default function Communication() {
       redirectCheckedForThreadRef.current = null
       return
     }
+    if (advancingRef.current) return
     if (leaf.type !== 'inbox') return
     if (!detail) return
     if (String(detail.thread.id) !== String(selectedThreadId)) return
@@ -455,13 +460,46 @@ export default function Communication() {
     navigate(`${inboxPath('all', String(detail.thread.id))}${inboxQuery}`, { replace: true })
   }, [detail, selectedThreadId, leaf, currentUserId, navigate, inboxQuery])
 
+  // Front/Intercom-style advance: resolving a conversation moves you to the
+  // next one in the visible list (or the previous one at the end of the
+  // list), instead of staying on a thread that visually barely changed.
+  const advanceToNextThread = useCallback(
+    (fromId: ThreadId) => {
+      const idx = filteredThreads.findIndex((t) => String(t.id) === String(fromId))
+      const next =
+        idx >= 0
+          ? filteredThreads[idx + 1] ?? filteredThreads[idx - 1]
+          : filteredThreads.find((t) => String(t.id) !== String(fromId))
+      if (next && String(next.id) !== String(fromId)) {
+        handleSelectThread(next.id, true)
+      } else {
+        navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
+      }
+    },
+    [filteredThreads, handleSelectThread, navigate, leaf, inboxQuery],
+  )
+
   const handlePatch = useCallback(
     async (input: PatchThreadInput) => {
-      await patch(input)
-      void refreshThreads()
-      void refreshNavBadges()
+      const resolving =
+        input.status === 'closed' || input.status === 'spam' || input.status === 'pending'
+      const fromId = selectedThreadId
+      if (resolving) advancingRef.current = true
+      try {
+        await patch(input)
+        void refreshThreads()
+        void refreshNavBadges()
+        if (resolving && fromId != null) {
+          if (input.status === 'closed') toast.success(t('threadResolved.closed'))
+          else if (input.status === 'spam') toast.success(t('threadResolved.spam'))
+          else toast.success(t('threadResolved.snoozed'))
+          advanceToNextThread(fromId)
+        }
+      } finally {
+        advancingRef.current = false
+      }
     },
-    [patch, refreshThreads, refreshNavBadges],
+    [patch, refreshThreads, refreshNavBadges, selectedThreadId, advanceToNextThread, t],
   )
 
   const handleBulkAction = useCallback(

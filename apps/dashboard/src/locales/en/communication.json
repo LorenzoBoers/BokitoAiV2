@@ -15,6 +15,11 @@
     "hintEmail": "Ctrl+Enter to send, Enter for a new line — drafts are kept per conversation",
     "hintChat": "Enter to send, Shift+Enter for a new line"
   },
+  "threadResolved": {
+    "closed": "Conversation closed",
+    "spam": "Marked as spam",
+    "snoozed": "Conversation snoozed"
+  },
   "threadList": {
     "loading": "Loading...",
     "empty": "No threads found.",

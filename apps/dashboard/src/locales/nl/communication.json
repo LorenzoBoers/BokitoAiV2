@@ -15,6 +15,11 @@
     "hintEmail": "Ctrl+Enter om te versturen, Enter voor een nieuwe regel — concepten blijven per gesprek bewaard",
     "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel"
   },
+  "threadResolved": {
+    "closed": "Gesprek gesloten",
+    "spam": "Gemarkeerd als spam",
+    "snoozed": "Gesprek gesnoozed"
+  },
   "threadList": {
     "loading": "Laden...",
     "empty": "Geen gesprekken gevonden.",
