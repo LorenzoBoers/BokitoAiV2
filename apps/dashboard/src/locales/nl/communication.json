@@ -11,6 +11,18 @@
     "unread": "Ongelezen",
     "pinned": "Gepind"
   },
+  "composer": {
+    "hintEmail": "Ctrl+Enter om te versturen, Enter voor een nieuwe regel — concepten blijven per gesprek bewaard",
+    "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel"
+  },
+  "threadList": {
+    "loading": "Laden...",
+    "empty": "Geen gesprekken gevonden.",
+    "loadMore": "Meer laden",
+    "loadMoreOf": "Meer laden ({{loaded}} van {{total}})",
+    "loadingMore": "Meer laden...",
+    "allLoaded": "Alle {{total}} gesprekken geladen"
+  },
   "decisionCard": {
     "titleSuggestedReply": "Voorgesteld antwoord",
     "titleNoReply": "Geen antwoord nodig",

@@ -94,6 +94,28 @@ async def _widget_can_subscribe_signal(
     return False
 
 
+async def _user_can_subscribe_resource(
+    session: AsyncSession, connection: GatewayConnection, topic: str
+) -> bool:
+    """Resource topics must belong to the caller's tenant (defense-in-depth;
+    event delivery is additionally filtered on envelope tenant_id)."""
+    from app.models.agent import AgentRun
+    from app.models.signal import Signal
+
+    kind, _, raw_id = topic.partition(":")
+    try:
+        resource_id = UUID(raw_id)
+    except ValueError:
+        return False
+    model = Signal if kind == "signal" else AgentRun
+    result = await session.execute(
+        select(model.id).where(
+            model.id == resource_id, model.tenant_id == UUID(connection.tenant_id)
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def _authorize_topics(
     session: AsyncSession, connection: GatewayConnection, topics: list[str]
 ) -> tuple[list[str], list[str]]:
@@ -103,7 +125,11 @@ async def _authorize_topics(
         if not isinstance(topic, str) or not topic:
             continue
         if connection.kind == "user":
-            if topic in OPERATOR_TOPICS or topic.startswith(("run:", "signal:")):
+            if topic in OPERATOR_TOPICS:
+                allowed.append(topic)
+            elif topic.startswith(("run:", "signal:")) and await _user_can_subscribe_resource(
+                session, connection, topic
+            ):
                 allowed.append(topic)
             else:
                 denied.append(topic)

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { listThreads, type InboxThread, type ThreadFilters, type ThreadId } from '../lib/inbox-api'
 import { onGatewayEvent } from '../lib/gateway'
+
+const PAGE_SIZE = 30
 
 function buildFilterKey(filters: ThreadFilters): string {
   return [
@@ -42,9 +44,13 @@ export function useThreads(
 
   const [rawThreads, setRawThreads] = useState<InboxThread[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [total, setTotal] = useState<number | null>(null)
+  const [hasMore, setHasMore] = useState(false)
   const [syncedFilterKey, setSyncedFilterKey] = useState<string | null>(null)
+  // Pages the user has explicitly loaded via loadMore (reset on filter change).
+  const pagesLoadedRef = useRef(1)
 
   // Drop stale rows synchronously when queue/search/channel changes so callers
   // never auto-select from the previous folder while the new fetch is in flight.
@@ -53,6 +59,8 @@ export function useThreads(
     setSyncedFilterKey(null)
     setLoading(true)
     setError(null)
+    setHasMore(false)
+    pagesLoadedRef.current = 1
   }, [filterKey])
 
   const fetchThreads = useCallback(async () => {
@@ -66,10 +74,20 @@ export function useThreads(
     setError(null)
     const keyAtStart = filterKey
     try {
-      const result = await listThreads(token, filters)
-      setRawThreads(result.items)
+      const result = await listThreads(token, { ...filters, page: 1, perPage: PAGE_SIZE })
       setTotal(result.itemsTotal)
       setSyncedFilterKey(keyAtStart)
+      if (pagesLoadedRef.current <= 1) {
+        setRawThreads(result.items)
+        setHasMore(result.nextPage != null)
+      } else {
+        // Poll/gateway refresh while extra pages are loaded: merge page 1 into
+        // the accumulated list (fresh rows win) instead of truncating it.
+        setRawThreads((prev) => {
+          const freshIds = new Set(result.items.map((t) => String(t.id)))
+          return [...result.items, ...prev.filter((t) => !freshIds.has(String(t.id)))]
+        })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load threads.')
       setRawThreads([])
@@ -96,6 +114,39 @@ export function useThreads(
   useEffect(() => {
     void fetchThreads()
   }, [fetchThreads])
+
+  const loadMore = useCallback(async () => {
+    if (!token || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const nextPage = pagesLoadedRef.current + 1
+      const result = await listThreads(token, { ...filters, page: nextPage, perPage: PAGE_SIZE })
+      pagesLoadedRef.current = nextPage
+      setTotal(result.itemsTotal)
+      setHasMore(result.nextPage != null)
+      setRawThreads((prev) => {
+        const known = new Set(prev.map((t) => String(t.id)))
+        return [...prev, ...result.items.filter((t) => !known.has(String(t.id)))]
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load threads.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [
+    token,
+    loadingMore,
+    filterKey,
+    filters.view,
+    filters.folder,
+    filters.channel,
+    filters.projectId,
+    filters.tag,
+    filters.assigneeId,
+    filters.search,
+    filters.connectionId,
+    filters.agentId,
+  ])
 
   useEffect(() => {
     if (!token) return
@@ -155,9 +206,12 @@ export function useThreads(
   return {
     threads,
     loading,
+    loadingMore,
     threadsReady,
     error,
     total,
+    hasMore,
+    loadMore,
     refresh: fetchThreads,
     setThreadReadState,
     removeThread,

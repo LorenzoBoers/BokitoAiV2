@@ -103,8 +103,12 @@ export default function DirectCommunication() {
   const {
     threads,
     loading: threadsLoading,
+    loadingMore: threadsLoadingMore,
     threadsReady,
     error: threadsError,
+    total: threadsTotal,
+    hasMore: threadsHaveMore,
+    loadMore: loadMoreThreads,
     refresh: refreshThreads,
     setThreadReadState,
     removeThread,
@@ -273,6 +277,10 @@ export default function DirectCommunication() {
           onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
           deletingThreadId={deletingThreadId}
           variant="direct"
+          total={threadsTotal}
+          hasMore={threadsHaveMore}
+          loadingMore={threadsLoadingMore}
+          onLoadMore={() => void loadMoreThreads()}
         />
         {selectedThreadId ? (
           <DirectChatPanel

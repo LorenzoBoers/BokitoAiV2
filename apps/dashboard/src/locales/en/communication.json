@@ -11,6 +11,18 @@
     "unread": "Unread",
     "pinned": "Pinned"
   },
+  "composer": {
+    "hintEmail": "Ctrl+Enter to send, Enter for a new line — drafts are kept per conversation",
+    "hintChat": "Enter to send, Shift+Enter for a new line"
+  },
+  "threadList": {
+    "loading": "Loading...",
+    "empty": "No threads found.",
+    "loadMore": "Load more",
+    "loadMoreOf": "Load more ({{loaded}} of {{total}})",
+    "loadingMore": "Loading more...",
+    "allLoaded": "All {{total}} conversations loaded"
+  },
   "decisionCard": {
     "titleSuggestedReply": "Suggested reply",
     "titleNoReply": "No reply needed",

@@ -75,7 +75,8 @@ async def list_decision_messages(
             sig_id = UUID(thread_id)
             query = query.where(DecisionRequest.signal_id == sig_id)
         except ValueError:
-            pass
+            # Malformed filter narrows to nothing instead of listing everything.
+            return []
     if project_id:
         try:
             query = query.where(DecisionRequest.project_id == UUID(project_id))

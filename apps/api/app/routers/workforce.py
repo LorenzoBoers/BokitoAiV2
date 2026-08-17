@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,14 @@ from app.services.os_graph import (
 )
 
 router = APIRouter(prefix="/workforce", tags=["workforce"])
+
+
+def _body_uuid(value: str, field: str) -> UUID:
+    """Parse a UUID from a request body string: 400 instead of a 500."""
+    try:
+        return UUID(value)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail=f"Invalid {field}") from None
 
 
 class AgentStatusBody(BaseModel):
@@ -122,7 +130,7 @@ async def os_create_node(
         session,
         auth.tenant.id,
         node_type=body.node_type,
-        ref_id=UUID(body.ref_id),
+        ref_id=_body_uuid(body.ref_id, "ref_id"),
         x=body.x,
         y=body.y,
         label=body.label,
@@ -165,8 +173,8 @@ async def os_create_edge(
     return await create_canvas_edge(
         session,
         auth.tenant.id,
-        source_node_id=UUID(body.source_node_id),
-        target_node_id=UUID(body.target_node_id),
+        source_node_id=_body_uuid(body.source_node_id, "source_node_id"),
+        target_node_id=_body_uuid(body.target_node_id, "target_node_id"),
         relation=body.relation,
     )
 
@@ -491,9 +499,13 @@ async def defer_message(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    del body
     await svc.resolve_message(
-        session, auth.tenant.id, message_id, new_status="deferred", user_id=auth.user.id
+        session,
+        auth.tenant.id,
+        message_id,
+        new_status="deferred",
+        user_id=auth.user.id,
+        defer_days=body.days,
     )
     return {"ok": True}
 
@@ -516,20 +528,21 @@ async def reject_message(
 @router.get("/workforce/config")
 async def get_workforce_config(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    return svc.default_workforce_config(auth.tenant.id)
+    return await svc.get_workforce_config(session, auth.tenant.id)
 
 
 @router.patch("/workforce/config")
 async def patch_workforce_config(
     body: WorkforceConfigPatch,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    config = svc.default_workforce_config(auth.tenant.id)
-    for key, value in body.model_dump(exclude_unset=True).items():
-        if value is not None:
-            config[key] = value
-    return config
+    auth.require_role("owner", "admin")
+    return await svc.update_workforce_config(
+        session, auth.tenant.id, body.model_dump(exclude_unset=True)
+    )
 
 
 @router.get("/workforce/status")
@@ -566,7 +579,7 @@ async def force_wake(
             agent_id=UUID(agents[0]["id"]),
             instruction="Force wake from workforce dashboard",
         )
-    return {"ok": True}
+    raise HTTPException(status_code=409, detail="No agents to wake")
 
 
 @router.post("/workforce/force-rescan")
@@ -604,7 +617,7 @@ async def post_trigger_agent(
     return await svc.trigger_agent(
         session,
         auth.tenant.id,
-        agent_id=UUID(body.agent_id),
+        agent_id=_body_uuid(body.agent_id, "agent_id"),
         instruction=body.instruction,
     )
 
@@ -619,7 +632,7 @@ async def post_complete_activity(
     return await svc.complete_activity(
         session,
         auth.tenant.id,
-        activity_id=UUID(body.activity_id),
+        activity_id=_body_uuid(body.activity_id, "activity_id"),
         outcome=body.outcome,
         summary=body.summary,
     )

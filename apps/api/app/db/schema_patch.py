@@ -558,6 +558,9 @@ def _migrate_schedules_to_triggers(connection: Connection) -> None:
     if not inspector.has_table("triggers"):
         return
 
+    # Boolean literals differ per dialect: Postgres rejects `enabled = 1`.
+    true_lit = "true" if connection.dialect.name == "postgresql" else "1"
+
     if inspector.has_table("orchestra_tasks"):
         existing = {
             (str(r["tenant_id"]), r["name"])
@@ -565,7 +568,8 @@ def _migrate_schedules_to_triggers(connection: Connection) -> None:
         }
         for row in _rows(
             connection,
-            "SELECT * FROM orchestra_tasks WHERE enabled = 1 AND schedule_kind IN ('interval', 'cron')",
+            f"SELECT * FROM orchestra_tasks WHERE enabled = {true_lit} "
+            "AND schedule_kind IN ('interval', 'cron')",
         ):
             if (str(row["tenant_id"]), row["name"]) in existing:
                 continue
@@ -588,7 +592,8 @@ def _migrate_schedules_to_triggers(connection: Connection) -> None:
                     " instructions, webhook_secret, enabled, next_run_at, last_status,"
                     " created_at, updated_at) "
                     "VALUES (:id, :tenant_id, :name, :kind, :cron_expr, :interval_minutes,"
-                    " 'orchestra', :instructions, '', 1, :next_run_at, '', :created_at, :created_at)"
+                    f" 'orchestra', :instructions, '', {true_lit}, :next_run_at, '',"
+                    " :created_at, :created_at)"
                 ),
                 {
                     "id": str(uuid.uuid4()),
@@ -610,7 +615,7 @@ def _migrate_schedules_to_triggers(connection: Connection) -> None:
         }
         for row in _rows(
             connection,
-            "SELECT * FROM agenda_events WHERE kind = 'orchestrator' AND enabled = 1 "
+            f"SELECT * FROM agenda_events WHERE kind = 'orchestrator' AND enabled = {true_lit} "
             "AND recurrence_freq != ''",
         ):
             if (str(row["tenant_id"]), row["title"]) in existing:
@@ -625,7 +630,8 @@ def _migrate_schedules_to_triggers(connection: Connection) -> None:
                     " instructions, webhook_secret, enabled, next_run_at, last_status,"
                     " created_at, updated_at) "
                     "VALUES (:id, :tenant_id, :name, 'interval', '', :interval_minutes,"
-                    " :agent_role, :instructions, '', 1, :next_run_at, '', :created_at, :created_at)"
+                    f" :agent_role, :instructions, '', {true_lit}, :next_run_at, '',"
+                    " :created_at, :created_at)"
                 ),
                 {
                     "id": str(uuid.uuid4()),

@@ -176,7 +176,12 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
             <button
               type="button"
               disabled={saving}
-              onClick={() => void setStatus('blocked')}
+              onClick={() => {
+                const name = contact.displayName || contact.address || 'this contact'
+                if (window.confirm(`Block ${name}? New messages from them will be marked as spam.`)) {
+                  void setStatus('blocked')
+                }
+              }}
               className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
             >
               <ShieldBan size={11} />

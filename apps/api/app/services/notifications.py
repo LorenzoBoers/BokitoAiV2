@@ -128,7 +128,9 @@ async def resolve_decision(
         chosen.get("id") == "escalate" or chosen.get("action_type") == "escalate"
     )
     if decision.signal_id and escalate_chosen and action in ("approved", "rejected"):
-        sig_result = await session.execute(select(Signal).where(Signal.id == decision.signal_id))
+        sig_result = await session.execute(
+            select(Signal).where(Signal.id == decision.signal_id, Signal.tenant_id == tenant_id)
+        )
         signal = sig_result.scalar_one_or_none()
         if signal:
             signal.ai_paused = True

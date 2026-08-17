@@ -21,6 +21,8 @@ type Props = {
   selectionActive?: boolean
   /** Clicking a tag chip filters the list on that label. */
   onTagClick?: (tag: string) => void
+  /** Display name of the assigned member (resolved by the parent list). */
+  assigneeName?: string | null
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -59,6 +61,7 @@ export default function ThreadListItem({
   onToggleChecked,
   selectionActive = false,
   onTagClick,
+  assigneeName = null,
 }: Props) {
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
@@ -155,7 +158,10 @@ export default function ThreadListItem({
           </div>
           {thread.assignedToUserId && !isDirect ? (
             <div className="flex items-center gap-1">
-              <span className="text-xs text-text-muted">Assigned</span>
+              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent/15 text-[8px] font-semibold uppercase text-accent">
+                {(assigneeName ?? '?').slice(0, 1)}
+              </span>
+              <span className="truncate text-xs text-text-muted">{assigneeName ?? 'Assigned'}</span>
             </div>
           ) : null}
           {thread.tags.length > 0 ? (

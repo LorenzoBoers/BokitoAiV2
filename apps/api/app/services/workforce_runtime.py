@@ -114,17 +114,25 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
         .order_by(Agent.updated_at.desc())
     )
     agents = list(result.scalars().all())
-    out: list[dict[str, Any]] = []
-    for agent in agents:
-        run_result = await session.execute(
-            select(AgentRun)
-            .where(AgentRun.agent_id == agent.id)
-            .order_by(AgentRun.started_at.desc())
-            .limit(1)
+    if not agents:
+        return []
+    # Latest run per agent in one query (avoids N+1 on the agents list).
+    runs_result = await session.execute(
+        select(AgentRun)
+        .where(
+            AgentRun.tenant_id == tenant_id,
+            AgentRun.agent_id.in_([a.id for a in agents]),
         )
-        latest = run_result.scalar_one_or_none()
-        out.append(serialize_runtime_agent(agent, latest_run=latest))
-    return out
+        .order_by(AgentRun.started_at.desc())
+    )
+    latest_by_agent: dict[UUID, AgentRun] = {}
+    for run in runs_result.scalars().all():
+        if run.agent_id is not None and run.agent_id not in latest_by_agent:
+            latest_by_agent[run.agent_id] = run
+    return [
+        serialize_runtime_agent(agent, latest_run=latest_by_agent.get(agent.id))
+        for agent in agents
+    ]
 
 
 async def update_agent_runtime_status(
@@ -483,6 +491,7 @@ async def resolve_message(
     *,
     new_status: str,
     user_id: UUID | None = None,
+    defer_days: int | None = None,
 ) -> None:
     from app.services.decisions import resolve_decision_message
 
@@ -494,6 +503,33 @@ async def resolve_message(
         action=action_map.get(new_status, new_status),
         user_id=user_id,
     )
+    # A defer with a horizon snoozes the linked thread until then, so it
+    # resurfaces in the inbox instead of silently disappearing.
+    if new_status == "deferred" and defer_days and defer_days > 0:
+        from app.models.signal import Signal
+
+        decision = (
+            await session.execute(
+                select(DecisionRequest).where(
+                    DecisionRequest.id == message_id,
+                    DecisionRequest.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if decision and decision.signal_id:
+            signal = (
+                await session.execute(
+                    select(Signal).where(
+                        Signal.id == decision.signal_id, Signal.tenant_id == tenant_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if signal and signal.status == "open":
+                signal.status = "pending"
+                signal.snoozed_until = datetime.utcnow() + timedelta(days=defer_days)
+                signal.updated_at = datetime.utcnow()
+                session.add(signal)
+                await session.commit()
 
 
 def default_workforce_config(tenant_id: UUID) -> dict[str, Any]:
@@ -514,8 +550,65 @@ def default_workforce_config(tenant_id: UUID) -> dict[str, Any]:
     }
 
 
-async def get_workforce_status(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+# Keys a tenant may override; everything else in the config dict is derived.
+WORKFORCE_CONFIG_KEYS = (
+    "enabled",
+    "autonomy_level",
+    "check_interval_sec",
+    "max_retry_per_feature",
+    "allow_verdict_override",
+    "sleep_mode",
+)
+
+
+async def get_workforce_config(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    """Defaults merged with the tenant's persisted overrides."""
+    from app.models.auth import Tenant
+
     config = default_workforce_config(tenant_id)
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    if tenant:
+        settings = json.loads(tenant.settings_json or "{}")
+        stored = settings.get("workforce_config")
+        if isinstance(stored, dict):
+            for key in WORKFORCE_CONFIG_KEYS:
+                if key in stored:
+                    config[key] = stored[key]
+            if stored.get("updated_at"):
+                config["updated_at"] = stored["updated_at"]
+    return config
+
+
+async def update_workforce_config(
+    session: AsyncSession, tenant_id: UUID, patch: dict[str, Any]
+) -> dict[str, Any]:
+    """Persist overridable keys into tenant settings and return the result."""
+    from app.models.auth import Tenant
+
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    settings = json.loads(tenant.settings_json or "{}")
+    stored = settings.get("workforce_config")
+    if not isinstance(stored, dict):
+        stored = {}
+    for key, value in patch.items():
+        if key in WORKFORCE_CONFIG_KEYS and value is not None:
+            stored[key] = value
+    stored["updated_at"] = _ms(datetime.utcnow())
+    settings["workforce_config"] = stored
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    await session.commit()
+    return await get_workforce_config(session, tenant_id)
+
+
+async def get_workforce_status(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    config = await get_workforce_config(session, tenant_id)
     agents = await list_runtime_agents(session, tenant_id)
     timeline = await list_timeline(session, tenant_id)
     recent_tasks = [

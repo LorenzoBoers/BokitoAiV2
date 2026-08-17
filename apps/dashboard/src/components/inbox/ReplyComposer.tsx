@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { BookmarkPlus, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
@@ -45,12 +46,35 @@ type Props = {
   mentionExtras?: MentionItem[]
   /** Called when a mention is inserted (e.g. to invoke an agent on send). */
   onMentionInserted?: (item: MentionItem) => void
+  /** Stable id (thread id) to persist unsent drafts across thread switches. */
+  persistKey?: string | null
 }
 
 function tabIcon(surface: ComposerSurface, tab: ComposerTab) {
   if (tab === 'note') return StickyNote
   if (surface.channel === 'email') return Mail
   return MessageCircle
+}
+
+const draftStorageKey = (persistKey: string) => `inbox.draft.${persistKey}`
+
+function readStoredDraft(persistKey: string | null | undefined): string {
+  if (!persistKey || typeof window === 'undefined') return ''
+  try {
+    return window.localStorage.getItem(draftStorageKey(persistKey)) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function writeStoredDraft(persistKey: string | null | undefined, value: string) {
+  if (!persistKey || typeof window === 'undefined') return
+  try {
+    if (value.trim()) window.localStorage.setItem(draftStorageKey(persistKey), value)
+    else window.localStorage.removeItem(draftStorageKey(persistKey))
+  } catch {
+    // Quota/private mode failures just mean the draft is not persisted.
+  }
 }
 
 export default function ReplyComposer({
@@ -64,7 +88,9 @@ export default function ReplyComposer({
   draftKey,
   mentionExtras,
   onMentionInserted,
+  persistKey,
 }: Props) {
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [tab, setTab] = useState<ComposerTab>(surface.defaultTab)
   const [body, setBody] = useState('')
@@ -121,9 +147,26 @@ export default function ReplyComposer({
 
   useEffect(() => {
     setTab(surface.defaultTab)
-    setBody('')
+    // Restore any unsent draft for this thread instead of dropping typed text.
+    setBody(readStoredDraft(persistKey))
     setAttachments([])
-  }, [surface.channel, surface.defaultTab, surface.recipientValue])
+  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey])
+
+  // Persist the draft (debounced) so switching threads or reloading keeps it.
+  useEffect(() => {
+    if (!persistKey) return
+    const timer = window.setTimeout(() => writeStoredDraft(persistKey, body), 400)
+    return () => window.clearTimeout(timer)
+  }, [persistKey, body])
+
+  // Flush the draft synchronously when leaving the thread or unmounting, so
+  // the debounce above cannot drop the last keystrokes.
+  const bodyRef = useRef(body)
+  bodyRef.current = body
+  useEffect(() => {
+    if (!persistKey) return
+    return () => writeStoredDraft(persistKey, bodyRef.current)
+  }, [persistKey])
 
   // Saved replies (canned responses), loaded lazily when the picker opens.
   const [savedReplies, setSavedReplies] = useState<SavedReplyRow[] | null>(null)
@@ -180,6 +223,7 @@ export default function ReplyComposer({
       }
       setBody('')
       setAttachments([])
+      writeStoredDraft(persistKey, '')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, tab === 'note' ? 'Could not save note.' : 'Could not send message.'))
     }
@@ -226,7 +270,15 @@ export default function ReplyComposer({
         return
       }
     }
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Email replies are consequential (real customer mail): plain Enter adds a
+    // newline and Cmd/Ctrl+Enter sends. Chat and notes keep Enter-to-send.
+    const enterSends = !(surface.channel === 'email' && tab === 'reply')
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      void handleSubmit('send')
+      return
+    }
+    if (e.key === 'Enter' && !e.shiftKey && enterSends) {
       e.preventDefault()
       void handleSubmit('send')
     }
@@ -392,7 +444,11 @@ export default function ReplyComposer({
         </div>
 
         <div className="mt-1.5 flex items-center justify-between px-1">
-          <p className="text-[10.5px] text-text-muted">Enter to send, Shift+Enter for a new line</p>
+          <p className="text-[10.5px] text-text-muted">
+            {surface.channel === 'email' && !isNote
+              ? t('composer.hintEmail')
+              : t('composer.hintChat')}
+          </p>
           {!isNote && showReplyTab ? (
             <div className="flex items-center gap-1">
               <DropdownMenu>

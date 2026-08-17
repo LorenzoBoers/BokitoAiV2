@@ -1,6 +1,9 @@
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Tag, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
+import { useMembers } from '../../hooks/useMembers'
 import BulkActionsBar from './BulkActionsBar'
 import ThreadListItem from './ThreadListItem'
 import ThreadListQuickFilters from './ThreadListQuickFilters'
@@ -30,6 +33,12 @@ type Props = {
   activeTag?: string | null
   /** Set/clear the label filter; omit to make tag chips non-interactive. */
   onTagSelect?: (tag: string | null) => void
+  /** Total thread count for the current folder (server-side). */
+  total?: number | null
+  /** True when more pages exist beyond the loaded threads. */
+  hasMore?: boolean
+  loadingMore?: boolean
+  onLoadMore?: () => void
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -62,9 +71,20 @@ export default function ThreadList({
   bulkBusy = false,
   activeTag = null,
   onTagSelect,
+  total = null,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: Props) {
+  const { t } = useTranslation('communication')
   const counts = buildFilterCounts(allThreads)
   const selectionActive = (bulkSelectedIds?.size ?? 0) > 0
+  const { members } = useMembers()
+  const memberNames = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of members) map.set(String(m.id), m.name || m.email)
+    return map
+  }, [members])
 
   return (
     <div className="flex flex-col h-full min-h-0 w-72 shrink-0 border-r border-border/50 bg-bg-surface">
@@ -99,11 +119,11 @@ export default function ThreadList({
       <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
         {threads.length === 0 ? (
           loading ? (
-            <div className="py-8 text-center text-xs text-text-muted">Loading...</div>
+            <div className="py-8 text-center text-xs text-text-muted">{t('threadList.loading')}</div>
           ) : error ? (
             <div className="py-4 px-3 text-xs text-status-error">{error}</div>
           ) : (
-            <div className="py-8 text-center text-xs text-text-muted">No threads found.</div>
+            <div className="py-8 text-center text-xs text-text-muted">{t('threadList.empty')}</div>
           )
         ) : (
           threads.map((thread) => (
@@ -122,9 +142,33 @@ export default function ThreadList({
               onToggleChecked={onToggleBulkSelect}
               selectionActive={selectionActive}
               onTagClick={onTagSelect ? (tag) => onTagSelect(tag) : undefined}
+              assigneeName={
+                thread.assignedToUserId != null
+                  ? memberNames.get(String(thread.assignedToUserId)) ?? null
+                  : null
+              }
             />
           ))
         )}
+        {hasMore && onLoadMore && threads.length > 0 ? (
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="mt-1 w-full rounded-md border border-border/50 bg-bg-surface px-3 py-2 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+          >
+            {loadingMore
+              ? t('threadList.loadingMore')
+              : total != null
+                ? t('threadList.loadMoreOf', { loaded: allThreads.length, total })
+                : t('threadList.loadMore')}
+          </button>
+        ) : null}
+        {!hasMore && total != null && total > 0 && threads.length > 0 && allThreads.length >= total ? (
+          <div className="py-2 text-center text-[10.5px] text-text-muted/70">
+            {t('threadList.allLoaded', { total })}
+          </div>
+        ) : null}
       </div>
     </div>
   )

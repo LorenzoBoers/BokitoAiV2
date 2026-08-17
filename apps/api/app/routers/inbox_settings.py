@@ -234,6 +234,21 @@ async def create_feedback(
     if not 1 <= score <= 5:
         raise HTTPException(status_code=400, detail="score must be between 1 and 5")
 
+    # The message must exist inside this tenant: feedback on foreign or
+    # non-existent ids would poison cockpit averages and learning data.
+    from app.models.signal import SignalMessage
+
+    message = (
+        await session.execute(
+            select(SignalMessage).where(
+                SignalMessage.id == message_id,
+                SignalMessage.tenant_id == auth.tenant.id,
+            )
+        )
+    ).scalars().first()
+    if message is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+
     # One feedback entry per user per message: re-voting updates it.
     existing = (
         await session.execute(

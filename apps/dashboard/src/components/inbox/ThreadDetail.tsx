@@ -1223,6 +1223,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           disabled={thread.status === 'closed' || thread.status === 'spam'}
           draftBody={composerDraft?.body ?? null}
           draftKey={composerDraft?.key ?? null}
+          persistKey={String(thread.id)}
           mentionExtras={mentionAgents}
           extraActions={
             onAskAssistant && isInternalThread(thread) ? (

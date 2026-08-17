@@ -130,7 +130,10 @@ async def revoke_connection(session: AsyncSession, tenant_id: UUID, connection_i
     conn.status = "revoked"
     session.add(conn)
     bindings = await session.execute(
-        select(IntegrationBinding).where(IntegrationBinding.connection_id == connection_id)
+        select(IntegrationBinding).where(
+            IntegrationBinding.connection_id == connection_id,
+            IntegrationBinding.tenant_id == tenant_id,
+        )
     )
     for binding in bindings.scalars().all():
         await session.delete(binding)

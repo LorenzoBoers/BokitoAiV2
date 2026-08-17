@@ -83,7 +83,9 @@ async def get_project_row(
         raise HTTPException(status_code=404, detail="Project not found")
     po_agent = None
     if project.po_agent_id:
-        agent_result = await session.execute(select(Agent).where(Agent.id == project.po_agent_id))
+        agent_result = await session.execute(
+            select(Agent).where(Agent.id == project.po_agent_id, Agent.tenant_id == tenant_id)
+        )
         po_agent = agent_result.scalar_one_or_none()
     return project, po_agent
 
@@ -92,14 +94,19 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
     result = await session.execute(
         select(Project).where(Project.tenant_id == tenant_id).order_by(Project.updated_at.desc())
     )
-    rows: list[dict[str, Any]] = []
-    for project in result.scalars().all():
-        po_agent = None
-        if project.po_agent_id:
-            agent_result = await session.execute(select(Agent).where(Agent.id == project.po_agent_id))
-            po_agent = agent_result.scalar_one_or_none()
-        rows.append(serialize_project(project, po_agent))
-    return rows
+    projects = list(result.scalars().all())
+    # Batch-load orchestrator agents (tenant-scoped) to avoid N+1.
+    po_ids = [p.po_agent_id for p in projects if p.po_agent_id]
+    agents_by_id: dict[UUID, Agent] = {}
+    if po_ids:
+        agents_result = await session.execute(
+            select(Agent).where(Agent.id.in_(po_ids), Agent.tenant_id == tenant_id)
+        )
+        agents_by_id = {a.id: a for a in agents_result.scalars().all()}
+    return [
+        serialize_project(p, agents_by_id.get(p.po_agent_id) if p.po_agent_id else None)
+        for p in projects
+    ]
 
 
 async def create_project(

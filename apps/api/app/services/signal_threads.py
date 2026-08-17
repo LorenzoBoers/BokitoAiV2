@@ -399,7 +399,9 @@ async def list_threads(
 
     if tag:
         # tags_json holds a JSON array of strings; match the quoted literal.
-        query = query.where(Signal.tags_json.like(f'%"{tag}"%'))
+        # ilike keeps SQLite and Postgres behavior identical (LIKE is
+        # case-insensitive on SQLite but case-sensitive on Postgres).
+        query = query.where(Signal.tags_json.ilike(f'%"{tag}"%'))
 
     if assignee_id is not None:
         user_map = await _user_map(session, tenant_id)
@@ -413,7 +415,9 @@ async def list_threads(
         try:
             query = query.where(Signal.connection_id == UUID(connection_id))
         except ValueError:
-            pass
+            # A malformed filter must narrow to nothing, not silently widen
+            # the result set to the whole inbox.
+            return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
 
     if email_connection_id is not None:
         account_id = await resolve_email_account_by_numeric_id(session, tenant_id, email_connection_id)
@@ -526,18 +530,25 @@ async def get_thread(
         return None
     pinned = await _pinned_ids(session, tenant_id, user_id)
     messages_result = await session.execute(
-        select(SignalMessage).where(SignalMessage.signal_id == signal_id).order_by(SignalMessage.created_at)
+        select(SignalMessage)
+        .where(SignalMessage.signal_id == signal_id, SignalMessage.tenant_id == tenant_id)
+        .order_by(SignalMessage.created_at)
     )
     messages = list(messages_result.scalars().all())
     decision_ids = [m.decision_id for m in messages if m.decision_id]
     decisions_by_id: dict[UUID, DecisionRequest] = {}
     if decision_ids:
         dr = await session.execute(
-            select(DecisionRequest).where(DecisionRequest.id.in_(decision_ids))
+            select(DecisionRequest).where(
+                DecisionRequest.id.in_(decision_ids),
+                DecisionRequest.tenant_id == tenant_id,
+            )
         )
         decisions_by_id = {d.id: d for d in dr.scalars().all()}
     events_result = await session.execute(
-        select(SignalEvent).where(SignalEvent.signal_id == signal_id).order_by(SignalEvent.created_at)
+        select(SignalEvent)
+        .where(SignalEvent.signal_id == signal_id, SignalEvent.tenant_id == tenant_id)
+        .order_by(SignalEvent.created_at)
     )
     rev_map = {v: k for k, v in (await _user_map(session, tenant_id)).items()}
     agent = await _resolve_thread_agent(session, tenant_id, signal, messages)

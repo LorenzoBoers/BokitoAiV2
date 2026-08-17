@@ -248,8 +248,12 @@ export default function Communication() {
   const {
     threads,
     loading: threadsLoading,
+    loadingMore: threadsLoadingMore,
     threadsReady,
     error: threadsError,
+    total: threadsTotal,
+    hasMore: threadsHaveMore,
+    loadMore: loadMoreThreads,
     refresh: refreshThreads,
     setThreadReadState,
     removeThread,
@@ -673,6 +677,10 @@ export default function Communication() {
           bulkBusy={bulkBusy}
           activeTag={tagFilter}
           onTagSelect={mode === 'customer' ? setTagFilter : undefined}
+          total={threadsTotal}
+          hasMore={threadsHaveMore}
+          loadingMore={threadsLoadingMore}
+          onLoadMore={() => void loadMoreThreads()}
         />
         <ThreadDetail
           detail={detail}
