@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { BellOff } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { resolveThreadDecision, type InboxEvent, type InboxMessage, type ThreadId } from '../../lib/inbox-api'
+import {
+  patchThread,
+  resolveThreadDecision,
+  type InboxEvent,
+  type InboxMessage,
+  type ThreadId,
+} from '../../lib/inbox-api'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '../ui/button'
 
@@ -93,6 +100,8 @@ export default function DecisionRequestMessage({
   const summary = message.bodyText?.trim() || message.bodyPreview || message.subject || 'Decision needed'
   const draftBody = useMemo(() => draftBodyFromOptions(options, summary), [options, summary])
   const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
+  // Automated/no-reply mail: the agent proposes an action instead of a reply.
+  const isActionSuggestion = !isSuggestion && options.some((o) => o.action_type === 'close_thread')
 
   async function resolve(
     action: 'approve' | 'defer' | 'reject',
@@ -122,9 +131,32 @@ export default function DecisionRequestMessage({
     }
   }
 
+  async function closeThreadInline() {
+    if (!token) return
+    setBusy(true)
+    setError(null)
+    try {
+      await patchThread(token, threadId, { status: 'closed' })
+      toast.success('Thread closed')
+      onResolved?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not close the thread.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function onOptionClick(option: DecisionOption) {
     if (option.input_type === 'text') {
       setTextOptionId((current) => (current === option.id ? null : option.id))
+      return
+    }
+    if (option.action_type === 'close_thread') {
+      await resolve('approve', option.id, undefined, 'Thread closed')
+      return
+    }
+    if (option.action_type === 'create_task') {
+      await resolve('approve', option.id, undefined, 'Task created')
       return
     }
     if (option.id === 'edit' || option.action_type === 'draft') {
@@ -159,12 +191,17 @@ export default function DecisionRequestMessage({
       <div
         className={cn(
           'w-full max-w-3xl min-w-0 rounded-2xl border px-4 py-3',
-          resolved ? 'border-border/50 bg-bg-surface/80' : 'border-accent/30 bg-accent/5',
+          resolved
+            ? 'border-border/50 bg-bg-surface/80'
+            : isActionSuggestion
+              ? 'border-border bg-bg-surface/60'
+              : 'border-accent/30 bg-accent/5',
         )}
       >
         <div className="mb-1 flex items-center gap-2">
+          {isActionSuggestion ? <BellOff className="h-3.5 w-3.5 text-text-muted" aria-hidden /> : null}
           <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-            {isSuggestion ? 'Suggested reply' : 'Decision'}
+            {isActionSuggestion ? 'No reply needed' : isSuggestion ? 'Suggested reply' : 'Decision'}
           </span>
           {resolved ? (
             <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
@@ -172,31 +209,63 @@ export default function DecisionRequestMessage({
             </span>
           ) : null}
         </div>
-        {message.subject ? (
-          <h3 className="text-sm font-medium text-text-heading">{message.subject}</h3>
-        ) : null}
-        <div className="mt-2 rounded-lg border border-border/50 bg-bg-surface/60 px-3 py-2">
-          <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
-        </div>
+        {isActionSuggestion ? (
+          <>
+            <p className="text-sm text-text-primary">
+              This looks like an automated message, so no reply was drafted.
+            </p>
+            {summary ? (
+              <p className="mt-1.5 line-clamp-3 text-sm text-text-secondary">{summary}</p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {message.subject ? (
+              <h3 className="text-sm font-medium text-text-heading">{message.subject}</h3>
+            ) : null}
+            <div className="mt-2 rounded-lg border border-border/50 bg-bg-surface/60 px-3 py-2">
+              <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
+            </div>
+          </>
+        )}
         {!resolved ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {options.length > 0 ? (
-              options.map((option) => {
-                const primary = option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email'
-                const activeText = option.input_type === 'text' && textOptionId === option.id
-                return (
+              <>
+                {options.map((option) => {
+                  const primary =
+                    option.id === 'send' ||
+                    option.action_type === 'send_reply' ||
+                    option.action_type === 'send_email' ||
+                    option.action_type === 'close_thread'
+                  const quiet = option.action_type === 'defer' && isActionSuggestion
+                  const activeText = option.input_type === 'text' && textOptionId === option.id
+                  return (
+                    <Button
+                      key={option.id}
+                      type="button"
+                      size="sm"
+                      variant={primary ? 'default' : quiet ? 'ghost' : activeText ? 'outline' : 'secondary'}
+                      disabled={busy}
+                      onClick={() => void onOptionClick(option)}
+                    >
+                      {option.label}
+                    </Button>
+                  )
+                })}
+                {isSuggestion ? (
                   <Button
-                    key={option.id}
                     type="button"
                     size="sm"
-                    variant={primary ? 'default' : activeText ? 'outline' : 'secondary'}
+                    variant="ghost"
                     disabled={busy}
-                    onClick={() => void onOptionClick(option)}
+                    className="text-text-muted"
+                    onClick={() => void closeThreadInline()}
                   >
-                    {option.label}
+                    Close thread
                   </Button>
-                )
-              })
+                ) : null}
+              </>
             ) : (
               <>
                 <Button type="button" size="sm" disabled={busy} onClick={() => void resolve('approve')}>

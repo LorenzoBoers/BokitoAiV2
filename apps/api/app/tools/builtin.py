@@ -215,6 +215,58 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     }
 
 
+async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Close a signal thread without replying (mark it resolved).
+
+    Used by approved action-suggestion decisions on automated/no-reply mail,
+    and available to agents as a governed mutation.
+    """
+    from datetime import datetime
+
+    from app.gateway.publish import publish_thread_update
+    from app.models.signal import Signal, SignalEvent
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            pass
+    if not signal_id:
+        return {"error": "signal_id required"}
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+    if signal.status == "closed":
+        return {"ok": True, "signal_id": str(signal.id), "status": "closed", "already_closed": True}
+
+    signal.status = "closed"
+    signal.snoozed_until = None
+    signal.has_unread = False
+    signal.updated_at = datetime.utcnow()
+    ctx.session.add(signal)
+    ctx.session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=ctx.tenant_id,
+            event_type="thread_updated",
+            actor_type="agent" if ctx.agent else "user",
+            actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+            payload_json=json.dumps(
+                {"status": "closed", "via": "close_thread", "note": tool_input.get("note") or ""}
+            ),
+        )
+    )
+    await ctx.session.flush()
+    await publish_thread_update(signal)
+    return {"ok": True, "signal_id": str(signal.id), "status": "closed"}
+
+
 async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     raw_signal = tool_input.get("signal_id") or (str(ctx.signal_id) if ctx.signal_id else None)
     target_signal_id: UUID | None = None
@@ -540,6 +592,23 @@ register_tool(
             "required": [],
         },
         handler=_send_reply,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="close_thread",
+        description="Close a signal thread without replying (mark it resolved, e.g. automated notifications).",
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "note": {"type": "string"},
+            },
+            "required": [],
+        },
+        handler=_close_thread,
     )
 )
 

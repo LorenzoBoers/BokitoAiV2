@@ -74,6 +74,47 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         from app.services.routing import resolve_agent_for_signal
 
+        # Automated / no-reply mail (system notifications, newsletters, bounces):
+        # never draft a reply. Surface a compact action suggestion instead —
+        # close the thread, create a task, or keep it open.
+        from app.services.automated_mail import classify_automated_email
+
+        try:
+            msg_meta = json.loads(msg.metadata_json or "{}")
+        except json.JSONDecodeError:
+            msg_meta = {}
+        classification = classify_automated_email(
+            msg.from_address or signal.contact_email or "",
+            headers=msg_meta.get("auto_headers") if isinstance(msg_meta, dict) else None,
+        )
+        if classification["automated"]:
+            from app.services.inbound_agent import create_action_suggestion
+
+            agent = await resolve_agent_for_signal(session, signal)
+            preview = (msg.body_preview or msg.body_text or "").strip()[:280]
+            delivery = await create_action_suggestion(
+                session,
+                UUID(tenant_id),
+                signal,
+                agent,
+                summary=preview or "Automated notification; no reply needed.",
+                reason=classification["reason"],
+            )
+            session.add(
+                SignalEvent(
+                    signal_id=signal.id,
+                    tenant_id=UUID(tenant_id),
+                    event_type="agent_processed",
+                    actor_type="system",
+                    actor_id="",
+                    payload_json=json.dumps(
+                        {"delivery": delivery, "automated_mail": classification["reason"]}
+                    ),
+                )
+            )
+            await session.commit()
+            return {"processed": True, "signal_id": signal_id, "delivery": delivery}
+
         agent = await resolve_agent_for_signal(session, signal)
         if not agent:
             return {"skipped": True, "reason": "no agent"}
@@ -112,6 +153,9 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "create_decision_request with clear multiple-choice options "
                 "(add an option with input_type \"text\" when a free-text answer is useful), "
                 "then return exactly: Done.\n"
+                "   - If the message is an automated notification that needs no reply "
+                "(no-reply sender, newsletter, receipt, system alert), return exactly: "
+                "NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
                 "Never invent facts about the customer's administration — if research "
                 "returns nothing, say so in the draft and propose next steps."
             )
@@ -121,7 +165,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 f"Subject: {signal.subject}\n\n{msg.body_text}\n\n"
                 "Reply directly to the customer; your final message is delivered as-is. "
                 "Use tools for operational actions, or create_decision_request "
-                "with multiple choice options when human input is required."
+                "with multiple choice options when human input is required. "
+                "If the message is an automated notification that needs no reply "
+                "(no-reply sender, newsletter, receipt, system alert), do not reply; "
+                "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>."
             )
         reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
 
@@ -132,9 +179,23 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             for step in loop.trace_steps
         )
 
-        from app.services.inbound_agent import persist_inbound_agent_reply
+        from app.services.automated_mail import extract_no_reply_summary
+        from app.services.inbound_agent import create_action_suggestion, persist_inbound_agent_reply
 
-        if ai_mode == "suggest" and agent_created_decision:
+        no_reply_summary = extract_no_reply_summary(reply_text)
+        if no_reply_summary is not None:
+            # The model judged this an automated notification: suggest an
+            # action (close / task / keep open) instead of sending a reply.
+            delivery = await create_action_suggestion(
+                session,
+                UUID(tenant_id),
+                signal,
+                agent,
+                summary=no_reply_summary,
+                reason="agent_judgement",
+                run_id=run.id,
+            )
+        elif ai_mode == "suggest" and agent_created_decision:
             delivery = {"decision_created": True, "delivery": "pending_decision"}
         else:
             delivery = await persist_inbound_agent_reply(

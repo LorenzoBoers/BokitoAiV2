@@ -105,6 +105,18 @@ def _credentials(account: ChannelAccount) -> dict[str, Any]:
         return {}
 
 
+# RFC headers that mark automated / bulk mail; captured at sync time so the
+# inbound classifier can suppress reply suggestions for notification email.
+_AUTO_HEADER_KEYS = (
+    "auto-submitted",
+    "precedence",
+    "x-auto-response-suppress",
+    "list-id",
+    "list-unsubscribe",
+    "return-path",
+)
+
+
 def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
     payload = msg.get("payload", {})
     headers = {h.get("name", "").lower(): h.get("value", "") for h in payload.get("headers", [])}
@@ -129,6 +141,7 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
         # (the provider id above is API-internal and useless for threading).
         "rfc_message_id": headers.get("message-id", ""),
         "references": headers.get("references", ""),
+        "auto_headers": {k: headers[k] for k in _AUTO_HEADER_KEYS if headers.get(k)},
     }
 
 
@@ -196,6 +209,13 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
         # Delta sometimes returns id-only stubs; skip until a full fetch.
         return None
     sender = (msg.get("from") or {}).get("emailAddress") or {}
+    # Graph only returns internetMessageHeaders when explicitly selected;
+    # tolerate their absence and keep whatever automation markers we can get.
+    auto_headers: dict[str, str] = {}
+    for header in msg.get("internetMessageHeaders") or []:
+        name = str(header.get("name", "")).lower()
+        if name in _AUTO_HEADER_KEYS and header.get("value"):
+            auto_headers[name] = str(header["value"])
     body = msg.get("body") or {}
     content_type = (body.get("contentType") or "text").lower()
     body_content = body.get("content") or msg.get("bodyPreview", "")
@@ -212,6 +232,7 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
         "message_id": msg.get("id", ""),
         "thread_id": msg.get("conversationId", ""),
         "rfc_message_id": msg.get("internetMessageId", ""),
+        "auto_headers": auto_headers,
     }
 
 
@@ -594,6 +615,7 @@ async def _ingest_items(
                 "attachments": item.get("attachments") or [],
                 "rfc_message_id": item.get("rfc_message_id", ""),
                 "references": item.get("references", ""),
+                "auto_headers": item.get("auto_headers") or {},
                 "folder": folder_id,
             },
         )

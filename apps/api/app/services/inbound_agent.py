@@ -73,6 +73,121 @@ def _suggestion_options(
     ]
 
 
+async def create_action_suggestion(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    agent: Agent | None,
+    *,
+    summary: str,
+    reason: str = "",
+    run_id: UUID | None = None,
+) -> dict:
+    """Persist an inline action DecisionRequest for mail that needs no reply.
+
+    Automated / no-reply senders (system notifications, newsletters, bounces)
+    must never get a drafted reply. Instead the operator gets a compact card:
+    close the thread, turn it into a task, or keep it open.
+    """
+    text = (summary or "").strip() or "Automated notification; no reply needed."
+    subject = signal.subject or "Automated message"
+
+    options = [
+        {
+            "id": "close",
+            "label": "Close thread",
+            "action_type": "close_thread",
+            "payload": {"signal_id": str(signal.id)},
+        },
+        {
+            "id": "create_task",
+            "label": "Create task",
+            "action_type": "create_task",
+            "payload": {"title": f"Follow up: {subject}"[:120], "description": text},
+        },
+        {
+            "id": "keep_open",
+            "label": "Keep open",
+            "action_type": "defer",
+            "payload": {},
+        },
+    ]
+
+    notification = Notification(
+        tenant_id=tenant_id,
+        user_id=signal.assigned_user_id,
+        kind="decision_request",
+        title="No reply needed",
+        body=text[:500],
+        payload_json=json.dumps(
+            {
+                "kind": "action_suggestion",
+                "channel": signal.channel,
+                "reason": reason,
+                "run_id": str(run_id) if run_id else None,
+            }
+        ),
+    )
+    session.add(notification)
+    await session.flush()
+
+    decision = DecisionRequest(
+        tenant_id=tenant_id,
+        notification_id=notification.id,
+        title="No reply needed",
+        summary=text,
+        options_json=json.dumps(options),
+        status="awaiting_human",
+        project_id=signal.project_id,
+    )
+    session.add(decision)
+    await session.flush()
+
+    from app.services.signal_decisions import ingest_decision_request
+
+    message = await ingest_decision_request(
+        session,
+        tenant_id,
+        notification,
+        decision,
+        user_id=signal.assigned_user_id,
+        agent_id=agent.id if agent else None,
+        signal_id=signal.id,
+    )
+    apply_suggested_actions(signal)
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            event_type="suggestion_created",
+            actor_type="agent" if agent else "system",
+            actor_id=str(agent.id) if agent else "",
+            payload_json=json.dumps(
+                {
+                    "decision_id": str(decision.id),
+                    "message_id": str(message.id),
+                    "kind": "action_suggestion",
+                    "reason": reason,
+                    "run_id": str(run_id) if run_id else None,
+                }
+            ),
+        )
+    )
+    await session.commit()
+    # Deliberately no email notification: emailing a human about an automated
+    # notification that needs no reply would just move the noise around.
+    return {
+        "suggestion": True,
+        "kind": "action_suggestion",
+        "reason": reason,
+        "decision_id": str(decision.id),
+        "message_id": str(message.id),
+        "channel": signal.channel,
+        "delivery": "no_reply_needed",
+    }
+
+
 async def create_reply_suggestion(
     session: AsyncSession,
     tenant_id: UUID,
