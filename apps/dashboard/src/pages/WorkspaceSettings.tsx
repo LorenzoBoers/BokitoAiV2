@@ -31,20 +31,8 @@ export default function WorkspaceSettings() {
     if (currentWorkspace?.name) setWorkspaceName(currentWorkspace.name);
   }, [currentWorkspace?.id, currentWorkspace?.name]);
 
-  useEffect(() => {
-    if (!token) return;
-    void fetch(`${APP_API_BASE}/me/preferences`, {
-      headers: { Authorization: `Bearer ${token}` },
-      credentials: 'include',
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { ui_language?: string } | null) => {
-        if (data?.ui_language === 'nl' || data?.ui_language === 'en') {
-          void i18n.changeLanguage(data.ui_language);
-        }
-      })
-      .catch(() => undefined);
-  }, [token, i18n]);
+  // The saved ui_language preference is applied app-wide by
+  // useLanguagePreferenceSync in App.tsx.
 
   const handleSave = async () => {
     if (!currentWorkspace) return;

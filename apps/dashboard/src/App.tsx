@@ -9,6 +9,7 @@ import { useWorkspace } from './context/WorkspaceContext'
 import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
 import { ASSISTANT_DEFAULT_PATH } from './lib/assistant-settings-path'
+import { useLanguagePreferenceSync } from './lib/language-preference'
 
 // Public pages
 import Login from './pages/Login'
@@ -191,6 +192,8 @@ function LegacyInboxRedirect() {
 }
 
 export default function App() {
+  const { token } = useAuth()
+  useLanguagePreferenceSync(token)
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

@@ -38,9 +38,14 @@ export type RoutingRuleApi = {
 
 export type MailboxAiMode = 'suggest' | 'auto' | 'off'
 
+/** '' = follow the workspace default; 'auto' mirrors the customer's language. */
+export type MailboxReplyLanguage = '' | 'auto' | 'nl' | 'en' | 'de' | 'fr' | 'es'
+
 export type AiInboxConfig = {
   /** Empty string = follow the workspace default for email. */
   mode: MailboxAiMode | ''
+  /** Language for drafted replies; empty string = workspace default. */
+  replyLanguage: MailboxReplyLanguage
 }
 
 export type KbCollection = {
@@ -281,22 +286,29 @@ export async function deleteRoutingRule(token: string, ruleId: number): Promise<
   await apiDelete(integrationsRoutes.email.routingRules.byId(ruleId), token)
 }
 
+const MAILBOX_REPLY_LANGUAGES: MailboxReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
+
 export async function getAiConfig(token: string, connectionId: number): Promise<AiInboxConfig> {
   const payload = await apiGet<{ ai_config?: Record<string, unknown> }>(integrationsRoutes.email.connections.aiConfig(connectionId), token)
   const raw = payload.ai_config ?? {}
+  const replyLanguage = MAILBOX_REPLY_LANGUAGES.includes(raw.reply_language as MailboxReplyLanguage)
+    ? (raw.reply_language as MailboxReplyLanguage)
+    : ''
   const mode = raw.mode
   if (mode === 'suggest' || mode === 'auto' || mode === 'off') {
-    return { mode }
+    return { mode, replyLanguage }
   }
   // Legacy per-mailbox toggle written by the previous AI settings UI.
   if (raw.suggestions_enabled === false) {
-    return { mode: 'off' }
+    return { mode: 'off', replyLanguage }
   }
-  return { mode: '' }
+  return { mode: '', replyLanguage }
 }
 
 export async function saveAiConfig(token: string, connectionId: number, config: AiInboxConfig): Promise<void> {
-  const aiConfig = config.mode ? { mode: config.mode } : {}
+  const aiConfig: Record<string, string> = {}
+  if (config.mode) aiConfig.mode = config.mode
+  if (config.replyLanguage) aiConfig.reply_language = config.replyLanguage
   await apiPut(integrationsRoutes.email.connections.aiConfig(connectionId), { ai_config: aiConfig }, token)
 }
 

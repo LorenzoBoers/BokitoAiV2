@@ -501,6 +501,15 @@ async def save_ai_config(
     ai_config = body.get("ai_config")
     if not isinstance(ai_config, dict):
         raise HTTPException(status_code=400, detail="ai_config object required")
+    reply_language = ai_config.get("reply_language")
+    if reply_language is not None:
+        from app.services.language import REPLY_LANGUAGE_CHOICES
+
+        # Empty string means "use the tenant default" — drop the override.
+        if reply_language == "":
+            ai_config.pop("reply_language", None)
+        elif reply_language not in REPLY_LANGUAGE_CHOICES:
+            raise HTTPException(status_code=400, detail="Invalid reply_language")
     await _save_account_settings(session, account, {"ai_config": ai_config})
     return {"ok": True, "ai_config": ai_config}
 

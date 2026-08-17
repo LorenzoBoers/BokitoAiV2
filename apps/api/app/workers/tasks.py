@@ -133,6 +133,23 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         loop = AgentLoop(
             session, UUID(tenant_id), None, agent=agent, run=run, signal_id=signal.id
         )
+
+        # Language policy: reply drafts mirror the customer's language (or a
+        # pinned mailbox/tenant language); team-facing summaries follow the
+        # workspace language. See services/language.py.
+        from app.services.language import (
+            reply_language_instruction,
+            resolve_reply_language,
+            resolve_workspace_language,
+            workspace_language_instruction,
+        )
+
+        language_rules = (
+            "Language rules:\n"
+            f"- {reply_language_instruction(resolve_reply_language(tenant, account))}\n"
+            f"- {workspace_language_instruction(resolve_workspace_language(tenant))}\n"
+        )
+
         if ai_mode == "suggest":
             # Suggest-only: read-only research tools + inline decisions.
             # The final reply text becomes a DecisionRequest via
@@ -156,6 +173,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "   - If the message is an automated notification that needs no reply "
                 "(no-reply sender, newsletter, receipt, system alert), return exactly: "
                 "NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
+                f"{language_rules}"
                 "Never invent facts about the customer's administration — if research "
                 "returns nothing, say so in the draft and propose next steps."
             )
@@ -168,7 +186,8 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "with multiple choice options when human input is required. "
                 "If the message is an automated notification that needs no reply "
                 "(no-reply sender, newsletter, receipt, system alert), do not reply; "
-                "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>."
+                "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
+                f"{language_rules}"
             )
         reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
 

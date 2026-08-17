@@ -679,26 +679,64 @@ export type ChannelAiModes = {
   widget: AiMode
 }
 
-export async function getChannelAiModes(token: string): Promise<ChannelAiModes> {
-  const payload = await apiGet<{ channel_ai_modes?: Record<string, string> }>(
-    policyRoutes.aiModes(),
-    token,
-  )
+/** "auto" mirrors the customer's language; otherwise a fixed ISO code. */
+export type ReplyLanguage = 'auto' | 'nl' | 'en' | 'de' | 'fr' | 'es'
+export type WorkspaceLanguage = Exclude<ReplyLanguage, 'auto'>
+
+export type AiCommunicationSettings = {
+  modes: ChannelAiModes
+  replyLanguage: ReplyLanguage
+  workspaceLanguage: WorkspaceLanguage
+}
+
+const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
+
+export async function getAiCommunicationSettings(token: string): Promise<AiCommunicationSettings> {
+  const payload = await apiGet<{
+    channel_ai_modes?: Record<string, string>
+    reply_language?: string
+    workspace_language?: string
+  }>(policyRoutes.aiModes(), token)
   const modes = payload.channel_ai_modes ?? {}
   const valid = (value: unknown, fallback: AiMode): AiMode =>
     value === 'suggest' || value === 'auto' || value === 'off' ? value : fallback
+  const replyLanguage = REPLY_LANGUAGES.includes(payload.reply_language as ReplyLanguage)
+    ? (payload.reply_language as ReplyLanguage)
+    : 'auto'
+  const workspaceLanguage =
+    payload.workspace_language && payload.workspace_language !== 'auto'
+      && REPLY_LANGUAGES.includes(payload.workspace_language as ReplyLanguage)
+      ? (payload.workspace_language as WorkspaceLanguage)
+      : 'en'
   return {
-    email: valid(modes.email, 'suggest'),
-    widget: valid(modes.widget, 'auto'),
+    modes: {
+      email: valid(modes.email, 'suggest'),
+      widget: valid(modes.widget, 'auto'),
+    },
+    replyLanguage,
+    workspaceLanguage,
   }
 }
 
-export async function saveChannelAiModes(
+export async function saveAiCommunicationSettings(
   token: string,
-  modes: Partial<ChannelAiModes>,
+  input: {
+    modes?: Partial<ChannelAiModes>
+    replyLanguage?: ReplyLanguage
+    workspaceLanguage?: WorkspaceLanguage
+  },
 ): Promise<void> {
-  await apiPut(policyRoutes.aiModes(), { channel_ai_modes: modes }, token)
+  await apiPut(
+    policyRoutes.aiModes(),
+    {
+      channel_ai_modes: input.modes,
+      reply_language: input.replyLanguage,
+      workspace_language: input.workspaceLanguage,
+    },
+    token,
+  )
 }
+
 
 // ---------------------------------------------------------------------------
 // Widget behaviour (pre-chat form, office hours, offline message)

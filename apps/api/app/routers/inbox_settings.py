@@ -38,7 +38,11 @@ class PersonaUpdate(BaseModel):
 
 
 class AiModesUpdate(BaseModel):
-    channel_ai_modes: dict[str, str]
+    channel_ai_modes: dict[str, str] | None = None
+    # "auto" (mirror the customer's language) or a fixed ISO code (nl, en, ...).
+    reply_language: str | None = None
+    # Language for AI text addressed to the team (summaries, explanations).
+    workspace_language: str | None = None
 
 
 @router.get("/inbox/settings")
@@ -87,13 +91,17 @@ async def update_inbox_settings(
 async def get_ai_modes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
 ):
-    """Tenant-wide AI mode per channel (account-level ai_config.mode overrides)."""
+    """Tenant-wide AI mode per channel plus AI language policy."""
+    from app.services.language import resolve_reply_language, resolve_workspace_language
+
     modes = tenant_channel_ai_modes(auth.tenant)
     return {
         "channel_ai_modes": {
             channel: modes.get(channel) or default_ai_mode(channel)
             for channel in ("email", "widget")
-        }
+        },
+        "reply_language": resolve_reply_language(auth.tenant, None),
+        "workspace_language": resolve_workspace_language(auth.tenant),
     }
 
 
@@ -103,24 +111,42 @@ async def update_ai_modes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.services.language import REPLY_LANGUAGE_CHOICES, WORKSPACE_LANGUAGE_CHOICES
+
     auth.require_role("owner", "admin")
-    for channel, mode in body.channel_ai_modes.items():
+    for channel, mode in (body.channel_ai_modes or {}).items():
         if mode not in AI_MODES:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid mode '{mode}' for channel '{channel}' (use suggest|auto|off)",
             )
+    if body.reply_language is not None and body.reply_language not in REPLY_LANGUAGE_CHOICES:
+        raise HTTPException(status_code=400, detail="Invalid reply_language")
+    if (
+        body.workspace_language is not None
+        and body.workspace_language not in WORKSPACE_LANGUAGE_CHOICES
+    ):
+        raise HTTPException(status_code=400, detail="Invalid workspace_language")
+
     tenant = auth.tenant
     settings = json.loads(tenant.settings_json or "{}")
     modes = settings.get("channel_ai_modes")
     if not isinstance(modes, dict):
         modes = {}
-    modes.update(body.channel_ai_modes)
+    modes.update(body.channel_ai_modes or {})
     settings["channel_ai_modes"] = modes
+    if body.reply_language is not None:
+        settings["ai_reply_language"] = body.reply_language
+    if body.workspace_language is not None:
+        settings["ai_workspace_language"] = body.workspace_language
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
     await session.commit()
-    return {"channel_ai_modes": modes}
+    return {
+        "channel_ai_modes": modes,
+        "reply_language": settings.get("ai_reply_language", "auto"),
+        "workspace_language": settings.get("ai_workspace_language", "en"),
+    }
 
 
 class WidgetSettingsUpdate(BaseModel):

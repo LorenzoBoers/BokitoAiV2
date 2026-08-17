@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Globe, Mail } from 'lucide-react'
+import { Globe, Languages, Mail, MessageSquareText } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
@@ -19,15 +19,20 @@ import ProviderLogo from '../components/email/ProviderLogo'
 import ChannelBindingsPanel from '../components/settings/ChannelBindingsPanel'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
-import { getAiConfig, saveAiConfig, type MailboxAiMode } from '../lib/email-api'
+import { getAiConfig, saveAiConfig, type MailboxAiMode, type MailboxReplyLanguage } from '../lib/email-api'
 import {
-  getChannelAiModes,
-  saveChannelAiModes,
+  getAiCommunicationSettings,
+  saveAiCommunicationSettings,
+  type AiCommunicationSettings as AiSettings,
   type AiMode,
   type ChannelAiModes,
+  type ReplyLanguage,
+  type WorkspaceLanguage,
 } from '../lib/inbox-api'
 
 const MODES: AiMode[] = ['suggest', 'auto', 'off']
+const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
+const WORKSPACE_LANGUAGES: WorkspaceLanguage[] = ['nl', 'en', 'de', 'fr', 'es']
 
 type ModeSelectProps = {
   id: string
@@ -56,34 +61,71 @@ function ModeSelect({ id, value, onChange, includeDefault, defaultLabel }: ModeS
   )
 }
 
+function LanguageSelect({
+  id,
+  value,
+  languages,
+  onChange,
+  includeDefault,
+  defaultLabel,
+}: {
+  id: string
+  value: string
+  languages: readonly string[]
+  onChange: (value: string) => void
+  includeDefault?: boolean
+  defaultLabel?: string
+}) {
+  const { t } = useTranslation('nav')
+  return (
+    <Select value={value || 'default'} onValueChange={(v) => onChange(v === 'default' ? '' : v)}>
+      <SelectTrigger id={id} className="w-56">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {includeDefault ? <SelectItem value="default">{defaultLabel}</SelectItem> : null}
+        {languages.map((lang) => (
+          <SelectItem key={lang} value={lang}>
+            {t(`ai.communication.languageOptions.${lang}`)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 export default function AiCommunicationSettings() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const { activeConnections: activeMailboxes, loading: mailboxesLoading } = useMailboxConnections()
 
-  // Tenant-wide channel defaults
-  const [modes, setModes] = useState<ChannelAiModes | null>(null)
-  const [savedModes, setSavedModes] = useState<ChannelAiModes | null>(null)
+  // Tenant-wide channel defaults + language policy
+  const [aiSettings, setAiSettings] = useState<AiSettings | null>(null)
+  const [savedAiSettings, setSavedAiSettings] = useState<AiSettings | null>(null)
   const [modesError, setModesError] = useState<string | null>(null)
 
   // Per-mailbox override
   const [connectionId, setConnectionId] = useState<number | null>(null)
   const [mailboxMode, setMailboxMode] = useState<MailboxAiMode | ''>('')
   const [savedMailboxMode, setSavedMailboxMode] = useState<MailboxAiMode | ''>('')
+  const [mailboxLanguage, setMailboxLanguage] = useState<MailboxReplyLanguage>('')
+  const [savedMailboxLanguage, setSavedMailboxLanguage] = useState<MailboxReplyLanguage>('')
   const [loadingConfig, setLoadingConfig] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
+  const modes: ChannelAiModes | null = aiSettings?.modes ?? null
+
   useEffect(() => {
     if (!token) return
     let cancelled = false
-    void getChannelAiModes(token)
+    void getAiCommunicationSettings(token)
       .then((data) => {
         if (!cancelled) {
-          setModes(data)
-          setSavedModes(data)
+          setAiSettings(data)
+          setSavedAiSettings(data)
         }
       })
       .catch((err) => {
@@ -116,6 +158,8 @@ export default function AiCommunicationSettings() {
         if (!cancelled) {
           setMailboxMode(data.mode)
           setSavedMailboxMode(data.mode)
+          setMailboxLanguage(data.replyLanguage)
+          setSavedMailboxLanguage(data.replyLanguage)
         }
       })
       .catch((err) => {
@@ -131,22 +175,30 @@ export default function AiCommunicationSettings() {
     }
   }, [token, connectionId, t])
 
-  const isDirty =
-    (modes != null && savedModes != null && JSON.stringify(modes) !== JSON.stringify(savedModes)) ||
-    mailboxMode !== savedMailboxMode
+  const tenantDirty =
+    aiSettings != null &&
+    savedAiSettings != null &&
+    JSON.stringify(aiSettings) !== JSON.stringify(savedAiSettings)
+  const mailboxDirty = mailboxMode !== savedMailboxMode || mailboxLanguage !== savedMailboxLanguage
+  const isDirty = tenantDirty || mailboxDirty
 
   const handleSave = useCallback(async () => {
     if (!token) return
     setSaving(true)
     setSaveMessage(null)
     try {
-      if (modes && savedModes && JSON.stringify(modes) !== JSON.stringify(savedModes)) {
-        await saveChannelAiModes(token, modes)
-        setSavedModes(modes)
+      if (tenantDirty && aiSettings) {
+        await saveAiCommunicationSettings(token, {
+          modes: aiSettings.modes,
+          replyLanguage: aiSettings.replyLanguage,
+          workspaceLanguage: aiSettings.workspaceLanguage,
+        })
+        setSavedAiSettings(aiSettings)
       }
-      if (connectionId != null && mailboxMode !== savedMailboxMode) {
-        await saveAiConfig(token, connectionId, { mode: mailboxMode })
+      if (connectionId != null && mailboxDirty) {
+        await saveAiConfig(token, connectionId, { mode: mailboxMode, replyLanguage: mailboxLanguage })
         setSavedMailboxMode(mailboxMode)
+        setSavedMailboxLanguage(mailboxLanguage)
       }
       setSaveMessage(t('ai.communication.saved'))
     } catch (err) {
@@ -154,7 +206,7 @@ export default function AiCommunicationSettings() {
     } finally {
       setSaving(false)
     }
-  }, [token, modes, savedModes, connectionId, mailboxMode, savedMailboxMode, t])
+  }, [token, aiSettings, tenantDirty, connectionId, mailboxDirty, mailboxMode, mailboxLanguage, t])
 
   return (
     <PageContent width="md" className="space-y-6">
@@ -190,7 +242,9 @@ export default function AiCommunicationSettings() {
                 id="ai-mode-email"
                 value={modes.email}
                 onChange={(v) => {
-                  setModes((prev) => (prev ? { ...prev, email: v as AiMode } : prev))
+                  setAiSettings((prev) =>
+                    prev ? { ...prev, modes: { ...prev.modes, email: v as AiMode } } : prev,
+                  )
                   setSaveMessage(null)
                 }}
               />
@@ -211,7 +265,74 @@ export default function AiCommunicationSettings() {
                 id="ai-mode-widget"
                 value={modes.widget}
                 onChange={(v) => {
-                  setModes((prev) => (prev ? { ...prev, widget: v as AiMode } : prev))
+                  setAiSettings((prev) =>
+                    prev ? { ...prev, modes: { ...prev.modes, widget: v as AiMode } } : prev,
+                  )
+                  setSaveMessage(null)
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5 space-y-5">
+        <div>
+          <h2 className="text-sm font-medium text-text-heading">
+            {t('ai.communication.languageTitle')}
+          </h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            {t('ai.communication.languageDescription')}
+          </p>
+        </div>
+        {!aiSettings ? (
+          <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+        ) : (
+          <div className="space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Languages size={16} className="mt-0.5 text-accent" />
+                <div>
+                  <Label htmlFor="ai-reply-language" className="text-sm font-medium">
+                    {t('ai.communication.replyLanguageLabel')}
+                  </Label>
+                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                    {t('ai.communication.replyLanguageHint')}
+                  </p>
+                </div>
+              </div>
+              <LanguageSelect
+                id="ai-reply-language"
+                value={aiSettings.replyLanguage}
+                languages={REPLY_LANGUAGES}
+                onChange={(v) => {
+                  setAiSettings((prev) =>
+                    prev ? { ...prev, replyLanguage: (v || 'auto') as ReplyLanguage } : prev,
+                  )
+                  setSaveMessage(null)
+                }}
+              />
+            </div>
+            <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-5">
+              <div className="flex items-start gap-3">
+                <MessageSquareText size={16} className="mt-0.5 text-accent" />
+                <div>
+                  <Label htmlFor="ai-workspace-language" className="text-sm font-medium">
+                    {t('ai.communication.workspaceLanguageLabel')}
+                  </Label>
+                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                    {t('ai.communication.workspaceLanguageHint')}
+                  </p>
+                </div>
+              </div>
+              <LanguageSelect
+                id="ai-workspace-language"
+                value={aiSettings.workspaceLanguage}
+                languages={WORKSPACE_LANGUAGES}
+                onChange={(v) => {
+                  setAiSettings((prev) =>
+                    prev ? { ...prev, workspaceLanguage: (v || 'en') as WorkspaceLanguage } : prev,
+                  )
                   setSaveMessage(null)
                 }}
               />
@@ -269,22 +390,40 @@ export default function AiCommunicationSettings() {
             {loadingConfig ? (
               <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
             ) : (
-              <div className="flex items-start justify-between gap-4">
-                <p className="text-xs text-text-muted mt-2 max-w-sm">
-                  {mailboxMode
-                    ? t(`ai.communication.modeHints.${mailboxMode}`)
-                    : t(`ai.communication.modeHints.${modes?.email ?? 'suggest'}`)}
-                </p>
-                <ModeSelect
-                  id="ai-mode-mailbox"
-                  value={mailboxMode}
-                  onChange={(v) => {
-                    setMailboxMode(v as MailboxAiMode | '')
-                    setSaveMessage(null)
-                  }}
-                  includeDefault
-                  defaultLabel={t('ai.communication.useDefault')}
-                />
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-xs text-text-muted mt-2 max-w-sm">
+                    {mailboxMode
+                      ? t(`ai.communication.modeHints.${mailboxMode}`)
+                      : t(`ai.communication.modeHints.${modes?.email ?? 'suggest'}`)}
+                  </p>
+                  <ModeSelect
+                    id="ai-mode-mailbox"
+                    value={mailboxMode}
+                    onChange={(v) => {
+                      setMailboxMode(v as MailboxAiMode | '')
+                      setSaveMessage(null)
+                    }}
+                    includeDefault
+                    defaultLabel={t('ai.communication.useDefault')}
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-4">
+                  <p className="text-xs text-text-muted mt-2 max-w-sm">
+                    {t('ai.communication.mailboxLanguageHint')}
+                  </p>
+                  <LanguageSelect
+                    id="ai-language-mailbox"
+                    value={mailboxLanguage}
+                    languages={REPLY_LANGUAGES}
+                    onChange={(v) => {
+                      setMailboxLanguage(v as MailboxReplyLanguage)
+                      setSaveMessage(null)
+                    }}
+                    includeDefault
+                    defaultLabel={t('ai.communication.useDefault')}
+                  />
+                </div>
               </div>
             )}
           </div>

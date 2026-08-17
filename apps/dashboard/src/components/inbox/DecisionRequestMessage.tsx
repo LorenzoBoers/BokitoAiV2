@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { BellOff, Sparkles } from 'lucide-react'
 import { cn } from '../../lib/utils'
@@ -83,6 +84,40 @@ function draftBodyFromOptions(options: DecisionOption[], fallback: string): stri
   return fallback
 }
 
+/**
+ * Known option ids/action types get a translated button label so the card
+ * follows the user's platform language; unknown (agent-authored) options
+ * keep the label the agent wrote.
+ */
+function optionLabelKey(option: DecisionOption): string | null {
+  const byId: Record<string, string> = {
+    send: 'send',
+    edit: 'edit',
+    escalate: 'escalate',
+    close: 'closeThread',
+    create_task: 'createTask',
+    keep_open: 'keepOpen',
+    approve: 'approve',
+    reject: 'reject',
+    later: 'later',
+    defer: 'defer',
+  }
+  if (byId[option.id]) return byId[option.id]
+  const byAction: Record<string, string> = {
+    send_reply: 'send',
+    send_email: 'send',
+    draft: 'edit',
+    escalate: 'escalate',
+    close_thread: 'closeThread',
+    create_task: 'createTask',
+    approve: 'approve',
+    defer: 'keepOpen',
+    reject: 'reject',
+  }
+  if (option.action_type && byAction[option.action_type]) return byAction[option.action_type]
+  return null
+}
+
 export default function DecisionRequestMessage({
   message,
   threadId,
@@ -90,6 +125,7 @@ export default function DecisionRequestMessage({
   onResolved,
   onEditDraft,
 }: Props) {
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -97,7 +133,11 @@ export default function DecisionRequestMessage({
   const [responseText, setResponseText] = useState('')
   const resolved = isDecisionResolved(message, events)
   const options = useMemo(() => extractOptions(message), [message])
-  const summary = message.bodyText?.trim() || message.bodyPreview || message.subject || 'Decision needed'
+  const summary =
+    message.bodyText?.trim() ||
+    message.bodyPreview ||
+    message.subject ||
+    t('decisionCard.decisionNeeded')
   const draftBody = useMemo(() => draftBodyFromOptions(options, summary), [options, summary])
   const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
   // Automated/no-reply mail: the agent proposes an action instead of a reply.
@@ -121,11 +161,15 @@ export default function DecisionRequestMessage({
       })
       toast.success(
         successLabel ??
-          (action === 'approve' ? 'Decision approved' : action === 'defer' ? 'Decision deferred' : 'Decision rejected'),
+          (action === 'approve'
+            ? t('decisionCard.toastApproved')
+            : action === 'defer'
+              ? t('decisionCard.toastDeferred')
+              : t('decisionCard.toastRejected')),
       )
       onResolved?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resolve decision.')
+      setError(err instanceof Error ? err.message : t('decisionCard.resolveError'))
     } finally {
       setBusy(false)
     }
@@ -137,10 +181,10 @@ export default function DecisionRequestMessage({
     setError(null)
     try {
       await patchThread(token, threadId, { status: 'closed' })
-      toast.success('Thread closed')
+      toast.success(t('decisionCard.toastClosed'))
       onResolved?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not close the thread.')
+      setError(err instanceof Error ? err.message : t('decisionCard.closeError'))
     } finally {
       setBusy(false)
     }
@@ -152,11 +196,11 @@ export default function DecisionRequestMessage({
       return
     }
     if (option.action_type === 'close_thread') {
-      await resolve('approve', option.id, undefined, 'Thread closed')
+      await resolve('approve', option.id, undefined, t('decisionCard.toastClosed'))
       return
     }
     if (option.action_type === 'create_task') {
-      await resolve('approve', option.id, undefined, 'Task created')
+      await resolve('approve', option.id, undefined, t('decisionCard.toastTaskCreated'))
       return
     }
     if (option.id === 'edit' || option.action_type === 'draft') {
@@ -168,15 +212,15 @@ export default function DecisionRequestMessage({
       return
     }
     if (option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email') {
-      await resolve('approve', option.id, draftBody, 'Reply sent')
+      await resolve('approve', option.id, draftBody, t('decisionCard.toastSent'))
       return
     }
     if (option.id === 'escalate' || option.action_type === 'escalate') {
-      await resolve('reject', option.id, undefined, 'Escalated to human')
+      await resolve('reject', option.id, undefined, t('decisionCard.toastEscalated'))
       return
     }
     if (option.id === 'reject' || option.action_type === 'reject') {
-      await resolve('reject', option.id, undefined, 'Rejected')
+      await resolve('reject', option.id, undefined, t('decisionCard.toastRejected'))
       return
     }
     if (option.id === 'later' || option.action_type === 'defer') {
@@ -210,19 +254,21 @@ export default function DecisionRequestMessage({
               resolved ? 'text-text-muted' : 'text-accent/90',
             )}
           >
-            {isActionSuggestion ? 'No reply needed' : isSuggestion ? 'Suggested reply' : 'Decision'}
+            {isActionSuggestion
+              ? t('decisionCard.titleNoReply')
+              : isSuggestion
+                ? t('decisionCard.titleSuggestedReply')
+                : t('decisionCard.titleDecision')}
           </span>
           {resolved ? (
             <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
-              Resolved
+              {t('decisionCard.resolved')}
             </span>
           ) : null}
         </div>
         {isActionSuggestion ? (
           <>
-            <p className="text-sm text-text-primary">
-              This looks like an automated message, so no reply was drafted.
-            </p>
+            <p className="text-sm text-text-primary">{t('decisionCard.automatedExplainer')}</p>
             {summary ? (
               <p className="mt-1.5 line-clamp-3 text-sm text-text-secondary">{summary}</p>
             ) : null}
@@ -249,6 +295,7 @@ export default function DecisionRequestMessage({
                     option.action_type === 'close_thread'
                   const quiet = option.action_type === 'defer' && isActionSuggestion
                   const activeText = option.input_type === 'text' && textOptionId === option.id
+                  const labelKey = optionLabelKey(option)
                   return (
                     <Button
                       key={option.id}
@@ -258,7 +305,7 @@ export default function DecisionRequestMessage({
                       disabled={busy}
                       onClick={() => void onOptionClick(option)}
                     >
-                      {option.label}
+                      {labelKey ? t(`decisionCard.options.${labelKey}`) : option.label}
                     </Button>
                   )
                 })}
@@ -271,14 +318,14 @@ export default function DecisionRequestMessage({
                     className="text-text-muted"
                     onClick={() => void closeThreadInline()}
                   >
-                    Close thread
+                    {t('decisionCard.options.closeThread')}
                   </Button>
                 ) : null}
               </>
             ) : (
               <>
                 <Button type="button" size="sm" disabled={busy} onClick={() => void resolve('approve')}>
-                  Approve
+                  {t('decisionCard.options.approve')}
                 </Button>
                 <Button
                   type="button"
@@ -287,7 +334,7 @@ export default function DecisionRequestMessage({
                   disabled={busy}
                   onClick={() => void resolve('defer')}
                 >
-                  Defer
+                  {t('decisionCard.options.defer')}
                 </Button>
                 <Button
                   type="button"
@@ -296,7 +343,7 @@ export default function DecisionRequestMessage({
                   disabled={busy}
                   onClick={() => void resolve('reject')}
                 >
-                  Reject
+                  {t('decisionCard.options.reject')}
                 </Button>
               </>
             )}
@@ -311,7 +358,7 @@ export default function DecisionRequestMessage({
               autoFocus
               placeholder={
                 options.find((o) => o.id === textOptionId)?.input_placeholder ??
-                'Type your answer...'
+                t('decisionCard.answerPlaceholder')
               }
               className="w-full resize-y rounded-lg border border-border bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/60"
             />
@@ -321,10 +368,16 @@ export default function DecisionRequestMessage({
                 size="sm"
                 disabled={busy || !responseText.trim()}
                 onClick={() =>
-                  void resolve('approve', textOptionId, undefined, 'Answer submitted', responseText)
+                  void resolve(
+                    'approve',
+                    textOptionId,
+                    undefined,
+                    t('decisionCard.toastAnswerSubmitted'),
+                    responseText,
+                  )
                 }
               >
-                Submit answer
+                {t('decisionCard.submitAnswer')}
               </Button>
               <Button
                 type="button"
@@ -336,7 +389,7 @@ export default function DecisionRequestMessage({
                   setResponseText('')
                 }}
               >
-                Cancel
+                {t('decisionCard.cancel')}
               </Button>
             </div>
           </div>
