@@ -482,6 +482,7 @@ export async function saveMailboxFolders(
 
 import {
   addNoteToSignalThread,
+  deleteSignalNote,
   deleteSignalThread,
   getSignalThread,
   listSignalMembers,
@@ -496,6 +497,7 @@ import {
   resolveSignalDecision,
   takeoverSignalThread,
   unpinSignalThread,
+  updateSignalNote,
 } from './signals-api'
 
 // ---------------------------------------------------------------------------
@@ -557,6 +559,23 @@ export async function addNoteToThread(
   attachments?: MessageAttachment[],
 ): Promise<InboxMessage | null> {
   return addNoteToSignalThread(token, String(threadId), bodyText, attachments)
+}
+
+export async function updateThreadNote(
+  token: string,
+  threadId: ThreadId,
+  messageId: string,
+  bodyText: string,
+): Promise<InboxMessage | null> {
+  return updateSignalNote(token, String(threadId), messageId, bodyText)
+}
+
+export async function deleteThreadNote(
+  token: string,
+  threadId: ThreadId,
+  messageId: string,
+): Promise<void> {
+  return deleteSignalNote(token, String(threadId), messageId)
 }
 
 /** Ask the AI to draft a reply for the composer (nothing is sent). */

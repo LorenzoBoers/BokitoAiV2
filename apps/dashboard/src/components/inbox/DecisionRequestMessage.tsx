@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { BellOff } from 'lucide-react'
+import { BellOff, Sparkles } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import {
   patchThread,
@@ -194,13 +194,22 @@ export default function DecisionRequestMessage({
           resolved
             ? 'border-border/50 bg-bg-surface/80'
             : isActionSuggestion
-              ? 'border-border bg-bg-surface/60'
+              ? 'border-accent/20 bg-accent/5'
               : 'border-accent/30 bg-accent/5',
         )}
       >
         <div className="mb-1 flex items-center gap-2">
-          {isActionSuggestion ? <BellOff className="h-3.5 w-3.5 text-text-muted" aria-hidden /> : null}
-          <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          {isActionSuggestion ? (
+            <BellOff className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : 'text-accent/80')} aria-hidden />
+          ) : (
+            <Sparkles className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : 'text-accent')} aria-hidden />
+          )}
+          <span
+            className={cn(
+              'text-xs font-semibold uppercase tracking-wide',
+              resolved ? 'text-text-muted' : 'text-accent/90',
+            )}
+          >
             {isActionSuggestion ? 'No reply needed' : isSuggestion ? 'Suggested reply' : 'Decision'}
           </span>
           {resolved ? (

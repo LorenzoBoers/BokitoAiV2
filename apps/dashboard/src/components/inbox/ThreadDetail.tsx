@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, Bot, Clock, Hand, ListPlus, OctagonAlert, PanelRight, Pin, PinOff, RefreshCw, Sparkles, Trash2, UserPlus } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, Bot, Clock, Flag, Hand, ListPlus, Mail, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Tag, Trash2, UserPlus, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -9,7 +9,7 @@ import {
   type ThreadId,
   type MessageAttachment,
 } from '../../lib/inbox-api'
-import { MessageTimelineItem, EventTimelineItem, formatHourMinute } from './TimelineItem'
+import { MessageTimelineItem, EventClusterTimelineItem, formatHourMinute } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
@@ -46,6 +46,29 @@ type DayGroup = {
   entries: TimelineEntry[]
 }
 
+// Render item after merging consecutive events into one compact cluster, so
+// system/AI activity shows as a single pill row instead of stacked dividers.
+type RenderItem =
+  | { kind: 'message'; id: string; time: string; entry: Extract<TimelineEntry, { kind: 'message' }> }
+  | { kind: 'events'; id: string; time: string; events: ThreadDetailType['events'] }
+
+function clusterEntries(entries: TimelineEntry[]): RenderItem[] {
+  const items: RenderItem[] = []
+  for (const entry of entries) {
+    if (entry.kind === 'event') {
+      const last = items[items.length - 1]
+      if (last && last.kind === 'events') {
+        last.events.push(entry.data)
+      } else {
+        items.push({ kind: 'events', id: entry.id, time: entry.time, events: [entry.data] })
+      }
+    } else {
+      items.push({ kind: 'message', id: entry.id, time: entry.time, entry })
+    }
+  }
+  return items
+}
+
 type Props = {
   detail: ThreadDetailType | null
   loading: boolean
@@ -72,6 +95,12 @@ type Props = {
     snoozeMinutes?: number,
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
+  /** Edit an internal note in place. */
+  onUpdateNote?: (messageId: string, bodyText: string) => Promise<void>
+  /** Delete an internal note from the timeline. */
+  onDeleteNote?: (messageId: string) => Promise<void>
+  /** Mark the open thread as unread again (return-to-queue workflow). */
+  onMarkUnread?: () => void | Promise<void>
   onRefresh: () => void
   onTogglePin?: () => void | Promise<void>
   /** Human takeover toggle for AI-handled channels (email/widget/chat/assistant). */
@@ -177,6 +206,138 @@ function DraftWithAiButton({
   )
 }
 
+const PRIORITY_META: Record<string, { label: string; dot: string }> = {
+  normal: { label: 'Normal', dot: 'bg-text-muted/40' },
+  high: { label: 'High', dot: 'bg-status-warning' },
+  urgent: { label: 'Urgent', dot: 'bg-status-error' },
+}
+
+/**
+ * Compact chips row under the thread header: priority selector plus label
+ * chips with add/remove. Backed by `PATCH /signals/{id}` (tags, priority).
+ */
+function ThreadMetaRow({
+  tags,
+  priority,
+  saving,
+  onPatch,
+}: {
+  tags: string[]
+  priority: string
+  saving: boolean
+  onPatch: (input: PatchThreadInput) => Promise<void>
+}) {
+  const [addingTag, setAddingTag] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (addingTag) inputRef.current?.focus()
+  }, [addingTag])
+
+  const commitTag = () => {
+    const value = tagInput.trim().toLowerCase()
+    setTagInput('')
+    setAddingTag(false)
+    if (!value || tags.includes(value)) return
+    void onPatch({ tags: [...tags, value] })
+  }
+
+  const removeTag = (tag: string) => {
+    void onPatch({ tags: tags.filter((t) => t !== tag) })
+  }
+
+  const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 border-b border-border/40 bg-bg-surface/60 px-3 py-1 shrink-0">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            disabled={saving}
+            aria-label="Set priority"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
+              priority === 'normal'
+                ? 'border-border/50 text-text-muted hover:border-border hover:text-text-secondary'
+                : 'border-border/60 bg-bg-surface text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <Flag size={10} />
+            <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
+            {priorityMeta.label}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-36">
+          {Object.entries(PRIORITY_META).map(([value, meta]) => (
+            <DropdownMenuItem
+              key={value}
+              className="gap-2 text-xs"
+              onSelect={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+              {meta.label}
+              {value === priority ? <span className="ml-auto text-accent">•</span> : null}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <span className="mx-0.5 h-3 w-px bg-border/50" aria-hidden />
+
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="group/tag inline-flex items-center gap-1 rounded-full border border-border/50 bg-bg-surface-hover/50 px-2 py-0.5 text-[11px] text-text-secondary"
+        >
+          <Tag size={9} className="text-text-muted" />
+          {tag}
+          <button
+            type="button"
+            disabled={saving}
+            aria-label={`Remove label ${tag}`}
+            onClick={() => removeTag(tag)}
+            className="-mr-0.5 rounded-full p-0.5 text-text-muted/50 hover:text-status-error transition-colors disabled:opacity-40"
+          >
+            <X size={9} />
+          </button>
+        </span>
+      ))}
+
+      {addingTag ? (
+        <input
+          ref={inputRef}
+          value={tagInput}
+          onChange={(e) => setTagInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitTag()
+            }
+            if (e.key === 'Escape') {
+              setTagInput('')
+              setAddingTag(false)
+            }
+          }}
+          onBlur={commitTag}
+          placeholder="Label…"
+          className="h-5 w-24 rounded-full border border-accent/40 bg-bg-input px-2 text-[11px] text-text-primary placeholder:text-text-muted focus:outline-none"
+        />
+      ) : (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => setAddingTag(true)}
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-border/50 px-2 py-0.5 text-[11px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary disabled:opacity-40"
+        >
+          <Plus size={9} />
+          Label
+        </button>
+      )}
+    </div>
+  )
+}
+
 const DAY_FORMATTER = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'long',
@@ -218,7 +379,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, externalDraft }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, externalDraft }: Props) {
   const { token, user } = useAuth()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -817,6 +978,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               <TooltipContent side="bottom">Delete</TooltipContent>
             </Tooltip>
           ) : null}
+          {onMarkUnread && !thread.hasUnread ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={saving || loading}
+                  onClick={() => void onMarkUnread()}
+                  aria-label="Mark as unread"
+                  className={HEADER_ICON}
+                >
+                  <Mail size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Mark as unread</TooltipContent>
+            </Tooltip>
+          ) : null}
           {onToggleTakeover &&
           ['email', 'widget', 'chat', 'assistant'].includes(thread.channel ?? '') ? (
             <Tooltip>
@@ -876,6 +1053,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           ) : null}
         </div>
       </div>
+
+      {!isInternalThread(thread) ? (
+        <ThreadMetaRow
+          tags={thread.tags}
+          priority={thread.priority}
+          saving={saving}
+          onPatch={onPatch}
+        />
+      ) : null}
 
       {!isInternalThread(thread) &&
       thread.status !== 'closed' &&
@@ -944,23 +1130,24 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   {group.label}
                 </span>
               </div>
-              {group.entries.map((entry, index) => {
-                const prev = index > 0 ? group.entries[index - 1] : null
+              {clusterEntries(group.entries).map((item, index, items) => {
+                const prevItem = index > 0 ? items[index - 1] : null
                 const showTime =
-                  !prev || formatHourMinute(prev.time) !== formatHourMinute(entry.time)
+                  item.kind === 'message' &&
+                  (!prevItem || formatHourMinute(prevItem.time) !== formatHourMinute(item.time))
                 return (
-                <div key={entry.id} className="mb-3">
+                <div key={item.id} className={item.kind === 'message' ? 'mb-3' : 'mb-1.5'}>
                   {showTime ? (
                     <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
                       <span className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40">
-                        {formatHourMinute(entry.time)}
+                        {formatHourMinute(item.time)}
                       </span>
                     </div>
                   ) : null}
-                  {entry.kind === 'message' ? (
-                    entry.data.kind === 'decision_request' ? (
+                  {item.kind === 'message' ? (
+                    item.entry.data.kind === 'decision_request' ? (
                       <DecisionRequestMessage
-                        message={entry.data}
+                        message={item.entry.data}
                         threadId={thread.id}
                         events={detail.events}
                         onResolved={onDecisionResolved}
@@ -975,19 +1162,24 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                       />
                     ) : (
                       <MessageTimelineItem
-                        message={entry.data}
+                        message={item.entry.data}
                         layout={messageLayout}
                         contactName={thread.contactName}
                         contactEmail={thread.contactEmail}
                         contactPhone={thread.contactPhone}
                         membersById={membersById}
+                        noteActions={
+                          onUpdateNote && onDeleteNote
+                            ? { onEdit: onUpdateNote, onDelete: onDeleteNote }
+                            : undefined
+                        }
                       />
                     )
                   ) : (
-                    <EventTimelineItem
-                      event={entry.data}
-                      memberName={
-                        entry.data.actorUserId != null ? membersById[entry.data.actorUserId]?.name : undefined
+                    <EventClusterTimelineItem
+                      events={item.events}
+                      memberNameFor={(userId) =>
+                        userId != null ? membersById[userId]?.name : undefined
                       }
                     />
                   )}

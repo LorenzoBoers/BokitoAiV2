@@ -373,6 +373,28 @@ export async function addNoteToSignalThread(
   return normalizeSignalMessage(payload)
 }
 
+export async function updateSignalNote(
+  token: string,
+  threadId: string,
+  messageId: string,
+  bodyText: string,
+): Promise<InboxMessage | null> {
+  const payload = await apiPatch<unknown>(
+    appRoutes.signals.note(threadId, messageId),
+    { body_text: bodyText },
+    token,
+  )
+  return normalizeSignalMessage(payload)
+}
+
+export async function deleteSignalNote(
+  token: string,
+  threadId: string,
+  messageId: string,
+): Promise<void> {
+  await apiDelete<unknown>(appRoutes.signals.note(threadId, messageId), token)
+}
+
 export type InvokeAgentResult = {
   output: 'note' | 'reply_suggestion'
   message?: InboxMessage

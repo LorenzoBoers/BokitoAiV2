@@ -6,6 +6,8 @@ import {
   patchThread,
   replyToThread,
   addNoteToThread,
+  updateThreadNote,
+  deleteThreadNote,
   markThreadRead,
   markThreadUnread,
   pinThread,
@@ -231,6 +233,41 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
     [token, threadId],
   )
 
+  // Edit an internal note in place; local timeline updates immediately.
+  const updateNote = useCallback(
+    async (messageId: string, bodyText: string) => {
+      if (!token || !threadId) return
+      const updated = await updateThreadNote(token, threadId, messageId, bodyText)
+      if (updated) {
+        setRawDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: prev.messages.map((m) =>
+                  String(m.id) === String(messageId) ? { ...m, ...updated } : m,
+                ),
+              }
+            : prev,
+        )
+      }
+    },
+    [token, threadId],
+  )
+
+  // Remove an internal note from the thread timeline.
+  const deleteNote = useCallback(
+    async (messageId: string) => {
+      if (!token || !threadId) return
+      await deleteThreadNote(token, threadId, messageId)
+      setRawDetail((prev) =>
+        prev
+          ? { ...prev, messages: prev.messages.filter((m) => String(m.id) !== String(messageId)) }
+          : prev,
+      )
+    },
+    [token, threadId],
+  )
+
   // Manually mark the open thread as unread (mirrors HelpScout / Intercom).
   // Updates local state immediately, then persists to the server.
   const markUnread = useCallback(async () => {
@@ -294,5 +331,5 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
     [token, threadId],
   )
 
-  return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote, markUnread, togglePin, toggleTakeover }
+  return { detail, loading, error, saving, refresh: fetchDetail, patch, reply, addNote, updateNote, deleteNote, markUnread, togglePin, toggleTakeover }
 }

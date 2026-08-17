@@ -595,6 +595,9 @@ async def update_note(
         return None
     message.body_text = body_text
     message.body_preview = body_text[:200]
+    # Notes are created with a body_html mirror (see reply_to_thread); keep it
+    # in sync or the timeline keeps rendering the stale HTML after an edit.
+    message.body_html = f"<p>{body_text}</p>"
     session.add(message)
     await session.commit()
     return serialize_message(message)

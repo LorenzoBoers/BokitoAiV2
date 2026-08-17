@@ -19,6 +19,8 @@ type Props = {
   onToggleChecked?: (id: ThreadId) => void
   /** True while any thread is selected: keeps all checkboxes visible. */
   selectionActive?: boolean
+  /** Clicking a tag chip filters the list on that label. */
+  onTagClick?: (tag: string) => void
 }
 
 function formatRelativeTime(iso: string | null): string {
@@ -56,6 +58,7 @@ export default function ThreadListItem({
   checked,
   onToggleChecked,
   selectionActive = false,
+  onTagClick,
 }: Props) {
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
@@ -157,11 +160,27 @@ export default function ThreadListItem({
           ) : null}
           {thread.tags.length > 0 ? (
             <div className="flex gap-1 flex-wrap mt-1">
-              {thread.tags.slice(0, 3).map((tag) => (
-                <span key={tag} className="inline-block rounded px-1.5 py-0.5 text-xs bg-bg-surface-hover text-text-secondary">
-                  {tag}
-                </span>
-              ))}
+              {thread.tags.slice(0, 3).map((tag) =>
+                onTagClick ? (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onTagClick(tag)
+                    }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    title={`Filter by ${tag}`}
+                    className="inline-block rounded px-1.5 py-0.5 text-xs bg-bg-surface-hover text-text-secondary hover:bg-accent/10 hover:text-accent transition-colors"
+                  >
+                    {tag}
+                  </button>
+                ) : (
+                  <span key={tag} className="inline-block rounded px-1.5 py-0.5 text-xs bg-bg-surface-hover text-text-secondary">
+                    {tag}
+                  </span>
+                ),
+              )}
             </div>
           ) : null}
         </div>

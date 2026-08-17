@@ -1,3 +1,4 @@
+import { Tag, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
 import BulkActionsBar from './BulkActionsBar'
@@ -25,6 +26,10 @@ type Props = {
   onBulkAction?: (action: BulkThreadAction, assigneeId?: number) => void
   onClearBulkSelection?: () => void
   bulkBusy?: boolean
+  /** Active label filter (server-side `?tag=`); null shows all threads. */
+  activeTag?: string | null
+  /** Set/clear the label filter; omit to make tag chips non-interactive. */
+  onTagSelect?: (tag: string | null) => void
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -55,6 +60,8 @@ export default function ThreadList({
   onBulkAction,
   onClearBulkSelection,
   bulkBusy = false,
+  activeTag = null,
+  onTagSelect,
 }: Props) {
   const counts = buildFilterCounts(allThreads)
   const selectionActive = (bulkSelectedIds?.size ?? 0) > 0
@@ -71,6 +78,23 @@ export default function ThreadList({
       ) : (
         <ThreadListQuickFilters value={quickFilter} onChange={onQuickFilterChange} counts={counts} />
       )}
+
+      {activeTag && onTagSelect ? (
+        <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
+          <Tag size={11} className="shrink-0 text-accent" />
+          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-text-heading">
+            {activeTag}
+          </span>
+          <button
+            type="button"
+            aria-label="Clear label filter"
+            onClick={() => onTagSelect(null)}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
         {threads.length === 0 ? (
@@ -97,6 +121,7 @@ export default function ThreadList({
               checked={bulkSelectedIds?.has(String(thread.id))}
               onToggleChecked={onToggleBulkSelect}
               selectionActive={selectionActive}
+              onTagClick={onTagSelect ? (tag) => onTagSelect(tag) : undefined}
             />
           ))
         )}

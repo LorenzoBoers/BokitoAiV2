@@ -17,6 +17,7 @@ import ProviderLogo from '../components/email/ProviderLogo'
 import SignatureEditor from '../components/inbox/SignatureEditor'
 import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
+import SyncStatusPanel from '../components/inbox/SyncStatusPanel'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
 import { MAILBOX_STATUS_LABELS, MAILBOX_STATUS_VARIANTS } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
@@ -584,6 +585,12 @@ export default function InboxSettings() {
             </TableBody>
           </Table>
         </Card>
+
+        {mailboxes.length > 0 ? (
+          <Card className="p-4">
+            <SyncStatusPanel />
+          </Card>
+        ) : null}
 
         <SavedRepliesManager />
 

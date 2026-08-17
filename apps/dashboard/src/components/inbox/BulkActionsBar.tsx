@@ -1,4 +1,4 @@
-import { Archive, Check, OctagonAlert, UserRound, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, Mail, MoreHorizontal, OctagonAlert, UserRound, X } from 'lucide-react'
 import { useMembers } from '../../hooks/useMembers'
 import type { BulkThreadAction } from '../../lib/inbox-api'
 import {
@@ -33,10 +33,27 @@ export default function BulkActionsBar({ count, busy, onAction, onClear }: Props
         <Archive size={11} />
         Close
       </button>
-      <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('spam')}>
-        <OctagonAlert size={11} />
-        Spam
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" disabled={busy} aria-label="More actions" className={BUTTON}>
+            <MoreHorizontal size={11} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-44">
+          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('unread')}>
+            <Mail size={12} />
+            Mark unread
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('reopen')}>
+            <ArchiveRestore size={12} />
+            Reopen
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('spam')}>
+            <OctagonAlert size={12} />
+            Mark as spam
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" disabled={busy} className={BUTTON}>

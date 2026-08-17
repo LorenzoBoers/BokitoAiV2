@@ -241,6 +241,10 @@ export default function Communication() {
 
   const { pinnedIds, addPin, removePin } = usePinnedIds()
 
+  // Label filter: set by clicking a tag chip in the list, cleared via the
+  // filter pill. Server-side (`GET /signals?tag=`).
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+
   const {
     threads,
     loading: threadsLoading,
@@ -249,13 +253,14 @@ export default function Communication() {
     refresh: refreshThreads,
     setThreadReadState,
     removeThread,
-  } = useThreads({ ...leafFilters, search, projectId }, pinnedIds)
+  } = useThreads({ ...leafFilters, search, projectId, tag: tagFilter ?? undefined }, pinnedIds)
 
   const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}`
 
   useEffect(() => {
     setSearch('')
     resetQuickFilter()
+    setTagFilter(null)
   }, [listContextKey, setSearch, resetQuickFilter])
 
   // Bulk selection lives per list context; switching leaves clears it.
@@ -291,6 +296,9 @@ export default function Communication() {
     patch,
     reply,
     addNote,
+    updateNote,
+    deleteNote,
+    markUnread,
     togglePin,
     toggleTakeover,
   } = useThreadDetail(selectedThreadId, pinnedIds)
@@ -498,6 +506,34 @@ export default function Communication() {
     [addNote, refreshThreads],
   )
 
+  const handleUpdateNote = useCallback(
+    async (messageId: string, bodyText: string) => {
+      await updateNote(messageId, bodyText)
+      void refreshThreads()
+    },
+    [updateNote, refreshThreads],
+  )
+
+  const handleDeleteNote = useCallback(
+    async (messageId: string) => {
+      await deleteNote(messageId)
+      void refreshThreads()
+    },
+    [deleteNote, refreshThreads],
+  )
+
+  const handleDetailMarkUnread = useCallback(async () => {
+    if (selectedThreadId == null) return
+    try {
+      await markUnread()
+      setThreadReadState(selectedThreadId, true)
+      void refreshNavBadges()
+      toast.success('Marked as unread')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not mark thread as unread.')
+    }
+  }, [selectedThreadId, markUnread, setThreadReadState, refreshNavBadges])
+
   const handleDecisionResolved = useCallback(() => {
     void refreshDetail()
     void refreshThreads()
@@ -635,6 +671,8 @@ export default function Communication() {
           onBulkAction={mode === 'customer' ? (a, uid) => void handleBulkAction(a, uid) : undefined}
           onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
           bulkBusy={bulkBusy}
+          activeTag={tagFilter}
+          onTagSelect={mode === 'customer' ? setTagFilter : undefined}
         />
         <ThreadDetail
           detail={detail}
@@ -645,6 +683,9 @@ export default function Communication() {
           onPatch={handlePatch}
           onReply={handleReply}
           onNote={handleNote}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          onMarkUnread={detail ? handleDetailMarkUnread : undefined}
           onRefresh={refreshDetail}
           onTogglePin={handleDetailTogglePin}
           onToggleTakeover={detail ? handleToggleTakeover : undefined}

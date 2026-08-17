@@ -1,4 +1,4 @@
-import { Bot, Mail, Phone, StickyNote, ThumbsDown, ThumbsUp, User } from 'lucide-react'
+import { Bot, Check, Mail, Pencil, Phone, Sparkles, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { cn } from '../../lib/utils'
@@ -17,6 +17,12 @@ import ReasoningDisclosure from './ReasoningDisclosure'
 
 type MessageLayout = 'chat' | 'email'
 
+/** Edit/delete callbacks for internal notes; omit to render notes read-only. */
+export type NoteActions = {
+  onEdit: (messageId: string, bodyText: string) => Promise<void>
+  onDelete: (messageId: string) => Promise<void>
+}
+
 type MessageItemProps = {
   message: InboxMessage
   layout?: MessageLayout
@@ -24,6 +30,7 @@ type MessageItemProps = {
   contactEmail?: string
   contactPhone?: string
   membersById?: Record<number, InboxMember>
+  noteActions?: NoteActions
 }
 
 type EventItemProps = {
@@ -153,8 +160,11 @@ function ContactAvatar({
 function isSimpleMessageHtml(html: string): boolean {
   const trimmed = html.trim()
   if (!trimmed) return true
-  if (/<(?:table|style|link|script|iframe|object|embed|form|meta)\b/i.test(trimmed)) return false
+  if (/<(?:table|style|link|script|iframe|object|embed|form|meta|font)\b/i.test(trimmed)) return false
   if (/\bbackground(?:-color)?\s*:/i.test(trimmed)) return false
+  // Inline text colors are designed for a light background; route through the
+  // iframe so the dark-mode transform keeps them readable.
+  if (/(?:^|[^-\w])color\s*[:=]/i.test(trimmed)) return false
   return true
 }
 
@@ -167,8 +177,108 @@ function SimpleMessageHtml({ html }: { html: string }) {
   )
 }
 
+// ── dark-mode email transform helpers ─────────────────────────────
+
+function parseCssRgb(value: string): { r: number; g: number; b: number; a: number } | null {
+  const match = value.match(/rgba?\(([^)]+)\)/i)
+  if (!match) return null
+  const parts = match[1].split(',').map((p) => parseFloat(p.trim()))
+  if (parts.length < 3 || parts.some((n) => Number.isNaN(n))) return null
+  return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 }
+}
+
+function relativeLuminance(r: number, g: number, b: number): number {
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+
+/**
+ * Effective background luminance of an email document. Walks the body and its
+ * main containers for the first explicit (non-transparent) background —
+ * computed styles also reflect legacy `bgcolor` attributes. Emails without an
+ * explicit background are designed for white, so they count as light.
+ */
+function emailBackgroundLuminance(doc: Document): number {
+  const win = doc.defaultView
+  const body = doc.body
+  if (!win || !body) return 1
+  const candidates: Element[] = [body, ...Array.from(body.querySelectorAll('table, td, center, div, section'))].slice(0, 60)
+  for (const el of candidates) {
+    const rgb = parseCssRgb(win.getComputedStyle(el).backgroundColor || '')
+    if (!rgb || rgb.a === 0) continue
+    return relativeLuminance(rgb.r, rgb.g, rgb.b)
+  }
+  return 1
+}
+
+/** App dark-mode card surface (`--color-bg-surface`), read from the theme. */
+function appSurfaceRgb(): { r: number; g: number; b: number } {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--color-bg-surface').trim()
+  const parts = raw.split(/[\s,]+/).map((p) => parseFloat(p))
+  if (parts.length >= 3 && parts.every((n) => Number.isFinite(n))) {
+    return { r: parts[0], g: parts[1], b: parts[2] }
+  }
+  return { r: 29, g: 32, b: 43 }
+}
+
+type Rgb = { r: number; g: number; b: number }
+
+function rgbToHsl({ r, g, b }: Rgb): { h: number; s: number; l: number } {
+  const rn = r / 255
+  const gn = g / 255
+  const bn = b / 255
+  const max = Math.max(rn, gn, bn)
+  const min = Math.min(rn, gn, bn)
+  const l = (max + min) / 2
+  if (max === min) return { h: 0, s: 0, l }
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  let h: number
+  if (max === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0)
+  else if (max === gn) h = (bn - rn) / d + 2
+  else h = (rn - gn) / d + 4
+  return { h: h / 6, s, l }
+}
+
+function hslToRgb(h: number, s: number, l: number): Rgb {
+  if (s === 0) {
+    const v = Math.round(l * 255)
+    return { r: v, g: v, b: v }
+  }
+  const hue2rgb = (p: number, q: number, t: number) => {
+    let tt = t
+    if (tt < 0) tt += 1
+    if (tt > 1) tt -= 1
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt
+    if (tt < 1 / 2) return q
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6
+    return p
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+  }
+}
+
+/** Flip a color's lightness while keeping hue and saturation. */
+function flipLightness(rgb: Rgb, minL: number, maxL: number): Rgb {
+  const { h, s, l } = rgbToHsl(rgb)
+  const flipped = Math.min(maxL, Math.max(minL, 1 - l))
+  return hslToRgb(h, s, flipped)
+}
+
+const cssRgb = ({ r, g, b }: Rgb) => `rgb(${r} ${g} ${b})`
+
 // Renders email HTML inside a sandboxed iframe so the email's <style> tags,
 // link colors and other global rules do not bleed into the host app.
+//
+// Dark mode: email HTML is designed for light backgrounds and carries its own
+// (dark) text colors. Like Gmail, we rewrite colors in the DOM (luminance
+// aware, hue preserving) instead of using CSS invert filters — filters kill
+// subpixel text antialiasing and make text fuzzy. Emails that are already
+// dark-designed render untouched on the dark surface.
 function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = useState(80)
@@ -186,10 +296,79 @@ function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
     setHeight(next)
   }, [])
 
+  // Light emails get their colors rewritten in place (no CSS filter — filters
+  // disable subpixel text antialiasing and make text look thin and fuzzy):
+  //  - near-white backgrounds become exactly the app card surface (seamless)
+  //  - other light backgrounds get their lightness flipped, hue preserved
+  //  - dark text becomes light text; colored/branded elements keep their hue
+  //  - images and background-image sections are left untouched
+  const applyDarkTheme = useCallback((doc: Document) => {
+    if (doc.getElementById('bokito-dark-email-theme')) return
+    const style = doc.createElement('style')
+    style.id = 'bokito-dark-email-theme'
+    if (emailBackgroundLuminance(doc) > 0.45) {
+      const surfaceColor = cssRgb(appSurfaceRgb())
+      const win = doc.defaultView
+      if (win && doc.body) {
+        const all = [doc.body, ...Array.from(doc.body.querySelectorAll('*'))].slice(0, 4000)
+        for (const el of all) {
+          if (!(el instanceof win.HTMLElement)) continue
+          const computed = win.getComputedStyle(el)
+          // Sections designed on top of an actual image keep text and colors.
+          if ((computed.backgroundImage || '').includes('url(')) continue
+
+          const bg = parseCssRgb(computed.backgroundColor || '')
+          if (bg && bg.a > 0) {
+            const lum = relativeLuminance(bg.r, bg.g, bg.b)
+            if (lum > 0.88) {
+              el.dataset.bokitoPrevBg = el.style.getPropertyValue('background-color')
+              el.style.setProperty('background-color', surfaceColor, 'important')
+            } else if (lum > 0.45) {
+              el.dataset.bokitoPrevBg = el.style.getPropertyValue('background-color')
+              el.style.setProperty('background-color', cssRgb(flipLightness(bg, 0.08, 0.3)), 'important')
+            }
+            // Darker backgrounds (buttons, banners) keep their designed color.
+          }
+
+          const fg = parseCssRgb(computed.color || '')
+          if (fg && rgbToHsl(fg).l < 0.55) {
+            el.dataset.bokitoPrevColor = el.style.getPropertyValue('color')
+            el.style.setProperty('color', cssRgb(flipLightness(fg, 0.66, 0.94)), 'important')
+          }
+
+          // Light borders would show up as bright lines on the dark surface.
+          const sides = ['top', 'right', 'bottom', 'left'] as const
+          for (const side of sides) {
+            const width = computed.getPropertyValue(`border-${side}-width`)
+            if (!width || width === '0px') continue
+            const bc = parseCssRgb(computed.getPropertyValue(`border-${side}-color`) || '')
+            if (!bc || bc.a === 0 || rgbToHsl(bc).l <= 0.55) continue
+            if (el.dataset.bokitoPrevBorder === undefined) {
+              el.dataset.bokitoPrevBorder = el.style.getPropertyValue('border-color')
+            }
+            el.style.setProperty(`border-${side}-color`, cssRgb(flipLightness(bc, 0.16, 0.32)), 'important')
+          }
+        }
+      }
+      style.textContent = `
+html, body { background: transparent !important; }
+`
+    } else {
+      // Dark-designed email: keep its own palette, blend into the card and
+      // make default-colored text light.
+      style.textContent = `
+html, body { background: transparent !important; color: #e2e8f0; }
+a { color: #60a5fa; }
+`
+    }
+    doc.head.appendChild(style)
+  }, [])
+
   const handleLoad = useCallback(() => {
-    measure()
     const iframe = iframeRef.current
     const doc = iframe?.contentDocument
+    if (doc && isDark) applyDarkTheme(doc)
+    measure()
     if (!doc) return
     doc.querySelectorAll('img').forEach((img) => {
       if (!img.complete) {
@@ -201,30 +380,53 @@ function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
       a.setAttribute('target', '_blank')
       a.setAttribute('rel', 'noopener noreferrer')
     })
-  }, [measure])
+  }, [applyDarkTheme, isDark, measure])
 
   useEffect(() => {
     const id = window.setTimeout(measure, 250)
     return () => window.clearTimeout(id)
   }, [measure, html])
 
-  const textColor = isDark ? '#e2e8f0' : '#1f2937'
-  const linkColor = isDark ? '#60a5fa' : '#2563eb'
-  const darkBgReset = isDark
-    ? `body, div, p, span, td, th, table, tbody, thead, tr {
-  background-color: transparent !important;
-  background-image: none !important;
-}`
-    : ''
+  // Theme switches without a reload: (re)apply on an already-loaded document.
+  useEffect(() => {
+    const doc = iframeRef.current?.contentDocument
+    if (!doc?.body) return
+    if (isDark) {
+      applyDarkTheme(doc)
+    } else {
+      doc.getElementById('bokito-dark-email-theme')?.remove()
+      const restore = (el: HTMLElement, prop: string, prev: string | undefined) => {
+        if (prev) el.style.setProperty(prop, prev)
+        else el.style.removeProperty(prop)
+      }
+      doc.querySelectorAll<HTMLElement>('[data-bokito-prev-bg]').forEach((el) => {
+        restore(el, 'background-color', el.dataset.bokitoPrevBg)
+        delete el.dataset.bokitoPrevBg
+      })
+      doc.querySelectorAll<HTMLElement>('[data-bokito-prev-color]').forEach((el) => {
+        restore(el, 'color', el.dataset.bokitoPrevColor)
+        delete el.dataset.bokitoPrevColor
+      })
+      doc.querySelectorAll<HTMLElement>('[data-bokito-prev-border]').forEach((el) => {
+        for (const side of ['top', 'right', 'bottom', 'left']) {
+          el.style.removeProperty(`border-${side}-color`)
+        }
+        if (el.dataset.bokitoPrevBorder) el.style.setProperty('border-color', el.dataset.bokitoPrevBorder)
+        delete el.dataset.bokitoPrevBorder
+      })
+    }
+  }, [applyDarkTheme, isDark])
 
+  // Base document renders the email as designed (light defaults); the
+  // dark-mode style sheet injected on load decides invert vs. blend.
   const wrappedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>
-html, body { margin: 0; padding: 0; background: transparent !important; color: ${textColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; }
-body { padding: 2px 0; }
+html { background: transparent; }
+html, body { margin: 0; padding: 0; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; }
+body { padding: 2px 0; background: transparent; }
 img { max-width: 100%; height: auto; }
 table { max-width: 100% !important; }
-a { color: ${linkColor}; }
-${darkBgReset}
-</style></head><body>${html}</body></html>`
+a { color: #2563eb; }
+</style></head><body><div id="bokito-email-root">${html}</div></body></html>`
 
   return (
     <iframe
@@ -238,7 +440,7 @@ ${darkBgReset}
         height: `${height}px`,
         border: 0,
         background: 'transparent',
-        colorScheme: isDark ? 'dark' : 'light',
+        colorScheme: 'light',
       }}
     />
   )
@@ -254,6 +456,7 @@ function MessageHtmlBody({ html }: { html: string }) {
 
 const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName?: string) => string> = {
   thread_created: () => 'Thread created',
+  signal_created: () => 'Conversation started',
   assigned: (p, name) => `Assigned to ${name ?? `user ${p.assignee_id}`}`,
   unassigned: () => 'Assignment removed',
   status_changed: (p) => `Status changed to ${p.to_status ?? ''}`,
@@ -261,8 +464,76 @@ const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName
   tag_removed: () => 'Label removed',
   priority_changed: (p) => `Priority: ${p.priority ?? ''}`,
   replied: () => 'Reply sent',
+  reply_sent: () => 'Reply sent',
   note_added: () => 'Note added',
   reopened: () => 'Reopened',
+  thread_updated: () => 'Thread updated',
+  snooze_expired: () => 'Snooze expired',
+  // AI flow
+  agent_processed: () => 'AI reviewed this message',
+  agent_invoked: () => 'Agent invoked',
+  agent_replied: () => 'AI replied',
+  suggestion_created: () => 'AI drafted a suggestion',
+  decision_created: () => 'AI asked for a decision',
+  triaged: () => 'AI triaged this conversation',
+  escalated: () => 'Escalated to the team',
+  ai_paused: () => 'AI paused on this thread',
+  ai_resumed: () => 'AI resumed on this thread',
+  decision_approved: (_, name) => (name ? `Approved by ${name}` : 'Suggestion approved'),
+  decision_dismissed: (_, name) => (name ? `Dismissed by ${name}` : 'Suggestion dismissed'),
+  decision_edited: (_, name) => (name ? `Edited by ${name}` : 'Suggestion edited'),
+}
+
+// Events that belong to the AI flow get the unified accent treatment so agent
+// activity reads as one visual system instead of scattered divider lines.
+const AI_EVENT_TYPES = new Set([
+  'agent_processed',
+  'agent_invoked',
+  'agent_replied',
+  'suggestion_created',
+  'decision_created',
+  'triaged',
+  'escalated',
+  'ai_paused',
+  'ai_resumed',
+])
+
+function eventPresentation(eventType: string): { ai: boolean; icon: ReactNode } {
+  if (eventType === 'decision_approved') return { ai: true, icon: <Check size={10} /> }
+  if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={10} /> }
+  if (AI_EVENT_TYPES.has(eventType) || eventType.startsWith('decision_')) {
+    return { ai: true, icon: <Sparkles size={10} /> }
+  }
+  return { ai: false, icon: null }
+}
+
+function humanizeEventType(eventType: string): string {
+  const text = eventType.replace(/[_-]+/g, ' ').trim()
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+function eventLabel(event: InboxEvent, memberName?: string): string {
+  const labelFn = EVENT_LABELS[event.eventType]
+  return labelFn ? labelFn(event.payload, memberName) : humanizeEventType(event.eventType)
+}
+
+// Compact centered pill for a single timeline event. AI-flow events share one
+// accent-tinted style (purple + sparkles); plain system events stay muted.
+function EventPill({ event, memberName }: { event: InboxEvent; memberName?: string }) {
+  const { ai, icon } = eventPresentation(event.eventType)
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] leading-4 whitespace-nowrap',
+        ai
+          ? 'border-accent/25 bg-accent/10 text-accent'
+          : 'border-border/40 bg-bg-surface text-text-muted',
+      )}
+    >
+      {icon}
+      {eventLabel(event, memberName)}
+    </span>
+  )
 }
 
 // Chat-style bubble: avatar on one side, message bubble constrained to a
@@ -403,12 +674,51 @@ function MessageFeedbackControls({
   )
 }
 
-export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById }: MessageItemProps) {
+export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById, noteActions }: MessageItemProps) {
   const { user } = useAuth()
   const currentUserId = user?.id ?? null
   const isInternal = message.direction === 'internal'
   const isOutbound = message.direction === 'outbound'
   const isInbound = !isInternal && !isOutbound
+
+  // Inline editing state for internal notes (kind "internal_note").
+  const isEditableNote =
+    isInternal && message.kind === 'internal_note' && noteActions != null && typeof message.id === 'string'
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [noteBusy, setNoteBusy] = useState(false)
+
+  const startNoteEdit = useCallback(() => {
+    setNoteDraft(message.bodyText || message.bodyPreview || '')
+    setEditingNote(true)
+  }, [message.bodyText, message.bodyPreview])
+
+  const saveNote = useCallback(async () => {
+    if (!noteActions || noteBusy) return
+    const text = noteDraft.trim()
+    if (!text) return
+    setNoteBusy(true)
+    try {
+      await noteActions.onEdit(String(message.id), text)
+      setEditingNote(false)
+    } catch {
+      toast.error('Could not update the note.')
+    } finally {
+      setNoteBusy(false)
+    }
+  }, [noteActions, noteBusy, noteDraft, message.id])
+
+  const removeNote = useCallback(async () => {
+    if (!noteActions || noteBusy) return
+    if (!window.confirm('Delete this note?')) return
+    setNoteBusy(true)
+    try {
+      await noteActions.onDelete(String(message.id))
+    } catch {
+      toast.error('Could not delete the note.')
+      setNoteBusy(false)
+    }
+  }, [noteActions, noteBusy, message.id])
 
   // Resolve author info for outbound / internal bubbles
   const author = message.authorUserId != null ? membersById?.[message.authorUserId] : undefined
@@ -430,7 +740,36 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       )
     : []
 
-  const bubbleBody = message.bodyHtml ? (
+  const bubbleBody = editingNote ? (
+    <div className="space-y-1.5">
+      <textarea
+        value={noteDraft}
+        onChange={(e) => setNoteDraft(e.target.value)}
+        rows={Math.min(8, Math.max(2, noteDraft.split('\n').length))}
+        autoFocus
+        disabled={noteBusy}
+        className="w-full min-w-52 resize-y rounded-md border border-border/60 bg-bg-surface px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+      />
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled={noteBusy || !noteDraft.trim()}
+          onClick={() => void saveNote()}
+          className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-white hover:bg-accent/90 disabled:opacity-40"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          disabled={noteBusy}
+          onClick={() => setEditingNote(false)}
+          className="rounded-md px-2 py-1 text-[11px] text-text-muted hover:text-text-primary disabled:opacity-40"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  ) : message.bodyHtml ? (
     <MessageHtmlBody html={message.bodyHtml} />
   ) : (
     <div className="space-y-1">
@@ -461,6 +800,28 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       <span className="text-[10px] text-text-muted shrink-0">
         {isInternal ? 'Internal note' : 'Sent'}
       </span>
+      {isEditableNote && !editingNote ? (
+        <span className="ml-auto flex items-center gap-0.5 shrink-0">
+          <button
+            type="button"
+            aria-label="Edit note"
+            disabled={noteBusy}
+            onClick={startNoteEdit}
+            className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-bg-elevated hover:text-text-primary transition-colors disabled:opacity-40"
+          >
+            <Pencil size={10} />
+          </button>
+          <button
+            type="button"
+            aria-label="Delete note"
+            disabled={noteBusy}
+            onClick={() => void removeNote()}
+            className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-status-error/10 hover:text-status-error transition-colors disabled:opacity-40"
+          >
+            <Trash2 size={10} />
+          </button>
+        </span>
+      ) : null}
     </div>
   )
 
@@ -563,14 +924,31 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
 }
 
 export function EventTimelineItem({ event, memberName }: EventItemProps) {
-  const labelFn = EVENT_LABELS[event.eventType]
-  const label = labelFn ? labelFn(event.payload, memberName) : event.eventType
-
   return (
-    <div className="flex items-center gap-2 py-1 px-2">
-      <div className="h-px flex-1 bg-border/40" />
-      <span className="text-xs text-text-muted whitespace-nowrap">{label}</span>
-      <div className="h-px flex-1 bg-border/40" />
+    <div className="flex justify-center py-0.5 px-2">
+      <EventPill event={event} memberName={memberName} />
+    </div>
+  )
+}
+
+// Consecutive events render as one compact centered cluster of pills instead
+// of a stack of full-width divider lines.
+export function EventClusterTimelineItem({
+  events,
+  memberNameFor,
+}: {
+  events: InboxEvent[]
+  memberNameFor: (userId: number | null | undefined) => string | undefined
+}) {
+  if (events.length === 0) return null
+  if (events.length === 1) {
+    return <EventTimelineItem event={events[0]} memberName={memberNameFor(events[0].actorUserId)} />
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1 py-0.5 px-2">
+      {events.map((event) => (
+        <EventPill key={event.id} event={event} memberName={memberNameFor(event.actorUserId)} />
+      ))}
     </div>
   )
 }
