@@ -31,6 +31,7 @@ import {
   type ContactRow,
   type ContactStatus,
 } from '../lib/contacts-api'
+import { humanizeLabel } from '../lib/labels'
 import { inboxPath } from '../lib/messages-paths'
 import type { InboxThread } from '../lib/inbox-api'
 
@@ -243,9 +244,9 @@ function ContactDetail({ contactId }: { contactId: string }) {
           <div className="flex items-center justify-between">
             <h2 className="text-[14px] font-semibold text-text-heading">Profile</h2>
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold capitalize ${STATUS_STYLE[contact.status]}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[contact.status]}`}
             >
-              {contact.status}
+              {humanizeLabel(contact.status)}
             </span>
           </div>
           <div className="mt-3 space-y-3">
@@ -314,7 +315,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                       {t.emailSubject || '(No subject)'}
                     </span>
                     <span className="block truncate text-[11px] text-text-muted">
-                      {t.status}
+                      {humanizeLabel(t.status)}
                       {t.lastMessageAt ? ` - ${timeAgo(t.lastMessageAt)}` : ''}
                     </span>
                   </span>
@@ -391,6 +392,7 @@ export default function ContactsPage() {
       })
       setCreateOpen(false)
       setCreateDraft({ address: '', displayName: '', company: '' })
+      toast.success('Contact created')
       if (created) navigate(`/contacts/${created.id}`)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create contact.')
@@ -598,11 +600,11 @@ export default function ContactsPage() {
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold capitalize ${STATUS_STYLE[contact.status]}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[contact.status]}`}
                     >
                       {contact.status === 'blocked' ? <ShieldBan size={10} /> : null}
                       {contact.status === 'approved' ? <Check size={10} /> : null}
-                      {contact.status}
+                      {humanizeLabel(contact.status)}
                     </span>
                   </td>
                 </tr>

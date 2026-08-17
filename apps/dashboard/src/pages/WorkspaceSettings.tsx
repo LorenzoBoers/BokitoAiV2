@@ -65,7 +65,7 @@ export default function WorkspaceSettings() {
     void i18n.changeLanguage(next);
     if (!token) return;
     try {
-      await fetch(`${APP_API_BASE}/me/preferences`, {
+      const res = await fetch(`${APP_API_BASE}/me/preferences`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -74,8 +74,10 @@ export default function WorkspaceSettings() {
         credentials: 'include',
         body: JSON.stringify({ ui_language: next }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // Language still applied locally for this session.
+      // Applied locally for this session, but won't survive a reload.
+      toast.error('Language changed for this session, but could not be saved to your account.');
     }
   };
 

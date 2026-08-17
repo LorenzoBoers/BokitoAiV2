@@ -178,7 +178,10 @@ export default function WorkspaceDocs() {
           setEditing(false)
         }
       } catch {
-        if (!cancelled) setActive(null)
+        if (!cancelled) {
+          setActive(null)
+          toast.error('Could not load this document.')
+        }
       }
     })()
     return () => {
@@ -205,6 +208,7 @@ export default function WorkspaceDocs() {
       setHits(await searchWorkspace(query.trim()))
     } catch {
       setHits([])
+      toast.error('Search failed. Try again.')
     }
   }, [query])
 

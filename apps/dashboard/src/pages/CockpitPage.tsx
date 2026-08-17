@@ -29,6 +29,7 @@ import { getPosture, listGovernChanges, type AutonomyPostureId } from '../lib/go
 import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
+import { humanizeLabel } from '../lib/labels'
 import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 
@@ -356,10 +357,10 @@ export default function CockpitPage() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12px] text-text-primary">
-                      {ev.message || ev.event_type}
+                      {ev.message || humanizeLabel(ev.event_type)}
                     </span>
-                    <span className="block font-mono text-[10px] text-text-muted">
-                      {ev.kind} - {ev.event_type} - {timeAgo(ev.created_at)}
+                    <span className="block text-[10px] text-text-muted">
+                      {humanizeLabel(ev.kind)} - {humanizeLabel(ev.event_type)} - {timeAgo(ev.created_at)}
                     </span>
                   </span>
                 </div>
@@ -401,7 +402,7 @@ export default function CockpitPage() {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
-                      {item.agent_name ? ` - ${item.agent_name}` : ''} - {item.kind}
+                      {item.agent_name ? ` - ${item.agent_name}` : ''} - {humanizeLabel(item.kind)}
                     </span>
                   </span>
                   <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />

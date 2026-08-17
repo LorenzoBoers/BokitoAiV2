@@ -14,6 +14,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
+import { humanizeLabel } from '../lib/labels'
 import { inboxPath } from '../lib/messages-paths'
 import { archiveAgent, updateAgentStatus } from '../lib/workforce-api'
 import { listAgentPassports, updateAgentPassport } from '../lib/govern-api'
@@ -331,7 +332,7 @@ export default function AiAgentDetail() {
                   >
                     <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
                     <span className="min-w-0 flex-1 truncate font-medium text-text-heading">{item.name}</span>
-                    <span className="shrink-0 text-xs capitalize text-text-muted">{item.kind}</span>
+                    <span className="shrink-0 text-xs text-text-muted">{humanizeLabel(item.kind)}</span>
                     <span className="shrink-0 text-xs tabular-nums text-text-muted">
                       {new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`).toLocaleString(undefined, {
                         weekday: 'short',
@@ -357,7 +358,8 @@ export default function AiAgentDetail() {
             />
           ) : null}
 
-          <AgentChatAccessCard agentId={agent.id} />
+          {/* Chat access is a company-agent concept; the API 404s for personal agents. */}
+          {agent.kind !== 'personal' ? <AgentChatAccessCard agentId={agent.id} /> : null}
 
           <AgentModelCard
             agentId={agent.id}

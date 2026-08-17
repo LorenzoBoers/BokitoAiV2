@@ -24,6 +24,11 @@ const DEFAULT_ROWS: NotificationRow[] = [
     label: 'When you are mentioned in conversations',
     channels: { desktop: true, email: false, mobile: false },
   },
+  {
+    id: 'decisions',
+    label: 'When an agent needs your decision on an assigned conversation',
+    channels: { desktop: true, email: false, mobile: false },
+  },
 ]
 
 const KNOWN_ROW_IDS = new Set(DEFAULT_ROWS.map((row) => row.id))
@@ -35,6 +40,14 @@ export default function NotificationSettings() {
   const [rows, setRows] = useState<NotificationRow[]>(DEFAULT_ROWS)
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+
+  // Fade the "Saved" confirmation shortly after the last successful save.
+  useEffect(() => {
+    if (savedAt == null) return
+    const timer = window.setTimeout(() => setSavedAt(null), 2000)
+    return () => window.clearTimeout(timer)
+  }, [savedAt])
 
   useEffect(() => {
     if (!token) {
@@ -85,11 +98,14 @@ export default function NotificationSettings() {
         })
         if (!res.ok) {
           setSaveError('Could not save notification preferences.')
+        } else {
+          setSavedAt(Date.now())
         }
         return
       }
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+        setSavedAt(Date.now())
       } catch {
         // ignore
       }
@@ -97,11 +113,11 @@ export default function NotificationSettings() {
     [token],
   )
 
-  function updateDesktop(rowId: string, checked: boolean) {
+  function updateChannel(rowId: string, channel: 'desktop' | 'email', checked: boolean) {
     setRows((prev) => {
       const next = prev.map((row) =>
         row.id === rowId
-          ? { ...row, channels: { ...row.channels, desktop: checked } }
+          ? { ...row, channels: { ...row.channels, [channel]: checked } }
           : row,
       )
       void persistRows(next)
@@ -116,22 +132,30 @@ export default function NotificationSettings() {
       </p>
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[1fr_120px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
+        <div className="grid grid-cols-[1fr_100px_100px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
           <span>Notify me about</span>
           <span className="text-center">In-app</span>
+          <span className="text-center">Email</span>
         </div>
 
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid grid-cols-[1fr_120px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
+            className="grid grid-cols-[1fr_100px_100px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
           >
             <p className="pr-3 text-sm text-text-primary">{row.label}</p>
             <div className="flex justify-center">
               <Switch
                 checked={row.channels.desktop}
-                onCheckedChange={(checked) => updateDesktop(row.id, checked)}
+                onCheckedChange={(checked) => updateChannel(row.id, 'desktop', checked)}
                 aria-label={`${row.label} in-app`}
+              />
+            </div>
+            <div className="flex justify-center">
+              <Switch
+                checked={row.channels.email}
+                onCheckedChange={(checked) => updateChannel(row.id, 'email', checked)}
+                aria-label={`${row.label} email`}
               />
             </div>
           </div>
@@ -142,12 +166,13 @@ export default function NotificationSettings() {
         <div className="space-y-1">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
             <Monitor size={14} className="text-text-muted" />
-            In-app notifications
+            Channels
           </p>
           <p className="text-xs text-text-secondary">
-            Shown in the bell menu in the top bar. Email and mobile push are not available yet.
+            In-app notifications appear in the bell menu in the top bar. Email notifications are
+            sent to your account address. Mobile push is not available yet.
           </p>
-          <p className="text-xs font-medium text-text-muted">{desktopEnabled} enabled</p>
+          <p className="text-xs font-medium text-text-muted">{desktopEnabled} in-app enabled</p>
         </div>
       </Card>
 
@@ -155,7 +180,7 @@ export default function NotificationSettings() {
       {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
       <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
         <Bell size={13} className="text-text-muted" />
-        Preferences are saved to your account.
+        {savedAt ? 'Saved.' : 'Preferences are saved to your account.'}
       </div>
     </PageContent>
   )

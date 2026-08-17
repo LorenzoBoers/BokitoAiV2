@@ -4,6 +4,7 @@ import { Card } from '../ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import type { ProjectRow } from '../../lib/projects-api'
 import type { WorkLogRow } from '../../lib/work-logs-api'
+import { humanizeLabel } from '../../lib/labels'
 import { formatWorkLogSubject } from '../../lib/work-log-labels'
 import { formatWorkLogWhen, projectNameForRun } from '../../lib/work-logs-format'
 
@@ -49,7 +50,7 @@ export function WorkLogsTable({
                   {projectNameForRun(projects, run.project_id)}
                 </TableCell>
               ) : null}
-              <TableCell>{run.status}</TableCell>
+              <TableCell>{humanizeLabel(run.status)}</TableCell>
               <TableCell className="text-text-muted">{formatWorkLogWhen(run.started_at)}</TableCell>
               <TableCell className="text-text-muted">{run.tokens_used ?? 0}</TableCell>
             </TableRow>

@@ -82,9 +82,10 @@ export function useOnboardingStatus(): {
 
 const STEP_META: Record<OnboardingStepId, { icon: typeof Building2; to: string }> = {
   email: { icon: Mail, to: '/settings/channels' },
+  // Completion is measured by `company.md` content, which lives in Knowledge.
   company: {
     icon: Building2,
-    to: '/settings/branding',
+    to: '/knowledge',
   },
   assistant: { icon: MessageSquare, to: '/communication/assistant' },
   channel: { icon: Inbox, to: '/settings/channels' },

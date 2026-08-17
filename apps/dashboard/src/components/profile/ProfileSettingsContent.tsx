@@ -49,9 +49,12 @@ function EditableField({
       await onSave(draft)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      setEditing(false)
+    } catch (err) {
+      // Keep edit mode open so the user does not mistake a failure for a save.
+      toast.error(err instanceof Error ? err.message : `Could not save ${label.toLowerCase()}.`)
     } finally {
       setSaving(false)
-      setEditing(false)
     }
   }
 
@@ -268,8 +271,8 @@ export function ProfileSettingsContent() {
       const data = await res.json() as { avatar?: { url?: string; path?: string } }
       const url = data.avatar?.url ?? data.avatar?.path ?? null
       if (url) patchLocalUser({ avatarUrl: url })
-    } catch {
-      // Silently ignore; user can retry
+    } catch (err) {
+      toast.error(err instanceof Error ? `Could not upload avatar (${err.message}).` : 'Could not upload avatar.')
     } finally {
       setAvatarUploading(false)
       // Reset so the same file can be re-selected

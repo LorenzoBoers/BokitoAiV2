@@ -6,6 +6,7 @@ import CockpitTabs from '../components/shell/CockpitTabs'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent, type GatewayEvent } from '../lib/gateway'
 import { bokitoGetCockpitActivity, type CockpitActivityEvent } from '../lib/bokito-api'
+import { humanizeLabel } from '../lib/labels'
 
 type ActivityEntry = {
   id: string
@@ -202,10 +203,10 @@ export default function ActivityPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-[12.5px] text-text-primary">
-                    {entry.message || entry.eventType}
+                    {entry.message || humanizeLabel(entry.eventType)}
                   </p>
-                  <p className="font-mono text-[10.5px] text-text-muted">
-                    {entry.kind} - {entry.eventType}
+                  <p className="text-[10.5px] text-text-muted">
+                    {humanizeLabel(entry.kind)} - {humanizeLabel(entry.eventType)}
                   </p>
                 </div>
                 <span className="shrink-0 font-mono text-[10.5px] text-text-muted">

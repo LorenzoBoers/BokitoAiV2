@@ -24,8 +24,8 @@
       },
       "company": {
         "title": "Vertel over je bedrijf",
-        "description": "Beschrijf wat je organisatie doet zodat agents in jouw context antwoorden.",
-        "cta": "Open bedrijfsinstellingen"
+        "description": "Beschrijf in het bedrijfsdocument wat je organisatie doet zodat agents in jouw context antwoorden.",
+        "cta": "Open bedrijfsdocument"
       },
       "assistant": {
         "title": "Chat met je assistent",

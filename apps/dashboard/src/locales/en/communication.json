@@ -24,8 +24,8 @@
       },
       "company": {
         "title": "Tell us about your company",
-        "description": "Describe what your organization does so agents answer in your context.",
-        "cta": "Open company settings"
+        "description": "Describe what your organization does in the company doc so agents answer in your context.",
+        "cta": "Open company doc"
       },
       "assistant": {
         "title": "Chat with your assistant",

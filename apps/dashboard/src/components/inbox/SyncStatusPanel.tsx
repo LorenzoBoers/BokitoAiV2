@@ -5,6 +5,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { useAuth } from '../../context/AuthContext'
 import { syncMailboxes } from '../../lib/email-api'
 import { getSyncStatus, type SyncConnectionStatus } from '../../lib/inbox-api'
+import { humanizeLabel } from '../../lib/labels'
 import { cn } from '../../lib/utils'
 
 function formatDate(iso: string | null): string {
@@ -106,7 +107,7 @@ export default function SyncStatusPanel({ className }: Props) {
                 ) : (
                   <AlertCircle size={13} className="inline mr-1" />
                 )}
-                {conn.status}
+                {humanizeLabel(conn.status)}
               </span>
             </div>
 

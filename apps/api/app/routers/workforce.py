@@ -322,8 +322,23 @@ async def patch_agent_model(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    auth.require_role("owner", "admin")
+    # Company agents are admin-managed; a personal assistant's model may be
+    # changed by its own user (the My Assistant settings page).
+    if not await _is_own_personal_agent(session, auth, agent_id):
+        auth.require_role("owner", "admin")
     return await svc.update_agent_model(session, auth.tenant.id, agent_id, body.model)
+
+
+async def _is_own_personal_agent(session: AsyncSession, auth: AuthContext, agent_id: UUID) -> bool:
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+
+    result = await session.execute(
+        select(Agent).where(Agent.id == agent_id, Agent.tenant_id == auth.tenant.id)
+    )
+    agent = result.scalar_one_or_none()
+    return bool(agent and agent.kind == "personal" and agent.owner_user_id == auth.user.id)
 
 
 # --- Chat access (who may DM this company agent) ---

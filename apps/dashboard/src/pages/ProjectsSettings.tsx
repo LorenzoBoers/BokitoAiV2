@@ -25,6 +25,7 @@ import {
   type ProjectBudgetResponse,
   type ProjectRow,
 } from '../lib/projects-api'
+import { humanizeLabel } from '../lib/labels'
 
 function slugify(value: string): string {
   return value
@@ -113,7 +114,7 @@ function ProjectRepoSection({ project, onChanged }: { project: ProjectRow; onCha
         <Badge variant="outline">{project.github_default_branch || 'main'}</Badge>
         {project.repo_index_status ? (
           <Badge variant={project.repo_index_status === 'error' ? 'destructive' : 'secondary'}>
-            {project.repo_index_status}
+            {humanizeLabel(project.repo_index_status)}
           </Badge>
         ) : null}
         <Button
@@ -319,7 +320,7 @@ export default function ProjectsSettings() {
                       <p className="text-xs text-text-muted mt-0.5">{project.slug}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline">{project.autonomous_scope}</Badge>
+                      <Badge variant="outline">{humanizeLabel(project.autonomous_scope)}</Badge>
                       <Button
                         type="button"
                         size="sm"

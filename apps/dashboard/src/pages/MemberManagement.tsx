@@ -4,7 +4,9 @@ import { UserAvatar } from '../components/ui/UserAvatar'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { appRoutes } from '../api/routes/app.routes'
+import { toast } from 'sonner'
 import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '../lib/api'
+import { memberRoleLabel } from '../lib/labels'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
@@ -30,6 +32,7 @@ type Member = {
   role: MemberRole
   avatarUrl: string | null
   isCurrentUser: boolean
+  joinedAt: string | null
 }
 
 type Invite = {
@@ -81,6 +84,7 @@ function mapMemberRow(item: unknown, currentUserId: string | undefined): Member 
     role: asRole(row.role),
     avatarUrl: typeof row.avatar_url === 'string' ? row.avatar_url : null,
     isCurrentUser: String(id) === String(currentUserId),
+    joinedAt: typeof row.joined_at === 'string' ? row.joined_at : null,
   }
 }
 
@@ -143,6 +147,7 @@ export default function MemberManagement() {
         role: asRole(user.role),
         avatarUrl: user.avatarUrl ?? null,
         isCurrentUser: true,
+        joinedAt: null,
       })
     }
     setMembers(mappedMembers)
@@ -169,6 +174,7 @@ export default function MemberManagement() {
                   role: asRole(user.role),
                   avatarUrl: user.avatarUrl ?? null,
                   isCurrentUser: true,
+                  joinedAt: null,
                 }]
               : [],
           )
@@ -196,6 +202,7 @@ export default function MemberManagement() {
         token,
       )
       await reload()
+      toast.success(`Invite sent to ${inviteEmail.trim()}`)
       setInviteEmail('')
       setInviteRole('member')
     } catch (inviteError) {
@@ -433,12 +440,14 @@ export default function MemberManagement() {
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant="neutral">{m.role}</Badge>
+                          <Badge variant="neutral">{memberRoleLabel(m.role)}</Badge>
                         )}
                       </TableCell>
                       <TableCell><Badge variant="success">Active</Badge></TableCell>
                       <TableCell className="text-text-muted">-</TableCell>
-                      <TableCell className="text-text-muted">-</TableCell>
+                      <TableCell className="text-text-secondary">
+                        {m.joinedAt ? toDateLabel(m.joinedAt) : '-'}
+                      </TableCell>
                       <TableCell className="text-right">
                         {canManageMembers && !m.isCurrentUser ? (
                           <Button
@@ -462,7 +471,7 @@ export default function MemberManagement() {
                   <TableRow key={`i-${inv.id}`}>
                     <TableCell className="text-text-muted">-</TableCell>
                     <TableCell>{inv.email}</TableCell>
-                    <TableCell><Badge variant="neutral">{inv.role}</Badge></TableCell>
+                    <TableCell><Badge variant="neutral">{memberRoleLabel(inv.role)}</Badge></TableCell>
                     <TableCell><Badge variant="warning">Pending</Badge></TableCell>
                     <TableCell className="text-text-secondary">{inv.invitedBy}</TableCell>
                     <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt)}</TableCell>

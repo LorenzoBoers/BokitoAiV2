@@ -258,6 +258,7 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
                 "email": user.email,
                 "role": membership.role,
                 "avatar_url": user.avatar_url,
+                "joined_at": membership.created_at.isoformat() if membership.created_at else None,
             }
         )
     return rows

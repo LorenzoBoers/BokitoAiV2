@@ -20,6 +20,7 @@ import {
   type AgendaItem,
   type Trigger,
 } from '../lib/orchestration-api'
+import { humanizeLabel } from '../lib/labels'
 import { cn } from '../lib/utils'
 
 type ViewTab = 'week' | 'list' | 'automations'
@@ -108,7 +109,7 @@ function AgendaChip({
       <p className="mt-0.5 truncate font-medium">{item.name}</p>
       {item.agent_name ? <p className="truncate opacity-75">{item.agent_name}</p> : null}
       {item.status !== 'planned' ? (
-        <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-75">{item.status}</p>
+        <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-75">{humanizeLabel(item.status)}</p>
       ) : null}
     </button>
   )
@@ -429,7 +430,7 @@ export default function AgendaPage() {
                             statusStyle(item.status),
                           )}
                         >
-                          {item.status}
+                          {humanizeLabel(item.status)}
                         </span>
                       </button>
                     )

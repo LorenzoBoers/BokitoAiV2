@@ -8,6 +8,7 @@ import {
   bokitoListChatTargets,
   type ChatTarget,
 } from '../lib/bokito-api'
+import { humanizeLabel } from '../lib/labels'
 import { agentChatPath, assistantPath } from '../lib/messages-paths'
 
 type PickerFilter = 'all' | 'company'
@@ -206,7 +207,7 @@ export default function NewConversationPage() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[12.5px] text-text-primary">{t.name}</span>
                           <span className="block text-[10.5px] text-text-muted">
-                            {t.kind === 'personal' ? 'Your personal assistant' : `Company agent · ${t.role}`}
+                            {t.kind === 'personal' ? 'Your personal assistant' : `Company agent · ${humanizeLabel(t.role)}`}
                           </span>
                         </span>
                         {selected?.id === t.id ? <Check size={13} className="shrink-0 text-accent" /> : null}

@@ -14,6 +14,7 @@ import {
   type KbCollection,
   type KbDocument,
 } from '../lib/email-api'
+import { humanizeLabel } from '../lib/labels'
 
 function RowSkeleton() {
   return (
@@ -234,7 +235,7 @@ export default function HelpCentersSettings() {
                       <div className="min-w-0">
                         <div className="truncate text-sm text-text-primary">{doc.filename}</div>
                         <div className="text-2xs text-text-muted">
-                          {doc.file_type.toUpperCase()} - status: {doc.index_status}
+                          {doc.file_type.toUpperCase()} - {humanizeLabel(doc.index_status)}
                         </div>
                       </div>
                       <Button

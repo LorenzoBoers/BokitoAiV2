@@ -20,7 +20,8 @@ import { listAgentTasks, type AgentTask } from '../../lib/orchestration-api'
 import type { GovernToolRow } from '../../lib/govern-api'
 import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
-import { agentRunsPath } from '../../lib/messages-paths'
+import { humanizeLabel } from '../../lib/labels'
+import { agentRunsPath, inboxPath } from '../../lib/messages-paths'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ThreadProjectPicker } from './ThreadProjectPicker'
 
@@ -123,31 +124,40 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
   const [recent, setRecent] = useState<InboxThread[]>([])
   const [task, setTask] = useState<AgentTask | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const agentId = agent?.id && agent.id !== 'unknown' ? agent.id : null
 
   const load = useCallback(async () => {
     setLoading(true)
+    // Individual sections degrade to empty on failure, but surface that a
+    // failure happened so an empty panel is distinguishable from "no data".
+    let failed = false
+    const fallback = <T,>(value: T) => {
+      failed = true
+      return value
+    }
     const [passports, allowances, mcp, threads, tasks] = await Promise.all([
       listAgentPassports()
         .then((r) => r.items as AgentPassport[])
-        .catch(() => [] as AgentPassport[]),
+        .catch(() => fallback([] as AgentPassport[])),
       getAllowances()
         .then((r) => r.tools)
-        .catch(() => [] as GovernToolRow[]),
-      listMcpIntegrationRows().catch(() => [] as McpIntegrationRow[]),
+        .catch(() => fallback([] as GovernToolRow[])),
+      listMcpIntegrationRows().catch(() => fallback([] as McpIntegrationRow[])),
       agentId
         ? listSignalThreads(token ?? '', { agentId, perPage: 12 })
             .then((r) => r.items)
-            .catch(() => [] as InboxThread[])
+            .catch(() => fallback([] as InboxThread[]))
         : Promise.resolve([] as InboxThread[]),
-      listAgentTasks({ signalId: String(thread.id) }).catch(() => [] as AgentTask[]),
+      listAgentTasks({ signalId: String(thread.id) }).catch(() => fallback([] as AgentTask[])),
     ])
     setPassport(agentId ? (passports.find((p) => p.id === agentId) ?? null) : null)
     setToolCatalog(allowances)
     setMcpRows(mcp)
     setRecent(threads.filter((t) => String(t.id) !== String(thread.id)))
     setTask(tasks.find((t) => ACTIVE_TASK_STATUSES.has(t.status)) ?? null)
+    setLoadFailed(failed)
     setLoading(false)
   }, [agentId, token, thread.id])
 
@@ -179,6 +189,19 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         onUpdated={onThreadUpdated}
       />
 
+      {loadFailed && !loading ? (
+        <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 px-3 py-2">
+          <span className="text-[11px] text-text-secondary">Some agent context failed to load.</span>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="shrink-0 text-[11px] font-medium text-accent hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
       {/* Identity */}
       <div className="border-b border-border/40 px-4 pb-3 pt-4">
         <SectionHeading title="Agent" />
@@ -200,7 +223,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                     STATUS_CLASS[status] ?? 'text-text-muted'
                   }`}
                 >
-                  {status}
+                  {humanizeLabel(status)}
                 </span>
               ) : null}
               {agent.current_activity_summary ? (
@@ -340,7 +363,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             <p className="mt-0.5 text-[11px] capitalize text-text-muted">
               {task.status.replace(/_/g, ' ')}
               {task.pause_reason ? ` (${task.pause_reason.replace(/_/g, ' ')})` : ''}
-              {' · Open in Activity'}
+              {' · Open run'}
             </p>
           </Link>
         </div>
@@ -358,7 +381,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             {recent.slice(0, 8).map((t) => (
               <Link
                 key={String(t.id)}
-                to={`/communication/${t.folder === 'internal' ? 'agents' : 'customers'}/all/t/${encodeURIComponent(String(t.id))}`}
+                to={t.folder === 'internal' ? agentRunsPath('all', String(t.id)) : inboxPath('all', String(t.id))}
                 className="flex items-center gap-2 rounded-lg border border-border/45 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
                 <MessageSquare size={12} className="shrink-0 text-text-muted" />
@@ -367,7 +390,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                     {t.emailSubject || '(No subject)'}
                   </span>
                   <span className="block truncate text-[10.5px] text-text-muted">
-                    {t.status}
+                    {humanizeLabel(t.status)}
                     {t.lastMessageAt ? ` - ${timeAgo(t.lastMessageAt)}` : ''}
                   </span>
                 </span>

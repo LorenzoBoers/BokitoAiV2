@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authInviteInfo, type InviteInfo } from '../lib/api';
+import { memberRoleLabel } from '../lib/labels';
 
 /**
  * Accept-invite landing page (`/accept-invite?token=...`).
@@ -104,7 +105,7 @@ export default function AcceptInvite() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <p className="text-sm text-text-secondary">
                 You were invited as <span className="font-medium text-text-primary">{info?.email}</span>
-                {info?.role ? ` (${info.role})` : ''}.
+                {info?.role ? ` (${memberRoleLabel(info.role)})` : ''}.
               </p>
 
               {!info?.existing_user ? (
