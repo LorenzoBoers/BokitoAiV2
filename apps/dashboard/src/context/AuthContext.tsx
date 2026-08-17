@@ -23,6 +23,7 @@ import {
   resolveTenantSubdomainFromHost,
 } from '../lib/host-routing';
 import { publishDashboardUserToWidget } from '../lib/widget-bridge';
+import { clearAuthRetryHandlers, configureAuthRetry, jwtRemainingSeconds } from '../lib/auth-retry';
 const ACCESS_TOKEN_FALLBACK_KEY = 'bokito_access_token_session';
 /** When set, the auth router returned 404 for POST /refresh; skip further refresh calls until logout. */
 const SKIP_SERVER_AUTH_REFRESH_KEY = 'bokito_skip_server_auth_refresh';
@@ -395,6 +396,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshHandlerRef.current = refreshToken;
   }, [refreshToken]);
 
+  // Global 401 recovery: when any API call fails with an expired access token,
+  // refresh the session once via the cookie and retry; log out locally when
+  // the refresh cookie is gone so route guards redirect to login instead of
+  // leaving the app stuck on "Invalid token" errors.
+  useEffect(() => {
+    configureAuthRetry({
+      refresh: async () => {
+        if (shouldSkipServerAuthRefresh()) return null;
+        try {
+          const session = await authRefresh();
+          const nextToken = applySession(session);
+          try {
+            const me = await authMe(nextToken);
+            setUser(normalizeAuthUser(me));
+          } catch {
+            // Token refreshed; profile re-fetch is best effort.
+          }
+          return nextToken;
+        } catch (err) {
+          if (isMissingRefreshEndpointError(err)) rememberSkipServerAuthRefresh();
+          return null;
+        }
+      },
+      onSessionExpired: () => {
+        clearSession();
+      },
+    });
+    return () => clearAuthRetryHandlers();
+  }, [applySession, clearSession]);
+
   useEffect(() => {
     let cancelled = false;
     async function hydrateSession() {
@@ -434,6 +465,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!cancelled) {
               setToken(storedToken);
               setUser(normalizeAuthUser(meWithStoredToken));
+              // Restored sessions must keep refreshing too — schedule from the
+              // token's actual remaining lifetime, not the full TTL.
+              scheduleRefresh(jwtRemainingSeconds(storedToken));
             }
             return;
           } catch {
@@ -485,6 +519,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (!cancelled) {
                 setToken(tokenAfterRace);
                 setUser(normalizeAuthUser(meRetry));
+                scheduleRefresh(jwtRemainingSeconds(tokenAfterRace));
               }
               return;
             } catch {
@@ -517,7 +552,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [applySession, clearSession]);
+  }, [applySession, clearSession, scheduleRefresh]);
 
   useLayoutEffect(() => {
     setAccessTokenProvider(() => token);
