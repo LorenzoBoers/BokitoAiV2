@@ -443,6 +443,24 @@ async def disconnect_email_connection(
     account = await _require_account(session, auth.tenant.id, connection_id)
     address = account.address
     provider = account.provider
+    # Postgres enforces the FK constraints on channel_accounts.id, so first
+    # detach threads (conversation history stays) and remove per-mailbox
+    # config rows that hard-reference this account.
+    from sqlalchemy import delete as sa_delete, update as sa_update
+
+    from app.models.channel import ChannelBinding
+
+    await session.execute(
+        sa_update(Signal)
+        .where(Signal.channel_account_id == account.id)
+        .values(channel_account_id=None)
+    )
+    await session.execute(
+        sa_delete(EmailRoutingRule).where(EmailRoutingRule.channel_account_id == account.id)
+    )
+    await session.execute(
+        sa_delete(ChannelBinding).where(ChannelBinding.channel_account_id == account.id)
+    )
     await session.delete(account)
     await session.commit()
     from app.services.audit import record_audit

@@ -279,6 +279,101 @@ async def test_mailbox_disconnect_records_audit(
 
 
 @pytest.mark.asyncio
+async def test_mailbox_disconnect_detaches_referencing_rows(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """Disconnect must not 500 when threads/rules/bindings reference the
+    account (Postgres enforces the FKs in production): threads are detached
+    and kept, per-mailbox rules and bindings are removed."""
+    from app.models.agent import Agent
+    from app.models.channel import ChannelBinding
+    from app.models.email_routing import EmailRoutingRule
+    from app.models.signal import Signal
+
+    headers = await _login(client)
+    listing = await client.get("/api/email/accounts", headers=headers)
+    assert listing.status_code == 200
+    connections = listing.json()
+    assert connections
+    conn_id = connections[0]["id"]
+
+    account = (
+        (await session_override.execute(select(ChannelAccount).limit(1)))
+        .scalars()
+        .first()
+    )
+    assert account is not None
+    tenant_id = account.tenant_id
+
+    agent = (
+        (
+            await session_override.execute(
+                select(Agent).where(Agent.tenant_id == tenant_id).limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert agent is not None
+
+    signal = Signal(
+        tenant_id=tenant_id,
+        channel="email",
+        subject="Disconnect FK check",
+        channel_account_id=account.id,
+    )
+    rule = EmailRoutingRule(
+        tenant_id=tenant_id,
+        channel_account_id=account.id,
+        condition_type="sender_domain",
+        condition_value="example.com",
+    )
+    binding = ChannelBinding(
+        tenant_id=tenant_id,
+        channel="email",
+        channel_account_id=account.id,
+        agent_id=agent.id,
+    )
+    session_override.add_all([signal, rule, binding])
+    await session_override.commit()
+    signal_id = signal.id
+    rule_id = rule.id
+    binding_id = binding.id
+
+    res = await client.delete(f"/api/email/connections/{conn_id}", headers=headers)
+    assert res.status_code == 200
+
+    session_override.expire_all()
+    kept_signal = (
+        (await session_override.execute(select(Signal).where(Signal.id == signal_id)))
+        .scalars()
+        .first()
+    )
+    assert kept_signal is not None
+    assert kept_signal.channel_account_id is None
+    assert (
+        (
+            await session_override.execute(
+                select(EmailRoutingRule).where(EmailRoutingRule.id == rule_id)
+            )
+        )
+        .scalars()
+        .first()
+        is None
+    )
+    assert (
+        (
+            await session_override.execute(
+                select(ChannelBinding).where(ChannelBinding.id == binding_id)
+            )
+        )
+        .scalars()
+        .first()
+        is None
+    )
+
+
+@pytest.mark.asyncio
 async def test_mcp_install_records_audit(
     client: AsyncClient, session_override: AsyncSession
 ):
