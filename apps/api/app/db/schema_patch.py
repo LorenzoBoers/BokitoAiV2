@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.types import TypeEngine
 from sqlmodel import SQLModel
+
+logger = logging.getLogger(__name__)
 
 # Manual overrides when auto-inference is insufficient (table -> column -> SQL fragment)
 COLUMN_PATCHES: dict[str, dict[str, str]] = {
@@ -77,6 +81,11 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
 }
 
 
+def _is_uuid_type(col_type: TypeEngine) -> bool:
+    name = type(col_type).__name__.lower()
+    return "uuid" in name or "guid" in name
+
+
 def _sqlite_type(col_type: TypeEngine) -> str:
     name = type(col_type).__name__.lower()
     if "bool" in name:
@@ -87,6 +96,10 @@ def _sqlite_type(col_type: TypeEngine) -> str:
         return "REAL"
     if "date" in name or "time" in name:
         return "DATETIME"
+    if _is_uuid_type(col_type):
+        # Translated per dialect in _dialect_ddl: native UUID on Postgres so
+        # joins against uuid primary keys keep working, VARCHAR on SQLite.
+        return "UUID"
     return "VARCHAR"
 
 
@@ -135,7 +148,7 @@ def _dialect_ddl(col_type: str, is_postgres: bool) -> str:
     are no-ops. The translation keeps them safe if ever executed on Postgres
     (e.g. `BOOLEAN DEFAULT 0` is invalid there)."""
     if not is_postgres:
-        return col_type
+        return col_type.replace("UUID", "VARCHAR")
     return (
         col_type.replace("BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT false")
         .replace("BOOLEAN DEFAULT 1", "BOOLEAN DEFAULT true")
@@ -709,6 +722,48 @@ def _normalize_agent_chat_columns(connection: Connection) -> None:
         )
 
 
+def _fix_postgres_uuid_columns(connection: Connection) -> None:
+    """Convert VARCHAR columns back to native uuid on Postgres.
+
+    Older column patches added uuid-typed model columns as VARCHAR (the SQLite
+    fallback). On Postgres that breaks joins against uuid primary keys with
+    "operator does not exist: uuid = character varying" (e.g. the Cockpit
+    usage breakdown joining usage_ledger.agent_id to agents.id).
+    """
+    if connection.dialect.name != "postgresql":
+        return
+    import app.models  # noqa: F401 — register tables
+
+    inspector = inspect(connection)
+    for table_name, table in SQLModel.metadata.tables.items():
+        if not inspector.has_table(table_name):
+            continue
+        db_cols = {col["name"]: col for col in inspector.get_columns(table_name)}
+        for col in table.columns:
+            db_col = db_cols.get(col.name)
+            if db_col is None or not _is_uuid_type(col.type):
+                continue
+            db_type_name = type(db_col["type"]).__name__.lower()
+            if "char" not in db_type_name and "string" not in db_type_name and "text" not in db_type_name:
+                continue
+            # Savepoint per column: rows with malformed non-uuid data must not
+            # abort startup or the surrounding repairs transaction.
+            try:
+                with connection.begin_nested():
+                    connection.execute(
+                        text(
+                            f"ALTER TABLE {table_name} ALTER COLUMN {col.name} "
+                            f"TYPE uuid USING NULLIF({col.name}, '')::uuid"
+                        )
+                    )
+            except DBAPIError:
+                logger.warning(
+                    "Could not convert %s.%s to uuid (malformed data?); leaving as-is",
+                    table_name,
+                    col.name,
+                )
+
+
 def _relax_oauth_states_tenant(connection: Connection) -> None:
     """SSO login flows create OAuthState rows before a tenant exists, so
     tenant_id must be nullable. oauth_states is ephemeral (15-minute CSRF
@@ -730,6 +785,7 @@ def _relax_oauth_states_tenant(connection: Connection) -> None:
 
 def apply_data_repairs(connection: Connection) -> None:
     """Idempotent data fixes that ALTER cannot express (legacy role cleanup)."""
+    _fix_postgres_uuid_columns(connection)
     _relax_oauth_states_tenant(connection)
     _migrate_legacy_threads_to_signals(connection)
     _drop_legacy_policy_tables(connection)
