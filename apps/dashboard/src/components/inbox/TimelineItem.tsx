@@ -469,7 +469,23 @@ const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName
   reply_sent: () => 'Reply sent',
   note_added: () => 'Note added',
   reopened: () => 'Reopened',
-  thread_updated: () => 'Thread updated',
+  // Generic patch event: derive the specific change from the payload so the
+  // timeline says what actually happened (closed/reopened/snoozed/...).
+  thread_updated: (p) => {
+    const status = typeof p.status === 'string' ? p.status : null
+    const bulk = typeof p.bulk === 'string' ? p.bulk : null
+    if (status === 'closed' || bulk === 'close') return 'Thread closed'
+    if (status === 'spam' || bulk === 'spam') return 'Marked as spam'
+    if (status === 'pending') return 'Thread snoozed'
+    if (status === 'open' || bulk === 'reopen') return 'Thread reopened'
+    if (p.assigned_to === 0) return 'Assignment removed'
+    if (bulk === 'assign' || p.assigned_to != null) return 'Thread assigned'
+    if (typeof p.priority === 'string' && p.priority) return `Priority: ${p.priority}`
+    if (Array.isArray(p.tags)) {
+      return p.tags.length > 0 ? `Labels: ${p.tags.join(', ')}` : 'Labels cleared'
+    }
+    return 'Thread updated'
+  },
   snooze_expired: () => 'Snooze expired',
   // AI flow
   agent_processed: () => 'AI reviewed this message',

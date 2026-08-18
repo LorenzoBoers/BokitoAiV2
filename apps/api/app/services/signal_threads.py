@@ -732,6 +732,8 @@ async def patch_thread(
                     "status": status,
                     "priority": priority,
                     "project_id": str(project_id) if project_id else None,
+                    "assigned_to": assigned_to_user_id,
+                    "tags": tags,
                 }
             ),
         )
