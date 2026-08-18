@@ -191,11 +191,32 @@ async def send_email(
         account = None
         if signal.channel_account_id:
             account_result = await session.execute(
-                select(ChannelAccount).where(ChannelAccount.id == signal.channel_account_id)
+                select(ChannelAccount).where(
+                    ChannelAccount.id == signal.channel_account_id,
+                    ChannelAccount.tenant_id == auth.tenant.id,
+                )
             )
             account = account_result.scalar_one_or_none()
+        if account is None and body.connection_id is not None:
+            # Deliberate mailbox choice: rebind the orphaned thread so this
+            # and future replies go out via the selected mailbox.
+            candidate = await _resolve_email_account(session, auth.tenant.id, body.connection_id)
+            if candidate is not None and user_numeric_id(candidate.id) == body.connection_id:
+                account = candidate
+                signal.channel_account_id = account.id
+                session.add(signal)
         if account is None:
-            account = await _resolve_email_account(session, auth.tenant.id, body.connection_id)
+            # The thread's mailbox was disconnected; never fall back to a
+            # random other mailbox or pretend the message was sent.
+            raise HTTPException(
+                status_code=409,
+                detail="The mailbox for this conversation is disconnected. Reconnect it under Settings > Channels to reply.",
+            )
+        if not account.is_enabled:
+            raise HTTPException(
+                status_code=409,
+                detail="The mailbox for this conversation is disabled. Enable it under Settings > Channels to reply.",
+            )
         recipients = to_addresses or ([signal.contact_email] if signal.contact_email else [])
     else:
         if not to_addresses:
@@ -240,7 +261,13 @@ async def send_email(
         attachments=attachments,
     )
     if send_status == "skipped":
+        # Mock/dev accounts skip actual delivery; record as sent for dev UX.
         send_status = "sent"
+    if send_status.startswith("failed"):
+        # Do not store a message that pretends to be sent: surface the error.
+        await session.rollback()
+        reason = send_status.removeprefix("failed:").replace("_", " ").strip() or "provider error"
+        raise HTTPException(status_code=502, detail=f"Sending failed: {reason}")
     message_meta: dict[str, Any] = {}
     if body.cc:
         message_meta["cc"] = body.cc

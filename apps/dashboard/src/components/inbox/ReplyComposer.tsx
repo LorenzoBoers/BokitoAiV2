@@ -48,6 +48,9 @@ type Props = {
   onMentionInserted?: (item: MentionItem) => void
   /** Stable id (thread id) to persist unsent drafts across thread switches. */
   persistKey?: string | null
+  /** When set, outbound replies are blocked (e.g. mailbox disconnected) and
+   * this notice is rendered in place of the reply input. Notes still work. */
+  replyDisabledNotice?: ReactNode
 }
 
 function tabIcon(surface: ComposerSurface, tab: ComposerTab) {
@@ -89,6 +92,7 @@ export default function ReplyComposer({
   mentionExtras,
   onMentionInserted,
   persistKey,
+  replyDisabledNotice,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -145,12 +149,15 @@ export default function ReplyComposer({
     })
   }
 
+  const replyBlocked = replyDisabledNotice != null
+
   useEffect(() => {
-    setTab(surface.defaultTab)
+    // With replies blocked (e.g. mailbox disconnected) land on Note instead.
+    setTab(replyBlocked && surface.tabs.includes('note') ? 'note' : surface.defaultTab)
     // Restore any unsent draft for this thread instead of dropping typed text.
     setBody(readStoredDraft(persistKey))
     setAttachments([])
-  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey])
+  }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, replyBlocked, surface.tabs])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {
@@ -212,6 +219,7 @@ export default function ReplyComposer({
     action: 'send' | 'send_and_close' | 'send_and_pending',
     snoozeMinutes?: number,
   ) => {
+    if (tab !== 'note' && replyBlocked) return
     const text = body.trim()
     if (!text && attachments.length === 0) return
     const payload = attachments.length ? attachments : undefined
@@ -322,7 +330,13 @@ export default function ReplyComposer({
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
 
-        {!isNote && surface.showRecipient && surface.recipientValue ? (
+        {!isNote && replyBlocked ? (
+          <div className="rounded-xl border border-border/60 bg-bg-elevated/40 px-3 py-2.5 text-[12px] text-text-secondary">
+            {replyDisabledNotice}
+          </div>
+        ) : null}
+
+        {!isNote && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
           <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-border/50 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
             <span className="shrink-0 font-medium text-text-muted">{surface.recipientLabel}</span>
             <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
@@ -337,6 +351,7 @@ export default function ReplyComposer({
           onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
         />
 
+        {!isNote && replyBlocked ? null : (
         <div
           className={`relative flex items-end gap-2 rounded-2xl border px-3 py-2 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.45)] transition-colors focus-within:border-accent/50 ${
             isNote
@@ -442,7 +457,9 @@ export default function ReplyComposer({
             {isNote ? <StickyNote size={13} /> : <Send size={13} />}
           </button>
         </div>
+        )}
 
+        {!isNote && replyBlocked ? null : (
         <div className="mt-1.5 flex items-center justify-between px-1">
           <p className="text-[10.5px] text-text-muted">
             {surface.channel === 'email' && !isNote
@@ -490,6 +507,7 @@ export default function ReplyComposer({
             </div>
           ) : null}
         </div>
+        )}
       </div>
     </div>
   )

@@ -61,7 +61,10 @@ function normalizeSignalThread(row: unknown): InboxThread | null {
   return {
     id,
     organisationId: asString(raw.organisation_id),
-    emailConnectionId: null,
+    emailConnectionId:
+      typeof raw.email_connection_id === 'number' && raw.email_connection_id > 0
+        ? raw.email_connection_id
+        : null,
     graphConversationId: asString(raw.graph_conversation_id ?? raw.external_id),
     emailSubject: asString(raw.email_subject ?? raw.subject, '(No subject)'),
     contactId: typeof raw.contact_id === 'string' && raw.contact_id.length > 0 ? raw.contact_id : null,

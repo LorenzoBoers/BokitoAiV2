@@ -13,7 +13,9 @@
   },
   "composer": {
     "hintEmail": "Ctrl+Enter to send, Enter for a new line — drafts are kept per conversation",
-    "hintChat": "Enter to send, Shift+Enter for a new line"
+    "hintChat": "Enter to send, Shift+Enter for a new line",
+    "mailboxDisconnected": "The mailbox for this conversation was disconnected, so replies cannot be sent. Internal notes still work.",
+    "reconnectMailbox": "Reconnect a mailbox"
   },
   "threadResolved": {
     "closed": "Conversation closed",

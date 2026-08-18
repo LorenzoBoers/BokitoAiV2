@@ -1,5 +1,6 @@
 import { AlertCircle, Archive, ArchiveRestore, Bot, Clock, Flag, Hand, ListPlus, Mail, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Tag, Trash2, UserPlus, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import {
   listInboxMembers,
@@ -380,6 +381,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
 }
 
 export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, externalDraft }: Props) {
+  const { t } = useTranslation('communication')
   const { token, user } = useAuth()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -646,6 +648,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const composerSurface = useMemo(
     () => (detail ? resolveComposerSurface(detail.thread) : null),
     [detail],
+  )
+
+  // Email thread whose mailbox was removed: history stays readable, but
+  // outbound replies are impossible and must not pretend to work.
+  const mailboxDisconnected = Boolean(
+    detail &&
+      composerSurface?.channel === 'email' &&
+      detail.thread.channel === 'email' &&
+      detail.thread.emailConnectionId == null,
   )
 
   useEffect(() => {
@@ -1221,6 +1232,20 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onNote={handleNote}
           saving={saving}
           disabled={thread.status === 'closed' || thread.status === 'spam'}
+          replyDisabledNotice={
+            mailboxDisconnected ? (
+              <span className="flex flex-wrap items-center gap-1.5">
+                <AlertCircle size={13} className="shrink-0 text-status-warning" />
+                {t('composer.mailboxDisconnected')}
+                <a
+                  href="/settings/channels"
+                  className="font-medium text-accent hover:underline"
+                >
+                  {t('composer.reconnectMailbox')}
+                </a>
+              </span>
+            ) : undefined
+          }
           draftBody={composerDraft?.body ?? null}
           draftKey={composerDraft?.key ?? null}
           persistKey={String(thread.id)}
@@ -1244,7 +1269,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 ) : null}
                 <DraftWithAiButton
                   drafting={drafting}
-                  disabled={saving || thread.status === 'closed' || thread.status === 'spam'}
+                  disabled={
+                    saving ||
+                    thread.status === 'closed' ||
+                    thread.status === 'spam' ||
+                    mailboxDisconnected
+                  }
                   onDraft={(instruction) => void handleDraftWithAi(instruction)}
                 />
               </div>

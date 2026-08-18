@@ -57,6 +57,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         account: ChannelAccount | None = None
         if signal.channel_account_id:
             account = await session.get(ChannelAccount, signal.channel_account_id)
+        if signal.channel == "email" and account is None:
+            # Mailbox disconnected: suggesting or sending replies that can
+            # never be delivered would be misleading.
+            return {"skipped": True, "reason": "mailbox_disconnected"}
         tenant = await session.get(Tenant, UUID(tenant_id))
         ai_mode = resolve_ai_mode(tenant, account, signal.channel)
         if ai_mode == "off":

@@ -13,7 +13,9 @@
   },
   "composer": {
     "hintEmail": "Ctrl+Enter om te versturen, Enter voor een nieuwe regel — concepten blijven per gesprek bewaard",
-    "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel"
+    "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel",
+    "mailboxDisconnected": "De mailbox van dit gesprek is losgekoppeld; antwoorden kunnen niet worden verstuurd. Interne notities werken nog wel.",
+    "reconnectMailbox": "Mailbox opnieuw koppelen"
   },
   "threadResolved": {
     "closed": "Gesprek gesloten",
