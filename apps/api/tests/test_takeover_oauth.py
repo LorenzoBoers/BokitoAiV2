@@ -166,7 +166,7 @@ async def test_email_sync_ingests_messages(session_override, monkeypatch):
     await session_override.commit()
     await session_override.refresh(account)
 
-    async def fake_fetch(acct, token, folder_id, cursor):
+    async def fake_fetch(acct, token, folder_id, cursor, since=None):
         if folder_id != "inbox":
             return None
         return (

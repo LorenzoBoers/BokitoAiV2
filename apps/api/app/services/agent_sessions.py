@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.auth import User
 from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.services.signal_threads import _iso
 
 # Tool calls that only read (research) are not "actions" worth surfacing in
 # the checkout summary; everything else mutated state somewhere.
@@ -42,8 +43,8 @@ def serialize_session(signal: Signal, agent: Agent | None) -> dict[str, Any]:
         "agent_id": str(signal.agent_id) if signal.agent_id else None,
         "agent_name": agent.name if agent else None,
         "owner_user_id": str(signal.owner_user_id) if signal.owner_user_id else None,
-        "started_at": signal.created_at.isoformat(),
-        "closed_at": signal.session_closed_at.isoformat() if signal.session_closed_at else None,
+        "started_at": _iso(signal.created_at),
+        "closed_at": _iso(signal.session_closed_at) if signal.session_closed_at else None,
         "summary": outcome.get("summary") or "",
         "actions": outcome.get("actions") or [],
         "message_count": outcome.get("message_count") or 0,
@@ -166,7 +167,7 @@ def _extract_actions(messages: list[SignalMessage]) -> list[dict[str, Any]]:
             if isinstance(raw_input, dict):
                 # MCP calls carry the real tool name inside the input.
                 detail = str(raw_input.get("tool") or raw_input.get("name") or "")
-            actions.append({"tool": name, "detail": detail, "at": msg.created_at.isoformat()})
+            actions.append({"tool": name, "detail": detail, "at": _iso(msg.created_at)})
     return actions
 
 

@@ -60,6 +60,12 @@ def _load_settings(account: ChannelAccount) -> dict[str, Any]:
         return {}
 
 
+def _sync_window_days(settings: dict[str, Any]) -> int:
+    from app.services.email_sync import account_sync_window_days
+
+    return account_sync_window_days(settings)
+
+
 def _has_access_token(account: ChannelAccount) -> bool:
     try:
         creds = json.loads(account.credentials_json or "{}")
@@ -97,6 +103,7 @@ def _serialize_connection(account: ChannelAccount, *, is_primary: bool) -> dict[
         "signature_html": settings.get("signature_html"),
         "last_sync_at": settings.get("last_sync_at"),
         "last_error": settings.get("last_error"),
+        "sync_window_days": _sync_window_days(settings),
         "status": _connection_status(account),
         # Backward-compatible alias used by older clients that only know active/revoked.
         "legacy_status": "active" if account.is_enabled and _has_access_token(account) else "revoked",
@@ -370,16 +377,32 @@ async def update_mailbox_settings(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     account = await _require_account(session, auth.tenant.id, connection_id)
-    is_primary = bool(body.get("is_primary", False))
+    updates: dict[str, Any] = {}
     if "is_enabled" in body:
         account.is_enabled = bool(body["is_enabled"])
-    # Only one primary mailbox per tenant.
-    if is_primary:
-        for other in await _list_email_accounts(session, auth.tenant.id):
-            if other.id != account.id and _load_settings(other).get("is_primary"):
-                await _save_account_settings(session, other, {"is_primary": False})
-    await _save_account_settings(session, account, {"is_primary": is_primary})
-    return {"ok": True, "is_enabled": account.is_enabled, "is_primary": is_primary}
+    if "sync_window_days" in body:
+        try:
+            days = int(body["sync_window_days"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="sync_window_days must be a number")
+        if days < 0 or days > 3650:
+            raise HTTPException(status_code=400, detail="sync_window_days must be 0-3650")
+        updates["sync_window_days"] = days
+    if "is_primary" in body:
+        is_primary = bool(body.get("is_primary"))
+        # Only one primary mailbox per tenant.
+        if is_primary:
+            for other in await _list_email_accounts(session, auth.tenant.id):
+                if other.id != account.id and _load_settings(other).get("is_primary"):
+                    await _save_account_settings(session, other, {"is_primary": False})
+        updates["is_primary"] = is_primary
+    settings = await _save_account_settings(session, account, updates)
+    return {
+        "ok": True,
+        "is_enabled": account.is_enabled,
+        "is_primary": bool(settings.get("is_primary")),
+        "sync_window_days": _sync_window_days(settings),
+    }
 
 
 @router.put("/connections/{connection_id}/signature")

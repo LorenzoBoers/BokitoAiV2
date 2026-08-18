@@ -32,7 +32,13 @@ logger = logging.getLogger(__name__)
 
 
 def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    """Naive datetimes are stored as UTC; mark them as such so browsers do not
+    parse them as local time (which shifted every timestamp by the UTC offset)."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.isoformat() + "Z"
+    return value.isoformat()
 
 
 def _user_uuid_from_num(session_users: dict[int, UUID], user_num: int | None) -> UUID | None:

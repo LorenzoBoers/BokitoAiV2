@@ -58,6 +58,7 @@ function toMailbox(connection: {
   lastError: string | null
   isEnabled: boolean
   isPrimary: boolean
+  syncWindowDays: number
 }): MailboxConnection {
   return {
     id: connection.id,
@@ -70,6 +71,7 @@ function toMailbox(connection: {
     sync_cursor: null,
     sync_enabled: connection.isEnabled,
     is_primary: connection.isPrimary,
+    sync_window_days: connection.syncWindowDays,
     error_message: connection.lastError ?? undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -225,7 +227,10 @@ export default function InboxSettings() {
   }, [searchParams, setSearchParams, refresh])
 
   const persistMailboxFlags = useCallback(
-    async (mailboxId: number, payload: { is_enabled: boolean; is_primary: boolean }) => {
+    async (
+      mailboxId: number,
+      payload: { is_enabled?: boolean; is_primary?: boolean; sync_window_days?: number },
+    ) => {
       if (!token) return
       setMailboxSavingId(mailboxId)
       try {
@@ -255,6 +260,13 @@ export default function InboxSettings() {
     (mailbox: MailboxConnection) => {
       if (!mailbox.sync_enabled) return
       void persistMailboxFlags(mailbox.id, { is_enabled: true, is_primary: true })
+    },
+    [persistMailboxFlags],
+  )
+
+  const handleChangeSyncWindow = useCallback(
+    (mailbox: MailboxConnection, days: number) => {
+      void persistMailboxFlags(mailbox.id, { sync_window_days: days })
     },
     [persistMailboxFlags],
   )
@@ -464,6 +476,7 @@ export default function InboxSettings() {
                 <TableHead>Inbox</TableHead>
                 <TableHead>Provider</TableHead>
                 <TableHead>Sync</TableHead>
+                <TableHead>History</TableHead>
                 <TableHead>Primary</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last sync</TableHead>
@@ -473,7 +486,7 @@ export default function InboxSettings() {
             <TableBody>
               {!loading && mailboxes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-text-muted">
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-text-muted">
                     No inbox connected yet
                   </TableCell>
                 </TableRow>
@@ -507,6 +520,27 @@ export default function InboxSettings() {
                           />
                           <span className="text-xs text-text-muted">{mailbox.sync_enabled ? 'On' : 'Off'}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <select
+                          value={String(mailbox.sync_window_days)}
+                          disabled={mailboxSavingId === mailbox.id}
+                          onChange={(e) => handleChangeSyncWindow(mailbox, Number(e.target.value))}
+                          aria-label="How far back to sync mail history"
+                          title="How far back mail is backfilled when this mailbox (re)connects"
+                          className="h-7 rounded-md border border-border/60 bg-bg-surface px-1.5 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
+                        >
+                          {![7, 30, 90, 365, 0].includes(mailbox.sync_window_days) ? (
+                            <option value={String(mailbox.sync_window_days)}>
+                              {mailbox.sync_window_days} days
+                            </option>
+                          ) : null}
+                          <option value="7">7 days</option>
+                          <option value="30">30 days</option>
+                          <option value="90">90 days</option>
+                          <option value="365">1 year</option>
+                          <option value="0">Everything</option>
+                        </select>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">

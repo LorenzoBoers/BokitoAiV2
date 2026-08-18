@@ -21,6 +21,8 @@ export type EmailConnection = {
   isEnabled: boolean
   /** At most one per organisation should be primary. */
   isPrimary: boolean
+  /** Initial backfill window in days; 0 = no limit. */
+  syncWindowDays: number
 }
 
 export type RoutingRuleApi = {
@@ -154,6 +156,7 @@ function normalizeConnection(row: unknown): EmailConnection | null {
     signatureHtml: asNullableString(raw.signature_html ?? raw.signatureHtml),
     isEnabled,
     isPrimary,
+    syncWindowDays: asNumber(raw.sync_window_days ?? raw.syncWindowDays, 30),
   }
 }
 
@@ -223,7 +226,7 @@ export async function syncMailboxes(token: string): Promise<{ synced: number }> 
 export async function updateMailboxSettings(
   token: string,
   connectionId: number,
-  payload: { is_enabled: boolean; is_primary: boolean },
+  payload: { is_enabled?: boolean; is_primary?: boolean; sync_window_days?: number },
 ): Promise<void> {
   await apiPut(integrationsRoutes.email.connections.mailboxSettings(connectionId), payload, token)
 }

@@ -16,6 +16,8 @@ export interface MailboxConnection {
   sync_enabled: boolean;
   /** Organisation primary mailbox (one active primary). */
   is_primary: boolean;
+  /** Initial backfill window in days; 0 = no limit. */
+  sync_window_days: number;
   created_at: string;
   updated_at: string;
 }

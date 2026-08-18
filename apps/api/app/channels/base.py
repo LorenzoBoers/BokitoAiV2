@@ -34,6 +34,9 @@ class InboundMessage:
     external_id: str = ""  # provider message id (dedupe)
     thread_external_id: str = ""  # provider thread/conversation id
     channel_account_id: UUID | None = None
+    # Actual delivery time at the provider (naive UTC). Without it the message
+    # is stamped with the sync time, which is wrong for backfilled mail.
+    received_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -144,6 +147,8 @@ async def ingest_inbound(
             return signal, False
 
     now = datetime.utcnow()
+    # Prefer the provider's delivery time; clamp future values (clock skew).
+    received = inbound.received_at if inbound.received_at and inbound.received_at <= now else now
     signal = await _find_existing_thread(session, tenant_id, inbound)
     created = False
     if not signal:
@@ -160,7 +165,7 @@ async def ingest_inbound(
             status="open",
             priority="normal",
             has_unread=True,
-            last_message_at=now,
+            last_message_at=received,
         )
         session.add(signal)
         await session.flush()
@@ -195,11 +200,15 @@ async def ingest_inbound(
         attachments_json=json.dumps(inbound.metadata.get("attachments") or []),
         external_id=inbound.external_id,
         metadata_json=json.dumps(inbound.metadata) if inbound.metadata else "{}",
-        received_at=now,
+        received_at=received,
+        created_at=received,
     )
     session.add(message)
     signal.has_unread = True
-    signal.last_message_at = now
+    # Backfill can ingest older mail after newer mail: never move the thread
+    # back in time in the list ordering.
+    if signal.last_message_at is None or received > signal.last_message_at:
+        signal.last_message_at = received
     signal.updated_at = now
     await session.commit()
     await session.refresh(signal)

@@ -176,7 +176,7 @@ async def test_sync_polls_selected_folders_with_per_folder_cursors(
 
     polled: list[tuple[str, str]] = []
 
-    async def fake_fetch(acct, token, folder_id, cursor):
+    async def fake_fetch(acct, token, folder_id, cursor, since=None):
         polled.append((folder_id, cursor))
         return (
             [

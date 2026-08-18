@@ -20,7 +20,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -49,6 +49,11 @@ GRAPH_ATTACHMENTS_URL = "https://graph.microsoft.com/v1.0/me/messages/{id}/attac
 
 MAX_FETCH = 25
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+
+# How far back the initial backfill reaches when a mailbox is first connected
+# (or when a cursor is invalidated). Per-account override via
+# settings_json["sync_window_days"]; 0 means no limit.
+DEFAULT_SYNC_WINDOW_DAYS = 30
 
 # Standard folder set offered in "Select folders to sync". Each selected
 # folder is polled with its own cursor (settings_json["sync_cursors"]).
@@ -82,6 +87,28 @@ def account_sync_folders(settings: dict[str, Any]) -> list[dict[str, Any]]:
     if isinstance(stored, list) and stored:
         return [dict(f) for f in stored if isinstance(f, dict) and f.get("id")]
     return [dict(f) for f in DEFAULT_SYNC_FOLDERS]
+
+
+def account_sync_window_days(settings: dict[str, Any]) -> int:
+    """Backfill window in days for a mailbox (0 = unlimited)."""
+    try:
+        value = int(settings.get("sync_window_days", DEFAULT_SYNC_WINDOW_DAYS))
+    except (TypeError, ValueError):
+        return DEFAULT_SYNC_WINDOW_DAYS
+    return max(0, min(value, 3650))
+
+
+def _parse_iso_utc(value: Any) -> datetime | None:
+    """Provider ISO timestamp -> naive UTC datetime (our storage convention)."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
 
 
 async def _record_sync_error(session: AsyncSession, account: ChannelAccount, message: str) -> None:
@@ -128,7 +155,16 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
     body_text = _extract_gmail_body(payload) or msg.get("snippet", "")
     body_html = _extract_gmail_html(payload)
     attachments = _extract_gmail_attachments(payload)
+    received_at: datetime | None = None
+    try:
+        # internalDate is epoch milliseconds (delivery time at Gmail).
+        received_at = datetime.utcfromtimestamp(int(msg.get("internalDate") or 0) / 1000) or None
+    except (TypeError, ValueError, OverflowError, OSError):
+        received_at = None
+    if received_at and received_at.year < 2000:
+        received_at = None
     return {
+        "received_at": received_at,
         "from_address": address,
         "from_name": name,
         "subject": headers.get("subject", ""),
@@ -232,6 +268,7 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
         "message_id": msg.get("id", ""),
         "thread_id": msg.get("conversationId", ""),
         "rfc_message_id": msg.get("internetMessageId", ""),
+        "received_at": _parse_iso_utc(msg.get("receivedDateTime")),
         "auto_headers": auto_headers,
     }
 
@@ -246,13 +283,19 @@ async def _gmail_get_message(client: httpx.AsyncClient, token: str, mid: str) ->
     return _parse_gmail_message(detail.json())
 
 
-async def _fetch_gmail_full(token: str, label_id: str) -> tuple[list[dict[str, Any]], str]:
+async def _fetch_gmail_full(
+    token: str, label_id: str, since: datetime | None = None
+) -> tuple[list[dict[str, Any]], str]:
     """Full folder list + current historyId as the new cursor."""
     out: list[dict[str, Any]] = []
+    params: dict[str, str] = {"maxResults": str(MAX_FETCH), "labelIds": label_id}
+    if since is not None:
+        # Gmail search: `after:` accepts epoch seconds.
+        params["q"] = f"after:{int(since.replace(tzinfo=timezone.utc).timestamp())}"
     async with httpx.AsyncClient(timeout=20.0) as client:
         listing = await client.get(
             GMAIL_LIST_URL,
-            params={"maxResults": str(MAX_FETCH), "labelIds": label_id},
+            params=params,
             headers={"Authorization": f"Bearer {token}"},
         )
         listing.raise_for_status()
@@ -315,13 +358,13 @@ async def _fetch_gmail_history(
 
 
 async def _fetch_gmail(
-    token: str, sync_cursor: str, label_id: str
+    token: str, sync_cursor: str, label_id: str, since: datetime | None = None
 ) -> tuple[list[dict[str, Any]], str]:
     if sync_cursor:
         incremental = await _fetch_gmail_history(token, sync_cursor, label_id)
         if incremental is not None:
             return incremental
-    return await _fetch_gmail_full(token, label_id)
+    return await _fetch_gmail_full(token, label_id, since)
 
 
 async def _fetch_graph_page(
@@ -342,7 +385,19 @@ async def _fetch_graph_page(
     return messages, data.get("@odata.nextLink"), data.get("@odata.deltaLink")
 
 
-async def _fetch_graph_full(token: str, folder: str) -> tuple[list[dict[str, Any]], str]:
+GRAPH_MESSAGE_SELECT = (
+    "id,subject,from,bodyPreview,body,conversationId,hasAttachments,"
+    "internetMessageId,receivedDateTime"
+)
+
+
+def _graph_since_filter(since: datetime) -> str:
+    return f"receivedDateTime ge {since.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+
+
+async def _fetch_graph_full(
+    token: str, folder: str, since: datetime | None = None
+) -> tuple[list[dict[str, Any]], str]:
     out: list[dict[str, Any]] = []
     delta_link = ""
     async with httpx.AsyncClient(timeout=20.0) as client:
@@ -351,8 +406,10 @@ async def _fetch_graph_full(token: str, folder: str) -> tuple[list[dict[str, Any
             url: str | None = GRAPH_FOLDER_DELTA_URL.format(folder=folder)
             params: dict[str, str] | None = {
                 "$top": str(MAX_FETCH),
-                "$select": "id,subject,from,bodyPreview,body,conversationId,hasAttachments,internetMessageId",
+                "$select": GRAPH_MESSAGE_SELECT,
             }
+            if since is not None and params is not None:
+                params["$filter"] = _graph_since_filter(since)
             while url:
                 page, next_link, delta = await _fetch_graph_page(client, url, token, params)
                 out.extend(page)
@@ -367,13 +424,16 @@ async def _fetch_graph_full(token: str, folder: str) -> tuple[list[dict[str, Any
         except httpx.HTTPStatusError:
             logger.debug("Graph delta unavailable; falling back to folder list")
 
+        list_params: dict[str, str] = {
+            "$top": str(MAX_FETCH),
+            "$orderby": "receivedDateTime desc",
+            "$select": GRAPH_MESSAGE_SELECT,
+        }
+        if since is not None:
+            list_params["$filter"] = _graph_since_filter(since)
         resp = await client.get(
             GRAPH_FOLDER_URL.format(folder=folder),
-            params={
-                "$top": str(MAX_FETCH),
-                "$orderby": "receivedDateTime desc",
-                "$select": "id,subject,from,bodyPreview,body,conversationId,hasAttachments,internetMessageId",
-            },
+            params=list_params,
             headers={"Authorization": f"Bearer {token}"},
         )
         resp.raise_for_status()
@@ -385,7 +445,7 @@ async def _fetch_graph_full(token: str, folder: str) -> tuple[list[dict[str, Any
 
 
 async def _fetch_graph(
-    token: str, sync_cursor: str, folder: str
+    token: str, sync_cursor: str, folder: str, since: datetime | None = None
 ) -> tuple[list[dict[str, Any]], str]:
     if sync_cursor.startswith("http"):
         out: list[dict[str, Any]] = []
@@ -398,30 +458,38 @@ async def _fetch_graph(
                 except httpx.HTTPStatusError as exc:
                     if exc.response.status_code in (410, 404):
                         # Delta token expired — full fallback.
-                        return await _fetch_graph_full(token, folder)
+                        return await _fetch_graph_full(token, folder, since)
                     raise
                 out.extend(page)
                 if delta:
                     delta_link = delta
                 url = next_link
         return out, delta_link
-    return await _fetch_graph_full(token, folder)
+    return await _fetch_graph_full(token, folder, since)
 
 
 async def _fetch_messages(
-    account: ChannelAccount, token: str, folder_id: str, cursor: str
+    account: ChannelAccount,
+    token: str,
+    folder_id: str,
+    cursor: str,
+    since: datetime | None = None,
 ) -> tuple[list[dict[str, Any]], str] | None:
-    """Fetch one folder. Returns None when the folder has no provider mapping."""
+    """Fetch one folder. Returns None when the folder has no provider mapping.
+
+    `since` bounds the initial backfill (no cursor yet); incremental syncs
+    ignore it because a cursor already marks the resume point.
+    """
     if account.provider == "gmail":
         label = GMAIL_LABEL_IDS.get(folder_id)
         if not label:
             return None
-        return await _fetch_gmail(token, cursor, label)
+        return await _fetch_gmail(token, cursor, label, since)
     if account.provider == "outlook":
         folder = GRAPH_FOLDER_NAMES.get(folder_id)
         if not folder:
             return None
-        return await _fetch_graph(token, cursor, folder)
+        return await _fetch_graph(token, cursor, folder, since)
     return None
 
 
@@ -600,6 +668,7 @@ async def _ingest_items(
 ) -> int:
     ingested = 0
     for item in items:
+        received_at = item.get("received_at")
         inbound = InboundMessage(
             channel="email",
             source=account.provider,
@@ -610,6 +679,7 @@ async def _ingest_items(
             external_id=item.get("message_id", ""),
             thread_external_id=item.get("thread_id", ""),
             channel_account_id=account.id,
+            received_at=received_at if isinstance(received_at, datetime) else None,
             metadata={
                 "body_html": item.get("body_html", ""),
                 "attachments": item.get("attachments") or [],
@@ -655,13 +725,15 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
         if isinstance(settings.get("sync_cursors"), dict)
         else {}
     )
+    window_days = account_sync_window_days(settings)
+    since = datetime.utcnow() - timedelta(days=window_days) if window_days > 0 else None
 
     ingested = 0
     fetched = 0
     for folder_id in folders:
         cursor = _folder_cursor(settings, account, folder_id)
         try:
-            fetch = await _fetch_messages(account, token, folder_id, cursor)
+            fetch = await _fetch_messages(account, token, folder_id, cursor, since)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 401:
                 token = await _refresh_if_possible(session, account)
@@ -671,7 +743,7 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
                     )
                     return {"account_id": str(account.id), "synced": 0, "status": "auth_expired"}
                 try:
-                    fetch = await _fetch_messages(account, token, folder_id, cursor)
+                    fetch = await _fetch_messages(account, token, folder_id, cursor, since)
                 except Exception as retry_exc:  # noqa: BLE001 — surfaced in sync status
                     logger.exception("mailbox sync retry failed for account=%s", account.id)
                     await _record_sync_error(session, account, f"Sync failed: {retry_exc}")
@@ -692,6 +764,15 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
             continue
         messages, new_cursor = fetch
         fetched += len(messages)
+
+        # Initial backfill: enforce the window client-side too — not every
+        # provider path honors the server-side filter (e.g. Gmail history).
+        if not cursor and since is not None:
+            messages = [
+                m
+                for m in messages
+                if not isinstance(m.get("received_at"), datetime) or m["received_at"] >= since
+            ]
 
         # Skip messages already ingested (dedupe happens in ingest_inbound too,
         # but checking here avoids re-downloading attachments on full re-fetches).

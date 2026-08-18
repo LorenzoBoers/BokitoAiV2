@@ -387,3 +387,95 @@ def test_gmail_parser_captures_rfc_id():
     )
     assert parsed["rfc_message_id"] == "<gm@mail.gmail.com>"
     assert parsed["references"] == "<earlier@x>"
+
+
+# --- Received time fidelity ----------------------------------------------------
+
+
+def test_graph_parser_captures_received_time_as_naive_utc():
+    from app.services.email_sync import _parse_graph_message
+
+    parsed = _parse_graph_message(
+        {
+            "id": "m-2",
+            "subject": "Bestelling",
+            "from": {"emailAddress": {"address": "shop@ryses.be", "name": "Ryses"}},
+            "body": {"contentType": "html", "content": "<p>Order</p>"},
+            "conversationId": "c-2",
+            # 14:18 local (UTC+2) == 12:18 UTC
+            "receivedDateTime": "2026-08-18T12:18:00Z",
+        }
+    )
+    assert parsed is not None
+    received = parsed["received_at"]
+    assert received is not None and received.tzinfo is None
+    assert received.isoformat() == "2026-08-18T12:18:00"
+
+
+def test_gmail_parser_captures_internal_date():
+    from calendar import timegm
+
+    from app.services.email_sync import _parse_gmail_message
+
+    # internalDate is UTC epoch milliseconds.
+    epoch_ms = timegm((2026, 8, 18, 12, 18, 0)) * 1000
+    parsed = _parse_gmail_message(
+        {
+            "id": "g-2",
+            "threadId": "t-2",
+            "internalDate": str(epoch_ms),
+            "payload": {"headers": [{"name": "From", "value": "Klant <k@x.nl>"}]},
+        }
+    )
+    received = parsed["received_at"]
+    assert received is not None and received.tzinfo is None
+    assert received.isoformat() == "2026-08-18T12:18:00"
+
+
+@pytest.mark.asyncio
+async def test_ingest_uses_provider_received_time(session_override: AsyncSession):
+    from datetime import datetime, timedelta
+
+    from app.channels.base import InboundMessage, ingest_inbound
+
+    tenant = await _tenant(session_override)
+    received = datetime.utcnow() - timedelta(hours=3)
+    inbound = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=f"tijd-{uuid4().hex[:6]}@x.nl",
+        subject="Timing",
+        body_text="Wanneer kwam dit binnen?",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id=f"conv-{uuid4().hex}",
+        received_at=received,
+    )
+    signal, _ = await ingest_inbound(session_override, tenant.id, inbound)
+
+    msg = (
+        await session_override.execute(
+            select(SignalMessage).where(SignalMessage.external_id == inbound.external_id)
+        )
+    ).scalar_one()
+    assert abs((msg.received_at - received).total_seconds()) < 1
+    assert abs((msg.created_at - received).total_seconds()) < 1
+    assert abs((signal.last_message_at - received).total_seconds()) < 1
+
+
+def test_iso_marks_naive_datetimes_as_utc():
+    from datetime import datetime
+
+    from app.services.signal_threads import _iso
+
+    assert _iso(datetime(2026, 8, 18, 12, 18)) == "2026-08-18T12:18:00Z"
+    assert _iso(None) is None
+
+
+def test_sync_window_days_defaults_and_clamps():
+    from app.services.email_sync import account_sync_window_days
+
+    assert account_sync_window_days({}) == 30
+    assert account_sync_window_days({"sync_window_days": 90}) == 90
+    assert account_sync_window_days({"sync_window_days": 0}) == 0
+    assert account_sync_window_days({"sync_window_days": -5}) == 0
+    assert account_sync_window_days({"sync_window_days": "garbage"}) == 30
