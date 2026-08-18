@@ -63,6 +63,28 @@
       "defer": "Defer"
     }
   },
+  "agentSession": {
+    "launcher": "Ask agent",
+    "pickAgent": "Bring an agent into this thread",
+    "title": "Agent session",
+    "internalHint": "Internal - not visible to the customer",
+    "endSession": "End session",
+    "ending": "Ending...",
+    "useAsReply": "Use as reply",
+    "composerPlaceholder": "Ask the agent anything about this thread...",
+    "expand": "Show conversation",
+    "collapse": "Hide conversation",
+    "actionsTitle": "Actions performed",
+    "noActions": "No external actions were performed.",
+    "messages": "{{count}} messages",
+    "startError": "Could not start an agent session.",
+    "closeError": "Could not end the session.",
+    "closedToast": "Agent session ended",
+    "activeBadge": "Active",
+    "closedAt": "Ended {{time}}",
+    "transcriptError": "Could not load the session transcript.",
+    "replyCopied": "Answer copied to the reply composer"
+  },
   "onboarding": {
     "title": "Get your workspace ready",
     "subtitle": "A few steps and Bokito runs on your organization's knowledge.",

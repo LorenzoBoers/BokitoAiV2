@@ -80,6 +80,12 @@ class ResolveBody(BaseModel):
     response_text: str | None = None
 
 
+class SessionStartBody(BaseModel):
+    """Inline agent session: which agent to bring into the thread."""
+
+    agent_id: UUID | None = None
+
+
 def _num(auth: AuthContext) -> int:
     return user_numeric_id(auth.user.id)
 
@@ -616,6 +622,44 @@ async def release_thread(
     if not result:
         raise HTTPException(status_code=404, detail="Signal not found")
     return result
+
+
+@router.post("/{signal_id}/sessions")
+async def start_agent_session(
+    signal_id: UUID,
+    body: SessionStartBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Bring an agent into the thread: opens an inline agent session."""
+    from app.services import agent_sessions
+    from app.services.personal_agents import resolve_chat_target
+
+    agent = await resolve_chat_target(
+        session,
+        auth.tenant.id,
+        auth.user,
+        body.agent_id,
+        is_admin=auth.role in ("owner", "admin"),
+    )
+    return await agent_sessions.start_session(
+        session, auth.tenant.id, auth.user, signal_id, agent
+    )
+
+
+@router.post("/{signal_id}/sessions/{session_id}/close")
+async def close_agent_session(
+    signal_id: UUID,
+    session_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Checkout: freeze the session; its outcome collapses into the timeline."""
+    from app.services import agent_sessions
+
+    return await agent_sessions.close_session(
+        session, auth.tenant.id, auth.user.id, signal_id, session_id
+    )
 
 
 @router.post("/{signal_id}/notes")

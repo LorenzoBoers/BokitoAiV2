@@ -93,6 +93,14 @@ class Signal(SQLModel, table=True):
     # turn so answers stay grounded in the live thread.
     context_signal_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
+    # Inline agent sessions: assistant Signals started from inside a thread
+    # carry a lifecycle ("active" -> "closed"). Null for regular threads and
+    # standalone assistant chats.
+    session_state: Optional[str] = Field(default=None, index=True)
+    session_closed_at: Optional[datetime] = None
+    # Checkout outcome: {"summary": str, "actions": [...], "message_count": int}
+    session_outcome_json: str = Field(default="{}")
+
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

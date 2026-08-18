@@ -41,6 +41,10 @@ export type DirectChatPanelProps = {
   initialMessage?: string | null
   /** When set, assistant replies get a copy action (e.g. copy to composer). */
   onCopyText?: (text: string) => void
+  /** Label for the copy action (defaults to "Copy to composer"). */
+  copyLabel?: string
+  /** Placeholder for the message input. */
+  composerPlaceholder?: string
 }
 
 function SystemEventDivider({ text }: { text: string }) {
@@ -61,6 +65,7 @@ function MessageBubble({
   conversationId,
   onDecisionResolved,
   onCopyText,
+  copyLabel,
 }: {
   message: ChatMessage
   userName: string
@@ -69,6 +74,7 @@ function MessageBubble({
   conversationId: string
   onDecisionResolved: () => void
   onCopyText?: (text: string) => void
+  copyLabel?: string
 }) {
   const isUser = message.role === 'user'
 
@@ -125,7 +131,7 @@ function MessageBubble({
             className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
           >
             <ClipboardCopy size={11} />
-            Copy to composer
+            {copyLabel ?? 'Copy to composer'}
           </button>
         ) : null}
       </div>
@@ -257,6 +263,8 @@ export default function DirectChatPanel({
   hideHeader,
   initialMessage,
   onCopyText,
+  copyLabel,
+  composerPlaceholder,
 }: DirectChatPanelProps) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -511,6 +519,7 @@ export default function DirectChatPanel({
                   conversationId={conversationId}
                   onDecisionResolved={() => void loadMessages()}
                   onCopyText={onCopyText}
+                  copyLabel={copyLabel}
                 />
               ))}
               {showStreamBubble ? (
@@ -541,7 +550,7 @@ export default function DirectChatPanel({
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onComposerKeyDown}
               rows={Math.min(6, Math.max(1, draft.split('\n').length))}
-              placeholder="Message your assistant..."
+              placeholder={composerPlaceholder ?? 'Message your assistant...'}
               className="max-h-[180px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none"
             />
             {stream.active ? (

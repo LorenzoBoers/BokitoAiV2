@@ -578,10 +578,18 @@ async def get_thread(
             row["my_feedback"] = {"score": fb.score, "sentiment": fb.sentiment}
         serialized_messages.append(row)
 
+    # Inline agent sessions anchored on this thread (active + closed).
+    from app.services.agent_sessions import list_sessions
+
+    sessions = [] if signal.channel == "assistant" else await list_sessions(
+        session, tenant_id, signal_id
+    )
+
     return {
         "thread": serialize_thread(signal, is_pinned=signal_id in pinned, agent=agent),
         "messages": serialized_messages,
         "events": [serialize_event(e, user_num_map=rev_map) for e in events_result.scalars().all()],
+        "sessions": sessions,
     }
 
 

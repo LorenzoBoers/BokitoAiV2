@@ -16,7 +16,6 @@ import {
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
-import AskAssistantPanel from '../components/inbox/AskAssistantPanel'
 import { isInternalThread } from '../lib/message-composer'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
@@ -200,8 +199,6 @@ export default function Communication() {
 
   const { search, setSearch, quickFilter, setQuickFilter, resetQuickFilter } = useInboxCommunication()
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
-  const [showAssistantPanel, setShowAssistantPanel] = useState(false)
-  const [assistantDraft, setAssistantDraft] = useState<{ body: string; key: string } | null>(null)
   const [showContactPanel, setShowContactPanel] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
     const stored = window.localStorage.getItem('inbox.contactPanel.open')
@@ -321,11 +318,6 @@ export default function Communication() {
     },
     [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
-
-  // Assistant copy-to-composer drafts are thread-specific.
-  useEffect(() => {
-    setAssistantDraft(null)
-  }, [selectedThreadId])
 
   const firstThreadId = filteredThreads[0]?.id ?? null
 
@@ -584,14 +576,10 @@ export default function Communication() {
 
   const handleThreadUpdated = handleDecisionResolved
 
-  // "Ask assistant": external threads get an inline assistant panel next to
-  // the thread (copy-to-composer); internal agent threads open a fresh chat.
+  // "Ask assistant" on internal agent threads opens a fresh standalone chat.
+  // External threads use the inline agent session launcher inside ThreadDetail.
   const handleAskAssistant = useCallback(() => {
-    if (!detail) return
-    if (!isInternalThread(detail.thread)) {
-      setShowAssistantPanel((prev) => !prev)
-      return
-    }
+    if (!detail || !isInternalThread(detail.thread)) return
     const subject = detail.thread.emailSubject || detail.thread.contactName || 'this thread'
     const prefill = `Help me with the thread "${subject}" (thread id ${detail.thread.id}). Summarize what happened and suggest the next step.`
     navigate(`/communication/new?prefill=${encodeURIComponent(prefill)}`)
@@ -742,18 +730,7 @@ export default function Communication() {
           onDecisionResolved={handleDecisionResolved}
           mode={mode}
           onAskAssistant={detail ? handleAskAssistant : undefined}
-          externalDraft={assistantDraft}
         />
-        {detail && showAssistantPanel && !isInternalThread(detail.thread) ? (
-          <AskAssistantPanel
-            thread={detail.thread}
-            onClose={() => setShowAssistantPanel(false)}
-            onCopyToComposer={(text) => {
-              setAssistantDraft({ body: text, key: `assist-${Date.now()}` })
-              toast.success('Copied to reply composer')
-            }}
-          />
-        ) : null}
         {detail && showContactPanel ? (
           <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} onThreadUpdated={handleThreadUpdated} />
         ) : null}

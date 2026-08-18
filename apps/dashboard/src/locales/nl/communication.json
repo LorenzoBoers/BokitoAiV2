@@ -63,6 +63,28 @@
       "defer": "Uitstellen"
     }
   },
+  "agentSession": {
+    "launcher": "Vraag agent",
+    "pickAgent": "Haal een agent bij dit gesprek",
+    "title": "Agent-sessie",
+    "internalHint": "Intern - niet zichtbaar voor de klant",
+    "endSession": "Sessie afronden",
+    "ending": "Afronden...",
+    "useAsReply": "Gebruik als antwoord",
+    "composerPlaceholder": "Vraag de agent iets over dit gesprek...",
+    "expand": "Toon gesprek",
+    "collapse": "Verberg gesprek",
+    "actionsTitle": "Uitgevoerde acties",
+    "noActions": "Er zijn geen externe acties uitgevoerd.",
+    "messages": "{{count}} berichten",
+    "startError": "Kon geen agent-sessie starten.",
+    "closeError": "Kon de sessie niet afronden.",
+    "closedToast": "Agent-sessie afgerond",
+    "activeBadge": "Actief",
+    "closedAt": "Afgerond {{time}}",
+    "transcriptError": "Kon het sessietranscript niet laden.",
+    "replyCopied": "Antwoord in de composer gezet"
+  },
   "onboarding": {
     "title": "Maak je workspace klaar",
     "subtitle": "Een paar stappen en Bokito draait op de kennis van jouw organisatie.",

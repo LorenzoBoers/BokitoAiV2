@@ -9,6 +9,7 @@ import {
   apiDelete,
   apiGet as apiGetApp,
 } from './api'
+import type { ThreadSession } from './signals-api'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -133,6 +134,8 @@ export type ThreadDetail = {
   thread: InboxThread
   messages: InboxMessage[]
   events: InboxEvent[]
+  /** Inline agent sessions anchored on this thread (active + closed). */
+  sessions: ThreadSession[]
 }
 
 export type ThreadFilters = {
@@ -499,6 +502,7 @@ import {
   unpinSignalThread,
   updateSignalNote,
 } from './signals-api'
+export type { ThreadSession, ThreadSessionAction } from './signals-api'
 
 // ---------------------------------------------------------------------------
 // Threads (Signal API)

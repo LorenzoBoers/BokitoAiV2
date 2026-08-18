@@ -70,6 +70,9 @@ export const appRoutes = {
     threadTakeover: (threadId: string) => `/signals/${threadId}/takeover`,
     threadRelease: (threadId: string) => `/signals/${threadId}/release`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
+    threadSessions: (threadId: string) => `/signals/${threadId}/sessions`,
+    threadSessionClose: (threadId: string, sessionId: string) =>
+      `/signals/${threadId}/sessions/${sessionId}/close`,
     messageResolve: (threadId: string, messageId: string) =>
       `/signals/${threadId}/messages/${messageId}/resolve`,
     pins: '/signals/pins',

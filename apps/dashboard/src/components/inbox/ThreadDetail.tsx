@@ -30,8 +30,10 @@ import {
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
 import ThinkingTrace from './ThinkingTrace'
+import AgentSessionCard from './AgentSessionCard'
 import { draftThreadReply, resolveThreadDecision } from '../../lib/inbox-api'
-import { invokeSignalAgent } from '../../lib/signals-api'
+import { invokeSignalAgent, startAgentSession } from '../../lib/signals-api'
+import { bokitoListChatTargets, type ChatTarget } from '../../lib/bokito-api'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, tokenizeMentions, type MentionItem } from '../../lib/mentions'
 import { createAgentTask } from '../../lib/orchestration-api'
@@ -40,6 +42,7 @@ import { toast } from 'sonner'
 type TimelineEntry =
   | { kind: 'message'; time: string; id: string; data: ThreadDetailType['messages'][number] }
   | { kind: 'event'; time: string; id: string; data: ThreadDetailType['events'][number] }
+  | { kind: 'session'; time: string; id: string; data: ThreadDetailType['sessions'][number] }
 
 type DayGroup = {
   dayKey: string
@@ -52,6 +55,7 @@ type DayGroup = {
 type RenderItem =
   | { kind: 'message'; id: string; time: string; entry: Extract<TimelineEntry, { kind: 'message' }> }
   | { kind: 'events'; id: string; time: string; events: ThreadDetailType['events'] }
+  | { kind: 'session'; id: string; time: string; session: ThreadDetailType['sessions'][number] }
 
 function clusterEntries(entries: TimelineEntry[]): RenderItem[] {
   const items: RenderItem[] = []
@@ -63,6 +67,8 @@ function clusterEntries(entries: TimelineEntry[]): RenderItem[] {
       } else {
         items.push({ kind: 'events', id: entry.id, time: entry.time, events: [entry.data] })
       }
+    } else if (entry.kind === 'session') {
+      items.push({ kind: 'session', id: entry.id, time: entry.time, session: entry.data })
     } else {
       items.push({ kind: 'message', id: entry.id, time: entry.time, entry })
     }
@@ -117,10 +123,8 @@ type Props = {
    * "Ask assistant" action.
    */
   mode?: 'customer' | 'agent'
-  /** Start an assistant chat pre-filled with this thread's context. */
+  /** Internal threads only: open a standalone assistant chat with context. */
   onAskAssistant?: () => void
-  /** Prefill the composer from outside (e.g. Ask-assistant copy-to-composer). */
-  externalDraft?: { body: string; key: string } | null
 }
 
 const HEADER_ICON =
@@ -204,6 +208,91 @@ function DraftWithAiButton({
         </div>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * "Ask agent" launcher: pick which agent joins the thread as an inline
+ * session. One click when only the personal assistant exists; a dropdown
+ * when company agents are available too.
+ */
+function AgentSessionLauncher({
+  threadId,
+  disabled,
+  onStarted,
+}: {
+  threadId: string
+  disabled: boolean
+  onStarted: () => void
+}) {
+  const { t } = useTranslation('communication')
+  const { token } = useAuth()
+  const [targets, setTargets] = useState<ChatTarget[]>([])
+  const [starting, setStarting] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    bokitoListChatTargets(token)
+      .then((res) => {
+        if (!cancelled) setTargets(res.items)
+      })
+      .catch(() => {
+        // Launcher falls back to the default agent on the backend.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  const start = async (agentId: string | null) => {
+    if (!token || starting) return
+    setStarting(true)
+    try {
+      await startAgentSession(token, threadId, agentId)
+      onStarted()
+    } catch {
+      toast.error(t('agentSession.startError'))
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const trigger = (
+    <Button
+      size="sm"
+      variant="ghost"
+      disabled={disabled || starting}
+      className="gap-1.5 text-text-secondary"
+      onClick={targets.length <= 1 ? () => void start(targets[0]?.id ?? null) : undefined}
+    >
+      {starting ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+      {t('agentSession.launcher')}
+    </Button>
+  )
+
+  if (targets.length <= 1) return trigger
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          {t('agentSession.pickAgent')}
+        </p>
+        {targets.map((target) => (
+          <DropdownMenuItem
+            key={target.id}
+            className="gap-2 text-xs"
+            onSelect={() => void start(target.id)}
+          >
+            <Bot size={12} className="text-text-muted" />
+            <span className="min-w-0 flex-1 truncate">{target.name}</span>
+            {target.is_default ? <span className="text-accent">•</span> : null}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -380,7 +469,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, externalDraft }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
   const { t } = useTranslation('communication')
   const { token, user } = useAuth()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
@@ -478,7 +567,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           (e) =>
             e.eventType !== 'replied' &&
             e.eventType !== 'note_added' &&
-            e.eventType !== 'reply_sent',
+            e.eventType !== 'reply_sent' &&
+            // The session card itself represents these lifecycle moments.
+            e.eventType !== 'agent_session_started' &&
+            e.eventType !== 'agent_session_closed',
         )
         .map((e) => ({
           kind: 'event' as const,
@@ -486,6 +578,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           id: `e-${e.id}`,
           data: e,
         })),
+      ...(detail.sessions ?? []).map((s) => ({
+        kind: 'session' as const,
+        time: s.startedAt,
+        id: `s-${s.id}`,
+        data: s,
+      })),
     ].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
     return groupByDay(timeline)
   }, [detail])
@@ -663,13 +761,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     setComposerDraft(null)
     setDraftError(null)
   }, [threadId])
-
-  // Prefill from outside (Ask-assistant "Copy to composer").
-  useEffect(() => {
-    if (externalDraft?.body) {
-      setComposerDraft({ body: externalDraft.body, key: externalDraft.key })
-    }
-  }, [externalDraft?.key, externalDraft?.body])
 
   const myMemberId = useMemo(() => {
     const email = user?.email?.toLowerCase()
@@ -870,6 +961,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }
 
   const { thread } = detail
+  const hasActiveSession = (detail.sessions ?? []).some((s) => s.state === 'active')
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -1147,7 +1239,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   item.kind === 'message' &&
                   (!prevItem || formatHourMinute(prevItem.time) !== formatHourMinute(item.time))
                 return (
-                <div key={item.id} className={item.kind === 'message' ? 'mb-3' : 'mb-1.5'}>
+                <div key={item.id} className={item.kind === 'events' ? 'mb-1.5' : 'mb-3'}>
                   {showTime ? (
                     <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
                       <span className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40">
@@ -1155,7 +1247,17 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                       </span>
                     </div>
                   ) : null}
-                  {item.kind === 'message' ? (
+                  {item.kind === 'session' ? (
+                    <AgentSessionCard
+                      session={item.session}
+                      threadId={String(thread.id)}
+                      onChanged={onRefresh}
+                      onUseAsReply={(text) => {
+                        setComposerDraft({ body: text, key: `session-${Date.now()}` })
+                        toast.success(t('agentSession.replyCopied'))
+                      }}
+                    />
+                  ) : item.kind === 'message' ? (
                     item.entry.data.kind === 'decision_request' ? (
                       <DecisionRequestMessage
                         message={item.entry.data}
@@ -1262,11 +1364,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 {draftError ? (
                   <span className="text-[11px] text-status-error">{draftError}</span>
                 ) : null}
-                {onAskAssistant ? (
-                  <Button size="sm" variant="ghost" onClick={onAskAssistant} className="gap-1.5 text-text-secondary">
-                    <Sparkles size={12} />
-                    Ask assistant
-                  </Button>
+                {!hasActiveSession ? (
+                  <AgentSessionLauncher
+                    threadId={String(thread.id)}
+                    disabled={saving}
+                    onStarted={() => {
+                      onRefresh()
+                      window.setTimeout(() => pinToBottom('smooth'), 400)
+                    }}
+                  />
                 ) : null}
                 <DraftWithAiButton
                   drafting={drafting}

@@ -207,8 +207,84 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Inline agent sessions (assistant sub-conversations anchored on a thread)
+// ---------------------------------------------------------------------------
+
+export type ThreadSessionAction = { tool: string; detail: string; at: string }
+
+export type ThreadSession = {
+  id: string
+  state: 'active' | 'closed'
+  agentId: string | null
+  agentName: string | null
+  ownerUserId: string | null
+  startedAt: string
+  closedAt: string | null
+  summary: string
+  actions: ThreadSessionAction[]
+  messageCount: number
+}
+
+function normalizeThreadSession(row: unknown): ThreadSession | null {
+  if (!row || typeof row !== 'object') return null
+  const raw = row as Record<string, unknown>
+  const id = asString(raw.id)
+  if (!id) return null
+  const actionsSource = Array.isArray(raw.actions) ? raw.actions : []
+  return {
+    id,
+    state: raw.state === 'closed' ? 'closed' : 'active',
+    agentId: asString(raw.agent_id) || null,
+    agentName: asString(raw.agent_name) || null,
+    ownerUserId: asString(raw.owner_user_id) || null,
+    startedAt: asString(raw.started_at),
+    closedAt: asString(raw.closed_at) || null,
+    summary: asString(raw.summary),
+    actions: actionsSource
+      .map((a): ThreadSessionAction | null => {
+        if (!a || typeof a !== 'object') return null
+        const rec = a as Record<string, unknown>
+        const tool = asString(rec.tool)
+        if (!tool) return null
+        return { tool, detail: asString(rec.detail), at: asString(rec.at) }
+      })
+      .filter((a): a is ThreadSessionAction => a !== null),
+    messageCount: asNumber(raw.message_count, 0),
+  }
+}
+
+export async function startAgentSession(
+  token: string,
+  threadId: string,
+  agentId?: string | null,
+): Promise<ThreadSession | null> {
+  const body: Record<string, unknown> = {}
+  if (agentId) body.agent_id = agentId
+  const payload = await apiPost<unknown>(appRoutes.signals.threadSessions(threadId), body, token)
+  return normalizeThreadSession(payload)
+}
+
+export async function closeAgentSession(
+  token: string,
+  threadId: string,
+  sessionId: string,
+): Promise<ThreadSession | null> {
+  const payload = await apiPost<unknown>(
+    appRoutes.signals.threadSessionClose(threadId, sessionId),
+    {},
+    token,
+  )
+  return normalizeThreadSession(payload)
+}
+
 export async function getSignalThread(token: string, threadId: string): Promise<ThreadDetail | null> {
-  const payload = await apiGet<{ thread?: unknown; messages?: unknown[]; events?: unknown[] }>(
+  const payload = await apiGet<{
+    thread?: unknown
+    messages?: unknown[]
+    events?: unknown[]
+    sessions?: unknown[]
+  }>(
     appRoutes.signals.thread(threadId),
     token,
   )
@@ -218,6 +294,9 @@ export async function getSignalThread(token: string, threadId: string): Promise<
     thread,
     messages: (payload.messages ?? []).map(normalizeSignalMessage).filter((m): m is InboxMessage => m !== null),
     events: (payload.events ?? []).map(normalizeSignalEvent).filter((e): e is InboxEvent => e !== null),
+    sessions: (payload.sessions ?? [])
+      .map(normalizeThreadSession)
+      .filter((s): s is ThreadSession => s !== null),
   }
 }
 
