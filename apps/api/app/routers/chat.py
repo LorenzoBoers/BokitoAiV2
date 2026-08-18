@@ -302,6 +302,7 @@ async def send_message(
         logger.exception("assistant chat failed for signal %s", signal.id)
         reply_text = _agent_error_message(exc, llm_meta)
         tokens = {}
+        _finalize_run(session, run, status="failed")
         assistant_msg = await append_signal_chat_message(
             session,
             signal,
@@ -338,6 +339,7 @@ async def send_message(
     )
     if signal.subject == "New conversation":
         signal.subject = body.content[:60]
+    _finalize_run(session, run, status="completed", tokens=tokens)
     await session.commit()
     await session.refresh(assistant_msg)
     return {
@@ -410,6 +412,7 @@ async def stream_message(
                     )
                     if signal.subject == "New conversation":
                         signal.subject = body.content[:60]
+                    _finalize_run(session, run, status="completed", tokens=event.get("usage") or {})
                     await session.commit()
                     done_payload: dict = {
                         "text": final,
@@ -426,6 +429,7 @@ async def stream_message(
         except Exception as exc:
             logger.exception("assistant stream failed for signal %s", signal.id)
             error_text = _agent_error_message(exc, llm_meta)
+            _finalize_run(session, run, status="failed")
             await append_signal_chat_message(
                 session,
                 signal,
@@ -497,6 +501,18 @@ async def _agent_run(session, auth, signal: Signal, content: str):
         await session.commit()
         await session.refresh(run)
     return agent, run
+
+
+def _finalize_run(session, run: AgentRun | None, *, status: str, tokens: dict | None = None) -> None:
+    """Close the run record; callers commit. Runs must never stay 'running'."""
+    if run is None:
+        return
+    run.status = status
+    run.completed_at = datetime.utcnow()
+    if isinstance(tokens, dict):
+        run.tokens_input = int(tokens.get("input_tokens") or 0)
+        run.tokens_output = int(tokens.get("output_tokens") or 0)
+    session.add(run)
 
 
 def _agent_error_message(exc: Exception, llm_meta: dict) -> str:

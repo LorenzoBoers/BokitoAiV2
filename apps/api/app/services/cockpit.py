@@ -185,18 +185,23 @@ async def usage_breakdown(
     }
 
 
-async def activity_timeline(session: AsyncSession, tenant_id: UUID, limit: int = 50) -> list[dict[str, Any]]:
+async def activity_timeline(
+    session: AsyncSession,
+    tenant_id: UUID,
+    limit: int = 50,
+    before: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Newest-first run events; `before` pages further into history."""
     events: list[dict[str, Any]] = []
 
-    run_events = await session.execute(
-        select(RunEvent)
-        .where(RunEvent.tenant_id == tenant_id)
-        .order_by(RunEvent.created_at.desc())
-        .limit(limit)
-    )
+    stmt = select(RunEvent).where(RunEvent.tenant_id == tenant_id)
+    if before is not None:
+        stmt = stmt.where(RunEvent.created_at < before)
+    run_events = await session.execute(stmt.order_by(RunEvent.created_at.desc()).limit(limit))
     for ev in run_events.scalars().all():
         events.append(
             {
+                "id": str(ev.id),
                 "kind": "agent_run",
                 "event_type": ev.event_type,
                 "message": ev.message,

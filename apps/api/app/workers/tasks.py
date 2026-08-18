@@ -193,7 +193,16 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
                 f"{language_rules}"
             )
-        reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
+        try:
+            reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
+        except Exception:
+            # Never leave the run stuck on "running": the agenda, cockpit and
+            # workforce views all read this status.
+            run.status = "failed"
+            run.completed_at = datetime.utcnow()
+            session.add(run)
+            await session.commit()
+            raise
 
         # If the agent already raised its own inline decision card during the
         # run, don't stack an automatic reply-suggestion card on top of it.
@@ -232,6 +241,12 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 mode=ai_mode,
             )
 
+        run.status = "completed"
+        run.completed_at = datetime.utcnow()
+        if isinstance(tokens, dict):
+            run.tokens_input = int(tokens.get("input_tokens") or 0)
+            run.tokens_output = int(tokens.get("output_tokens") or 0)
+        session.add(run)
         session.add(
             SignalEvent(
                 signal_id=signal.id,

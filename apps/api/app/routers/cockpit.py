@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -23,8 +24,9 @@ async def activity(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = Query(50, le=200),
+    before: datetime | None = Query(None),
 ):
-    return await activity_timeline(session, auth.tenant.id, limit=limit)
+    return await activity_timeline(session, auth.tenant.id, limit=limit, before=before)
 
 
 @router.get("/usage")

@@ -118,14 +118,17 @@ export async function bokitoGetCockpitSummary(token: string) {
 }
 
 export type CockpitActivityEvent = {
+  id?: string
   kind: string
   event_type: string
   message: string
   created_at: string
 }
 
-export async function bokitoGetCockpitActivity(token: string, limit = 50) {
-  return bokitoFetch<CockpitActivityEvent[]>(`/api/cockpit/activity?limit=${limit}`, token)
+export async function bokitoGetCockpitActivity(token: string, limit = 50, before?: string) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (before) params.set('before', before)
+  return bokitoFetch<CockpitActivityEvent[]>(`/api/cockpit/activity?${params}`, token)
 }
 
 /** A conversation row enriched with the agent it targets. */

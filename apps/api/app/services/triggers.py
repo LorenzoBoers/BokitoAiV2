@@ -536,7 +536,12 @@ async def agenda_occurrences(
     )
     for run in runs_result.scalars().all():
         trigger = trigger_by_id.get(run.trigger_id or "")
-        if trigger and trigger.kind in ("once", "event"):
+        if trigger is None:
+            # On-demand work (email suggestions, chat runs, widget replies)
+            # is execution history, not planning: it lives on the activity
+            # timeline, never on the agenda.
+            continue
+        if trigger.kind in ("once", "event"):
             continue  # already represented by the one-shot done item
         if agent_id and run.agent_id != agent_id:
             continue
@@ -544,13 +549,13 @@ async def agenda_occurrences(
             {
                 "id": f"run:{run.id}",
                 "trigger_id": run.trigger_id,
-                "name": trigger.name if trigger else (run.subject or "Agent run"),
-                "kind": trigger.kind if trigger else run.trigger_type.removeprefix("trigger_"),
+                "name": trigger.name,
+                "kind": trigger.kind,
                 "agent_id": str(run.agent_id),
-                "agent_role": trigger.agent_role if trigger else "",
+                "agent_role": trigger.agent_role,
                 "agent_name": agent_names.get(run.agent_id),
-                "instructions": trigger.instructions if trigger else "",
-                "enabled": trigger.enabled if trigger else False,
+                "instructions": trigger.instructions,
+                "enabled": trigger.enabled,
                 "at": _iso(run.started_at),
                 "status": run.status,
                 "run_id": str(run.id),

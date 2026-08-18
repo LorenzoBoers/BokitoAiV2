@@ -789,9 +789,27 @@ def _relax_oauth_states_tenant(connection: Connection) -> None:
         SQLModel.metadata.tables["oauth_states"].create(connection)
 
 
+def _close_stale_agent_runs(connection: Connection) -> None:
+    """Runs stuck on 'running' for over 6 hours can no longer be alive (arq
+    tasks and request handlers finish in minutes): close them so agenda,
+    cockpit and workforce status reads stay truthful."""
+    inspector = inspect(connection)
+    if not inspector.has_table("agent_runs"):
+        return
+    cutoff = "now() - interval '6 hours'" if connection.dialect.name == "postgresql" else "datetime('now', '-6 hours')"
+    connection.execute(
+        text(
+            "UPDATE agent_runs SET status='completed', "
+            "completed_at=COALESCE(completed_at, started_at) "
+            f"WHERE status='running' AND started_at < {cutoff}"
+        )
+    )
+
+
 def apply_data_repairs(connection: Connection) -> None:
     """Idempotent data fixes that ALTER cannot express (legacy role cleanup)."""
     _fix_postgres_uuid_columns(connection)
+    _close_stale_agent_runs(connection)
     _relax_oauth_states_tenant(connection)
     _migrate_legacy_threads_to_signals(connection)
     _drop_legacy_policy_tables(connection)

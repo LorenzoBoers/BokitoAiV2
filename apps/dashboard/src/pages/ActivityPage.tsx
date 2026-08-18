@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pause, Play, RefreshCw, Trash2 } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
+import TimelineStrip, { type TimelinePoint } from '../components/cockpit/TimelineStrip'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent, type GatewayEvent } from '../lib/gateway'
 import { bokitoGetCockpitActivity, type CockpitActivityEvent } from '../lib/bokito-api'
+import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
 import { humanizeLabel } from '../lib/labels'
 
 type ActivityEntry = {
@@ -17,17 +19,22 @@ type ActivityEntry = {
   live: boolean
 }
 
-const MAX_ENTRIES = 400
+const MAX_ENTRIES = 1000
+const HISTORY_PAGE = 100
 
 function fromCockpit(ev: CockpitActivityEvent, idx: number): ActivityEntry {
   return {
-    id: `hist-${ev.created_at}-${idx}`,
+    id: ev.id ?? `hist-${ev.created_at}-${idx}`,
     kind: ev.kind,
     eventType: ev.event_type,
     message: ev.message || '',
     createdAt: ev.created_at,
     live: false,
   }
+}
+
+function parseUtc(iso: string): Date {
+  return new Date(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`)
 }
 
 function fromGateway(event: GatewayEvent): ActivityEntry | null {
@@ -56,9 +63,12 @@ function formatTime(iso: string): string {
 export default function ActivityPage() {
   const { token } = useAuth()
   const [entries, setEntries] = useState<ActivityEntry[]>([])
+  const [planned, setPlanned] = useState<AgendaItem[]>([])
   const [filter, setFilter] = useState('')
   const [autoFollow, setAutoFollow] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [hasMoreHistory, setHasMoreHistory] = useState(true)
   const [loadError, setLoadError] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -67,8 +77,9 @@ export default function ActivityPage() {
     setLoading(true)
     setLoadError('')
     try {
-      const rows = await bokitoGetCockpitActivity(token, 100)
+      const rows = await bokitoGetCockpitActivity(token, HISTORY_PAGE)
       setEntries(rows.map(fromCockpit).reverse())
+      setHasMoreHistory(rows.length >= HISTORY_PAGE)
     } catch {
       setEntries([])
       setLoadError('Could not load activity history.')
@@ -80,6 +91,76 @@ export default function ActivityPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Upcoming planned agenda items (scheduled wakes / one-off tasks) shown on
+  // the timeline right of "now" — the agenda page manages them, this view
+  // just situates them on the same time axis as executed work.
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    const run = async () => {
+      try {
+        const now = new Date()
+        const items = await listAgendaOccurrences({
+          from: now.toISOString(),
+          to: new Date(now.getTime() + 24 * 3_600_000).toISOString(),
+        })
+        if (!cancelled) setPlanned(items.filter((i) => i.status === 'planned' && i.enabled))
+      } catch {
+        if (!cancelled) setPlanned([])
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  // Scrolling the timeline to its left edge pages further into history.
+  const loadOlder = useCallback(async () => {
+    if (!token || loadingOlder || !hasMoreHistory) return
+    const oldest = entries.find((e) => !e.live)
+    if (!oldest) return
+    setLoadingOlder(true)
+    try {
+      const rows = await bokitoGetCockpitActivity(token, HISTORY_PAGE, oldest.createdAt)
+      if (rows.length < HISTORY_PAGE) setHasMoreHistory(false)
+      if (rows.length) {
+        const older = rows.map(fromCockpit).reverse()
+        setEntries((prev) => {
+          const seen = new Set(prev.map((e) => e.id))
+          return [...older.filter((e) => !seen.has(e.id)), ...prev]
+        })
+      }
+    } catch {
+      setHasMoreHistory(false)
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [token, loadingOlder, hasMoreHistory, entries])
+
+  const timelinePoints = useMemo<TimelinePoint[]>(() => {
+    const eventPoints: TimelinePoint[] = entries.map((e) => ({
+      id: e.id,
+      at: parseUtc(e.createdAt),
+      label: e.message || humanizeLabel(e.eventType),
+      sublabel: humanizeLabel(e.kind),
+      tone:
+        e.eventType === 'failed' || e.eventType === 'error'
+          ? 'error'
+          : e.live
+            ? 'live'
+            : 'past',
+    }))
+    const plannedPoints: TimelinePoint[] = planned.map((item) => ({
+      id: `planned-${item.id}`,
+      at: parseUtc(item.at),
+      label: item.name,
+      sublabel: item.agent_name ?? undefined,
+      tone: 'planned',
+    }))
+    return [...eventPoints, ...plannedPoints]
+  }, [entries, planned])
 
   // Live stream of run events.
   useEffect(() => {
@@ -147,6 +228,15 @@ export default function ActivityPage() {
           </button>
         </div>
       ) : null}
+
+      {/* Horizontal platform timeline: executed work left of Now, planned
+          agenda items right of it. */}
+      <TimelineStrip
+        points={timelinePoints}
+        onLoadOlder={() => void loadOlder()}
+        hasMore={hasMoreHistory}
+        loadingOlder={loadingOlder}
+      />
 
       {/* Filter bar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
