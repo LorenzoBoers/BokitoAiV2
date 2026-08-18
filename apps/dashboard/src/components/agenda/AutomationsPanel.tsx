@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+import { Switch } from '../ui/switch'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { cn } from '../../lib/utils'
 import { useAuth } from '../../context/AuthContext'
 import { listAgents } from '../../lib/agents-api'
 import { agentRunsPath } from '../../lib/messages-paths'
@@ -310,32 +312,54 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                 triggers.map((trigger) => (
                   <div key={trigger.id} className="border-b border-border py-2 last:border-0">
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <div className="min-w-0">
-                        <span className="font-medium text-text-heading">{trigger.name}</span>
-                        <span className="ml-2 text-text-muted">
-                          {trigger.kind} · {triggerSchedule(trigger)}
-                        </span>
-                        {!trigger.enabled ? (
-                          <Badge variant="outline" className="ml-2 text-[10px]">
-                            disabled
-                          </Badge>
-                        ) : null}
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'h-2 w-2 shrink-0 rounded-full',
+                            trigger.enabled
+                              ? 'bg-status-success shadow-[0_0_6px_rgba(52,211,153,0.55)]'
+                              : 'border border-border bg-transparent',
+                          )}
+                        />
+                        <div className={cn('min-w-0', !trigger.enabled && 'opacity-55')}>
+                          <span
+                            className={cn(
+                              'font-medium',
+                              trigger.enabled ? 'text-text-heading' : 'text-text-muted',
+                            )}
+                          >
+                            {trigger.name}
+                          </span>
+                          <span className="ml-2 text-text-muted">
+                            {trigger.kind} · {triggerSchedule(trigger)}
+                          </span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'shrink-0 text-[10px]',
+                            trigger.enabled
+                              ? 'border-status-success/40 text-status-success'
+                              : 'border-border text-text-muted',
+                          )}
+                        >
+                          {trigger.enabled ? 'Active' : 'Paused'}
+                        </Badge>
                       </div>
-                      <div className="flex shrink-0 flex-wrap gap-1">
+                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                         {onEditTrigger ? (
                           <Button type="button" size="sm" variant="ghost" onClick={() => onEditTrigger(trigger)}>
                             Edit
                           </Button>
                         ) : null}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
+                        <Switch
+                          checked={trigger.enabled}
                           disabled={runningId === trigger.id}
-                          onClick={() => void toggleTrigger(trigger)}
-                        >
-                          {trigger.enabled ? 'Disable' : 'Enable'}
-                        </Button>
+                          aria-label={trigger.enabled ? `Pause ${trigger.name}` : `Activate ${trigger.name}`}
+                          onCheckedChange={() => void toggleTrigger(trigger)}
+                          className="h-5 w-9 [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-[16px]"
+                        />
                         <Button
                           type="button"
                           size="sm"
@@ -495,13 +519,20 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                           ) : (
                             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-muted" />
                           )}
-                          <span className="truncate font-medium text-text-heading">{w.name}</span>
+                          <span
+                            className={cn(
+                              'truncate font-medium',
+                              w.enabled ? 'text-text-heading' : 'text-text-muted opacity-70',
+                            )}
+                          >
+                            {w.name}
+                          </span>
                           <Badge variant="outline" className="shrink-0 text-[10px]">
                             {steps.length} step{steps.length === 1 ? '' : 's'}
                           </Badge>
                           {!w.enabled ? (
-                            <Badge variant="outline" className="shrink-0 text-[10px]">
-                              disabled
+                            <Badge variant="outline" className="shrink-0 border-border text-[10px] text-text-muted">
+                              Paused
                             </Badge>
                           ) : null}
                         </button>
