@@ -1178,6 +1178,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                         contactName={thread.contactName}
                         contactEmail={thread.contactEmail}
                         contactPhone={thread.contactPhone}
+                        agentName={thread.agentName}
                         membersById={membersById}
                         noteActions={
                           onUpdateNote && onDeleteNote

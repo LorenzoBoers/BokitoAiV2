@@ -1,4 +1,4 @@
-import { Bot, Check, Mail, Pencil, Phone, Sparkles, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Mail, Pencil, Phone, Sparkles, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { cn } from '../../lib/utils'
@@ -31,6 +31,8 @@ type MessageItemProps = {
   contactPhone?: string
   membersById?: Record<number, InboxMember>
   noteActions?: NoteActions
+  /** Name of the agent bound to this thread, shown on AI messages. */
+  agentName?: string | null
 }
 
 type EventItemProps = {
@@ -536,6 +538,35 @@ function EventPill({ event, memberName }: { event: InboxEvent; memberName?: stri
   )
 }
 
+// Visual identity per author type — the "group chat" model: customers,
+// teammates and AI agents each have a distinct bubble; only the signed-in
+// user's own messages sit on the right (like WhatsApp / iMessage).
+type BubbleVariant = 'external' | 'team' | 'agent' | 'self' | 'note'
+
+const BUBBLE_VARIANT_CLASSES: Record<BubbleVariant, string> = {
+  external: 'bg-bg-surface border-border/50',
+  team: 'bg-bg-elevated/80 border-border/60',
+  agent: 'bg-accent/[0.07] border-accent/25',
+  self: 'bg-accent/15 border-accent/30',
+  note: 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30',
+}
+
+// Small role chip next to the author name ("Team" / "AI").
+function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
+  return (
+    <span
+      className={cn(
+        'shrink-0 rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide leading-3',
+        kind === 'ai'
+          ? 'border-accent/25 bg-accent/10 text-accent'
+          : 'border-border/50 bg-bg-elevated text-text-muted',
+      )}
+    >
+      {kind === 'ai' ? 'AI' : 'Team'}
+    </span>
+  )
+}
+
 // Chat-style bubble: avatar on one side, message bubble constrained to a
 // portion of the width so left/right alignment is clearly visible.
 function ChatMessageBubble({
@@ -543,13 +574,13 @@ function ChatMessageBubble({
   avatar,
   header,
   body,
-  internal,
+  variant,
 }: {
   side: 'left' | 'right'
   avatar: ReactNode
   header: ReactNode
   body: ReactNode
-  internal?: boolean
+  variant: BubbleVariant
 }) {
   const isRight = side === 'right'
   return (
@@ -559,11 +590,7 @@ function ChatMessageBubble({
         className={cn(
           'max-w-[78%] min-w-0 rounded-2xl border px-3 py-2',
           isRight ? 'rounded-br-sm' : 'rounded-bl-sm',
-          internal
-            ? 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30'
-            : isRight
-              ? 'bg-bg-surface border-border/50 ring-1 ring-accent/10 dark:ring-accent/15'
-              : 'bg-bg-surface border-border/50',
+          BUBBLE_VARIANT_CLASSES[variant],
         )}
       >
         {header}
@@ -574,30 +601,21 @@ function ChatMessageBubble({
   )
 }
 
-// Email-style block: full width, left-aligned, flat card (no chat bubble
-// corners) regardless of direction.
+// Email-style block for inbound external mail: full width, left-aligned,
+// flat card — HTML newsletters and long mails need the horizontal room.
 function EmailMessageBlock({
   avatar,
   header,
   body,
-  internal,
 }: {
   avatar: ReactNode
   header: ReactNode
   body: ReactNode
-  internal?: boolean
 }) {
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex w-full items-start gap-2">
       {avatar}
-      <div
-        className={cn(
-          'w-full min-w-0 rounded-lg border px-3 py-2',
-          internal
-            ? 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30'
-            : 'bg-bg-surface border-border/50',
-        )}
-      >
+      <div className="w-full min-w-0 rounded-lg border px-3 py-2 bg-bg-surface border-border/50">
         {header}
         {body}
       </div>
@@ -674,7 +692,7 @@ function MessageFeedbackControls({
   )
 }
 
-export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById, noteActions }: MessageItemProps) {
+export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById, noteActions, agentName }: MessageItemProps) {
   const { user } = useAuth()
   const currentUserId = user?.id ?? null
   const isInternal = message.direction === 'internal'
@@ -784,6 +802,60 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   const userAvatar = (
     <UserAvatar name={authorName} email={authorEmail || authorName} avatarUrl={authorAvatarUrl} size={28} />
   )
+  const agentAvatar = (
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-accent/10 text-accent">
+      <Sparkles size={13} />
+    </span>
+  )
+
+  const isAgentMessage =
+    message.kind === 'agent_message' ||
+    Boolean(message.payload?.agent_id) ||
+    Boolean(message.agentTrace)
+
+  // Group-chat author model: customer (external), teammate, AI agent, or the
+  // signed-in user. Only "self" renders on the right — the pattern everyone
+  // knows from WhatsApp-style group chats.
+  const isOwn =
+    !isInbound &&
+    !isAgentMessage &&
+    message.authorUserId != null &&
+    currentUserId != null &&
+    message.authorUserId === currentUserId
+  const authorKind: 'external' | 'agent' | 'self' | 'teammate' = isInbound
+    ? 'external'
+    : isAgentMessage
+      ? 'agent'
+      : isOwn
+        ? 'self'
+        : 'teammate'
+
+  const sendFailed =
+    typeof message.sendStatus === 'string' && message.sendStatus.startsWith('failed')
+
+  const noteEditControls =
+    isEditableNote && !editingNote ? (
+      <span className="ml-auto flex items-center gap-0.5 shrink-0">
+        <button
+          type="button"
+          aria-label="Edit note"
+          disabled={noteBusy}
+          onClick={startNoteEdit}
+          className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-bg-elevated hover:text-text-primary transition-colors disabled:opacity-40"
+        >
+          <Pencil size={10} />
+        </button>
+        <button
+          type="button"
+          aria-label="Delete note"
+          disabled={noteBusy}
+          onClick={() => void removeNote()}
+          className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-status-error/10 hover:text-status-error transition-colors disabled:opacity-40"
+        >
+          <Trash2 size={10} />
+        </button>
+      </span>
+    ) : null
 
   const inboundHeader = (
     <div className="flex items-baseline gap-1.5 mb-1 min-w-0">
@@ -793,114 +865,79 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       ) : null}
     </div>
   )
-  const outboundHeader = (
-    <div className="flex items-center gap-1.5 mb-1 min-w-0">
-      {isInternal ? <StickyNote size={12} className="text-yellow-600 shrink-0" /> : null}
-      <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
-      <span className="text-[10px] text-text-muted shrink-0">
-        {isInternal ? 'Internal note' : 'Sent'}
-      </span>
-      {isEditableNote && !editingNote ? (
-        <span className="ml-auto flex items-center gap-0.5 shrink-0">
-          <button
-            type="button"
-            aria-label="Edit note"
-            disabled={noteBusy}
-            onClick={startNoteEdit}
-            className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-bg-elevated hover:text-text-primary transition-colors disabled:opacity-40"
-          >
-            <Pencil size={10} />
-          </button>
-          <button
-            type="button"
-            aria-label="Delete note"
-            disabled={noteBusy}
-            onClick={() => void removeNote()}
-            className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-status-error/10 hover:text-status-error transition-colors disabled:opacity-40"
-          >
-            <Trash2 size={10} />
-          </button>
-        </span>
-      ) : null}
-    </div>
-  )
 
-  const isAgentMessage =
-    message.kind === 'agent_message' ||
-    Boolean(message.payload?.agent_id) ||
-    Boolean(message.agentTrace)
+  // Header per author type. Own messages skip the name (it is obviously you);
+  // notes and failed sends still surface their affordances.
+  const header = (() => {
+    if (isInternal) {
+      return (
+        <div className="flex items-center gap-1.5 mb-1 min-w-0">
+          <StickyNote size={12} className="text-yellow-600 shrink-0" />
+          {!isOwn ? (
+            <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
+          ) : null}
+          <span className="text-[10px] text-text-muted shrink-0">Internal note</span>
+          {noteEditControls}
+        </div>
+      )
+    }
+    if (authorKind === 'external') return inboundHeader
+    if (authorKind === 'agent') {
+      return (
+        <div className="mb-1 flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-xs font-medium text-text-heading">
+            {agentName || 'AI agent'}
+          </span>
+          <RoleChip kind="ai" />
+        </div>
+      )
+    }
+    if (authorKind === 'teammate') {
+      return (
+        <div className="mb-1 flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-xs font-medium text-text-heading">{authorName}</span>
+          <RoleChip kind="team" />
+        </div>
+      )
+    }
+    // self: no name header — only a delivery error when sending failed.
+    if (sendFailed) {
+      return (
+        <div className="mb-1 flex min-w-0 items-center gap-1">
+          <span className="text-[10px] font-medium text-status-error">Not delivered</span>
+        </div>
+      )
+    }
+    return null
+  })()
+
+  const avatar =
+    authorKind === 'external' ? contactAvatar : authorKind === 'agent' ? agentAvatar : userAvatar
+  const variant: BubbleVariant = isInternal
+    ? 'note'
+    : authorKind === 'external'
+      ? 'external'
+      : authorKind === 'agent'
+        ? 'agent'
+        : authorKind === 'self'
+          ? 'self'
+          : 'team'
+  const side: 'left' | 'right' = isOwn ? 'right' : 'left'
 
   const feedbackRow =
     isAgentMessage && typeof message.id === 'string' ? (
       <MessageFeedbackControls messageId={message.id} initial={message.myFeedback} />
     ) : null
 
-  // Email threads: never use chat-style left/right alignment. Render every
-  // message as a full-width, left-aligned card.
-  if (layout === 'email') {
-    const emailBlock = (
-      <EmailMessageBlock
-        avatar={isInbound ? contactAvatar : userAvatar}
-        header={isInbound ? inboundHeader : outboundHeader}
-        body={bubbleBody}
-        internal={isInternal}
-      />
-    )
-    if (!message.agentTrace && !feedbackRow) return emailBlock
-    return (
-      <div className="space-y-0.5">
-        {message.agentTrace ? (
-          <ReasoningDisclosure
-            thinking={message.agentTrace.thinking}
-            steps={message.agentTrace.steps}
-            usage={message.agentTrace.usage}
-            className="ml-9 max-w-full"
-          />
-        ) : null}
-        {emailBlock}
-        {feedbackRow ? <div className="ml-9">{feedbackRow}</div> : null}
-      </div>
-    )
-  }
+  // Email threads: inbound external mail keeps the full-width card (HTML
+  // newsletters need the room); everything else uses the chat bubble model so
+  // your own replies land on the right there too.
+  const useFullWidthEmailCard = layout === 'email' && authorKind === 'external' && !isInternal
 
-  // Chat layout. Inbound messages go left with the contact avatar.
-  if (isInbound) {
-    return (
-      <ChatMessageBubble side="left" avatar={contactAvatar} header={inboundHeader} body={bubbleBody} />
-    )
-  }
-
-  // Outbound / internal: only the logged-in user's own messages align right.
-  // Messages sent by a colleague stay left, labelled with their name.
-  const isOwn =
-    message.authorUserId != null &&
-    currentUserId != null &&
-    message.authorUserId === currentUserId
-
-  const bubble = (
-    <ChatMessageBubble
-      side={isOwn ? 'right' : 'left'}
-      avatar={
-        isAgentMessage ? (
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
-            <Bot size={14} />
-          </span>
-        ) : (
-          userAvatar
-        )
-      }
-      header={
-        isAgentMessage ? (
-          <div className="mb-1 flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-xs font-medium text-text-heading">Agent</span>
-          </div>
-        ) : (
-          outboundHeader
-        )
-      }
-      body={bubbleBody}
-      internal={isInternal}
-    />
+  const bubble = useFullWidthEmailCard ? (
+    <EmailMessageBlock avatar={contactAvatar} header={inboundHeader} body={bubbleBody} />
+  ) : (
+    <ChatMessageBubble side={side} avatar={avatar} header={header} body={bubbleBody} variant={variant} />
   )
 
   if (!message.agentTrace && !feedbackRow) {
@@ -908,7 +945,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   }
 
   return (
-    <div className={cn('space-y-0.5', isOwn ? 'items-end' : 'items-start', 'flex flex-col')}>
+    <div className={cn('flex flex-col space-y-0.5', isOwn ? 'items-end' : 'items-start')}>
       {message.agentTrace ? (
         <ReasoningDisclosure
           thinking={message.agentTrace.thinking}
