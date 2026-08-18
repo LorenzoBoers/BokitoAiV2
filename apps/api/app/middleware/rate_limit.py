@@ -8,6 +8,7 @@ limiter if the API ever scales horizontally behind a load balancer.
 
 from __future__ import annotations
 
+import os
 import time
 from collections import defaultdict, deque
 
@@ -34,6 +35,10 @@ def rate_limit(scope: str, *, limit: int, period_seconds: float = 60.0):
     """Dependency factory: at most `limit` requests per `period_seconds` per client IP."""
 
     async def dependency(request: Request) -> None:
+        # E2E escape hatch: Playwright logs in once per test, which trips the
+        # auth limits. Never set in production.
+        if os.environ.get("RATE_LIMIT_DISABLED", "").lower() in ("1", "true"):
+            return
         now = time.monotonic()
         key = (scope, _client_ip(request))
         window = _WINDOWS[key]

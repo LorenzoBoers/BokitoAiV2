@@ -41,10 +41,11 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('My assistant').first()).toBeVisible({ timeout: 20000 })
   })
 
-  test('overview page renders stats', async ({ page }) => {
+  test('cockpit page renders stats', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/overview')
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible({ timeout: 20000 })
+    await expect(page).toHaveURL(/\/cockpit/, { timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible({ timeout: 20000 })
   })
 
   test('legacy chat, messages and inbox routes redirect into the communication hub', async ({ page }) => {
@@ -68,7 +69,7 @@ test.describe('Dashboard', () => {
   test('legacy routes redirect to new nav', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/home')
-    await expect(page).toHaveURL(/\/overview/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/cockpit/, { timeout: 20000 })
     await page.goto('/os')
     await expect(page).toHaveURL(/\/agents/, { timeout: 20000 })
     await page.goto('/automations')
@@ -80,7 +81,7 @@ test.describe('Dashboard', () => {
     await page.goto('/govern')
     await expect(page).toHaveURL(/\/settings\/autonomy/, { timeout: 20000 })
     await page.goto('/os/docs')
-    await expect(page).toHaveURL(/\/workspace/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
   })
 
   test('agent decisions queue lists seeded thread', async ({ page }) => {
@@ -121,16 +122,18 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Agent library' })).toBeVisible({ timeout: 20000 })
   })
 
-  test('skills page renders', async ({ page }) => {
+  test('skills route redirects into knowledge', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/skills')
-    await expect(page.getByRole('heading', { name: 'Skills', exact: true })).toBeVisible({ timeout: 20000 })
+    await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Knowledge' })).toBeVisible({ timeout: 20000 })
   })
 
-  test('workspace docs page renders', async ({ page }) => {
+  test('knowledge docs page renders', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/workspace')
-    await expect(page.getByRole('heading', { name: 'Workspace' })).toBeVisible({ timeout: 20000 })
+    await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Knowledge' })).toBeVisible({ timeout: 20000 })
   })
 
   test('agenda page renders week view and automations tab', async ({ page }) => {
