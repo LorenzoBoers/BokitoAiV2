@@ -126,14 +126,14 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/skills')
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: 'Knowledge' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Workspace knowledge' })).toBeVisible({ timeout: 20000 })
   })
 
   test('knowledge docs page renders', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/workspace')
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: 'Knowledge' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Workspace knowledge' })).toBeVisible({ timeout: 20000 })
   })
 
   test('agenda page renders week view and automations tab', async ({ page }) => {
