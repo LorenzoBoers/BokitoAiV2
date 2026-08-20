@@ -17,8 +17,11 @@ function renderInline(text: string): ReactNode[] {
   let last = 0
   let key = 0
   let match: RegExpExecArray | null
-  INLINE_PATTERN.lastIndex = 0
-  while ((match = INLINE_PATTERN.exec(text)) !== null) {
+  // Local instance: renderInline recurses (bold content), and a shared global
+  // regex would have its lastIndex reset by the inner call, re-matching the
+  // same token forever (OOM crash).
+  const pattern = new RegExp(INLINE_PATTERN.source, 'g')
+  while ((match = pattern.exec(text)) !== null) {
     if (match.index > last) nodes.push(text.slice(last, match.index))
     const token = match[0]
     if (token.startsWith('**') || token.startsWith('__')) {
