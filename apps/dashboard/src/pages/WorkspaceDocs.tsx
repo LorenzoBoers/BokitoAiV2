@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ExternalLink, FilePlus, FileText, Globe, Loader2, Pencil, RefreshCw, Search, Trash2, Upload } from 'lucide-react'
+import {
+  ExternalLink,
+  FilePlus,
+  FileText,
+  Globe,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Search,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import MarkdownView from '../components/docs/MarkdownView'
+import { KnowledgeMark, KnowledgeTile, LearnedChip } from '../components/knowledge/KnowledgeMark'
 import { useAuth } from '../context/AuthContext'
 import {
   createWorkspaceDoc,
@@ -34,10 +46,26 @@ const KIND_LABELS: Record<WorkspaceDocKind, string> = {
   daily_log: 'Daily logs',
 }
 
+/** Kinds that agents write and maintain themselves (auto-learning surface). */
+const AI_MAINTAINED_KINDS = new Set<WorkspaceDocKind>(['memory', 'heartbeat', 'daily_log'])
+
 const TRUTHY = new Set(['true', '1', 'yes', 'on'])
 
 function isPublished(doc: WorkspaceDocRow | null): boolean {
   return TRUTHY.has(String(doc?.frontmatter?.published ?? '').toLowerCase())
+}
+
+/** Drop a leading `# Title` that duplicates the doc title shown in the header. */
+function stripDuplicateTitle(content: string, title: string): string {
+  const lines = content.split('\n')
+  let idx = 0
+  while (idx < lines.length && lines[idx].trim() === '') idx += 1
+  const first = lines[idx] ?? ''
+  const heading = first.match(/^#\s+(.*)$/)
+  if (heading && heading[1].trim().toLowerCase() === title.trim().toLowerCase()) {
+    return lines.slice(idx + 1).join('\n')
+  }
+  return content
 }
 
 export default function WorkspaceDocs() {
@@ -217,257 +245,320 @@ export default function WorkspaceDocs() {
     }
   }, [active, navigate, refresh])
 
-  return (
-    <div className="flex h-full min-h-0">
-      <aside className="flex w-72 shrink-0 flex-col border-r bg-background">
-        <div className="space-y-2 border-b p-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Knowledge</h2>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => void refresh()}>
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                title="Upload document (PDF, Word, text)"
-                disabled={uploading}
-                onClick={() => uploadInputRef.current?.click()}
-              >
-                {uploading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Upload className="h-3.5 w-3.5" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                title="New markdown doc"
-                onClick={() => setCreating((v) => !v)}
-              >
-                <FilePlus className="h-3.5 w-3.5" />
-              </Button>
-              <input
-                ref={uploadInputRef}
-                type="file"
-                accept=".pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.rst,.log,.json"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void handleUpload(file)
-                }}
-              />
-            </div>
-          </div>
-          {creating ? (
-            <div className="flex items-center gap-1">
-              <Input
-                value={newPath}
-                onChange={(e) => setNewPath(e.target.value)}
-                placeholder="skills/triage.md"
-                className="h-8 text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleCreate()
-                }}
-                autoFocus
-              />
-              <Button size="sm" className="h-8" onClick={() => void handleCreate()}>
-                Add
-              </Button>
-            </div>
-          ) : null}
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void runSearch()
-              }}
-              placeholder="Search docs"
-              className="h-8 pl-7 text-xs"
-            />
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {hits !== null ? (
-            <div className="space-y-1">
-              <button
-                className="px-2 text-xs text-muted-foreground hover:underline"
-                onClick={() => {
-                  setHits(null)
-                  setQuery('')
-                }}
-              >
-                Clear search
-              </button>
-              {hits.length === 0 ? (
-                <p className="px-2 py-4 text-xs text-muted-foreground">No matches.</p>
-              ) : (
-                hits.map((hit, idx) => (
-                  <button
-                    key={idx}
-                    className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-muted"
-                    onClick={() => {
-                      if (hit.doc_id) navigate(`/knowledge/${hit.doc_id}`)
-                    }}
-                  >
-                    <span className="block truncate text-xs font-medium">{hit.title}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {hit.content.slice(0, 80)}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          ) : loading ? (
-            <p className="px-2 py-4 text-xs text-muted-foreground">Loading…</p>
-          ) : error ? (
-            <p className="px-2 py-4 text-xs text-destructive">{error}</p>
-          ) : docs.length === 0 ? (
-            <p className="px-2 py-4 text-xs text-muted-foreground">
-              No docs yet. Use the + button to add your first one.
-            </p>
-          ) : (
-            KIND_ORDER.map((kind) => {
-              const rows = grouped.get(kind) ?? []
-              if (rows.length === 0) return null
-              return (
-                <div key={kind} className="mb-3">
-                  <p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {KIND_LABELS[kind]}
-                  </p>
-                  {rows.map((doc) => (
-                    <button
-                      key={doc.id}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted',
-                        active?.id === doc.id && 'bg-muted font-medium',
-                      )}
-                      onClick={() => navigate(`/knowledge/${doc.id}`)}
-                    >
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{doc.title || doc.path}</span>
-                    </button>
-                  ))}
-                </div>
-              )
-            })
-          )}
-        </div>
-      </aside>
+  const activeTitle = active ? active.title || active.path : ''
+  const displayContent = active ? stripDuplicateTitle(active.content ?? '', activeTitle) : ''
+  const frontmatterEntries = active
+    ? Object.entries(active.frontmatter ?? {}).filter(([k]) => k !== 'published')
+    : []
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        {!active ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-            {!loading && docs.length === 0 ? (
-              <>
-                <p className="max-w-sm text-center">
-                  Knowledge holds workspace docs, skills, and memory that your agents read and
-                  maintain. Create your first doc to get started.
+  return (
+    <div className="flex h-full min-h-0 p-3 animate-page-enter">
+      <div className="featurebase-shell-panel flex min-h-0 flex-1 overflow-hidden">
+        <aside className="flex w-72 shrink-0 flex-col border-r border-border/40">
+          <div className="space-y-2.5 border-b border-border/40 px-3 pb-3 pt-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <KnowledgeTile />
+                <div className="min-w-0 leading-tight">
+                  <h2 className="truncate text-sm font-semibold text-text-heading">Knowledge</h2>
+                  <p className="truncate text-[11px] text-text-muted">
+                    What your agents know and learn
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="Refresh"
+                  onClick={() => void refresh()}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="Upload document (PDF, Word, text)"
+                  disabled={uploading}
+                  onClick={() => uploadInputRef.current?.click()}
+                >
+                  {uploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="New markdown doc"
+                  onClick={() => setCreating((v) => !v)}
+                >
+                  <FilePlus className="h-3.5 w-3.5" />
+                </Button>
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.rst,.log,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) void handleUpload(file)
+                  }}
+                />
+              </div>
+            </div>
+            {creating ? (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  value={newPath}
+                  onChange={(e) => setNewPath(e.target.value)}
+                  placeholder="skills/triage.md"
+                  className="h-8 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleCreate()
+                  }}
+                  autoFocus
+                />
+                <Button size="sm" className="h-8" onClick={() => void handleCreate()}>
+                  Add
+                </Button>
+              </div>
+            ) : null}
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void runSearch()
+                }}
+                placeholder="Search docs"
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {hits !== null ? (
+              <div className="space-y-1">
+                <button
+                  className="px-2 text-xs text-text-muted hover:text-text-secondary hover:underline"
+                  onClick={() => {
+                    setHits(null)
+                    setQuery('')
+                  }}
+                >
+                  Clear search
+                </button>
+                {hits.length === 0 ? (
+                  <p className="px-2 py-4 text-xs text-text-muted">No matches.</p>
+                ) : (
+                  hits.map((hit, idx) => (
+                    <button
+                      key={idx}
+                      className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-bg-hover/60"
+                      onClick={() => {
+                        if (hit.doc_id) navigate(`/knowledge/${hit.doc_id}`)
+                      }}
+                    >
+                      <span className="block truncate text-xs font-medium text-text-primary">
+                        {hit.title}
+                      </span>
+                      <span className="block truncate text-[11px] text-text-muted">
+                        {hit.content.slice(0, 80)}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : loading ? (
+              <p className="px-2 py-4 text-xs text-text-muted">Loading…</p>
+            ) : error ? (
+              <p className="px-2 py-4 text-xs text-status-error">{error}</p>
+            ) : docs.length === 0 ? (
+              <p className="px-2 py-4 text-xs text-text-muted">
+                No docs yet. Use the + button to add your first one.
+              </p>
+            ) : (
+              KIND_ORDER.map((kind) => {
+                const rows = grouped.get(kind) ?? []
+                if (rows.length === 0) return null
+                return (
+                  <div key={kind} className="mb-3">
+                    <p className="flex items-center gap-1.5 px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                      {KIND_LABELS[kind]}
+                      {AI_MAINTAINED_KINDS.has(kind) ? <KnowledgeMark size={11} /> : null}
+                    </p>
+                    {rows.map((doc) => (
+                      <button
+                        key={doc.id}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary',
+                          active?.id === doc.id &&
+                            'bg-violet-500/10 font-medium text-violet-500 dark:text-violet-300',
+                        )}
+                        onClick={() => navigate(`/knowledge/${doc.id}`)}
+                      >
+                        {AI_MAINTAINED_KINDS.has(doc.kind) ? (
+                          <KnowledgeMark size={13} />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate">{doc.title || doc.path}</span>
+                        {isPublished(doc) ? (
+                          <span
+                            title="Published on the help center"
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+                          />
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </aside>
+
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          {!active ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+              <KnowledgeTile size="lg" className="knowledge-glow" />
+              <div className="space-y-1.5">
+                <h1 className="text-lg font-semibold text-text-heading">Workspace knowledge</h1>
+                <p className="mx-auto max-w-md text-sm leading-6 text-text-secondary">
+                  Docs, skills and memory that your agents read while working — and keep up to
+                  date themselves as they learn from your feedback and outcomes.
                 </p>
+              </div>
+              {!loading && docs.length === 0 ? (
                 <Button size="sm" onClick={() => setCreating(true)}>
                   <FilePlus className="mr-1.5 h-3.5 w-3.5" />
                   Create first doc
                 </Button>
-              </>
-            ) : (
-              <p>Select a doc, or create one with the + button.</p>
-            )}
-          </div>
-        ) : (
-          <div className="mx-auto max-w-3xl px-8 py-6">
-            {error ? <p className="mb-3 text-xs text-destructive">{error}</p> : null}
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">{active.title || active.path}</h1>
-                <p className="mt-1 font-mono text-xs text-muted-foreground">
-                  {active.path} · {KIND_LABELS[active.kind] ?? active.kind}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {editing ? (
-                  <>
-                    <Button variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={saving}>
-                      Cancel
-                    </Button>
-                    <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
-                      {saving ? 'Saving…' : 'Save'}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    {active.kind === 'doc' ? (
-                      <Button
-                        variant={isPublished(active) ? 'secondary' : 'outline'}
-                        size="sm"
-                        disabled={publishing}
-                        onClick={() => void handlePublishToggle()}
-                        title={
-                          isPublished(active)
-                            ? 'Remove from the public help center'
-                            : 'Publish on the public help center'
-                        }
-                      >
-                        <Globe className="mr-1.5 h-3.5 w-3.5" />
-                        {publishing ? 'Saving…' : isPublished(active) ? 'Published' : 'Publish'}
-                      </Button>
-                    ) : null}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setDraft(active.content ?? '')
-                        setEditing(true)
-                      }}
-                    >
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                      Edit
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void handleDelete()}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
-                )}
-              </div>
+              ) : (
+                <p className="text-xs text-text-muted">Select a doc, or create one with the + button.</p>
+              )}
             </div>
-            {isPublished(active) && !editing && user?.tenant?.slug ? (
-              <a
-                href={`/help/${user.tenant.slug}/${active.frontmatter?.slug ?? ''}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mb-4 flex items-center gap-1.5 text-xs text-primary hover:underline"
-              >
-                <ExternalLink className="h-3 w-3" />
-                View on help center: /help/{user.tenant.slug}/{active.frontmatter?.slug ?? ''}
-              </a>
-            ) : null}
-            {Object.keys(active.frontmatter ?? {}).length > 0 && !editing ? (
-              <div className="mb-4 rounded-md border bg-muted/40 p-3 text-xs">
-                {Object.entries(active.frontmatter).map(([k, v]) => (
-                  <div key={k} className="flex gap-2">
-                    <span className="font-medium text-muted-foreground">{k}:</span>
-                    <span>{v}</span>
+          ) : (
+            <div className="mx-auto max-w-3xl px-8 py-7">
+              {error ? <p className="mb-3 text-xs text-status-error">{error}</p> : null}
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-semibold tracking-tight text-text-heading">
+                    {activeTitle}
+                  </h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                      {KIND_LABELS[active.kind] ?? active.kind}
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-[11px] text-text-muted">
+                      {active.path}
+                    </span>
+                    {AI_MAINTAINED_KINDS.has(active.kind) ? (
+                      <LearnedChip label="AI-maintained" />
+                    ) : null}
+                    {isPublished(active) ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <Globe size={11} />
+                        Published
+                      </span>
+                    ) : null}
                   </div>
-                ))}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {editing ? (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={saving}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
+                        {saving ? 'Saving…' : 'Save'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {active.kind === 'doc' ? (
+                        <Button
+                          variant={isPublished(active) ? 'secondary' : 'outline'}
+                          size="sm"
+                          disabled={publishing}
+                          onClick={() => void handlePublishToggle()}
+                          title={
+                            isPublished(active)
+                              ? 'Remove from the public help center'
+                              : 'Publish on the public help center'
+                          }
+                        >
+                          <Globe className="mr-1.5 h-3.5 w-3.5" />
+                          {publishing ? 'Saving…' : isPublished(active) ? 'Published' : 'Publish'}
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDraft(active.content ?? '')
+                          setEditing(true)
+                        }}
+                      >
+                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Delete document"
+                        onClick={() => void handleDelete()}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-            ) : null}
-            {editing ? (
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                className="min-h-[60vh] font-mono text-sm leading-6"
-                spellCheck={false}
-              />
-            ) : (
-              <MarkdownView content={active.content ?? ''} />
-            )}
-          </div>
-        )}
-      </main>
+              {isPublished(active) && !editing && user?.tenant?.slug ? (
+                <a
+                  href={`/help/${user.tenant.slug}/${active.frontmatter?.slug ?? ''}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mb-4 flex items-center gap-1.5 text-xs text-accent hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View on help center: /help/{user.tenant.slug}/{active.frontmatter?.slug ?? ''}
+                </a>
+              ) : null}
+              {frontmatterEntries.length > 0 && !editing ? (
+                <div className="mb-5 flex flex-wrap gap-1.5">
+                  {frontmatterEntries.map(([k, v]) => (
+                    <span
+                      key={k}
+                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/40 bg-bg-elevated/40 px-2 py-0.5 text-[11px]"
+                    >
+                      <span className="font-medium text-text-muted">{k}</span>
+                      <span className="truncate text-text-secondary">{String(v)}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {editing ? (
+                <Textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  className="min-h-[60vh] font-mono text-sm leading-6"
+                  spellCheck={false}
+                />
+              ) : (
+                <MarkdownView content={displayContent} />
+              )}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   )
 }

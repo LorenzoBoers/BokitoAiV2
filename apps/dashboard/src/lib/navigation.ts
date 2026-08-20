@@ -7,8 +7,8 @@
  */
 
 import {
-  BookOpen,
   Bot,
+  Brain,
   CalendarDays,
   Contact,
   Gauge,
@@ -48,7 +48,8 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   contacts: Contact,
   agenda: CalendarDays,
   agents: Bot,
-  knowledge: BookOpen,
+  // Knowledge identity: violet brain, recurring across the platform.
+  knowledge: Brain,
   settings: Settings,
 }
 

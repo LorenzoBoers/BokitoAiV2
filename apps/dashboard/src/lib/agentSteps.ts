@@ -18,6 +18,17 @@ export type PersistedAgentStep = {
   payload?: Record<string, unknown>
 }
 
+/** Workspace-knowledge tools; surfaced with the violet brain identity. */
+const KNOWLEDGE_TOOLS = new Set(['search_index', 'list_docs', 'read_doc', 'write_doc'])
+
+export function isKnowledgeTool(name?: string | null): boolean {
+  return Boolean(name && KNOWLEDGE_TOOLS.has(name))
+}
+
+export function isKnowledgeStep(step: AgentStep | PersistedAgentStep): boolean {
+  return isKnowledgeTool('name' in step ? step.name : undefined)
+}
+
 export function stepLabel(step: AgentStep): string {
   if (step.stepType === 'tool_call') return 'Tool call'
   if (step.stepType === 'tool_result') return 'Tool result'
@@ -26,6 +37,12 @@ export function stepLabel(step: AgentStep): string {
 }
 
 export function stepHeadline(step: AgentStep): string {
+  if (isKnowledgeTool(step.name)) {
+    if (step.name === 'write_doc') {
+      return step.stepType === 'tool_result' ? 'Updated knowledge' : 'Updating knowledge...'
+    }
+    return step.stepType === 'tool_result' ? 'Consulted knowledge' : 'Consulting knowledge...'
+  }
   if (step.stepType === 'tool_call') return `Running ${step.name || 'tool'}`
   if (step.stepType === 'tool_result') return `Finished ${step.name || 'tool'}`
   // Backend publishes think-steps as "Loop N" (internal telemetry); never
@@ -103,8 +120,9 @@ export function formatTokenCount(n: number): string {
 export function summarizeAgentActivity(
   steps: AgentStep[],
   usage?: AgentUsage | null,
-): { parts: string[]; tokenLabel: string | null; total: number } {
+): { parts: string[]; tokenLabel: string | null; total: number; usedKnowledge: boolean } {
   const toolCalls = steps.filter((s) => s.stepType === 'tool_call')
+  const usedKnowledge = toolCalls.some((s) => isKnowledgeTool(s.name))
   const thinks = steps.filter((s) => s.stepType === 'think')
   const parts: string[] = []
 
@@ -128,7 +146,7 @@ export function summarizeAgentActivity(
 
   const total = totalTokens(usage)
   const tokenLabel = total > 0 ? `+${formatTokenCount(total)} tokens` : null
-  return { parts, tokenLabel, total }
+  return { parts, tokenLabel, total, usedKnowledge }
 }
 
 function truncateJson(value: unknown, max = 480): string {

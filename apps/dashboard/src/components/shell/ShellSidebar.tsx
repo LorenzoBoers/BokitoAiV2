@@ -124,6 +124,11 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                       const Icon = iconForTab(tab)
                       const active = activeTab === tab
                       const badge = badgeForTab(tab)
+                      // Knowledge carries the violet brain identity, also in the rail.
+                      const activeClass =
+                        tab === 'knowledge'
+                          ? 'bg-violet-500/10 font-medium text-violet-500 dark:text-violet-300'
+                          : 'bg-accent/12 font-medium text-accent'
                       return (
                         <NavLink
                           key={tab}
@@ -135,7 +140,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                             collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
                           } ${
                             active
-                              ? 'bg-accent/12 font-medium text-accent'
+                              ? activeClass
                               : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
                           }`}
                         >

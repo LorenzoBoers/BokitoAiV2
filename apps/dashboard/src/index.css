@@ -185,6 +185,20 @@
     box-shadow: var(--shadow-card-hover);
   }
 
+  /* Soft violet pulse on knowledge/learning chips (see KnowledgeMark). */
+  .knowledge-glow {
+    animation: knowledge-glow 2.6s ease-in-out infinite;
+  }
+  @keyframes knowledge-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgb(139 92 246 / 0);
+    }
+    50% {
+      box-shadow: 0 0 10px 1px rgb(139 92 246 / 0.28);
+    }
+  }
+
   /* Inline @mention chip in message bodies (users and agents). */
   .mention-chip {
     @apply inline rounded-md bg-accent/10 px-1 py-[1px] text-[0.94em] font-medium text-accent;
@@ -375,7 +389,8 @@
     .animate-page-enter,
     .animate-pop-in,
     .animate-fade-in,
-    .stream-caret {
+    .stream-caret,
+    .knowledge-glow {
       animation: none;
     }
   }

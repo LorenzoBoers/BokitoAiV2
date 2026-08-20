@@ -12,6 +12,7 @@ import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
+import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
 
 const ACTION_LABELS: Record<InboxRule['action'], string> = {
   auto_close: 'Auto-close',
@@ -129,13 +130,19 @@ export default function AutomationRulesManager() {
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-        <div>
-          <p className="text-sm font-medium text-text-heading">Automation rules</p>
-          <p className="text-xs text-text-secondary">
-            Learned from your choices on automated mail: matching threads are closed, turned into a
-            task, or left for the team without AI drafting.
-          </p>
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <KnowledgeTile className="mt-0.5" />
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
+              Automation rules
+              <LearnedChip label="Self-learning" />
+            </p>
+            <p className="text-xs text-text-secondary">
+              Learned from your choices on automated mail: matching threads are closed, turned into a
+              task, or left for the team without AI drafting.
+            </p>
+          </div>
         </div>
         {!creating ? (
           <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>

@@ -4,11 +4,13 @@ import type { AgentStep } from '../../hooks/useSignalStream'
 import {
   currentActivityHeadline,
   formatStepDetail,
+  isKnowledgeStep,
   stepHeadline,
   stepLabel,
 } from '../../lib/agentSteps'
 import { cn } from '../../lib/utils'
 import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
+import { KnowledgeMark } from '../knowledge/KnowledgeMark'
 import ChatMarkdown from './ChatMarkdown'
 
 type Props = {
@@ -100,7 +102,10 @@ export default function ThinkingTrace({
                     <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-muted">
                       {stepLabel(step)}
                     </p>
-                    <p className="text-[12px] text-text-secondary">{stepHeadline(step)}</p>
+                    <p className="flex items-center gap-1.5 text-[12px] text-text-secondary">
+                      {isKnowledgeStep(step) ? <KnowledgeMark size={12} /> : null}
+                      {stepHeadline(step)}
+                    </p>
                     {detail ? (
                       <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-[11px] text-text-muted">
                         {detail}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Building2, Check, ListChecks, Mail, MessageSquare, Sparkles, Users, X } from 'lucide-react'
+import { Brain, Check, ListChecks, Mail, MessageSquare, Sparkles, Users, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { appScopedGet, appScopedPost } from '../../lib/api'
@@ -80,11 +80,12 @@ export function useOnboardingStatus(): {
   return { status, loading, error, retry, dismissed, dismiss }
 }
 
-const STEP_META: Record<OnboardingStepId, { icon: typeof Building2; to: string }> = {
+const STEP_META: Record<OnboardingStepId, { icon: typeof Brain; to: string }> = {
   email: { icon: Mail, to: '/settings/channels' },
-  // Completion is measured by `company.md` content, which lives in Knowledge.
+  // Completion is measured by `company.md` content, which lives in Knowledge —
+  // so this step carries the knowledge brain identity.
   company: {
-    icon: Building2,
+    icon: Brain,
     to: '/knowledge',
   },
   assistant: { icon: MessageSquare, to: '/communication/assistant' },

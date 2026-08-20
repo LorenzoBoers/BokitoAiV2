@@ -271,6 +271,14 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
 
 
 async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.agent.style import strip_emoji
+
+    # Agent-generated copy: keep titles/summaries emoji-free platform-wide.
+    tool_input = {
+        **tool_input,
+        "title": strip_emoji(str(tool_input.get("title", ""))) or "Decision needed",
+        "summary": strip_emoji(str(tool_input.get("summary", ""))),
+    }
     raw_signal = tool_input.get("signal_id") or (str(ctx.signal_id) if ctx.signal_id else None)
     target_signal_id: UUID | None = None
     if raw_signal:
@@ -359,13 +367,14 @@ async def _propose_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
 async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from uuid import UUID
 
+    from app.services.agent.style import strip_emoji
     from app.services.orchestration.dispatcher import create_agent_task
 
     agent_id = UUID(str(tool_input["agent_id"])) if tool_input.get("agent_id") else (ctx.agent.id if ctx.agent else None)
     task = await create_agent_task(
         ctx.session,
         ctx.tenant_id,
-        title=tool_input.get("title", "Agent task"),
+        title=strip_emoji(str(tool_input.get("title", ""))) or "Agent task",
         description=tool_input.get("description", ""),
         agent_id=agent_id,
         project_id=UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
@@ -413,8 +422,10 @@ async def _delegate_to_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> di
     if not target:
         return {"error": "Target agent not found in this tenant"}
 
+    from app.services.agent.style import strip_emoji
+
     instructions = tool_input.get("instructions") or tool_input.get("message") or ""
-    title = tool_input.get("title") or f"Delegated to {target.name}"
+    title = strip_emoji(str(tool_input.get("title") or "")) or f"Delegated to {target.name}"
     task = await create_agent_task(
         ctx.session,
         ctx.tenant_id,

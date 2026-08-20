@@ -124,8 +124,11 @@ def _deliver_smtp_sync(to: str, subject: str, text: str, html: str | None) -> No
     msg.set_content(text)
     if html:
         msg.add_alternative(html, subtype="html")
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as smtp:
-        if settings.smtp_use_tls:
+    # Implicit SSL (SMTPS, e.g. Spacemail port 465) vs STARTTLS (port 587).
+    use_ssl = settings.smtp_ssl or settings.smtp_port == 465
+    smtp_cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+    with smtp_cls(settings.smtp_host, settings.smtp_port, timeout=15) as smtp:
+        if not use_ssl and settings.smtp_use_tls:
             smtp.starttls()
         if settings.smtp_user:
             smtp.login(settings.smtp_user, settings.smtp_password)

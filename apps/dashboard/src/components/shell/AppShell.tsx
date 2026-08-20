@@ -23,6 +23,7 @@ function loadNavCollapsed(): boolean {
 function isFullBleed(pathname: string): boolean {
   return (
     pathname.startsWith('/communication') ||
+    pathname.startsWith('/knowledge') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/ai/')
   )

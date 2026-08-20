@@ -119,7 +119,8 @@ _COMPACTION_PROMPT = (
     "Respond in two sections:\n"
     "SUMMARY: a compact paragraph covering goals, decisions, and open items.\n"
     "FACTS: bullet list of durable facts worth remembering long-term "
-    "(names, preferences, commitments). Write 'none' if there are no durable facts.\n\n"
+    "(names, preferences, commitments). Write 'none' if there are no durable facts.\n"
+    "Plain text only. Never use emoji or emoticons.\n\n"
     "Conversation:\n{transcript}"
 )
 

@@ -30,10 +30,13 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
     llm = get_chat_provider(
         resolved.provider_type, resolved.api_key, resolved.base_url or None
     )
+    from app.services.agent.style import PLAIN_STYLE, strip_emoji
+
     prompt = (
         "Classify this inbound signal. Reply with JSON only:\n"
         '{"category":"support|sales|billing|other","urgency":0-100,"impact":0-100,'
-        '"summary":"one sentence","certainty":0-100,"priority":"normal|high|urgent"}\n\n'
+        '"summary":"one sentence","certainty":0-100,"priority":"normal|high|urgent"}\n'
+        f"{PLAIN_STYLE}\n\n"
         f"Subject: {detail.get('subject')}\nFrom: {detail.get('contact_email')}\n\n{body}"
     )
     response = await llm.chat(
@@ -72,7 +75,7 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         category=str(parsed.get("category", "other")),
         urgency=int(parsed.get("urgency", 50)),
         impact=int(parsed.get("impact", 40)),
-        summary=str(parsed.get("summary", ""))[:500],
+        summary=strip_emoji(str(parsed.get("summary", "")))[:500],
         certainty=int(parsed.get("certainty", 50)),
         priority=priority if priority in ("normal", "high", "urgent") else "normal",
     )

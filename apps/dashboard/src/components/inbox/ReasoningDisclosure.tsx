@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { AgentStep } from '../../hooks/useSignalStream'
 import {
   formatStepDetail,
+  isKnowledgeStep,
   normalizePersistedSteps,
   reasoningDisclosureLabel,
   stepHeadline,
@@ -14,6 +15,7 @@ import {
   type AgentUsage,
   type PersistedAgentStep,
 } from '../../lib/agentSteps'
+import { KnowledgeMark } from '../knowledge/KnowledgeMark'
 import { cn } from '../../lib/utils'
 
 type Props = {
@@ -44,7 +46,7 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
   const [expanded, setExpanded] = useState(false)
   const normalized = normalizePersistedSteps(Array.isArray(steps) ? toPersisted(steps) : [])
   const reasoning = (thinking?.text ?? '').trim()
-  const { parts, tokenLabel } = summarizeAgentActivity(normalized, usage)
+  const { parts, tokenLabel, usedKnowledge } = summarizeAgentActivity(normalized, usage)
   const total = totalTokens(usage)
   const hasTokens = total > 0
   const hasContent = Boolean(reasoning || normalized.length > 0 || hasTokens)
@@ -76,6 +78,9 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
           <span className="mt-0.5 w-3 shrink-0" />
         )}
         <span className="min-w-0">
+          {usedKnowledge ? (
+            <KnowledgeMark size={12} className="mr-1 inline-block align-[-2px]" />
+          ) : null}
           <span>{fallbackSummary ? `${label} · ${fallbackSummary}` : label}</span>
           {hasTokens ? (
             <>
@@ -104,7 +109,10 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
                     <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-muted">
                       {stepLabel(step)}
                     </p>
-                    <p className="text-[12px] text-text-secondary">{stepHeadline(step)}</p>
+                    <p className="flex items-center gap-1.5 text-[12px] text-text-secondary">
+                      {isKnowledgeStep(step) ? <KnowledgeMark size={12} /> : null}
+                      {stepHeadline(step)}
+                    </p>
                     {detail ? (
                       <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-[11px] text-text-muted">
                         {detail}

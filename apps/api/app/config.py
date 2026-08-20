@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "Bokito <no-reply@bokito.ai>"
     smtp_use_tls: bool = True
+    # Implicit SSL (SMTPS, typically port 465) instead of STARTTLS; also
+    # inferred automatically when smtp_port is 465.
+    smtp_ssl: bool = False
 
     worker_inbound_secret: str = "dev-worker-secret"
     orchestra_enabled: bool = False

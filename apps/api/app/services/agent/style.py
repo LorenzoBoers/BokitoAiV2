@@ -1,0 +1,46 @@
+"""Platform-wide response style for every LLM surface.
+
+Single source of truth so agents, triage, compaction, and any future prompt
+builder produce consistent user-facing text: clean markdown, no emoji, the
+user's language. Import RESPONSE_STYLE for full prompts, PLAIN_STYLE for
+short structured outputs (classifications, summaries), and strip_emoji as a
+defensive net on short generated strings (titles, headlines).
+"""
+
+from __future__ import annotations
+
+import re
+
+RESPONSE_STYLE = (
+    "## Response style\n"
+    "Write clean, well-structured markdown: short paragraphs, headings only "
+    "when they help, bullet lists for enumerations, and tables only for truly "
+    "tabular data. Never use emoji or emoticons. Match the user's language. "
+    "Be concise and concrete; skip filler and repeated horizontal rules."
+)
+
+# For prompts that produce short structured output rather than prose.
+PLAIN_STYLE = "Plain text only. Never use emoji or emoticons."
+
+# Emoji and pictograph ranges plus variation selectors and the zero-width
+# joiner that glues emoji sequences together.
+_EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001f000-\U0001faff"  # emoji, symbols, pictographs, extended-A
+    "\u2600-\u27bf"  # misc symbols + dingbats
+    "\u2b00-\u2bff"  # arrows/symbols block used by some emoji
+    "\ufe0e\ufe0f"  # variation selectors
+    "\u200d"  # zero-width joiner
+    "]+"
+)
+
+
+def strip_emoji(text: str) -> str:
+    """Remove emoji from short generated copy (titles, summaries).
+
+    Only meant for AI-generated strings; never run it on customer or
+    operator content.
+    """
+    cleaned = _EMOJI_PATTERN.sub("", text)
+    # Collapse doubled spaces left behind by removed characters.
+    return re.sub(r"  +", " ", cleaned).strip()
