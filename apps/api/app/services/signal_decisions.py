@@ -137,7 +137,9 @@ async def append_decision_to_signal(
         )
     )
     await session.flush()
-    await publish_signal_message(signal, message)
+    # Pass the decision so the gateway event carries the full options payload
+    # and open threads can render the decision card without a refetch.
+    await publish_signal_message(signal, message, decision=decision)
     await publish_decision(
         tenant_id,
         decision_id=decision.id,
@@ -145,6 +147,9 @@ async def append_decision_to_signal(
         title=decision.title,
         signal_id=signal.id,
     )
+    from app.services.webhooks import decision_event_data, emit_webhook_event
+
+    await emit_webhook_event(session, tenant_id, "decision.created", decision_event_data(decision))
     return message
 
 

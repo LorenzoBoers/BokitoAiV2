@@ -82,6 +82,20 @@ async def get_current_auth(
     return AuthContext(user=user, tenant=tenant, membership=membership, token=token, is_staff=is_staff)
 
 
+async def require_verified_email(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+) -> AuthContext:
+    """Soft verification gate for outbound actions (sending mail, connecting
+    email channels). Invite-accepted and SSO users are always verified, so
+    only self-serve signups that ignored the verification mail hit this."""
+    if not auth.user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Verify your email address to send messages. Check your inbox for the verification link.",
+        )
+    return auth
+
+
 def tenant_settings(tenant: Tenant) -> dict:
     try:
         return json.loads(tenant.settings_json or "{}")

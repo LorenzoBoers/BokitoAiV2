@@ -73,6 +73,16 @@ async def _resolve_contact(
             contact.display_name = inbound.sender_name
         session.add(contact)
         return contact
+
+    # Automated senders (no-reply mailboxes, newsletters, bounces) are not
+    # customers: never create CRM contact rows for them. An existing contact
+    # above still matches so blocking such a sender keeps working.
+    from app.services.automated_mail import classify_automated_email
+
+    headers = inbound.metadata.get("auto_headers") if isinstance(inbound.metadata, dict) else None
+    if classify_automated_email(inbound.sender_address, headers=headers)["automated"]:
+        return None
+
     contact = Contact(
         tenant_id=tenant_id,
         channel=inbound.channel,
@@ -83,6 +93,9 @@ async def _resolve_contact(
     )
     session.add(contact)
     await session.flush()
+    from app.services.companies import link_contact_company
+
+    await link_contact_company(session, contact)
     return contact
 
 
@@ -217,6 +230,11 @@ async def ingest_inbound(
     from app.gateway.publish import publish_signal_message
 
     await publish_signal_message(signal, message)
+
+    if created:
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        await emit_webhook_event(session, tenant_id, "signal.created", signal_event_data(signal))
 
     pending = bool(contact and contact.status == "pending")
     if pending and created:

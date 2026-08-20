@@ -17,6 +17,21 @@
     "mailboxDisconnected": "The mailbox for this conversation was disconnected, so replies cannot be sent. Internal notes still work.",
     "reconnectMailbox": "Reconnect a mailbox"
   },
+  "undoSend": {
+    "scheduled": "Sending email...",
+    "undo": "Undo",
+    "cancelled": "Sending cancelled",
+    "tooLate": "Too late — already sent"
+  },
+  "compose": {
+    "title": "New email",
+    "subjectPlaceholder": "Subject",
+    "bodyPlaceholder": "Write your message...",
+    "send": "Send",
+    "sending": "Sending...",
+    "sent": "Email sent",
+    "cancel": "Cancel"
+  },
   "threadResolved": {
     "closed": "Conversation closed",
     "spam": "Marked as spam",
@@ -50,6 +65,16 @@
     "toastSent": "Reply sent",
     "toastEscalated": "Escalated to human",
     "toastAnswerSubmitted": "Answer submitted",
+    "rulePrompt": {
+      "autoClose": "Always close messages from {{sender}}?",
+      "autoTask": "Always create a task for messages from {{sender}}?",
+      "explainer": "You have made the same choice {{count}} times for this sender.",
+      "confirm": "Always do this",
+      "dismiss": "Not now",
+      "activated": "Rule activated. Manage rules in Inbox Settings.",
+      "autoPromoted": "Learned rule activated for {{sender}}",
+      "error": "Could not activate the rule."
+    },
     "options": {
       "send": "Send",
       "edit": "Edit",
@@ -106,10 +131,10 @@
         "description": "Ask anything about your workspace; it knows your agents and settings.",
         "cta": "Open assistant"
       },
-      "channel": {
-        "title": "Connect a channel",
-        "description": "Add live chat, Slack, or another channel next to email.",
-        "cta": "Open channels"
+      "first_decision": {
+        "title": "Resolve your first decision",
+        "description": "Try a demo conversation with a decision card and see how Bokito asks before acting.",
+        "cta": "Try the demo"
       },
       "team": {
         "title": "Invite your team",

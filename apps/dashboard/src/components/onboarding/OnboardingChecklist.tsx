@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Building2, Check, Inbox, Mail, MessageSquare, Users, X } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Building2, Check, ListChecks, Mail, MessageSquare, Sparkles, Users, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { appScopedGet } from '../../lib/api'
+import { appScopedGet, appScopedPost } from '../../lib/api'
 import { appRoutes } from '../../api/routes/app.routes'
 
-export type OnboardingStepId = 'email' | 'company' | 'assistant' | 'channel' | 'team'
+export type OnboardingStepId = 'email' | 'company' | 'assistant' | 'first_decision' | 'team'
 
 export interface OnboardingStatus {
   steps: { id: OnboardingStepId; done: boolean }[]
@@ -88,8 +88,60 @@ const STEP_META: Record<OnboardingStepId, { icon: typeof Building2; to: string }
     to: '/knowledge',
   },
   assistant: { icon: MessageSquare, to: '/communication/assistant' },
-  channel: { icon: Inbox, to: '/settings/channels' },
+  // CTA seeds the demo thread and jumps into it (see useDemoThread).
+  first_decision: { icon: Sparkles, to: '/communication' },
   team: { icon: Users, to: '/settings/members' },
+}
+
+/** Seed the onboarding demo thread and navigate into it. */
+export function useDemoThread(): { start: () => void; starting: boolean } {
+  const { token } = useAuth()
+  const navigate = useNavigate()
+  const [starting, setStarting] = useState(false)
+
+  const start = useCallback(() => {
+    if (!token || starting) return
+    setStarting(true)
+    appScopedPost<{ signal_id?: string }>(appRoutes.onboarding.demoThread, {}, token)
+      .then((res) => {
+        if (res?.signal_id) {
+          navigate(`/communication/inbox/all/t/${res.signal_id}`)
+        }
+      })
+      .catch(() => {
+        // Best-effort: the checklist stays visible so the user can retry.
+      })
+      .finally(() => setStarting(false))
+  }, [token, starting, navigate])
+
+  return { start, starting }
+}
+
+function StepCta({ step }: { step: { id: OnboardingStepId; done: boolean } }) {
+  const { t } = useTranslation('communication')
+  const { start, starting } = useDemoThread()
+  const meta = STEP_META[step.id]
+
+  if (step.id === 'first_decision') {
+    return (
+      <button
+        type="button"
+        onClick={start}
+        disabled={starting}
+        className="shrink-0 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+      >
+        {t(`onboarding.steps.${step.id}.cta`)}
+      </button>
+    )
+  }
+  return (
+    <Link
+      to={meta.to}
+      className="shrink-0 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
+    >
+      {t(`onboarding.steps.${step.id}.cta`)}
+    </Link>
+  )
 }
 
 export default function OnboardingChecklist({
@@ -151,18 +203,46 @@ export default function OnboardingChecklist({
                   {t(`onboarding.steps.${step.id}.description`)}
                 </p>
               </div>
-              {!step.done ? (
-                <Link
-                  to={meta.to}
-                  className="shrink-0 rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
-                >
-                  {t(`onboarding.steps.${step.id}.cta`)}
-                </Link>
-              ) : null}
+              {!step.done ? <StepCta step={step} /> : null}
             </div>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+/** Compact dismissible checklist banner (used on the Cockpit). */
+export function OnboardingCompactCard() {
+  const { t } = useTranslation('communication')
+  const { status, dismissed, dismiss } = useOnboardingStatus()
+
+  if (!status || status.completed || dismissed) return null
+  const doneCount = status.steps.filter((step) => step.done).length
+  const nextStep = status.steps.find((step) => !step.done)
+
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-xl border border-border/70 bg-bg-elevated/50 px-4 py-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
+        <ListChecks size={16} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-text-heading">{t('onboarding.title')}</p>
+        <p className="truncate text-xs text-text-secondary">
+          {t('onboarding.progress', { done: doneCount, total: status.steps.length })}
+          {nextStep ? ` - ${t(`onboarding.steps.${nextStep.id}.title`)}` : ''}
+        </p>
+      </div>
+      {nextStep ? <StepCta step={nextStep} /> : null}
+      <button
+        type="button"
+        onClick={dismiss}
+        title={t('onboarding.dismiss')}
+        aria-label={t('onboarding.dismiss')}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+      >
+        <X size={14} />
+      </button>
     </div>
   )
 }

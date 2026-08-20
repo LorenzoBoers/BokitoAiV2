@@ -15,9 +15,12 @@ type ActivityEntry = {
   kind: string
   eventType: string
   message: string
+  actorName: string | null
   createdAt: string
   live: boolean
 }
+
+type SourceFilter = 'all' | 'agents' | 'people'
 
 const MAX_ENTRIES = 1000
 const HISTORY_PAGE = 100
@@ -28,6 +31,7 @@ function fromCockpit(ev: CockpitActivityEvent, idx: number): ActivityEntry {
     kind: ev.kind,
     eventType: ev.event_type,
     message: ev.message || '',
+    actorName: ev.actor_name ?? null,
     createdAt: ev.created_at,
     live: false,
   }
@@ -50,6 +54,7 @@ function fromGateway(event: GatewayEvent): ActivityEntry | null {
     kind: event.event || 'event',
     eventType: typeof data.event_type === 'string' ? data.event_type : typeof data.status === 'string' ? data.status : event.event,
     message,
+    actorName: null,
     createdAt: event.ts ?? new Date().toISOString(),
     live: true,
   }
@@ -65,6 +70,7 @@ export default function ActivityPage() {
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [planned, setPlanned] = useState<AgendaItem[]>([])
   const [filter, setFilter] = useState('')
+  const [source, setSource] = useState<SourceFilter>('all')
   const [autoFollow, setAutoFollow] = useState(true)
   const [loading, setLoading] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -144,7 +150,7 @@ export default function ActivityPage() {
       id: e.id,
       at: parseUtc(e.createdAt),
       label: e.message || humanizeLabel(e.eventType),
-      sublabel: humanizeLabel(e.kind),
+      sublabel: e.kind === 'audit' ? e.actorName || 'Team member' : humanizeLabel(e.kind),
       tone:
         e.eventType === 'failed' || e.eventType === 'error'
           ? 'error'
@@ -183,22 +189,27 @@ export default function ActivityPage() {
     if (el) el.scrollTop = el.scrollHeight
   }, [entries, autoFollow])
 
+  const bySource =
+    source === 'all'
+      ? entries
+      : entries.filter((e) => (source === 'people' ? e.kind === 'audit' : e.kind !== 'audit'))
   const visible = filter.trim()
-    ? entries.filter((e) => {
+    ? bySource.filter((e) => {
         const q = filter.trim().toLowerCase()
         return (
           e.message.toLowerCase().includes(q) ||
           e.kind.toLowerCase().includes(q) ||
-          e.eventType.toLowerCase().includes(q)
+          e.eventType.toLowerCase().includes(q) ||
+          (e.actorName ?? '').toLowerCase().includes(q)
         )
       })
-    : entries
+    : bySource
 
   return (
     <div>
       <ContentHeader
         title="Cockpit"
-        subtitle="Live agent runs and tool calls"
+        subtitle="Live activity from agents and your team"
         meta={
           <>
             <ConnectionStatus />
@@ -240,6 +251,28 @@ export default function ActivityPage() {
 
       {/* Filter bar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center rounded-lg border border-border/70 p-0.5">
+          {(
+            [
+              ['all', 'All'],
+              ['agents', 'Agents'],
+              ['people', 'People'],
+            ] as [SourceFilter, string][]
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSource(value)}
+              className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                source === value
+                  ? 'bg-accent/12 text-accent'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -296,7 +329,9 @@ export default function ActivityPage() {
                     {entry.message || humanizeLabel(entry.eventType)}
                   </p>
                   <p className="text-[10.5px] text-text-muted">
-                    {humanizeLabel(entry.kind)} - {humanizeLabel(entry.eventType)}
+                    {entry.kind === 'audit'
+                      ? `${entry.actorName || 'Team member'} - ${humanizeLabel(entry.eventType)}`
+                      : `${humanizeLabel(entry.kind)} - ${humanizeLabel(entry.eventType)}`}
                   </p>
                 </div>
                 <span className="shrink-0 font-mono text-[10.5px] text-text-muted">

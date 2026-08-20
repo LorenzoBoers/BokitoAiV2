@@ -96,13 +96,16 @@ def format_outbound(
     """
     html_body = body_html or f"<p>{body_text.replace(chr(10), '<br>')}</p>"
     html_body = _append_signature(html_body, account)
+    # `to_address` may carry multiple comma/semicolon-separated recipients
+    # (compose to several people); normalize once for both providers.
+    to_addrs = _parse_address_list(to_address) or [to_address]
     cc_addrs = _parse_address_list(cc)
     bcc_addrs = _parse_address_list(bcc)
     files = attachment_payloads or []
 
     if account.provider == "gmail":
         mime = EmailMessage()
-        mime["To"] = to_address
+        mime["To"] = ", ".join(to_addrs)
         mime["From"] = account.address
         mime["Subject"] = subject
         if cc_addrs:
@@ -133,7 +136,7 @@ def format_outbound(
         message: dict[str, Any] = {
             "subject": subject,
             "body": {"contentType": "HTML", "content": html_body},
-            "toRecipients": [{"emailAddress": {"address": to_address}}],
+            "toRecipients": [{"emailAddress": {"address": addr}} for addr in to_addrs],
         }
         if cc_addrs:
             message["ccRecipients"] = [{"emailAddress": {"address": addr}} for addr in cc_addrs]

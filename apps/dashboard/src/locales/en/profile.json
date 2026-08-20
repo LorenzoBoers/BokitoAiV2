@@ -31,7 +31,7 @@
   },
   "security": {
     "title": "Security",
-    "description": "Manage your account password.",
+    "description": "Manage your password and two-factor authentication.",
     "passwordTitle": "Password",
     "passwordDescription": "Change your account password.",
     "changePassword": "Change password",
@@ -40,7 +40,19 @@
     "confirmPassword": "Confirm new password",
     "passwordMismatch": "Passwords do not match",
     "passwordSuccess": "Password changed",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "totpTitle": "Two-factor authentication",
+    "totpOnDescription": "Signing in requires a code from your authenticator app.",
+    "totpOffDescription": "Add an extra sign-in step with an authenticator app.",
+    "totpEnable": "Enable",
+    "totpDisable": "Disable",
+    "totpConfirm": "Verify and enable",
+    "totpStep1": "Add this key to your authenticator app (Google Authenticator, 1Password, Microsoft Authenticator, ...), then enter the 6-digit code it shows.",
+    "totpOpenApp": "Open in authenticator app",
+    "totpInvalidCode": "Invalid verification code. Try again.",
+    "totpEnabled": "Two-factor authentication enabled",
+    "totpDisabled": "Two-factor authentication disabled",
+    "totpDisableConfirm": "Enter your password to turn off two-factor authentication."
   },
   "account": {
     "title": "Account",

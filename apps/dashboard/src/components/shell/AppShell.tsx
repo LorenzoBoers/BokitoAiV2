@@ -6,6 +6,8 @@ import { ChatSessionsProvider } from '../../context/ChatSessionsContext'
 import ShellSidebar from './ShellSidebar'
 import ShellTopbar from './ShellTopbar'
 import CommandPalette from './CommandPalette'
+import VerifyEmailBanner from './VerifyEmailBanner'
+import TwoFactorBanner from './TwoFactorBanner'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -19,7 +21,11 @@ function loadNavCollapsed(): boolean {
 
 /** Routes that take over the full content area (no padding container). */
 function isFullBleed(pathname: string): boolean {
-  return pathname.startsWith('/communication')
+  return (
+    pathname.startsWith('/communication') ||
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/ai/')
+  )
 }
 
 export default function AppShell() {
@@ -98,9 +104,11 @@ export default function AppShell() {
                 onOpenNavDrawer={() => setDrawerOpen(true)}
                 onOpenPalette={() => setPaletteOpen(true)}
               />
+              <VerifyEmailBanner />
+              <TwoFactorBanner />
               <main className="min-h-0 flex-1">
                 {fullBleed ? (
-                  <div className="h-full min-h-0">
+                  <div className="h-full min-h-0 overflow-hidden">
                     <Outlet />
                   </div>
                 ) : (

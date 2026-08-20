@@ -61,7 +61,14 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
     from app.services.auth import hash_password
 
     tenant = Tenant(slug="test", name="Test Tenant")
-    user = User(email=TEST_EMAIL, password_hash=hash_password(TEST_PASSWORD), display_name="Test")
+    # Verified: the seeded operator must pass the soft verification gate on
+    # outbound endpoints (reply, email send, mailbox connect).
+    user = User(
+        email=TEST_EMAIL,
+        password_hash=hash_password(TEST_PASSWORD),
+        display_name="Test",
+        email_verified=True,
+    )
     session_override.add(tenant)
     session_override.add(user)
     await session_override.commit()

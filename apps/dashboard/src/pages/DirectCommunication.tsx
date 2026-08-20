@@ -289,6 +289,7 @@ export default function DirectCommunication() {
             agentName={selectedThread?.agentName ?? activeAgent?.name}
             agentKind={selectedThread?.agentKind ?? activeAgent?.kind}
             onDeleted={() => navigate(`${basePath}${inboxQuery}`)}
+            onBack={() => navigate(`${basePath}${inboxQuery}`)}
             onRefreshThreads={() => void refreshThreads()}
             onToggleContext={toggleContextPanel}
             contextOpen={showContextPanel}

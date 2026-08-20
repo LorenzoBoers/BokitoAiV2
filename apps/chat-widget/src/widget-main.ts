@@ -27,6 +27,9 @@ class MarkdownRenderer {
     return text
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/```[\s\S]*?```/g, m => { const code = m.slice(3,-3).replace(/^\w+\n/,''); return `<pre><code>${code}</code></pre>`; })
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -98,6 +101,7 @@ const LS_HIDDEN_CONVERSATIONS_KEY = 'bokito_hidden_conversations';
 const LS_AUTH_TOKEN_KEY = 'bokito_auth_token';
 const LS_PREFERENCES_CACHE_KEY = 'bokito_user_preferences_cache';
 const LS_WIDGET_POSITION_KEY = 'bokito_widget_pos';
+const LS_CSAT_RATED_KEY = 'bokito_csat_rated';
 const WIDGET_BASE_MARGIN = 20;
 const WIDGET_DRAG_THRESHOLD = 6;
 
@@ -661,6 +665,28 @@ const WIDGET_CSS = `
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
 .bk-home-new-btn-icon svg{width:18px;height:18px;color:var(--bk-primary);}
+.bk-home-tab[data-tab="help"]{overflow:hidden;min-height:0;}
+.bk-home-tab[data-tab="help"] .bk-home-section{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.bk-help-search{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--bk-border);border-radius:10px;background:var(--bk-bg-surface);color:var(--bk-text);font:500 13px var(--bk-font);outline:none;margin-bottom:10px;}
+.bk-help-search:focus{border-color:var(--bk-primary);}
+.bk-help-item{display:block;width:100%;box-sizing:border-box;padding:12px 14px;margin-bottom:6px;border:1px solid var(--bk-border-light);border-radius:12px;background:var(--bk-bg-surface);cursor:pointer;text-align:left;color:var(--bk-text);font-family:var(--bk-font);transition:background var(--bk-transition),border-color var(--bk-transition);animation:bk-slide-up .25s ease both;}
+.bk-help-item:hover{background:var(--bk-bg-hover);border-color:var(--bk-border);}
+.bk-help-item-title{font-size:14px;font-weight:600;margin-bottom:2px;}
+.bk-help-item-desc{font-size:12.5px;color:var(--bk-text-muted);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.bk-help-empty{padding:14px 0;font-size:13px;color:var(--bk-text-muted);text-align:center;}
+.bk-help-back{display:inline-flex;align-items:center;gap:6px;padding:4px 0;margin-bottom:10px;border:none;background:none;color:var(--bk-text-muted);font:600 12.5px var(--bk-font);cursor:pointer;}
+.bk-help-back:hover{color:var(--bk-text);}
+.bk-help-back svg{width:14px;height:14px;}
+.bk-help-article-title{font-size:18px;font-weight:700;letter-spacing:-.01em;margin-bottom:10px;color:var(--bk-text);}
+.bk-help-article-body{font-size:13.5px;line-height:1.6;color:var(--bk-text);padding-bottom:16px;}
+.bk-help-article-body p{margin:0 0 10px;}
+.bk-help-article-body h1{font-size:17px;font-weight:700;margin:14px 0 8px;letter-spacing:-.01em;}
+.bk-help-article-body h2{font-size:15px;font-weight:700;margin:12px 0 6px;}
+.bk-help-article-body h3{font-size:14px;font-weight:600;margin:10px 0 4px;}
+.bk-help-article-body ul{padding-left:18px;margin:0 0 10px;}
+.bk-help-article-body pre{overflow-x:auto;background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);border-radius:8px;padding:10px;font-size:12px;}
+.bk-help-article-body code{background:var(--bk-bg-surface);border-radius:4px;padding:1px 4px;font-size:.9em;}
+.bk-help-article-body a{color:var(--bk-primary);}
 .bk-tools-intro{font-size:12px;font-weight:600;color:var(--bk-text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
 .bk-toolbox-pills{display:flex;flex-wrap:wrap;gap:6px;}
 .bk-tool-pill{padding:6px 12px;border-radius:999px;font:500 12px var(--bk-font);color:var(--bk-text);background:var(--bk-bg-surface);border:1px solid var(--bk-border);}
@@ -818,6 +844,18 @@ const WIDGET_CSS = `
 .bk-prechat-submit:disabled{opacity:0.6;cursor:default;}
 .bk-prechat-skip{padding:8px 10px;border:none;background:none;color:var(--bk-text-muted);font-size:12px;cursor:pointer;}
 .bk-prechat-error{font-size:12px;color:#DC2626;}
+.bk-csat{margin:8px 0;padding:14px;border:1px solid var(--bk-border);border-radius:12px;background:var(--bk-bg-surface);display:flex;flex-direction:column;gap:10px;animation:bk-slide-up .25s ease both;}
+.bk-csat-title{font-size:13px;font-weight:600;color:var(--bk-text);}
+.bk-csat-stars{display:flex;gap:4px;}
+.bk-csat-star{padding:4px;border:none;background:none;cursor:pointer;color:var(--bk-text-muted);transition:color var(--bk-transition),transform var(--bk-transition);}
+.bk-csat-star:hover{transform:scale(1.1);}
+.bk-csat-star.is-active{color:#F59E0B;}
+.bk-csat-star.is-active svg{fill:currentColor;}
+.bk-csat-star svg{width:22px;height:22px;display:block;}
+.bk-csat-star:disabled{cursor:default;}
+.bk-csat-comment{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--bk-border);border-radius:8px;background:var(--bk-bg);color:var(--bk-text);font-size:13px;font-family:inherit;outline:none;resize:none;}
+.bk-csat-comment:focus{border-color:var(--bk-primary);}
+.bk-csat-send{align-self:flex-start;padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:#0B0F14;font-size:13px;font-weight:600;cursor:pointer;}
 .bk-worklog-stack{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:var(--bk-surface-muted,#f3f4f6);font-size:13px;color:var(--bk-text-secondary,#4b5563);}
 .bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#00D986);}
 .bk-worklog-title{font-weight:500;margin-bottom:6px;}
@@ -848,6 +886,7 @@ class BokitoChatWidget extends HTMLElement {
   #toolboxWrap; #toolboxToggle; #toolboxMenu; #toolboxPills;
   #chatActionsWrap; #chatActionsBtn; #chatActionsMenu; #settingsBtn;
   #backBtn; #settingsView; #headerUser; #userPopover; #preSettingsView = null; #activeHomeTab = 'home';
+  #helpArticles = null; // null = not fetched yet, [] = none published (tab stays hidden)
   #soundEffectsEnabled = true; #soundNotificationsEnabled = true;
   #themeSchemeMedia = null; #themeSchemeListenerBound = false;
   #badge; #unreadTotal = 0;
@@ -1311,6 +1350,22 @@ class BokitoChatWidget extends HTMLElement {
                 <div class="bk-conv-list"></div>
               </div>
             </div>
+            <div class="bk-home-tab" data-tab="help" hidden>
+              <div class="bk-home-section">
+                <div class="bk-help-list-view">
+                  <input class="bk-help-search" type="text" placeholder="Search articles">
+                  <div class="bk-help-list"></div>
+                </div>
+                <div class="bk-help-article" hidden>
+                  <button type="button" class="bk-help-back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    All articles
+                  </button>
+                  <div class="bk-help-article-title"></div>
+                  <div class="bk-help-article-body"></div>
+                </div>
+              </div>
+            </div>
             <div class="bk-home-tab" data-tab="tools" hidden>
               <div class="bk-home-section">
                 <div class="bk-tools-intro">Available tools for this assistant</div>
@@ -1329,6 +1384,10 @@ class BokitoChatWidget extends HTMLElement {
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M14.1706 20.8905C18.3536 20.6125 21.6856 17.2332 21.9598 12.9909C22.0134 12.1607 22.0134 11.3009 21.9598 10.4707C21.6856 6.22838 18.3536 2.84913 14.1706 2.57107C12.7435 2.47621 11.2536 2.47641 9.8294 2.57107C5.64639 2.84913 2.31441 6.22838 2.04024 10.4707C1.98659 11.3009 1.98659 12.1607 2.04024 12.9909C2.1401 14.536 2.82343 15.9666 3.62791 17.1746C4.09501 18.0203 3.78674 19.0758 3.30021 19.9978C2.94941 20.6626 2.77401 20.995 2.91484 21.2351C3.05568 21.4752 3.37026 21.4829 3.99943 21.4982C5.24367 21.5285 6.08268 21.1757 6.74868 20.6846C7.1264 20.4061 7.31527 20.2668 7.44544 20.2508C7.5756 20.2348 7.83177 20.3403 8.34401 20.5513C8.8044 20.7409 9.33896 20.8579 9.8294 20.8905C11.2536 20.9852 12.7435 20.9854 14.1706 20.8905Z" fill="currentColor"/><circle class="bk-icon-detail" cx="8" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="12" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="16" cy="12" r="1" fill="currentColor"/></svg>
                 <span class="bk-tab-label">Messages</span>
                 <span class="bk-tab-badge" hidden>0</span>
+              </button>
+              <button type="button" class="bk-tab-btn" data-tab="help" role="tab" aria-selected="false" aria-label="Help" hidden>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle class="bk-icon-body" cx="12" cy="12" r="10" fill="currentColor"/><path class="bk-icon-detail" d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/><circle class="bk-icon-detail" cx="12" cy="16.6" r="1" fill="currentColor"/></svg>
+                <span class="bk-tab-label">Help</span>
               </button>
               <button type="button" class="bk-tab-btn" data-tab="tools" role="tab" aria-selected="false" aria-label="Tools">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.121 2.121 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" fill="currentColor"/><circle class="bk-icon-detail" cx="5.5" cy="18.5" r="1" fill="currentColor"/></svg>
@@ -1570,6 +1629,8 @@ class BokitoChatWidget extends HTMLElement {
         if (tab) this.#switchHomeTab(tab);
       });
     });
+    this.#root.querySelector('.bk-help-search')?.addEventListener('input', () => this.#renderHelpList());
+    this.#root.querySelector('.bk-help-back')?.addEventListener('click', () => this.#renderHelpList());
     this.#root.addEventListener('click', () => {
       this.#closeChatActionsMenu();
       this.#closeUserPopover();
@@ -2323,6 +2384,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#syncOfflineBanner();
     this.#syncLoginLinks();
     this.#syncVoiceAvailability();
+    void this.#maybeLoadHelpArticles();
     this.#renderHeaderUser();
     this.#scheduleSessionRefresh(data);
 
@@ -3723,6 +3785,12 @@ class BokitoChatWidget extends HTMLElement {
       topics: [`signal:${this.#conversationId}`],
       token: this.#sessionToken || null,
       onEvent: (frame) => {
+        // Visitor-safe status event: an operator (or rule) closed the
+        // conversation, which is the moment to ask for a satisfaction rating.
+        if (frame?.event === 'conversation' && frame.data?.status === 'closed') {
+          this.#showCsatPrompt();
+          return;
+        }
         const legacy = gatewayFrameToWidgetEvent(frame);
         if (legacy) this.#handleRealtimeEvent(legacy);
       },
@@ -4113,6 +4181,74 @@ class BokitoChatWidget extends HTMLElement {
     requestAnimationFrame(() => { this.#messageList.scrollTop = this.#messageList.scrollHeight; });
   }
 
+  /* ── CSAT (conversation rating) ─────────────────────────────── */
+
+  #getCsatRatedIds() {
+    try {
+      const parsed = JSON.parse(this.#storGet(LS_CSAT_RATED_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+
+  #markCsatRated(conversationId) {
+    const list = this.#getCsatRatedIds();
+    if (!list.includes(conversationId)) list.push(conversationId);
+    this.#storSet(LS_CSAT_RATED_KEY, JSON.stringify(list.slice(-50)));
+  }
+
+  /** Inline 1-5 star rating card, shown once per conversation when it closes. */
+  #showCsatPrompt() {
+    const convId = this.#conversationId;
+    if (!convId || !this.#messageList) return;
+    if (this.#getCsatRatedIds().includes(convId)) return;
+    if (this.#messageList.querySelector('.bk-csat')) return;
+
+    const starSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+    const card = document.createElement('div');
+    card.className = 'bk-csat';
+    card.innerHTML = `
+      <div class="bk-csat-title">How was this conversation?</div>
+      <div class="bk-csat-stars" role="radiogroup" aria-label="Rate this conversation">
+        ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="bk-csat-star" data-score="${v}" aria-label="${v} of 5">${starSvg}</button>`).join('')}
+      </div>
+    `;
+    const stars = [...card.querySelectorAll('.bk-csat-star')];
+    const paint = (score) => stars.forEach((btn, i) => btn.classList.toggle('is-active', i < score));
+
+    const submit = async (score) => {
+      paint(score);
+      stars.forEach(b => { b.disabled = true; });
+      try {
+        await this.#api.post(`conversation/${convId}/csat`, { score, comment: '' });
+        this.#markCsatRated(convId);
+        card.innerHTML = `
+          <div class="bk-csat-title">Thanks for your feedback</div>
+          <textarea class="bk-csat-comment" placeholder="Anything we could do better? (optional)" rows="2" maxlength="1000"></textarea>
+          <button type="button" class="bk-csat-send">Send</button>
+        `;
+        const commentEl = card.querySelector('.bk-csat-comment');
+        card.querySelector('.bk-csat-send').addEventListener('click', async () => {
+          const comment = (commentEl?.value || '').trim();
+          try {
+            if (comment) await this.#api.post(`conversation/${convId}/csat`, { score, comment });
+          } catch {}
+          card.innerHTML = '<div class="bk-csat-title">Thanks for your feedback</div>';
+        });
+        this.#scrollToBottom();
+      } catch {
+        stars.forEach(b => { b.disabled = false; });
+      }
+    };
+
+    stars.forEach((btn) => {
+      btn.addEventListener('mouseenter', () => paint(Number(btn.dataset.score)));
+      btn.addEventListener('mouseleave', () => paint(0));
+      btn.addEventListener('click', () => { void submit(Number(btn.dataset.score)); });
+    });
+    this.#messageList.appendChild(card);
+    this.#scrollToBottom();
+  }
+
   async #loadSuggestions() {
     if (!this.#conversationId) return;
     // Hide suggestions once the conversation has started
@@ -4418,7 +4554,7 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #switchHomeTab(tab) {
-    if (tab !== 'home' && tab !== 'messages' && tab !== 'tools') tab = 'home';
+    if (tab !== 'home' && tab !== 'messages' && tab !== 'tools' && tab !== 'help') tab = 'home';
     this.#activeHomeTab = tab;
     this.#root.querySelectorAll('.bk-home-tab').forEach((el) => {
       el.hidden = el.dataset.tab !== tab;
@@ -4426,10 +4562,102 @@ class BokitoChatWidget extends HTMLElement {
     this.#root.querySelectorAll('.bk-tab-btn').forEach((btn) => {
       const isActive = btn.dataset.tab === tab;
       btn.classList.toggle('is-active', isActive);
+      // The hidden state of the Help button is data-driven (published
+      // articles exist); toggling classes must not reveal it.
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
     if (tab === 'messages') this.#loadConversationHistory();
     if (tab === 'tools') this.#renderToolbox();
+    if (tab === 'help') this.#renderHelpList();
+  }
+
+  /* ── Help center (published knowledge-base articles) ────────── */
+
+  #helpTenantSlug() {
+    return this.#sessionTenant?.slug || this.#tenantSubdomain || null;
+  }
+
+  /** Fetch the public article index once per session; the Help tab only
+   * appears when the tenant actually published articles. */
+  async #maybeLoadHelpArticles() {
+    const slug = this.#helpTenantSlug();
+    if (!slug || this.#helpArticles !== null) return;
+    try {
+      const r = await fetch(apiGroupUrl(this.#apiUrl, 'help', `/${encodeURIComponent(slug)}`));
+      const data = r.ok ? await r.json() : null;
+      this.#helpArticles = Array.isArray(data?.articles) ? data.articles : [];
+    } catch {
+      this.#helpArticles = [];
+    }
+    const btn = this.#root.querySelector('.bk-tab-btn[data-tab="help"]');
+    if (btn) btn.hidden = this.#helpArticles.length === 0;
+  }
+
+  #renderHelpList() {
+    const listView = this.#root.querySelector('.bk-help-list-view');
+    const articleView = this.#root.querySelector('.bk-help-article');
+    const list = this.#root.querySelector('.bk-help-list');
+    if (!listView || !articleView || !list) return;
+    listView.hidden = false;
+    articleView.hidden = true;
+    const query = (this.#root.querySelector('.bk-help-search')?.value || '').trim().toLowerCase();
+    const articles = (this.#helpArticles || []).filter((a) => {
+      if (!query) return true;
+      return (a.title || '').toLowerCase().includes(query)
+        || (a.description || '').toLowerCase().includes(query);
+    });
+    list.innerHTML = '';
+    if (!articles.length) {
+      const empty = document.createElement('div');
+      empty.className = 'bk-help-empty';
+      empty.textContent = query ? 'No articles match your search.' : 'No articles yet.';
+      list.appendChild(empty);
+      return;
+    }
+    articles.forEach((article) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'bk-help-item';
+      const title = document.createElement('div');
+      title.className = 'bk-help-item-title';
+      title.textContent = article.title || 'Untitled';
+      el.appendChild(title);
+      if (article.description) {
+        const desc = document.createElement('div');
+        desc.className = 'bk-help-item-desc';
+        desc.textContent = article.description;
+        el.appendChild(desc);
+      }
+      el.addEventListener('click', () => { void this.#openHelpArticle(article.slug); });
+      list.appendChild(el);
+    });
+  }
+
+  async #openHelpArticle(slug) {
+    const tenantSlug = this.#helpTenantSlug();
+    if (!tenantSlug || !slug) return;
+    const listView = this.#root.querySelector('.bk-help-list-view');
+    const articleView = this.#root.querySelector('.bk-help-article');
+    const titleEl = this.#root.querySelector('.bk-help-article-title');
+    const bodyEl = this.#root.querySelector('.bk-help-article-body');
+    if (!listView || !articleView || !titleEl || !bodyEl) return;
+    try {
+      const r = await fetch(apiGroupUrl(
+        this.#apiUrl, 'help',
+        `/${encodeURIComponent(tenantSlug)}/${encodeURIComponent(slug)}`,
+      ));
+      if (!r.ok) return;
+      const article = await r.json();
+      titleEl.textContent = article.title || 'Untitled';
+      // MarkdownRenderer escapes HTML before converting, so this is safe.
+      bodyEl.innerHTML = MarkdownRenderer.render(article.content || '');
+      listView.hidden = true;
+      articleView.hidden = false;
+      const section = articleView.closest('.bk-home-section');
+      if (section) section.scrollTop = 0;
+    } catch {
+      // Keep the list visible when the article fails to load.
+    }
   }
   #closeWindow() {
     if (this.#settingsView && this.#settingsView.style.display !== 'none') this.#hideSettings();

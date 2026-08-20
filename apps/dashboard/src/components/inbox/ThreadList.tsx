@@ -39,6 +39,8 @@ type Props = {
   hasMore?: boolean
   loadingMore?: boolean
   onLoadMore?: () => void
+  /** When set, the header shows a compose button (new outbound email). */
+  onCompose?: () => void
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -75,6 +77,7 @@ export default function ThreadList({
   hasMore = false,
   loadingMore = false,
   onLoadMore,
+  onCompose,
 }: Props) {
   const { t } = useTranslation('communication')
   const counts = buildFilterCounts(allThreads)
@@ -87,7 +90,11 @@ export default function ThreadList({
   }, [members])
 
   return (
-    <div className="flex flex-col h-full min-h-0 w-72 shrink-0 border-r border-border/50 bg-bg-surface">
+    <div
+      className={`${
+        selectedId != null ? 'hidden md:flex' : 'flex'
+      } flex-col h-full min-h-0 w-full md:w-72 shrink-0 border-r border-border/50 bg-bg-surface`}
+    >
       {selectionActive && onBulkAction && onClearBulkSelection ? (
         <BulkActionsBar
           count={bulkSelectedIds?.size ?? 0}
@@ -96,7 +103,12 @@ export default function ThreadList({
           onClear={onClearBulkSelection}
         />
       ) : (
-        <ThreadListQuickFilters value={quickFilter} onChange={onQuickFilterChange} counts={counts} />
+        <ThreadListQuickFilters
+          value={quickFilter}
+          onChange={onQuickFilterChange}
+          counts={counts}
+          onCompose={onCompose}
+        />
       )}
 
       {activeTag && onTagSelect ? (

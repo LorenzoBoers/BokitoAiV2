@@ -17,6 +17,7 @@ from app.services.workspaces_portal import (
     list_workspaces,
     onboarding_status,
     remove_member,
+    resend_invite,
     resolve_tenant_for_workspace,
     revoke_invite,
     update_member_role,
@@ -56,6 +57,39 @@ async def get_onboarding_status(
     return await onboarding_status(session, auth.tenant.id)
 
 
+@router.post("/onboarding/demo-thread")
+async def create_demo_thread(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Opt-in demo conversation with a pending decision card. Idempotent."""
+    from app.services.onboarding_demo import seed_demo_thread
+
+    return await seed_demo_thread(session, auth.tenant.id)
+
+
+@router.delete("/onboarding/demo-thread")
+async def delete_demo_thread(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.onboarding_demo import remove_demo_threads
+
+    removed = await remove_demo_threads(session, auth.tenant.id)
+    return {"removed": removed}
+
+
+@router.get("/mail-status")
+async def get_mail_status(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Whether a transactional mail provider is configured. Admin surfaces use
+    this to warn that invite/notification mails will not be delivered."""
+    from app.services.transactional_mail import mail_configured
+
+    return {"configured": mail_configured()}
+
+
 @router.get("/workspaces")
 async def get_workspaces(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -93,7 +127,22 @@ async def post_workspace_update(
     )
     auth.require_role("owner", "admin")
     payload: dict[str, Any] = body.model_dump(exclude_none=True)
-    return await update_workspace(session, tenant, role, payload)
+    before = {"name": tenant.name, "slug": tenant.slug}
+    result = await update_workspace(session, tenant, role, payload)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant.id,
+        action="workspace:settings_updated",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="tenant",
+        resource_id=tenant.id,
+        before=before,
+        after={"name": tenant.name, "slug": tenant.slug, "fields": sorted(payload.keys())},
+    )
+    return result
 
 
 @router.delete("/workspaces/{workspace_id}")
@@ -196,6 +245,32 @@ async def delete_workspace_member(
     return {"ok": True}
 
 
+@router.post("/workspaces/{workspace_id}/invites/{invite_id}/resend")
+async def resend_workspace_invite(
+    workspace_id: str,
+    invite_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    tenant, _role = await resolve_tenant_for_workspace(
+        session, workspace_id, auth.user, is_staff=auth.is_staff
+    )
+    auth.require_role("owner", "admin")
+    result = await resend_invite(session, tenant, invite_id, auth.user)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant.id,
+        action="invite:resent",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="invite",
+        resource_id=invite_id,
+    )
+    return result
+
+
 @router.delete("/workspaces/{workspace_id}/invites/{invite_id}")
 async def delete_workspace_invite(
     workspace_id: str,
@@ -208,6 +283,17 @@ async def delete_workspace_invite(
     )
     auth.require_role("owner", "admin")
     await revoke_invite(session, tenant.id, invite_id)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant.id,
+        action="invite:revoked",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="invite",
+        resource_id=invite_id,
+    )
     return {"ok": True}
 
 
@@ -221,10 +307,23 @@ async def post_workspace_invite(
     tenant, _role = await resolve_tenant_for_workspace(
         session, str(body.workspace_id), auth.user, is_staff=auth.is_staff
     )
-    return await create_workspace_invite(
+    result = await create_workspace_invite(
         session,
         tenant,
         email=str(body.email),
         role=body.role,
         inviter=auth.user,
     )
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant.id,
+        action="invite:created",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="invite",
+        resource_id=(result or {}).get("id", "") if isinstance(result, dict) else "",
+        summary=f"{body.email} as {body.role}",
+    )
+    return result

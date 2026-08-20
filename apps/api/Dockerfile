@@ -10,6 +10,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY app ./app
 COPY scripts ./scripts
+COPY alembic ./alembic
+COPY alembic.ini ./
 
 ENV PYTHONPATH=/app
 EXPOSE 8000

@@ -21,10 +21,13 @@ PLATFORM_RESOURCE_TYPES = frozenset(
         "canvas_node",
         "canvas_edge",
         "agent_passport",
+        # Learning-loop proposals (system-proposed, human-accepted in Govern).
+        "autonomy_posture",
+        "persona_review",
     }
 )
 
-CHANGE_KINDS = frozenset({"create", "update", "delete", "connect"})
+CHANGE_KINDS = frozenset({"create", "update", "delete", "connect", "review"})
 CHANGE_STATUSES = frozenset(
     {
         "draft",

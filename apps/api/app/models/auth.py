@@ -38,6 +38,12 @@ class User(SQLModel, table=True):
     is_active: bool = True
     is_staff: bool = False
     email_verified: bool = False
+    # TOTP 2FA: secrets are Fernet-encrypted (app.services.crypto). The pending
+    # secret exists between setup and the first verified code; only then does
+    # totp_enabled flip and the secret move to totp_secret.
+    totp_enabled: bool = False
+    totp_secret: str = ""
+    totp_pending_secret: str = ""
     # Per-user preferences (widget theme/sound, hidden conversations, ...).
     settings_json: str = Field(default="{}")
     # Workspace the user was last active in; login/refresh scope the JWT to

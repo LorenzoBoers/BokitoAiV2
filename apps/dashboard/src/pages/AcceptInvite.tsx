@@ -1,14 +1,43 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useRef, useState, FormEvent, ChangeEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Camera, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authInviteInfo, type InviteInfo } from '../lib/api';
+import { apiPatchAuth, AUTH_API_BASE, buildAuthHeaders } from '../lib/api';
+import { authRoutes } from '../api/routes/auth.routes';
+import { policyRoutes } from '../api/routes/policy.routes';
 import { memberRoleLabel } from '../lib/labels';
+
+type PrefRow = {
+  id: string;
+  label: string;
+  channels: { desktop: boolean; email: boolean; mobile: boolean };
+};
+
+// Mirrors the backend defaults (inbox_settings DEFAULT_NOTIFICATION_ROWS).
+const DEFAULT_PREF_ROWS: PrefRow[] = [
+  {
+    id: 'assigned-to-me',
+    label: 'When a conversation is assigned to you',
+    channels: { desktop: true, email: false, mobile: false },
+  },
+  {
+    id: 'mentions',
+    label: 'When you are mentioned in conversations',
+    channels: { desktop: true, email: false, mobile: false },
+  },
+  {
+    id: 'decisions',
+    label: 'When an agent needs your decision on an assigned conversation',
+    channels: { desktop: true, email: false, mobile: false },
+  },
+];
 
 /**
  * Accept-invite landing page (`/accept-invite?token=...`).
  * New users pick a name + password; existing accounts confirm their current
- * password. On success the session is applied and the app reloads signed in.
+ * password. On success a light, skippable welcome step confirms display name,
+ * avatar and notification preferences before entering the dashboard.
  */
 export default function AcceptInvite() {
   const { acceptInvite } = useAuth();
@@ -24,6 +53,16 @@ export default function AcceptInvite() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Welcome (onboarding) step shown after the invite is accepted.
+  const [step, setStep] = useState<'form' | 'welcome'>('form');
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [welcomeName, setWelcomeName] = useState('');
+  const [prefRows, setPrefRows] = useState<PrefRow[]>(DEFAULT_PREF_ROWS);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!token) {
@@ -56,12 +95,73 @@ export default function AcceptInvite() {
     }
     setIsLoading(true);
     try {
-      await acceptInvite({ token, password, displayName: name.trim() });
-      window.location.assign('/');
+      const accessToken = await acceptInvite({ token, password, displayName: name.trim() });
+      setSessionToken(accessToken);
+      setWelcomeName(name.trim() || (info?.email ? info.email.split('@')[0] : ''));
+      setStep('welcome');
+      setIsLoading(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not accept the invite.');
       setIsLoading(false);
     }
+  }
+
+  function handleAvatarPick(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setAvatarFile(file);
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarPreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  function togglePrefEmail(rowId: string) {
+    setPrefRows((rows) =>
+      rows.map((row) =>
+        row.id === rowId
+          ? { ...row, channels: { ...row.channels, email: !row.channels.email } }
+          : row,
+      ),
+    );
+  }
+
+  /** Persist the welcome step. Onboarding must never block entry, so every
+   * write is best-effort and the redirect always happens. */
+  async function completeOnboarding(skip: boolean) {
+    if (finishing) return;
+    setFinishing(true);
+    if (sessionToken) {
+      try {
+        const trimmed = welcomeName.trim();
+        await apiPatchAuth(
+          authRoutes.profile.patch,
+          { ...(!skip && trimmed ? { name: trimmed } : {}), onboarded: true },
+          sessionToken,
+        );
+        if (!skip && avatarFile) {
+          const form = new FormData();
+          form.append('avatar', avatarFile);
+          await fetch(`${AUTH_API_BASE}${authRoutes.users.meAvatar}`, {
+            method: 'POST',
+            headers: buildAuthHeaders(sessionToken, false),
+            credentials: 'include',
+            body: form,
+          });
+        }
+        if (!skip) {
+          await fetch(`/api${policyRoutes.notificationPreferences()}`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${sessionToken}`,
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ rows: prefRows }),
+          });
+        }
+      } catch {
+        // Best-effort: preferences can be changed later in profile settings.
+      }
+    }
+    window.location.assign('/');
   }
 
   const inputClass =
@@ -83,12 +183,101 @@ export default function AcceptInvite() {
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
           <span className="text-sm text-text-secondary mt-1">
-            {info ? `Join ${info.tenant_name}` : 'Workspace invite'}
+            {step === 'welcome'
+              ? `Welcome to ${info?.tenant_name ?? 'your workspace'}`
+              : info
+                ? `Join ${info.tenant_name}`
+                : 'Workspace invite'}
           </span>
         </div>
 
         <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl">
-          {infoLoading ? (
+          {step === 'welcome' ? (
+            <div className="space-y-5">
+              <p className="text-sm text-text-secondary">
+                You are in. Check your details below - everything can be changed later in your
+                profile settings.
+              </p>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-bg-input flex items-center justify-center text-text-muted hover:border-border-focus transition"
+                  title="Upload a profile photo"
+                >
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <Camera size={16} />
+                  )}
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarPick}
+                />
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="welcome-name" className="block text-sm font-medium text-text-secondary mb-1">
+                    Display name
+                  </label>
+                  <input
+                    id="welcome-name"
+                    type="text"
+                    value={welcomeName}
+                    onChange={(e) => setWelcomeName(e.target.value)}
+                    className={inputClass}
+                    placeholder="Jane Doe"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-text-secondary mb-2">Email notifications</p>
+                <div className="space-y-2">
+                  {prefRows.map((row) => (
+                    <label key={row.id} className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={row.channels.email}
+                        onChange={() => togglePrefEmail(row.id)}
+                        className="mt-0.5 accent-current"
+                      />
+                      <span className="text-sm text-text-secondary">{row.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => void completeOnboarding(false)}
+                  disabled={finishing}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+                >
+                  {finishing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Setting up...
+                    </>
+                  ) : (
+                    'Get started'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void completeOnboarding(true)}
+                  disabled={finishing}
+                  className="w-full px-4 py-2 text-sm text-text-muted hover:text-text-secondary transition"
+                >
+                  Skip for now
+                </button>
+              </div>
+            </div>
+          ) : infoLoading ? (
             <div className="flex justify-center py-8 text-text-muted">
               <Loader2 size={18} className="animate-spin" />
             </div>
@@ -180,12 +369,14 @@ export default function AcceptInvite() {
             </form>
           )}
 
-          <div className="mt-4 text-center">
-            <span className="text-sm text-text-muted">Already have access? </span>
-            <Link to="/login" className="text-sm text-accent hover:text-accent-hover transition-colors">
-              Sign in
-            </Link>
-          </div>
+          {step !== 'welcome' ? (
+            <div className="mt-4 text-center">
+              <span className="text-sm text-text-muted">Already have access? </span>
+              <Link to="/login" className="text-sm text-accent hover:text-accent-hover transition-colors">
+                Sign in
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

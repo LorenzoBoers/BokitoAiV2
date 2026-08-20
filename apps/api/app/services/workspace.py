@@ -356,7 +356,11 @@ async def upsert_doc(
     doc = await get_doc_by_path(session, tenant_id, norm)
     if doc:
         doc.content = body
-        doc.frontmatter_json = json.dumps(meta)
+        # The editor round-trips the body only (serialize_doc strips
+        # frontmatter into its own field), so a save without a frontmatter
+        # block must not wipe existing metadata (source_file, published, ...).
+        if meta:
+            doc.frontmatter_json = json.dumps(meta)
         if kind:
             doc.kind = kind
         doc.title = title or _title_from(norm, meta, body)

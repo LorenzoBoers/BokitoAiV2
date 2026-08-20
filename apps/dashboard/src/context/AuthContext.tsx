@@ -5,6 +5,10 @@ import {
   authLogin,
   authLogout,
   authSignup,
+  authTotpVerify,
+  authWorkspaceSetupAcceptInvite,
+  authWorkspaceSetupCreate,
+  type PendingWorkspaceInvite,
   type SignupParams,
   authMe,
   authMeForTenant,
@@ -111,8 +115,38 @@ interface User {
   role: UserRole;
   isStaff: boolean;
   emailVerified: boolean;
+  /** TOTP two-factor authentication enrolled and active. */
+  totpEnabled: boolean;
   tenant: Tenant;
   memberships: TenantMembership[];
+}
+
+/** Thrown by `login` when the account requires a TOTP code as a second step. */
+export class TwoFactorRequiredError extends Error {
+  challengeToken: string;
+
+  constructor(challengeToken: string) {
+    super('Two-factor authentication required');
+    this.name = 'TwoFactorRequiredError';
+    this.challengeToken = challengeToken;
+  }
+}
+
+/** Thrown by `login` when the account is valid but has no workspace membership
+ * (e.g. an admin removed it from its last tenant). The account persists; the
+ * user joins via a pending invite or creates a new workspace. */
+export class WorkspaceRequiredError extends Error {
+  setupToken: string;
+  email: string;
+  pendingInvites: PendingWorkspaceInvite[];
+
+  constructor(setupToken: string, email: string, pendingInvites: PendingWorkspaceInvite[]) {
+    super('No workspace membership');
+    this.name = 'WorkspaceRequiredError';
+    this.setupToken = setupToken;
+    this.email = email;
+    this.pendingInvites = pendingInvites;
+  }
 }
 
 interface AuthContextValue {
@@ -120,6 +154,12 @@ interface AuthContextValue {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<string>;
+  /** Second login step: complete a 2FA challenge with a TOTP code. */
+  verifyTotp: (challengeToken: string, code: string) => Promise<string>;
+  /** No-workspace state: accept a pending invite and start a session. */
+  setupAcceptInvite: (setupToken: string, inviteId: string) => Promise<string>;
+  /** No-workspace state: create a new workspace and start a session. */
+  setupCreateWorkspace: (setupToken: string, workspaceName: string) => Promise<string>;
   signup: (params: SignupParams) => Promise<string>;
   acceptInvite: (params: { token: string; password: string; displayName?: string }) => Promise<string>;
   logout: () => Promise<void>;
@@ -128,7 +168,7 @@ interface AuthContextValue {
   hasPermission: (action: PermissionAction) => boolean;
   setUserRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
-  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified'>>) => void;
+  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified' | 'totpEnabled'>>) => void;
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
   isStaff: boolean;
@@ -274,6 +314,7 @@ function normalizeAuthUser(raw: unknown): User {
     role: mapTenantRoleToUserRole(payload.role),
     isStaff: Boolean(payload.is_staff),
     emailVerified: Boolean(payload.email_verified),
+    totpEnabled: Boolean(payload.totp_enabled),
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
@@ -563,6 +604,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string): Promise<string> => {
     const data = await authLogin(email, password) as AuthTokens;
+    const raw = data as unknown as AuthSessionResponse;
+    if (raw.requires_2fa && raw.challenge_token) {
+      // Password was correct, but the account needs a TOTP code first.
+      throw new TwoFactorRequiredError(raw.challenge_token);
+    }
+    if (raw.requires_workspace && raw.setup_token) {
+      throw new WorkspaceRequiredError(raw.setup_token, raw.email ?? email, raw.pending_invites ?? []);
+    }
     const nextToken = applySession(data);
     try {
       const me = await authMe(nextToken);
@@ -573,6 +622,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return nextToken;
   }, [applySession]);
+
+  const verifyTotp = useCallback(async (challengeToken: string, code: string): Promise<string> => {
+    const data = await authTotpVerify(challengeToken, code) as AuthTokens;
+    const raw = data as unknown as AuthSessionResponse;
+    if (raw.requires_workspace && raw.setup_token) {
+      throw new WorkspaceRequiredError(raw.setup_token, raw.email ?? '', raw.pending_invites ?? []);
+    }
+    const nextToken = applySession(data);
+    try {
+      const me = await authMe(nextToken);
+      setUser(normalizeAuthUser(me));
+    } catch {
+      setUser(buildFallbackUserFromLogin(data, data.email ?? ''));
+    }
+    return nextToken;
+  }, [applySession]);
+
+  const completeWorkspaceSetup = useCallback(async (data: AuthTokens): Promise<string> => {
+    const nextToken = applySession(data);
+    try {
+      const me = await authMe(nextToken);
+      setUser(normalizeAuthUser(me));
+    } catch {
+      setUser(buildFallbackUserFromLogin(data, data.email ?? ''));
+    }
+    return nextToken;
+  }, [applySession]);
+
+  const setupAcceptInvite = useCallback(async (setupToken: string, inviteId: string): Promise<string> => {
+    const data = await authWorkspaceSetupAcceptInvite(setupToken, inviteId) as AuthTokens;
+    return completeWorkspaceSetup(data);
+  }, [completeWorkspaceSetup]);
+
+  const setupCreateWorkspace = useCallback(async (setupToken: string, workspaceName: string): Promise<string> => {
+    const data = await authWorkspaceSetupCreate(setupToken, workspaceName) as AuthTokens;
+    return completeWorkspaceSetup(data);
+  }, [completeWorkspaceSetup]);
 
   const signup = useCallback(async (params: SignupParams): Promise<string> => {
     const data = await authSignup(params) as AuthTokens;
@@ -648,7 +734,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token]);
 
-  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified'>>) => {
+  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified' | 'totpEnabled'>>) => {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 
@@ -719,6 +805,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         isLoading,
         login,
+        verifyTotp,
+        setupAcceptInvite,
+        setupCreateWorkspace,
         signup,
         acceptInvite,
         logout,

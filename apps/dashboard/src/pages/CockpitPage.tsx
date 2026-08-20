@@ -10,12 +10,14 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Star,
   Timer,
   UserRound,
 } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
+import { OnboardingCompactCard } from '../components/onboarding/OnboardingChecklist'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
@@ -214,6 +216,8 @@ export default function CockpitPage() {
 
       <CockpitTabs />
 
+      <OnboardingCompactCard />
+
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
       {!error && partialFailures.length > 0 ? (
         <ApiErrorBanner
@@ -223,7 +227,7 @@ export default function CockpitPage() {
       ) : null}
 
       {/* Snapshot */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard
           label="Conversations 7d"
           value={summary ? formatNumber(summary.volume_week) : '-'}
@@ -253,6 +257,16 @@ export default function CockpitPage() {
           value={summary ? `${formatNumber(summary.time_saved_minutes_week)}m` : '-'}
           icon={Timer}
           to="/agenda"
+        />
+        <StatCard
+          label="CSAT 30d"
+          value={summary && summary.csat_score != null ? `${formatNumber(summary.csat_score)}/5` : '-'}
+          sub={
+            summary && summary.csat_responses > 0
+              ? `${formatNumber(summary.csat_responses)} response${summary.csat_responses === 1 ? '' : 's'}`
+              : 'No ratings yet'
+          }
+          icon={Star}
         />
         <StatCard
           label="Usage 30d"

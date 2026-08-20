@@ -1,4 +1,13 @@
-"""Add missing columns on existing SQLite/Postgres tables (create_all does not ALTER)."""
+"""FROZEN legacy schema patches — do not add new ALTERs or repairs here.
+
+As of Alembic revision `003_baseline` the Postgres schema is Alembic-managed:
+every new schema change must be a new revision in `alembic/versions/`. This
+module remains only because (a) `003_baseline` replays it to converge existing
+databases and (b) SQLite (tests/local dev) still runs it via `init_db`.
+
+Historical purpose: add missing columns on existing SQLite/Postgres tables
+(create_all does not ALTER) plus idempotent data repairs.
+"""
 
 from __future__ import annotations
 
@@ -806,9 +815,34 @@ def _close_stale_agent_runs(connection: Connection) -> None:
     )
 
 
+def _ensure_search_indexes(connection: Connection) -> None:
+    """Postgres-only full-text GIN index over message subject + body.
+
+    The expression must match the predicate built in
+    `signal_threads.list_threads` exactly, otherwise the planner will not use
+    the index. SQLite (tests) keeps the ILIKE fallback and needs no index.
+    """
+    if connection.dialect.name != "postgresql":
+        return
+    inspector = inspect(connection)
+    if not inspector.has_table("signal_messages"):
+        return
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_signal_messages_fts
+            ON signal_messages USING gin (
+                to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body_text, ''))
+            )
+            """
+        )
+    )
+
+
 def apply_data_repairs(connection: Connection) -> None:
     """Idempotent data fixes that ALTER cannot express (legacy role cleanup)."""
     _fix_postgres_uuid_columns(connection)
+    _ensure_search_indexes(connection)
     _close_stale_agent_runs(connection)
     _relax_oauth_states_tenant(connection)
     _migrate_legacy_threads_to_signals(connection)

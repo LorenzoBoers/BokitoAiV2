@@ -6,6 +6,8 @@ export const RESOURCE_TYPE_LABELS: Record<string, string> = {
   mcp_server: 'MCP server',
   canvas_node: 'Canvas node',
   canvas_edge: 'Canvas connection',
+  autonomy_posture: 'Autonomy posture',
+  persona_review: 'Persona review',
 }
 
 export const CHANGE_KIND_LABELS: Record<string, string> = {
@@ -13,6 +15,7 @@ export const CHANGE_KIND_LABELS: Record<string, string> = {
   update: 'Update',
   delete: 'Delete',
   connect: 'Connect',
+  review: 'Review',
 }
 
 export const ALLOWANCE_MODE_LABELS: Record<string, { label: string; hint: string }> = {

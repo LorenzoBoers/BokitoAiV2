@@ -21,6 +21,9 @@ export const WORKFORCE_API_BASE = '/api/workforce'
 /** Livechat router (`/api/livechat/*`): widget streaming endpoints. */
 export const LIVECHAT_API_BASE = '/api/livechat'
 
+/** Public help center (`/api/help/*`): unauthenticated published articles. */
+export const HELP_API_BASE = '/api/help'
+
 /** Settings router (`/api/settings/*`): providers, models, llm keys. */
 export const SETTINGS_API_BASE = '/api/settings'
 

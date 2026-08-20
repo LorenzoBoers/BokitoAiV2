@@ -130,3 +130,39 @@ async def test_notify_decision_sends_expo_push(client, session_override):
     payload = mock_expo.await_args.args[3]
     assert payload["decision_id"] == str(decision.id)
     assert payload["signal_id"] == str(signal.id)
+
+
+@pytest.mark.asyncio
+async def test_subscribe_and_unsubscribe_roundtrip(client, session_override):
+    from scripts.seed import TEST_PASSWORD
+
+    login = await client.post(
+        "/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    endpoint = "https://push.example.com/sub/abc123"
+    r = await client.post(
+        "/api/push/subscribe",
+        json={"endpoint": endpoint, "keys": {"p256dh": "key", "auth": "secret"}},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+
+    subs = (
+        await session_override.execute(
+            select(PushSubscription).where(PushSubscription.endpoint == endpoint)
+        )
+    ).scalars().all()
+    assert len(subs) == 1
+
+    r = await client.post("/api/push/unsubscribe", json={"endpoint": endpoint}, headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["removed"] == 1
+
+    subs = (
+        await session_override.execute(
+            select(PushSubscription).where(PushSubscription.endpoint == endpoint)
+        )
+    ).scalars().all()
+    assert subs == []

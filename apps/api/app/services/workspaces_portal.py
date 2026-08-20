@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -336,6 +337,9 @@ async def remove_member(
     *,
     acting_user: User,
 ) -> None:
+    from app.models.signal import Signal, SignalEvent
+    from app.services.auth import revoke_user_sessions
+
     user, membership = await _resolve_membership(session, tenant_id, member_id)
     if user.id == acting_user.id:
         raise AppError("You cannot remove yourself from the workspace.", status_code=400)
@@ -343,6 +347,42 @@ async def remove_member(
     await session.delete(membership)
     if user.last_tenant_id == tenant_id:
         user.last_tenant_id = None
+
+    # Threads assigned to the removed member go back to the unassigned queue;
+    # each gets an audit event so the timeline explains the change.
+    assigned = (
+        await session.execute(
+            select(Signal).where(
+                Signal.tenant_id == tenant_id, Signal.assigned_user_id == user.id
+            )
+        )
+    ).scalars().all()
+    for signal in assigned:
+        signal.assigned_user_id = None
+        session.add(signal)
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=tenant_id,
+                event_type="unassigned",
+                actor_type="user",
+                actor_id=str(acting_user.id),
+                payload_json=json.dumps({"reason": "member_removed"}),
+            )
+        )
+
+    # When this was the user's last workspace their refresh sessions are
+    # useless-but-dangerous; revoke them so stale cookies cannot refresh.
+    remaining = (
+        await session.execute(
+            select(Membership).where(
+                Membership.user_id == user.id, Membership.id != membership.id
+            )
+        )
+    ).scalars().first()
+    if remaining is None:
+        await revoke_user_sessions(session, user.id, commit=False)
+
     await session.commit()
 
 
@@ -405,6 +445,54 @@ async def list_invites(session: AsyncSession, tenant_id: UUID, inviter: User | N
     return rows
 
 
+INVITE_TTL = timedelta(days=7)
+
+# Per-invite resend throttle (in-memory, per process — plenty for this surface).
+RESEND_WINDOW_SECONDS = 3600.0
+RESEND_MAX_PER_WINDOW = 3
+_resend_history: dict[str, list[float]] = {}
+
+
+def _check_resend_rate(invite_id: str) -> None:
+    now = time.monotonic()
+    window = [t for t in _resend_history.get(invite_id, []) if now - t < RESEND_WINDOW_SECONDS]
+    if len(window) >= RESEND_MAX_PER_WINDOW:
+        raise AppError(
+            "This invite was resent too often. Try again in an hour.", status_code=429
+        )
+    window.append(now)
+    _resend_history[invite_id] = window
+
+
+async def _send_invite(invite: Invite, tenant: Tenant, inviter: User) -> tuple[str, bool]:
+    from app.services.transactional_mail import send_invite_mail
+
+    link = invite_link_for_token(invite.token)
+    mailed = await send_invite_mail(
+        invite.email,
+        invite_link=link,
+        tenant_name=tenant.name,
+        inviter_name=inviter.display_name or inviter.email,
+    )
+    return link, mailed
+
+
+def _invite_response(
+    invite: Invite, inviter: User, link: str, mailed: bool
+) -> dict[str, Any]:
+    return {
+        "id": str(invite.id),
+        "token": invite.token,
+        "email": invite.email,
+        "role": invite.role,
+        "invited_by_name": inviter.display_name or inviter.email,
+        "invited_at": invite.created_at.isoformat() if invite.created_at else None,
+        "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
+        "invite_link": link,
+        "mail_sent": mailed,
+    }
+
+
 async def create_workspace_invite(
     session: AsyncSession,
     tenant: Tenant,
@@ -416,37 +504,78 @@ async def create_workspace_invite(
     normalized_role = role if role in ("owner", "admin", "member") else "member"
     if normalized_role == "owner":
         normalized_role = "admin"
+    normalized_email = email.strip().lower()
+
+    # Existing members cannot be invited again.
+    existing_member = (
+        await session.execute(
+            select(User.id)
+            .join(Membership, Membership.user_id == User.id)
+            .where(Membership.tenant_id == tenant.id, User.email == normalized_email)
+        )
+    ).scalar_one_or_none()
+    if existing_member:
+        raise AppError(
+            f"{normalized_email} is already a member of this workspace.", status_code=400
+        )
+
+    # Re-inviting a pending email replaces that invite (fresh token + expiry)
+    # instead of stacking duplicate rows.
+    invite = (
+        await session.execute(
+            select(Invite).where(
+                Invite.tenant_id == tenant.id,
+                Invite.email == normalized_email,
+                Invite.accepted_at.is_(None),
+            )
+        )
+    ).scalars().first()
     token = await create_invite_token()
-    invite = Invite(
-        tenant_id=tenant.id,
-        email=email.strip().lower(),
-        role=normalized_role,
-        token=token,
-        invited_by_user_id=inviter.id,
-        expires_at=datetime.utcnow() + timedelta(days=7),
-    )
-    session.add(invite)
+    if invite:
+        invite.token = token
+        invite.role = normalized_role
+        invite.invited_by_user_id = inviter.id
+        invite.expires_at = datetime.utcnow() + INVITE_TTL
+    else:
+        invite = Invite(
+            tenant_id=tenant.id,
+            email=normalized_email,
+            role=normalized_role,
+            token=token,
+            invited_by_user_id=inviter.id,
+            expires_at=datetime.utcnow() + INVITE_TTL,
+        )
+        session.add(invite)
     await session.commit()
     await session.refresh(invite)
 
-    link = invite_link_for_token(token)
-    from app.services.transactional_mail import send_invite_mail
+    link, mailed = await _send_invite(invite, tenant, inviter)
+    return _invite_response(invite, inviter, link, mailed)
 
-    mailed = await send_invite_mail(
-        invite.email,
-        invite_link=link,
-        tenant_name=tenant.name,
-        inviter_name=inviter.display_name or inviter.email,
-    )
-    return {
-        "id": str(invite.id),
-        "email": invite.email,
-        "role": invite.role,
-        "invited_by_name": inviter.display_name or inviter.email,
-        "invited_at": invite.created_at.isoformat() if invite.created_at else None,
-        "invite_link": link,
-        "mail_sent": mailed,
-    }
+
+async def resend_invite(
+    session: AsyncSession, tenant: Tenant, invite_id: str, inviter: User
+) -> dict[str, Any]:
+    """Rotate the token, reset the expiry and re-send the invite mail."""
+    try:
+        parsed = UUID(invite_id)
+    except ValueError:
+        raise AppError("Invite not found", status_code=404)
+    invite = (
+        await session.execute(
+            select(Invite).where(Invite.id == parsed, Invite.tenant_id == tenant.id)
+        )
+    ).scalar_one_or_none()
+    if not invite or invite.accepted_at:
+        raise AppError("Invite not found", status_code=404)
+    _check_resend_rate(str(invite.id))
+    invite.token = await create_invite_token()
+    invite.expires_at = datetime.utcnow() + INVITE_TTL
+    await session.commit()
+    await session.refresh(invite)
+
+    link, mailed = await _send_invite(invite, tenant, inviter)
+    return _invite_response(invite, inviter, link, mailed)
 
 
 async def apply_branding(
@@ -574,10 +703,21 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
         ).first()
     )
 
-    channel_done = bool(
+    # The core loop: a decision card on a thread that a human resolved. The
+    # demo thread counts on purpose - resolving it IS the intended first
+    # experience of the loop.
+    from app.models.notification import DecisionRequest
+
+    first_decision_done = bool(
         (
             await session.execute(
-                select(ChannelAccount.id).where(ChannelAccount.tenant_id == tenant_id).limit(1)
+                select(DecisionRequest.id)
+                .where(
+                    DecisionRequest.tenant_id == tenant_id,
+                    DecisionRequest.signal_id.is_not(None),
+                    DecisionRequest.status != "awaiting_human",
+                )
+                .limit(1)
             )
         ).first()
     )
@@ -610,11 +750,13 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
     ).scalar_one()
     team_done = member_count > 1 or invite_count > 0
 
+    # The generic "channel" step was dropped: the email step already covers
+    # the flagship channel, and first_decision measures actual AI value.
     steps = [
         {"id": "email", "done": email_done},
         {"id": "company", "done": company_done},
         {"id": "assistant", "done": assistant_done},
-        {"id": "channel", "done": channel_done},
+        {"id": "first_decision", "done": first_decision_done},
         {"id": "team", "done": team_done},
     ]
     return {"steps": steps, "completed": all(step["done"] for step in steps)}

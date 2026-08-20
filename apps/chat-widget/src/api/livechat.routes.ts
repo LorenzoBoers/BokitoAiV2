@@ -20,4 +20,7 @@ export const livechatRoutes = {
   customer: {
     conversations: '/customer/conversations',
   },
+  conversation: {
+    csat: (conversationId: string) => `/conversation/${conversationId}/csat`,
+  },
 } as const

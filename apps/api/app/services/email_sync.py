@@ -20,7 +20,9 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
+from html.parser import HTMLParser
 from typing import Any
 from uuid import UUID
 
@@ -98,6 +100,81 @@ def account_sync_window_days(settings: dict[str, Any]) -> int:
     return max(0, min(value, 3650))
 
 
+# Grace window so mail arriving just before connect is still treated as live.
+AI_LIVE_SINCE_GRACE = timedelta(minutes=5)
+
+
+def account_ai_live_since(settings: dict[str, Any]) -> datetime | None:
+    """UTC naive timestamp after which inbound mail may trigger AI processing."""
+    raw = settings.get("ai_live_since")
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def ensure_ai_live_since(settings: dict[str, Any]) -> dict[str, Any]:
+    """Set ai_live_since once when a mailbox first starts syncing."""
+    if settings.get("ai_live_since"):
+        return settings
+    settings = dict(settings)
+    settings["ai_live_since"] = datetime.utcnow().isoformat()
+    return settings
+
+
+def is_backfill_message(received_at: datetime | None, settings: dict[str, Any]) -> bool:
+    """True when the message predates the mailbox AI live cutoff."""
+    live_since = account_ai_live_since(settings)
+    if live_since is None or received_at is None:
+        return False
+    return received_at < (live_since - AI_LIVE_SINCE_GRACE)
+
+
+class _HtmlTextExtractor(HTMLParser):
+    """Minimal HTML -> plain text for provider bodies."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        if data:
+            self._parts.append(data)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in ("br", "p", "div", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6"):
+            self._parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("p", "div", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6"):
+            self._parts.append("\n")
+
+    def get_text(self) -> str:
+        text = "".join(self._parts)
+        text = re.sub(r"[ \t]+\n", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
+
+
+def html_to_text(html: str) -> str:
+    """Strip HTML tags to plain text for agent ingestion."""
+    raw = (html or "").strip()
+    if not raw:
+        return ""
+    parser = _HtmlTextExtractor()
+    try:
+        parser.feed(raw)
+        parser.close()
+    except Exception:
+        return re.sub(r"<[^>]+>", " ", raw).strip()
+    return parser.get_text()
+
+
 def _parse_iso_utc(value: Any) -> datetime | None:
     """Provider ISO timestamp -> naive UTC datetime (our storage convention)."""
     if not value:
@@ -111,7 +188,9 @@ def _parse_iso_utc(value: Any) -> datetime | None:
     return parsed
 
 
-async def _record_sync_error(session: AsyncSession, account: ChannelAccount, message: str) -> None:
+async def _record_sync_error(
+    session: AsyncSession, account: ChannelAccount, message: str, *, kind: str = "error"
+) -> None:
     try:
         settings = json.loads(account.settings_json or "{}")
         if not isinstance(settings, dict):
@@ -119,9 +198,38 @@ async def _record_sync_error(session: AsyncSession, account: ChannelAccount, mes
     except json.JSONDecodeError:
         settings = {}
     settings["last_error"] = message
+    error_count = int(settings.get("sync_error_count") or 0) + 1
+    settings["sync_error_count"] = error_count
+
+    # Alert tenant admins when the mailbox needs a human: immediately for
+    # expired auth, after 3 consecutive failures otherwise. At most once per
+    # 24h per account (tracked here; ops_alerts adds tenant-level dedupe).
+    should_alert = kind == "auth_expired" or error_count >= 3
+    last_alert_raw = settings.get("last_ops_alert_at")
+    if should_alert and last_alert_raw:
+        try:
+            last_alert = datetime.fromisoformat(str(last_alert_raw))
+            if datetime.utcnow() - last_alert < timedelta(hours=24):
+                should_alert = False
+        except ValueError:
+            pass
+    if should_alert:
+        settings["last_ops_alert_at"] = datetime.utcnow().isoformat()
+
     account.settings_json = json.dumps(settings)
     session.add(account)
     await session.commit()
+
+    if should_alert:
+        from app.services.ops_alerts import alert_channel_disconnect
+
+        await alert_channel_disconnect(
+            session,
+            account.tenant_id,
+            channel_label=account.address or account.provider or "mailbox",
+            reason=message,
+            account_id=account.id,
+        )
 
 
 def _credentials(account: ChannelAccount) -> dict[str, Any]:
@@ -254,9 +362,13 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
             auto_headers[name] = str(header["value"])
     body = msg.get("body") or {}
     content_type = (body.get("contentType") or "text").lower()
-    body_content = body.get("content") or msg.get("bodyPreview", "")
+    body_content = body.get("content") or ""
+    preview = msg.get("bodyPreview", "") or ""
     body_html = body_content if content_type == "html" else ""
-    body_text = msg.get("bodyPreview", "") if content_type == "html" else body_content
+    if content_type == "html":
+        body_text = html_to_text(body_content) or preview
+    else:
+        body_text = body_content or preview
     return {
         "from_address": sender.get("address", ""),
         "from_name": sender.get("name", ""),
@@ -666,6 +778,13 @@ async def _ingest_items(
     items: list[dict[str, Any]],
     folder_id: str,
 ) -> int:
+    try:
+        account_settings = json.loads(account.settings_json or "{}")
+    except json.JSONDecodeError:
+        account_settings = {}
+    if not isinstance(account_settings, dict):
+        account_settings = {}
+
     ingested = 0
     for item in items:
         received_at = item.get("received_at")
@@ -695,6 +814,10 @@ async def _ingest_items(
             continue
         if should_process:
             ingested += 1
+            # Backfilled history (older than the mailbox AI-live cutoff) is
+            # stored for context but never triggers agent processing.
+            if is_backfill_message(inbound.received_at, account_settings):
+                continue
             try:
                 from app.workers.tasks import enqueue_signal_processing
 
@@ -719,6 +842,10 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     settings = json.loads(account.settings_json or "{}")
     if not isinstance(settings, dict):
         settings = {}
+    # Stamp the AI-live cutoff on the first sync so historical (backfilled)
+    # mail is stored without triggering agent runs or decision cards.
+    settings = ensure_ai_live_since(settings)
+    account.settings_json = json.dumps(settings)
     folders = [f["id"] for f in account_sync_folders(settings) if f.get("is_selected")]
     cursors: dict[str, str] = (
         dict(settings.get("sync_cursors"))
@@ -739,7 +866,10 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
                 token = await _refresh_if_possible(session, account)
                 if not token:
                     await _record_sync_error(
-                        session, account, "Authentication expired. Reconnect this mailbox."
+                        session,
+                        account,
+                        "Authentication expired. Reconnect this mailbox.",
+                        kind="auth_expired",
                     )
                     return {"account_id": str(account.id), "synced": 0, "status": "auth_expired"}
                 try:
@@ -794,6 +924,7 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     settings["messages_synced"] = int(settings.get("messages_synced") or 0) + ingested
     settings["sync_cursors"] = cursors
     settings.pop("last_error", None)
+    settings.pop("sync_error_count", None)
     account.settings_json = json.dumps(settings)
     if cursors.get("inbox"):
         # Keep the legacy account-level cursor in step for older readers.

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { listThreads, type InboxThread, type ThreadFilters, type ThreadId } from '../lib/inbox-api'
-import { onGatewayEvent } from '../lib/gateway'
+import { onGatewayEvent, onGatewayStatus, type GatewayStatus } from '../lib/gateway'
+import { extractLiveThreadRow, threadMatchesFilters, upsertThreadRow } from '../lib/thread-live'
 
 const PAGE_SIZE = 30
 
@@ -27,7 +28,7 @@ export function useThreads(
   // Slow fallback poll; live updates arrive over the gateway WS.
   pollMs = 90000,
 ) {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const filterKey = useMemo(() => buildFilterKey(filters), [
     filters.view,
     filters.folder,
@@ -156,21 +157,80 @@ export function useThreads(
     return () => window.clearInterval(timer)
   }, [token, pollMs, fetchThreads])
 
-  // Live refresh on gateway thread/message events (debounced).
+  // Mirror the latest list and filters into refs so the (stable) gateway
+  // handler can read current state without resubscribing on every render.
+  const rawThreadsRef = useRef<InboxThread[]>([])
+  useEffect(() => {
+    rawThreadsRef.current = rawThreads
+  }, [rawThreads])
+  const filtersRef = useRef(filters)
+  useEffect(() => {
+    filtersRef.current = filters
+  })
+  const currentUserId = user?.id ?? null
+
+  // Live inbox: gateway `message`/`thread` events carry the canonical thread
+  // row, so matching rows upsert straight into the list. Events we cannot
+  // apply locally (decision events, old payload shape, filters that need a
+  // server-side join) fall back to a debounced refetch.
   useEffect(() => {
     if (!token) return
     let debounceTimer: number | null = null
-    const unsubscribe = onGatewayEvent('threads', () => {
+    const scheduleRefetch = () => {
       if (debounceTimer !== null) return
       debounceTimer = window.setTimeout(() => {
         debounceTimer = null
         void fetchThreads()
       }, 800)
+    }
+    const unsubscribe = onGatewayEvent('threads', (event) => {
+      if (event.event !== 'message' && event.event !== 'thread') {
+        scheduleRefetch()
+        return
+      }
+      const row = extractLiveThreadRow(event)
+      if (!row) {
+        scheduleRefetch()
+        return
+      }
+      const match = threadMatchesFilters(row, filtersRef.current, currentUserId)
+      if (match === null) {
+        scheduleRefetch()
+        return
+      }
+      const id = String(row.id)
+      const exists = rawThreadsRef.current.some((t) => String(t.id) === id)
+      if (match) {
+        setRawThreads((prev) => upsertThreadRow(prev, row))
+        if (!exists) setTotal((prev) => (prev != null ? prev + 1 : prev))
+      } else if (exists) {
+        // Thread moved out of this queue (closed, reassigned, retagged).
+        setRawThreads((prev) => prev.filter((t) => String(t.id) !== id))
+        setTotal((prev) => (prev != null && prev > 0 ? prev - 1 : prev))
+      }
     })
     return () => {
       unsubscribe()
       if (debounceTimer !== null) window.clearTimeout(debounceTimer)
     }
+  }, [token, fetchThreads, currentUserId])
+
+  // Reconcile after a gateway reconnect: events published while the socket
+  // was down were missed, so pull an authoritative page. The subscribe
+  // callback fires immediately with the current status; only a real
+  // disconnect -> (connecting ->) connected cycle triggers the refetch.
+  useEffect(() => {
+    if (!token) return
+    let sawDisconnect = false
+    const unsubscribe = onGatewayStatus((status: GatewayStatus) => {
+      if (status === 'disconnected') {
+        sawDisconnect = true
+      } else if (status === 'connected' && sawDisconnect) {
+        sawDisconnect = false
+        void fetchThreads()
+      }
+    })
+    return () => unsubscribe()
   }, [token, fetchThreads])
 
   // Decorate every fetched thread with isPinned (client-side join with the

@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { FilePlus, FileText, Pencil, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { ExternalLink, FilePlus, FileText, Globe, Loader2, Pencil, RefreshCw, Search, Trash2, Upload } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
+import MarkdownView from '../components/docs/MarkdownView'
+import { useAuth } from '../context/AuthContext'
 import {
   createWorkspaceDoc,
   deleteWorkspaceDoc,
   getWorkspaceDoc,
   listWorkspaceDocs,
+  publishWorkspaceDoc,
   searchWorkspace,
   updateWorkspaceDoc,
+  uploadWorkspaceDocument,
   type WorkspaceDocKind,
   type WorkspaceDocRow,
   type WorkspaceSearchHit,
@@ -30,109 +34,17 @@ const KIND_LABELS: Record<WorkspaceDocKind, string> = {
   daily_log: 'Daily logs',
 }
 
-/** Minimal markdown renderer: headings, lists, code fences, inline bold/italic/code. */
-function renderInline(text: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = []
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g
-  let last = 0
-  let match: RegExpExecArray | null
-  let key = 0
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > last) nodes.push(text.slice(last, match.index))
-    const token = match[0]
-    if (token.startsWith('**')) {
-      nodes.push(<strong key={key++}>{token.slice(2, -2)}</strong>)
-    } else if (token.startsWith('`')) {
-      nodes.push(
-        <code key={key++} className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">
-          {token.slice(1, -1)}
-        </code>,
-      )
-    } else {
-      nodes.push(<em key={key++}>{token.slice(1, -1)}</em>)
-    }
-    last = match.index + token.length
-  }
-  if (last < text.length) nodes.push(text.slice(last))
-  return nodes
-}
+const TRUTHY = new Set(['true', '1', 'yes', 'on'])
 
-function MarkdownView({ content }: { content: string }) {
-  const blocks: React.ReactNode[] = []
-  const lines = content.split('\n')
-  let i = 0
-  let key = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (line.startsWith('```')) {
-      const code: string[] = []
-      i += 1
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        code.push(lines[i])
-        i += 1
-      }
-      i += 1
-      blocks.push(
-        <pre key={key++} className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
-          {code.join('\n')}
-        </pre>,
-      )
-      continue
-    }
-    if (/^#{1,4}\s/.test(line)) {
-      const level = (line.match(/^#+/) as RegExpMatchArray)[0].length
-      const text = line.replace(/^#+\s*/, '')
-      const cls =
-        level === 1
-          ? 'text-xl font-semibold tracking-tight'
-          : level === 2
-            ? 'mt-2 text-lg font-semibold tracking-tight'
-            : 'mt-1 text-base font-medium'
-      blocks.push(
-        <div key={key++} className={cls}>
-          {renderInline(text)}
-        </div>,
-      )
-      i += 1
-      continue
-    }
-    if (/^\s*[-*]\s/.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^\s*[-*]\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*]\s/, ''))
-        i += 1
-      }
-      blocks.push(
-        <ul key={key++} className="list-disc space-y-1 pl-5 text-sm">
-          {items.map((item, idx) => (
-            <li key={idx}>{renderInline(item)}</li>
-          ))}
-        </ul>,
-      )
-      continue
-    }
-    if (line.trim() === '') {
-      i += 1
-      continue
-    }
-    const para: string[] = [line]
-    i += 1
-    while (i < lines.length && lines[i].trim() !== '' && !/^(#|```|\s*[-*]\s)/.test(lines[i])) {
-      para.push(lines[i])
-      i += 1
-    }
-    blocks.push(
-      <p key={key++} className="text-sm leading-6 text-foreground/90">
-        {renderInline(para.join(' '))}
-      </p>,
-    )
-  }
-  return <div className="space-y-3">{blocks}</div>
+function isPublished(doc: WorkspaceDocRow | null): boolean {
+  return TRUTHY.has(String(doc?.frontmatter?.published ?? '').toLowerCase())
 }
 
 export default function WorkspaceDocs() {
   const { docId } = useParams<{ docId?: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const [publishing, setPublishing] = useState(false)
   const [docs, setDocs] = useState<WorkspaceDocRow[]>([])
   const [active, setActive] = useState<WorkspaceDocRow | null>(null)
   const [loading, setLoading] = useState(true)
@@ -144,6 +56,8 @@ export default function WorkspaceDocs() {
   const [hits, setHits] = useState<WorkspaceSearchHit[] | null>(null)
   const [creating, setCreating] = useState(false)
   const [newPath, setNewPath] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const uploadInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -249,6 +163,43 @@ export default function WorkspaceDocs() {
     }
   }, [navigate, newPath, refresh])
 
+  const handleUpload = useCallback(
+    async (file: File) => {
+      setUploading(true)
+      try {
+        const doc = await uploadWorkspaceDocument(file)
+        setError(null)
+        toast.success(`${file.name} added to the knowledge base`)
+        await refresh()
+        navigate(`/knowledge/${doc.id}`)
+      } catch (err) {
+        const message = formatApiErrorMessage(err, 'Upload failed.')
+        setError(message)
+        toast.error(message)
+      } finally {
+        setUploading(false)
+        if (uploadInputRef.current) uploadInputRef.current.value = ''
+      }
+    },
+    [navigate, refresh],
+  )
+
+  const handlePublishToggle = useCallback(async () => {
+    if (!active) return
+    const publish = !isPublished(active)
+    setPublishing(true)
+    try {
+      const updated = await publishWorkspaceDoc(active.id, publish)
+      setActive((prev) => (prev ? { ...prev, frontmatter: updated.frontmatter } : prev))
+      toast.success(publish ? 'Published to help center' : 'Removed from help center')
+      await refresh()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, 'Could not update publish state.'))
+    } finally {
+      setPublishing(false)
+    }
+  }, [active, refresh])
+
   const handleDelete = useCallback(async () => {
     if (!active) return
     if (!window.confirm(`Delete ${active.path}?`)) return
@@ -280,10 +231,35 @@ export default function WorkspaceDocs() {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
+                title="Upload document (PDF, Word, text)"
+                disabled={uploading}
+                onClick={() => uploadInputRef.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title="New markdown doc"
                 onClick={() => setCreating((v) => !v)}
               >
                 <FilePlus className="h-3.5 w-3.5" />
               </Button>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept=".pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.rst,.log,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) void handleUpload(file)
+                }}
+              />
             </div>
           </div>
           {creating ? (
@@ -424,6 +400,22 @@ export default function WorkspaceDocs() {
                   </>
                 ) : (
                   <>
+                    {active.kind === 'doc' ? (
+                      <Button
+                        variant={isPublished(active) ? 'secondary' : 'outline'}
+                        size="sm"
+                        disabled={publishing}
+                        onClick={() => void handlePublishToggle()}
+                        title={
+                          isPublished(active)
+                            ? 'Remove from the public help center'
+                            : 'Publish on the public help center'
+                        }
+                      >
+                        <Globe className="mr-1.5 h-3.5 w-3.5" />
+                        {publishing ? 'Saving…' : isPublished(active) ? 'Published' : 'Publish'}
+                      </Button>
+                    ) : null}
                     <Button
                       variant="outline"
                       size="sm"
@@ -442,6 +434,17 @@ export default function WorkspaceDocs() {
                 )}
               </div>
             </div>
+            {isPublished(active) && !editing && user?.tenant?.slug ? (
+              <a
+                href={`/help/${user.tenant.slug}/${active.frontmatter?.slug ?? ''}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-4 flex items-center gap-1.5 text-xs text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                View on help center: /help/{user.tenant.slug}/{active.frontmatter?.slug ?? ''}
+              </a>
+            ) : null}
             {Object.keys(active.frontmatter ?? {}).length > 0 && !editing ? (
               <div className="mb-4 rounded-md border bg-muted/40 p-3 text-xs">
                 {Object.entries(active.frontmatter).map(([k, v]) => (

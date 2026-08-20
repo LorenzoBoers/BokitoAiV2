@@ -1,0 +1,135 @@
+{
+  "title": "AI OS",
+  "subtitle": "Workspace-kaart: orchestra, workspace-documenten, projecten en live activiteit",
+  "canvasSubtitle": "Verbind orchestrators, workstreams, bronnen en tools op één workspace-canvas.",
+  "flowHint": "Sleep nodes om ze te ordenen. Teken verbindingen tussen handles om workstreams, repo's en tools te koppelen.",
+  "canvasHint": "Klik op een node voor details en snelle acties. Scroll om de volledige kaart te zien.",
+  "projectCanvasHint": "Klik op een node voor details. Bronnen voeden de orchestrator en de workstreams die ze aandrijven.",
+  "degradedNotice": "Alleen-lezen voorbeeld: herstart de API-server om posities en verbindingen op te slaan. Slepen en verbinden werken zodra de canvas-API live is.",
+  "backbone": {
+    "runningRuns": "Actieve runs",
+    "pendingDecisions": "Openstaande beslissingen",
+    "activeAgents": "Actieve agents",
+    "projects": "Projecten"
+  },
+  "nodes": {
+    "orchestra": "Orchestra",
+    "workspace": "Workspace",
+    "project": "Project",
+    "orchestrator": "Orchestrator",
+    "assistant": "Assistent",
+    "assistantHint": "Je hulp in de app",
+    "workspaceHint": "Gedeeld geheugen en documenten",
+    "workstream": "Workstream",
+    "repo": "Repository",
+    "source": "Bron",
+    "sourceHint": "Repository of databron",
+    "runs": "Runs",
+    "tool": "Tool",
+    "communication": "Beslissingen",
+    "communicationHint": "Goedkeuringen en projectupdates"
+  },
+  "status": {
+    "notConfigured": "Niet geconfigureerd",
+    "notLinked": "Niet gekoppeld",
+    "notConnected": "Niet verbonden",
+    "docCount": "{{count}} documenten",
+    "workstreamCount": "{{count}} workstreams",
+    "recentRuns": "{{count}} recent",
+    "pending": "{{count}} openstaand",
+    "running": "{{count}} actief"
+  },
+  "actions": {
+    "newProject": "Nieuw project",
+    "retry": "Opnieuw proberen",
+    "refresh": "Vernieuwen",
+    "openOverview": "Open workstreams",
+    "fitView": "Passend maken",
+    "organizeLayout": "Ordenen",
+    "layoutOrganized": "Canvas-indeling geordend",
+    "connectionCreated": "Verbinding gemaakt",
+    "connectionFailed": "Kon die verbinding niet maken"
+  },
+  "palette": {
+    "addNode": "Node toevoegen",
+    "title": "Toevoegen aan canvas",
+    "nodeType": "Nodetype",
+    "entity": "Bestaande koppelen",
+    "loading": "Laden...",
+    "empty": "Geen beschikbare items van dit type, of alles staat al op het canvas.",
+    "add": "Toevoegen aan canvas",
+    "added": "Toegevoegd aan canvas",
+    "createProject": "Maak een project"
+  },
+  "panel": {
+    "orchestra": {
+      "desc": "De workspace-orchestrator coördineert agents en plant terugkerend werk in over alle projecten.",
+      "open": "Open Orchestra"
+    },
+    "workspace": {
+      "desc": "Markdown-geheugen, persona, skills en documenten die je agents lezen en schrijven.",
+      "docsLabel": "Documenten",
+      "open": "Open workspace"
+    },
+    "project": {
+      "workstreams": "Workstreams",
+      "repo": "Repository",
+      "runningRuns": "Actieve runs",
+      "pendingDecisions": "Openstaande beslissingen",
+      "quickLinks": "Ga naar",
+      "openMap": "Open projectkaart"
+    },
+    "orchestrator": {
+      "desc": "De project-orchestrator vertaalt verzoeken naar workstream-stappen en delegeert ze aan agents.",
+      "open": "Open orchestrator",
+      "setup": "Orchestrator instellen"
+    },
+    "assistant": {
+      "desc": "De assistent helpt je met opstellen, plannen en uitvoeren van werk in de hele workspace, in gewone taal.",
+      "open": "Open assistent"
+    },
+    "source": {
+      "desc": "Een repository of databron waar workstreams uit kunnen lezen. Verbind meer via projectinstellingen.",
+      "linkedLabel": "Gekoppelde workstreams"
+    },
+    "tool": {
+      "open": "Open integraties"
+    },
+    "connections": "Verbindingen",
+    "connectionsEmpty": "Nog geen verbindingen. Teken een lijn tussen node-handles om ze te koppelen.",
+    "removeFromCanvas": "Verwijderen van canvas",
+    "removeConfirm": "Deze node van het canvas verwijderen? Het onderliggende item wordt niet verwijderd.",
+    "removedFromCanvas": "Verwijderd van canvas",
+    "workstream": {
+      "desc": "Een workstream is een herhaalbare flow van agent-stappen voor dit project.",
+      "open": "Open workstream"
+    },
+    "repo": {
+      "statusLabel": "Indexstatus",
+      "repoLabel": "Repository",
+      "settings": "Repository-instellingen",
+      "viewGithub": "Bekijk op GitHub"
+    },
+    "runs": {
+      "desc": "Recente agent-runs voor dit project. Open er een om het live eventlog te zien.",
+      "recentHeading": "Recente runs",
+      "empty": "Nog geen runs voor dit project.",
+      "untitled": "Naamloze run",
+      "openAll": "Open rungeschiedenis"
+    },
+    "decisions": {
+      "desc": "Goedkeuringen en updates die een mens nodig hebben. Keur goed, stel uit of wijs af, direct hier.",
+      "pendingLabel": "Openstaand",
+      "open": "Open beslissingen",
+      "openThread": "Open volledige thread",
+      "workspaceTitle": "Openstaande beslissingen",
+      "loading": "Beslissingen laden...",
+      "empty": "Niets wacht op jou. De wachtrij is leeg."
+    }
+  },
+  "emptyProjects": "Nog geen projecten. Maak er een om hem aan de kaart toe te voegen.",
+  "emptyCanvas": "Nog geen nodes op het canvas. Voeg orchestrators, workstreams, bronnen of tools toe om te beginnen.",
+  "loading": "AI OS-canvas laden...",
+  "backToWorkspace": "Terug naar workspace",
+  "projectCanvas": "Project-backbone"
+}

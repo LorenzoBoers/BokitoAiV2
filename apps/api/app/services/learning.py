@@ -73,8 +73,30 @@ async def process_feedback_batch(session: AsyncSession, tenant_id: UUID, limit: 
     }
 
 
+async def _pending_change_exists(
+    session: AsyncSession, tenant_id: UUID, resource_type: str
+) -> bool:
+    from app.models.platform_change import PlatformChange
+
+    row = (
+        await session.execute(
+            select(PlatformChange.id).where(
+                PlatformChange.tenant_id == tenant_id,
+                PlatformChange.resource_type == resource_type,
+                PlatformChange.status.in_(("draft", "pending_review")),
+            )
+        )
+    ).first()
+    return row is not None
+
+
 async def apply_heuristic_guardrails(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    """Adjust tenant autonomy posture from latest eval scores (no ML)."""
+    """Adjust tenant autonomy posture from latest eval scores (no ML).
+
+    Safety asymmetry: tightening (autonomous -> assisted on high escalation)
+    applies immediately with an audit trail; loosening (manual -> assisted on
+    low escalation) only creates a Govern proposal a human must accept.
+    """
     import json as _json
 
     from app.dependencies import tenant_settings
@@ -97,23 +119,105 @@ async def apply_heuristic_guardrails(session: AsyncSession, tenant_id: UUID) -> 
     posture = resolve_posture(tenant)
     updated: dict[str, Any] = {"posture": posture}
 
-    new_posture = None
     if escalation > 40 and posture == "autonomous":
-        new_posture = "assisted"
-        updated["reason"] = "High escalation rate; tightened from autonomous to assisted"
-    elif escalation < 10 and posture == "manual":
-        new_posture = "assisted"
-        updated["reason"] = "Low escalation; eased from manual to assisted"
-
-    if new_posture:
+        reason = "High escalation rate; tightened from autonomous to assisted"
         settings = tenant_settings(tenant)
-        settings["autonomy_posture"] = new_posture
+        settings["autonomy_posture"] = "assisted"
         tenant.settings_json = _json.dumps(settings)
         session.add(tenant)
-        updated["posture"] = new_posture
+        updated["posture"] = "assisted"
+        updated["reason"] = reason
+        from app.services.audit import record_audit
+
+        await record_audit(
+            session,
+            tenant_id,
+            action="learning:posture_tightened",
+            actor_type="system",
+            resource_type="tenant",
+            resource_id=tenant_id,
+            summary=reason,
+            before={"posture": posture},
+            after={"posture": "assisted"},
+            commit=False,
+        )
+    elif escalation < 10 and posture == "manual":
+        # Loosening is proposed, never silently applied.
+        if not await _pending_change_exists(session, tenant_id, "autonomy_posture"):
+            from app.models.platform_change import PlatformChange
+
+            session.add(
+                PlatformChange(
+                    tenant_id=tenant_id,
+                    resource_type="autonomy_posture",
+                    resource_id=str(tenant_id),
+                    change_kind="update",
+                    status="pending_review",
+                    summary=(
+                        "Low escalation rate over the past week. "
+                        "Proposal: ease autonomy from manual to assisted."
+                    ),
+                    before_json=_json.dumps({"posture": posture}),
+                    after_json=_json.dumps({"posture": "assisted"}),
+                    proposed_by_type="system",
+                )
+            )
+            updated["posture_proposal"] = "assisted"
 
     await session.commit()
     return updated
+
+
+async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool:
+    """Turn a cluster of negative feedback into a Govern persona-review proposal.
+
+    When the past week has 3+ negative feedback entries, a pending_review
+    PlatformChange (resource_type "persona_review") is created with the
+    feedback samples as evidence, so an operator reviews the assistant persona
+    with concrete examples. Deduped on open proposals.
+    """
+    import json as _json
+
+    since = datetime.utcnow() - timedelta(days=7)
+    negatives = (
+        await session.execute(
+            select(Feedback)
+            .where(
+                Feedback.tenant_id == tenant_id,
+                Feedback.sentiment == "down",
+                Feedback.created_at >= since,
+            )
+            .order_by(Feedback.created_at.desc())
+            .limit(25)
+        )
+    ).scalars().all()
+    if len(negatives) < 3:
+        return False
+    if await _pending_change_exists(session, tenant_id, "persona_review"):
+        return False
+
+    from app.models.platform_change import PlatformChange
+
+    samples = [
+        {"subject_type": f.subject_type, "subject_id": f.subject_id, "comment": (f.comment or "")[:300]}
+        for f in negatives[:10]
+    ]
+    session.add(
+        PlatformChange(
+            tenant_id=tenant_id,
+            resource_type="persona_review",
+            change_kind="review",
+            status="pending_review",
+            summary=(
+                f"{len(negatives)} negative feedback signal(s) this week. "
+                "Proposal: review the assistant persona and reply guidelines."
+            ),
+            after_json=_json.dumps({"negative_count": len(negatives), "samples": samples}),
+            proposed_by_type="system",
+        )
+    )
+    await session.commit()
+    return True
 
 
 async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[EvalScore]:
@@ -160,6 +264,20 @@ async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[Ev
         )
     ).scalar_one()
 
+    # CSAT: end-customer ratings on conversations (widget prompt writes
+    # signal-scoped Feedback), separate from internal operator feedback.
+    csat_row = (
+        await session.execute(
+            select(func.avg(Feedback.score), func.count()).where(
+                Feedback.tenant_id == tenant_id,
+                Feedback.created_at >= since,
+                Feedback.score.is_not(None),
+                Feedback.subject_type == "signal",
+            )
+        )
+    ).one()
+    csat_avg, csat_count = csat_row[0], int(csat_row[1] or 0)
+
     total_actions = int(auto_executed or 0) + int(escalated or 0)
     autonomy_rate = round((auto_executed / total_actions * 100) if total_actions else 0, 1)
     escalation_rate = round((escalated / total_actions * 100) if total_actions else 0, 1)
@@ -169,6 +287,7 @@ async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[Ev
         ("escalation_rate", escalation_rate, total_actions),
         ("resolution_quality", float(feedback_avg or 0), int(feedback_avg is not None)),
         ("open_decisions", float(open_decisions or 0), 1),
+        ("csat", round(float(csat_avg), 2) if csat_avg is not None else 0.0, csat_count),
     ]
 
     created: list[EvalScore] = []
@@ -283,13 +402,15 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         return {"skipped": True, "reason": "tenant_not_found"}
 
     settings = tenant_settings(tenant)
-    if not settings.get("learning_enabled"):
+    # Learning is on by default; tenants opt out with `learning_enabled: false`.
+    if not settings.get("learning_enabled", True):
         return {"skipped": True, "reason": "learning_disabled"}
 
     mapped = await map_outcomes_to_feedback(session, tenant_id)
     batch = await process_feedback_batch(session, tenant_id)
     evals = await compute_eval_scores(session, tenant_id)
     guardrails = await apply_heuristic_guardrails(session, tenant_id)
+    persona_proposed = await propose_persona_review(session, tenant_id)
 
     enqueue_strategy = await _eval_trend_worsened(session, tenant_id, "escalation_rate")
     if await _eval_trend_worsened(session, tenant_id, "resolution_quality"):
@@ -325,6 +446,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         "feedback_batch": batch,
         "eval_count": len(evals),
         "guardrails": guardrails,
+        "persona_review_proposed": persona_proposed,
         "strategy_review_recommended": enqueue_strategy,
         "strategy_workstream_enqueued": workstream_enqueued,
     }
@@ -337,6 +459,6 @@ async def run_learning_for_enabled_tenants(session: AsyncSession) -> dict[str, A
     tenants = (await session.execute(select(Tenant))).scalars().all()
     results: dict[str, Any] = {}
     for tenant in tenants:
-        if tenant_settings(tenant).get("learning_enabled"):
+        if tenant_settings(tenant).get("learning_enabled", True):
             results[str(tenant.id)] = await run_tenant_learning_cycle(session, tenant.id)
     return results

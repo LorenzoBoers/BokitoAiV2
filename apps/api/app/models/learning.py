@@ -3,6 +3,9 @@
 `Feedback` captures human signals on agent output (thumbs / score / comment).
 `EvalScore` stores computed quality and autonomy metrics over a time window
 that feed the Cockpit and the recursive guardrail/persona adjustments.
+`InboxRule` is the sensing-layer action policy: a per-sender instruction the
+platform learns from repeated operator choices on "No reply needed" cards
+(auto-close, auto-task, or mute AI for a sender/domain/list).
 """
 
 import uuid
@@ -26,6 +29,35 @@ class Feedback(SQLModel, table=True):
     processed: bool = Field(default=False, index=True)
     processed_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class InboxRule(SQLModel, table=True):
+    """Learned or manual per-sender automation for inbound threads.
+
+    Lifecycle: rows start as ``suggested`` (candidates that count consistent
+    operator choices), become ``active`` through explicit confirmation (or
+    auto-promotion under the autonomous posture), and can be ``paused`` from
+    the rules UI without losing their history.
+    """
+
+    __tablename__ = "inbox_rules"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    match_type: str = Field(default="sender", index=True)  # sender | domain | list_id
+    match_value: str = Field(default="", index=True)  # normalized (lowercase)
+    label: str = ""  # human-readable, e.g. "PrepMyMeal newsletter"
+    action: str = "auto_close"  # auto_close | auto_task | mute_ai
+    status: str = Field(default="suggested", index=True)  # suggested | active | paused
+    source: str = "learned"  # learned | manual
+    # Consistent operator choices observed while `suggested` (promotion counter).
+    observations: int = 0
+    # Threads the active rule actually handled.
+    hit_count: int = 0
+    last_hit_at: Optional[datetime] = None
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class EvalScore(SQLModel, table=True):

@@ -45,6 +45,16 @@ export const authRoutes = {
     changePassword: '/change-password',
     deleteAccount: '/delete-account',
   },
+  twoFactor: {
+    setup: '/2fa/setup',
+    enable: '/2fa/enable',
+    disable: '/2fa/disable',
+    verify: '/2fa/verify',
+  },
+  workspaceSetup: {
+    acceptInvite: '/workspace-setup/accept-invite',
+    create: '/workspace-setup/create',
+  },
   workspaceBranding(workspaceId: number | string): string {
     return `/workspaces/${workspaceId}/branding`
   },

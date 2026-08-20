@@ -15,6 +15,8 @@ import profileNl from '../locales/nl/profile.json'
 import workspaceNl from '../locales/nl/workspace.json'
 import communicationNl from '../locales/nl/communication.json'
 import workspacesNl from '../locales/nl/workspaces.json'
+import aiosNl from '../locales/nl/aios.json'
+import governNl from '../locales/nl/govern.json'
 
 const resources = {
   en: {
@@ -34,6 +36,8 @@ const resources = {
     workspace: workspaceNl,
     communication: communicationNl,
     workspaces: workspacesNl,
+    aios: aiosNl,
+    govern: governNl,
   },
 }
 

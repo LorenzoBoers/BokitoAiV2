@@ -34,6 +34,7 @@ type Props = {
     action: 'send' | 'send_and_close' | 'send_and_pending',
     attachments?: MessageAttachment[],
     snoozeMinutes?: number,
+    extras?: { cc?: string; bcc?: string },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   saving: boolean
@@ -99,6 +100,10 @@ export default function ReplyComposer({
   const [tab, setTab] = useState<ComposerTab>(surface.defaultTab)
   const [body, setBody] = useState('')
   const [attachments, setAttachments] = useState<MessageAttachment[]>([])
+  // Email-only extra recipients; hidden behind a CC/BCC toggle.
+  const [ccBccOpen, setCcBccOpen] = useState(false)
+  const [cc, setCc] = useState('')
+  const [bcc, setBcc] = useState('')
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -157,6 +162,9 @@ export default function ReplyComposer({
     // Restore any unsent draft for this thread instead of dropping typed text.
     setBody(readStoredDraft(persistKey))
     setAttachments([])
+    setCc('')
+    setBcc('')
+    setCcBccOpen(false)
   }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, replyBlocked, surface.tabs])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
@@ -227,10 +235,17 @@ export default function ReplyComposer({
       if (tab === 'note') {
         await onNote(text, payload)
       } else {
-        await onReply(text, action, payload, snoozeMinutes)
+        const extras =
+          surface.channel === 'email' && (cc.trim() || bcc.trim())
+            ? { cc: cc.trim() || undefined, bcc: bcc.trim() || undefined }
+            : undefined
+        await onReply(text, action, payload, snoozeMinutes, extras)
       }
       setBody('')
       setAttachments([])
+      setCc('')
+      setBcc('')
+      setCcBccOpen(false)
       writeStoredDraft(persistKey, '')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, tab === 'note' ? 'Could not save note.' : 'Could not send message.'))
@@ -337,11 +352,52 @@ export default function ReplyComposer({
         ) : null}
 
         {!isNote && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
-          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-border/50 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
-            <span className="shrink-0 font-medium text-text-muted">{surface.recipientLabel}</span>
-            <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
-            {surface.includeSignature ? (
-              <span className="ml-auto shrink-0 text-[10px] text-text-muted">With signature</span>
+          <div className="mb-1.5 rounded-lg border border-border/50 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 font-medium text-text-muted">{surface.recipientLabel}</span>
+              <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
+              <span className="ml-auto flex shrink-0 items-center gap-2">
+                {surface.channel === 'email' ? (
+                  <button
+                    type="button"
+                    onClick={() => setCcBccOpen((open) => !open)}
+                    className={`text-[10px] font-medium transition-colors ${
+                      ccBccOpen || cc || bcc
+                        ? 'text-accent'
+                        : 'text-text-muted hover:text-text-primary'
+                    }`}
+                  >
+                    CC/BCC
+                  </button>
+                ) : null}
+                {surface.includeSignature ? (
+                  <span className="text-[10px] text-text-muted">With signature</span>
+                ) : null}
+              </span>
+            </div>
+            {surface.channel === 'email' && ccBccOpen ? (
+              <div className="mt-1.5 space-y-1 border-t border-border/40 pt-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 shrink-0 font-medium text-text-muted">CC</span>
+                  <input
+                    type="text"
+                    value={cc}
+                    onChange={(e) => setCc(e.target.value)}
+                    placeholder="name@example.com, other@example.com"
+                    className="min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-7 shrink-0 font-medium text-text-muted">BCC</span>
+                  <input
+                    type="text"
+                    value={bcc}
+                    onChange={(e) => setBcc(e.target.value)}
+                    placeholder="name@example.com"
+                    className="min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none"
+                  />
+                </div>
+              </div>
             ) : null}
           </div>
         ) : null}

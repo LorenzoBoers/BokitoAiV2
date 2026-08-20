@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.dependencies import AuthContext, get_current_auth
+from app.dependencies import AuthContext, get_current_auth, require_verified_email
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.services import signal_threads as svc
@@ -53,6 +53,12 @@ class ReplyBody(BaseModel):
     attachments: list[dict] | None = None
     # For action=send_and_pending: optional snooze duration (wake time).
     snooze_minutes: int | None = None
+    # Email-only: comma-separated extra recipients.
+    cc: str | None = None
+    bcc: str | None = None
+    # Soft undo: delay delivery by this many seconds (0/None = send now).
+    # Capped server-side; the scheduler tick delivers once the delay passes.
+    send_after_seconds: int | None = None
 
 
 class NoteBody(BaseModel):
@@ -132,6 +138,91 @@ async def list_members(
 class SavedReplyBody(BaseModel):
     title: str
     body_text: str
+
+
+class RuleCreateBody(BaseModel):
+    match_type: str = "sender"  # sender | domain | list_id
+    match_value: str
+    action: str = "auto_close"  # auto_close | auto_task | mute_ai
+    label: str = ""
+
+
+class RulePatchBody(BaseModel):
+    action: str | None = None
+    status: str | None = None  # active | paused
+    label: str | None = None
+
+
+@router.get("/rules")
+async def list_inbox_rules(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import inbox_rules
+
+    return await inbox_rules.list_rules(session, auth.tenant.id)
+
+
+@router.post("/rules")
+async def create_inbox_rule(
+    body: RuleCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import inbox_rules
+
+    try:
+        return await inbox_rules.create_rule(
+            session,
+            auth.tenant.id,
+            match_type=body.match_type,
+            match_value=body.match_value,
+            action=body.action,
+            label=body.label,
+            user_id=auth.user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.patch("/rules/{rule_id}")
+async def update_inbox_rule(
+    rule_id: UUID,
+    body: RulePatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import inbox_rules
+
+    try:
+        rule = await inbox_rules.update_rule(
+            session,
+            auth.tenant.id,
+            rule_id,
+            action=body.action,
+            status=body.status,
+            label=body.label,
+            user_id=auth.user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return rule
+
+
+@router.delete("/rules/{rule_id}")
+async def delete_inbox_rule(
+    rule_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import inbox_rules
+
+    ok = await inbox_rules.delete_rule(session, auth.tenant.id, rule_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return {"ok": True}
 
 
 @router.get("/saved-replies")
@@ -355,7 +446,7 @@ async def delete_signal(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    ok = await svc.delete_thread(session, auth.tenant.id, signal_id)
+    ok = await svc.delete_thread(session, auth.tenant.id, signal_id, user_id=auth.user.id)
     if not ok:
         raise HTTPException(status_code=404, detail="Signal not found")
     return {"ok": True}
@@ -393,7 +484,8 @@ async def mark_unread(
 async def reply(
     signal_id: UUID,
     body: ReplyBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    # Outbound replies require a verified sender address (soft gate).
+    auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     message = await svc.reply_to_thread(
@@ -407,10 +499,28 @@ async def reply(
         action=body.action,
         attachments=body.attachments,
         snooze_minutes=body.snooze_minutes,
+        cc=body.cc,
+        bcc=body.bcc,
+        # Undo is a short grace window, not a full "send later" scheduler UI;
+        # cap the delay so the API cannot park messages for days.
+        send_after_seconds=min(body.send_after_seconds or 0, 600) or None,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")
     return message
+
+
+@router.post("/messages/{message_id}/cancel")
+async def cancel_scheduled(
+    message_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Soft undo: cancel a scheduled outbound message before it is delivered."""
+    cancelled = await svc.cancel_scheduled_message(session, auth.tenant.id, message_id)
+    if not cancelled:
+        raise HTTPException(status_code=404, detail="No scheduled message to cancel")
+    return cancelled
 
 
 @router.post("/{signal_id}/draft")

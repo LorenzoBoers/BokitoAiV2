@@ -59,6 +59,7 @@ async def deliver_outbound(
     body_text: str,
     subject: str = "",
     body_html: str | None = None,
+    to_address: str | None = None,
     cc: str | None = None,
     bcc: str | None = None,
     attachments: list[dict] | None = None,
@@ -80,12 +81,13 @@ async def deliver_outbound(
         return "failed:no_account"
 
     if signal.channel == "email":
-        if not signal.contact_email:
+        recipient = (to_address or "").strip() or signal.contact_email
+        if not recipient:
             return "failed:no_recipient"
         in_reply_to, references, reply_to_provider_id = await _reply_context(session, signal.id)
         return await email_adapter.send_via_provider(
             account,
-            to_address=signal.contact_email,
+            to_address=recipient,
             subject=subject or signal.subject,
             body_text=body_text,
             body_html=body_html,

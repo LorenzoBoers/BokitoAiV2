@@ -1,5 +1,6 @@
 import { workspaceRoutes } from '../api/routes'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { APP_API_BASE } from './api.config'
+import { apiDelete, apiGet, apiPatch, apiPost, requireAccessToken } from './api'
 
 export type WorkspaceDocKind = 'doc' | 'memory' | 'persona' | 'skill' | 'daily_log' | 'heartbeat'
 
@@ -53,6 +54,37 @@ export async function updateWorkspaceDoc(
 
 export async function deleteWorkspaceDoc(docId: string): Promise<void> {
   await apiDelete(workspaceRoutes.doc(docId))
+}
+
+/** Publish or unpublish a doc on the tenant's public help center. */
+export async function publishWorkspaceDoc(
+  docId: string,
+  published: boolean,
+): Promise<WorkspaceDocRow> {
+  return apiPost<WorkspaceDocRow>(workspaceRoutes.docPublish(docId), { published })
+}
+
+/** Ingest a document file (PDF, Word, text, markdown) into the knowledge base.
+ * The backend extracts text and indexes it for agent retrieval. */
+export async function uploadWorkspaceDocument(file: File): Promise<WorkspaceDocRow> {
+  const token = requireAccessToken()
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${APP_API_BASE}${workspaceRoutes.docsUpload()}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  })
+  if (!res.ok) {
+    let detail = ''
+    try {
+      detail = ((await res.json()) as { detail?: string }).detail ?? ''
+    } catch {
+      // Non-JSON error body; fall back to the status code below.
+    }
+    throw new Error(detail || `Upload failed (HTTP ${res.status})`)
+  }
+  return (await res.json()) as WorkspaceDocRow
 }
 
 export async function searchWorkspace(query: string, topK = 8): Promise<WorkspaceSearchHit[]> {

@@ -9,7 +9,8 @@ export type NotificationKind =
   | 'decision_request'
   | 'proactive'
   | 'mention'
-  | 'assignment';
+  | 'assignment'
+  | 'ops_alert';
 
 export interface AppNotification {
   id: string;

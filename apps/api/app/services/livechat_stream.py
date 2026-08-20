@@ -104,6 +104,9 @@ async def get_or_create_widget_thread(
     )
     session.add(signal)
     await session.flush()
+    # Transient flag: callers emit the signal.created webhook after their
+    # own commit (this function only flushes).
+    signal._newly_created = True  # type: ignore[attr-defined]
     return signal
 
 
@@ -131,6 +134,13 @@ async def widget_stream_events(
             attachments=attachments,
         )
         await session.commit()
+        if getattr(signal, "_newly_created", False):
+            from app.services.webhooks import emit_webhook_event, signal_event_data
+
+            signal._newly_created = False  # type: ignore[attr-defined]
+            await emit_webhook_event(
+                session, tenant.id, "signal.created", signal_event_data(signal)
+            )
         # Human takeover: a team member owns this thread, so the AI stays silent.
         # The visitor's message is persisted (and published to the gateway above)
         # so the operator sees it live and replies via the dashboard.
@@ -188,6 +198,19 @@ async def widget_stream_events(
                 yield f"data: {json.dumps({'t': chunk})}\n\n"
         elif event.get("type") == "done":
             final = str(event.get("text") or full_text)
+            # Deflection: when the reply drew on published help-center docs,
+            # append deterministic article links for the visitor (widget only —
+            # internal assistant threads do not need public help links).
+            if signal and signal.channel == "widget" and final.strip() and loop.last_rag_hits:
+                from app.services.help_articles import (
+                    format_related_articles,
+                    related_published_articles,
+                )
+
+                articles = await related_published_articles(
+                    session, tenant, loop.last_rag_hits, limit=2
+                )
+                final += format_related_articles(articles)
             if signal:
                 await append_signal_chat_message(
                     session, signal, role="assistant", content=final, author_agent_id=agent.id

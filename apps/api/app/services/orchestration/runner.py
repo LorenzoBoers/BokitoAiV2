@@ -453,19 +453,61 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
             metadata={"reason": "no_agent"},
         )
         await session.commit()
+
+        from app.services.ops_alerts import alert_run_failure
+
+        await alert_run_failure(
+            session,
+            tenant_id,
+            subject=task.title or "workstream task",
+            error="No active agent available for this step",
+            task_id=task.id,
+        )
         return {"failed": True, "reason": "no_agent"}
 
     prompt = _build_handoff_prompt(step, task, step_outputs) if step else (task.description or task.title)
 
-    run, text = await _execute_agent_segment(
-        session,
-        tenant_id,
-        task,
-        agent,
-        step=step,
-        prompt=prompt,
-        segment_index=segment_index,
-    )
+    try:
+        run, text = await _execute_agent_segment(
+            session,
+            tenant_id,
+            task,
+            agent,
+            step=step,
+            prompt=prompt,
+            segment_index=segment_index,
+        )
+    except Exception as exc:  # noqa: BLE001 - never leave the task stuck on "running"
+        await session.rollback()
+        task = (
+            await session.execute(
+                select(AgentTask).where(AgentTask.id == task_id, AgentTask.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if task is not None:
+            task.status = "failed"
+            task.completed_at = datetime.utcnow()
+            session.add(task)
+            await _mirror_task_message(
+                session,
+                task,
+                kind="status_update",
+                body=f"Workstream run failed while executing{f' step {step.name!r}' if step else ''}: {exc}",
+                agent_id=agent.id if agent else None,
+                metadata={"reason": "agent_error"},
+            )
+            await session.commit()
+
+            from app.services.ops_alerts import alert_run_failure
+
+            await alert_run_failure(
+                session,
+                tenant_id,
+                subject=task.title or "workstream task",
+                error=exc,
+                task_id=task.id,
+            )
+        return {"failed": True, "reason": "agent_error"}
 
     # Refresh context: the segment persisted active_run_id, so re-read before mutating.
     ctx = _parse_json(task.context_json)
@@ -548,6 +590,16 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 metadata={"reason": "eval_failed"},
             )
             await session.commit()
+
+            from app.services.ops_alerts import alert_run_failure
+
+            await alert_run_failure(
+                session,
+                tenant_id,
+                subject=task.title or "workstream task",
+                error=f"Step evaluation failed after retries{f' ({step.name})' if step else ''}",
+                task_id=task.id,
+            )
             return {"failed": True, "reason": "eval_failed"}
 
     if step:

@@ -83,13 +83,26 @@ async def post_api_key_connection(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    return await create_api_key_connection(
+    result = await create_api_key_connection(
         session,
         auth.tenant.id,
         provider=body.provider,
         api_key=body.api_key,
         display_name=body.display_name,
     )
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="integration:connected",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="connection",
+        resource_id=(result or {}).get("id", "") if isinstance(result, dict) else "",
+        summary=body.provider,
+    )
+    return result
 
 
 @router.delete("/connections/{connection_id}")
@@ -99,6 +112,17 @@ async def delete_connection(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     await revoke_connection(session, auth.tenant.id, connection_id)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="integration:revoked",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="connection",
+        resource_id=connection_id,
+    )
     return {"ok": True}
 
 

@@ -9,7 +9,7 @@ import {
   apiDelete,
   apiGet as apiGetApp,
 } from './api'
-import type { ThreadSession } from './signals-api'
+import type { ResolveDecisionResult, ThreadSession } from './signals-api'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,7 +18,7 @@ import type { ThreadSession } from './signals-api'
 export type ThreadStatus = 'open' | 'pending' | 'closed' | 'spam'
 export type ThreadPriority = 'normal' | 'high' | 'urgent'
 export type MessageDirection = 'inbound' | 'outbound' | 'internal' | 'system'
-export type SendStatus = 'sending' | 'sent' | 'failed'
+export type SendStatus = 'sending' | 'scheduled' | 'sent' | 'failed'
 
 export type ThreadId = string | number
 
@@ -136,6 +136,8 @@ export type ThreadDetail = {
   events: InboxEvent[]
   /** Inline agent sessions anchored on this thread (active + closed). */
   sessions: ThreadSession[]
+  /** End-customer satisfaction rating (widget CSAT prompt), if given. */
+  csat?: { score: number; comment: string; created_at: string } | null
 }
 
 export type ThreadFilters = {
@@ -192,6 +194,11 @@ export type ReplyInput = {
   format?: 'email' | 'plain'
   /** With action=send_and_pending: snooze duration; omit = until customer replies. */
   snoozeMinutes?: number
+  /** Email-only: comma-separated extra recipients. */
+  cc?: string
+  bcc?: string
+  /** Soft undo: delay delivery by this many seconds (server caps at 600). */
+  sendAfterSeconds?: number
 }
 
 export type PatchThreadInput = {
@@ -502,7 +509,19 @@ import {
   unpinSignalThread,
   updateSignalNote,
 } from './signals-api'
-export type { ThreadSession, ThreadSessionAction } from './signals-api'
+export type {
+  InboxRule,
+  InboxRuleSuggestion,
+  ResolveDecisionResult,
+  ThreadSession,
+  ThreadSessionAction,
+} from './signals-api'
+export {
+  createInboxRule,
+  deleteInboxRule,
+  listInboxRules,
+  updateInboxRule,
+} from './signals-api'
 
 // ---------------------------------------------------------------------------
 // Threads (Signal API)
@@ -618,7 +637,7 @@ export async function resolveThreadDecision(
     subject?: string
     responseText?: string
   },
-): Promise<void> {
+): Promise<ResolveDecisionResult> {
   return resolveSignalDecision(token, String(threadId), String(messageId), action, opts)
 }
 

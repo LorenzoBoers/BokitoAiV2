@@ -264,6 +264,9 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     )
     await ctx.session.flush()
     await publish_thread_update(signal)
+    from app.services.webhooks import emit_webhook_event, signal_event_data
+
+    await emit_webhook_event(ctx.session, ctx.tenant_id, "signal.closed", signal_event_data(signal))
     return {"ok": True, "signal_id": str(signal.id), "status": "closed"}
 
 

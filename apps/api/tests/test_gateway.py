@@ -116,7 +116,109 @@ async def test_signal_message_publish_reaches_thread_subscribers(client, session
     frame = ws.frames[0]
     assert frame["event"] == "message"
     assert frame["data"]["message"]["body_text"] == "hello"
-    assert frame["data"]["thread"]["signal_id"] == str(signal.id)
+    # Events carry the canonical REST thread row so clients can upsert directly.
+    assert frame["data"]["thread"]["id"] == str(signal.id)
+    assert frame["data"]["audience"] == "all"
+
+
+async def _seed_thread(session, *, kind: str, body: str):
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.models.signal import Signal, SignalMessage
+
+    tenant = (await session.execute(select(Tenant))).scalars().first()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="outlook",
+        subject="Order 42",
+        contact_email="k@x.nl",
+    )
+    session.add(signal)
+    await session.flush()
+    message = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant.id,
+        kind=kind,
+        direction="internal" if kind == "internal_note" else "inbound",
+        role="user",
+        body_text=body,
+        body_preview=body[:200],
+        created_at=datetime.utcnow(),
+    )
+    session.add(message)
+    await session.flush()
+    return tenant, signal, message
+
+
+async def test_message_event_carries_canonical_payloads(client, session_override):
+    """Events reuse the REST serializers so clients can upsert/append directly."""
+    from app.gateway.publish import publish_signal_message
+    from app.services.signal_threads import serialize_message, serialize_thread
+
+    tenant, signal, message = await _seed_thread(
+        session_override, kind="user_message", body="Waar blijft mijn order?"
+    )
+
+    operator_ws, widget_ws = FakeWebSocket(), FakeWebSocket()
+    operator = GatewayConnection(operator_ws, tenant_id=str(tenant.id), kind="user", user_id="u1")
+    operator.topics = {"threads", f"signal:{signal.id}"}
+    widget = GatewayConnection(
+        widget_ws, tenant_id=str(tenant.id), kind="widget", customer_id="k@x.nl"
+    )
+    widget.topics = {f"signal:{signal.id}"}
+    manager.register(operator)
+    manager.register(widget)
+    try:
+        await publish_signal_message(signal, message)
+    finally:
+        manager.unregister(operator)
+        manager.unregister(widget)
+
+    # Operator: a light list frame on `threads` plus the full message frame.
+    assert len(operator_ws.frames) == 2
+    list_frame = next(f for f in operator_ws.frames if "threads" in f["topics"])
+    full_frame = next(f for f in operator_ws.frames if f"signal:{signal.id}" in f["topics"])
+    assert list_frame["data"]["audience"] == "operator"
+    assert list_frame["data"]["thread"] == serialize_thread(signal)
+    assert "body_text" not in list_frame["data"]["message"]  # preview only
+    assert full_frame["data"]["audience"] == "all"
+    assert full_frame["data"]["message"] == serialize_message(message)
+
+    # Widget: only the customer-visible full message frame; the operator list
+    # feed never reaches visitor connections.
+    assert len(widget_ws.frames) == 1
+    assert widget_ws.frames[0]["data"]["message"]["body_text"] == "Waar blijft mijn order?"
+
+
+async def test_internal_notes_never_reach_widget_connections(client, session_override):
+    from app.gateway.publish import publish_signal_message, publish_thread_update
+
+    tenant, signal, note = await _seed_thread(
+        session_override, kind="internal_note", body="Klant belt vaak; eerst factuur checken."
+    )
+
+    operator_ws, widget_ws = FakeWebSocket(), FakeWebSocket()
+    operator = GatewayConnection(operator_ws, tenant_id=str(tenant.id), kind="user", user_id="u1")
+    operator.topics = {"threads", f"signal:{signal.id}"}
+    widget = GatewayConnection(
+        widget_ws, tenant_id=str(tenant.id), kind="widget", customer_id="k@x.nl"
+    )
+    widget.topics = {f"signal:{signal.id}"}
+    manager.register(operator)
+    manager.register(widget)
+    try:
+        await publish_signal_message(signal, note)
+        await publish_thread_update(signal)
+    finally:
+        manager.unregister(operator)
+        manager.unregister(widget)
+
+    # Operator sees the note and the triage row; the visitor sees nothing.
+    assert any(f["event"] == "message" for f in operator_ws.frames)
+    assert any(f["event"] == "thread" for f in operator_ws.frames)
+    assert widget_ws.frames == []
 
 
 def test_websocket_connect_subscribe_ping():

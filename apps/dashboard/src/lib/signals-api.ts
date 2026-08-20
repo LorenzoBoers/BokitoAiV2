@@ -42,7 +42,7 @@ function normalizeThreadId(raw: unknown): string | null {
   return null
 }
 
-function normalizeSignalThread(row: unknown): InboxThread | null {
+export function normalizeSignalThread(row: unknown): InboxThread | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
   const id = normalizeThreadId(raw.id)
@@ -96,7 +96,7 @@ function normalizeSignalThread(row: unknown): InboxThread | null {
   }
 }
 
-function normalizeSignalMessage(row: unknown): InboxMessage | null {
+export function normalizeSignalMessage(row: unknown): InboxMessage | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
   const id = normalizeThreadId(raw.id)
@@ -417,8 +417,25 @@ export async function replyToSignalThread(
   if (input.bodyHtml) body.body_html = input.bodyHtml
   if (input.attachments?.length) body.attachments = input.attachments
   if (input.snoozeMinutes && input.snoozeMinutes > 0) body.snooze_minutes = input.snoozeMinutes
+  if (input.cc?.trim()) body.cc = input.cc.trim()
+  if (input.bcc?.trim()) body.bcc = input.bcc.trim()
+  if (input.sendAfterSeconds && input.sendAfterSeconds > 0) {
+    body.send_after_seconds = input.sendAfterSeconds
+  }
   const payload = await apiPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
   return normalizeSignalMessage(payload)
+}
+
+/** Soft undo: cancel a scheduled outbound message before delivery. */
+export async function cancelScheduledMessage(
+  token: string,
+  messageId: string,
+): Promise<{ signal_id?: string; body_text?: string } | null> {
+  return apiPost<{ signal_id?: string; body_text?: string }>(
+    appRoutes.signals.messageCancel(messageId),
+    {},
+    token,
+  )
 }
 
 export async function takeoverSignalThread(token: string, threadId: string): Promise<boolean> {
@@ -507,6 +524,124 @@ export async function invokeSignalAgent(
   return result
 }
 
+// ---------------------------------------------------------------------------
+// Inbox rules (learned per-sender automation)
+// ---------------------------------------------------------------------------
+
+export type InboxRule = {
+  id: string
+  matchType: 'sender' | 'domain' | 'list_id'
+  matchValue: string
+  label: string
+  action: 'auto_close' | 'auto_task' | 'mute_ai'
+  status: 'suggested' | 'active' | 'paused'
+  source: 'learned' | 'manual'
+  observations: number
+  promotionThreshold: number
+  hitCount: number
+  lastHitAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type InboxRuleSuggestion = InboxRule & {
+  readyToActivate: boolean
+  autoPromoted: boolean
+}
+
+export function normalizeInboxRule(raw: unknown): InboxRule | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (typeof row.id !== 'string') return null
+  const matchType = row.match_type
+  const action = row.action
+  if (matchType !== 'sender' && matchType !== 'domain' && matchType !== 'list_id') return null
+  if (action !== 'auto_close' && action !== 'auto_task' && action !== 'mute_ai') return null
+  const status = row.status
+  return {
+    id: row.id,
+    matchType,
+    matchValue: typeof row.match_value === 'string' ? row.match_value : '',
+    label: typeof row.label === 'string' ? row.label : '',
+    action,
+    status: status === 'active' || status === 'paused' ? status : 'suggested',
+    source: row.source === 'manual' ? 'manual' : 'learned',
+    observations: typeof row.observations === 'number' ? row.observations : 0,
+    promotionThreshold:
+      typeof row.promotion_threshold === 'number' ? row.promotion_threshold : 3,
+    hitCount: typeof row.hit_count === 'number' ? row.hit_count : 0,
+    lastHitAt: typeof row.last_hit_at === 'string' ? row.last_hit_at : null,
+    createdAt: typeof row.created_at === 'string' ? row.created_at : '',
+    updatedAt: typeof row.updated_at === 'string' ? row.updated_at : '',
+  }
+}
+
+export function normalizeRuleSuggestion(raw: unknown): InboxRuleSuggestion | null {
+  const rule = normalizeInboxRule(raw)
+  if (!rule) return null
+  const row = raw as Record<string, unknown>
+  return {
+    ...rule,
+    readyToActivate: row.ready_to_activate === true,
+    autoPromoted: row.auto_promoted === true,
+  }
+}
+
+export async function listInboxRules(token: string): Promise<InboxRule[]> {
+  const payload = await apiGet<unknown>(appRoutes.signals.rules, token)
+  const source = Array.isArray(payload) ? payload : []
+  return source
+    .map(normalizeInboxRule)
+    .filter((rule): rule is InboxRule => rule !== null)
+}
+
+export async function createInboxRule(
+  token: string,
+  input: {
+    matchType: InboxRule['matchType']
+    matchValue: string
+    action: InboxRule['action']
+    label?: string
+  },
+): Promise<InboxRule | null> {
+  const payload = await apiPost<unknown>(
+    appRoutes.signals.rules,
+    {
+      match_type: input.matchType,
+      match_value: input.matchValue,
+      action: input.action,
+      label: input.label ?? '',
+    },
+    token,
+  )
+  return normalizeInboxRule(payload)
+}
+
+export async function updateInboxRule(
+  token: string,
+  ruleId: string,
+  patch: { action?: InboxRule['action']; status?: 'active' | 'paused'; label?: string },
+): Promise<InboxRule | null> {
+  const payload = await apiPatch<unknown>(
+    appRoutes.signals.rule(ruleId),
+    {
+      ...(patch.action !== undefined ? { action: patch.action } : {}),
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
+      ...(patch.label !== undefined ? { label: patch.label } : {}),
+    },
+    token,
+  )
+  return normalizeInboxRule(payload)
+}
+
+export async function deleteInboxRule(token: string, ruleId: string): Promise<void> {
+  await apiDelete(appRoutes.signals.rule(ruleId), token)
+}
+
+export type ResolveDecisionResult = {
+  ruleSuggestion: InboxRuleSuggestion | null
+}
+
 export async function resolveSignalDecision(
   token: string,
   threadId: string,
@@ -519,7 +654,7 @@ export async function resolveSignalDecision(
     subject?: string
     responseText?: string
   },
-): Promise<void> {
+): Promise<ResolveDecisionResult> {
   const backendAction =
     action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'deferred'
   const payload: Record<string, unknown> = { action: backendAction }
@@ -533,11 +668,16 @@ export async function resolveSignalDecision(
   if (opts?.responseText != null && opts.responseText.trim()) {
     payload.response_text = opts.responseText.trim()
   }
-  await apiPost<unknown>(
+  const response = await apiPost<Record<string, unknown>>(
     appRoutes.signals.messageResolve(threadId, messageId),
     payload,
     token,
   )
+  return {
+    ruleSuggestion: normalizeRuleSuggestion(
+      response && typeof response === 'object' ? response.rule_suggestion : null,
+    ),
+  }
 }
 
 export async function submitMessageFeedback(

@@ -35,6 +35,27 @@ services:
       timeout: 3s
       retries: 5
 
+  # Nightly pg_dump snapshots. Restore procedure: docs/ops/BACKUP_RESTORE.md.
+  # Dumps land in the bokito_pg_backups volume; no ports are exposed.
+  pg-backup:
+    image: prodrigestivill/postgres-backup-local:16
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-bokito}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:-bokito}
+      SCHEDULE: "0 3 * * *"
+      BACKUP_KEEP_DAYS: "7"
+      BACKUP_KEEP_WEEKS: "4"
+      BACKUP_KEEP_MONTHS: "3"
+      POSTGRES_EXTRA_OPTS: "-Z6"
+    volumes:
+      - bokito_pg_backups:/backups
+
   api:
     build:
       context: ./apps/api
@@ -47,9 +68,10 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else 1)\""]
+      # Deep readiness: verifies Postgres and Redis connectivity, not just process-up.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready').status==200 else 1)\""]
       interval: 15s
-      timeout: 5s
+      timeout: 10s
       retries: 5
       start_period: 30s
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -103,6 +125,7 @@ services:
 
 volumes:
   bokito_pg_data:
+  bokito_pg_backups:
   bokito_redis_data:
   caddy_data:
   caddy_config:

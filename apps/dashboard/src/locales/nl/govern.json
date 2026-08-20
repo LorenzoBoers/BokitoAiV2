@@ -1,0 +1,65 @@
+{
+  "title": "Govern",
+  "subtitle": "Beoordeel platform-drafts, stel de autonomiehouding in en beheer hoe agent-wijzigingen worden toegepast.",
+  "openCanvas": "Open AI OS-canvas",
+  "loading": "Govern-gegevens laden...",
+  "refresh": "Vernieuwen",
+  "tabs": {
+    "drafts": "Openstaande drafts",
+    "policy": "Beleid",
+    "history": "Versiegeschiedenis",
+    "passports": "Agent-paspoorten",
+    "audit": "Recente audit"
+  },
+  "drafts": {
+    "empty": "Geen openstaande platformwijzigingen. Agents kunnen bewerkingen voorstellen via het AI OS-canvas of workforce-tools.",
+    "viewDiff": "Bekijk wijzigingen",
+    "accept": "Accepteren",
+    "reject": "Afwijzen",
+    "acceptConfirm": "Deze wijziging toepassen op je workspace?",
+    "rejectConfirm": "Deze wijziging afwijzen? Hij wordt niet toegepast.",
+    "accepted": "Wijziging geaccepteerd en toegepast",
+    "rejected": "Wijziging afgewezen"
+  },
+  "history": {
+    "empty": "Nog geen geaccepteerde wijzigingen."
+  },
+  "audit": {
+    "empty": "Nog geen auditgebeurtenissen."
+  },
+  "posture": {
+    "title": "Autonomiehouding",
+    "intro": "Kies hoeveel AI mag draaien zonder menselijke beoordeling. Je kunt individuele toolcategorieën hieronder fijn afstellen.",
+    "saved": "Autonomiehouding bijgewerkt",
+    "current": "Huidige houding",
+    "manual": {
+      "label": "Handmatig",
+      "summary": "Mensen keuren elke muterende agent-actie goed voordat die wordt toegepast."
+    },
+    "assisted": {
+      "label": "Ondersteund",
+      "summary": "Routineberichten en workspace-bewerkingen draaien automatisch; structurele wijzigingen vragen eerst."
+    },
+    "autonomous": {
+      "label": "Autonoom",
+      "summary": "AI draait de operatie; integraties en inloggegevens vragen nog steeds een mens."
+    }
+  },
+  "allowances": {
+    "title": "Toestemmingsniveaus",
+    "intro": "Per toolcategorie: weigeren blokkeert de actie, vragen maakt een inline beslissing aan, toestaan voert de actie automatisch uit met een auditrecord.",
+    "saved": "Toestemming opgeslagen."
+  },
+  "tokens": {
+    "title": "API-tokens (MCP-toegang)",
+    "intro": "Verbind Cursor of andere MCP-clients met deze workspace via /api/mcp. Tokens gebruiken dezelfde gegoverneerde tools en toestemmingsniveaus als interne agents.",
+    "namePlaceholder": "Tokennaam (bijv. Cursor)",
+    "create": "Token aanmaken",
+    "copied": "Gekopieerd.",
+    "empty": "Nog geen API-tokens.",
+    "revoked": "Token ingetrokken.",
+    "revokedBadge": "Ingetrokken",
+    "allScopes": "Alle categorieën",
+    "lastUsed": "laatst gebruikt"
+  }
+}

@@ -40,11 +40,18 @@ async def trigger_scheduler_loop() -> None:
                 if count:
                     logger.info("Trigger scheduler fired %s trigger(s)", count)
 
-                from app.services.signal_threads import wake_snoozed_threads
+                from app.services.signal_threads import (
+                    deliver_due_outbound_messages,
+                    wake_snoozed_threads,
+                )
 
                 woken = await wake_snoozed_threads(session)
                 if woken:
                     logger.info("Woke %s snoozed thread(s)", woken)
+
+                sent = await deliver_due_outbound_messages(session)
+                if sent:
+                    logger.info("Delivered %s scheduled message(s)", sent)
 
                 if time.monotonic() - last_learning_run >= _LEARNING_INTERVAL_SECONDS:
                     last_learning_run = time.monotonic()
@@ -53,6 +60,12 @@ async def trigger_scheduler_loop() -> None:
                     results = await run_learning_for_enabled_tenants(session)
                     if results:
                         logger.info("Learning cycle ran for %s tenant(s)", len(results))
+
+                    from app.services.onboarding_demo import send_channel_nudges
+
+                    nudged = await send_channel_nudges(session)
+                    if nudged:
+                        logger.info("Sent %s onboarding channel nudge(s)", nudged)
         except asyncio.CancelledError:
             raise
         except Exception as exc:

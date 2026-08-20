@@ -179,4 +179,9 @@ async def resolve_decision(
         title=decision.title,
         signal_id=decision.signal_id,
     )
+    from app.services.webhooks import decision_event_data, emit_webhook_event
+
+    await emit_webhook_event(
+        session, tenant_id, "decision.resolved", decision_event_data(decision)
+    )
     return decision

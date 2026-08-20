@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AtSign, Bell, CalendarClock, MessageSquare, ShieldCheck, UserCheck } from 'lucide-react';
+import { AlertTriangle, AtSign, Bell, CalendarClock, MessageSquare, ShieldCheck, UserCheck } from 'lucide-react';
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
 import { Button } from '../ui/button';
 import { Dropdown } from '../ui/dropdown';
@@ -12,6 +12,7 @@ const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: 
   proactive: MessageSquare,
   mention: AtSign,
   assignment: UserCheck,
+  ops_alert: AlertTriangle,
 };
 
 function formatTimeAgo(timestamp: string): string {
@@ -41,6 +42,11 @@ function notificationTarget(notification: AppNotification): string | null {
   }
   if (typeof payload.platform_change_id === 'string') return '/settings/autonomy';
   if (typeof payload.trigger_id === 'string') return '/agenda';
+  if (notification.kind === 'ops_alert') {
+    // Channel problems are fixed in settings; run failures live under Activity.
+    if (typeof payload.account_id === 'string') return '/settings/channels';
+    return agentRunsPath('all');
+  }
   if (notification.kind === 'decision_request') return agentRunsPath('awaiting-decision');
   if (notification.kind === 'status_update') return agentRunsPath('all');
   return null;

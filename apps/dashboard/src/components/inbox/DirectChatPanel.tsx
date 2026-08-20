@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowUp, Bot, Check, ClipboardCopy, Loader2, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, Loader2, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { agentChatPath, assistantPath } from '../../lib/messages-paths'
@@ -33,6 +33,8 @@ export type DirectChatPanelProps = {
   agentKind?: string | null
   onDeleted?: () => void
   onRefreshThreads?: () => void
+  /** Mobile stacked navigation: return to the conversation list (hidden on md+). */
+  onBack?: () => void
   onToggleContext?: () => void
   contextOpen?: boolean
   /** Embedded mode (e.g. Ask-assistant side panel): no header bar. */
@@ -258,6 +260,7 @@ export default function DirectChatPanel({
   agentKind,
   onDeleted,
   onRefreshThreads,
+  onBack,
   onToggleContext,
   contextOpen,
   hideHeader,
@@ -445,6 +448,16 @@ export default function DirectChatPanel({
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {hideHeader ? null : (
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/40 px-4">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to conversations"
+            className="md:hidden -ml-1.5 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+          >
+            <ArrowLeft size={16} />
+          </button>
+        ) : null}
         {renaming ? (
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
             <input
@@ -579,7 +592,7 @@ export default function DirectChatPanel({
 export function DirectChatEmptyState({ agentLabel }: { agentLabel: string }) {
   const navigate = useNavigate()
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center px-6 text-center">
+    <div className="hidden h-full min-h-0 flex-1 flex-col items-center justify-center px-6 text-center md:flex">
       <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-bg-surface text-accent shadow-sm">
         <Bot size={22} />
       </span>

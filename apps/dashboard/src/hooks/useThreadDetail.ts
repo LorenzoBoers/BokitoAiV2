@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
+import { extractLiveMessage, extractLiveThreadRow } from '../lib/thread-live'
 import {
   getThread,
   patchThread,
@@ -113,10 +114,18 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
     void fetchDetail()
   }, [fetchDetail])
 
-  // Live updates for the open thread: agent replies (and any other new
-  // messages/events) are published on the `signal:{id}` topic. Reload quietly
-  // so an incoming agent reply appears without a manual refresh.
-  // Skip high-frequency stream events — those only drive the live ThinkingTrace.
+  // Mirror the loaded detail so the gateway handler can dedupe without
+  // resubscribing on every state change.
+  const detailRef = useRef<ThreadDetail | null>(null)
+  useEffect(() => {
+    detailRef.current = rawDetail
+  }, [rawDetail])
+
+  // Live updates for the open thread, published on the `signal:{id}` topic.
+  // `message` events carry the full serialized message and are appended
+  // directly; everything else (decision resolution, thread triage, old
+  // payload shapes) falls back to a quiet refetch. Skip high-frequency
+  // stream events — those only drive the live ThinkingTrace.
   useEffect(() => {
     if (!token || !threadId) return
     const unsub = onGatewayEvent(`signal:${threadId}`, (event) => {
@@ -126,6 +135,44 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         event.event === 'agent.step'
       ) {
         return
+      }
+      if (event.event === 'message') {
+        const msg = extractLiveMessage(event)
+        const current = detailRef.current
+        // Decision cards need the options payload; when the event lacks it
+        // the refetch pulls the full card.
+        const missingDecision =
+          msg?.kind === 'decision_request' && !(msg.payload && 'decision' in msg.payload)
+        if (
+          msg &&
+          !missingDecision &&
+          current &&
+          String(current.thread.id) === String(threadId) &&
+          String(msg.threadId) === String(threadId)
+        ) {
+          if (current.messages.some((m) => String(m.id) === String(msg.id))) return
+          const threadRow = extractLiveThreadRow(event)
+          setRawDetail((prev) => {
+            if (!prev || String(prev.thread.id) !== String(msg.threadId)) return prev
+            if (prev.messages.some((m) => String(m.id) === String(msg.id))) return prev
+            return {
+              ...prev,
+              messages: [...prev.messages, msg],
+              thread: {
+                ...prev.thread,
+                lastMessageAt: msg.receivedAt ?? msg.createdAt ?? prev.thread.lastMessageAt,
+                status: threadRow?.status ?? prev.thread.status,
+                // The thread is on screen: mirror the refetch path, which
+                // auto-marks unread threads as read on load.
+                hasUnread: false,
+              },
+            }
+          })
+          if (threadRow?.hasUnread) {
+            void markThreadRead(token, threadId).catch(() => {})
+          }
+          return
+        }
       }
       void fetchDetail(true)
     })
@@ -206,6 +253,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         // The gateway event for the assistant fires while `saving` is still
         // true, so a quiet reload here guarantees it appears.
         void fetchDetail(true)
+        return msg
       } catch (err) {
         throw err instanceof Error ? err : new Error('Could not send message.')
       } finally {

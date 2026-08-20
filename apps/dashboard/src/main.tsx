@@ -11,8 +11,14 @@ import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
 import App from './App'
 import i18n from './i18n'
+import { initSentry } from './lib/sentry'
+import { registerServiceWorker } from './lib/web-push'
 import './index.css'
 
+initSentry()
+if (import.meta.env.PROD) {
+  void registerServiceWorker()
+}
 void i18n.changeLanguage('en')
 try {
   localStorage.setItem('bokito-language', 'en')

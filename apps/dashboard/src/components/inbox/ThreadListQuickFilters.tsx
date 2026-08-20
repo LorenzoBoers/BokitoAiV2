@@ -1,4 +1,4 @@
-import { Mail, Pin } from 'lucide-react'
+import { Mail, Pin, SquarePen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import { cn } from '../../lib/utils'
@@ -11,6 +11,8 @@ type Props = {
     unread: number
     pinned: number
   }
+  /** When set, shows a compose button (new outbound email). */
+  onCompose?: () => void
 }
 
 const FILTERS: Array<{
@@ -24,11 +26,11 @@ const FILTERS: Array<{
   { id: 'pinned', labelKey: 'listFilters.pinned', defaultLabel: 'Pinned', icon: Pin },
 ]
 
-export default function ThreadListQuickFilters({ value, onChange, counts }: Props) {
+export default function ThreadListQuickFilters({ value, onChange, counts, onCompose }: Props) {
   const { t } = useTranslation('communication')
 
   return (
-    <div className="flex flex-wrap gap-1 px-3 pt-2.5 pb-2 border-b border-border/50">
+    <div className="flex flex-wrap items-center gap-1 px-3 pt-2.5 pb-2 border-b border-border/50">
       {FILTERS.map((filter) => {
         const Icon = filter.icon
         const count = counts[filter.id]
@@ -64,6 +66,17 @@ export default function ThreadListQuickFilters({ value, onChange, counts }: Prop
           </button>
         )
       })}
+      {onCompose ? (
+        <button
+          type="button"
+          onClick={onCompose}
+          aria-label={t('compose.title', { defaultValue: 'New email' })}
+          title={t('compose.title', { defaultValue: 'New email' })}
+          className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+        >
+          <SquarePen size={13} />
+        </button>
+      ) : null}
     </div>
   )
 }

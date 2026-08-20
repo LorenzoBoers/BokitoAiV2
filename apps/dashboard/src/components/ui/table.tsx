@@ -1,9 +1,19 @@
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 
-const Table = React.forwardRef<HTMLTableElement, React.TableHTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="w-full overflow-auto rounded-xl border border-border/70 bg-bg-surface/95">
+type TableProps = React.TableHTMLAttributes<HTMLTableElement> & {
+  /** Skip standalone card chrome when the table sits inside another surface. */
+  embedded?: boolean
+}
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, embedded = false, ...props }, ref) => (
+    <div
+      className={cn(
+        'w-full overflow-auto',
+        !embedded && 'rounded-xl border border-border/70 bg-bg-surface/95',
+      )}
+    >
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),

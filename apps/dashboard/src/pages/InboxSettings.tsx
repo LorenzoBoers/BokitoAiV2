@@ -1,22 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { AlertCircle, CheckCircle, Folder, Plus, RefreshCw, Settings as SettingsIcon, Trash2, Wifi, WifiOff } from 'lucide-react'
+import {
+  Folder,
+  MoreHorizontal,
+  PenLine,
+  Plus,
+  RefreshCw,
+  Settings as SettingsIcon,
+  Star,
+  Trash2,
+  Wifi,
+} from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
-import { Card } from '../components/ui/card'
 import { Switch } from '../components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
 import { PageIntro } from '../components/layout/PageIntro'
+import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import ProviderLogo from '../components/email/ProviderLogo'
 import SignatureEditor from '../components/inbox/SignatureEditor'
 import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
+import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import SyncStatusPanel from '../components/inbox/SyncStatusPanel'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
 import { MAILBOX_STATUS_LABELS, MAILBOX_STATUS_VARIANTS } from '../types/inbox'
@@ -105,14 +123,6 @@ function mapRuleToApi(rule: RoutingRule): Omit<RoutingRuleApi, 'id' | 'created_a
   }
 }
 
-function getStatusIcon(status: MailboxStatus) {
-  if (status === 'connected') return <CheckCircle size={14} className="text-status-success" />
-  if (status === 'syncing') return <RefreshCw size={14} className="text-status-warning animate-spin" />
-  if (status === 'error') return <AlertCircle size={14} className="text-status-error" />
-  if (status === 'paused') return <WifiOff size={14} className="text-text-muted" />
-  return <WifiOff size={14} className="text-status-warning" />
-}
-
 function formatLastSync(lastSyncAt: string | null): string {
   if (!lastSyncAt) return 'Never synced'
   const date = new Date(lastSyncAt)
@@ -135,6 +145,103 @@ type InboxSettingsAlert =
       detail: string | null
     }
   | { kind: 'simple_error'; message: string }
+
+type MailboxRowActionsProps = {
+  mailbox: MailboxConnection
+  needsReconnect: boolean
+  syncing: boolean
+  deleting: boolean
+  canMakePrimary: boolean
+  onReconnect: () => void
+  onSync: () => void
+  onFolders: () => void
+  onSignature: () => void
+  onRouting: () => void
+  onMakePrimary: () => void
+  onRemove: () => void
+}
+
+function MailboxRowActions({
+  mailbox,
+  needsReconnect,
+  syncing,
+  deleting,
+  canMakePrimary,
+  onReconnect,
+  onSync,
+  onFolders,
+  onSignature,
+  onRouting,
+  onMakePrimary,
+  onRemove,
+}: MailboxRowActionsProps) {
+  return (
+    <div className="inline-flex items-stretch overflow-hidden rounded-lg border border-border/70 bg-bg-surface">
+      {needsReconnect ? (
+        <button
+          type="button"
+          onClick={onReconnect}
+          className="inline-flex items-center gap-1.5 border-r border-border/70 px-2.5 text-xs font-medium text-text-heading hover:bg-bg-hover/70"
+        >
+          <Wifi size={13} />
+          Reconnect
+        </button>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Actions for ${mailbox.email_address}`}
+            className="inline-flex h-8 w-8 items-center justify-center text-text-secondary hover:bg-bg-hover/70 hover:text-text-primary"
+          >
+            <MoreHorizontal size={15} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {!needsReconnect ? (
+            <DropdownMenuItem className="gap-2 text-xs" disabled={syncing} onSelect={onSync}>
+              <RefreshCw size={13} />
+              Sync now
+            </DropdownMenuItem>
+          ) : null}
+          {mailbox.provider === 'outlook' ? (
+            <DropdownMenuItem className="gap-2 text-xs" onSelect={onFolders}>
+              <Folder size={13} />
+              Folders
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem className="gap-2 text-xs" onSelect={onSignature}>
+            <PenLine size={13} />
+            Signature
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2 text-xs" onSelect={onRouting}>
+            <SettingsIcon size={13} />
+            Routing
+          </DropdownMenuItem>
+          {!mailbox.is_primary ? (
+            <DropdownMenuItem
+              className="gap-2 text-xs"
+              disabled={!canMakePrimary}
+              onSelect={onMakePrimary}
+            >
+              <Star size={13} />
+              Make primary
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="gap-2 text-xs text-status-error focus:text-status-error"
+            disabled={deleting}
+            onSelect={onRemove}
+          >
+            <Trash2 size={13} />
+            Remove
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
 
 export default function InboxSettings() {
   const { token } = useAuth()
@@ -410,26 +517,8 @@ export default function InboxSettings() {
   }, [token, folderMailbox, folders])
 
   return (
-    <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-5 py-1">
-      <PageIntro
-        description="Manage connected mailboxes, signatures, routing and email handling."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              disabled={syncing || mailboxes.length === 0}
-              onClick={() => void handleSyncNow()}
-            >
-              <RefreshCw size={16} className={syncing ? 'animate-spin' : undefined} />
-              {syncing ? 'Syncing...' : 'Sync now'}
-            </Button>
-            <Button onClick={() => setConnectDialogOpen(true)}>
-              <Plus size={16} />
-              Connect mailbox
-            </Button>
-          </div>
-        }
-      />
+    <PageContent width="full" className="flex min-h-0 flex-col gap-5">
+      <PageIntro description="Manage connected mailboxes, signatures, routing and email handling." />
 
       {pageAlert?.kind === 'oauth_success' ? (
         <OauthRedirectAlert variant="success" onDismiss={() => setPageAlert(null)}>
@@ -465,28 +554,43 @@ export default function InboxSettings() {
       {loading ? <LoadingBlock variant="inline" label="Loading mailboxes…" /> : null}
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
-        <Card className="overflow-hidden p-0">
-          <div className="border-b border-border/55 px-4 py-3">
-            <p className="text-sm font-medium text-text-heading">Connected inboxes</p>
-            <p className="text-xs text-text-secondary">Manage mailbox connections, signatures and routing per inbox.</p>
-          </div>
-          <Table>
+        <SettingsSection
+          title="Connected inboxes"
+          description="Manage mailbox connections, signatures and routing per inbox."
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={syncing || mailboxes.length === 0}
+                onClick={() => void handleSyncNow()}
+              >
+                <RefreshCw size={14} className={syncing ? 'animate-spin' : undefined} />
+                {syncing ? 'Syncing...' : 'Sync now'}
+              </Button>
+              <Button size="sm" onClick={() => setConnectDialogOpen(true)}>
+                <Plus size={14} />
+                Connect mailbox
+              </Button>
+            </div>
+          }
+          className="overflow-hidden"
+          bodyClassName="p-0"
+        >
+          <Table embedded>
             <TableHeader>
               <TableRow>
                 <TableHead>Inbox</TableHead>
-                <TableHead>Provider</TableHead>
                 <TableHead>Sync</TableHead>
                 <TableHead>History</TableHead>
-                <TableHead>Primary</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Last sync</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {!loading && mailboxes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-sm text-text-muted">
+                  <TableCell colSpan={5} className="py-10 text-center text-sm text-text-muted">
                     No inbox connected yet
                   </TableCell>
                 </TableRow>
@@ -501,25 +605,31 @@ export default function InboxSettings() {
                   return (
                     <TableRow key={mailbox.id}>
                       <TableCell>
-                        <div className="font-medium text-text-heading">{mailbox.display_name}</div>
-                        <div className="text-xs text-text-secondary">{mailbox.email_address}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="inline-flex items-center gap-2">
-                          <ProviderLogo provider={mailbox.provider} className="h-4 w-4 object-contain" />
-                          <span className="capitalize">{mailbox.provider}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={mailbox.sync_enabled}
-                            disabled={mailboxSavingId === mailbox.id}
-                            onCheckedChange={(checked) => handleToggleSyncEnabled(mailbox, checked)}
-                            aria-label="Toggle inbox sync"
+                        <div className="flex items-start gap-3">
+                          <ProviderLogo
+                            provider={mailbox.provider}
+                            className="mt-0.5 h-5 w-5 shrink-0 object-contain"
                           />
-                          <span className="text-xs text-text-muted">{mailbox.sync_enabled ? 'On' : 'Off'}</span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-text-heading">{mailbox.display_name}</span>
+                              {mailbox.is_primary ? (
+                                <Badge variant="success" className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide">
+                                  Primary
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <div className="text-xs text-text-secondary">{mailbox.email_address}</div>
+                          </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={mailbox.sync_enabled}
+                          disabled={mailboxSavingId === mailbox.id}
+                          onCheckedChange={(checked) => handleToggleSyncEnabled(mailbox, checked)}
+                          aria-label="Toggle inbox sync"
+                        />
                       </TableCell>
                       <TableCell>
                         <select
@@ -528,7 +638,7 @@ export default function InboxSettings() {
                           onChange={(e) => handleChangeSyncWindow(mailbox, Number(e.target.value))}
                           aria-label="How far back to sync mail history"
                           title="How far back mail is backfilled when this mailbox (re)connects"
-                          className="h-7 rounded-md border border-border/60 bg-bg-surface px-1.5 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
+                          className="h-8 rounded-md border border-border/70 bg-bg-elevated px-2 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
                         >
                           {![7, 30, 90, 365, 0].includes(mailbox.sync_window_days) ? (
                             <option value={String(mailbox.sync_window_days)}>
@@ -543,74 +653,29 @@ export default function InboxSettings() {
                         </select>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col items-start gap-1">
-                          {mailbox.is_primary ? (
-                            <Badge variant="success">Primary</Badge>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={!mailbox.sync_enabled || mailboxSavingId === mailbox.id}
-                              onClick={() => handleSetPrimaryMailbox(mailbox)}
-                            >
-                              Make primary
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="inline-flex items-center gap-1">
-                          {getStatusIcon(mailbox.status)}
+                        <div>
                           <Badge variant={statusVariant}>{MAILBOX_STATUS_LABELS[mailbox.status]}</Badge>
+                          <div className="mt-1 text-xs text-text-muted">{formatLastSync(mailbox.last_sync_at)}</div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-text-muted">{formatLastSync(mailbox.last_sync_at)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="inline-flex flex-wrap items-center justify-end gap-1">
-                          {needsReconnect ? (
-                            <Button size="sm" variant="secondary" onClick={() => setConnectDialogOpen(true)}>
-                              <Wifi size={13} />
-                              Reconnect
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={syncing}
-                              onClick={() => void handleSyncNow()}
-                              aria-label="Sync mailboxes now"
-                              title="Sync now"
-                            >
-                              <RefreshCw size={13} className={syncing ? 'animate-spin' : undefined} />
-                              Sync
-                            </Button>
-                          )}
-                          {mailbox.provider === 'outlook' ? (
-                            <Button size="sm" variant="ghost" onClick={() => void handleEditFolders(mailbox)}>
-                              <Folder size={13} />
-                              Folders
-                            </Button>
-                          ) : null}
-                          <Button size="sm" variant="ghost" onClick={() => void handleEditSignature(mailbox)}>
-                            Signature
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => void handleEditRouting(mailbox)}>
-                            <SettingsIcon size={13} />
-                            Routing
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            aria-label={`Remove mailbox ${mailbox.email_address}`}
-                            disabled={deletingId === mailbox.id}
-                            onClick={() => {
-                              setDeleteError(null)
-                              setDeleteMailbox(mailbox)
-                            }}
-                          >
-                            <Trash2 size={13} />
-                          </Button>
-                        </div>
+                        <MailboxRowActions
+                          mailbox={mailbox}
+                          needsReconnect={needsReconnect}
+                          syncing={syncing}
+                          deleting={deletingId === mailbox.id}
+                          canMakePrimary={mailbox.sync_enabled && mailboxSavingId !== mailbox.id}
+                          onReconnect={() => setConnectDialogOpen(true)}
+                          onSync={() => void handleSyncNow()}
+                          onFolders={() => void handleEditFolders(mailbox)}
+                          onSignature={() => void handleEditSignature(mailbox)}
+                          onRouting={() => void handleEditRouting(mailbox)}
+                          onMakePrimary={() => handleSetPrimaryMailbox(mailbox)}
+                          onRemove={() => {
+                            setDeleteError(null)
+                            setDeleteMailbox(mailbox)
+                          }}
+                        />
                       </TableCell>
                     </TableRow>
                   )
@@ -618,13 +683,11 @@ export default function InboxSettings() {
               )}
             </TableBody>
           </Table>
-        </Card>
+        </SettingsSection>
 
-        {mailboxes.length > 0 ? (
-          <Card className="p-4">
-            <SyncStatusPanel />
-          </Card>
-        ) : null}
+        {mailboxes.length > 0 ? <SyncStatusPanel className="rounded-2xl border border-border/80 bg-bg-surface/95 p-4" /> : null}
+
+        <AutomationRulesManager />
 
         <SavedRepliesManager />
 

@@ -17,6 +17,21 @@
     "mailboxDisconnected": "De mailbox van dit gesprek is losgekoppeld; antwoorden kunnen niet worden verstuurd. Interne notities werken nog wel.",
     "reconnectMailbox": "Mailbox opnieuw koppelen"
   },
+  "undoSend": {
+    "scheduled": "E-mail wordt verstuurd...",
+    "undo": "Ongedaan maken",
+    "cancelled": "Versturen geannuleerd",
+    "tooLate": "Te laat — al verstuurd"
+  },
+  "compose": {
+    "title": "Nieuwe e-mail",
+    "subjectPlaceholder": "Onderwerp",
+    "bodyPlaceholder": "Schrijf je bericht...",
+    "send": "Versturen",
+    "sending": "Versturen...",
+    "sent": "E-mail verstuurd",
+    "cancel": "Annuleren"
+  },
   "threadResolved": {
     "closed": "Gesprek gesloten",
     "spam": "Gemarkeerd als spam",
@@ -50,6 +65,16 @@
     "toastSent": "Antwoord verzonden",
     "toastEscalated": "Geëscaleerd naar mens",
     "toastAnswerSubmitted": "Antwoord ingediend",
+    "rulePrompt": {
+      "autoClose": "Berichten van {{sender}} voortaan altijd sluiten?",
+      "autoTask": "Voor berichten van {{sender}} voortaan altijd een taak aanmaken?",
+      "explainer": "Je hebt deze keuze {{count}} keer gemaakt voor deze afzender.",
+      "confirm": "Doe dit voortaan",
+      "dismiss": "Niet nu",
+      "activated": "Regel geactiveerd. Beheer regels via Inbox-instellingen.",
+      "autoPromoted": "Geleerde regel geactiveerd voor {{sender}}",
+      "error": "Regel activeren mislukt."
+    },
     "options": {
       "send": "Versturen",
       "edit": "Bewerken",
@@ -106,10 +131,10 @@
         "description": "Vraag alles over je workspace; hij kent je agents en instellingen.",
         "cta": "Open assistent"
       },
-      "channel": {
-        "title": "Koppel een kanaal",
-        "description": "Voeg live chat, Slack of een ander kanaal toe naast e-mail.",
-        "cta": "Open kanalen"
+      "first_decision": {
+        "title": "Los je eerste beslissing op",
+        "description": "Probeer een demogesprek met een beslissingskaart en zie hoe Bokito eerst vraagt voordat het handelt.",
+        "cta": "Probeer de demo"
       },
       "team": {
         "title": "Nodig je team uit",

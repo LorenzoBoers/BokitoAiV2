@@ -33,6 +33,9 @@ SUGGEST_MODE_TOOLS = frozenset(
 
 
 async def startup(ctx):
+    from app.observability import init_observability
+
+    init_observability("worker")
     await init_db()
 
 
@@ -78,19 +81,33 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         from app.services.routing import resolve_agent_for_signal
 
+        try:
+            msg_meta = json.loads(msg.metadata_json or "{}")
+        except json.JSONDecodeError:
+            msg_meta = {}
+        auto_headers = msg_meta.get("auto_headers") if isinstance(msg_meta, dict) else None
+        sender_address = msg.from_address or signal.contact_email or ""
+
+        # Learned inbox rules first: when the tenant already decided what to do
+        # with this sender (auto-close, auto-task, skip AI) the rule handles the
+        # thread directly — no agent run, no decision card.
+        from app.services import inbox_rules
+
+        rule = await inbox_rules.find_matching_rule(
+            session, UUID(tenant_id), sender_address, headers=auto_headers
+        )
+        if rule:
+            outcome = await inbox_rules.apply_rule_to_signal(
+                session, UUID(tenant_id), signal, msg, rule
+            )
+            return {"processed": True, "signal_id": signal_id, "delivery": outcome}
+
         # Automated / no-reply mail (system notifications, newsletters, bounces):
         # never draft a reply. Surface a compact action suggestion instead —
         # close the thread, create a task, or keep it open.
         from app.services.automated_mail import classify_automated_email
 
-        try:
-            msg_meta = json.loads(msg.metadata_json or "{}")
-        except json.JSONDecodeError:
-            msg_meta = {}
-        classification = classify_automated_email(
-            msg.from_address or signal.contact_email or "",
-            headers=msg_meta.get("auto_headers") if isinstance(msg_meta, dict) else None,
-        )
+        classification = classify_automated_email(sender_address, headers=auto_headers)
         if classification["automated"]:
             from app.services.inbound_agent import create_action_suggestion
 
@@ -195,13 +212,24 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
         try:
             reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
-        except Exception:
+        except Exception as exc:
             # Never leave the run stuck on "running": the agenda, cockpit and
             # workforce views all read this status.
             run.status = "failed"
             run.completed_at = datetime.utcnow()
             session.add(run)
             await session.commit()
+
+            from app.services.ops_alerts import alert_run_failure
+
+            await alert_run_failure(
+                session,
+                UUID(tenant_id),
+                subject=run.subject or signal.subject or signal.channel,
+                error=exc,
+                run_id=run.id,
+                signal_id=signal.id,
+            )
             raise
 
         # If the agent already raised its own inline decision card during the
@@ -346,6 +374,34 @@ async def sync_email_mailboxes_job(ctx):
         return {"accounts": len(accounts), "results": synced}
 
 
+async def send_tenant_digests_job(ctx):
+    """Daily digest mails at 06:00 UTC; weekly digests fire on Mondays."""
+    from app.services.digest_mail import send_tenant_digests
+
+    async with async_session_factory() as session:
+        daily = await send_tenant_digests(session, period="daily")
+        weekly = 0
+        if datetime.utcnow().weekday() == 0:
+            weekly = await send_tenant_digests(session, period="weekly")
+    return {"daily": daily, "weekly": weekly}
+
+
+async def deliver_webhook_job(ctx, delivery_id: str):
+    """Deliver one outbound webhook (HMAC-signed, with in-task retries)."""
+    from app.models.webhook import WebhookDelivery
+    from app.services.webhooks import perform_delivery
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(WebhookDelivery).where(WebhookDelivery.id == UUID(delivery_id))
+        )
+        delivery = result.scalar_one_or_none()
+        if not delivery or delivery.status != "pending":
+            return {"skipped": True}
+        delivery = await perform_delivery(session, delivery)
+        return {"status": delivery.status, "status_code": delivery.status_code}
+
+
 class WorkerSettings:
     # Triggers + learning are scheduled by the in-process API scheduler
     # (app.services.trigger_scheduler); the worker only handles queued jobs
@@ -356,11 +412,15 @@ class WorkerSettings:
         run_agent_task_segment_job,
         run_workstream_orchestrated,
         sync_email_mailboxes_job,
+        deliver_webhook_job,
     ]
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     # Poll mailboxes every minute (replaces the former in-process API scheduler poll).
-    cron_jobs = [cron(sync_email_mailboxes_job, second=0)]
+    cron_jobs = [
+        cron(sync_email_mailboxes_job, second=0),
+        cron(send_tenant_digests_job, hour=6, minute=0),
+    ]
 
 
 async def enqueue_signal_processing(tenant_id: str, signal_id: str):
@@ -388,6 +448,34 @@ async def enqueue_signal_processing(tenant_id: str, signal_id: str):
             except Exception:  # noqa: BLE001
                 logging.getLogger(__name__).exception(
                     "In-process signal processing failed for %s", signal_id
+                )
+
+        asyncio.create_task(_inline())
+        return
+
+
+async def enqueue_webhook_delivery(delivery_id: str):
+    try:
+        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        await redis.enqueue_job("deliver_webhook_job", delivery_id)
+    except Exception as exc:  # noqa: BLE001
+        # No Redis (local dev): deliver in-process so webhooks still fire.
+        import asyncio
+        import logging
+
+        from app.services.runtime_health import record_redis_enqueue_failure
+
+        logging.getLogger(__name__).warning(
+            "Redis unavailable, delivering webhook %s in-process: %s", delivery_id, exc
+        )
+        record_redis_enqueue_failure(f"webhook_delivery: {exc}")
+
+        async def _inline() -> None:
+            try:
+                await deliver_webhook_job(None, delivery_id)
+            except Exception:  # noqa: BLE001
+                logging.getLogger(__name__).exception(
+                    "In-process webhook delivery failed for %s", delivery_id
                 )
 
         asyncio.create_task(_inline())

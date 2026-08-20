@@ -188,7 +188,7 @@ async def test_onboarding_status_endpoint(client: AsyncClient):
     assert resp.status_code == 200
     data = resp.json()
     step_ids = [step["id"] for step in data["steps"]]
-    assert step_ids == ["email", "company", "assistant", "channel", "team"]
+    assert step_ids == ["email", "company", "assistant", "first_decision", "team"]
     # Fresh tenant: nothing completed yet.
     assert data["completed"] is False
     assert all(step["done"] is False for step in data["steps"])

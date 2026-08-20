@@ -208,11 +208,16 @@ async def resolve_model_call(
     tenant_resolved = await _resolve_from_tenant_model(
         session, tenant_id, kind=kind, model_slug=model_slug
     )
-    if tenant_resolved is not None:
-        return tenant_resolved
-    return await _resolve_from_platform_catalog(
+    resolved = tenant_resolved or await _resolve_from_platform_catalog(
         session, tenant_id, kind=kind, model_slug=model_slug
     )
+    # Spend enforcement at the single choke point every LLM call goes through.
+    # Only platform keys are hard-capped; BYOK tenants pay their own provider.
+    if resolved.billable and resolved.live:
+        from app.services.spend_guard import check_tenant_budget
+
+        await check_tenant_budget(session, tenant_id)
+    return resolved
 
 
 def compute_costs(
@@ -268,4 +273,9 @@ async def record_usage(
     session.add(entry)
     if commit:
         await session.commit()
+    if billable and (tokens_in or tokens_out):
+        # Async 80%/100% budget alerts; never blocks the usage write path.
+        from app.services.spend_guard import schedule_spend_alert_check
+
+        schedule_spend_alert_check(tenant_id)
     return entry

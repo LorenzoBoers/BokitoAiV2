@@ -45,6 +45,31 @@ async def subscribe_push(
     return {"ok": True, "user_id": str(auth.user.id)}
 
 
+class PushUnsubscribeBody(BaseModel):
+    endpoint: str
+
+
+@router.post("/unsubscribe")
+async def unsubscribe_push(
+    body: PushUnsubscribeBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    result = await session.execute(
+        select(PushSubscription).where(
+            PushSubscription.user_id == auth.user.id,
+            PushSubscription.endpoint == body.endpoint,
+        )
+    )
+    removed = 0
+    for sub in result.scalars().all():
+        await session.delete(sub)
+        removed += 1
+    if removed:
+        await session.commit()
+    return {"ok": True, "removed": removed}
+
+
 @router.get("/vapid-public-key")
 async def vapid_public_key():
     if not settings.vapid_public_key:

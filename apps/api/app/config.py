@@ -46,9 +46,19 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""
     vapid_claims_email: str = "mailto:admin@bokito.ai"
 
+    # Observability. Empty DSN disables Sentry entirely (dev/test default).
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.1
+    # JSON log lines; always on in production, opt-in elsewhere.
+    log_json: bool = False
+
     # Transactional email (invites, password reset, email verification).
-    # When smtp_host is empty, mail is logged instead and non-production
-    # responses include dev magic links so flows stay testable without SMTP.
+    # Delivery order: Resend HTTP API (resend_api_key) -> SMTP (smtp_host) ->
+    # dev log. When neither is configured, mail is logged instead and
+    # non-production responses include dev magic links so flows stay testable.
+    resend_api_key: str = ""
+    # From header for all transactional mail; falls back to smtp_from.
+    mail_from: str = ""
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
@@ -137,6 +147,19 @@ def validate_production_settings(settings: "Settings") -> list[str]:
                 f"{name}_OAUTH_CLIENT_ID and {name}_OAUTH_CLIENT_SECRET must both be set (or both empty)."
             )
     return errors
+
+
+def production_config_warnings(settings: "Settings") -> list[str]:
+    """Non-fatal production misconfigurations, logged loudly at startup."""
+    if not settings.is_production:
+        return []
+    warnings: list[str] = []
+    if not settings.resend_api_key and not settings.smtp_host:
+        warnings.append(
+            "No transactional mail provider configured (RESEND_API_KEY or SMTP_HOST): "
+            "invite, password-reset and verification emails will NOT be delivered."
+        )
+    return warnings
 
 
 @lru_cache

@@ -56,6 +56,21 @@ class ChannelBinding(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class Company(SQLModel, table=True):
+    """CRM company record; contacts auto-link by business email domain."""
+
+    __tablename__ = "companies"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    name: str = Field(default="")
+    domain: str = Field(default="", index=True)  # lowercase, e.g. "acme.com"
+    website: str = ""
+    notes: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Contact(SQLModel, table=True):
     __tablename__ = "contacts"
 
@@ -68,6 +83,7 @@ class Contact(SQLModel, table=True):
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     # CRM profile fields (editable from the contact panel / contacts page).
     company: str = ""
+    company_id: Optional[uuid.UUID] = Field(default=None, foreign_key="companies.id", index=True)
     title: str = ""
     phone: str = ""
     notes: str = ""

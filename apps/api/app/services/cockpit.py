@@ -8,6 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import RunEvent
+from app.models.audit import AuditEvent
+from app.models.auth import User
 from app.models.learning import EvalScore, Feedback
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
@@ -66,6 +68,18 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         )
     ).scalar_one()
 
+    # End-customer satisfaction: signal-scoped ratings (widget CSAT prompt).
+    csat = (
+        await session.execute(
+            select(func.avg(Feedback.score), func.count()).where(
+                Feedback.tenant_id == tenant_id,
+                Feedback.score.is_not(None),
+                Feedback.subject_type == "signal",
+                Feedback.created_at >= since_month,
+            )
+        )
+    ).one()
+
     usage_month = (
         await session.execute(
             select(
@@ -92,6 +106,8 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         "open_decisions": open_decisions,
         "autonomy_rate_pct": autonomy_rate,
         "avg_feedback_score": round(float(avg_feedback or 0), 2),
+        "csat_score": round(float(csat[0]), 2) if csat[0] is not None else None,
+        "csat_responses": int(csat[1] or 0),
         "tokens_month": int(usage_month[0] or 0),
         "cost_cents_month": int(usage_month[1] or 0),
         "time_saved_minutes_week": time_saved_minutes,
@@ -191,7 +207,9 @@ async def activity_timeline(
     limit: int = 50,
     before: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    """Newest-first run events; `before` pages further into history."""
+    """Unified newest-first activity: agent run events merged with human audit
+    events, so the Cockpit shows one "who did what" timeline. `before` pages
+    further into history."""
     events: list[dict[str, Any]] = []
 
     stmt = select(RunEvent).where(RunEvent.tenant_id == tenant_id)
@@ -205,6 +223,44 @@ async def activity_timeline(
                 "kind": "agent_run",
                 "event_type": ev.event_type,
                 "message": ev.message,
+                "actor_name": None,
+                "created_at": ev.created_at.isoformat(),
+            }
+        )
+
+    # Human actions come from the govern audit trail. Agent tool calls are
+    # excluded here because they already stream in as run events above.
+    audit_stmt = select(AuditEvent).where(
+        AuditEvent.tenant_id == tenant_id, AuditEvent.actor_type == "user"
+    )
+    if before is not None:
+        audit_stmt = audit_stmt.where(AuditEvent.created_at < before)
+    audit_rows = (
+        await session.execute(audit_stmt.order_by(AuditEvent.created_at.desc()).limit(limit))
+    ).scalars().all()
+
+    actor_ids: set[UUID] = set()
+    for ev in audit_rows:
+        try:
+            actor_ids.add(UUID(ev.actor_id))
+        except (ValueError, TypeError):
+            continue
+    names: dict[str, str] = {}
+    if actor_ids:
+        user_rows = await session.execute(
+            select(User.id, User.display_name, User.email).where(User.id.in_(actor_ids))
+        )
+        for uid, display_name, email in user_rows.all():
+            names[str(uid)] = display_name or email
+
+    for ev in audit_rows:
+        events.append(
+            {
+                "id": str(ev.id),
+                "kind": "audit",
+                "event_type": ev.action,
+                "message": ev.summary,
+                "actor_name": names.get(ev.actor_id),
                 "created_at": ev.created_at.isoformat(),
             }
         )

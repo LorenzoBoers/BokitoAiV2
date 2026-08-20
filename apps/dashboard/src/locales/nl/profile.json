@@ -31,7 +31,7 @@
   },
   "security": {
     "title": "Beveiliging",
-    "description": "Beheer het wachtwoord van je account.",
+    "description": "Beheer je wachtwoord en tweestapsverificatie.",
     "passwordTitle": "Wachtwoord",
     "passwordDescription": "Wijzig het wachtwoord van je account.",
     "changePassword": "Wachtwoord wijzigen",
@@ -40,7 +40,19 @@
     "confirmPassword": "Bevestig nieuw wachtwoord",
     "passwordMismatch": "Wachtwoorden komen niet overeen",
     "passwordSuccess": "Wachtwoord gewijzigd",
-    "cancel": "Annuleren"
+    "cancel": "Annuleren",
+    "totpTitle": "Tweestapsverificatie",
+    "totpOnDescription": "Inloggen vereist een code uit je authenticator-app.",
+    "totpOffDescription": "Voeg een extra inlogstap toe met een authenticator-app.",
+    "totpEnable": "Inschakelen",
+    "totpDisable": "Uitschakelen",
+    "totpConfirm": "Verifieer en schakel in",
+    "totpStep1": "Voeg deze sleutel toe aan je authenticator-app (Google Authenticator, 1Password, Microsoft Authenticator, ...) en voer daarna de 6-cijferige code in.",
+    "totpOpenApp": "Openen in authenticator-app",
+    "totpInvalidCode": "Ongeldige verificatiecode. Probeer opnieuw.",
+    "totpEnabled": "Tweestapsverificatie ingeschakeld",
+    "totpDisabled": "Tweestapsverificatie uitgeschakeld",
+    "totpDisableConfirm": "Voer je wachtwoord in om tweestapsverificatie uit te schakelen."
   },
   "account": {
     "title": "Account",

@@ -1,5 +1,8 @@
+import asyncio
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
@@ -9,15 +12,48 @@ settings = get_settings()
 engine = create_async_engine(settings.database_url, echo=settings.debug, pool_pre_ping=True)
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+# Serializes concurrent startup migrations (api + worker booting together).
+_MIGRATION_LOCK_KEY = 729_001
+
+
+def _alembic_upgrade_head() -> None:
+    """Run `alembic upgrade head` in-process (called from a worker thread).
+
+    env.py starts its own event loop via `asyncio.run`, so this must never be
+    called from a running loop directly — use `asyncio.to_thread`.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    api_root = Path(__file__).resolve().parents[2]
+    config = Config(str(api_root / "alembic.ini"))
+    config.set_main_option("script_location", str(api_root / "alembic"))
+    command.upgrade(config, "head")
+
 
 async def init_db() -> None:
-    import app.models  # noqa: F401 — register all SQLModel tables before create_all
-    from app.db.schema_patch import apply_column_patches, apply_data_repairs
+    import app.models  # noqa: F401 — register all SQLModel tables on the metadata
 
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-        await conn.run_sync(apply_column_patches)
-        await conn.run_sync(apply_data_repairs)
+    if engine.dialect.name == "postgresql":
+        # Postgres schema is Alembic-managed. An advisory lock serializes the
+        # api and worker containers when they boot at the same time.
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY})
+            try:
+                await asyncio.to_thread(_alembic_upgrade_head)
+            finally:
+                await conn.execute(
+                    text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY}
+                )
+    else:
+        # SQLite (tests/local dev without Postgres): create_all plus the frozen
+        # schema patches — no Alembic, matching the historical behavior.
+        from app.db.schema_patch import apply_column_patches, apply_data_repairs
+
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+            await conn.run_sync(apply_column_patches)
+            await conn.run_sync(apply_data_repairs)
 
     from app.services.model_catalog import seed_model_catalog
     from app.services.personal_agents import provision_missing_personal_agents

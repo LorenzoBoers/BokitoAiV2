@@ -188,6 +188,7 @@ async def update_tool_override(
     overrides = settings.get("tool_overrides") or {}
     if not isinstance(overrides, dict):
         overrides = {}
+    before_mode = overrides.get(body.tool_name)
     if body.mode is None:
         overrides.pop(body.tool_name, None)
     else:
@@ -198,6 +199,20 @@ async def update_tool_override(
     tenant = result.scalar_one()
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:tool_override_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(auth.tenant.id),
+        outcome="applied",
+        summary=f"Tool override for {body.tool_name}",
+        before={"tool": body.tool_name, "mode": before_mode},
+        after={"tool": body.tool_name, "mode": body.mode},
+        commit=False,
+    )
     await session.commit()
     await session.refresh(tenant)
     return _allowance_state(tenant)

@@ -298,6 +298,13 @@ export async function revokeToken(token: string): Promise<void> {
   await apiPostAuth(authRoutes.session.revoke, {}, token);
 }
 
+export interface PendingWorkspaceInvite {
+  id: string;
+  tenant_name: string;
+  role: string;
+  invited_by_name: string;
+}
+
 export interface AuthSessionResponse {
   access_token?: string;
   authToken?: string;
@@ -305,6 +312,16 @@ export interface AuthSessionResponse {
   expires_in?: number;
   user?: unknown;
   return_to?: string;
+  // Two-step login: set when the account has TOTP 2FA enabled. The client
+  // exchanges challenge_token + code at /2fa/verify for a real session.
+  requires_2fa?: boolean;
+  challenge_token?: string;
+  // The account exists but has no workspace membership (e.g. removed from
+  // its last tenant). setup_token grants only the workspace-setup endpoints.
+  requires_workspace?: boolean;
+  setup_token?: string;
+  email?: string;
+  pending_invites?: PendingWorkspaceInvite[];
 }
 
 function buildAuthProxyUrl(path: string): string {
@@ -323,6 +340,48 @@ export async function authLogin(email: string, password: string): Promise<AuthSe
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ email, password }),
+  });
+  return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.login);
+}
+
+/** No-workspace state: accept a pending invite using the setup token. */
+export async function authWorkspaceSetupAcceptInvite(
+  setupToken: string,
+  inviteId: string,
+): Promise<AuthSessionResponse> {
+  const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.workspaceSetup.acceptInvite), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ setup_token: setupToken, invite_id: inviteId }),
+  });
+  return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.login);
+}
+
+/** No-workspace state: create a fresh workspace using the setup token. */
+export async function authWorkspaceSetupCreate(
+  setupToken: string,
+  workspaceName: string,
+): Promise<AuthSessionResponse> {
+  const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.workspaceSetup.create), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ setup_token: setupToken, workspace_name: workspaceName }),
+  });
+  return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.login);
+}
+
+/** Second login step: exchange the 2FA challenge + TOTP code for a session. */
+export async function authTotpVerify(
+  challengeToken: string,
+  code: string,
+): Promise<AuthSessionResponse> {
+  const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.twoFactor.verify), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ challenge_token: challengeToken, code }),
   });
   return readJsonResponse<AuthSessionResponse>(res, authRoutes.errorContext.login);
 }

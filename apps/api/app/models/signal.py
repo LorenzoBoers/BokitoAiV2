@@ -132,6 +132,10 @@ class SignalMessage(SQLModel, table=True):
     auto_sent: bool = False
     decision_id: Optional[uuid.UUID] = Field(default=None, foreign_key="decision_requests.id")
 
+    # Scheduled send: while send_status == "scheduled" the scheduler delivers
+    # the message once this passes. Soft undo cancels before delivery.
+    send_after: Optional[datetime] = Field(default=None, index=True)
+
     received_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

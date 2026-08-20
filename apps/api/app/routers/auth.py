@@ -90,6 +90,9 @@ class ProfilePatchRequest(BaseModel):
     name: str | None = None
     email: EmailStr | None = None
     job_title: str | None = None
+    # True marks first-time onboarding as done (persisted as `onboarded_at`
+    # in User.settings_json). Sent by the accept-invite welcome step.
+    onboarded: bool | None = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -123,6 +126,22 @@ class LoginResponse(BaseModel):
     tenant: dict
 
 
+class TotpEnableRequest(BaseModel):
+    code: str
+
+
+class TotpDisableRequest(BaseModel):
+    # Password proves account ownership; SSO-only accounts (no password)
+    # confirm with a current TOTP code instead.
+    password: str = ""
+    code: str = ""
+
+
+class TotpVerifyRequest(BaseModel):
+    challenge_token: str
+    code: str
+
+
 def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) -> dict:
     return {
         "id": str(user.id),
@@ -131,6 +150,7 @@ def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) ->
         "role": role,
         "is_staff": is_staff,
         "email_verified": user.email_verified,
+        "totp_enabled": user.totp_enabled,
         "tenant": {"id": str(tenant.id), "slug": tenant.slug, "name": tenant.name},
     }
 
@@ -169,6 +189,16 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     await get_or_create_personal_agent(session, tenant.id, user, commit=False)
     await session.commit()
 
+    # Soft verification gate: the account works immediately, but outbound
+    # actions stay locked until the emailed link is clicked.
+    verify_token = await _issue_auth_token(session, user, "email_verify", ttl_minutes=60 * 24)
+    await session.commit()
+    from app.services.transactional_mail import send_verification_mail
+
+    await send_verification_mail(
+        user.email, verify_link=_absolute_app_link("/verify-email", verify_token)
+    )
+
     access_token = create_access_token(user.id, tenant.id, user.email)
     refresh_token, _ = await create_refresh_session(session, user.id)
     _set_refresh_cookie(response, refresh_token)
@@ -188,9 +218,77 @@ async def login(
     user = await authenticate_user(session, body.email, body.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if user.totp_enabled:
+        # Password checked out, but the session is only minted after the TOTP
+        # step. The challenge token carries no API access.
+        from fastapi.responses import JSONResponse
+
+        from app.services.auth import create_totp_challenge_token
+
+        return JSONResponse(
+            {"requires_2fa": True, "challenge_token": create_totp_challenge_token(user.id)}
+        )
+    return await _complete_login(session, response, user)
+
+
+async def _pending_invites_for_email(session: AsyncSession, email: str) -> list[dict]:
+    """Open (unaccepted, unexpired) invites for this email across all tenants."""
+    result = await session.execute(
+        select(Invite, Tenant)
+        .join(Tenant, Tenant.id == Invite.tenant_id)
+        .where(
+            Invite.email == email,
+            Invite.accepted_at.is_(None),
+            Invite.expires_at > datetime.utcnow(),
+        )
+        .order_by(Invite.created_at.desc())
+    )
+    rows = result.all()
+    inviter_ids = {inv.invited_by_user_id for inv, _ in rows if inv.invited_by_user_id}
+    names: dict[UUID, str] = {}
+    if inviter_ids:
+        users = await session.execute(select(User).where(User.id.in_(inviter_ids)))
+        names = {u.id: (u.display_name or u.email) for u in users.scalars().all()}
+    return [
+        {
+            "id": str(invite.id),
+            "tenant_name": tenant.name,
+            "role": invite.role,
+            "invited_by_name": names.get(invite.invited_by_user_id, "")
+            if invite.invited_by_user_id
+            else "",
+        }
+        for invite, tenant in rows
+    ]
+
+
+async def _workspace_required_response(session: AsyncSession, user: User):
+    """Login succeeded but the account has no workspace membership.
+
+    The account keeps existing when its memberships are removed; instead of a
+    hard 403 the client gets a limited setup token plus any pending invites so
+    the user can join a workspace or create a new one (ClickUp-style)."""
+    from fastapi.responses import JSONResponse
+
+    from app.services.auth import create_workspace_setup_token
+
+    return JSONResponse(
+        {
+            "requires_workspace": True,
+            "setup_token": create_workspace_setup_token(user.id),
+            "email": user.email,
+            "display_name": user.display_name,
+            "pending_invites": await _pending_invites_for_email(session, user.email),
+        }
+    )
+
+
+async def _complete_login(
+    session: AsyncSession, response: Response, user: User
+):
     tenant_ctx = await get_tenant_for_user(session, user.id, preferred_tenant_id=user.last_tenant_id)
     if not tenant_ctx:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenant membership")
+        return await _workspace_required_response(session, user)
     tenant, membership = tenant_ctx
     if user.last_tenant_id != tenant.id:
         user.last_tenant_id = tenant.id
@@ -204,6 +302,124 @@ async def login(
         user=_user_dict(user, tenant, membership.role),
         tenant=_tenant_dict(tenant),
     )
+
+
+@router.post("/2fa/verify", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-2fa", limit=10))])
+async def totp_verify_login(
+    body: TotpVerifyRequest,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Second login step: exchange challenge token + TOTP code for a session."""
+    from app.services.auth import decode_totp_challenge_token
+    from app.services.crypto import decrypt_secret
+    from app.services.totp import verify_totp
+
+    user_id = decode_totp_challenge_token(body.challenge_token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid or expired challenge")
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user or not user.totp_enabled:
+        raise HTTPException(status_code=401, detail="Invalid or expired challenge")
+    if not verify_totp(decrypt_secret(user.totp_secret), body.code):
+        raise HTTPException(status_code=401, detail="Invalid verification code")
+    return await _complete_login(session, response, user)
+
+
+@router.post("/2fa/setup")
+async def totp_setup(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Start enrollment: returns the secret + otpauth URI for authenticator
+    apps. Nothing is enforced until the first code is verified via enable."""
+    from app.services.crypto import encrypt_secret
+    from app.services.totp import generate_secret, otpauth_uri
+
+    if auth.user.totp_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is already enabled")
+    secret = generate_secret()
+    auth.user.totp_pending_secret = encrypt_secret(secret)
+    session.add(auth.user)
+    await session.commit()
+    return {
+        "secret": secret,
+        "otpauth_uri": otpauth_uri(secret, account=auth.user.email),
+    }
+
+
+@router.post("/2fa/enable")
+async def totp_enable(
+    body: TotpEnableRequest,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Confirm enrollment with a code from the authenticator app."""
+    from app.services.crypto import decrypt_secret
+    from app.services.totp import verify_totp
+
+    if auth.user.totp_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is already enabled")
+    secret = decrypt_secret(auth.user.totp_pending_secret)
+    if not secret:
+        raise HTTPException(status_code=400, detail="Start 2FA setup first")
+    if not verify_totp(secret, body.code):
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    auth.user.totp_secret = auth.user.totp_pending_secret
+    auth.user.totp_pending_secret = ""
+    auth.user.totp_enabled = True
+    session.add(auth.user)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="user:2fa_enabled",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="user",
+        resource_id=auth.user.id,
+        commit=False,
+    )
+    await session.commit()
+    return {"ok": True, "totp_enabled": True}
+
+
+@router.post("/2fa/disable")
+async def totp_disable(
+    body: TotpDisableRequest,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.crypto import decrypt_secret
+    from app.services.totp import verify_totp
+
+    if not auth.user.totp_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is not enabled")
+    if auth.user.password_hash:
+        if not verify_password(body.password, auth.user.password_hash):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+    elif not verify_totp(decrypt_secret(auth.user.totp_secret), body.code):
+        # SSO-only accounts have no password; a current code confirms instead.
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    auth.user.totp_enabled = False
+    auth.user.totp_secret = ""
+    auth.user.totp_pending_secret = ""
+    session.add(auth.user)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="user:2fa_disabled",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="user",
+        resource_id=auth.user.id,
+        commit=False,
+    )
+    await session.commit()
+    return {"ok": True, "totp_enabled": False}
 
 
 @router.get("/microsoft/start", dependencies=[Depends(rate_limit("auth-sso", limit=20))])
@@ -346,34 +562,23 @@ async def invite_user(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    token = await create_invite_token()
-    invite = Invite(
-        tenant_id=auth.tenant.id,
+    # Shared with the workspace portal path: dedupes pending invites for the
+    # same email, blocks inviting existing members, sends the invite mail.
+    from app.services.workspaces_portal import create_workspace_invite
+
+    invite = await create_workspace_invite(
+        session,
+        auth.tenant,
         email=body.email,
         role=body.role if body.role in ("admin", "member") else "member",
-        token=token,
-        invited_by_user_id=auth.user.id,
-        expires_at=datetime.utcnow() + timedelta(days=7),
-    )
-    session.add(invite)
-    await session.commit()
-
-    from app.services.transactional_mail import send_invite_mail
-    from app.services.workspaces_portal import invite_link_for_token
-
-    link = invite_link_for_token(token)
-    mailed = await send_invite_mail(
-        invite.email,
-        invite_link=link,
-        tenant_name=auth.tenant.name,
-        inviter_name=auth.user.display_name or auth.user.email,
+        inviter=auth.user,
     )
     return {
-        "token": token,
-        "email": body.email,
-        "expires_at": invite.expires_at.isoformat(),
-        "invite_link": link,
-        "mail_sent": mailed,
+        "token": invite["token"],
+        "email": invite["email"],
+        "expires_at": invite["expires_at"],
+        "invite_link": invite["invite_link"],
+        "mail_sent": invite["mail_sent"],
     }
 
 
@@ -446,13 +651,34 @@ async def accept_invite(
     if not existing_membership:
         session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
     user.last_tenant_id = invite.tenant_id
+    # Reaching the tokenized link proves control of the invited mailbox.
+    user.email_verified = True
     from app.services.personal_agents import get_or_create_personal_agent
 
     await get_or_create_personal_agent(session, invite.tenant_id, user, commit=False)
     invite.accepted_at = datetime.utcnow()
     tenant_result = await session.execute(select(Tenant).where(Tenant.id == invite.tenant_id))
     tenant = tenant_result.scalar_one()
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        invite.tenant_id,
+        action="invite:accepted",
+        actor_type="user",
+        actor_id=user.id,
+        resource_type="invite",
+        resource_id=invite.id,
+        summary=invite.email,
+        commit=False,
+    )
     await session.commit()
+
+    from app.services.transactional_mail import send_welcome_mail
+
+    await send_welcome_mail(
+        user.email, tenant_name=tenant.name, app_url=settings.public_app_url
+    )
     access_token = create_access_token(user.id, tenant.id, user.email)
     refresh_token, _ = await create_refresh_session(session, user.id)
     _set_refresh_cookie(response, refresh_token)
@@ -461,6 +687,112 @@ async def accept_invite(
         user=_user_dict(user, tenant, invite.role),
         tenant=_tenant_dict(tenant),
     )
+
+
+class WorkspaceSetupAcceptRequest(BaseModel):
+    setup_token: str
+    invite_id: str
+
+
+class WorkspaceSetupCreateRequest(BaseModel):
+    setup_token: str
+    workspace_name: str
+
+
+async def _setup_token_user(session: AsyncSession, setup_token: str) -> User:
+    from app.services.auth import decode_workspace_setup_token
+
+    user_id = decode_workspace_setup_token(setup_token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid or expired setup token")
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired setup token")
+    return user
+
+
+@router.post(
+    "/workspace-setup/accept-invite",
+    response_model=LoginResponse,
+    dependencies=[Depends(rate_limit("auth-ws-setup", limit=10))],
+)
+async def workspace_setup_accept_invite(
+    body: WorkspaceSetupAcceptRequest,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Accept a pending invite from the no-workspace login state.
+
+    The setup token proves a completed password login, so no invite token or
+    password re-entry is needed; the invite must match the account email."""
+    user = await _setup_token_user(session, body.setup_token)
+    try:
+        invite_uuid = UUID(body.invite_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    invite = (
+        await session.execute(
+            select(Invite).where(
+                Invite.id == invite_uuid,
+                Invite.email == user.email,
+                Invite.accepted_at.is_(None),
+                Invite.expires_at > datetime.utcnow(),
+            )
+        )
+    ).scalar_one_or_none()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite not found or expired")
+
+    existing_membership = (
+        await session.execute(
+            select(Membership).where(
+                Membership.tenant_id == invite.tenant_id, Membership.user_id == user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if not existing_membership:
+        session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
+    user.last_tenant_id = invite.tenant_id
+    invite.accepted_at = datetime.utcnow()
+    from app.services.personal_agents import get_or_create_personal_agent
+
+    await get_or_create_personal_agent(session, invite.tenant_id, user, commit=False)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        invite.tenant_id,
+        action="invite:accepted",
+        actor_type="user",
+        actor_id=user.id,
+        resource_type="invite",
+        resource_id=invite.id,
+        summary=invite.email,
+        commit=False,
+    )
+    await session.commit()
+    return await _complete_login(session, response, user)
+
+
+@router.post(
+    "/workspace-setup/create",
+    response_model=LoginResponse,
+    dependencies=[Depends(rate_limit("auth-ws-setup", limit=10))],
+)
+async def workspace_setup_create(
+    body: WorkspaceSetupCreateRequest,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Create a fresh workspace from the no-workspace login state."""
+    from app.services.workspaces_portal import create_workspace
+
+    user = await _setup_token_user(session, body.setup_token)
+    name = body.workspace_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Workspace name is required")
+    await create_workspace(session, user, name=name)
+    return await _complete_login(session, response, user)
 
 
 @router.post("/refresh", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-refresh", limit=60))])
@@ -544,6 +876,7 @@ def _me_payload(auth: AuthContext, memberships: list[dict]) -> dict:
         "name": auth.user.display_name or auth.user.email,
         "email": auth.user.email,
         "email_verified": auth.user.email_verified,
+        "totp_enabled": auth.user.totp_enabled,
         "job_title": auth.user.job_title or None,
         "role": auth.role,
         "organisation_id": tenant_id,
@@ -613,6 +946,17 @@ async def patch_profile(
         user.display_name = body.name.strip()
     if body.job_title is not None:
         user.job_title = body.job_title.strip()
+    if body.onboarded:
+        import json as _json
+
+        try:
+            stored = _json.loads(user.settings_json or "{}")
+        except (TypeError, ValueError):
+            stored = {}
+        if not isinstance(stored, dict):
+            stored = {}
+        stored.setdefault("onboarded_at", datetime.utcnow().isoformat())
+        user.settings_json = _json.dumps(stored)
     email_changed = False
     if body.email is not None:
         email = str(body.email).strip().lower()
@@ -656,6 +1000,7 @@ async def patch_profile(
 @router.post("/change-password")
 async def change_password(
     body: ChangePasswordRequest,
+    response: Response,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -671,7 +1016,30 @@ async def change_password(
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     auth.user.password_hash = hash_password(body.new_password)
     session.add(auth.user)
+    # Sign out every other device, then reissue a session for this one so the
+    # user changing their password stays logged in.
+    from app.services.auth import revoke_user_sessions
+
+    await revoke_user_sessions(session, auth.user.id, commit=False)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="user:password_changed",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="user",
+        resource_id=auth.user.id,
+        commit=False,
+    )
     await session.commit()
+    refresh_token, _ = await create_refresh_session(session, auth.user.id)
+    _set_refresh_cookie(response, refresh_token)
+
+    from app.services.transactional_mail import send_password_changed_mail
+
+    await send_password_changed_mail(auth.user.email)
     return {"ok": True}
 
 
@@ -842,7 +1210,16 @@ async def password_reset(
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
     user = await _consume_auth_token(session, body.token, "password_reset")
     user.password_hash = hash_password(body.password)
+    # A reset usually means the old credentials are suspect: sign out every
+    # active session so only the new password grants access.
+    from app.services.auth import revoke_user_sessions
+
+    await revoke_user_sessions(session, user.id, commit=False)
     await session.commit()
+
+    from app.services.transactional_mail import send_password_changed_mail
+
+    await send_password_changed_mail(user.email)
     return {"message": "Password reset successfully."}
 
 
@@ -879,15 +1256,33 @@ async def resend_verification(
 
 @router.post("/revoke")
 async def revoke_session(
+    request: Request,
     response: Response,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    raw = request.cookies.get(settings.refresh_cookie_name)
+    if raw:
+        from app.services.auth import revoke_refresh_session
+
+        await revoke_refresh_session(session, raw)
     response.delete_cookie(settings.refresh_cookie_name)
     return {"ok": True}
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    # Kill the server-side session too, not just the cookie: a stolen or
+    # cached refresh token must stop working after logout.
+    raw = request.cookies.get(settings.refresh_cookie_name)
+    if raw:
+        from app.services.auth import revoke_refresh_session
+
+        await revoke_refresh_session(session, raw)
     response.delete_cookie(settings.refresh_cookie_name)
     return {"ok": True}
 

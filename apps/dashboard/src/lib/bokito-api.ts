@@ -72,6 +72,8 @@ export type CockpitSummary = {
   open_decisions: number
   autonomy_rate_pct: number
   avg_feedback_score: number
+  csat_score: number | null
+  csat_responses: number
   tokens_month: number
   cost_cents_month: number
   time_saved_minutes_week: number
@@ -119,9 +121,12 @@ export async function bokitoGetCockpitSummary(token: string) {
 
 export type CockpitActivityEvent = {
   id?: string
+  /** 'agent_run' for run events, 'audit' for human actions. */
   kind: string
   event_type: string
   message: string
+  /** Display name of the acting user for audit events. */
+  actor_name?: string | null
   created_at: string
 }
 
@@ -234,6 +239,39 @@ export type UsageBreakdown = {
 
 export async function bokitoGetUsageBreakdown(token: string, days = 30) {
   return bokitoFetch<UsageBreakdown>(`/api/cockpit/usage?days=${days}`, token)
+}
+
+export type SpendPeriodStatus = {
+  used: number
+  cap: number | null
+  ratio: number
+  exceeded: boolean
+}
+
+export type SpendBudget = {
+  config: {
+    daily_token_cap: number | null
+    monthly_customer_micros_cap: number | null
+  }
+  status: {
+    daily_tokens: SpendPeriodStatus
+    monthly_customer_micros: SpendPeriodStatus
+    blocked: boolean
+  }
+}
+
+export async function bokitoGetBudget(token: string) {
+  return bokitoFetch<SpendBudget>('/api/cockpit/budget', token)
+}
+
+export async function bokitoPatchBudget(
+  token: string,
+  updates: Partial<SpendBudget['config']>,
+) {
+  return bokitoFetch<SpendBudget>('/api/cockpit/budget', token, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  })
 }
 
 export type CreateAgentInput = {
@@ -383,4 +421,15 @@ export async function bokitoSubscribePush(token: string, subscription: PushSubsc
     method: 'POST',
     body: JSON.stringify(subscription),
   })
+}
+
+export async function bokitoUnsubscribePush(token: string, endpoint: string) {
+  return bokitoFetch<{ ok: boolean; removed: number }>('/api/push/unsubscribe', token, {
+    method: 'POST',
+    body: JSON.stringify({ endpoint }),
+  })
+}
+
+export async function bokitoGetVapidPublicKey(token: string) {
+  return bokitoFetch<{ public_key: string }>('/api/push/vapid-public-key', token)
 }

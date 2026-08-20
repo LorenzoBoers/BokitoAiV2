@@ -68,6 +68,9 @@ async def get_or_create_contact(
     )
     session.add(contact)
     await session.flush()
+    from app.services.companies import link_contact_company
+
+    await link_contact_company(session, contact)
     return contact
 
 
@@ -306,6 +309,9 @@ async def create_inbound_signal(
     await session.refresh(signal)
     await session.refresh(message)
     await publish_signal_message(signal, message)
+    from app.services.webhooks import emit_webhook_event, signal_event_data
+
+    await emit_webhook_event(session, tenant_id, "signal.created", signal_event_data(signal))
     return signal
 
 

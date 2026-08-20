@@ -143,6 +143,75 @@ async def test_wake_snoozed_threads_reopens_due(client: AsyncClient, session_ove
 
 
 # ---------------------------------------------------------------------------
+# Scheduled send + soft undo
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_scheduled_reply_can_be_cancelled(client: AsyncClient, session_override):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    signal_id = await _create_thread(client, owner)
+
+    r = await client.post(
+        f"/api/signals/{signal_id}/reply",
+        headers=owner,
+        json={"body_text": "Hold this reply", "send_after_seconds": 60},
+    )
+    assert r.status_code == 200, r.text
+    msg = r.json()
+    assert msg["send_status"] == "scheduled"
+    assert msg["send_after"] is not None
+
+    # Not yet due: the scheduler tick must leave it alone.
+    from app.services.signal_threads import deliver_due_outbound_messages
+
+    assert await deliver_due_outbound_messages(session_override) == 0
+
+    # Undo removes the message before delivery and returns the draft body.
+    r = await client.post(f"/api/signals/messages/{msg['id']}/cancel", headers=owner)
+    assert r.status_code == 200, r.text
+    assert r.json()["body_text"] == "Hold this reply"
+
+    # Second cancel is a 404 (already gone), and the thread no longer shows it.
+    r = await client.post(f"/api/signals/messages/{msg['id']}/cancel", headers=owner)
+    assert r.status_code == 404
+    r = await client.get(f"/api/signals/{signal_id}", headers=owner)
+    assert all(m["id"] != msg["id"] for m in r.json()["messages"])
+
+
+@pytest.mark.asyncio
+async def test_scheduled_reply_delivers_when_due(client: AsyncClient, session_override):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    signal_id = await _create_thread(client, owner)
+
+    r = await client.post(
+        f"/api/signals/{signal_id}/reply",
+        headers=owner,
+        json={"body_text": "Delayed answer", "send_after_seconds": 60},
+    )
+    assert r.status_code == 200, r.text
+    msg_id = r.json()["id"]
+
+    # Rewind the send time so the scheduler considers it due.
+    from uuid import UUID
+
+    from app.models.signal import SignalMessage
+    from app.services.signal_threads import deliver_due_outbound_messages
+
+    row = await session_override.get(SignalMessage, UUID(msg_id))
+    row.send_after = datetime.utcnow() - timedelta(minutes=1)
+    session_override.add(row)
+    await session_override.commit()
+
+    assert await deliver_due_outbound_messages(session_override) == 1
+
+    r = await client.get(f"/api/signals/{signal_id}", headers=owner)
+    delivered = next(m for m in r.json()["messages"] if m["id"] == msg_id)
+    assert delivered["send_status"] == "sent"
+    assert delivered["send_after"] is None
+
+
+# ---------------------------------------------------------------------------
 # Bulk actions
 # ---------------------------------------------------------------------------
 
@@ -251,3 +320,72 @@ async def test_saved_reply_requires_title_and_body(client: AsyncClient):
         "/api/signals/saved-replies", headers=owner, json={"title": " ", "body_text": ""}
     )
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Thread delete
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_delete_thread_cleans_referencing_rows(client: AsyncClient, session_override):
+    """Deleting a thread must not leave FK references behind (Postgres 500s).
+
+    Decisions attached to the thread are deleted with it; tasks, triggers,
+    outcomes, and platform changes survive but lose their link.
+    """
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.notification import DecisionRequest
+    from app.models.orchestration import AgentTask
+    from app.models.outcome import OperationalOutcome
+    from app.models.platform_change import PlatformChange
+    from app.models.signal import Signal
+    from app.models.trigger import Trigger
+
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    signal_id = await _create_thread(client, owner, subject="Thread with attachments")
+    sig_uuid = UUID(signal_id)
+
+    signal = (
+        await session_override.execute(select(Signal).where(Signal.id == sig_uuid))
+    ).scalar_one()
+    tenant_id = signal.tenant_id
+
+    decision = DecisionRequest(tenant_id=tenant_id, signal_id=sig_uuid, title="Approve reply?")
+    session_override.add(decision)
+    await session_override.flush()
+    change = PlatformChange(
+        tenant_id=tenant_id, resource_type="signal", decision_id=decision.id
+    )
+    task = AgentTask(tenant_id=tenant_id, signal_id=sig_uuid, title="Follow up")
+    trigger = Trigger(tenant_id=tenant_id, name="Daily scan", signal_id=sig_uuid)
+    outcome = OperationalOutcome(tenant_id=tenant_id, signal_id=sig_uuid)
+    session_override.add_all([change, task, trigger, outcome])
+    await session_override.commit()
+    decision_id = decision.id
+
+    r = await client.delete(f"/api/signals/{signal_id}", headers=owner)
+    assert r.status_code == 200, r.text
+
+    # Thread and its decision are gone.
+    assert (
+        await session_override.execute(select(Signal).where(Signal.id == sig_uuid))
+    ).scalar_one_or_none() is None
+    assert (
+        await session_override.execute(
+            select(DecisionRequest).where(DecisionRequest.id == decision_id)
+        )
+    ).scalar_one_or_none() is None
+
+    # Referencing records survive with the link detached.
+    await session_override.refresh(change)
+    await session_override.refresh(task)
+    await session_override.refresh(trigger)
+    await session_override.refresh(outcome)
+    assert change.decision_id is None
+    assert task.signal_id is None
+    assert trigger.signal_id is None
+    assert outcome.signal_id is None

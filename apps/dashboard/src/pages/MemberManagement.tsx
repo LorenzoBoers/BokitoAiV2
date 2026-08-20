@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, Link2, MailPlus, Search, Trash2 } from 'lucide-react'
+import { Check, Link2, MailPlus, Search, Send, Trash2 } from 'lucide-react'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { appRoutes } from '../api/routes/app.routes'
 import { toast } from 'sonner'
 import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '../lib/api'
+import { inviteMailFeedback } from '../lib/invite-feedback'
 import { memberRoleLabel } from '../lib/labels'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -126,6 +127,16 @@ export default function MemberManagement() {
   const [inviteLoading, setInviteLoading] = useState(false)
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
   const [rowBusyId, setRowBusyId] = useState<string | null>(null)
+  // null = unknown (still loading / request failed); only an explicit false
+  // shows the "mail not configured" warning banner to admins.
+  const [mailConfigured, setMailConfigured] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!token || !canInviteMembers) return
+    appScopedGet<{ configured?: boolean }>(appRoutes.mailStatus, token)
+      .then((status) => setMailConfigured(status?.configured === true))
+      .catch(() => setMailConfigured(null))
+  }, [token, canInviteMembers])
 
   const reload = useCallback(async () => {
     if (!token || !workspaceId) return
@@ -191,24 +202,62 @@ export default function MemberManagement() {
     void load()
   }, [token, user, workspaceId, workspaceLoading, reload])
 
+  /** Surface delivery state: when mail is not configured the invite still
+   * exists and the copyable link is the only way to reach the invitee. */
+  const notifyInviteResult = async (email: string, result: unknown) => {
+    const feedback = inviteMailFeedback(email, result)
+    if (feedback.kind === 'warning') {
+      if (feedback.inviteLink) {
+        try {
+          await navigator.clipboard.writeText(feedback.inviteLink)
+        } catch {
+          // Clipboard can be unavailable; the copy-link row action still works.
+        }
+      }
+      toast.warning(feedback.message, { duration: 8000 })
+      return
+    }
+    toast.success(feedback.message)
+  }
+
   const handleInvite = async () => {
     if (!token || !workspaceId || !inviteEmail.trim()) return
+    const email = inviteEmail.trim()
     setInviteLoading(true)
     setError(null)
     try {
-      await appScopedPost(
+      const result = await appScopedPost(
         appRoutes.workspaceInvites.create,
-        { workspace_id: workspaceId, email: inviteEmail.trim(), role: inviteRole },
+        { workspace_id: workspaceId, email, role: inviteRole },
         token,
       )
       await reload()
-      toast.success(`Invite sent to ${inviteEmail.trim()}`)
+      await notifyInviteResult(email, result)
       setInviteEmail('')
       setInviteRole('member')
     } catch (inviteError) {
       setError(inviteError instanceof Error ? inviteError.message : 'Failed to send invitation')
     } finally {
       setInviteLoading(false)
+    }
+  }
+
+  const resendInvite = async (invite: Invite) => {
+    if (!token || !workspaceId) return
+    setRowBusyId(invite.id)
+    setError(null)
+    try {
+      const result = await appScopedPost(
+        appRoutes.workspaces.inviteResend(workspaceId, invite.id),
+        {},
+        token,
+      )
+      await reload()
+      await notifyInviteResult(invite.email, result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend the invite.')
+    } finally {
+      setRowBusyId(null)
     }
   }
 
@@ -311,6 +360,14 @@ export default function MemberManagement() {
       {error ? (
         <div className="rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-sm text-status-error">
           {error}
+        </div>
+      ) : null}
+
+      {mailConfigured === false && canInviteMembers ? (
+        <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
+          Transactional email is not configured on this server, so invite emails are not
+          delivered. Invitees can still join via the copyable invite link. Configure
+          RESEND_API_KEY (or SMTP_HOST) and MAIL_FROM to enable email delivery.
         </div>
       ) : null}
 
@@ -477,6 +534,18 @@ export default function MemberManagement() {
                     <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {canManageMembers ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => void resendInvite(inv)}
+                            title="Resend invite email"
+                            className="text-text-muted hover:text-text-primary"
+                          >
+                            <Send size={14} />
+                          </Button>
+                        ) : null}
                         {inv.inviteLink ? (
                           <Button
                             variant="ghost"

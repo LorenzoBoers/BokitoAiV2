@@ -16,6 +16,7 @@ import {
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
+import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
 import { isInternalThread } from '../lib/message-composer'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
@@ -41,7 +42,10 @@ import {
   type ThreadFilters,
   type ThreadId,
 } from '../lib/inbox-api'
-import { bulkUpdateSignalThreads } from '../lib/signals-api'
+import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
+
+/** Soft-undo window for outbound email replies (server caps at 600s). */
+const UNDO_SEND_SECONDS = 15
 
 type View = NonNullable<ThreadFilters['view']>
 
@@ -319,6 +323,22 @@ export default function Communication() {
     [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
 
+  // Compose (new outbound email) + forward. Forward pre-fills the compose
+  // modal with the quoted thread content; sending creates a new thread.
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [composePrefill, setComposePrefill] = useState<ComposePrefill | null>(null)
+  const openCompose = useCallback(() => {
+    setComposePrefill(null)
+    setComposeOpen(true)
+  }, [])
+  const handleComposeSent = useCallback(
+    (threadId: string) => {
+      void refreshThreads()
+      if (threadId) navigate(inboxPath('all', threadId))
+    },
+    [refreshThreads, navigate],
+  )
+
   const firstThreadId = filteredThreads[0]?.id ?? null
 
   useEffect(() => {
@@ -525,11 +545,49 @@ export default function Communication() {
       format?: 'email' | 'plain',
       attachments?: MessageAttachment[],
       snoozeMinutes?: number,
+      extras?: { cc?: string; bcc?: string },
     ) => {
-      await reply({ bodyText, action, format, attachments, snoozeMinutes })
+      // Email replies get a short soft-undo window: the backend schedules
+      // delivery and the toast can cancel before the scheduler sends it.
+      // Chat/widget/internal stay instant.
+      const undoable = detail?.thread.channel === 'email'
+      const msg = await reply({
+        bodyText,
+        action,
+        format,
+        attachments,
+        snoozeMinutes,
+        cc: extras?.cc,
+        bcc: extras?.bcc,
+        sendAfterSeconds: undoable ? UNDO_SEND_SECONDS : undefined,
+      })
       void refreshThreads()
+      if (undoable && msg?.id && token) {
+        const messageId = String(msg.id)
+        toast(t('undoSend.scheduled', { defaultValue: 'Sending email...' }), {
+          duration: UNDO_SEND_SECONDS * 1000,
+          action: {
+            label: t('undoSend.undo', { defaultValue: 'Undo' }),
+            onClick: () => {
+              void cancelScheduledMessage(token, messageId)
+                .then(() => {
+                  void refreshDetail()
+                  void refreshThreads()
+                  toast.success(
+                    t('undoSend.cancelled', { defaultValue: 'Sending cancelled' }),
+                  )
+                })
+                .catch(() =>
+                  toast.error(
+                    t('undoSend.tooLate', { defaultValue: 'Too late — already sent' }),
+                  ),
+                )
+            },
+          },
+        })
+      }
     },
-    [reply, refreshThreads],
+    [reply, refreshThreads, detail?.thread.channel, token, t, refreshDetail],
   )
 
   const handleNote = useCallback(
@@ -539,6 +597,25 @@ export default function Communication() {
     },
     [addNote, refreshThreads],
   )
+
+  const handleForward = useCallback(() => {
+    if (!detail) return
+    const subjectRaw = detail.thread.emailSubject || ''
+    const subject = /^fwd:/i.test(subjectRaw) ? subjectRaw : `Fwd: ${subjectRaw}`.trim()
+    // Quote the latest real message (skip internal notes and decision cards).
+    const source = [...detail.messages]
+      .reverse()
+      .find((m) => m.direction !== 'internal' && (m.bodyText || m.bodyPreview))
+    const quoted = (source?.bodyText || source?.bodyPreview || '')
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n')
+    const header = source
+      ? `---------- Forwarded message ----------\nFrom: ${source.fromAddress || 'unknown'}\nSubject: ${subjectRaw}\n\n`
+      : ''
+    setComposePrefill({ subject, body: header || quoted ? `\n\n${header}${quoted}` : '' })
+    setComposeOpen(true)
+  }, [detail])
 
   const handleUpdateNote = useCallback(
     async (messageId: string, bodyText: string) => {
@@ -707,6 +784,7 @@ export default function Communication() {
           hasMore={threadsHaveMore}
           loadingMore={threadsLoadingMore}
           onLoadMore={() => void loadMoreThreads()}
+          onCompose={mode === 'customer' && enabledConnections.length > 0 ? openCompose : undefined}
         />
         <ThreadDetail
           detail={detail}
@@ -726,15 +804,27 @@ export default function Communication() {
           onDelete={detail ? handleDetailDelete : undefined}
           deleting={String(deletingThreadId) === String(selectedThreadId)}
           onToggleContact={detail ? toggleContactPanel : undefined}
+          onBack={() => navigate(`${leafPath(leaf)}${inboxQuery}`)}
           contactOpen={showContactPanel}
           onDecisionResolved={handleDecisionResolved}
           mode={mode}
           onAskAssistant={detail ? handleAskAssistant : undefined}
+          onForward={
+            detail && detail.thread.channel === 'email' && enabledConnections.length > 0
+              ? handleForward
+              : undefined
+          }
         />
         {detail && showContactPanel ? (
           <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} onThreadUpdated={handleThreadUpdated} />
         ) : null}
       </div>
+      <ComposeEmailModal
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        onSent={handleComposeSent}
+        prefill={composePrefill}
+      />
     </div>
   )
 }

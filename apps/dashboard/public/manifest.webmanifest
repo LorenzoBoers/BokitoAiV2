@@ -1,0 +1,18 @@
+{
+  "name": "Bokito",
+  "short_name": "Bokito",
+  "description": "The inbox, the agents, and the approvals - in one system.",
+  "start_url": "/communication",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0c0e12",
+  "theme_color": "#0c0e12",
+  "icons": [
+    {
+      "src": "/bokito-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

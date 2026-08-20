@@ -500,6 +500,14 @@ const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName
   decision_approved: (_, name) => (name ? `Approved by ${name}` : 'Suggestion approved'),
   decision_dismissed: (_, name) => (name ? `Dismissed by ${name}` : 'Suggestion dismissed'),
   decision_edited: (_, name) => (name ? `Edited by ${name}` : 'Suggestion edited'),
+  // Learned inbox rule handled the thread automatically.
+  rule_applied: (p) => {
+    const target = typeof p.match_value === 'string' && p.match_value ? ` (${p.match_value})` : ''
+    if (p.action === 'auto_close') return `Auto-closed by rule${target}`
+    if (p.action === 'auto_task') return `Task created by rule${target}`
+    if (p.action === 'mute_ai') return `AI skipped by rule${target}`
+    return `Handled by rule${target}`
+  },
 }
 
 // Events that belong to the AI flow get the unified accent treatment so agent
@@ -514,6 +522,7 @@ const AI_EVENT_TYPES = new Set([
   'escalated',
   'ai_paused',
   'ai_resumed',
+  'rule_applied',
 ])
 
 function eventPresentation(eventType: string): { ai: boolean; icon: ReactNode } {
@@ -916,11 +925,19 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
         </div>
       )
     }
-    // self: no name header — only a delivery error when sending failed.
+    // self: no name header — only a delivery error when sending failed, or a
+    // pending marker while the soft-undo window is open.
     if (sendFailed) {
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
           <span className="text-[10px] font-medium text-status-error">Not delivered</span>
+        </div>
+      )
+    }
+    if (message.sendStatus === 'scheduled') {
+      return (
+        <div className="mb-1 flex min-w-0 items-center gap-1">
+          <span className="text-[10px] font-medium text-text-muted">Sending...</span>
         </div>
       )
     }

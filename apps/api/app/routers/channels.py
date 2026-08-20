@@ -16,7 +16,13 @@ from app.channels import slack as slack_adapter
 from app.channels.base import BlockedContactError, account_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.channel import CHANNEL_ACCOUNT_CHANNELS, CONTACT_STATUSES, ChannelAccount, Contact
+from app.models.channel import (
+    CHANNEL_ACCOUNT_CHANNELS,
+    CONTACT_STATUSES,
+    ChannelAccount,
+    Company,
+    Contact,
+)
 from app.models.signal import Signal
 from app.services.signal_threads import serialize_thread
 from app.workers.tasks import enqueue_signal_processing
@@ -88,6 +94,14 @@ async def create_account(
     session.add(account)
     await session.commit()
     await session.refresh(account)
+    # A real channel replaces the onboarding demo thread.
+    if body.channel != "internal":
+        from app.services.onboarding_demo import remove_demo_threads
+
+        try:
+            await remove_demo_threads(session, auth.tenant.id)
+        except Exception:  # noqa: BLE001 — cleanup must never break connect
+            pass
     data = _serialize_account(account)
     # Revealed once so the caller can configure the provider webhook.
     data["inbound_secret"] = inbound_secret
@@ -144,6 +158,7 @@ def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict
         "display_name": row.display_name,
         "status": row.status,
         "company": row.company,
+        "company_id": str(row.company_id) if row.company_id else None,
         "title": row.title,
         "phone": row.phone,
         "notes": row.notes,
@@ -242,6 +257,10 @@ async def create_contact(
         notes=body.notes,
     )
     session.add(contact)
+    await session.flush()
+    from app.services.companies import link_contact_company
+
+    await link_contact_company(session, contact)
     await session.commit()
     await session.refresh(contact)
     return _serialize_contact(contact, thread_count=0)
@@ -335,6 +354,135 @@ async def update_contact(
     return _serialize_contact(contact)
 
 
+# ── companies (CRM) ──────────────────────────────────────────────────
+
+
+class CompanyUpdateBody(BaseModel):
+    name: str | None = None
+    website: str | None = None
+    notes: str | None = None
+
+
+async def _company_or_404(session: AsyncSession, tenant_id: UUID, company_id: UUID) -> Company:
+    result = await session.execute(
+        select(Company).where(Company.id == company_id, Company.tenant_id == tenant_id)
+    )
+    company = result.scalar_one_or_none()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
+
+@router.get("/companies")
+async def list_companies(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    search: str | None = None,
+):
+    from app.services.companies import company_contact_counts, serialize_company
+
+    stmt = select(Company).where(Company.tenant_id == auth.tenant.id)
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.where(or_(Company.name.ilike(like), Company.domain.ilike(like)))
+    result = await session.execute(stmt.order_by(Company.name.asc()).limit(200))
+    counts = await company_contact_counts(session, auth.tenant.id)
+    return {
+        "companies": [
+            serialize_company(c, contact_count=counts.get(c.id, 0))
+            for c in result.scalars().all()
+        ]
+    }
+
+
+@router.post("/companies/backfill")
+async def backfill_companies(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Link existing email contacts without a company to domain-matched companies."""
+    auth.require_role("owner", "admin")
+    from app.services.companies import backfill_company_links
+
+    return await backfill_company_links(session, auth.tenant.id)
+
+
+@router.get("/companies/{company_id}")
+async def get_company(
+    company_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.companies import serialize_company
+
+    company = await _company_or_404(session, auth.tenant.id, company_id)
+    contacts = await session.execute(
+        select(Contact)
+        .where(Contact.tenant_id == auth.tenant.id, Contact.company_id == company.id)
+        .order_by(Contact.last_seen_at.desc().nullslast())
+        .limit(100)
+    )
+    contact_rows = list(contacts.scalars().all())
+    threads = await session.execute(
+        select(Signal)
+        .where(
+            Signal.tenant_id == auth.tenant.id,
+            Signal.contact_id.in_([c.id for c in contact_rows] or [None]),
+        )
+        .order_by(Signal.last_message_at.desc())
+        .limit(20)
+    )
+    return {
+        **serialize_company(company, contact_count=len(contact_rows)),
+        "contacts": [_serialize_contact(c) for c in contact_rows],
+        "threads": [serialize_thread(s) for s in threads.scalars().all()],
+    }
+
+
+@router.patch("/companies/{company_id}")
+async def update_company(
+    company_id: UUID,
+    body: CompanyUpdateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.companies import serialize_company, touch
+
+    company = await _company_or_404(session, auth.tenant.id, company_id)
+    if body.name is not None:
+        company.name = body.name.strip()[:120]
+    if body.website is not None:
+        company.website = body.website.strip()[:200]
+    if body.notes is not None:
+        company.notes = body.notes
+    touch(company)
+    session.add(company)
+    await session.commit()
+    return serialize_company(company)
+
+
+@router.delete("/companies/{company_id}")
+async def delete_company(
+    company_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Remove a company; its contacts are kept and unlinked."""
+    auth.require_role("owner", "admin")
+    company = await _company_or_404(session, auth.tenant.id, company_id)
+    contacts = await session.execute(
+        select(Contact).where(
+            Contact.tenant_id == auth.tenant.id, Contact.company_id == company.id
+        )
+    )
+    for contact in contacts.scalars().all():
+        contact.company_id = None
+        session.add(contact)
+    await session.delete(company)
+    await session.commit()
+    return {"ok": True}
+
+
 # ── inbound webhooks (public, secret-authenticated) ──────────────────
 
 
@@ -407,3 +555,58 @@ async def slack_events(
     if should_process:
         await enqueue_signal_processing(str(account.tenant_id), str(signal.id))
     return {"ok": True, "signal_id": str(signal.id)}
+
+
+@router.post("/slack/interactions")
+async def slack_interactions(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    x_slack_request_timestamp: Annotated[str | None, Header()] = None,
+    x_slack_signature: Annotated[str | None, Header()] = None,
+):
+    """Slack interactivity endpoint (one global URL per Slack app).
+
+    Block-action clicks on decision cards land here as a form-encoded
+    `payload`. The payload's `team.id` selects the ChannelAccount whose
+    signing secret must verify the raw request body.
+    """
+    from urllib.parse import parse_qs
+
+    from app.services.slack_notify import handle_interaction
+
+    body = await request.body()
+    form = parse_qs(body.decode("utf-8", errors="replace"))
+    raw_payload = (form.get("payload") or [""])[0]
+    try:
+        payload = json.loads(raw_payload or "{}")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid interaction payload")
+
+    team_id = str((payload.get("team") or {}).get("id") or "")
+    if not team_id:
+        raise HTTPException(status_code=400, detail="Missing team id")
+    result = await session.execute(
+        select(ChannelAccount).where(
+            ChannelAccount.channel == "slack",
+            ChannelAccount.address == team_id,
+            ChannelAccount.is_enabled == True,  # noqa: E712
+        )
+    )
+    accounts = list(result.scalars().all())
+    account = next(
+        (
+            a
+            for a in accounts
+            if slack_adapter.verify_signature(
+                a,
+                timestamp=x_slack_request_timestamp or "",
+                signature=x_slack_signature or "",
+                body=body,
+            )
+        ),
+        None,
+    )
+    if not account:
+        raise HTTPException(status_code=403, detail="Invalid Slack signature")
+
+    return await handle_interaction(session, account, payload)

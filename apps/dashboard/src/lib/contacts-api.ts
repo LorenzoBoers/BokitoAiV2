@@ -14,6 +14,7 @@ export type ContactRow = {
   displayName: string
   status: ContactStatus
   company: string
+  companyId: string | null
   title: string
   phone: string
   notes: string
@@ -50,6 +51,7 @@ function normalizeContact(row: unknown): ContactRow | null {
     displayName: asString(raw.display_name),
     status,
     company: asString(raw.company),
+    companyId: asString(raw.company_id) || null,
     title: asString(raw.title),
     phone: asString(raw.phone),
     notes: asString(raw.notes),
@@ -112,4 +114,83 @@ export async function createContact(
 
 export async function deleteContact(token: string, contactId: string): Promise<void> {
   await apiDelete<unknown>(appRoutes.contacts.byId(contactId), token)
+}
+
+// ── companies (CRM) ──────────────────────────────────────────────────
+
+export type CompanyRow = {
+  id: string
+  name: string
+  domain: string
+  website: string
+  notes: string
+  contactCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type CompanyDetail = CompanyRow & {
+  contacts: ContactRow[]
+  threads: InboxThread[]
+}
+
+function normalizeCompany(row: unknown): CompanyRow | null {
+  if (!row || typeof row !== 'object') return null
+  const raw = row as Record<string, unknown>
+  const id = asString(raw.id)
+  if (!id) return null
+  return {
+    id,
+    name: asString(raw.name),
+    domain: asString(raw.domain),
+    website: asString(raw.website),
+    notes: asString(raw.notes),
+    contactCount: typeof raw.contact_count === 'number' ? raw.contact_count : 0,
+    createdAt: asString(raw.created_at),
+    updatedAt: asString(raw.updated_at),
+  }
+}
+
+export async function listCompanies(
+  token: string,
+  options: { search?: string } = {},
+): Promise<CompanyRow[]> {
+  const params = new URLSearchParams()
+  if (options.search) params.set('search', options.search)
+  const payload = await apiGet<{ companies?: unknown[] }>(
+    appRoutes.companies.listQuery(params),
+    token,
+  )
+  const rows = Array.isArray(payload.companies) ? payload.companies : []
+  return rows.map(normalizeCompany).filter((c): c is CompanyRow => c !== null)
+}
+
+export async function getCompany(token: string, companyId: string): Promise<CompanyDetail | null> {
+  const payload = await apiGet<Record<string, unknown>>(appRoutes.companies.byId(companyId), token)
+  const base = normalizeCompany(payload)
+  if (!base) return null
+  const contacts = Array.isArray(payload.contacts)
+    ? payload.contacts.map(normalizeContact).filter((c): c is ContactRow => c !== null)
+    : []
+  const threads = Array.isArray(payload.threads)
+    ? payload.threads.map(normalizeThreadRow).filter((t): t is InboxThread => t !== null)
+    : []
+  return { ...base, contacts, threads }
+}
+
+export async function updateCompany(
+  token: string,
+  companyId: string,
+  patch: Partial<{ name: string; website: string; notes: string }>,
+): Promise<CompanyRow | null> {
+  const payload = await apiPatch<unknown>(appRoutes.companies.byId(companyId), patch, token)
+  return normalizeCompany(payload)
+}
+
+export async function deleteCompany(token: string, companyId: string): Promise<void> {
+  await apiDelete<unknown>(appRoutes.companies.byId(companyId), token)
+}
+
+export async function backfillCompanies(token: string): Promise<{ linked: number }> {
+  return apiPost<{ linked: number }>(appRoutes.companies.backfill, {}, token)
 }

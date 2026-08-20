@@ -287,7 +287,16 @@ async def create_feedback(
 DEFAULT_NOTIFICATION_ROWS = [
     {"id": "assigned-to-me", "label": "When a conversation is assigned to you", "channels": {"desktop": True, "email": False, "mobile": False}},
     {"id": "mentions", "label": "When you are mentioned in conversations", "channels": {"desktop": True, "email": False, "mobile": False}},
-    {"id": "decisions", "label": "When an agent needs your decision on an assigned conversation", "channels": {"desktop": True, "email": False, "mobile": False}},
+    # Slack channel: decision cards as DM with Approve/Deny (services/slack_notify.py).
+    {"id": "decisions", "label": "When an agent needs your decision on an assigned conversation", "channels": {"desktop": True, "email": False, "mobile": False, "slack": False}},
+    # Ops alerts (owners/admins only; emitted via services/ops_alerts.py).
+    {"id": "ops-run-failed", "label": "When an agent run or trigger fails", "channels": {"desktop": True, "email": False, "mobile": False}},
+    {"id": "ops-channel-disconnect", "label": "When a connected channel stops syncing", "channels": {"desktop": True, "email": False, "mobile": False}},
+    # Spend alerts (owners/admins only; emitted via services/spend_guard.py).
+    {"id": "billing-alerts", "label": "When LLM spend reaches 80% or 100% of the budget", "channels": {"desktop": True, "email": False}},
+    # Digest mails (services/digest_mail.py; arq cron). Email-only categories.
+    {"id": "digest-daily", "label": "Daily email digest (open threads, pending decisions, agent activity)", "channels": {"email": False}},
+    {"id": "digest-weekly", "label": "Weekly email digest", "channels": {"email": False}},
 ]
 
 

@@ -11,6 +11,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_signal_message, publish_thread_update
@@ -156,6 +157,8 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
         "direction": message.direction,
         "from_address": message.from_address,
         "to_addresses": message.to_addresses,
+        "cc": str(meta.get("cc") or "") or None if isinstance(meta, dict) else None,
+        "bcc": str(meta.get("bcc") or "") or None if isinstance(meta, dict) else None,
         "subject": message.subject,
         "body_preview": message.body_preview or message.body_text[:200],
         "body_text": message.body_text,
@@ -165,6 +168,7 @@ def serialize_message(message: SignalMessage, *, decision: DecisionRequest | Non
         "author_user_id": author_num,
         "is_read": message.direction != "inbound",
         "send_status": message.send_status,
+        "send_after": _iso(message.send_after),
         "attachments": json.loads(message.attachments_json or "[]"),
         "decision_id": str(message.decision_id) if message.decision_id else None,
         "payload": payload,
@@ -440,14 +444,26 @@ async def list_threads(
 
     if search:
         like = f"%{search}%"
-        # Full-text-ish: thread fields plus message bodies (EXISTS keeps the
-        # row set deduplicated and the planner free to use the signal indexes).
+        # Message-body predicate: on Postgres use full-text search backed by
+        # the expression GIN index from schema_patch (`ix_signal_messages_fts`,
+        # expression must match verbatim); SQLite (tests) falls back to ILIKE.
+        bind = getattr(session, "bind", None)
+        if bind is not None and bind.dialect.name == "postgresql":
+            body_pred = sa_text(
+                "to_tsvector('simple', coalesce(signal_messages.subject, '') || ' ' "
+                "|| coalesce(signal_messages.body_text, '')) "
+                "@@ plainto_tsquery('simple', :fts_query)"
+            ).bindparams(fts_query=search)
+        else:
+            body_pred = SignalMessage.body_text.ilike(like)
+        # EXISTS keeps the row set deduplicated and the planner free to use
+        # the signal indexes.
         body_match = (
             select(SignalMessage.id)
             .where(
                 SignalMessage.signal_id == Signal.id,
                 SignalMessage.tenant_id == tenant_id,
-                SignalMessage.body_text.ilike(like),
+                body_pred,
             )
             .exists()
         )
@@ -591,11 +607,35 @@ async def get_thread(
         session, tenant_id, signal_id
     )
 
+    # End-customer satisfaction rating on the conversation (widget CSAT).
+    csat_result = await session.execute(
+        select(Feedback)
+        .where(
+            Feedback.tenant_id == tenant_id,
+            Feedback.subject_type == "signal",
+            Feedback.subject_id == str(signal_id),
+            Feedback.score.is_not(None),
+        )
+        .order_by(Feedback.created_at.desc())
+        .limit(1)
+    )
+    csat_fb = csat_result.scalar_one_or_none()
+    csat = (
+        {
+            "score": csat_fb.score,
+            "comment": csat_fb.comment or "",
+            "created_at": csat_fb.created_at.isoformat(),
+        }
+        if csat_fb
+        else None
+    )
+
     return {
         "thread": serialize_thread(signal, is_pinned=signal_id in pinned, agent=agent),
         "messages": serialized_messages,
         "events": [serialize_event(e, user_num_map=rev_map) for e in events_result.scalars().all()],
         "sessions": sessions,
+        "csat": csat,
     }
 
 
@@ -693,6 +733,8 @@ async def patch_thread(
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
         return None
+    before_status = signal.status
+    before_assignee = signal.assigned_user_id
     if snoozed_until_set:
         # Snoozing implies pending; clearing the wake time alone keeps status.
         signal.snoozed_until = snoozed_until
@@ -744,9 +786,31 @@ async def patch_thread(
             ),
         )
     )
+    # Govern audit only for the mutations that matter (status / assignee) —
+    # tag/priority tweaks stay thread-timeline-only to avoid audit noise.
+    if signal.status != before_status or signal.assigned_user_id != before_assignee:
+        from app.services.audit import record_audit
+
+        await record_audit(
+            session,
+            tenant_id,
+            action="signal:updated",
+            actor_type="user",
+            actor_id=user_id,
+            resource_type="signal",
+            resource_id=signal_id,
+            summary=(signal.subject or "")[:120],
+            before={"status": before_status, "assigned_user_id": str(before_assignee or "")},
+            after={"status": signal.status, "assigned_user_id": str(signal.assigned_user_id or "")},
+            commit=False,
+        )
     await session.commit()
     await session.refresh(signal)
     await publish_thread_update(signal)
+    if signal.status == "closed" and before_status != "closed":
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        await emit_webhook_event(session, tenant_id, "signal.closed", signal_event_data(signal))
     if newly_assigned:
         await _notify_assignment(session, tenant_id, signal, assignee_id=newly_assigned, actor_id=user_id)
     pinned = await _pinned_ids(session, tenant_id, user_id)
@@ -885,6 +949,10 @@ async def bulk_update_threads(
     )
     signals = list(result.scalars().all())
     now = datetime.utcnow()
+    before_states = {
+        str(s.id): {"status": s.status, "assigned_user_id": str(s.assigned_user_id or "")}
+        for s in signals
+    }
     for signal in signals:
         if action == "close":
             signal.status = "closed"
@@ -914,21 +982,94 @@ async def bulk_update_threads(
                     payload_json=json.dumps({"bulk": action}),
                 )
             )
+    # One audit event per bulk action with the before-states; mark-read noise
+    # (read/unread) is intentionally excluded from the govern audit.
+    if signals and action in ("close", "reopen", "spam", "assign"):
+        from app.services.audit import record_audit
+
+        await record_audit(
+            session,
+            tenant_id,
+            action=f"signal:bulk_{action}",
+            actor_type="user",
+            actor_id=user_id,
+            resource_type="signal",
+            resource_id=";".join(str(s.id) for s in signals[:50]),
+            summary=f"Bulk {action} on {len(signals)} thread(s)",
+            before=before_states,
+            after={"assignee_id": assignee_id} if action == "assign" else None,
+            commit=False,
+        )
     await session.commit()
     for signal in signals:
         await publish_thread_update(signal)
+    if action == "close":
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        for signal in signals:
+            if before_states[str(signal.id)]["status"] != "closed":
+                await emit_webhook_event(
+                    session, tenant_id, "signal.closed", signal_event_data(signal)
+                )
     return {"updated": len(signals), "action": action}
 
 
-async def delete_thread(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> bool:
+async def delete_thread(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID, *, user_id: UUID | None = None
+) -> bool:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
         return False
+    subject = signal.subject
     for model in (SignalMessage, SignalEvent, SignalThreadPin):
         rows = await session.execute(select(model).where(model.signal_id == signal_id))
         for row in rows.scalars().all():
             await session.delete(row)
+
+    # Clean up remaining FK references so Postgres does not reject the delete.
+    from sqlalchemy import delete as sa_delete
+    from sqlalchemy import update as sa_update
+
+    from app.models.orchestration import AgentTask
+    from app.models.outcome import OperationalOutcome
+    from app.models.platform_change import PlatformChange
+    from app.models.trigger import Trigger
+
+    # Decisions live inside the thread and are deleted with it; platform
+    # changes keep their own record but lose the decision link.
+    decision_ids = (
+        (await session.execute(select(DecisionRequest.id).where(DecisionRequest.signal_id == signal_id)))
+        .scalars()
+        .all()
+    )
+    if decision_ids:
+        await session.execute(
+            sa_update(PlatformChange)
+            .where(PlatformChange.decision_id.in_(decision_ids))  # type: ignore[attr-defined]
+            .values(decision_id=None)
+        )
+        await session.execute(sa_delete(DecisionRequest).where(DecisionRequest.id.in_(decision_ids)))  # type: ignore[attr-defined]
+
+    # Tasks, triggers, and outcomes outlive the thread; detach the reference.
+    for ref_model in (AgentTask, Trigger, OperationalOutcome):
+        await session.execute(
+            sa_update(ref_model).where(ref_model.signal_id == signal_id).values(signal_id=None)
+        )
+
     await session.delete(signal)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant_id,
+        action="signal:deleted",
+        actor_type="user" if user_id else "system",
+        actor_id=user_id or "",
+        resource_type="signal",
+        resource_id=signal_id,
+        summary=(subject or "")[:120],
+        commit=False,
+    )
     await session.commit()
     return True
 
@@ -964,6 +1105,19 @@ async def set_ai_paused(
             payload_json=json.dumps({"ai_paused": paused}),
         )
     )
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        tenant_id,
+        action="signal:takeover" if paused else "signal:handback",
+        actor_type="user",
+        actor_id=user_id,
+        resource_type="signal",
+        resource_id=signal_id,
+        summary=(signal.subject or "")[:120],
+        commit=False,
+    )
     await session.commit()
     await publish_thread_update(signal)
     return {"signal_id": str(signal_id), "ai_paused": paused}
@@ -983,13 +1137,22 @@ async def reply_to_thread(
     kind: str = "user_message",
     attachments: list[dict] | None = None,
     snooze_minutes: int | None = None,
+    cc: str | None = None,
+    bcc: str | None = None,
+    send_after_seconds: int | None = None,
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
         return None
     now = datetime.utcnow()
+    # Soft undo / scheduled send: persist the message without delivering it;
+    # the scheduler tick delivers once `send_after` passes, and the cancel
+    # endpoint can remove it before that.
+    scheduled = bool(send_after_seconds and send_after_seconds > 0) and direction == "outbound"
     send_status = None
-    if direction == "outbound":
+    if scheduled:
+        send_status = "scheduled"
+    elif direction == "outbound":
         from app.channels import deliver_outbound
 
         send_status = await deliver_outbound(
@@ -997,10 +1160,17 @@ async def reply_to_thread(
             signal,
             body_text=body_text,
             body_html=body_html,
+            cc=cc,
+            bcc=bcc,
             attachments=attachments,
         )
         if send_status == "skipped":
             send_status = "sent"
+    message_meta: dict[str, Any] = {}
+    if cc:
+        message_meta["cc"] = cc
+    if bcc:
+        message_meta["bcc"] = bcc
     message = SignalMessage(
         signal_id=signal_id,
         tenant_id=tenant_id,
@@ -1015,7 +1185,9 @@ async def reply_to_thread(
         body_preview=body_text[:200],
         body_html=body_html or f"<p>{body_text}</p>",
         attachments_json=json.dumps(attachments or []),
+        metadata_json=json.dumps(message_meta) if message_meta else "{}",
         send_status=send_status,
+        send_after=(now + timedelta(seconds=send_after_seconds)) if scheduled else None,
         received_at=now,
     )
     session.add(message)
@@ -1044,6 +1216,14 @@ async def reply_to_thread(
     await session.commit()
     await session.refresh(message)
     await publish_signal_message(signal, message)
+    if action in ("send_and_close", "send_and_pending"):
+        # Status changed alongside the reply; widget conversations also need
+        # the visitor-safe status event (e.g. to show the CSAT prompt).
+        await publish_thread_update(signal)
+    if action == "send_and_close":
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        await emit_webhook_event(session, tenant_id, "signal.closed", signal_event_data(signal))
     # @mentions in replies and internal notes notify the mentioned teammates.
     author_result = await session.execute(select(User).where(User.id == user_id))
     author = author_result.scalar_one_or_none()
@@ -1059,9 +1239,111 @@ async def reply_to_thread(
     # (not an internal note), run the thread's agent and append its response.
     # External channels (email/whatsapp/widget) and assistant-channel threads
     # (handled by /api/chat) are intentionally excluded.
-    if direction == "outbound" and signal.channel == "internal" and not signal.ai_paused:
+    if direction == "outbound" and signal.channel == "internal" and not signal.ai_paused and not scheduled:
         await _generate_agent_reply(session, tenant_id, user_id, signal, attachments=attachments)
     return serialize_message(message)
+
+
+async def deliver_due_outbound_messages(session: AsyncSession) -> int:
+    """Deliver scheduled outbound messages whose send time passed (scheduler tick).
+
+    Runs across all tenants. Failures mark the message `failed:*` so the
+    operator sees it in the thread instead of a silent drop.
+    """
+    from app.channels import deliver_outbound
+
+    now = datetime.utcnow()
+    result = await session.execute(
+        select(SignalMessage)
+        .where(
+            SignalMessage.send_status == "scheduled",
+            SignalMessage.send_after.is_not(None),
+            SignalMessage.send_after <= now,
+        )
+        .order_by(SignalMessage.send_after)
+        .limit(25)
+    )
+    due = list(result.scalars().all())
+    delivered = 0
+    for message in due:
+        signal = await session.get(Signal, message.signal_id)
+        if not signal:
+            message.send_status = "failed:thread_missing"
+            session.add(message)
+            continue
+        meta: dict[str, Any] = {}
+        try:
+            meta = json.loads(message.metadata_json or "{}")
+        except (TypeError, ValueError):
+            meta = {}
+        try:
+            attachments = json.loads(message.attachments_json or "[]")
+        except (TypeError, ValueError):
+            attachments = []
+        try:
+            status = await deliver_outbound(
+                session,
+                signal,
+                body_text=message.body_text,
+                body_html=message.body_html or None,
+                cc=meta.get("cc"),
+                bcc=meta.get("bcc"),
+                attachments=attachments or None,
+            )
+        except Exception as exc:  # noqa: BLE001 — one bad message must not stall the queue
+            logger.exception("Scheduled send failed for message %s", message.id)
+            status = f"failed:{type(exc).__name__}"[:80]
+        message.send_status = "sent" if status == "skipped" else status
+        message.send_after = None
+        session.add(message)
+        delivered += 1
+        await session.commit()
+        await session.refresh(message)
+        await publish_signal_message(signal, message)
+    if due:
+        await session.commit()
+    return delivered
+
+
+async def cancel_scheduled_message(
+    session: AsyncSession,
+    tenant_id: UUID,
+    message_id: UUID,
+) -> dict[str, Any] | None:
+    """Soft undo: remove a still-scheduled outbound message before delivery.
+
+    Returns the removed message's body so the composer can restore the draft,
+    or None when the message is unknown or already (being) sent.
+    """
+    result = await session.execute(
+        select(SignalMessage).where(
+            SignalMessage.id == message_id,
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.send_status == "scheduled",
+        )
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        return None
+    signal = await session.get(Signal, message.signal_id)
+    body_text = message.body_text
+    signal_id = message.signal_id
+    await session.delete(message)
+    if signal:
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=tenant_id,
+                event_type="scheduled_send_cancelled",
+                actor_type="user",
+                actor_id="",
+                payload_json="{}",
+            )
+        )
+    await session.commit()
+    if signal:
+        await publish_thread_update(signal)
+    return {"signal_id": str(signal_id), "body_text": body_text}
 
 
 # Mentions use a stable inline markup so plain text stays readable:
@@ -1327,7 +1609,7 @@ async def sync_status(session: AsyncSession, tenant_id: UUID) -> list[dict[str, 
 async def resolve_message_decision(
     session: AsyncSession,
     tenant_id: UUID,
-    user_id: UUID,
+    user_id: UUID | None,
     signal_id: UUID,
     message_id: UUID,
     *,
@@ -1337,6 +1619,8 @@ async def resolve_message_decision(
     body_html: str | None = None,
     subject: str | None = None,
     response_text: str | None = None,
+    # External resolution channel (e.g. "slack:U123"); lands in the event payload.
+    source: str | None = None,
 ) -> dict[str, Any]:
     from app.services.decisions import resolve_decision_message
 
@@ -1380,13 +1664,14 @@ async def resolve_message_decision(
             tenant_id=tenant_id,
             event_type=f"decision_{action}",
             actor_type="user",
-            actor_id=str(user_id),
+            actor_id=str(user_id) if user_id else "",
             payload_json=json.dumps(
                 {
                     "decision_id": str(message.decision_id),
                     "action": action,
                     "option_id": option_id,
                     "response_text": (response_text or "").strip() or None,
+                    "via": source,
                 }
             ),
         )
@@ -1412,5 +1697,105 @@ async def resolve_message_decision(
                     "option_id": option_id,
                 },
             )
+
+    # Learning hook: approved choices on "No reply needed" cards teach a
+    # per-sender inbox rule (close / task). Consistent choices surface an
+    # inline "always do this" suggestion; autonomous tenants auto-promote.
+    rule_suggestion = None
+    if user_id and action in ("approved", "approve") and option_id in ("close", "create_task"):
+        rule_suggestion = await _record_no_reply_outcome(
+            session, tenant_id, user_id, signal_id, message.decision_id, option_id
+        )
+
     await session.commit()
-    return {"ok": True, "action": action, "option_id": option_id}
+    return {
+        "ok": True,
+        "action": action,
+        "option_id": option_id,
+        "rule_suggestion": rule_suggestion,
+    }
+
+
+async def _record_no_reply_outcome(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    signal_id: UUID,
+    decision_id: UUID,
+    option_id: str,
+) -> dict[str, Any] | None:
+    """Feed an approved action-suggestion choice into the inbox-rule learner."""
+    from app.models.auth import Tenant
+    from app.models.learning import Feedback
+    from app.models.notification import DecisionRequest, Notification
+    from app.services import inbox_rules
+    from app.tools.policy import resolve_posture
+
+    decision = (
+        await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.id == decision_id, DecisionRequest.tenant_id == tenant_id
+            )
+        )
+    ).scalar_one_or_none()
+    if not decision or not decision.notification_id:
+        return None
+    notification = (
+        await session.execute(
+            select(Notification).where(Notification.id == decision.notification_id)
+        )
+    ).scalar_one_or_none()
+    try:
+        notif_payload = json.loads(notification.payload_json or "{}") if notification else {}
+    except json.JSONDecodeError:
+        notif_payload = {}
+    if notif_payload.get("kind") != "action_suggestion":
+        return None
+
+    signal = (
+        await session.execute(
+            select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if not signal or signal.source == "demo":
+        # The onboarding demo thread never teaches rules.
+        return None
+    inbound = (
+        await session.execute(
+            select(SignalMessage)
+            .where(SignalMessage.signal_id == signal_id, SignalMessage.direction == "inbound")
+            .order_by(SignalMessage.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    from_address = (inbound.from_address if inbound else "") or signal.contact_email or ""
+    try:
+        inbound_meta = json.loads(inbound.metadata_json or "{}") if inbound else {}
+    except json.JSONDecodeError:
+        inbound_meta = {}
+    auto_headers = (
+        inbound_meta.get("auto_headers") if isinstance(inbound_meta, dict) else None
+    )
+
+    session.add(
+        Feedback(
+            tenant_id=tenant_id,
+            subject_type="decision",
+            subject_id=str(decision_id),
+            user_id=user_id,
+            comment=f"no_reply_action:{option_id}",
+        )
+    )
+
+    tenant = await session.get(Tenant, tenant_id)
+    auto_promote = bool(tenant) and resolve_posture(tenant) == "autonomous"
+    return await inbox_rules.record_outcome(
+        session,
+        tenant_id,
+        from_address=from_address,
+        headers=auto_headers,
+        option_id=option_id,
+        sender_label=signal.contact_name or from_address,
+        user_id=user_id,
+        auto_promote=auto_promote,
+    )

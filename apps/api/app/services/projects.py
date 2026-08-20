@@ -421,7 +421,17 @@ async def usage_budget(session: AsyncSession, tenant_id: UUID, project_id: UUID)
     hour_start = now.replace(minute=0, second=0, microsecond=0)
     used_today = await _token_usage(session, tenant_id, project_id, day_start)
     used_hour = await _token_usage(session, tenant_id, project_id, hour_start)
+    # Tenant spend cap (spend_guard) overrides the hardcoded default; real
+    # enforcement happens in resolve_model_call, this endpoint is advisory.
     budget = DEFAULT_TOKEN_BUDGET_DAILY
+    from app.models.auth import Tenant
+    from app.services.spend_guard import get_spend_config
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant:
+        cap = get_spend_config(tenant)["daily_token_cap"]
+        if cap:
+            budget = cap
     remaining_today = max(0, budget - used_today)
     remaining_hour = max(0, min(10_000, budget) - used_hour)
     return {

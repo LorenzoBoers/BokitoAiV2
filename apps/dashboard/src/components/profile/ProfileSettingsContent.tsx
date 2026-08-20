@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, LaptopMinimal, Lock, Moon, Pencil, Sun, Trash2, X } from 'lucide-react'
+import { Check, LaptopMinimal, Lock, Moon, Pencil, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
@@ -360,6 +360,62 @@ export function ProfileSettingsContent() {
     }
   }
 
+  // ── Two-factor authentication (TOTP) ──
+  const [totpSetup, setTotpSetup] = useState<{ secret: string; otpauthUri: string } | null>(null)
+  const [totpEnrollCode, setTotpEnrollCode] = useState('')
+  const [totpDisablePw, setTotpDisablePw] = useState('')
+  const [showTotpDisable, setShowTotpDisable] = useState(false)
+  const [totpBusy, setTotpBusy] = useState(false)
+  const [totpError, setTotpError] = useState<string | null>(null)
+
+  const startTotpSetup = async () => {
+    if (!token) return
+    setTotpBusy(true); setTotpError(null)
+    try {
+      const data = await apiPostAuth<{ secret: string; otpauth_uri: string }>(
+        authRoutes.twoFactor.setup, {}, token,
+      )
+      setTotpSetup({ secret: data.secret, otpauthUri: data.otpauth_uri })
+      setTotpEnrollCode('')
+    } catch (err) {
+      setTotpError(err instanceof Error ? err.message : 'Could not start 2FA setup')
+    } finally {
+      setTotpBusy(false)
+    }
+  }
+
+  const confirmTotpEnable = async () => {
+    if (!token) return
+    setTotpBusy(true); setTotpError(null)
+    try {
+      await apiPostAuth(authRoutes.twoFactor.enable, { code: totpEnrollCode }, token)
+      patchLocalUser({ totpEnabled: true })
+      setTotpSetup(null)
+      setTotpEnrollCode('')
+      toast.success(t('profile:security.totpEnabled', { defaultValue: 'Two-factor authentication enabled' }))
+    } catch {
+      setTotpError(t('profile:security.totpInvalidCode', { defaultValue: 'Invalid verification code. Try again.' }))
+    } finally {
+      setTotpBusy(false)
+    }
+  }
+
+  const disableTotp = async () => {
+    if (!token) return
+    setTotpBusy(true); setTotpError(null)
+    try {
+      await apiPostAuth(authRoutes.twoFactor.disable, { password: totpDisablePw }, token)
+      patchLocalUser({ totpEnabled: false })
+      setShowTotpDisable(false)
+      setTotpDisablePw('')
+      toast.success(t('profile:security.totpDisabled', { defaultValue: 'Two-factor authentication disabled' }))
+    } catch (err) {
+      setTotpError(err instanceof Error ? err.message : 'Could not disable 2FA')
+    } finally {
+      setTotpBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-7">
 
@@ -520,6 +576,125 @@ export function ProfileSettingsContent() {
                     {t('profile:security.cancel')}
                   </Button>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Two-factor authentication */}
+          <div className="py-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-text-heading">
+                  {t('profile:security.totpTitle', { defaultValue: 'Two-factor authentication' })}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {user?.totpEnabled
+                    ? t('profile:security.totpOnDescription', { defaultValue: 'Signing in requires a code from your authenticator app.' })
+                    : t('profile:security.totpOffDescription', { defaultValue: 'Add an extra sign-in step with an authenticator app.' })}
+                </p>
+              </div>
+              {user?.totpEnabled ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-xs"
+                  onClick={() => { setShowTotpDisable((v) => !v); setTotpError(null) }}
+                >
+                  {t('profile:security.totpDisable', { defaultValue: 'Disable' })}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 rounded-lg px-3 text-xs"
+                  disabled={totpBusy}
+                  onClick={() => void (totpSetup ? setTotpSetup(null) : startTotpSetup())}
+                >
+                  <ShieldCheck size={12} />
+                  {totpSetup
+                    ? t('profile:security.cancel')
+                    : t('profile:security.totpEnable', { defaultValue: 'Enable' })}
+                </Button>
+              )}
+            </div>
+
+            {totpSetup && !user?.totpEnabled && (
+              <div className="mt-3 space-y-3 rounded-lg border border-border/50 bg-bg-elevated/50 p-3">
+                <p className="text-xs text-text-secondary">
+                  {t('profile:security.totpStep1', {
+                    defaultValue: 'Add this key to your authenticator app (Google Authenticator, 1Password, Microsoft Authenticator, ...), then enter the 6-digit code it shows.',
+                  })}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <code className="rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 font-mono text-[12px] tracking-wider text-text-primary">
+                    {totpSetup.secret}
+                  </code>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 rounded-lg px-2.5 text-[11px]"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(totpSetup.secret)
+                      toast.success(t('common:actions.copied', { defaultValue: 'Copied' }))
+                    }}
+                  >
+                    {t('common:actions.copy', { defaultValue: 'Copy' })}
+                  </Button>
+                  <a
+                    href={totpSetup.otpauthUri}
+                    className="text-[11.5px] font-medium text-accent hover:text-accent-hover"
+                  >
+                    {t('profile:security.totpOpenApp', { defaultValue: 'Open in authenticator app' })}
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={totpEnrollCode}
+                    onChange={(e) => setTotpEnrollCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="h-8 w-28 rounded-lg text-center font-mono text-sm tracking-[0.25em]"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-lg px-3 text-xs"
+                    disabled={totpBusy || totpEnrollCode.length !== 6}
+                    onClick={() => void confirmTotpEnable()}
+                  >
+                    {totpBusy
+                      ? t('profile:personalInformation.saving')
+                      : t('profile:security.totpConfirm', { defaultValue: 'Verify and enable' })}
+                  </Button>
+                </div>
+                {totpError && <p className="text-xs text-status-error">{totpError}</p>}
+              </div>
+            )}
+
+            {showTotpDisable && user?.totpEnabled && (
+              <div className="mt-3 space-y-2.5 rounded-lg border border-border/50 bg-bg-elevated/50 p-3">
+                <p className="text-xs text-text-secondary">
+                  {t('profile:security.totpDisableConfirm', { defaultValue: 'Enter your password to turn off two-factor authentication.' })}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="password"
+                    value={totpDisablePw}
+                    onChange={(e) => setTotpDisablePw(e.target.value)}
+                    className="h-8 w-52 rounded-lg text-sm"
+                    autoComplete="current-password"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-8 rounded-lg px-3 text-xs"
+                    disabled={totpBusy || !totpDisablePw}
+                    onClick={() => void disableTotp()}
+                  >
+                    {t('profile:security.totpDisable', { defaultValue: 'Disable' })}
+                  </Button>
+                </div>
+                {totpError && <p className="text-xs text-status-error">{totpError}</p>}
               </div>
             )}
           </div>

@@ -43,6 +43,12 @@ class GatewayConnection:
     def matches(self, envelope: dict[str, Any]) -> bool:
         if envelope.get("tenant_id") != self.tenant_id:
             return False
+        # Operator-audience frames (internal notes, thread triage state, list
+        # feed rows) must never reach widget (visitor) connections.
+        if self.kind == "widget":
+            data = envelope.get("data")
+            if isinstance(data, dict) and data.get("audience") == "operator":
+                return False
         topics = envelope.get("topics") or []
         return any(t in self.topics for t in topics)
 

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.channels import deliver_outbound
 from app.config import get_settings
 from app.db.session import get_session
-from app.dependencies import AuthContext, get_current_auth
+from app.dependencies import AuthContext, get_current_auth, require_verified_email
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.models.channel import ChannelAccount
@@ -178,7 +178,8 @@ async def _resolve_email_account(
 @router.post("/send")
 async def send_email(
     body: SendEmailRequest,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    # Outbound mail requires a verified sender (soft gate).
+    auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     now = datetime.utcnow()
@@ -263,6 +264,8 @@ async def send_email(
         body_text=body.body_text,
         subject=body.subject or signal.subject,
         body_html=body.body_html,
+        # All requested recipients, not just the thread contact.
+        to_address=", ".join(recipients) if recipients else None,
         cc=body.cc,
         bcc=body.bcc,
         attachments=attachments,
@@ -775,7 +778,8 @@ async def _email_oauth_response(
 
 @router.get("/oauth/start")
 async def email_oauth_start(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    # Connecting a mailbox requires a verified account (soft gate).
+    auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
     provider: str,
     return_url: str,
@@ -790,7 +794,7 @@ async def email_oauth_start(
 
 @router.get("/outlook/oauth/start")
 async def outlook_oauth_start(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
     return_url: str,
 ):
@@ -802,7 +806,7 @@ async def outlook_oauth_start(
 
 @router.get("/google/oauth/start")
 async def google_oauth_start(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
     return_url: str,
 ):

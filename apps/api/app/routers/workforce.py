@@ -266,7 +266,7 @@ async def create_agent(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    return await svc.create_agent(
+    result = await svc.create_agent(
         session,
         auth.tenant.id,
         name=body.name,
@@ -275,6 +275,20 @@ async def create_agent(
         model_slug=body.model,
         chat_access=body.chat_access,
     )
+    from app.services.audit import record_audit
+
+    created = result.get("agent") if isinstance(result, dict) else None
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent:created",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="agent",
+        resource_id=(created or {}).get("id", ""),
+        summary=body.name,
+    )
+    return result
 
 
 @router.patch("/agents/{agent_id}")
@@ -285,13 +299,26 @@ async def update_agent(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    return await svc.update_agent(
+    result = await svc.update_agent(
         session,
         auth.tenant.id,
         agent_id,
         name=body.name,
         system_prompt=body.system_prompt,
     )
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent:updated",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="agent",
+        resource_id=agent_id,
+        after={"name": body.name, "system_prompt_changed": body.system_prompt is not None},
+    )
+    return result
 
 
 @router.delete("/agents/{agent_id}")
@@ -301,7 +328,19 @@ async def archive_agent(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    return await svc.archive_agent(session, auth.tenant.id, agent_id)
+    result = await svc.archive_agent(session, auth.tenant.id, agent_id)
+    from app.services.audit import record_audit
+
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent:archived",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="agent",
+        resource_id=agent_id,
+    )
+    return result
 
 
 @router.get("/timeline")

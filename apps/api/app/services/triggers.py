@@ -581,10 +581,19 @@ async def process_due_triggers(session: AsyncSession, tenant_id: UUID | None = N
         try:
             await fire_trigger(session, trigger)
             count += 1
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - isolate per-trigger failures
             await session.rollback()
             trigger.last_status = "error"
             trigger.next_run_at = compute_next_run(trigger, now)
             session.add(trigger)
             await session.commit()
+
+            from app.services.ops_alerts import alert_run_failure
+
+            await alert_run_failure(
+                session,
+                trigger.tenant_id,
+                subject=f"Trigger '{trigger.name}'",
+                error=exc,
+            )
     return count

@@ -391,7 +391,33 @@ async def apply_change_to_domain(
         return await apply_canvas_node_change(session, tenant_id, after)
     if rt == "canvas_edge":
         return await apply_canvas_edge_change(session, tenant_id, after)
+    if rt == "autonomy_posture":
+        return await apply_autonomy_posture_change(session, tenant_id, after)
+    # "persona_review" and other advisory kinds: accepting acknowledges the
+    # review; there is nothing to apply automatically.
     return {"status": "applied", "resource_type": rt, "payload": after}
+
+
+async def apply_autonomy_posture_change(
+    session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
+) -> dict[str, Any]:
+    """Apply a learning-proposed autonomy posture (manual | assisted | autonomous)."""
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant
+
+    posture = str(after.get("posture") or "")
+    if posture not in ("manual", "assisted", "autonomous"):
+        return {"status": "invalid_posture", "posture": posture}
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    if tenant is None:
+        return {"status": "tenant_not_found"}
+    settings = tenant_settings(tenant)
+    settings["autonomy_posture"] = posture
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    return {"status": "applied", "posture": posture}
 
 
 async def rollback_change_to_domain(

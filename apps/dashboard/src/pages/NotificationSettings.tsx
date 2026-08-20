@@ -1,18 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bell, Monitor } from 'lucide-react'
+import { Bell, BellRing, Monitor } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import { policyRoutes } from '../api/routes/policy.routes'
+import {
+  disableWebPush,
+  enableWebPush,
+  getCurrentPushSubscription,
+  isWebPushSupported,
+} from '../lib/web-push'
+
+type ChannelKey = 'desktop' | 'email' | 'slack'
 
 type NotificationRow = {
   id: string
   label: string
-  channels: { desktop: boolean; email: boolean; mobile: boolean }
+  // A missing key means the channel does not apply to this category
+  // (e.g. digests are email-only, Slack only exists on decisions).
+  channels: { desktop?: boolean; email?: boolean; mobile?: boolean; slack?: boolean }
 }
 
 // Only categories the backend actually enforces at the emission point.
+// Mirrors DEFAULT_NOTIFICATION_ROWS in apps/api/app/routers/inbox_settings.py.
 const DEFAULT_ROWS: NotificationRow[] = [
   {
     id: 'assigned-to-me',
@@ -27,7 +38,32 @@ const DEFAULT_ROWS: NotificationRow[] = [
   {
     id: 'decisions',
     label: 'When an agent needs your decision on an assigned conversation',
+    channels: { desktop: true, email: false, mobile: false, slack: false },
+  },
+  {
+    id: 'ops-run-failed',
+    label: 'When an agent run or trigger fails',
     channels: { desktop: true, email: false, mobile: false },
+  },
+  {
+    id: 'ops-channel-disconnect',
+    label: 'When a connected channel stops syncing',
+    channels: { desktop: true, email: false, mobile: false },
+  },
+  {
+    id: 'billing-alerts',
+    label: 'When LLM spend reaches 80% or 100% of the budget',
+    channels: { desktop: true, email: false },
+  },
+  {
+    id: 'digest-daily',
+    label: 'Daily email digest (open threads, pending decisions, agent activity)',
+    channels: { email: false },
+  },
+  {
+    id: 'digest-weekly',
+    label: 'Weekly email digest',
+    channels: { email: false },
   },
 ]
 
@@ -83,6 +119,41 @@ export default function NotificationSettings() {
     [rows],
   )
 
+  // Browser push (web push via the service worker). Reflects the actual
+  // browser subscription state rather than a stored preference.
+  const pushSupported = isWebPushSupported()
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!pushSupported) return
+    void getCurrentPushSubscription().then((sub) => setPushEnabled(sub != null))
+  }, [pushSupported])
+
+  const togglePush = useCallback(
+    async (checked: boolean) => {
+      if (!token || pushBusy) return
+      setPushBusy(true)
+      setPushError(null)
+      try {
+        if (checked) {
+          await enableWebPush(token)
+          setPushEnabled(true)
+        } else {
+          await disableWebPush(token)
+          setPushEnabled(false)
+        }
+      } catch (err) {
+        setPushError(err instanceof Error ? err.message : 'Could not update push notifications.')
+        setPushEnabled((await getCurrentPushSubscription()) != null)
+      } finally {
+        setPushBusy(false)
+      }
+    },
+    [token, pushBusy],
+  )
+
   const persistRows = useCallback(
     async (next: NotificationRow[]) => {
       if (token) {
@@ -113,7 +184,7 @@ export default function NotificationSettings() {
     [token],
   )
 
-  function updateChannel(rowId: string, channel: 'desktop' | 'email', checked: boolean) {
+  function updateChannel(rowId: string, channel: ChannelKey, checked: boolean) {
     setRows((prev) => {
       const next = prev.map((row) =>
         row.id === rowId
@@ -125,6 +196,25 @@ export default function NotificationSettings() {
     })
   }
 
+  function channelCell(row: NotificationRow, channel: ChannelKey, label: string) {
+    if (row.channels[channel] === undefined) {
+      return (
+        <div className="flex justify-center">
+          <span className="text-xs text-text-muted/50">-</span>
+        </div>
+      )
+    }
+    return (
+      <div className="flex justify-center">
+        <Switch
+          checked={Boolean(row.channels[channel])}
+          onCheckedChange={(checked) => updateChannel(row.id, channel, checked)}
+          aria-label={`${row.label} ${label}`}
+        />
+      </div>
+    )
+  }
+
   return (
     <PageContent width="lg" className="space-y-5 py-1">
       <p className="text-sm text-text-secondary">
@@ -132,34 +222,47 @@ export default function NotificationSettings() {
       </p>
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[1fr_100px_100px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
+        <div className="grid grid-cols-[1fr_84px_84px_84px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
           <span>Notify me about</span>
           <span className="text-center">In-app</span>
           <span className="text-center">Email</span>
+          <span className="text-center">Slack</span>
         </div>
 
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid grid-cols-[1fr_100px_100px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
+            className="grid grid-cols-[1fr_84px_84px_84px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
           >
             <p className="pr-3 text-sm text-text-primary">{row.label}</p>
-            <div className="flex justify-center">
-              <Switch
-                checked={row.channels.desktop}
-                onCheckedChange={(checked) => updateChannel(row.id, 'desktop', checked)}
-                aria-label={`${row.label} in-app`}
-              />
-            </div>
-            <div className="flex justify-center">
-              <Switch
-                checked={row.channels.email}
-                onCheckedChange={(checked) => updateChannel(row.id, 'email', checked)}
-                aria-label={`${row.label} email`}
-              />
-            </div>
+            {channelCell(row, 'desktop', 'in-app')}
+            {channelCell(row, 'email', 'email')}
+            {channelCell(row, 'slack', 'Slack')}
           </div>
         ))}
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
+              <BellRing size={14} className="text-text-muted" />
+              Push notifications on this device
+            </p>
+            <p className="text-xs text-text-secondary">
+              {pushSupported
+                ? 'Get a system notification for new messages and pending decisions, even when Bokito is closed. Applies to this browser only.'
+                : 'This browser does not support push notifications.'}
+            </p>
+            {pushError ? <p className="text-xs text-status-error">{pushError}</p> : null}
+          </div>
+          <Switch
+            checked={pushEnabled}
+            disabled={!pushSupported || pushBusy || !token}
+            onCheckedChange={(checked) => void togglePush(checked)}
+            aria-label="Push notifications on this device"
+          />
+        </div>
       </Card>
 
       <Card className="p-4">
@@ -170,7 +273,8 @@ export default function NotificationSettings() {
           </p>
           <p className="text-xs text-text-secondary">
             In-app notifications appear in the bell menu in the top bar. Email notifications are
-            sent to your account address. Mobile push is not available yet.
+            sent to your account address. Slack sends a direct message with Approve/Deny buttons
+            and requires a connected Slack workspace.
           </p>
           <p className="text-xs font-medium text-text-muted">{desktopEnabled} in-app enabled</p>
         </div>

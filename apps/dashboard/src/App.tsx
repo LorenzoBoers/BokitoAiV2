@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import AppShell from './components/shell/AppShell'
 import MessagesHub from './components/shell/MessagesHub'
@@ -10,54 +11,65 @@ import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
 import { ASSISTANT_DEFAULT_PATH } from './lib/assistant-settings-path'
 import { useLanguagePreferenceSync } from './lib/language-preference'
-
-// Public pages
-import Login from './pages/Login'
-import Signup from './pages/Signup'
-import ForgotPassword from './pages/ForgotPassword'
-import AcceptInvite from './pages/AcceptInvite'
-import ResetPassword from './pages/ResetPassword'
-import VerifyEmail from './pages/VerifyEmail'
-// Chat (default surface)
-import NewConversationPage from './pages/NewConversationPage'
 import { agentChatPath, agentRunsPath, assistantPath, channelPath, inboxPath } from './lib/messages-paths'
 
+// Pages are lazy-loaded so each route becomes its own chunk.
+// Public pages
+const Login = lazy(() => import('./pages/Login'))
+const Signup = lazy(() => import('./pages/Signup'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const AcceptInvite = lazy(() => import('./pages/AcceptInvite'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'))
+const HelpCenter = lazy(() => import('./pages/HelpCenter'))
+// Chat (default surface)
+const NewConversationPage = lazy(() => import('./pages/NewConversationPage'))
+
 // Control
-import CockpitPage from './pages/CockpitPage'
-import ContactsPage from './pages/ContactsPage'
-import Communication from './pages/Communication'
-import DirectCommunication from './pages/DirectCommunication'
-import ActivityPage from './pages/ActivityPage'
-import AgendaPage from './pages/AgendaPage'
-import UsagePage from './pages/UsagePage'
+const CockpitPage = lazy(() => import('./pages/CockpitPage'))
+const ContactsPage = lazy(() => import('./pages/ContactsPage'))
+const Communication = lazy(() => import('./pages/Communication'))
+const DirectCommunication = lazy(() => import('./pages/DirectCommunication'))
+const ActivityPage = lazy(() => import('./pages/ActivityPage'))
+const AgendaPage = lazy(() => import('./pages/AgendaPage'))
+const UsagePage = lazy(() => import('./pages/UsagePage'))
 
 // Agent
-import AiAgents from './pages/AiAgents'
-import AiAgentDetail from './pages/AiAgentDetail'
-import WorkspaceDocs from './pages/WorkspaceDocs'
+const AiAgents = lazy(() => import('./pages/AiAgents'))
+const AiAgentDetail = lazy(() => import('./pages/AiAgentDetail'))
+const WorkspaceDocs = lazy(() => import('./pages/WorkspaceDocs'))
 
 // Settings sections
-import ProfileSettings from './pages/ProfileSettings'
-import MyAssistantSettings from './pages/MyAssistantSettings'
-import ModelsSettings from './pages/ModelsSettings'
-import ProjectsSettings from './pages/ProjectsSettings'
-import NotificationSettings from './pages/NotificationSettings'
-import WorkspaceSettings from './pages/WorkspaceSettings'
-import CompanyConfig from './pages/CompanyConfig'
-import MemberManagement from './pages/MemberManagement'
-import InboxSettings from './pages/InboxSettings'
-import AiCommunicationSettings from './pages/AiCommunicationSettings'
-import HelpCentersSettings from './pages/HelpCentersSettings'
-import MessengerSettings from './pages/MessengerSettings'
-import IntegrationsConnected from './pages/IntegrationsConnected'
-import IntegrationsMarketplace from './pages/IntegrationsMarketplace'
-import IntegrationsMcp from './pages/IntegrationsMcp'
-import IntegrationSetupPage from './pages/IntegrationSetupPage'
-import GovernPage from './pages/GovernPage'
+const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
+const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
+const ModelsSettings = lazy(() => import('./pages/ModelsSettings'))
+const DeveloperSettings = lazy(() => import('./pages/DeveloperSettings'))
+const ProjectsSettings = lazy(() => import('./pages/ProjectsSettings'))
+const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
+const WorkspaceSettings = lazy(() => import('./pages/WorkspaceSettings'))
+const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
+const MemberManagement = lazy(() => import('./pages/MemberManagement'))
+const InboxSettings = lazy(() => import('./pages/InboxSettings'))
+const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
+const HelpCentersSettings = lazy(() => import('./pages/HelpCentersSettings'))
+const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
+const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected'))
+const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
+const IntegrationsMcp = lazy(() => import('./pages/IntegrationsMcp'))
+const IntegrationSetupPage = lazy(() => import('./pages/IntegrationSetupPage'))
+const GovernPage = lazy(() => import('./pages/GovernPage'))
 
 // Control plane hub
-import Workspaces from './pages/Workspaces'
-import WorkspaceAccount from './pages/WorkspaceAccount'
+const Workspaces = lazy(() => import('./pages/Workspaces'))
+const WorkspaceAccount = lazy(() => import('./pages/WorkspaceAccount'))
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent" aria-label="Loading" />
+    </div>
+  )
+}
 
 function HomeRoute() {
   const { workspaceLoading, workspaces } = useWorkspace()
@@ -195,13 +207,16 @@ export default function App() {
   const { token } = useAuth()
   useLanguagePreferenceSync(token)
   return (
-    <Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/help/:tenantSlug" element={<HelpCenter />} />
+      <Route path="/help/:tenantSlug/:articleSlug" element={<HelpCenter />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<HomeRoute />} />
@@ -264,6 +279,7 @@ export default function App() {
           <Route path="/cockpit/activity" element={<ActivityPage />} />
           <Route path="/cockpit/usage" element={<UsagePage />} />
           <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/integrations/setup" element={<IntegrationSetupPage />} />
@@ -293,6 +309,7 @@ export default function App() {
             <Route path="/settings/integrations" element={<IntegrationsConnected />} />
             <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
+            <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/autonomy" element={<GovernPage />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/projects" element={<ProjectsSettings />} />
@@ -337,6 +354,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   )
 }

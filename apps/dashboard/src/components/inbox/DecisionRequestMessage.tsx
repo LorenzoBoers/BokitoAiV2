@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { BellOff, Sparkles } from 'lucide-react'
+import { BellOff, Sparkles, Zap } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import {
   patchThread,
   resolveThreadDecision,
+  updateInboxRule,
   type InboxEvent,
   type InboxMessage,
+  type InboxRuleSuggestion,
   type ThreadId,
 } from '../../lib/inbox-api'
 import { useAuth } from '../../context/AuthContext'
@@ -131,6 +133,8 @@ export default function DecisionRequestMessage({
   const [error, setError] = useState<string | null>(null)
   const [textOptionId, setTextOptionId] = useState<string | null>(null)
   const [responseText, setResponseText] = useState('')
+  const [ruleSuggestion, setRuleSuggestion] = useState<InboxRuleSuggestion | null>(null)
+  const [ruleBusy, setRuleBusy] = useState(false)
   const resolved = isDecisionResolved(message, events)
   const options = useMemo(() => extractOptions(message), [message])
   const summary =
@@ -154,7 +158,7 @@ export default function DecisionRequestMessage({
     setBusy(true)
     setError(null)
     try {
-      await resolveThreadDecision(token, threadId, message.id, action, {
+      const result = await resolveThreadDecision(token, threadId, message.id, action, {
         optionId,
         body: bodyOverride,
         responseText: answerText,
@@ -167,11 +171,37 @@ export default function DecisionRequestMessage({
               ? t('decisionCard.toastDeferred')
               : t('decisionCard.toastRejected')),
       )
+      // Learning loop: after repeated identical choices the platform proposes
+      // a per-sender rule (or reports it already activated itself).
+      const suggestion = result.ruleSuggestion
+      if (suggestion?.autoPromoted) {
+        toast.info(
+          t('decisionCard.rulePrompt.autoPromoted', {
+            sender: suggestion.label || suggestion.matchValue,
+          }),
+        )
+      } else if (suggestion?.readyToActivate) {
+        setRuleSuggestion(suggestion)
+      }
       onResolved?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('decisionCard.resolveError'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function activateRule() {
+    if (!token || !ruleSuggestion) return
+    setRuleBusy(true)
+    try {
+      await updateInboxRule(token, ruleSuggestion.id, { status: 'active' })
+      toast.success(t('decisionCard.rulePrompt.activated'))
+      setRuleSuggestion(null)
+    } catch {
+      toast.error(t('decisionCard.rulePrompt.error'))
+    } finally {
+      setRuleBusy(false)
     }
   }
 
@@ -390,6 +420,39 @@ export default function DecisionRequestMessage({
                 }}
               >
                 {t('decisionCard.cancel')}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {ruleSuggestion ? (
+          <div className="mt-3 rounded-lg border border-accent/25 bg-accent/5 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <Zap className="h-3.5 w-3.5 text-accent" aria-hidden />
+              <p className="text-sm font-medium text-text-primary">
+                {t(
+                  ruleSuggestion.action === 'auto_task'
+                    ? 'decisionCard.rulePrompt.autoTask'
+                    : 'decisionCard.rulePrompt.autoClose',
+                  { sender: ruleSuggestion.label || ruleSuggestion.matchValue },
+                )}
+              </p>
+            </div>
+            <p className="mt-1 text-xs text-text-muted">
+              {t('decisionCard.rulePrompt.explainer', { count: ruleSuggestion.observations })}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button type="button" size="sm" disabled={ruleBusy} onClick={() => void activateRule()}>
+                {t('decisionCard.rulePrompt.confirm')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={ruleBusy}
+                className="text-text-muted"
+                onClick={() => setRuleSuggestion(null)}
+              >
+                {t('decisionCard.rulePrompt.dismiss')}
               </Button>
             </div>
           </div>

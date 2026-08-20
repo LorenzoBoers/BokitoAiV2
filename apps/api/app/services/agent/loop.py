@@ -68,6 +68,9 @@ class AgentLoop:
         self.max_loops = agent.max_loops if agent else 15
         # Compact step log for chat history (tool calls / think) + token usage UI.
         self.trace_steps: list[dict[str, Any]] = []
+        # RAG hits from the latest turn; the widget stream uses these to append
+        # "related article" links when hits map to published help-center docs.
+        self.last_rag_hits: list[dict[str, Any]] = []
         self.thinking_text = ""
         self.thinking_ms = 0
         self.thinking_budget = 0
@@ -192,6 +195,7 @@ class AgentLoop:
         rag_context = ""
         if user_query:
             hits = await hybrid_search(self.session, self.tenant_id, user_query, top_k=5)
+            self.last_rag_hits = hits or []
             if hits:
                 rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
         default_prompt = (

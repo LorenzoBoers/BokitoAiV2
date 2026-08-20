@@ -59,8 +59,22 @@ async def test_password_reset_request_unknown_email_is_silent(client: AsyncClien
 
 @pytest.mark.asyncio
 async def test_email_verification_flow(client: AsyncClient):
+    # The seeded operator is already verified (resend is a no-op for them),
+    # so exercise the flow with a fresh, unverified signup.
+    signup = await client.post(
+        f"{API}/auth/signup",
+        json={
+            "email": "verifyme@example.com",
+            "password": "verifyme123",
+            "tenant_slug": "verify-co",
+            "tenant_name": "Verify Co",
+        },
+    )
+    assert signup.status_code == 200, signup.text
+    assert signup.json()["user"]["email_verified"] is False
+
     req = await client.post(
-        f"{API}/auth/resend-verification", json={"email": TEST_EMAIL}
+        f"{API}/auth/resend-verification", json={"email": "verifyme@example.com"}
     )
     assert req.status_code == 200
     token = req.json().get("dev_token")

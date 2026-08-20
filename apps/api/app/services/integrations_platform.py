@@ -576,6 +576,13 @@ async def ensure_email_account(
     session.add(account)
     await session.commit()
     await session.refresh(account)
+    # A real mailbox replaces the onboarding demo thread.
+    from app.services.onboarding_demo import remove_demo_threads
+
+    try:
+        await remove_demo_threads(session, tenant_id)
+    except Exception:  # noqa: BLE001 — cleanup must never break connect
+        pass
     return account
 
 

@@ -29,7 +29,7 @@ export function SettingsSection({
 }: SettingsSectionProps) {
   return (
     <Card className={className}>
-      <CardHeader className="items-start gap-3">
+      <CardHeader className="flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <CardTitle>{title}</CardTitle>
           {description ? (

@@ -10,5 +10,7 @@ export const workspaceRoutes = {
     return withQuery('/workspace/docs', search)
   },
   doc: (docId: string) => `/workspace/docs/${encodeURIComponent(docId)}`,
+  docPublish: (docId: string) => `/workspace/docs/${encodeURIComponent(docId)}/publish`,
+  docsUpload: () => '/workspace/docs/upload',
   search: () => '/workspace/search',
 } as const

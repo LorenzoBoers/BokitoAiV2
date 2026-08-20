@@ -160,6 +160,38 @@ function normalizeConnection(row: unknown): EmailConnection | null {
   }
 }
 
+export type ComposeEmailInput = {
+  /** Comma/semicolon separated list of recipients. */
+  toAddresses: string
+  subject: string
+  bodyText: string
+  bodyHtml?: string
+  cc?: string
+  bcc?: string
+  /** Mailbox to send from; omit = first enabled mailbox. */
+  connectionId?: number
+  attachments?: Array<{ id: string; name: string; mime: string; size: number; url: string }>
+}
+
+/** Start a new outbound email thread. Returns the created thread id. */
+export async function sendNewEmail(
+  token: string,
+  input: ComposeEmailInput,
+): Promise<{ threadId: string }> {
+  const body: Record<string, unknown> = {
+    to_addresses: input.toAddresses,
+    subject: input.subject,
+    body_text: input.bodyText,
+  }
+  if (input.bodyHtml) body.body_html = input.bodyHtml
+  if (input.cc?.trim()) body.cc = input.cc.trim()
+  if (input.bcc?.trim()) body.bcc = input.bcc.trim()
+  if (input.connectionId != null) body.connection_id = input.connectionId
+  if (input.attachments?.length) body.attachments = input.attachments
+  const payload = await apiPost<{ thread_id?: string }>(integrationsRoutes.email.send, body, token)
+  return { threadId: asString(payload.thread_id) }
+}
+
 export async function listEmailConnections(token: string): Promise<EmailConnection[]> {
   const payload = await apiGet<unknown>(integrationsRoutes.email.connections.list, token)
   const source = Array.isArray(payload)

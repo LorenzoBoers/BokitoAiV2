@@ -318,6 +318,71 @@ async def _get_owned_conversation(
     raise HTTPException(status_code=404, detail="Conversation not found")
 
 
+class CsatBody(BaseModel):
+    score: int
+    comment: str = ""
+
+
+@router.post(
+    "/conversation/{conversation_id}/csat",
+    dependencies=[Depends(rate_limit("livechat-csat", limit=10))],
+)
+async def submit_conversation_csat(
+    conversation_id: str,
+    body: CsatBody,
+    ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Visitor satisfaction rating (1-5) for a widget conversation.
+
+    Stored as signal-scoped Feedback so the existing learning loop picks it
+    up (eval scores, digests, cockpit). One rating per conversation: rating
+    again updates the earlier entry.
+    """
+    from datetime import datetime
+
+    from app.models.learning import Feedback
+
+    tenant, user, token = ctx
+    signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
+    if not 1 <= body.score <= 5:
+        raise HTTPException(status_code=400, detail="Score must be between 1 and 5")
+    comment = body.comment.strip()[:1000]
+
+    existing = (
+        await session.execute(
+            select(Feedback).where(
+                Feedback.tenant_id == tenant.id,
+                Feedback.subject_type == "signal",
+                Feedback.subject_id == str(signal.id),
+            )
+        )
+    ).scalars().first()
+    sentiment = "up" if body.score >= 4 else ("down" if body.score <= 2 else None)
+    if existing:
+        existing.score = body.score
+        existing.sentiment = sentiment
+        existing.comment = comment
+        existing.processed = False
+        existing.processed_at = None
+        existing.created_at = datetime.utcnow()
+        session.add(existing)
+    else:
+        session.add(
+            Feedback(
+                tenant_id=tenant.id,
+                subject_type="signal",
+                subject_id=str(signal.id),
+                user_id=user.id if user else None,
+                score=body.score,
+                sentiment=sentiment,
+                comment=comment,
+            )
+        )
+    await session.commit()
+    return {"ok": True, "score": body.score}
+
+
 @router.get("/conversation/{conversation_id}")
 async def get_conversation(
     conversation_id: str,
@@ -461,6 +526,11 @@ async def create_conversation(
         session, tenant, user, customer_id=customer_id
     )
     await session.commit()
+    if getattr(signal, "_newly_created", False):
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        signal._newly_created = False
+        await emit_webhook_event(session, tenant.id, "signal.created", signal_event_data(signal))
     conv_id = str(signal.id)
     return {"conversation_id": conv_id, "id": conv_id, "session_token": token}
 

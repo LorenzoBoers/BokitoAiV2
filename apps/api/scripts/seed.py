@@ -45,6 +45,7 @@ async def seed() -> None:
                 password_hash=hash_password(TEST_PASSWORD),
                 display_name="Bokito Staff",
                 is_staff=True,
+                email_verified=True,
             )
             session.add(staff)
 
@@ -68,6 +69,7 @@ async def seed() -> None:
                 email=TEST_EMAIL,
                 password_hash=hash_password(TEST_PASSWORD),
                 display_name="Bokito Admin",
+                email_verified=True,
             )
             session.add(user)
             await session.flush()
@@ -91,6 +93,7 @@ async def seed() -> None:
                 email=DEMO_EMAIL,
                 password_hash=hash_password(DEMO_PASSWORD),
                 display_name="Demo Owner",
+                email_verified=True,
             )
             session.add(demo_user)
             await session.flush()
@@ -270,6 +273,7 @@ async def _seed_autotrading_tenant(session) -> None:
             email="trader@bokito.ai",
             password_hash=hash_password(TEST_PASSWORD),
             display_name="Trading Operator",
+            email_verified=True,
         )
         session.add(trader_user)
         await session.flush()

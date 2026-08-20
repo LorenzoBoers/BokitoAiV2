@@ -1,10 +1,11 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings, validate_production_settings
+from app.config import get_settings, production_config_warnings, validate_production_settings
 from app.db.session import init_db
 from sqlalchemy.exc import OperationalError
 
@@ -26,6 +27,7 @@ from app.routers import (
     github_integrations,
     govern,
     health,
+    help_center,
     kb,
     livechat,
     integrations,
@@ -34,11 +36,13 @@ from app.routers import (
     models,
     notifications,
     projects,
+    public_api,
     push,
     inbox_settings,
     signals,
     learning,
     triggers,
+    webhooks,
     workforce,
     workspace,
     orchestration,
@@ -46,9 +50,11 @@ from app.routers import (
 )
 from app.gateway.bus import event_bus
 from app.gateway.router import router as gateway_router
+from app.observability import init_observability
 from app.services.trigger_scheduler import trigger_scheduler_enabled, trigger_scheduler_loop
 
 settings = get_settings()
+init_observability("api")
 
 
 @asynccontextmanager
@@ -59,6 +65,8 @@ async def lifespan(app: FastAPI):
             "Refusing to start in production with unsafe configuration:\n  - "
             + "\n  - ".join(config_errors)
         )
+    for warning in production_config_warnings(settings):
+        logging.getLogger("app.config").warning("PRODUCTION CONFIG: %s", warning)
     await init_db()
     await event_bus.start()
     scheduler_task: asyncio.Task | None = None
@@ -156,6 +164,7 @@ app.include_router(integrations.router, prefix=api_prefix)
 app.include_router(github_integrations.router, prefix=api_prefix)
 app.include_router(email.router, prefix=api_prefix)
 app.include_router(kb.router, prefix=api_prefix)
+app.include_router(help_center.router, prefix=api_prefix)
 app.include_router(channels.router, prefix=api_prefix)
 app.include_router(push.router, prefix=api_prefix)
 app.include_router(cockpit.router, prefix=api_prefix)
@@ -172,6 +181,8 @@ app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
 app.include_router(models.router, prefix=api_prefix)
 app.include_router(models.staff_router, prefix=api_prefix)
+app.include_router(webhooks.router, prefix=api_prefix)
+app.include_router(public_api.router, prefix=api_prefix)
 app.include_router(orchestration.router, prefix=api_prefix)
 app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
 app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")

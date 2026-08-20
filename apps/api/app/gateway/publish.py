@@ -9,9 +9,13 @@ from uuid import UUID
 from app.gateway.bus import event_bus
 
 if TYPE_CHECKING:
+    from app.models.notification import DecisionRequest
     from app.models.signal import Signal, SignalMessage
 
 logger = logging.getLogger(__name__)
+
+# Message kinds that must never reach widget (visitor) connections.
+_OPERATOR_ONLY_KINDS = frozenset({"internal_note", "system_event"})
 
 
 async def _safe_publish(tenant_id: Any, topics: list[str], event: str, data: dict[str, Any]) -> None:
@@ -21,17 +25,17 @@ async def _safe_publish(tenant_id: Any, topics: list[str], event: str, data: dic
         logger.exception("gateway publish failed: %s", event)
 
 
-def _thread_summary(signal: "Signal") -> dict[str, Any]:
-    return {
-        "signal_id": str(signal.id),
-        "channel": signal.channel,
-        "subject": signal.subject,
-        "status": signal.status,
-        "has_unread": signal.has_unread,
-        "assigned_user_id": str(signal.assigned_user_id) if signal.assigned_user_id else None,
-        "owner_user_id": str(signal.owner_user_id) if signal.owner_user_id else None,
-        "last_message_at": signal.last_message_at.isoformat() if signal.last_message_at else None,
-    }
+def _thread_row(signal: "Signal") -> dict[str, Any]:
+    """Canonical thread row — the same shape the REST list endpoint returns,
+    so clients can upsert it directly without a follow-up fetch.
+
+    `is_pinned` is per-user state and stays False here; the dashboard joins
+    pins client-side. Agent enrichment is skipped (would need a DB read);
+    clients keep the previous row's agent fields on upsert when absent.
+    """
+    from app.services.signal_threads import serialize_thread
+
+    return serialize_thread(signal)
 
 
 async def publish_message_delta(
@@ -100,25 +104,48 @@ async def publish_agent_thinking(
     )
 
 
-async def publish_signal_message(signal: "Signal", message: "SignalMessage") -> None:
-    """A message was appended to a thread (any channel, any author)."""
+async def publish_signal_message(
+    signal: "Signal",
+    message: "SignalMessage",
+    *,
+    decision: "DecisionRequest | None" = None,
+) -> None:
+    """A message was appended to a thread (any channel, any author).
+
+    Two envelopes so the operator firehose stays light while open threads
+    get everything they need to append without a refetch:
+
+    - ``threads`` topic (operator-only): full thread row + message preview.
+    - ``signal:{id}`` topic: full serialized message (html, attachments,
+      decision options). Internal notes / system events are operator-only.
+    """
+    from app.services.signal_threads import serialize_message
+
+    thread_row = _thread_row(signal)
+    preview = {
+        "id": str(message.id),
+        "signal_id": str(signal.id),
+        "kind": message.kind,
+        "direction": message.direction,
+        "role": message.role,
+        "body_preview": message.body_preview or (message.body_text or "")[:200],
+        "decision_id": str(message.decision_id) if message.decision_id else None,
+        "created_at": message.created_at.isoformat(),
+    }
     await _safe_publish(
         signal.tenant_id,
-        ["threads", f"signal:{signal.id}"],
+        ["threads"],
+        "message",
+        {"audience": "operator", "thread": thread_row, "message": preview},
+    )
+    await _safe_publish(
+        signal.tenant_id,
+        [f"signal:{signal.id}"],
         "message",
         {
-            "thread": _thread_summary(signal),
-            "message": {
-                "id": str(message.id),
-                "signal_id": str(signal.id),
-                "kind": message.kind,
-                "direction": message.direction,
-                "role": message.role,
-                "body_text": message.body_text,
-                "body_preview": message.body_preview,
-                "decision_id": str(message.decision_id) if message.decision_id else None,
-                "created_at": message.created_at.isoformat(),
-            },
+            "audience": "operator" if message.kind in _OPERATOR_ONLY_KINDS else "all",
+            "thread": thread_row,
+            "message": serialize_message(message, decision=decision),
         },
     )
     from app.services.push import schedule_notify_thread_message
@@ -127,13 +154,31 @@ async def publish_signal_message(signal: "Signal", message: "SignalMessage") -> 
 
 
 async def publish_thread_update(signal: "Signal") -> None:
-    """Thread metadata changed (status, assignment, triage, read state)."""
+    """Thread metadata changed (status, assignment, triage, read state).
+
+    Operator-only: the widget render pipeline only consumes ``message``
+    events, and the full row carries internal state (tags, assignee,
+    ai_paused) that visitors must not receive. Widget conversations get a
+    separate minimal ``conversation`` event (status only) so the visitor UI
+    can react to close/reopen, e.g. by showing the CSAT prompt.
+    """
     await _safe_publish(
         signal.tenant_id,
         ["threads", f"signal:{signal.id}"],
         "thread",
-        {"thread": _thread_summary(signal)},
+        {"audience": "operator", "thread": _thread_row(signal)},
     )
+    if signal.channel == "widget":
+        await _safe_publish(
+            signal.tenant_id,
+            [f"signal:{signal.id}"],
+            "conversation",
+            {
+                "audience": "all",
+                "signal_id": str(signal.id),
+                "status": signal.status,
+            },
+        )
 
 
 async def publish_run_event(
@@ -189,8 +234,10 @@ async def publish_decision(
     )
     if status == "awaiting_human":
         from app.services.push import schedule_notify_decision
+        from app.services.slack_notify import schedule_notify_decision_slack
 
         schedule_notify_decision(decision_id, signal_id=signal_id)
+        schedule_notify_decision_slack(decision_id, signal_id=signal_id)
 
 
 async def publish_notification(tenant_id: Any, *, notification_id: Any, kind: str, title: str) -> None:

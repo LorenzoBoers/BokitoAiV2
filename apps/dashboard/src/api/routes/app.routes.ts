@@ -7,6 +7,7 @@ import { withQuery } from '../url'
 export const appRoutes = {
   onboarding: {
     status: '/onboarding',
+    demoThread: '/onboarding/demo-thread',
   },
   workspaces: {
     list: '/workspaces',
@@ -16,10 +17,13 @@ export const appRoutes = {
       `/workspaces/${id}/members/${memberId}`,
     invites: (id: number | string) => `/workspaces/${id}/invites`,
     invite: (id: number | string, inviteId: string) => `/workspaces/${id}/invites/${inviteId}`,
+    inviteResend: (id: number | string, inviteId: string) =>
+      `/workspaces/${id}/invites/${inviteId}/resend`,
   },
   workspaceInvites: {
     create: '/workspace-invites',
   },
+  mailStatus: '/mail-status',
   customTables: {
     list: '/custom-tables',
     byId: (id: number) => `/custom-tables/${id}`,
@@ -65,6 +69,7 @@ export const appRoutes = {
     threadMarkUnread: (threadId: string) => `/signals/${threadId}/mark-unread`,
     threadPin: (threadId: string) => `/signals/${threadId}/pin`,
     threadReply: (threadId: string) => `/signals/${threadId}/reply`,
+    messageCancel: (messageId: string) => `/signals/messages/${messageId}/cancel`,
     threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadTakeover: (threadId: string) => `/signals/${threadId}/takeover`,
@@ -82,6 +87,8 @@ export const appRoutes = {
     bulk: '/signals/bulk',
     savedReplies: '/signals/saved-replies',
     savedReply: (replyId: string) => `/signals/saved-replies/${replyId}`,
+    rules: '/signals/rules',
+    rule: (ruleId: string) => `/signals/rules/${ruleId}`,
     note: (threadId: string, messageId: string) => `/signals/${threadId}/notes/${messageId}`,
     messageFeedback: (messageId: string) => `/messages/${messageId}/feedback`,
   },
@@ -124,6 +131,12 @@ export const appRoutes = {
     byId: (id: string) => `/channels/contacts/${id}`,
     threads: (id: string) => `/channels/contacts/${id}/threads`,
   },
+  companies: {
+    list: '/channels/companies',
+    listQuery: (params: URLSearchParams) => withQuery('/channels/companies', params),
+    byId: (id: string) => `/channels/companies/${id}`,
+    backfill: '/channels/companies/backfill',
+  },
   agenda: {
     occurrencesQuery: (params: URLSearchParams) => withQuery('/agenda', params),
   },
@@ -131,5 +144,10 @@ export const appRoutes = {
     list: '/notifications',
     markRead: (id: string) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
+  },
+  push: {
+    subscribe: '/push/subscribe',
+    unsubscribe: '/push/unsubscribe',
+    vapidPublicKey: '/push/vapid-public-key',
   },
 } as const

@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, Bot, Clock, Flag, Hand, ListPlus, Mail, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Tag, Trash2, UserPlus, X } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, ListPlus, Mail, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, UserPlus, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -100,8 +100,11 @@ type Props = {
     format?: 'email' | 'plain',
     attachments?: MessageAttachment[],
     snoozeMinutes?: number,
+    extras?: { cc?: string; bcc?: string },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
+  /** Forward this email thread as a new outbound email (opens compose). */
+  onForward?: () => void
   /** Edit an internal note in place. */
   onUpdateNote?: (messageId: string, bodyText: string) => Promise<void>
   /** Delete an internal note from the timeline. */
@@ -114,6 +117,8 @@ type Props = {
   onToggleTakeover?: () => void | Promise<void>
   onDelete?: () => void | Promise<void>
   deleting?: boolean
+  /** Mobile stacked navigation: return to the thread list (hidden on md+). */
+  onBack?: () => void
   onToggleContact?: () => void
   contactOpen?: boolean
   onDecisionResolved?: () => void
@@ -469,7 +474,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
   const { t } = useTranslation('communication')
   const { token, user } = useAuth()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
@@ -848,6 +853,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       action: 'send' | 'send_and_close' | 'send_and_pending',
       attachments?: MessageAttachment[],
       snoozeMinutes?: number,
+      extras?: { cc?: string; bcc?: string },
     ) => {
       const pendingDecisionId = composerDraft?.decisionMessageId
       if (pendingDecisionId && token && detail) {
@@ -873,7 +879,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         return
       }
       const format = composerSurface?.includeSignature ? 'email' : 'plain'
-      await onReply(bodyText, action, format, attachments, snoozeMinutes)
+      await onReply(bodyText, action, format, attachments, snoozeMinutes, extras)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
     [
@@ -953,8 +959,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }
 
   if (!detail) {
+    // On small screens the list already fills the viewport when nothing is
+    // selected, so the placeholder pane only exists from md up.
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className={`${threadId == null ? 'hidden md:flex' : 'flex'} flex-1 items-center justify-center`}>
         <p className="text-sm text-text-muted">Select a thread to view.</p>
       </div>
     )
@@ -967,6 +975,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     <TooltipProvider delayDuration={150}>
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-bg-surface/90 shrink-0 min-h-10">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to conversations"
+            className="md:hidden -ml-1 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+          >
+            <ArrowLeft size={16} />
+          </button>
+        ) : null}
         <div className="min-w-0 flex-1 leading-tight">
           <h2 className="text-[13px] font-medium text-text-heading truncate">{thread.emailSubject}</h2>
           <p className="text-[11px] text-text-muted truncate">
@@ -975,6 +993,24 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               : thread.contactEmail || thread.contactName}
           </p>
         </div>
+        {detail.csat ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="flex items-center gap-1 shrink-0 rounded-full border border-border/50 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary"
+                aria-label={`Customer rating ${detail.csat.score} of 5`}
+              >
+                <Star size={11} className="text-amber-500 fill-amber-500" />
+                {detail.csat.score}/5
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-64">
+              {detail.csat.comment
+                ? `Customer rating - "${detail.csat.comment}"`
+                : 'Customer rating'}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
         <div
           className="flex items-center shrink-0 rounded-lg border border-border/50 bg-bg-surface-hover/30 p-0.5"
           role="toolbar"
@@ -1044,6 +1080,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : null}
+          {onForward ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  disabled={saving || loading}
+                  onClick={onForward}
+                  aria-label="Forward as new email"
+                  className={HEADER_ICON}
+                >
+                  <Forward size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Forward as new email</TooltipContent>
+            </Tooltip>
           ) : null}
           {!isInternalThread(thread) ? (
             <Tooltip>

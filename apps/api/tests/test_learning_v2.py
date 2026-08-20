@@ -1,0 +1,242 @@
+"""Learning loop v2: default-on, guardrail proposals, persona review, digest stats."""
+
+import json
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+
+from app.models.auth import Tenant, User
+from app.models.learning import EvalScore, Feedback
+from app.models.platform_change import PlatformChange
+from app.services.learning import (
+    apply_heuristic_guardrails,
+    propose_persona_review,
+    run_tenant_learning_cycle,
+)
+
+
+async def _tenant(session) -> Tenant:
+    return (await session.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+
+def _set_settings(tenant: Tenant, **overrides) -> None:
+    settings = json.loads(tenant.settings_json or "{}")
+    settings.update(overrides)
+    tenant.settings_json = json.dumps(settings)
+
+
+def _escalation_score(tenant_id, value: float) -> EvalScore:
+    return EvalScore(
+        tenant_id=tenant_id,
+        scope="tenant",
+        scope_id=str(tenant_id),
+        metric="escalation_rate",
+        value=value,
+        sample_size=10,
+    )
+
+
+# ── default-on ────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_learning_cycle_runs_by_default(client: AsyncClient, session_override):
+    tenant = await _tenant(session_override)
+    settings = json.loads(tenant.settings_json or "{}")
+    assert "learning_enabled" not in settings
+
+    result = await run_tenant_learning_cycle(session_override, tenant.id)
+    assert not result.get("skipped")
+    assert "eval_count" in result
+
+
+@pytest.mark.asyncio
+async def test_learning_cycle_respects_explicit_opt_out(client: AsyncClient, session_override):
+    tenant = await _tenant(session_override)
+    _set_settings(tenant, learning_enabled=False)
+    session_override.add(tenant)
+    await session_override.commit()
+
+    result = await run_tenant_learning_cycle(session_override, tenant.id)
+    assert result == {"skipped": True, "reason": "learning_disabled"}
+
+
+# ── guardrails: tighten automatic, ease via proposal ─────────────
+
+
+@pytest.mark.asyncio
+async def test_guardrails_tighten_applies_and_audits(client: AsyncClient, session_override):
+    tenant = await _tenant(session_override)
+    _set_settings(tenant, autonomy_posture="autonomous")
+    session_override.add(tenant)
+    session_override.add(_escalation_score(tenant.id, 55.0))
+    await session_override.commit()
+
+    result = await apply_heuristic_guardrails(session_override, tenant.id)
+    assert result["posture"] == "assisted"
+
+    await session_override.refresh(tenant)
+    assert json.loads(tenant.settings_json)["autonomy_posture"] == "assisted"
+
+    from app.models.audit import AuditEvent
+
+    audits = (
+        await session_override.execute(
+            select(AuditEvent).where(AuditEvent.action == "learning:posture_tightened")
+        )
+    ).scalars().all()
+    assert len(audits) == 1
+    assert audits[0].actor_type == "system"
+
+
+@pytest.mark.asyncio
+async def test_guardrails_ease_creates_proposal_not_silent_change(
+    client: AsyncClient, session_override
+):
+    tenant = await _tenant(session_override)
+    _set_settings(tenant, autonomy_posture="manual")
+    session_override.add(tenant)
+    session_override.add(_escalation_score(tenant.id, 2.0))
+    await session_override.commit()
+
+    result = await apply_heuristic_guardrails(session_override, tenant.id)
+    assert result.get("posture_proposal") == "assisted"
+    # Posture itself is untouched.
+    await session_override.refresh(tenant)
+    assert json.loads(tenant.settings_json)["autonomy_posture"] == "manual"
+
+    proposals = (
+        await session_override.execute(
+            select(PlatformChange).where(PlatformChange.resource_type == "autonomy_posture")
+        )
+    ).scalars().all()
+    assert len(proposals) == 1
+    assert proposals[0].status == "pending_review"
+    assert proposals[0].proposed_by_type == "system"
+
+    # Second run does not duplicate the open proposal.
+    session_override.add(_escalation_score(tenant.id, 3.0))
+    await session_override.commit()
+    await apply_heuristic_guardrails(session_override, tenant.id)
+    proposals = (
+        await session_override.execute(
+            select(PlatformChange).where(PlatformChange.resource_type == "autonomy_posture")
+        )
+    ).scalars().all()
+    assert len(proposals) == 1
+
+
+@pytest.mark.asyncio
+async def test_accepting_posture_proposal_applies_posture(client: AsyncClient, session_override):
+    from app.services.platform_changes import accept_platform_change
+
+    tenant = await _tenant(session_override)
+    _set_settings(tenant, autonomy_posture="manual")
+    session_override.add(tenant)
+    session_override.add(_escalation_score(tenant.id, 1.0))
+    await session_override.commit()
+
+    await apply_heuristic_guardrails(session_override, tenant.id)
+    proposal = (
+        await session_override.execute(
+            select(PlatformChange).where(PlatformChange.resource_type == "autonomy_posture")
+        )
+    ).scalar_one()
+
+    user = (await session_override.execute(select(User))).scalars().first()
+    change = await accept_platform_change(session_override, tenant.id, proposal.id, user.id)
+    assert change.status == "accepted"
+
+    await session_override.refresh(tenant)
+    assert json.loads(tenant.settings_json)["autonomy_posture"] == "assisted"
+
+
+# ── persona review proposal ───────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_persona_review_needs_three_negatives(client: AsyncClient, session_override):
+    tenant = await _tenant(session_override)
+    for _ in range(2):
+        session_override.add(
+            Feedback(tenant_id=tenant.id, subject_type="message", sentiment="down")
+        )
+    await session_override.commit()
+
+    assert await propose_persona_review(session_override, tenant.id) is False
+
+    session_override.add(
+        Feedback(
+            tenant_id=tenant.id,
+            subject_type="message",
+            sentiment="down",
+            comment="Tone was too formal",
+        )
+    )
+    await session_override.commit()
+
+    assert await propose_persona_review(session_override, tenant.id) is True
+    proposal = (
+        await session_override.execute(
+            select(PlatformChange).where(PlatformChange.resource_type == "persona_review")
+        )
+    ).scalar_one()
+    assert proposal.status == "pending_review"
+    payload = json.loads(proposal.after_json)
+    assert payload["negative_count"] == 3
+    assert any("Tone was too formal" in s["comment"] for s in payload["samples"])
+
+    # Dedup: no second proposal while one is open.
+    assert await propose_persona_review(session_override, tenant.id) is False
+
+
+# ── digest learning stats ─────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_digest_includes_learning_stats(client: AsyncClient, session_override):
+    from app.models.learning import InboxRule
+    from app.services.digest_mail import build_tenant_digest, digest_paragraphs
+
+    tenant = await _tenant(session_override)
+    session_override.add(
+        InboxRule(
+            tenant_id=tenant.id,
+            match_type="sender",
+            match_value="noreply@shop.nl",
+            action="auto_close",
+            status="active",
+        )
+    )
+    session_override.add(
+        InboxRule(
+            tenant_id=tenant.id,
+            match_type="domain",
+            match_value="news.io",
+            action="auto_close",
+            status="suggested",
+        )
+    )
+    session_override.add(
+        PlatformChange(
+            tenant_id=tenant.id,
+            resource_type="persona_review",
+            change_kind="review",
+            status="pending_review",
+            proposed_by_type="system",
+            summary="Review persona",
+        )
+    )
+    await session_override.commit()
+
+    digest = await build_tenant_digest(session_override, tenant.id, period="weekly")
+    assert digest["rules_active"] == 1
+    assert digest["rules_suggested"] == 1
+    assert digest["learning_proposals"] == 1
+
+    lines = digest_paragraphs(digest, tenant.name)
+    learning_line = next(line for line in lines if line.startswith("Learning:"))
+    assert "1 automation rule(s) active" in learning_line
+    assert "1 rule suggestion(s) to review" in learning_line
+    assert "1 learning proposal(s) waiting in Govern" in learning_line

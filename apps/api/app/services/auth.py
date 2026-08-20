@@ -4,7 +4,7 @@ from uuid import UUID
 
 from jose import jwt
 from passlib.context import CryptContext
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -52,6 +52,58 @@ def create_access_token(
 
 def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+
+
+def create_totp_challenge_token(user_id: UUID) -> str:
+    """Short-lived token bridging password login and the TOTP code step.
+
+    It proves the password was already verified but grants no API access."""
+    payload = {
+        "sub": str(user_id),
+        "exp": datetime.utcnow() + timedelta(minutes=5),
+        "type": "totp_challenge",
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_totp_challenge_token(token: str) -> UUID | None:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except Exception:
+        return None
+    if payload.get("type") != "totp_challenge":
+        return None
+    try:
+        return UUID(payload["sub"])
+    except (KeyError, ValueError):
+        return None
+
+
+def create_workspace_setup_token(user_id: UUID) -> str:
+    """Post-login token for accounts without any workspace membership.
+
+    The account itself stays valid when an admin removes its last membership
+    (ClickUp-style); this token only grants the workspace-setup endpoints
+    (accept a pending invite / create a new workspace), no other API access."""
+    payload = {
+        "sub": str(user_id),
+        "exp": datetime.utcnow() + timedelta(minutes=30),
+        "type": "workspace_setup",
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_workspace_setup_token(token: str) -> UUID | None:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except Exception:
+        return None
+    if payload.get("type") != "workspace_setup":
+        return None
+    try:
+        return UUID(payload["sub"])
+    except (KeyError, ValueError):
+        return None
 
 
 async def authenticate_user(session: AsyncSession, email: str, password: str) -> User | None:
@@ -153,6 +205,27 @@ async def verify_refresh_token(session: AsyncSession, raw_token: str) -> User | 
         return None
     user_result = await session.execute(select(User).where(User.id == db_session.user_id))
     return user_result.scalar_one_or_none()
+
+
+async def revoke_refresh_session(session: AsyncSession, raw_token: str) -> None:
+    """Server-side logout: delete the Session row for this refresh token."""
+    await session.execute(
+        delete(Session).where(Session.refresh_token_hash == _refresh_token_digest(raw_token))
+    )
+    await session.commit()
+
+
+async def revoke_user_sessions(
+    session: AsyncSession, user_id: UUID, *, commit: bool = True
+) -> None:
+    """Revoke every refresh session for a user.
+
+    Used on password change/reset and when a member loses their last
+    membership, so stolen or stale refresh cookies stop working.
+    """
+    await session.execute(delete(Session).where(Session.user_id == user_id))
+    if commit:
+        await session.commit()
 
 
 async def create_invite_token() -> str:

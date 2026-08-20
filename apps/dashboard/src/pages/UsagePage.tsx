@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { OctagonAlert, RefreshCw } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import CockpitTabs from '../components/shell/CockpitTabs'
 import { useAuth } from '../context/AuthContext'
 import {
+  bokitoGetBudget,
   bokitoGetCockpitSummary,
   bokitoGetUsageBreakdown,
+  bokitoPatchBudget,
   type CockpitSummary,
+  type SpendBudget,
+  type SpendPeriodStatus,
   type UsageBreakdown,
 } from '../lib/bokito-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -23,21 +27,63 @@ function formatUsd(micros: number) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(micros / 1_000_000)
 }
 
+function BudgetBar({
+  label,
+  period,
+  format,
+}: {
+  label: string
+  period: SpendPeriodStatus
+  format: (value: number) => string
+}) {
+  const pct = period.cap ? Math.min(100, Math.round(period.ratio * 100)) : 0
+  const barColor = period.exceeded
+    ? 'bg-status-error'
+    : period.ratio >= 0.8
+      ? 'bg-amber-500'
+      : 'bg-accent'
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between text-[12px]">
+        <span className="font-medium text-text-primary">{label}</span>
+        <span className="text-text-muted">
+          {format(period.used)}
+          {period.cap ? ` of ${format(period.cap)}` : ' (no cap)'}
+        </span>
+      </div>
+      {period.cap ? (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-hover/70">
+          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export default function UsagePage() {
   const { token } = useAuth()
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [breakdown, setBreakdown] = useState<UsageBreakdown | null>(null)
+  const [budget, setBudget] = useState<SpendBudget | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [capDraft, setCapDraft] = useState<{ tokens: string; usd: string } | null>(null)
+  const [savingCaps, setSavingCaps] = useState(false)
+  const [capError, setCapError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     if (!token) return
     setLoading(true)
     setError(null)
-    Promise.all([bokitoGetCockpitSummary(token), bokitoGetUsageBreakdown(token, 30)])
-      .then(([s, b]) => {
+    Promise.all([
+      bokitoGetCockpitSummary(token),
+      bokitoGetUsageBreakdown(token, 30),
+      bokitoGetBudget(token),
+    ])
+      .then(([s, b, bud]) => {
         setSummary(s)
         setBreakdown(b)
+        setBudget(bud)
       })
       .catch((err) => setError(formatApiErrorMessage(err, 'Could not load usage.')))
       .finally(() => setLoading(false))
@@ -46,6 +92,40 @@ export default function UsagePage() {
   useEffect(() => {
     load()
   }, [load])
+
+  const startEditCaps = useCallback(() => {
+    if (!budget) return
+    setCapError(null)
+    setCapDraft({
+      tokens: budget.config.daily_token_cap ? String(budget.config.daily_token_cap) : '',
+      usd: budget.config.monthly_customer_micros_cap
+        ? String(budget.config.monthly_customer_micros_cap / 1_000_000)
+        : '',
+    })
+  }, [budget])
+
+  const saveCaps = useCallback(() => {
+    if (!token || !capDraft) return
+    setSavingCaps(true)
+    setCapError(null)
+    const tokensCap = capDraft.tokens.trim() ? Number(capDraft.tokens) : null
+    const usdCap = capDraft.usd.trim() ? Number(capDraft.usd) : null
+    if ((tokensCap !== null && !Number.isFinite(tokensCap)) || (usdCap !== null && !Number.isFinite(usdCap))) {
+      setCapError('Caps must be numbers (leave empty for no cap).')
+      setSavingCaps(false)
+      return
+    }
+    bokitoPatchBudget(token, {
+      daily_token_cap: tokensCap ? Math.round(tokensCap) : null,
+      monthly_customer_micros_cap: usdCap ? Math.round(usdCap * 1_000_000) : null,
+    })
+      .then((next) => {
+        setBudget(next)
+        setCapDraft(null)
+      })
+      .catch((err) => setCapError(formatApiErrorMessage(err, 'Could not save budget caps.')))
+      .finally(() => setSavingCaps(false))
+  }, [token, capDraft])
 
   const stats = summary
     ? [
@@ -81,6 +161,90 @@ export default function UsagePage() {
       <CockpitTabs />
 
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
+
+      {budget?.status.blocked ? (
+        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-status-error/40 bg-status-error/10 px-4 py-3 text-[12.5px] text-text-primary">
+          <OctagonAlert size={15} className="shrink-0 text-status-error" />
+          <span>
+            The LLM budget is exhausted: AI calls on platform keys are paused until the cap is
+            raised or the period resets. Models on your own keys keep working.
+          </span>
+        </div>
+      ) : null}
+
+      {budget ? (
+        <div className="mb-5 rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-[13px] font-semibold text-text-heading">Budget (platform keys)</h3>
+            {capDraft ? null : (
+              <button
+                type="button"
+                onClick={startEditCaps}
+                className="rounded-md border border-border/70 px-2.5 py-1 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                Edit caps
+              </button>
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <BudgetBar
+              label="Tokens today"
+              period={budget.status.daily_tokens}
+              format={formatNumber}
+            />
+            <BudgetBar
+              label="Billable spend this month"
+              period={budget.status.monthly_customer_micros}
+              format={formatUsd}
+            />
+          </div>
+          {capDraft ? (
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/50 pt-3">
+              <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
+                Daily token cap
+                <input
+                  value={capDraft.tokens}
+                  onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
+                  placeholder="No cap"
+                  inputMode="numeric"
+                  className="w-36 rounded-md border border-border/70 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
+                Monthly spend cap (USD)
+                <input
+                  value={capDraft.usd}
+                  onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
+                  placeholder="No cap"
+                  inputMode="decimal"
+                  className="w-36 rounded-md border border-border/70 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={saveCaps}
+                  disabled={savingCaps}
+                  className="rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-[11.5px] font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+                >
+                  {savingCaps ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCapDraft(null)}
+                  className="rounded-md px-2.5 py-1.5 text-[11.5px] font-medium text-text-muted transition-colors hover:text-text-primary"
+                >
+                  Cancel
+                </button>
+              </div>
+              {capError ? <p className="w-full text-[11.5px] text-status-error">{capError}</p> : null}
+            </div>
+          ) : null}
+          <p className="mt-3 text-[11.5px] text-text-muted">
+            Owners and admins get an alert at 80% and 100%. Leave a cap empty to remove it.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {stats.map((stat) => (
