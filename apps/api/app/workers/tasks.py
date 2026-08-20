@@ -171,6 +171,12 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             f"- {workspace_language_instruction(resolve_workspace_language(tenant))}\n"
         )
 
+        # Full message text: body_text can be a provider snippet for HTML-only
+        # mail; message_plain_text falls back to the HTML-derived text.
+        from app.services.signals import message_plain_text
+
+        msg_text = message_plain_text(msg)
+
         if ai_mode == "suggest":
             # Suggest-only: read-only research tools + inline decisions.
             # The final reply text becomes a DecisionRequest via
@@ -178,7 +184,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             loop.tools = [t for t in loop.tools if t["name"] in SUGGEST_MODE_TOOLS]
             prompt = (
                 f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
-                f"Subject: {signal.subject}\n\n{msg.body_text}\n\n"
+                f"Subject: {signal.subject}\n\n{msg_text}\n\n"
                 "You are preparing a response for a human teammate to review; "
                 "nothing you produce is sent automatically.\n"
                 "1. Research first: use search_index / read_doc for workspace knowledge, "
@@ -201,7 +207,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         else:
             prompt = (
                 f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
-                f"Subject: {signal.subject}\n\n{msg.body_text}\n\n"
+                f"Subject: {signal.subject}\n\n{msg_text}\n\n"
                 "Reply directly to the customer; your final message is delivered as-is. "
                 "Use tools for operational actions, or create_decision_request "
                 "with multiple choice options when human input is required. "

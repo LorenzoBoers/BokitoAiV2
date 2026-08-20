@@ -27,6 +27,8 @@ export type ChatDecisionOption = {
   id: string
   label?: string
   action_type?: string
+  /** Integration provider slug on `setup_integration` options (brand logo + deep-link). */
+  provider?: string | null
 }
 
 export type ChatDecision = {

@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { BellOff, Sparkles, Zap } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
+import { resolveProviderBrand } from '../../lib/integration-brand'
 import {
   patchThread,
   resolveThreadDecision,
@@ -73,6 +76,20 @@ function extractOptions(message: InboxMessage): DecisionOption[] {
     .filter((o): o is DecisionOption => o !== null)
 }
 
+/**
+ * Integration suggestions (`suggest_integration` tool) carry the provider slug
+ * in the connect option payload; surfacing the brand logo makes the card
+ * instantly recognizable.
+ */
+function integrationProviderFromOptions(options: DecisionOption[]): string | null {
+  for (const option of options) {
+    if (option.action_type !== 'setup_integration') continue
+    const provider = option.payload?.provider
+    if (typeof provider === 'string' && provider.trim()) return provider.trim()
+  }
+  return null
+}
+
 function draftBodyFromOptions(options: DecisionOption[], fallback: string): string {
   const send = options.find((o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email')
   const payload = send?.payload
@@ -129,6 +146,7 @@ export default function DecisionRequestMessage({
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
+  const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [textOptionId, setTextOptionId] = useState<string | null>(null)
@@ -137,6 +155,11 @@ export default function DecisionRequestMessage({
   const [ruleBusy, setRuleBusy] = useState(false)
   const resolved = isDecisionResolved(message, events)
   const options = useMemo(() => extractOptions(message), [message])
+  const integrationProvider = useMemo(() => integrationProviderFromOptions(options), [options])
+  const integrationBrand = useMemo(
+    () => (integrationProvider ? resolveProviderBrand(integrationProvider) : null),
+    [integrationProvider],
+  )
   const summary =
     message.bodyText?.trim() ||
     message.bodyPreview ||
@@ -225,6 +248,13 @@ export default function DecisionRequestMessage({
       setTextOptionId((current) => (current === option.id ? null : option.id))
       return
     }
+    if (option.action_type === 'setup_integration') {
+      const provider =
+        typeof option.payload?.provider === 'string' ? option.payload.provider.trim() : ''
+      await resolve('approve', option.id)
+      if (provider) navigate(`/settings/marketplace?connect=${encodeURIComponent(provider)}`)
+      return
+    }
     if (option.action_type === 'close_thread') {
       await resolve('approve', option.id, undefined, t('decisionCard.toastClosed'))
       return
@@ -306,7 +336,21 @@ export default function DecisionRequestMessage({
         ) : (
           <>
             {message.subject ? (
-              <h3 className="text-sm font-medium text-text-heading">{message.subject}</h3>
+              <h3 className="flex items-center gap-2 text-sm font-medium text-text-heading">
+                {integrationBrand ? (
+                  <IntegrationHostLogo
+                    logoUrl={integrationBrand.logoUrl}
+                    logoDarkUrl={integrationBrand.logoDarkUrl}
+                    initials={integrationBrand.initials}
+                    color={integrationBrand.color}
+                    name={integrationBrand.name}
+                    hostSlug={integrationBrand.hostSlug}
+                    size="sm"
+                    className="rounded-md"
+                  />
+                ) : null}
+                {message.subject}
+              </h3>
             ) : null}
             <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
               <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>

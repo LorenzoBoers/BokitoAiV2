@@ -338,6 +338,11 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
 
 
 async def _suggest_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.integrations_catalog import PROVIDER_BY_SLUG
+
+    provider = str(tool_input["provider"])
+    catalog = PROVIDER_BY_SLUG.get(provider)
+    display_name = catalog["name"] if catalog else provider.replace("_", " ").title()
     options = [
         {"id": "connect", "label": "Connect now", "action_type": "setup_integration", "payload": tool_input},
         {"id": "later", "label": "Later", "action_type": "defer"},
@@ -345,7 +350,7 @@ async def _suggest_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     return await _create_decision_request(
         ctx,
         {
-            "title": f"Connect {tool_input['provider']}?",
+            "title": f"Connect {display_name}?",
             "summary": tool_input.get("reason", ""),
             "signal_id": tool_input.get("signal_id"),
             "options": options,

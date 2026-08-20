@@ -260,8 +260,16 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
     if "<" in from_raw and ">" in from_raw:
         name = from_raw.split("<")[0].strip().strip('"')
         address = from_raw.split("<")[1].split(">")[0].strip()
-    body_text = _extract_gmail_body(payload) or msg.get("snippet", "")
     body_html = _extract_gmail_html(payload)
+    # Fallback order matters: HTML-only mail (most support desks) has no
+    # text/plain part, and Gmail's `snippet` is ~200 chars — agents reading a
+    # snippet think the email was cut off mid-sentence. Convert the HTML body
+    # to text before ever falling back to the snippet.
+    body_text = (
+        _extract_gmail_body(payload)
+        or html_to_text(body_html)
+        or msg.get("snippet", "")
+    )
     attachments = _extract_gmail_attachments(payload)
     received_at: datetime | None = None
     try:

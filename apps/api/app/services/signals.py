@@ -174,7 +174,29 @@ def serialize_signal(row: Signal) -> dict[str, Any]:
     }
 
 
+def message_plain_text(row: SignalMessage) -> str:
+    """Best-available plain text of a message for LLM/agent consumption.
+
+    HTML-only email parsed before the HTML-to-text fallback existed (or via a
+    provider snippet) can carry a ``body_text`` of ~200 chars while the real
+    content lives in ``body_html`` — agents reading it conclude the email was
+    cut off mid-sentence. Prefer the HTML-derived text when it is clearly
+    fuller than the stored plain text.
+    """
+    text = (row.body_text or "").strip()
+    html = (row.body_html or "").strip()
+    if not html:
+        return text
+    from app.services.email_sync import html_to_text
+
+    html_text = html_to_text(html)
+    if len(html_text) > len(text) + 120:
+        return html_text
+    return text or html_text
+
+
 def serialize_message(row: SignalMessage) -> dict[str, Any]:
+    body_text = message_plain_text(row)
     return {
         "id": str(row.id),
         "signal_id": str(row.signal_id),
@@ -182,8 +204,8 @@ def serialize_message(row: SignalMessage) -> dict[str, Any]:
         "role": row.role,
         "from_address": row.from_address,
         "subject": row.subject,
-        "body_text": row.body_text,
-        "body_preview": row.body_preview or row.body_text[:200],
+        "body_text": body_text,
+        "body_preview": row.body_preview or body_text[:200],
         "kind": row.kind,
         "decision_id": str(row.decision_id) if row.decision_id else None,
         "send_status": row.send_status,

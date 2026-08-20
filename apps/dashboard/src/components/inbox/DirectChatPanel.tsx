@@ -16,6 +16,8 @@ import {
   type ChatMessage,
 } from '../../lib/bokito-api'
 import { UserAvatar } from '../ui/UserAvatar'
+import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
+import { resolveProviderBrand } from '../../lib/integration-brand'
 import ChatMarkdown from './ChatMarkdown'
 import ThinkingTrace from './ThinkingTrace'
 import ReasoningDisclosure from './ReasoningDisclosure'
@@ -170,6 +172,7 @@ function ChatDecisionCard({
   onResolved: () => void
 }) {
   const { token } = useAuth()
+  const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -181,6 +184,9 @@ function ChatDecisionCard({
     ? options.find((o) => o.id === decision.chosen_option_id)?.label ?? decision.chosen_option_id
     : null
   const bodyText = decision?.summary || fallbackText
+  const integrationProvider =
+    options.find((o) => o.action_type === 'setup_integration')?.provider?.trim() || null
+  const integrationBrand = integrationProvider ? resolveProviderBrand(integrationProvider) : null
 
   const act = async (option: ChatDecisionOption) => {
     if (!token || busy || resolved) return
@@ -191,6 +197,9 @@ function ChatDecisionCard({
         optionId: option.id,
       })
       onResolved()
+      if (option.action_type === 'setup_integration' && option.provider) {
+        navigate(`/settings/marketplace?connect=${encodeURIComponent(option.provider)}`)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not resolve decision.')
     } finally {
@@ -219,7 +228,21 @@ function ChatDecisionCard({
         ) : null}
       </div>
       {decision?.title ? (
-        <p className="mt-1 text-[13px] font-medium text-text-primary">{decision.title}</p>
+        <p className="mt-1 flex items-center gap-2 text-[13px] font-medium text-text-primary">
+          {integrationBrand ? (
+            <IntegrationHostLogo
+              logoUrl={integrationBrand.logoUrl}
+              logoDarkUrl={integrationBrand.logoDarkUrl}
+              initials={integrationBrand.initials}
+              color={integrationBrand.color}
+              name={integrationBrand.name}
+              hostSlug={integrationBrand.hostSlug}
+              size="sm"
+              className="rounded-md"
+            />
+          ) : null}
+          {decision.title}
+        </p>
       ) : null}
       {bodyText && bodyText !== decision?.title ? (
         <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text-secondary">

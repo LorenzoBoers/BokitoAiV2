@@ -30,6 +30,13 @@ def serialize_decision_for_chat(decision: Any) -> dict[str, Any]:
                 "id": o.get("id"),
                 "label": o.get("label"),
                 "action_type": o.get("action_type"),
+                # Provider slug lets chat clients show the integration's brand
+                # logo on connect suggestions and deep-link into setup.
+                "provider": (
+                    (o.get("payload") or {}).get("provider")
+                    if isinstance(o.get("payload"), dict)
+                    else None
+                ),
             }
             for o in options
             if isinstance(o, dict)
@@ -222,8 +229,11 @@ async def context_thread_transcript(
         f"contact: {signal.contact_name or signal.contact_email or 'unknown'} | "
         f"status: {signal.status}"
     )
+    from app.services.signals import message_plain_text
+
     for m in result.scalars().all():
-        if m.kind == "system_event" or not m.body_text:
+        body = message_plain_text(m)
+        if m.kind == "system_event" or not body:
             continue
         if m.kind == "internal_note":
             speaker = "Internal note"
@@ -233,7 +243,7 @@ async def context_thread_transcript(
             speaker = "AI agent"
         else:
             speaker = "Team"
-        lines.append(f"{speaker}: {m.body_text.strip()}")
+        lines.append(f"{speaker}: {body}")
     transcript = "\n".join(lines)
     if len(transcript) > max_chars:
         transcript = "...\n" + transcript[-max_chars:]
@@ -247,14 +257,17 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
         .where(SignalMessage.signal_id == signal_id)
         .order_by(SignalMessage.created_at)
     )
+    from app.services.signals import message_plain_text
+
     history: list[dict[str, Any]] = []
     for m in result.scalars().all():
         if m.kind in ("system_event", "internal_note"):
             continue
         role = m.role if m.role in ("user", "assistant") else "user"
-        if not m.body_text:
+        body = message_plain_text(m)
+        if not body:
             continue
-        history.append({"role": role, "content": m.body_text})
+        history.append({"role": role, "content": body})
 
     signal = await session.get(Signal, signal_id)
     if signal is None:
