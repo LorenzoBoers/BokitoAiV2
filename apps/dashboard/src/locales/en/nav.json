@@ -493,7 +493,7 @@
       "marketplace": "Marketplace",
       "sources": "Sources",
       "connections": "Connected",
-      "mcp": "MCP",
+      "mcp": "Connected tools",
       "docs": "Documentation",
       "api": "API keys"
     },
@@ -503,14 +503,14 @@
     "kind": {
       "inbox": "Communication",
       "repository": "Repository",
-      "mcp": "MCP"
+      "mcp": "Connected tools"
     },
     "actions": {
       "setupConnection": "Connect",
       "viewInfo": "About this integration",
-      "setupInMcp": "Set up in MCP",
+      "setupInMcp": "Set up in Connected tools",
       "manage": "Manage",
-      "manageInMcp": "Manage in MCP",
+      "manageInMcp": "Manage in Connected tools",
       "viewInConnected": "View in Connected",
       "addAccount": "Add account",
       "comingSoon": "Coming soon",
@@ -523,7 +523,7 @@
       "all": "All integrations",
       "inbox": "Communication",
       "repository": "Repository",
-      "mcp": "MCP",
+      "mcp": "Connected tools",
       "connected": "Connected",
       "available": "Available",
       "statusAll": "All statuses"
@@ -547,8 +547,8 @@
       "capability": {
         "inbox_sync": "Inbox sync",
         "repo_index": "Repository indexing",
-        "mcp_tools": "MCP tools for agents",
-        "remote_mcp": "Remote MCP (OAuth)"
+        "mcp_tools": "Tools for agents (MCP)",
+        "remote_mcp": "Remote tools (OAuth)"
       },
       "setup": {
         "title": "Set up {{name}}",
@@ -597,10 +597,10 @@
       "emptyInbox": "No mailboxes connected yet.",
       "browseInbox": "Browse Communication in Marketplace",
       "browseRepository": "Connect GitHub in Marketplace",
-      "browseMcp": "Browse MCP in Marketplace",
+      "browseMcp": "Browse tools in Marketplace",
       "openProjects": "Open AI OS",
-      "manageMcp": "Manage MCP",
-      "mcpHint": "External MCP servers installed for this workspace.",
+      "manageMcp": "Manage connected tools",
+      "mcpHint": "External tool servers (MCP) installed for this workspace.",
       "viewAll": "View connected integrations"
     },
     "pageMeta": {
@@ -617,8 +617,8 @@
         "description": "Overview of active connections for this workspace."
       },
       "mcp": {
-        "title": "MCP servers",
-        "description": "Configure external MCP servers and connect Bokito MCP to AI clients."
+        "title": "Connected tools",
+        "description": "Connect external tool servers (MCP) that your agents can call."
       },
       "docs": {
         "title": "Integrations documentation",
@@ -669,18 +669,18 @@
         "bokito": "Bokito client"
       },
       "servers": {
-        "title": "MCP connections",
-        "description": "Install and manage MCP servers that Bokito agents can call in this workspace.",
+        "title": "Connected tools",
+        "description": "Give your agents extra capabilities by connecting external tool servers (MCP).",
         "docsLink": "Read integrations documentation",
-        "addTitle": "Add MCP server",
-        "newConnection": "New MCP connection",
-        "modalDescription": "Connect an external MCP server that Bokito agents can use in this workspace.",
+        "addTitle": "Add tool server",
+        "newConnection": "Connect a tool",
+        "modalDescription": "Connect an external tool server (MCP) that your agents can use in this workspace.",
         "dialogBjornTitle": "Connect Bjorn Lunden MCP",
         "dialogBjornDescription": "Enter your Bjorn Lunden User-Key to install this MCP provider for your organization.",
         "cancel": "Cancel",
         "saving": "Saving...",
         "listTitle": "Configured connections",
-        "empty": "No MCP connections configured yet.",
+        "empty": "No tools connected yet.",
         "colProvider": "Provider",
         "colName": "Name",
         "colEndpoint": "Endpoint",

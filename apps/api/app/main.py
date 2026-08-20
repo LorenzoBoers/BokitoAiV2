@@ -33,6 +33,7 @@ from app.routers import (
     integrations,
     mcp,
     me,
+    metrics,
     models,
     notifications,
     projects,
@@ -179,6 +180,7 @@ app.include_router(mcp.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)
+app.include_router(metrics.router, prefix=api_prefix)
 app.include_router(models.router, prefix=api_prefix)
 app.include_router(models.staff_router, prefix=api_prefix)
 app.include_router(webhooks.router, prefix=api_prefix)

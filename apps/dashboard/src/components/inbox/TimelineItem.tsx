@@ -1,8 +1,9 @@
-import { Check, Mail, Pencil, Phone, Sparkles, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Sparkles, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { cn } from '../../lib/utils'
 import { submitMessageFeedback } from '../../lib/signals-api'
+import { useCorrectionChat } from '../../lib/correction-chat'
 import { getDomainFaviconUrl } from '../../lib/domain-favicon'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -650,16 +651,28 @@ function EmailMessageBlock({
 
 // Thumbs up/down on agent replies. Votes feed the learning loop
 // (`POST /api/messages/{id}/feedback`) and drive the Usage "Avg feedback" metric.
+// The correct-interpretation action opens a chat with the responsible agent,
+// grounded in this thread, so the operator can explain what should have
+// happened and the agent can capture the learning.
 function MessageFeedbackControls({
   messageId,
   initial,
+  threadId,
+  agentId,
+  agentName,
+  summary,
 }: {
   messageId: string
   initial?: InboxMessage['myFeedback']
+  threadId?: string
+  agentId?: string | null
+  agentName?: string | null
+  summary?: string
 }) {
   const { token } = useAuth()
   const [sentiment, setSentiment] = useState<'up' | 'down' | null>(initial?.sentiment ?? null)
   const [busy, setBusy] = useState(false)
+  const { startCorrection, starting } = useCorrectionChat()
 
   const vote = useCallback(
     async (value: 'up' | 'down') => {
@@ -684,6 +697,8 @@ function MessageFeedbackControls({
       'flex h-5 w-5 items-center justify-center rounded transition-colors',
       active ? 'text-accent bg-accent/10' : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
     )
+
+  const correctLabel = `Correct ${agentName || 'the agent'}'s interpretation`
 
   return (
     <div className="flex items-center gap-0.5">
@@ -713,6 +728,32 @@ function MessageFeedbackControls({
         </TooltipTrigger>
         <TooltipContent side="bottom">Poor response</TooltipContent>
       </Tooltip>
+      {threadId ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={correctLabel}
+              disabled={starting}
+              className="ml-0.5 flex h-5 items-center gap-1 rounded px-1 text-[10px] text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
+              onClick={() =>
+                void startCorrection({
+                  threadId,
+                  agentId,
+                  agentName,
+                  subjectType: 'message',
+                  subjectId: messageId,
+                  summary,
+                })
+              }
+            >
+              {starting ? <Loader2 size={11} className="animate-spin" /> : <MessageSquareWarning size={11} />}
+              Correct
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{correctLabel}</TooltipContent>
+        </Tooltip>
+      ) : null}
     </div>
   )
 }
@@ -959,7 +1000,14 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
 
   const feedbackRow =
     isAgentMessage && typeof message.id === 'string' ? (
-      <MessageFeedbackControls messageId={message.id} initial={message.myFeedback} />
+      <MessageFeedbackControls
+        messageId={message.id}
+        initial={message.myFeedback}
+        threadId={String(message.threadId)}
+        agentId={typeof message.payload?.agent_id === 'string' ? message.payload.agent_id : null}
+        agentName={agentName}
+        summary={message.bodyText || message.bodyPreview || ''}
+      />
     ) : null
 
   // Email threads: inbound external mail keeps the full-width card (HTML

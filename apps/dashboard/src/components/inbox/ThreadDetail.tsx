@@ -1315,6 +1315,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                         message={item.entry.data}
                         threadId={thread.id}
                         events={detail.events}
+                        agentName={thread.agentName}
                         onResolved={onDecisionResolved}
                         onEditDraft={(draft) => {
                           setComposerDraft({

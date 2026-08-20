@@ -96,6 +96,9 @@ export const appRoutes = {
     create: '/uploads',
     file: (tenantId: string, filename: string) => `/uploads/files/${tenantId}/${filename}`,
   },
+  learning: {
+    feedback: '/learning/feedback',
+  },
   orchestration: {
     settings: '/orchestration/settings',
     runtimeProfiles: '/orchestration/runtime-profiles',

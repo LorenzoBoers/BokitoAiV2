@@ -17,6 +17,7 @@ import {
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
+import CustomMetricsSection from '../components/cockpit/CustomMetricsSection'
 import { OnboardingCompactCard } from '../components/onboarding/OnboardingChecklist'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
@@ -276,6 +277,9 @@ export default function CockpitPage() {
           to="/cockpit/usage"
         />
       </div>
+
+      {/* Tenant-defined KPIs, fillable by users and agents */}
+      <CustomMetricsSection />
 
       {/* Attention + event log */}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">

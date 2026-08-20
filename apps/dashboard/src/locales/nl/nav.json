@@ -514,7 +514,7 @@
       "marketplace": "Marketplace",
       "sources": "Bronnen",
       "connections": "Verbonden",
-      "mcp": "MCP",
+      "mcp": "Gekoppelde tools",
       "docs": "Documentatie",
       "api": "API-sleutels"
     },
@@ -524,14 +524,14 @@
     "kind": {
       "inbox": "Communication",
       "repository": "Repository",
-      "mcp": "MCP"
+      "mcp": "Gekoppelde tools"
     },
     "actions": {
       "setupConnection": "Koppelen",
       "viewInfo": "Informatie over deze integratie",
-      "setupInMcp": "Instellen in MCP",
+      "setupInMcp": "Instellen bij Gekoppelde tools",
       "manage": "Beheren",
-      "manageInMcp": "Beheren in MCP",
+      "manageInMcp": "Beheren bij Gekoppelde tools",
       "viewInConnected": "Bekijk bij Verbonden",
       "addAccount": "Account toevoegen",
       "comingSoon": "Binnenkort",
@@ -544,7 +544,7 @@
       "all": "Alle integraties",
       "inbox": "Communication",
       "repository": "Repository",
-      "mcp": "MCP",
+      "mcp": "Gekoppelde tools",
       "connected": "Verbonden",
       "available": "Beschikbaar",
       "statusAll": "Alle statussen"
@@ -568,8 +568,8 @@
       "capability": {
         "inbox_sync": "Inbox-synchronisatie",
         "repo_index": "Repository-indexering",
-        "mcp_tools": "MCP-tools voor agents",
-        "remote_mcp": "Remote MCP (OAuth)"
+        "mcp_tools": "Tools voor agents (MCP)",
+        "remote_mcp": "Remote tools (OAuth)"
       },
       "setup": {
         "title": "{{name}} instellen",
@@ -618,10 +618,10 @@
       "emptyInbox": "Nog geen mailboxen gekoppeld.",
       "browseInbox": "Communication bekijken in Marketplace",
       "browseRepository": "GitHub koppelen in Marketplace",
-      "browseMcp": "MCP bekijken in Marketplace",
+      "browseMcp": "Tools bekijken in Marketplace",
       "openProjects": "Projecten openen",
-      "manageMcp": "MCP beheren",
-      "mcpHint": "Externe MCP-servers voor deze workspace.",
+      "manageMcp": "Gekoppelde tools beheren",
+      "mcpHint": "Externe toolservers (MCP) voor deze workspace.",
       "viewAll": "Bekijk verbonden integraties"
     },
     "pageMeta": {
@@ -638,8 +638,8 @@
         "description": "Overzicht van actieve koppelingen voor deze workspace."
       },
       "mcp": {
-        "title": "MCP-servers",
-        "description": "Configureer externe MCP-servers en koppel Bokito MCP aan AI-clients."
+        "title": "Gekoppelde tools",
+        "description": "Koppel externe toolservers (MCP) die je agents kunnen aanroepen."
       },
       "docs": {
         "title": "Integratiedocumentatie",
@@ -690,18 +690,18 @@
         "bokito": "Bokito-client"
       },
       "servers": {
-        "title": "MCP-verbindingen",
-        "description": "Installeer en beheer MCP-servers die Bokito-agents in deze workspace kunnen aanroepen.",
+        "title": "Gekoppelde tools",
+        "description": "Geef je agents extra mogelijkheden door externe toolservers (MCP) te koppelen.",
         "docsLink": "Lees integratiedocumentatie",
-        "addTitle": "MCP-server toevoegen",
-        "newConnection": "Nieuwe MCP-verbinding",
-        "modalDescription": "Koppel een externe MCP-server die Bokito-agents in deze workspace kunnen gebruiken.",
+        "addTitle": "Toolserver toevoegen",
+        "newConnection": "Tool koppelen",
+        "modalDescription": "Koppel een externe toolserver (MCP) die je agents in deze workspace kunnen gebruiken.",
         "dialogBjornTitle": "Bjorn Lunden MCP koppelen",
         "dialogBjornDescription": "Voer je Bjorn Lunden User-Key in om deze MCP-provider voor je organisatie te installeren.",
         "cancel": "Annuleren",
         "saving": "Opslaan...",
         "listTitle": "Geconfigureerde verbindingen",
-        "empty": "Nog geen MCP-verbindingen geconfigureerd.",
+        "empty": "Nog geen tools gekoppeld.",
         "colProvider": "Provider",
         "colName": "Naam",
         "colEndpoint": "Endpoint",

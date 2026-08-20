@@ -36,10 +36,10 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     label: 'Integrations',
     links: [
+      { label: 'Setup', to: '/settings/setup' },
       { label: 'Connected', to: '/settings/integrations' },
-      { label: 'Setup guide', to: '/integrations/setup' },
       { label: 'Marketplace', to: '/settings/marketplace' },
-      { label: 'MCP', to: '/settings/mcp' },
+      { label: 'Connected tools', to: '/settings/mcp' },
       { label: 'Developers', to: '/settings/developers' },
     ],
   },

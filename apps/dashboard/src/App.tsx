@@ -56,7 +56,7 @@ const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected'))
 const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
 const IntegrationsMcp = lazy(() => import('./pages/IntegrationsMcp'))
-const IntegrationSetupPage = lazy(() => import('./pages/IntegrationSetupPage'))
+const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
 
 // Control plane hub
@@ -282,7 +282,7 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
-          <Route path="/integrations/setup" element={<IntegrationSetupPage />} />
+          <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />
           <Route path="/triggers" element={<Navigate to="/agenda" replace />} />
 
           {/* Agent */}
@@ -295,6 +295,7 @@ export default function App() {
           {/* Settings */}
           <Route element={<SettingsLayout />}>
             <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
+            <Route path="/settings/setup" element={<SetupHubPage />} />
             <Route path="/settings/profile" element={<ProfileSettings />} />
             <Route path="/settings/assistant" element={<MyAssistantSettings />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />

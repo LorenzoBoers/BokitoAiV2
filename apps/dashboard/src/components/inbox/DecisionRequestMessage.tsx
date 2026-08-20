@@ -2,10 +2,13 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { BellOff, Sparkles, Zap } from 'lucide-react'
+import { BellOff, Loader2, MessageSquareWarning, Sparkles, ThumbsDown, ThumbsUp, Zap } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
+import { useCorrectionChat } from '../../lib/correction-chat'
+import { apiPost } from '../../lib/api'
+import { appRoutes } from '../../api/routes'
 import {
   patchThread,
   resolveThreadDecision,
@@ -33,6 +36,8 @@ type Props = {
   events: InboxEvent[]
   onResolved?: () => void
   onEditDraft?: (draft: { body: string; subject?: string; decisionMessageId: string }) => void
+  /** Name of the agent bound to this thread, used for the correction action. */
+  agentName?: string | null
 }
 
 function isDecisionResolved(message: InboxMessage, events: InboxEvent[]): boolean {
@@ -143,11 +148,32 @@ export default function DecisionRequestMessage({
   events,
   onResolved,
   onEditDraft,
+  agentName,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
+  const [sentiment, setSentiment] = useState<'up' | 'down' | null>(null)
+  const { startCorrection, starting: correctionStarting } = useCorrectionChat()
+
+  const decisionSubjectId = message.decisionId ? String(message.decisionId) : String(message.id)
+
+  async function voteOnDecision(value: 'up' | 'down') {
+    if (sentiment === value) return
+    const previous = sentiment
+    setSentiment(value)
+    try {
+      await apiPost(appRoutes.learning.feedback, {
+        subject_type: 'decision',
+        subject_id: decisionSubjectId,
+        sentiment: value,
+      })
+    } catch {
+      setSentiment(previous)
+      toast.error(t('decisionCard.feedbackError', 'Could not save feedback.'))
+    }
+  }
   const [error, setError] = useState<string | null>(null)
   const [textOptionId, setTextOptionId] = useState<string | null>(null)
   const [responseText, setResponseText] = useState('')
@@ -502,6 +528,62 @@ export default function DecisionRequestMessage({
           </div>
         ) : null}
         {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
+        {/* Learning loop: thumbs feed decision feedback; the correct action
+            opens a grounded chat with the responsible agent. */}
+        <div className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2">
+          <button
+            type="button"
+            aria-label={t('decisionCard.feedbackGood', 'Good interpretation')}
+            className={cn(
+              'flex h-5 w-5 items-center justify-center rounded transition-colors',
+              sentiment === 'up'
+                ? 'text-accent bg-accent/10'
+                : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
+            )}
+            onClick={() => void voteOnDecision('up')}
+          >
+            <ThumbsUp size={11} />
+          </button>
+          <button
+            type="button"
+            aria-label={t('decisionCard.feedbackPoor', 'Poor interpretation')}
+            className={cn(
+              'flex h-5 w-5 items-center justify-center rounded transition-colors',
+              sentiment === 'down'
+                ? 'text-accent bg-accent/10'
+                : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
+            )}
+            onClick={() => void voteOnDecision('down')}
+          >
+            <ThumbsDown size={11} />
+          </button>
+          <button
+            type="button"
+            disabled={correctionStarting}
+            className="ml-1 flex h-5 items-center gap-1 rounded px-1 text-[10.5px] text-text-muted/70 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
+            onClick={() =>
+              void startCorrection({
+                threadId: String(threadId),
+                agentId:
+                  typeof message.payload?.agent_id === 'string' ? message.payload.agent_id : null,
+                agentName,
+                subjectType: 'decision',
+                subjectId: decisionSubjectId,
+                summary: draftBody || summary,
+              })
+            }
+          >
+            {correctionStarting ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <MessageSquareWarning size={11} />
+            )}
+            {t('decisionCard.correctInterpretation', {
+              agent: agentName || 'AI',
+              defaultValue: `Correct ${agentName || 'AI'}'s interpretation`,
+            })}
+          </button>
+        </div>
       </div>
     </div>
   )

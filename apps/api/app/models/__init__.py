@@ -8,6 +8,7 @@ from app.models.email_routing import EmailRoutingRule
 from app.models.inbox import InboxSettings
 from app.models.workspace import DocChunk, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
+from app.models.metric import CustomMetric, CustomMetricPoint
 from app.models.outcome import OperationalOutcome
 from app.models.platform_change import PlatformChange
 from app.models.signal import SavedReply, Signal, SignalEvent, SignalMessage, SignalThreadPin
@@ -103,6 +104,8 @@ __all__ = [
     "Feedback",
     "EvalScore",
     "InboxRule",
+    "CustomMetric",
+    "CustomMetricPoint",
     "OperationalOutcome",
     "PlatformChange",
     "RuntimeProfile",
