@@ -236,7 +236,7 @@ export default function ModelsSettings() {
   return (
     <PageContent width="lg" className="space-y-7 py-1">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-bg-surface text-accent">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-bg-surface text-accent shadow-card">
           <Cpu size={18} />
         </span>
         <div>
@@ -272,14 +272,14 @@ export default function ModelsSettings() {
         </div>
 
         {showAddProvider ? (
-          <div className="space-y-3 rounded-lg border border-border/55 bg-bg-surface/60 p-4">
+          <div className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1.5">
                 <Label>Provider type</Label>
                 <select
                   value={newProviderType}
                   onChange={(e) => setNewProviderType(e.target.value as ProviderType)}
-                  className="w-full rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px]"
+                  className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
                 >
                   {PROVIDER_TYPE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -331,7 +331,7 @@ export default function ModelsSettings() {
             {connections.map((conn) => (
               <div
                 key={conn.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3.5 py-2.5"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated px-3.5 py-2.5"
               >
                 <div>
                   <p className="text-[13px] font-medium text-text-heading">
@@ -393,7 +393,7 @@ export default function ModelsSettings() {
 
       {/* Custom model for compatible providers */}
       {connections.some((c) => c.provider_type === 'openai_compatible') ? (
-        <section className="space-y-3 rounded-lg border border-border/55 bg-bg-surface/40 p-4">
+        <section className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated p-4">
           <h3 className="text-[13px] font-semibold text-text-heading">Add custom model</h3>
           <p className="text-[11.5px] text-text-muted">
             For OpenAI-compatible providers, enter the model ID your endpoint expects.
@@ -402,7 +402,7 @@ export default function ModelsSettings() {
             <select
               value={customModelConn}
               onChange={(e) => setCustomModelConn(e.target.value)}
-              className="rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px]"
+              className="rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
             >
               <option value="">Select provider</option>
               {connections
@@ -449,7 +449,7 @@ export default function ModelsSettings() {
                     const model = chatModels.find((m) => m.slug === e.target.value)
                     if (model) void handleSetDefault(model, 'is_default_chat')
                   }}
-                  className="w-full rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px]"
+                  className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
                 >
                   <option value="">None</option>
                   {chatModels.filter((m) => m.enabled).map((m) => (
@@ -467,7 +467,7 @@ export default function ModelsSettings() {
                     const model = embeddingModels.find((m) => m.slug === e.target.value)
                     if (model) void handleSetDefault(model, 'is_default_embedding')
                   }}
-                  className="w-full rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px]"
+                  className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
                 >
                   <option value="">None</option>
                   {embeddingModels.filter((m) => m.enabled).map((m) => (
@@ -491,7 +491,7 @@ export default function ModelsSettings() {
                 {tenantModels.map((m) => (
                   <div
                     key={m.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3.5 py-2.5"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated px-3.5 py-2.5"
                   >
                     <div>
                       <p className="text-[13px] font-medium text-text-heading">{m.display_name}</p>
@@ -640,7 +640,7 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
         {models.map((m) => (
           <div
             key={m.slug}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/70 px-3.5 py-2.5"
+            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated px-3.5 py-2.5"
           >
             <div>
               <p className="text-[13px] font-medium text-text-heading">
@@ -679,7 +679,7 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
                 value={keyDrafts[provider]}
                 onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [provider]: e.target.value }))}
                 placeholder={ps?.is_set ? `Set ····${ps.last4} — replace` : 'Enter platform key'}
-                className="min-w-[240px] flex-1 rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px]"
+                className="min-w-[240px] flex-1 rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
               />
               <button
                 type="button"
@@ -694,7 +694,7 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
                   type="button"
                   onClick={() => void removeKey(provider)}
                   disabled={busy}
-                  className="rounded-lg border border-border/70 px-3 py-2 text-[12.5px] text-text-secondary"
+                  className="rounded-lg border border-border/60 px-3 py-2 text-[12.5px] text-text-secondary"
                 >
                   Remove
                 </button>
@@ -713,7 +713,7 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
             min="1"
             value={markupDraft}
             onChange={(e) => setMarkupDraft(e.target.value)}
-            className="w-32 rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px]"
+            className="w-32 rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
           />
         </label>
         <button

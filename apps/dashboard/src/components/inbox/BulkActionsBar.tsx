@@ -23,7 +23,7 @@ const BUTTON =
 export default function BulkActionsBar({ count, busy, onAction, onClear }: Props) {
   const { members } = useMembers()
   return (
-    <div className="flex items-center gap-1 border-b border-border/50 bg-accent/5 px-2 py-1.5">
+    <div className="flex items-center gap-1 border-b border-border/60 bg-accent/5 px-2 py-1.5">
       <span className="mr-1 text-[11px] font-medium text-text-heading">{count} selected</span>
       <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('read')}>
         <Check size={11} />

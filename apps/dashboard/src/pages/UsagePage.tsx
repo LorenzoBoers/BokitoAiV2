@@ -150,7 +150,7 @@ export default function UsagePage() {
           <button
             type="button"
             onClick={load}
-            className="flex items-center gap-1.5 rounded-lg border border-border/70 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+            className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
           >
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
             Refresh
@@ -173,14 +173,14 @@ export default function UsagePage() {
       ) : null}
 
       {budget ? (
-        <div className="mb-5 rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <div className="mb-5 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-[13px] font-semibold text-text-heading">Budget (platform keys)</h3>
             {capDraft ? null : (
               <button
                 type="button"
                 onClick={startEditCaps}
-                className="rounded-md border border-border/70 px-2.5 py-1 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 Edit caps
               </button>
@@ -199,7 +199,7 @@ export default function UsagePage() {
             />
           </div>
           {capDraft ? (
-            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/50 pt-3">
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
               <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
                 Daily token cap
                 <input
@@ -207,7 +207,7 @@ export default function UsagePage() {
                   onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
                   placeholder="No cap"
                   inputMode="numeric"
-                  className="w-36 rounded-md border border-border/70 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
                 />
               </label>
               <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
@@ -217,7 +217,7 @@ export default function UsagePage() {
                   onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
                   placeholder="No cap"
                   inputMode="decimal"
-                  className="w-36 rounded-md border border-border/70 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
+                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
                 />
               </label>
               <div className="flex items-center gap-2">
@@ -248,7 +248,7 @@ export default function UsagePage() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {stats.map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-border/55 bg-bg-surface/85 px-4 py-3.5">
+          <div key={stat.label} className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 shadow-card">
             <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">{stat.label}</p>
             <p className="mt-2 text-[22px] font-semibold leading-none text-text-heading">{stat.value}</p>
           </div>
@@ -260,7 +260,7 @@ export default function UsagePage() {
 
       {breakdown ? (
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <div className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
             <div className="mb-3 flex items-baseline justify-between">
               <h3 className="text-[13px] font-semibold text-text-heading">By model ({breakdown.days}d)</h3>
               <span className="text-[11px] text-text-muted">
@@ -293,7 +293,7 @@ export default function UsagePage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
             <h3 className="mb-3 text-[13px] font-semibold text-text-heading">By agent ({breakdown.days}d)</h3>
             <div className="space-y-2">
               {breakdown.by_agent.length === 0 ? (

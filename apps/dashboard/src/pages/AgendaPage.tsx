@@ -69,7 +69,7 @@ function formatTime(d: Date): string {
 
 function statusStyle(status: string): string {
   const s = status.toLowerCase()
-  if (s === 'planned') return 'border-border/70 bg-bg-elevated text-text'
+  if (s === 'planned') return 'border-border/60 bg-bg-elevated text-text'
   if (s === 'running' || s === 'active') return 'border-accent/40 bg-accent/10 text-accent'
   if (s === 'failed' || s === 'error') return 'border-status-error/40 bg-status-error/10 text-status-error'
   return 'border-status-success/40 bg-status-success/10 text-status-success'
@@ -344,7 +344,7 @@ export default function AgendaPage() {
                 key={key}
                 className={cn(
                   'flex min-h-[10rem] flex-col gap-1.5 rounded-xl border p-2',
-                  isToday ? 'border-accent/50 bg-accent/[0.04]' : 'border-border/70 bg-bg-surface',
+                  isToday ? 'border-accent/50 bg-accent/[0.04]' : 'border-border/60 bg-bg-surface',
                 )}
               >
                 <button
@@ -376,7 +376,7 @@ export default function AgendaPage() {
           })}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/70 p-10 text-center">
+        <div className="rounded-xl border border-dashed border-border/60 p-10 text-center">
           <CalendarDays className="mx-auto h-8 w-8 text-text-muted/50" aria-hidden />
           <p className="mt-3 text-sm font-medium text-text-heading">Nothing scheduled</p>
           <p className="mt-1 text-sm text-text-muted">
@@ -409,7 +409,7 @@ export default function AgendaPage() {
                         disabled={!item.trigger_id}
                         onClick={item.trigger_id ? () => openEdit(item) : undefined}
                         className={cn(
-                          'flex w-full items-center gap-3 rounded-lg border border-border/70 bg-bg-surface px-3 py-2 text-left text-sm transition-colors',
+                          'flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-left text-sm transition-colors',
                           item.trigger_id ? 'hover:border-accent/60' : 'cursor-default',
                           !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
                         )}

@@ -4,15 +4,15 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default: 'border border-accent/40 bg-accent text-white shadow-[0_1px_0_rgba(255,255,255,0.06)_inset] hover:bg-accent-hover',
-        secondary: 'border border-border/80 bg-bg-elevated text-text-primary shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] hover:bg-bg-hover',
+        secondary: 'border border-border/60 bg-bg-elevated text-text-primary shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] hover:bg-bg-hover',
         ghost: 'text-text-secondary hover:bg-bg-hover/75 hover:text-text-primary',
-        subtle: 'border border-border/70 bg-bg-surface text-text-secondary hover:bg-bg-hover/70 hover:text-text-primary',
-        outline: 'border border-border/80 bg-transparent text-text-primary hover:bg-bg-hover/70',
+        subtle: 'border border-border/60 bg-bg-surface text-text-secondary hover:bg-bg-hover/70 hover:text-text-primary',
+        outline: 'border border-border/60 bg-transparent text-text-primary hover:bg-bg-hover/70',
         destructive: 'bg-status-error/12 text-status-error hover:bg-status-error/18',
       },
       size: {

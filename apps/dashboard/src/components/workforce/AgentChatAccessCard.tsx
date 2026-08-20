@@ -153,7 +153,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
               return (
                 <label
                   key={member.id}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border/50 bg-bg-elevated/40 px-3 py-2 transition-colors hover:bg-bg-hover/50"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2 transition-colors hover:bg-bg-hover/50"
                 >
                   <input
                     type="checkbox"

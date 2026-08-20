@@ -169,7 +169,7 @@ function AuthShell({
           <span className="text-sm text-text-secondary mt-1">{subtitle}</span>
         </div>
 
-        <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl">
+        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
           <h1 className="text-xl font-semibold text-text-heading mb-4 text-center">{title}</h1>
           {children}
         </div>

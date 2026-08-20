@@ -45,7 +45,7 @@ export function ProviderCard({
           onOpenDetail()
         }
       }}
-      className="flex flex-col rounded-xl border border-border/60 bg-bg-surface p-5 transition-shadow hover:shadow-sm hover:border-border cursor-pointer"
+      className="flex flex-col rounded-xl border border-border/60 bg-bg-surface p-5 shadow-card hover-lift hover:border-border cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -76,7 +76,7 @@ export function ProviderCard({
       </div>
 
       <div
-        className="mt-4 pt-4 border-t border-border/50 flex items-center justify-end gap-2 flex-wrap"
+        className="mt-4 pt-4 border-t border-border/60 flex items-center justify-end gap-2 flex-wrap"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >

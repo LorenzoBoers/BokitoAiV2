@@ -110,7 +110,7 @@ export default function ChannelBindingsPanel() {
               {bindings.map((row) => (
                 <li
                   key={row.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-elevated/40 px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2 text-sm"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium text-text-heading">
@@ -136,13 +136,13 @@ export default function ChannelBindingsPanel() {
             </ul>
           )}
 
-          <div className="space-y-2 border-t border-border/50 pt-4">
+          <div className="space-y-2 border-t border-border/60 pt-4">
             <Label className="text-xs">Add binding</Label>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
-                className="h-8 rounded-md border border-border/70 bg-bg-input/80 px-2 text-xs"
+                className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
               >
                 {CHANNELS.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -153,7 +153,7 @@ export default function ChannelBindingsPanel() {
               <select
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
-                className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/70 bg-bg-input/80 px-2 text-xs"
+                className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
               >
                 {agents.length === 0 ? (
                   <option value="">No agents</option>

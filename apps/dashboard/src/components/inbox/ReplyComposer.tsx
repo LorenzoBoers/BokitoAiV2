@@ -352,7 +352,7 @@ export default function ReplyComposer({
         ) : null}
 
         {!isNote && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
-          <div className="mb-1.5 rounded-lg border border-border/50 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
+          <div className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
             <div className="flex items-center gap-2">
               <span className="shrink-0 font-medium text-text-muted">{surface.recipientLabel}</span>
               <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
@@ -409,10 +409,10 @@ export default function ReplyComposer({
 
         {!isNote && replyBlocked ? null : (
         <div
-          className={`relative flex items-end gap-2 rounded-2xl border px-3 py-2 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.45)] transition-colors focus-within:border-accent/50 ${
+          className={`relative flex items-end gap-2 rounded-2xl border px-3 py-2 shadow-card transition-colors focus-within:border-accent/50 ${
             isNote
               ? 'border-yellow-300/50 bg-yellow-50/40 dark:border-yellow-700/40 dark:bg-yellow-900/10'
-              : 'border-border/70 bg-bg-surface'
+              : 'border-border/60 bg-bg-surface'
           }`}
         >
           {mentionOpen ? (

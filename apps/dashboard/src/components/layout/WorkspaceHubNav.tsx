@@ -36,7 +36,7 @@ export default function WorkspaceHubNav() {
         </NavLink>
       </nav>
 
-      <div className="mt-auto border-t border-border/55 pt-3">
+      <div className="mt-auto border-t border-border/60 pt-3">
         <NavLink to="/account" className={({ isActive }) => navItemClass(isActive)}>
           <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-bg-hover/70 text-[11px] font-semibold text-text-primary">
             {initials}

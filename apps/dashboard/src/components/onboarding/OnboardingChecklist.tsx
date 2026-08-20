@@ -184,8 +184,8 @@ export default function OnboardingChecklist({
               key={step.id}
               className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
                 step.done
-                  ? 'border-border/50 bg-bg-elevated/30 opacity-70'
-                  : 'border-border/70 bg-bg-elevated/50'
+                  ? 'border-border/60 bg-bg-elevated/30 opacity-70'
+                  : 'border-border/60 bg-bg-elevated/50'
               }`}
             >
               <div
@@ -222,7 +222,7 @@ export function OnboardingCompactCard() {
   const nextStep = status.steps.find((step) => !step.done)
 
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-xl border border-border/70 bg-bg-elevated/50 px-4 py-3">
+    <div className="mb-4 flex items-center gap-3 rounded-xl border border-border/60 bg-bg-elevated/50 px-4 py-3">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
         <ListChecks size={16} />
       </div>

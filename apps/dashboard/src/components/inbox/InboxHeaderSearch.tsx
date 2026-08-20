@@ -25,7 +25,7 @@ export default function InboxHeaderSearch() {
         placeholder={t('inboxSearchPlaceholder')}
         aria-label={t('inboxSearchPlaceholder')}
         className={cn(
-          'h-9 w-full rounded-full border border-border/60 bg-bg-surface/80 pl-9 pr-9 text-sm text-text-primary',
+          'h-9 w-full rounded-full border border-border/60 bg-bg-surface pl-9 pr-9 text-sm text-text-primary',
           'placeholder:text-text-muted/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
           'transition-[border-color,box-shadow,background-color] duration-150',
           'focus:outline-none focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',

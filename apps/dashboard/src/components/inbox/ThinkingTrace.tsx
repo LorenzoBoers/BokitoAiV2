@@ -8,6 +8,8 @@ import {
   stepLabel,
 } from '../../lib/agentSteps'
 import { cn } from '../../lib/utils'
+import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
+import ChatMarkdown from './ChatMarkdown'
 
 type Props = {
   steps: AgentStep[]
@@ -32,19 +34,20 @@ export default function ThinkingTrace({
   thinkingText = '',
 }: Props) {
   const [expanded, setExpanded] = useState(false)
+  const smoothStream = useSmoothStreamText(streamText, active)
 
   if (steps.length === 0 && !active && !streamText && !thinkingText) return null
 
   const headline = currentActivityHeadline(steps, active, { thinkingText, streamText })
   const canExpand = steps.length > 0 || Boolean(thinkingText.trim())
-  const trimmedStream = streamText.trim()
+  const trimmedStream = smoothStream.trim()
   const trimmedThinking = thinkingText.trim()
   const showLiveThinking = active && trimmedThinking && !trimmedStream
 
   return (
     <div
       className={cn(
-        'relative min-w-0 max-w-[82%] overflow-hidden rounded-2xl rounded-tl-md border border-border/55 bg-bg-surface/90',
+        'relative min-w-0 max-w-[82%] overflow-hidden rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface',
         active && 'ring-1 ring-accent/20',
       )}
     >
@@ -118,8 +121,9 @@ export default function ThinkingTrace({
       ) : null}
 
       {trimmedStream ? (
-        <div className="border-t border-border/40 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-text-primary whitespace-pre-wrap break-words">
-          {trimmedStream}
+        <div className="border-t border-border/40 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
+          <ChatMarkdown content={trimmedStream} />
+          {active ? <span aria-hidden className="stream-caret" /> : null}
         </div>
       ) : null}
     </div>

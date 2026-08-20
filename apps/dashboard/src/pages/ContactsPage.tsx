@@ -206,7 +206,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
               All contacts
@@ -216,7 +216,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
               >
                 <ShieldCheck size={12} />
                 Approve
@@ -227,7 +227,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('blocked')}
-                className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
               >
                 <ShieldBan size={12} />
                 Block
@@ -237,7 +237,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void removeContact()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
               Delete
@@ -247,7 +247,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <h2 className="text-[14px] font-semibold text-text-heading">Profile</h2>
             <span
@@ -306,7 +306,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <h2 className="text-[14px] font-semibold text-text-heading">Conversations</h2>
           <p className="text-[12px] text-text-muted">
             {threads.length === 1
@@ -323,7 +323,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 <Link
                   key={String(t.id)}
                   to={inboxPath('all', String(t.id))}
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <MessageSquare size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
@@ -454,7 +454,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
               All contacts
@@ -463,7 +463,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void remove()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
               Delete
@@ -473,7 +473,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <h2 className="text-[14px] font-semibold text-text-heading">Company</h2>
           <div className="mt-3 space-y-3">
             {field('Name', 'name', 'Company name')}
@@ -515,7 +515,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 <Link
                   key={c.id}
                   to={`/contacts/${c.id}`}
-                  className="flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <UserRound size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
@@ -530,7 +530,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <h2 className="text-[14px] font-semibold text-text-heading">Conversations</h2>
           <p className="text-[12px] text-text-muted">Recent threads across this company's contacts</p>
           <div className="mt-3 space-y-1.5">
@@ -543,7 +543,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 <Link
                   key={String(t.id)}
                   to={inboxPath('all', String(t.id))}
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <MessageSquare size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
@@ -694,7 +694,7 @@ export default function ContactsPage() {
             <button
               type="button"
               onClick={() => void load()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               Refresh
@@ -704,7 +704,7 @@ export default function ContactsPage() {
                 type="button"
                 disabled={backfilling}
                 onClick={() => void handleBackfill()}
-                className="flex items-center gap-1.5 rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
               >
                 {backfilling ? <Loader2 size={12} className="animate-spin" /> : <Building2 size={12} />}
                 Link contacts
@@ -723,7 +723,7 @@ export default function ContactsPage() {
         }
       />
 
-      <div className="mb-3 flex items-center gap-2 rounded-lg border border-border/70 bg-bg-surface px-3 py-2 focus-within:border-accent/50">
+      <div className="mb-3 flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 focus-within:border-accent/50">
         <Search size={14} className="shrink-0 text-text-muted" />
         <input
           value={search}
@@ -773,7 +773,7 @@ export default function ContactsPage() {
       </div>
 
       {createOpen ? (
-        <div className="mb-4 rounded-xl border border-border/60 bg-bg-surface/90 p-4">
+        <div className="mb-4 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-[14px] font-semibold text-text-heading">New contact</h2>
             <button
@@ -851,10 +851,10 @@ export default function ContactsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border/55 bg-bg-surface/85">
+          <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-card">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-border/50 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                   <th className="px-4 py-2.5">Company</th>
                   <th className="hidden px-4 py-2.5 sm:table-cell">Domain</th>
                   <th className="hidden px-4 py-2.5 md:table-cell">Website</th>
@@ -866,7 +866,7 @@ export default function ContactsPage() {
                   <tr
                     key={company.id}
                     onClick={() => navigate(`/contacts/companies/${company.id}`)}
-                    className="cursor-pointer border-b border-border/35 transition-colors last:border-b-0 hover:bg-bg-hover/45"
+                    className="cursor-pointer border-b border-border/40 transition-colors last:border-b-0 hover:bg-bg-hover/45"
                   >
                     <td className="px-4 py-2.5">
                       <span className="flex items-center gap-2.5">
@@ -906,10 +906,10 @@ export default function ContactsPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border/55 bg-bg-surface/85">
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-card">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-border/50 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+              <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                 <th className="px-4 py-2.5">Name</th>
                 <th className="hidden px-4 py-2.5 sm:table-cell">Channel</th>
                 <th className="hidden px-4 py-2.5 md:table-cell">Company</th>
@@ -923,7 +923,7 @@ export default function ContactsPage() {
                 <tr
                   key={contact.id}
                   onClick={() => navigate(`/contacts/${contact.id}`)}
-                  className="cursor-pointer border-b border-border/35 transition-colors last:border-b-0 hover:bg-bg-hover/45"
+                  className="cursor-pointer border-b border-border/40 transition-colors last:border-b-0 hover:bg-bg-hover/45"
                 >
                   <td className="px-4 py-2.5">
                     <span className="flex items-center gap-2.5">

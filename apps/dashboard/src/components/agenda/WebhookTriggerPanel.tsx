@@ -91,7 +91,7 @@ export function WebhookTriggerPanel({
   }
 
   return (
-    <div className={`rounded-lg border border-border/70 bg-bg-surface/60 ${compact ? 'p-3' : 'p-4'} space-y-3`}>
+    <div className={`rounded-lg border border-border/60 bg-bg-elevated ${compact ? 'p-3' : 'p-4'} space-y-3`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-text-heading">External webhook</p>

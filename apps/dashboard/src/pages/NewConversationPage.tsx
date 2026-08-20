@@ -137,7 +137,7 @@ export default function NewConversationPage() {
         <div className="mx-auto w-full max-w-[680px] px-4 pt-10">
           {/* To: picker */}
           <div ref={pickerRef} className="relative">
-            <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-bg-surface px-3 py-2">
+            <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
               <span className="text-[12px] font-medium text-text-muted">To:</span>
               {pickerOpen ? (
                 <input
@@ -189,7 +189,7 @@ export default function NewConversationPage() {
             </div>
 
             {pickerOpen ? (
-              <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/70 bg-bg-surface shadow-xl">
+              <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
                 <div className="max-h-[300px] overflow-y-auto p-1">
                   {filteredTargets.length === 0 ? (
                     <p className="px-3 py-2.5 text-[12px] text-text-muted">No matches.</p>
@@ -224,7 +224,7 @@ export default function NewConversationPage() {
             <button
               type="button"
               onClick={() => openPicker('company')}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-surface/70 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-elevated px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
             >
               <Sparkles size={11} />
               Message an agent
@@ -234,7 +234,7 @@ export default function NewConversationPage() {
           {/* Composer */}
           <div className="mt-6">
             {error ? <p className="mb-2 px-1 text-[12px] text-status-error">{error}</p> : null}
-            <div className="flex items-end gap-2 rounded-2xl border border-border/70 bg-bg-surface px-3 py-2 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.45)] focus-within:border-accent/50">
+            <div className="flex items-end gap-2 rounded-2xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card focus-within:border-accent/50">
               <textarea
                 ref={composerRef}
                 value={draft}

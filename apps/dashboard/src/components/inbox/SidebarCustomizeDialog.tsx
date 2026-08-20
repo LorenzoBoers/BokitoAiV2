@@ -194,7 +194,7 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
           <button
             type="button"
             onClick={resetPrefs}
-            className="rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+            className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
           >
             {t('support.customize.reset', { defaultValue: 'Reset to defaults' })}
           </button>

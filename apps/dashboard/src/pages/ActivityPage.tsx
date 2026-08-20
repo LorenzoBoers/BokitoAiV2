@@ -216,7 +216,7 @@ export default function ActivityPage() {
             <button
               type="button"
               onClick={() => void load()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               Refresh
@@ -251,7 +251,7 @@ export default function ActivityPage() {
 
       {/* Filter bar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="flex items-center rounded-lg border border-border/70 p-0.5">
+        <div className="flex items-center rounded-lg border border-border/60 p-0.5">
           {(
             [
               ['all', 'All'],
@@ -277,7 +277,7 @@ export default function ActivityPage() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter events..."
-          className="h-8 w-full max-w-[280px] rounded-lg border border-border/70 bg-bg-input px-3 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+          className="h-8 w-full max-w-[280px] rounded-lg border border-border/60 bg-bg-input px-3 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
         <button
           type="button"
@@ -285,7 +285,7 @@ export default function ActivityPage() {
           className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
             autoFollow
               ? 'border-accent/45 bg-accent/10 text-accent'
-              : 'border-border/70 text-text-secondary hover:bg-bg-hover/60'
+              : 'border-border/60 text-text-secondary hover:bg-bg-hover/60'
           }`}
         >
           {autoFollow ? <Pause size={12} /> : <Play size={12} />}
@@ -294,7 +294,7 @@ export default function ActivityPage() {
         <button
           type="button"
           onClick={() => setEntries([])}
-          className="flex items-center gap-1.5 rounded-lg border border-border/70 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+          className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
         >
           <Trash2 size={12} />
           Clear
@@ -305,7 +305,7 @@ export default function ActivityPage() {
       {/* Event list */}
       <div
         ref={listRef}
-        className="h-[calc(100vh-300px)] min-h-[280px] overflow-y-auto rounded-xl border border-border/55 bg-bg-surface/70"
+        className="h-[calc(100vh-300px)] min-h-[280px] overflow-y-auto rounded-xl border border-border/60 bg-bg-elevated"
       >
         {visible.length === 0 ? (
           <p className="px-4 py-10 text-center text-[12.5px] text-text-muted">

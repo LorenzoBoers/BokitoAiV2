@@ -112,7 +112,7 @@ export default function Signup() {
           <span className="text-sm text-text-secondary mt-1">Create your workspace</span>
         </div>
 
-        <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl">
+        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-1.5">

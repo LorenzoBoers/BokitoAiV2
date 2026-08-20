@@ -569,7 +569,7 @@ function EventPill({ event, memberName }: { event: InboxEvent; memberName?: stri
 type BubbleVariant = 'external' | 'team' | 'agent' | 'self' | 'note'
 
 const BUBBLE_VARIANT_CLASSES: Record<BubbleVariant, string> = {
-  external: 'bg-bg-surface border-border/50',
+  external: 'bg-bg-surface border-border/60',
   team: 'bg-bg-elevated/80 border-border/60',
   agent: 'bg-accent/[0.07] border-accent/25',
   self: 'bg-accent/15 border-accent/30',
@@ -584,7 +584,7 @@ function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
         'shrink-0 rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide leading-3',
         kind === 'ai'
           ? 'border-accent/25 bg-accent/10 text-accent'
-          : 'border-border/50 bg-bg-elevated text-text-muted',
+          : 'border-border/60 bg-bg-elevated text-text-muted',
       )}
     >
       {kind === 'ai' ? 'AI' : 'Team'}
@@ -640,7 +640,7 @@ function EmailMessageBlock({
   return (
     <div className="flex w-full items-start gap-2">
       {avatar}
-      <div className="w-full min-w-0 rounded-lg border px-3 py-2 bg-bg-surface border-border/50">
+      <div className="w-full min-w-0 rounded-lg border px-3 py-2 bg-bg-surface border-border/60">
         {header}
         {body}
       </div>
@@ -682,7 +682,7 @@ function MessageFeedbackControls({
   const buttonClass = (active: boolean) =>
     cn(
       'flex h-5 w-5 items-center justify-center rounded transition-colors',
-      active ? 'text-accent bg-accent/10' : 'text-text-muted/60 hover:text-text-body hover:bg-bg-elevated',
+      active ? 'text-accent bg-accent/10' : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
     )
 
   return (
@@ -866,7 +866,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
           aria-label="Edit note"
           disabled={noteBusy}
           onClick={startNoteEdit}
-          className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-bg-elevated hover:text-text-primary transition-colors disabled:opacity-40"
+          className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-bg-hover/60 hover:text-text-primary transition-colors disabled:opacity-40"
         >
           <Pencil size={10} />
         </button>

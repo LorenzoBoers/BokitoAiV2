@@ -89,7 +89,7 @@ export default function SavedRepliesManager() {
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex items-center justify-between border-b border-border/55 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <div>
           <p className="text-sm font-medium text-text-heading">Saved replies</p>
           <p className="text-xs text-text-secondary">

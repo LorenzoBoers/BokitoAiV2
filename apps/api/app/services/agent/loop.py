@@ -219,6 +219,14 @@ class AgentLoop:
             parts.append(f"## Relevant context\n{rag_context}")
         if extra_context:
             parts.append(extra_context)
+        # Platform-wide response style: applies to every agent, custom or not.
+        parts.append(
+            "## Response style\n"
+            "Write clean, well-structured markdown: short paragraphs, headings only "
+            "when they help, bullet lists for enumerations, and tables only for truly "
+            "tabular data. Never use emoji. Match the user's language. Be concise and "
+            "concrete; skip filler and repeated horizontal rules."
+        )
         return "\n\n".join(parts).strip()
 
     async def _prepare_chat(

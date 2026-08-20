@@ -19,7 +19,7 @@ export default function ThemeModeToggle({ compact = false }: { compact?: boolean
   }
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-bg-elevated/50 p-0.5">
+    <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-bg-elevated/50 p-0.5">
       <button
         type="button"
         onClick={() => (isDark ? undefined : toggleMode())}

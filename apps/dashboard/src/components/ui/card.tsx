@@ -1,12 +1,18 @@
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+type CardProps = React.HTMLAttributes<HTMLDivElement> & {
+  /** Adds a subtle lift + shadow deepening on hover for clickable cards. */
+  interactive?: boolean
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, interactive = false, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'rounded-2xl border border-border/80 bg-bg-surface/95 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_14px_28px_-24px_rgba(15,23,42,0.45)]',
+        'rounded-xl border border-border/60 bg-bg-surface shadow-card',
+        interactive && 'hover-lift cursor-pointer hover:border-border',
         className,
       )}
       {...props}
@@ -19,7 +25,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex items-center justify-between border-b border-border/70 px-5 py-4', className)}
+      className={cn('flex items-center justify-between border-b border-border/40 px-5 py-4', className)}
       {...props}
     />
   ),

@@ -188,7 +188,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         onClick={onClose}
       />
       <div
-        className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-border/70 bg-bg-surface shadow-2xl"
+        className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-2xl"
         role="dialog"
         aria-label="Command palette"
       >

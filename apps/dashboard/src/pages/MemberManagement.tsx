@@ -407,7 +407,7 @@ export default function MemberManagement() {
       {/* Unified members table */}
       <Card className="p-0 overflow-hidden">
         {/* Header with tabs + search */}
-        <div className="flex items-center justify-between gap-4 border-b border-border/55 px-5 pt-4 pb-0">
+        <div className="flex items-center justify-between gap-4 border-b border-border/60 px-5 pt-4 pb-0">
           <div className="flex items-center gap-0">
             {tabs.map((tab) => (
               <button
@@ -436,7 +436,7 @@ export default function MemberManagement() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search..."
-              className="pl-8 pr-3 py-1.5 text-[13px] bg-bg-input/60 border border-border/55 rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/55 transition-colors w-48"
+              className="pl-8 pr-3 py-1.5 text-[13px] bg-bg-input/60 border border-border/60 rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/55 transition-colors w-48"
             />
           </div>
         </div>

@@ -404,18 +404,18 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                   value={newProfileName}
                   onChange={(e) => setNewProfileName(e.target.value)}
                   placeholder="Profile name"
-                  className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/70 bg-bg-input/80 px-3 text-sm"
+                  className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
                 />
                 <input
                   value={newProfileModel}
                   onChange={(e) => setNewProfileModel(e.target.value)}
                   placeholder="Model (optional)"
-                  className="h-8 min-w-[10rem] rounded-md border border-border/70 bg-bg-input/80 px-3 text-sm"
+                  className="h-8 min-w-[10rem] rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
                 />
                 <select
                   value={newProfileRole}
                   onChange={(e) => setNewProfileRole(e.target.value)}
-                  className="h-8 rounded-md border border-border/70 bg-bg-input/80 px-2 text-sm"
+                  className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-sm"
                 >
                   <option value="executor">Executor</option>
                   <option value="orchestrator">Orchestrator</option>
@@ -484,7 +484,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                   value={newWsName}
                   onChange={(e) => setNewWsName(e.target.value)}
                   placeholder="New workstream name"
-                  className="h-8 min-w-[12rem] flex-1 rounded-md border border-border/70 bg-bg-input/80 px-3 text-sm"
+                  className="h-8 min-w-[12rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void addWorkstream()
                   }}
@@ -507,7 +507,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                   const steps = stepsByWs[w.id] ?? []
                   const open = expandedWs === w.id
                   return (
-                    <div key={w.id} className="rounded-lg border border-border/70">
+                    <div key={w.id} className="rounded-lg border border-border/60">
                       <div className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                         <button
                           type="button"
@@ -591,7 +591,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                               value={newStepName}
                               onChange={(e) => setNewStepName(e.target.value)}
                               placeholder="Step name"
-                              className="h-8 min-w-[8rem] flex-1 rounded-md border border-border/70 bg-bg-input/80 px-2 text-xs"
+                              className="h-8 min-w-[8rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') void addStep(w.id)
                               }}
@@ -601,7 +601,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                               onChange={(e) =>
                                 setNewStepKind(e.target.value === 'human_gate' ? 'human_gate' : 'agent')
                               }
-                              className="h-8 rounded-md border border-border/70 bg-bg-input/80 px-2 text-xs"
+                              className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
                             >
                               <option value="agent">Agent</option>
                               <option value="human_gate">Approval gate</option>
@@ -610,7 +610,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                               <select
                                 value={newStepAgentId}
                                 onChange={(e) => setNewStepAgentId(e.target.value)}
-                                className="h-8 rounded-md border border-border/70 bg-bg-input/80 px-2 text-xs"
+                                className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
                               >
                                 {agents.length === 0 ? (
                                   <option value="">No agents</option>

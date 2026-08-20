@@ -118,7 +118,7 @@ export default function WorkspaceSettings() {
             </label>
             <Link
               to="/settings/branding"
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-input/40 px-4 py-3 hover:bg-bg-hover/50 hover:border-border/80 transition-colors group"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-input/40 px-4 py-3 hover:bg-bg-hover/50 hover:border-border/60 transition-colors group"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">

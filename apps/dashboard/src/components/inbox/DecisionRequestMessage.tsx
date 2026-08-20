@@ -266,7 +266,7 @@ export default function DecisionRequestMessage({
         className={cn(
           'w-full max-w-3xl min-w-0 rounded-2xl border px-4 py-3',
           resolved
-            ? 'border-border/50 bg-bg-surface/80'
+            ? 'border-border/60 bg-bg-surface'
             : isActionSuggestion
               ? 'border-accent/20 bg-accent/5'
               : 'border-accent/30 bg-accent/5',
@@ -308,7 +308,7 @@ export default function DecisionRequestMessage({
             {message.subject ? (
               <h3 className="text-sm font-medium text-text-heading">{message.subject}</h3>
             ) : null}
-            <div className="mt-2 rounded-lg border border-border/50 bg-bg-surface/60 px-3 py-2">
+            <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
               <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
             </div>
           </>

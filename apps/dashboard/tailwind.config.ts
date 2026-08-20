@@ -49,6 +49,37 @@ export default {
       fontSize: {
         '2xs': ['0.65rem', { lineHeight: '0.85rem' }],
       },
+      boxShadow: {
+        // Theme-aware elevation tokens (defined per theme in index.css).
+        card: 'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card-hover)',
+        overlay: 'var(--shadow-overlay)',
+      },
+      keyframes: {
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'pop-in': {
+          from: { opacity: '0', transform: 'scale(0.97) translateY(4px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
+        // Dialog variant: keeps the -50%/-50% centering transform intact.
+        'dialog-in': {
+          from: { opacity: '0', transform: 'translate(-50%, -48.5%) scale(0.97)' },
+          to: { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
+        },
+        'page-enter': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 140ms ease-out',
+        'pop-in': 'pop-in 150ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'dialog-in': 'dialog-in 180ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'page-enter': 'page-enter 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+      },
     },
   },
   plugins: [],

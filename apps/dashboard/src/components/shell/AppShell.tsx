@@ -88,7 +88,7 @@ export default function AppShell() {
                   className="absolute inset-0 bg-black/50"
                   onClick={() => setDrawerOpen(false)}
                 />
-                <div className="absolute inset-y-0 left-0 w-[268px] border-r border-border/50 shadow-2xl">
+                <div className="absolute inset-y-0 left-0 w-[268px] border-r border-border/60 shadow-2xl">
                   <ShellSidebar
                     collapsed={false}
                     onToggleCollapsed={() => setDrawerOpen(false)}

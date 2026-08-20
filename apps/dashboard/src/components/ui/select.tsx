@@ -18,7 +18,7 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        'flex h-10 w-full items-center justify-between rounded-lg border border-border/75 bg-bg-input px-3.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-border-focus',
+        'flex h-10 w-full items-center justify-between rounded-lg border border-border/60 bg-bg-input px-3.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-border-focus',
         className,
       )}
       {...props}
@@ -40,7 +40,7 @@ function SelectContent({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         className={cn(
-          'z-50 overflow-hidden rounded-lg border border-border/80 bg-bg-surface shadow-[0_20px_50px_-22px_rgba(0,0,0,0.65)]',
+          'z-50 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay data-[state=open]:animate-pop-in',
           className,
         )}
         {...props}

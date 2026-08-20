@@ -89,7 +89,7 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
       </button>
 
       {expanded && canExpand ? (
-        <div className="mt-1 space-y-2 border-l border-border/50 pl-3 ml-1.5">
+        <div className="mt-1 space-y-2 border-l border-border/60 pl-3 ml-1.5">
           {reasoning ? (
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-[12px] leading-relaxed text-text-secondary">
               {reasoning}

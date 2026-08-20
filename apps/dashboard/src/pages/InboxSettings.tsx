@@ -176,12 +176,12 @@ function MailboxRowActions({
   onRemove,
 }: MailboxRowActionsProps) {
   return (
-    <div className="inline-flex items-stretch overflow-hidden rounded-lg border border-border/70 bg-bg-surface">
+    <div className="inline-flex items-stretch overflow-hidden rounded-lg border border-border/60 bg-bg-surface">
       {needsReconnect ? (
         <button
           type="button"
           onClick={onReconnect}
-          className="inline-flex items-center gap-1.5 border-r border-border/70 px-2.5 text-xs font-medium text-text-heading hover:bg-bg-hover/70"
+          className="inline-flex items-center gap-1.5 border-r border-border/60 px-2.5 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover/70"
         >
           <Wifi size={13} />
           Reconnect
@@ -638,7 +638,7 @@ export default function InboxSettings() {
                           onChange={(e) => handleChangeSyncWindow(mailbox, Number(e.target.value))}
                           aria-label="How far back to sync mail history"
                           title="How far back mail is backfilled when this mailbox (re)connects"
-                          className="h-8 rounded-md border border-border/70 bg-bg-elevated px-2 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
+                          className="h-8 rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
                         >
                           {![7, 30, 90, 365, 0].includes(mailbox.sync_window_days) ? (
                             <option value={String(mailbox.sync_window_days)}>
@@ -685,7 +685,7 @@ export default function InboxSettings() {
           </Table>
         </SettingsSection>
 
-        {mailboxes.length > 0 ? <SyncStatusPanel className="rounded-2xl border border-border/80 bg-bg-surface/95 p-4" /> : null}
+        {mailboxes.length > 0 ? <SyncStatusPanel className="panel p-4" /> : null}
 
         <AutomationRulesManager />
 
@@ -834,7 +834,7 @@ export default function InboxSettings() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/60">
                 <Button
                   variant="secondary"
                   onClick={() => setFolderDialogOpen(false)}

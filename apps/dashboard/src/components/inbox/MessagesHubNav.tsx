@@ -43,7 +43,7 @@ function navLinkClass(isActive: boolean) {
   return cn(
     'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-all',
     isActive
-      ? 'border-border/70 bg-bg-hover/85 text-text-heading shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_8px_18px_-14px_rgba(15,23,42,0.4)]'
+      ? 'border-border/60 bg-bg-hover/85 text-text-heading shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_8px_18px_-14px_rgba(15,23,42,0.4)]'
       : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/55 hover:text-text-primary',
   )
 }
@@ -342,7 +342,7 @@ export default function MessagesHubNav() {
                 'flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors',
                 isActive
                   ? 'border-accent/40 bg-accent/10 text-text-heading'
-                  : 'border-border/70 bg-bg-elevated/70 text-text-primary hover:border-accent/50 hover:bg-bg-hover/70',
+                  : 'border-border/60 bg-bg-elevated/70 text-text-primary hover:border-accent/50 hover:bg-bg-hover/70',
               )
             }
           >

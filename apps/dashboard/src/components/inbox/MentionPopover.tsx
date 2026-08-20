@@ -16,7 +16,7 @@ type Props = {
 export default function MentionPopover({ items, activeIndex, onSelect, onHover }: Props) {
   if (items.length === 0) return null
   return (
-    <div className="absolute bottom-full left-0 z-30 mb-1.5 w-72 overflow-hidden rounded-xl border border-border/70 bg-bg-surface shadow-[0_12px_40px_-12px_rgba(0,0,0,0.45)]">
+    <div className="absolute bottom-full left-0 z-30 mb-1.5 w-72 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
       <div className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-text-muted">
         Mention
       </div>

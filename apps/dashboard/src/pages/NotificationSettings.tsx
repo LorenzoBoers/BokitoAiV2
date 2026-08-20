@@ -222,7 +222,7 @@ export default function NotificationSettings() {
       </p>
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[1fr_84px_84px_84px] border-b border-border/65 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
+        <div className="grid grid-cols-[1fr_84px_84px_84px] border-b border-border/60 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
           <span>Notify me about</span>
           <span className="text-center">In-app</span>
           <span className="text-center">Email</span>
@@ -282,7 +282,7 @@ export default function NotificationSettings() {
 
       {loading ? <p className="text-sm text-text-muted">Loading preferences...</p> : null}
       {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
-      <div className="inline-flex items-center gap-2 rounded-lg border border-border/65 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
+      <div className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
         <Bell size={13} className="text-text-muted" />
         {savedAt ? 'Saved.' : 'Preferences are saved to your account.'}
       </div>

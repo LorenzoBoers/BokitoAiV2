@@ -249,7 +249,7 @@ export default function AiCommunicationSettings() {
                 }}
               />
             </div>
-            <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-5">
+            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
               <div className="flex items-start gap-3">
                 <Globe size={16} className="mt-0.5 text-accent" />
                 <div>
@@ -313,7 +313,7 @@ export default function AiCommunicationSettings() {
                 }}
               />
             </div>
-            <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-5">
+            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
               <div className="flex items-start gap-3">
                 <MessageSquareText size={16} className="mt-0.5 text-accent" />
                 <div>
@@ -408,7 +408,7 @@ export default function AiCommunicationSettings() {
                     defaultLabel={t('ai.communication.useDefault')}
                   />
                 </div>
-                <div className="flex items-start justify-between gap-4 border-t border-border/50 pt-4">
+                <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-4">
                   <p className="text-xs text-text-muted mt-2 max-w-sm">
                     {t('ai.communication.mailboxLanguageHint')}
                   </p>

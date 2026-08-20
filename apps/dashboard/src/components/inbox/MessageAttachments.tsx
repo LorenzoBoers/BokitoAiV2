@@ -16,7 +16,7 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
         return (
           <div
             key={att.id}
-            className="relative flex items-center gap-2 rounded-lg border border-border/50 bg-bg-elevated/60 px-2 py-1.5 text-xs"
+            className="relative flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/60 px-2 py-1.5 text-xs"
           >
             {isImage ? (
               <a href={att.url} target="_blank" rel="noreferrer" className="block">

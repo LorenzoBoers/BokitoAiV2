@@ -30,7 +30,7 @@ export default function ThreadListQuickFilters({ value, onChange, counts, onComp
   const { t } = useTranslation('communication')
 
   return (
-    <div className="flex flex-wrap items-center gap-1 px-3 pt-2.5 pb-2 border-b border-border/50">
+    <div className="flex flex-wrap items-center gap-1 px-3 pt-2.5 pb-2 border-b border-border/60">
       {FILTERS.map((filter) => {
         const Icon = filter.icon
         const count = counts[filter.id]
@@ -47,7 +47,7 @@ export default function ThreadListQuickFilters({ value, onChange, counts, onComp
               'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
               active
                 ? 'border-accent/35 bg-accent/12 text-accent'
-                : 'border-border/55 bg-bg-surface-hover/40 text-text-secondary hover:border-border hover:bg-bg-hover/60 hover:text-text-primary',
+                : 'border-border/60 bg-bg-surface-hover/40 text-text-secondary hover:border-border hover:bg-bg-hover/60 hover:text-text-primary',
               disabled && 'opacity-40 pointer-events-none',
             )}
           >

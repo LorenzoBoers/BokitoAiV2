@@ -16,6 +16,7 @@ import {
   type ChatMessage,
 } from '../../lib/bokito-api'
 import { UserAvatar } from '../ui/UserAvatar'
+import ChatMarkdown from './ChatMarkdown'
 import ThinkingTrace from './ThinkingTrace'
 import ReasoningDisclosure from './ReasoningDisclosure'
 import { useSignalStream } from '../../hooks/useSignalStream'
@@ -122,8 +123,8 @@ function MessageBubble({
             onResolved={onDecisionResolved}
           />
         ) : (
-          <div className="rounded-2xl rounded-tl-md border border-border/50 bg-bg-surface/85 px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          <div className="rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
+            <ChatMarkdown content={message.content} />
           </div>
         )}
         {!hasDecision && onCopyText && message.content.trim() ? (
@@ -200,7 +201,7 @@ function ChatDecisionCard({
   return (
     <div
       className={`rounded-xl border px-3.5 py-2.5 ${
-        resolved ? 'border-border/50 bg-bg-surface/70' : 'border-accent/35 bg-accent/6'
+        resolved ? 'border-border/60 bg-bg-elevated' : 'border-accent/35 bg-accent/6'
       }`}
     >
       <div className="flex items-center gap-2">
@@ -236,7 +237,7 @@ function ChatDecisionCard({
               className={
                 decisionActionFor(option) === 'approve'
                   ? 'rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50'
-                  : 'rounded-lg border border-border/70 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50'
+                  : 'rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50'
               }
             >
               {option.label ?? option.id}
@@ -467,7 +468,7 @@ export default function DirectChatPanel({
                 if (e.key === 'Enter') void commitRename()
                 if (e.key === 'Escape') setRenaming(false)
               }}
-              className="w-full max-w-[420px] rounded-md border border-border/70 bg-bg-input px-2 py-1 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="w-full max-w-[420px] rounded-md border border-border/60 bg-bg-input px-2 py-1 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
               autoFocus
             />
             <button type="button" onClick={() => void commitRename()} className="rounded-md p-1 text-text-muted hover:text-text-primary" aria-label="Save title">
@@ -556,7 +557,7 @@ export default function DirectChatPanel({
       <div className="shrink-0 px-4 pb-5 pt-2">
         <div className="mx-auto w-full max-w-[820px]">
           {error ? <p className="mb-2 px-1 text-[12px] text-status-error">{error}</p> : null}
-          <div className="flex items-end gap-2 rounded-2xl border border-border/70 bg-bg-surface px-3 py-2 shadow-[0_8px_30px_-18px_rgba(0,0,0,0.45)] focus-within:border-accent/50">
+          <div className="flex items-end gap-2 rounded-2xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card focus-within:border-accent/50">
             <textarea
               ref={composerRef}
               value={draft}

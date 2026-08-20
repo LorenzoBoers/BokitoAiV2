@@ -79,7 +79,7 @@ function ColorField({
         type="text"
         value={value.toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-28 rounded-lg border border-border/55 bg-bg-surface/50 px-3 py-2 font-mono text-[13px] text-text-primary focus:border-accent/55 focus:outline-none"
+        className="w-28 rounded-lg border border-border/60 bg-bg-surface/50 px-3 py-2 font-mono text-[13px] text-text-primary focus:border-accent/55 focus:outline-none"
       />
     </div>
   )
@@ -105,7 +105,7 @@ function SegmentedControl<T extends string>({
     <div
       role="tablist"
       className={cn(
-        'max-w-full gap-0.5 rounded-xl border border-border/55 bg-bg-input/40 p-1 dark:bg-bg-input/55',
+        'max-w-full gap-0.5 rounded-xl border border-border/60 bg-bg-input/40 p-1 dark:bg-bg-input/55',
         stretch ? 'flex w-full' : 'inline-flex flex-wrap',
         className,
       )}
@@ -159,7 +159,7 @@ function FoldableSection({
           className={cn('h-4 w-4 shrink-0 text-text-muted transition-transform duration-200', open && 'rotate-180')}
         />
       </button>
-      {open ? <div className="border-t border-border/55 px-4 pb-4 pt-1">{children}</div> : null}
+      {open ? <div className="border-t border-border/60 px-4 pb-4 pt-1">{children}</div> : null}
     </div>
   )
 }
@@ -522,7 +522,7 @@ function MessengerSettingsContent({
       >
         <div
           className={cn(
-            'flex min-h-0 flex-1 flex-col overflow-y-auto rounded-b-lg bg-bg-surface/40 pb-6 md:border-border/55 dark:bg-transparent',
+            'flex min-h-0 flex-1 flex-col overflow-y-auto rounded-b-lg bg-bg-surface/40 pb-6 md:border-border/60 dark:bg-transparent',
             previewPanelActive ? 'md:w-1/2 md:max-w-[50%] md:border-r md:pr-5' : 'w-full md:max-w-none',
           )}
         >
@@ -558,7 +558,7 @@ function MessengerSettingsContent({
                         {MESSENGER_MODULE_KEYS.map((key) => (
                           <div
                             key={key}
-                            className="flex items-center justify-between rounded-lg border border-border/55 bg-bg-surface/80 px-3 py-2.5 shadow-sm backdrop-blur-sm dark:bg-bg-surface/40"
+                            className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-surface/80 px-3 py-2.5 shadow-sm backdrop-blur-sm dark:bg-bg-surface/40"
                           >
                             <span className="text-sm text-text-primary">{MESSENGER_MODULE_LABELS[key]}</span>
                             <Switch
@@ -671,7 +671,7 @@ function MessengerSettingsContent({
                       <div>
                         <p className="text-sm font-medium text-text-heading">Do</p>
                         <textarea
-                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                           value={personaDo}
                           onChange={(e) => setPersonaDo(e.target.value)}
                         />
@@ -679,7 +679,7 @@ function MessengerSettingsContent({
                       <div>
                         <p className="text-sm font-medium text-text-heading">Do not</p>
                         <textarea
-                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                           value={personaDont}
                           onChange={(e) => setPersonaDont(e.target.value)}
                         />
@@ -696,7 +696,7 @@ function MessengerSettingsContent({
                     <p className="pt-1 text-sm text-text-muted">Loading…</p>
                   ) : (
                     <div className="space-y-4 pt-1">
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
                           <span className="text-sm text-text-primary">Pre-chat form</span>
                           <p className="text-2xs text-text-muted">
@@ -711,7 +711,7 @@ function MessengerSettingsContent({
                           aria-label="Pre-chat form"
                         />
                       </div>
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
                           <span className="text-sm text-text-primary">Office hours</span>
                           <p className="text-2xs text-text-muted">
@@ -735,7 +735,7 @@ function MessengerSettingsContent({
                         />
                       </div>
                       {widgetBehaviour.officeHours.enabled ? (
-                        <div className="space-y-3 rounded-lg border border-border/55 bg-bg-surface/50 p-3 dark:bg-bg-surface/25">
+                        <div className="space-y-3 rounded-lg border border-border/60 bg-bg-surface/50 p-3 dark:bg-bg-surface/25">
                           <div className="flex flex-wrap gap-1.5">
                             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, day) => {
                               const active = widgetBehaviour.officeHours.days.includes(day)
@@ -815,7 +815,7 @@ function MessengerSettingsContent({
                       <div>
                         <p className="text-sm font-medium text-text-heading">Offline message</p>
                         <textarea
-                          className="mt-2 w-full min-h-[64px] rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                          className="mt-2 w-full min-h-[64px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                           value={widgetBehaviour.offlineMessage}
                           onChange={(e) =>
                             setWidgetBehaviour({ ...widgetBehaviour, offlineMessage: e.target.value })
@@ -846,7 +846,7 @@ function MessengerSettingsContent({
             {section === 'installation' ? (
               <div className="space-y-4">
                 <div className="rounded-xl border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/55 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
                     <p className="text-sm font-medium text-text-heading">
                       {audience === 'internal'
                         ? 'Assistant for logged-in users'

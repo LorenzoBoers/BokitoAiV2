@@ -328,7 +328,7 @@ export default function AiAgentDetail() {
                 {agendaItems.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated/45 px-3 py-2 text-sm"
+                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm"
                   >
                     <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
                     <span className="min-w-0 flex-1 truncate font-medium text-text-heading">{item.name}</span>

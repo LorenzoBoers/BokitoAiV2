@@ -10,7 +10,7 @@ export default function WorkspaceHubLayout({ children }: { children?: ReactNode 
 
       {/* Rechts: content in een afgerond vlak */}
       <div className="flex min-w-0 flex-1 flex-col p-3 pl-0">
-        <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/55 bg-bg-surface/40 overflow-hidden">
+        <div className="featurebase-shell-panel flex min-h-0 flex-1 flex-col overflow-hidden">
           <main className="min-h-0 flex-1 overflow-y-auto">
             {children ?? <Outlet />}
           </main>

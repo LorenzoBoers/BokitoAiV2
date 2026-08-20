@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, ChevronDown, ChevronRight, Loader2, Wrench } from 'lucide-react'
+import ChatMarkdown from './ChatMarkdown'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { closeAgentSession, type ThreadSession } from '../../lib/signals-api'
@@ -75,8 +76,8 @@ function ReadOnlyTranscript({ sessionId }: { sessionId: string }) {
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-accent">
               <Bot size={11} />
             </span>
-            <div className="max-w-[82%] rounded-xl rounded-tl-sm border border-border/50 bg-bg-surface/80 px-3 py-1.5 text-[12.5px] leading-relaxed text-text-primary">
-              <p className="whitespace-pre-wrap break-words">{m.content}</p>
+            <div className="max-w-[82%] rounded-xl rounded-tl-sm border border-border/60 bg-bg-surface px-3 py-1.5 text-[12.5px] leading-relaxed text-text-primary">
+              <ChatMarkdown content={m.content} />
             </div>
           </div>
         ),
@@ -115,7 +116,7 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
 
   if (session.state === 'active') {
     return (
-      <div className="overflow-hidden rounded-xl border border-accent/35 bg-bg-surface shadow-[0_8px_30px_-18px_rgba(0,0,0,0.4)]">
+      <div className="overflow-hidden rounded-xl border border-accent/35 bg-bg-surface shadow-card">
         <div className="flex items-center gap-2 border-b border-accent/20 bg-accent/6 px-3 py-2">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-bg-elevated text-accent">
             <Bot size={13} />
@@ -154,7 +155,7 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/50 bg-bg-surface/70">
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-elevated">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}

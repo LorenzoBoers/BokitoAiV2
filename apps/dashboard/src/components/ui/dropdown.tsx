@@ -36,7 +36,7 @@ export function Dropdown({ trigger, children, align = 'right', className = '' }:
       {isOpen && (
         <div className={`
           absolute top-full mt-1 z-50 min-w-[300px] max-w-[400px]
-          bg-bg-surface border border-border rounded-lg shadow-lg
+          bg-bg-surface border border-border/60 rounded-lg shadow-overlay animate-pop-in
           ${align === 'right' ? 'right-0' : 'left-0'}
           ${className}
         `}>

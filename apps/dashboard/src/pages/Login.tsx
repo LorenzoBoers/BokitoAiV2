@@ -205,7 +205,7 @@ export default function Login() {
         </div>
 
         {/* Card */}
-        <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl">
+        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
           {workspaceSetup ? (
             <div className="space-y-5">
               <div className="flex flex-col items-center text-center">

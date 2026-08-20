@@ -71,7 +71,7 @@ export default function SyncStatusPanel({ className }: Props) {
             type="button"
             onClick={() => void syncNow()}
             disabled={loading || syncing}
-            className="rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-elevated disabled:opacity-40"
+            className="rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 disabled:opacity-40"
           >
             {syncing ? 'Syncing...' : 'Sync now'}
           </button>
@@ -93,7 +93,7 @@ export default function SyncStatusPanel({ className }: Props) {
         <p className="text-xs text-text-muted">No mailboxes found.</p>
       ) : (
         statuses.map((conn) => (
-          <div key={conn.id} className="rounded-lg border border-border/50 p-3 space-y-2">
+          <div key={conn.id} className="rounded-lg border border-border/60 p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-text-heading truncate">{conn.mailboxEmail || conn.displayName}</span>
               <span
@@ -122,7 +122,7 @@ export default function SyncStatusPanel({ className }: Props) {
             ) : null}
 
             {conn.folders.filter((f) => f.isSelected).length > 0 ? (
-              <div className="space-y-1 pt-1 border-t border-border/30">
+              <div className="space-y-1 pt-1 border-t border-border/40">
                 {conn.folders
                   .filter((f) => f.isSelected)
                   .map((f) => (

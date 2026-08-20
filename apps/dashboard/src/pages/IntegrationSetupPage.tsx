@@ -123,7 +123,7 @@ export default function IntegrationSetupPage() {
                   {steps.map((step, index) => (
                     <li
                       key={step.id}
-                      className="flex gap-3 rounded-lg border border-border/70 p-3"
+                      className="flex gap-3 rounded-lg border border-border/60 p-3"
                     >
                       <span className="mt-0.5 shrink-0 text-text-muted">
                         {step.done ? (

@@ -88,7 +88,7 @@ export default function MyAssistantSettings() {
   return (
     <PageContent width="lg" className="space-y-6 py-1">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-bg-surface text-accent">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-bg-surface text-accent shadow-card">
           <Bot size={18} />
         </span>
         <div>
@@ -102,7 +102,7 @@ export default function MyAssistantSettings() {
 
       {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
 
-      <div className="space-y-4 rounded-xl border border-border/60 bg-bg-surface/60 p-4">
+      <div className="space-y-4 rounded-xl border border-border/60 bg-bg-elevated p-4">
         <div>
           <label className="mb-1 block text-[12px] font-medium text-text-secondary" htmlFor="assistant-name">
             Assistant name
@@ -111,7 +111,7 @@ export default function MyAssistantSettings() {
             id="assistant-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full max-w-[360px] rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+            className="w-full max-w-[360px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
           />
         </div>
 
@@ -124,7 +124,7 @@ export default function MyAssistantSettings() {
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
             rows={6}
-            className="w-full rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px] leading-relaxed text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+            className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] leading-relaxed text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
             placeholder="How should your assistant behave? What should it know about you and your work?"
           />
         </div>
@@ -140,7 +140,7 @@ export default function MyAssistantSettings() {
             id="assistant-default-target"
             value={defaultTarget}
             onChange={(e) => setDefaultTarget(e.target.value)}
-            className="w-full max-w-[360px] rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+            className="w-full max-w-[360px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
           >
             {targets.map((t) => (
               <option key={t.id} value={t.id}>

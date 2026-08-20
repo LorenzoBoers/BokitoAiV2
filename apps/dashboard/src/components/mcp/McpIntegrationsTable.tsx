@@ -62,7 +62,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="border-b border-border/55 px-5 py-4">
+      <div className="border-b border-border/60 px-5 py-4">
         <h3 className="text-sm font-medium text-text-heading">{t('integrations.mcp.servers.listTitle')}</h3>
       </div>
       <Table>

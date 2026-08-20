@@ -28,7 +28,9 @@ export function stepLabel(step: AgentStep): string {
 export function stepHeadline(step: AgentStep): string {
   if (step.stepType === 'tool_call') return `Running ${step.name || 'tool'}`
   if (step.stepType === 'tool_result') return `Finished ${step.name || 'tool'}`
-  if (step.stepType === 'think') return step.name || 'Thinking'
+  // Backend publishes think-steps as "Loop N" (internal telemetry); never
+  // surface that in the UI.
+  if (step.stepType === 'think') return 'Thinking...'
   return step.name || stepLabel(step)
 }
 

@@ -74,7 +74,7 @@ function StatCard({
   icon: React.ComponentType<{ size?: number; className?: string }>
 }) {
   const body = (
-    <div className="flex h-full flex-col rounded-xl border border-border/55 bg-bg-surface/85 px-4 py-3.5 transition-colors hover:border-accent/35">
+    <div className="flex h-full flex-col rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 transition-colors hover:border-accent/35 shadow-card">
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">{label}</p>
         <Icon size={13} className="text-text-muted" />
@@ -205,7 +205,7 @@ export default function CockpitPage() {
             <button
               type="button"
               onClick={load}
-              className="flex items-center gap-1.5 rounded-lg border border-border/70 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               Refresh
@@ -279,7 +279,7 @@ export default function CockpitPage() {
 
       {/* Attention + event log */}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-[14px] font-semibold text-text-heading">Needs attention</h2>
@@ -307,7 +307,7 @@ export default function CockpitPage() {
                         ? agentRunsPath('awaiting-decision', String(thread.id))
                         : inboxPath('all', String(thread.id))
                     }
-                    className="group flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                    className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
                     <span className="min-w-0 flex-1">
@@ -325,7 +325,7 @@ export default function CockpitPage() {
                 {pendingChanges > 0 ? (
                   <Link
                     to="/settings/autonomy"
-                    className="group flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                    className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                     <span className="min-w-0 flex-1">
@@ -342,7 +342,7 @@ export default function CockpitPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-[14px] font-semibold text-text-heading">Recent events</h2>
@@ -386,7 +386,7 @@ export default function CockpitPage() {
 
       {/* Agenda + contacts */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-[14px] font-semibold text-text-heading">Today on the agenda</h2>
@@ -406,7 +406,7 @@ export default function CockpitPage() {
                 <Link
                   key={item.id}
                   to="/agenda"
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <CalendarDays size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
@@ -426,7 +426,7 @@ export default function CockpitPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border/55 bg-bg-surface/85 p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-[14px] font-semibold text-text-heading">Recent contacts</h2>
@@ -446,7 +446,7 @@ export default function CockpitPage() {
                 <Link
                   key={contact.id}
                   to={`/contacts/${contact.id}`}
-                  className="group flex items-center gap-2.5 rounded-lg border border-border/45 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                  className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <UserRound size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">

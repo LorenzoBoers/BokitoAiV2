@@ -52,7 +52,7 @@ function SummaryCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-start rounded-xl border border-border/60 bg-bg-surface px-4 py-3 text-left transition-colors hover:border-border hover:bg-bg-hover/40"
+      className="flex flex-col items-start rounded-xl border border-border/60 bg-bg-surface px-4 py-3 text-left transition-colors hover:border-border hover:bg-bg-hover/40 shadow-card"
     >
       <span className="text-xs text-text-muted">{label}</span>
       <span className="text-2xl font-semibold text-text-heading tabular-nums mt-1">{count}</span>

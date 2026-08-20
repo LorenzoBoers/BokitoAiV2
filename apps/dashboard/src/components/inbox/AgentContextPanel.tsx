@@ -276,7 +276,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               {mcpRows.map((row) => (
                 <div
                   key={row.id}
-                  className="flex items-center gap-2 rounded-md border border-border/45 bg-bg-elevated/45 px-2 py-1"
+                  className="flex items-center gap-2 rounded-md border border-border/40 bg-bg-elevated/45 px-2 py-1"
                 >
                   <span
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[9px] font-semibold text-white"
@@ -357,7 +357,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           <SectionHeading title="Active task" />
           <Link
             to={agentRunsPath('all', task.signal_id || String(thread.id))}
-            className="block rounded-lg border border-border/55 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-accent/40"
+            className="block rounded-lg border border-border/60 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-accent/40"
           >
             <p className="truncate text-[12.5px] font-medium text-text-primary">{task.title}</p>
             <p className="mt-0.5 text-[11px] capitalize text-text-muted">
@@ -373,7 +373,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
       <div className="px-4 py-3">
         <SectionHeading title="Recent conversations" />
         {recent.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border/50 px-3 py-3 text-[11.5px] text-text-muted">
+          <p className="rounded-lg border border-dashed border-border/60 px-3 py-3 text-[11.5px] text-text-muted">
             No other conversations with this agent.
           </p>
         ) : (
@@ -382,7 +382,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               <Link
                 key={String(t.id)}
                 to={t.folder === 'internal' ? agentRunsPath('all', String(t.id)) : inboxPath('all', String(t.id))}
-                className="flex items-center gap-2 rounded-lg border border-border/45 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
+                className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
                 <MessageSquare size={12} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">

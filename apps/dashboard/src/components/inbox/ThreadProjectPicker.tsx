@@ -57,7 +57,7 @@ export function ThreadProjectPicker({ threadId, projectId, onUpdated }: Props) {
   }
 
   return (
-    <div className="space-y-1.5 px-4 py-3 border-b border-border/50">
+    <div className="space-y-1.5 px-4 py-3 border-b border-border/60">
       <Label className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Project</Label>
       {loading ? (
         <div className="flex items-center gap-2 text-xs text-text-muted">

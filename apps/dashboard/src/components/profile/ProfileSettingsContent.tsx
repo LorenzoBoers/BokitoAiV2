@@ -64,7 +64,7 @@ function EditableField({
   }
 
   return (
-    <div className="group flex items-center gap-4 border-b border-border/50 py-3.5 pr-4 last:border-b-0">
+    <div className="group flex items-center gap-4 border-b border-border/60 py-3.5 pr-4 last:border-b-0">
       <span className="w-36 shrink-0 text-sm font-medium text-text-heading">{label}</span>
 
       {editing ? (
@@ -89,7 +89,7 @@ function EditableField({
           <button
             type="button"
             onClick={cancel}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 text-text-muted hover:text-text-primary"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 text-text-muted hover:text-text-primary"
           >
             <X size={13} />
           </button>
@@ -129,7 +129,7 @@ function Section({ title, description, children }: { title: string; description?
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-bg-surface/80 px-4">
+    <div className="rounded-xl border border-border/60 bg-bg-surface px-4 shadow-card">
       {children}
     </div>
   )
@@ -423,7 +423,7 @@ export function ProfileSettingsContent() {
       <Section title={t('profile:personalInformation.title')} description={t('profile:personalInformation.description')}>
         <Card>
           {/* Avatar */}
-          <div className="flex items-center justify-between border-b border-border/50 py-3.5 pr-4">
+          <div className="flex items-center justify-between border-b border-border/60 py-3.5 pr-4">
             <span className="w-36 shrink-0 text-sm font-medium text-text-heading">{t('profile:personalInformation.profilePicture')}</span>
               <button
               type="button"
@@ -457,7 +457,7 @@ export function ProfileSettingsContent() {
           />
 
           {user && !user.emailVerified ? (
-            <div className="flex items-center justify-between gap-3 border-b border-border/50 py-3.5 pr-4">
+            <div className="flex items-center justify-between gap-3 border-b border-border/60 py-3.5 pr-4">
               <div>
                 <p className="text-sm font-medium text-text-heading">Email verification</p>
                 <p className="text-xs text-text-muted">Confirm your email address to secure the account.</p>
@@ -507,7 +507,7 @@ export function ProfileSettingsContent() {
 
       {/* ── Appearance ── */}
       <Section title={t('profile:theme.title')} description={t('profile:theme.description')}>
-        <div className="grid grid-cols-3 gap-2.5 rounded-xl border border-border/60 bg-bg-surface/80 p-3">
+        <div className="grid grid-cols-3 gap-2.5 rounded-xl border border-border/60 bg-bg-surface p-3 shadow-card">
           <ThemeOption variant="light" label={t('profile:theme.light')} icon={<Sun size={12} />} active={mode === 'light'} onClick={() => setMode('light')} />
           <ThemeOption variant="dark" label={t('profile:theme.dark')} icon={<Moon size={12} />} active={mode === 'dark'} onClick={() => setMode('dark')} />
           <ThemeOption variant="system" label={t('profile:theme.system')} icon={<LaptopMinimal size={12} />} active={mode === 'system'} onClick={() => setMode('system')} />
@@ -518,7 +518,7 @@ export function ProfileSettingsContent() {
       <Section title={t('profile:security.title')} description={t('profile:security.description')}>
         <Card>
           {/* Password */}
-          <div className="border-b border-border/50 py-3.5">
+          <div className="border-b border-border/60 py-3.5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-heading">{t('profile:security.passwordTitle')}</p>
@@ -539,7 +539,7 @@ export function ProfileSettingsContent() {
             </div>
 
             {showPasswordForm && (
-              <div className="mt-3 space-y-2.5 rounded-lg border border-border/50 bg-bg-elevated/50 p-3">
+              <div className="mt-3 space-y-2.5 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
                 <div className="grid gap-2.5 sm:grid-cols-3">
                   {[
                     { label: t('profile:security.currentPassword'), value: currentPw, set: setCurrentPw },
@@ -619,7 +619,7 @@ export function ProfileSettingsContent() {
             </div>
 
             {totpSetup && !user?.totpEnabled && (
-              <div className="mt-3 space-y-3 rounded-lg border border-border/50 bg-bg-elevated/50 p-3">
+              <div className="mt-3 space-y-3 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
                 <p className="text-xs text-text-secondary">
                   {t('profile:security.totpStep1', {
                     defaultValue: 'Add this key to your authenticator app (Google Authenticator, 1Password, Microsoft Authenticator, ...), then enter the 6-digit code it shows.',
@@ -672,7 +672,7 @@ export function ProfileSettingsContent() {
             )}
 
             {showTotpDisable && user?.totpEnabled && (
-              <div className="mt-3 space-y-2.5 rounded-lg border border-border/50 bg-bg-elevated/50 p-3">
+              <div className="mt-3 space-y-2.5 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
                 <p className="text-xs text-text-secondary">
                   {t('profile:security.totpDisableConfirm', { defaultValue: 'Enter your password to turn off two-factor authentication.' })}
                 </p>
@@ -705,7 +705,7 @@ export function ProfileSettingsContent() {
       {/* ── Account ── */}
       <Section title={t('profile:account.title')} description={t('profile:account.description')}>
         <Card>
-          <div className="flex items-center justify-between border-b border-border/50 py-3.5">
+          <div className="flex items-center justify-between border-b border-border/60 py-3.5">
             <div>
               <p className="text-sm font-medium text-text-heading">{t('profile:account.signOutTitle')}</p>
               <p className="text-xs text-text-muted">{t('profile:account.signOutDescription')}</p>

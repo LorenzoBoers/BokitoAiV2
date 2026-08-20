@@ -33,7 +33,7 @@ const WIDTH_CLASS: Record<PageContentWidth, string> = {
  * page renders multiple sections.
  */
 export function PageContent({ children, width = 'lg', className }: PageContentProps) {
-  return <div className={cn(WIDTH_CLASS[width], className)}>{children}</div>
+  return <div className={cn(WIDTH_CLASS[width], 'animate-page-enter', className)}>{children}</div>
 }
 
 export default PageContent

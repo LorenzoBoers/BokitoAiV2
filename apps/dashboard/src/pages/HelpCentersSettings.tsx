@@ -18,7 +18,7 @@ import { humanizeLabel } from '../lib/labels'
 
 function RowSkeleton() {
   return (
-    <div className="animate-pulse rounded-md border border-border/50 bg-bg-input/40 px-2 py-2">
+    <div className="animate-pulse rounded-md border border-border/60 bg-bg-input/40 px-2 py-2">
       <div className="h-3.5 w-2/3 rounded bg-bg-hover/70" />
       <div className="mt-1.5 h-2.5 w-1/3 rounded bg-bg-hover/50" />
     </div>
@@ -87,14 +87,14 @@ export default function HelpCentersSettings() {
       <Card className="p-4">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
             <input
-              className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+              className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
               placeholder="New collection name"
               value={newCollectionName}
               disabled={creatingCollection}
               onChange={(event) => setNewCollectionName(event.target.value)}
             />
             <input
-              className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+              className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
               placeholder="Description (optional)"
               value={newCollectionDescription}
               disabled={creatingCollection}
@@ -165,21 +165,21 @@ export default function HelpCentersSettings() {
               <>
                 <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_120px_auto]">
                   <input
-                    className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                    className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                     placeholder="File name"
                     value={newDocName}
                     disabled={uploadingDoc}
                     onChange={(event) => setNewDocName(event.target.value)}
                   />
                   <input
-                    className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                    className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                     placeholder="File URL"
                     value={newDocUrl}
                     disabled={uploadingDoc}
                     onChange={(event) => setNewDocUrl(event.target.value)}
                   />
                   <select
-                    className="rounded-lg border border-border/70 bg-bg-input/80 px-3 py-2 text-sm"
+                    className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                     value={newDocType}
                     disabled={uploadingDoc}
                     onChange={(event) => setNewDocType(event.target.value as KbDocument['file_type'])}
@@ -231,7 +231,7 @@ export default function HelpCentersSettings() {
                     </p>
                   ) : (
                     kbDocuments.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/70 bg-bg-input/45 px-3 py-2">
+                    <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-input/45 px-3 py-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm text-text-primary">{doc.filename}</div>
                         <div className="text-2xs text-text-muted">

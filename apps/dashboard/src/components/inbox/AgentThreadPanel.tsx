@@ -105,8 +105,8 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
   }, [targetAgent, orchestrator, thread.agentId, thread.agentName, thread.agentKind, thread.organisationId])
 
   return (
-    <aside className="hidden h-full min-h-0 w-72 shrink-0 flex-col border-l border-border/50 bg-bg-surface lg:flex">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
+    <aside className="hidden h-full min-h-0 w-72 shrink-0 flex-col border-l border-border/60 bg-bg-surface lg:flex">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
           {isExternal ? 'Contact' : 'Agent'}
         </span>

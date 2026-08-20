@@ -475,7 +475,7 @@ export default function GovernPage() {
                                     <span className="ml-1.5 text-[10px] text-accent">override</span>
                                   ) : null}
                                 </span>
-                                <div className="inline-flex shrink-0 rounded-md border border-border/50 p-0.5">
+                                <div className="inline-flex shrink-0 rounded-md border border-border/60 p-0.5">
                                   {(['inherit', 'deny', 'ask', 'allow'] as const).map((mode) => {
                                     const isInherit = mode === 'inherit'
                                     const selected = isInherit ? !tool.override : tool.override === mode

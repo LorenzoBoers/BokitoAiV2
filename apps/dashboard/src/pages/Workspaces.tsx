@@ -119,10 +119,10 @@ export default function Workspaces() {
                     await switchWorkspace(workspace.id)
                     navigate('/communication/inbox/all', { replace: true })
                   }}
-                  className={`rounded-xl border p-5 text-left transition-colors ${
+                  className={`rounded-xl border p-5 text-left shadow-card hover-lift ${
                     isCurrent
                       ? 'border-accent/45 bg-accent/10'
-                      : 'border-border/70 bg-bg-elevated/40 hover:bg-bg-hover/60'
+                      : 'border-border/60 bg-bg-surface hover:border-border'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -132,7 +132,7 @@ export default function Workspaces() {
                         <img
                           src={workspace.logo}
                           alt={workspace.name}
-                          className="w-10 h-10 rounded-lg object-contain border border-border/50 bg-bg-surface/60 shrink-0"
+                          className="w-10 h-10 rounded-lg object-contain border border-border/60 bg-bg-elevated shrink-0"
                         />
                       ) : (
                         <span
@@ -155,7 +155,7 @@ export default function Workspaces() {
                       </div>
                     </div>
                     {isCurrent ? (
-                      <span className="rounded-md border border-border/70 bg-bg-hover px-2 py-1 text-[11px] text-text-muted shrink-0">
+                      <span className="rounded-md border border-border/60 bg-bg-hover px-2 py-1 text-[11px] text-text-muted shrink-0">
                         {t('cards.workspace.current')}
                       </span>
                     ) : null}
@@ -218,7 +218,7 @@ export default function Workspaces() {
                   placeholder="subdomain"
                   className="rounded-r-none"
                 />
-                <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/55 text-[12px] text-text-muted whitespace-nowrap rounded-r-md">
+                <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 text-[12px] text-text-muted whitespace-nowrap rounded-r-md">
                   .bokito.ai
                 </span>
               </div>

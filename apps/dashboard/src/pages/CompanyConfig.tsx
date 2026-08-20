@@ -117,7 +117,7 @@ function ColorField({
         type="text"
         value={value.toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-28 bg-bg-surface/50 border border-border/55 rounded-lg px-3 py-2 text-[13px] text-text-primary font-mono focus:outline-none focus:border-accent/55 transition-colors"
+        className="w-28 bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-[13px] text-text-primary font-mono focus:outline-none focus:border-accent/55 transition-colors"
       />
     </div>
   )
@@ -273,19 +273,19 @@ export default function CompanyConfig() {
             <h2 className="text-[15px] font-semibold text-text-heading mb-1">Branding</h2>
             <p className="text-[13px] text-text-secondary mb-4">Manage your workspace branding, including name, logo and brand color.</p>
 
-            <div className="rounded-xl border border-border/55 bg-bg-elevated/30 px-5">
+            <div className="rounded-xl border border-border/60 bg-bg-elevated/30 px-5">
               <SettingRow label="Name">
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-bg-surface/50 border border-border/55 rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
+                  className="w-full bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                 />
               </SettingRow>
 
               <SettingRow label="Logo" description="Shown in the portal and widgets. PNG, JPG, JPEG, GIF, WebP or SVG (SVG is automatically optimized for upload).">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-surface/60 flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
                     {logoSrc
                       ? <img src={logoSrc} alt="logo" className="w-full h-full object-contain" />
                       : <Image size={16} className="text-text-muted" />
@@ -319,7 +319,7 @@ export default function CompanyConfig() {
 
               <SettingRow label="Favicon" description="Browser tab icon for the tenant. Use PNG, JPG, JPEG, GIF, WebP or SVG (SVG is automatically optimized for upload).">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-surface/60 flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
                     {faviconSrc
                       ? <img src={faviconSrc} alt="favicon" className="w-5 h-5 object-contain" />
                       : <Image size={16} className="text-text-muted" />
@@ -365,9 +365,9 @@ export default function CompanyConfig() {
                       setSubdomain(next)
                       if (subdomainError) setSubdomainError(validateSubdomain(next))
                     }}
-                    className="flex-1 bg-bg-surface/50 border border-border/55 rounded-l-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
+                    className="flex-1 bg-bg-input border border-border/60 rounded-l-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                   />
-                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/55 rounded-r-lg text-[12px] text-text-muted whitespace-nowrap">.bokito.ai</span>
+                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 rounded-r-lg text-[12px] text-text-muted whitespace-nowrap">.bokito.ai</span>
                 </div>
                 {subdomainError ? (
                   <p className="mt-2 text-xs text-status-error">{subdomainError}</p>
@@ -380,7 +380,7 @@ export default function CompanyConfig() {
           <button
             type="button"
             onClick={() => navigate(ASSISTANT_DEFAULT_PATH)}
-            className="w-full flex items-center gap-4 rounded-xl border border-border/55 bg-bg-elevated/30 px-5 py-4 hover:border-accent/35 hover:bg-bg-hover/40 transition-all group text-left"
+            className="w-full flex items-center gap-4 rounded-xl border border-border/60 bg-bg-elevated/30 px-5 py-4 hover:border-accent/35 hover:bg-bg-hover/40 transition-all group text-left"
           >
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
               <MessageSquare size={16} className="text-accent" />

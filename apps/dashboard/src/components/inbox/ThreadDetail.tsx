@@ -182,7 +182,7 @@ function DraftWithAiButton({
         {drafting ? 'Drafting…' : 'Draft with AI'}
       </Button>
       {open ? (
-        <div className="absolute bottom-full right-0 z-30 mb-1.5 w-80 rounded-xl border border-border/70 bg-bg-surface p-3 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.45)]">
+        <div className="absolute bottom-full right-0 z-30 mb-1.5 w-80 rounded-xl border border-border/60 bg-bg-surface p-3 shadow-overlay">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
             Guidance (optional)
           </p>
@@ -345,7 +345,7 @@ function ThreadMetaRow({
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border/40 bg-bg-surface/60 px-3 py-1 shrink-0">
+    <div className="flex flex-wrap items-center gap-1 border-b border-border/40 bg-bg-elevated px-3 py-1 shrink-0">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -354,7 +354,7 @@ function ThreadMetaRow({
             aria-label="Set priority"
             className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
               priority === 'normal'
-                ? 'border-border/50 text-text-muted hover:border-border hover:text-text-secondary'
+                ? 'border-border/60 text-text-muted hover:border-border hover:text-text-secondary'
                 : 'border-border/60 bg-bg-surface text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -383,7 +383,7 @@ function ThreadMetaRow({
       {tags.map((tag) => (
         <span
           key={tag}
-          className="group/tag inline-flex items-center gap-1 rounded-full border border-border/50 bg-bg-surface-hover/50 px-2 py-0.5 text-[11px] text-text-secondary"
+          className="group/tag inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface-hover/50 px-2 py-0.5 text-[11px] text-text-secondary"
         >
           <Tag size={9} className="text-text-muted" />
           {tag}
@@ -423,7 +423,7 @@ function ThreadMetaRow({
           type="button"
           disabled={saving}
           onClick={() => setAddingTag(true)}
-          className="inline-flex items-center gap-1 rounded-full border border-dashed border-border/50 px-2 py-0.5 text-[11px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-[11px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary disabled:opacity-40"
         >
           <Plus size={9} />
           Label
@@ -974,7 +974,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   return (
     <TooltipProvider delayDuration={150}>
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-bg-surface/90 shrink-0 min-h-10">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-bg-surface shrink-0 min-h-10">
         {onBack ? (
           <button
             type="button"
@@ -997,7 +997,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           <Tooltip>
             <TooltipTrigger asChild>
               <span
-                className="flex items-center gap-1 shrink-0 rounded-full border border-border/50 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary"
+                className="flex items-center gap-1 shrink-0 rounded-full border border-border/60 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary"
                 aria-label={`Customer rating ${detail.csat.score} of 5`}
               >
                 <Star size={11} className="text-amber-500 fill-amber-500" />
@@ -1012,7 +1012,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           </Tooltip>
         ) : null}
         <div
-          className="flex items-center shrink-0 rounded-lg border border-border/50 bg-bg-surface-hover/30 p-0.5"
+          className="flex items-center shrink-0 rounded-lg border border-border/60 bg-bg-surface-hover/30 p-0.5"
           role="toolbar"
           aria-label="Thread actions"
         >
@@ -1222,7 +1222,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       thread.status !== 'closed' &&
       thread.status !== 'spam' &&
       (thread.suggestedActions?.length ?? 0) > 0 ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-surface/60 px-3 py-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated px-3 py-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
             Next
           </span>

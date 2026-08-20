@@ -313,7 +313,7 @@ export default function ProjectsSettings() {
               <p className="text-sm text-text-muted py-4">No projects yet.</p>
             ) : (
               projects.map((project) => (
-                <div key={project.id} className="rounded-lg border border-border/70 p-4 space-y-3">
+                <div key={project.id} className="rounded-lg border border-border/60 p-4 space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-text-heading">{project.name}</p>

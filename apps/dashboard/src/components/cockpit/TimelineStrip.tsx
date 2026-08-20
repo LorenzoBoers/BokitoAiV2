@@ -140,7 +140,7 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
   const nowX = xFor(now)
 
   return (
-    <div className="relative mb-3 rounded-xl border border-border/55 bg-bg-surface/70">
+    <div className="relative mb-3 rounded-xl border border-border/60 bg-bg-elevated">
       {loadingOlder ? (
         <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-md bg-bg-elevated/90 px-2 py-1 text-[10.5px] text-text-muted">
           <Loader2 size={11} className="animate-spin" />

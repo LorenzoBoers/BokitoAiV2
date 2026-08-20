@@ -191,7 +191,7 @@ export default function AcceptInvite() {
           </span>
         </div>
 
-        <div className="bg-bg-surface border border-border rounded-xl p-8 shadow-xl">
+        <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
           {step === 'welcome' ? (
             <div className="space-y-5">
               <p className="text-sm text-text-secondary">

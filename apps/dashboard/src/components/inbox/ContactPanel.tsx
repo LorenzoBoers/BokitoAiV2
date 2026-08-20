@@ -182,7 +182,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
                   void setStatus('blocked')
                 }
               }}
-              className="flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
+              className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
             >
               <ShieldBan size={11} />
               Block
@@ -229,7 +229,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
           Previous conversations
         </h3>
         {previousThreads.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border/50 px-3 py-3 text-[11.5px] text-text-muted">
+          <p className="rounded-lg border border-dashed border-border/60 px-3 py-3 text-[11.5px] text-text-muted">
             No other conversations with this contact.
           </p>
         ) : (
@@ -238,7 +238,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
               <Link
                 key={String(t.id)}
                 to={inboxPath('all', String(t.id))}
-                className="flex items-center gap-2 rounded-lg border border-border/45 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
+                className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
                 <MessageSquare size={12} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">

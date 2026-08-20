@@ -9,7 +9,7 @@ const TABS = [
 /** Inner tab strip for the Cockpit surface (Overview / Activity / Usage). */
 export default function CockpitTabs() {
   return (
-    <nav className="mb-4 flex items-center gap-1 border-b border-border/50" aria-label="Cockpit sections">
+    <nav className="mb-4 flex items-center gap-1 border-b border-border/60" aria-label="Cockpit sections">
       {TABS.map((tab) => (
         <NavLink
           key={tab.to}

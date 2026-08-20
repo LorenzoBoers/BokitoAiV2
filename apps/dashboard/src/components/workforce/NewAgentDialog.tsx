@@ -36,7 +36,7 @@ const ROLE_OPTIONS = [
 ]
 
 const SELECT_CLASS =
-  'w-full rounded-lg border border-border/70 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50'
+  'w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50'
 
 type ModelOption = TenantModelRow | CatalogModel
 

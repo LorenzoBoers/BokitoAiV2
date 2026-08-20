@@ -93,7 +93,7 @@ export default function ThreadList({
     <div
       className={`${
         selectedId != null ? 'hidden md:flex' : 'flex'
-      } flex-col h-full min-h-0 w-full md:w-72 shrink-0 border-r border-border/50 bg-bg-surface`}
+      } flex-col h-full min-h-0 w-full md:w-72 shrink-0 border-r border-border/60 bg-bg-surface`}
     >
       {selectionActive && onBulkAction && onClearBulkSelection ? (
         <BulkActionsBar
@@ -167,7 +167,7 @@ export default function ThreadList({
             type="button"
             onClick={onLoadMore}
             disabled={loadingMore}
-            className="mt-1 w-full rounded-md border border-border/50 bg-bg-surface px-3 py-2 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+            className="mt-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
           >
             {loadingMore
               ? t('threadList.loadingMore')

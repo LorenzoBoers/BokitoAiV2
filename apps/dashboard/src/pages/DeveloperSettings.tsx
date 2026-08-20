@@ -195,7 +195,7 @@ export default function DeveloperSettings() {
           </div>
 
           {showAdd ? (
-            <div className="mt-4 space-y-3 rounded-xl border border-border/60 bg-bg-surface p-4">
+            <div className="mt-4 space-y-3 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
               <div>
                 <Label htmlFor="wh-url">Endpoint URL</Label>
                 <Input
@@ -274,7 +274,7 @@ export default function DeveloperSettings() {
               {items.map((endpoint) => (
                 <div
                   key={endpoint.id}
-                  className="rounded-xl border border-border/60 bg-bg-surface p-4"
+                  className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -317,7 +317,7 @@ export default function DeveloperSettings() {
                     {endpoint.events.map((event) => (
                       <span
                         key={event}
-                        className="rounded-full border border-border/50 px-2 py-0.5 text-[10.5px] text-text-secondary"
+                        className="rounded-full border border-border/60 px-2 py-0.5 text-[10.5px] text-text-secondary"
                       >
                         {event === '*' ? 'All events' : event}
                       </span>
@@ -354,7 +354,7 @@ export default function DeveloperSettings() {
                     {expandedId === endpoint.id ? 'Hide deliveries' : 'Recent deliveries'}
                   </button>
                   {expandedId === endpoint.id ? (
-                    <div className="mt-2 overflow-hidden rounded-lg border border-border/50">
+                    <div className="mt-2 overflow-hidden rounded-lg border border-border/60">
                       {(deliveries[endpoint.id] || []).length === 0 ? (
                         <p className="px-3 py-2.5 text-[11.5px] text-text-muted">
                           No deliveries recorded yet.
@@ -362,7 +362,7 @@ export default function DeveloperSettings() {
                       ) : (
                         <table className="w-full text-[11.5px]">
                           <thead>
-                            <tr className="border-b border-border/50 text-left text-text-muted">
+                            <tr className="border-b border-border/60 text-left text-text-muted">
                               <th className="px-3 py-1.5 font-medium">Event</th>
                               <th className="px-3 py-1.5 font-medium">Status</th>
                               <th className="px-3 py-1.5 font-medium">Attempts</th>
@@ -371,7 +371,7 @@ export default function DeveloperSettings() {
                           </thead>
                           <tbody>
                             {(deliveries[endpoint.id] || []).map((delivery) => (
-                              <tr key={delivery.id} className="border-b border-border/30 last:border-0">
+                              <tr key={delivery.id} className="border-b border-border/40 last:border-0">
                                 <td className="px-3 py-1.5 font-mono">{delivery.event}</td>
                                 <td className="px-3 py-1.5">
                                   <span
@@ -404,7 +404,7 @@ export default function DeveloperSettings() {
           )}
         </section>
 
-        <section className="rounded-xl border border-border/60 bg-bg-surface p-4">
+        <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <h2 className="text-[15px] font-semibold text-text-heading">Public API</h2>
           <p className="mt-1 text-[12.5px] leading-relaxed text-text-secondary">
             Use a tenant API token as a bearer token against{' '}

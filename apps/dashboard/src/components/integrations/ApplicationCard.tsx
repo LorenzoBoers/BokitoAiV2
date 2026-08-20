@@ -28,7 +28,7 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
           onOpenDetail()
         }
       }}
-      className="flex flex-col rounded-xl border border-border/60 bg-bg-surface p-5 transition-shadow hover:shadow-sm hover:border-border cursor-pointer"
+      className="flex flex-col rounded-xl border border-border/60 bg-bg-surface p-5 shadow-card hover-lift hover:border-border cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -59,7 +59,7 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/50 pt-4">
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-4">
         <button
           type="button"
           className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary"
