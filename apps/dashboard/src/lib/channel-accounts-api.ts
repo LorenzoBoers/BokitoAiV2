@@ -1,4 +1,4 @@
-/** Connected channel accounts (webchat, WhatsApp, Slack, ...) for the Channels rail. */
+/** Connected channel accounts (webchat, Slack, ...) for the Channels rail. */
 
 import { appRoutes } from '../api/routes/app.routes'
 import { apiGet } from './api'

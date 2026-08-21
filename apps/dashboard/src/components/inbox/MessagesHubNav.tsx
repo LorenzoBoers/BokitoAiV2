@@ -8,7 +8,6 @@ import {
   Hash,
   Inbox,
   Mail,
-  MessageCircle,
   MessageSquare,
   Plus,
   Settings,
@@ -148,7 +147,6 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
     () => connections.filter((c) => c.status !== 'revoked' && c.isEnabled !== false),
     [connections],
   )
-  const hasWhatsApp = accounts.some((a) => a.channel === 'whatsapp' && a.isEnabled)
   const hasSlack = accounts.some((a) => a.channel === 'slack' && a.isEnabled)
 
   return (
@@ -180,15 +178,6 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
         icon={<MessageSquare size={14} className="shrink-0 text-text-muted" />}
         activeLeaf={activeLeaf}
       />
-      {hasWhatsApp ? (
-        <LeafLink
-          leaf={{ type: 'channel', channelKey: 'whatsapp' }}
-          to={channelPath('whatsapp')}
-          label="WhatsApp"
-          icon={<MessageCircle size={14} className="shrink-0 text-text-muted" />}
-          activeLeaf={activeLeaf}
-        />
-      ) : null}
       {hasSlack ? (
         <LeafLink
           leaf={{ type: 'channel', channelKey: 'slack' }}

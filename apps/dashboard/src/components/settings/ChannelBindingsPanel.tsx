@@ -14,10 +14,11 @@ import {
 } from '../../lib/channel-bindings-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
+// Only channels with a real adapter + connect path. WhatsApp returns here
+// once a channel adapter ships.
 const CHANNELS = [
   { value: 'email', label: 'Email' },
   { value: 'widget', label: 'Webchat' },
-  { value: 'whatsapp', label: 'WhatsApp' },
   { value: 'slack', label: 'Slack' },
 ] as const
 

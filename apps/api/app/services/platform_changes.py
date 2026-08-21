@@ -228,6 +228,7 @@ async def propose_platform_change(
     await session.flush()
 
     from app.models.notification import DecisionRequest, Notification
+    from app.services.notification_mail import decision_bell_status
 
     notification = Notification(
         tenant_id=tenant.id,
@@ -235,6 +236,7 @@ async def propose_platform_change(
         kind="decision_request",
         title=f"Review: {summary}",
         body=summary,
+        status=await decision_bell_status(session, tenant.id, user_id),
         payload_json=json.dumps({"platform_change_id": str(change.id)}),
     )
     session.add(notification)

@@ -29,7 +29,17 @@ def _asset_url(value: Any) -> str:
     return ""
 
 
-def livechat_theme_from_tenant(tenant: Tenant) -> dict[str, str]:
+MESSENGER_MODULE_KEYS = ("home", "messages", "help", "tools")
+
+
+def _messenger_modules(appearance: dict[str, Any]) -> dict[str, bool]:
+    """Which widget tabs the tenant enabled; unknown/missing keys default on."""
+    raw = appearance.get("modules")
+    raw = raw if isinstance(raw, dict) else {}
+    return {key: bool(raw.get(key, True)) for key in MESSENGER_MODULE_KEYS}
+
+
+def livechat_theme_from_tenant(tenant: Tenant) -> dict[str, Any]:
     settings_data = tenant_settings(tenant)
     livechat = settings_data.get("livechat_settings")
     if not isinstance(livechat, dict):
@@ -60,6 +70,7 @@ def livechat_theme_from_tenant(tenant: Tenant) -> dict[str, str]:
         "welcome_subtitle": str(appearance.get("welcome_subtitle") or "").strip(),
         "chatbot_name": str(appearance.get("chatbot_name") or "").strip() or "Bokito AI",
         "widget_favicon_url": favicon,
+        "modules": _messenger_modules(appearance),
     }
 
 

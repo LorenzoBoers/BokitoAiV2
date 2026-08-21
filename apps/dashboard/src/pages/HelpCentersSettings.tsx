@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
@@ -81,7 +82,12 @@ export default function HelpCentersSettings() {
   return (
     <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-4 py-1">
       <p className="text-sm text-text-secondary">
-        Manage collection sources for AI context and document indexing.
+        Manage collection sources for AI context and document indexing. Company knowledge the
+        agents learn on their own lives in{' '}
+        <Link to="/knowledge" className="font-medium text-accent hover:underline">
+          Knowledge
+        </Link>
+        .
       </p>
 
       <Card className="p-4">

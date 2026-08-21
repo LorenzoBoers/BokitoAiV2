@@ -182,8 +182,15 @@ async def notify_decision(
         )
         recipients = list(result.scalars().all())
 
+    # Push mirrors the in-app channel: users who turned the `decisions`
+    # category off in Notification Settings get no device push either.
+    from app.services.notification_mail import notification_channels
+
     sent = 0
     for user_id in recipients:
+        channels = await notification_channels(session, decision.tenant_id, user_id, "decisions")
+        if not channels["desktop"]:
+            continue
         sent += await send_push_to_user(session, decision.tenant_id, user_id, title, body, payload)
     return sent
 

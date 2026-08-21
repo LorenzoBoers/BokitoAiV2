@@ -285,13 +285,13 @@ async def create_feedback(
 # Only categories the platform actually emits and enforces. Add a row here
 # only together with an enforcement check at the emission point.
 DEFAULT_NOTIFICATION_ROWS = [
-    {"id": "assigned-to-me", "label": "When a conversation is assigned to you", "channels": {"desktop": True, "email": False, "mobile": False}},
-    {"id": "mentions", "label": "When you are mentioned in conversations", "channels": {"desktop": True, "email": False, "mobile": False}},
+    {"id": "assigned-to-me", "label": "When a conversation is assigned to you", "channels": {"desktop": True, "email": False}},
+    {"id": "mentions", "label": "When you are mentioned in conversations", "channels": {"desktop": True, "email": False}},
     # Slack channel: decision cards as DM with Approve/Deny (services/slack_notify.py).
-    {"id": "decisions", "label": "When an agent needs your decision on an assigned conversation", "channels": {"desktop": True, "email": False, "mobile": False, "slack": False}},
+    {"id": "decisions", "label": "When an agent needs your decision on an assigned conversation", "channels": {"desktop": True, "email": False, "slack": False}},
     # Ops alerts (owners/admins only; emitted via services/ops_alerts.py).
-    {"id": "ops-run-failed", "label": "When an agent run or trigger fails", "channels": {"desktop": True, "email": False, "mobile": False}},
-    {"id": "ops-channel-disconnect", "label": "When a connected channel stops syncing", "channels": {"desktop": True, "email": False, "mobile": False}},
+    {"id": "ops-run-failed", "label": "When an agent run or trigger fails", "channels": {"desktop": True, "email": False}},
+    {"id": "ops-channel-disconnect", "label": "When a connected channel stops syncing", "channels": {"desktop": True, "email": False}},
     # Spend alerts (owners/admins only; emitted via services/spend_guard.py).
     {"id": "billing-alerts", "label": "When LLM spend reaches 80% or 100% of the budget", "channels": {"desktop": True, "email": False}},
     # Digest mails (services/digest_mail.py; arq cron). Email-only categories.

@@ -22,7 +22,7 @@ from app.services.transactional_mail import send_mail
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CHANNELS = {"desktop": True, "email": False, "mobile": False}
+DEFAULT_CHANNELS = {"desktop": True, "email": False, "slack": False}
 
 
 async def notification_channels(
@@ -30,8 +30,10 @@ async def notification_channels(
 ) -> dict[str, bool]:
     """The user's enabled channels for a notification category.
 
-    Unknown categories and missing/corrupt pref rows fall back to the default
-    (desktop on, email off) so notification behavior never silently vanishes.
+    Channels: `desktop` (in-app bell + device push), `email`, and `slack`
+    (decision DMs). Unknown categories and missing/corrupt pref rows fall back
+    to the default (desktop on, everything else off) so notification behavior
+    never silently vanishes.
     """
     from app.models.notification import UserNotificationPreference
 
@@ -54,9 +56,26 @@ async def notification_channels(
             return {
                 "desktop": bool(channels.get("desktop", DEFAULT_CHANNELS["desktop"])),
                 "email": bool(channels.get("email", DEFAULT_CHANNELS["email"])),
-                "mobile": bool(channels.get("mobile", DEFAULT_CHANNELS["mobile"])),
+                "slack": bool(channels.get("slack", DEFAULT_CHANNELS["slack"])),
             }
     return dict(DEFAULT_CHANNELS)
+
+
+async def decision_bell_status(
+    session: AsyncSession, tenant_id: UUID, user_id: UUID | None
+) -> str:
+    """Initial bell status for a decision notification targeted at a user.
+
+    Decision notifications anchor DecisionRequest rows, so the row must always
+    exist; honoring the user's `decisions` preference means creating it as
+    already-read (no unread badge, no realtime ping) instead of skipping it.
+    Broadcasts (no target user) stay unread: unassigned decisions must reach
+    someone.
+    """
+    if user_id is None:
+        return "unread"
+    channels = await notification_channels(session, tenant_id, user_id, "decisions")
+    return "unread" if channels["desktop"] else "read"
 
 
 def thread_link(signal_id: UUID | str) -> str:

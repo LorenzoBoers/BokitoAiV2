@@ -19,8 +19,9 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
 }
 
+// The usage ledger meters costs in USD (provider pricing); keep the label honest.
 function formatCost(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' }).format(cents / 100)
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
 function formatUsd(micros: number) {
@@ -133,7 +134,7 @@ export default function UsagePage() {
         { label: 'Cost (30d)', value: formatCost(summary.cost_cents_month) },
         { label: 'Conversations (7d)', value: formatNumber(summary.volume_week) },
         { label: 'Autonomy rate', value: `${formatNumber(summary.autonomy_rate_pct)}%` },
-        { label: 'Time saved (7d)', value: `${formatNumber(summary.time_saved_minutes_week)} min` },
+        { label: 'Time saved (7d, est.)', value: `${formatNumber(summary.time_saved_minutes_week)} min` },
         {
           label: 'Avg feedback',
           value: summary.avg_feedback_score > 0 ? formatNumber(summary.avg_feedback_score) : '-',

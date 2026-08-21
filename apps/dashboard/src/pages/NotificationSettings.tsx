@@ -19,7 +19,7 @@ type NotificationRow = {
   label: string
   // A missing key means the channel does not apply to this category
   // (e.g. digests are email-only, Slack only exists on decisions).
-  channels: { desktop?: boolean; email?: boolean; mobile?: boolean; slack?: boolean }
+  channels: { desktop?: boolean; email?: boolean; slack?: boolean }
 }
 
 // Only categories the backend actually enforces at the emission point.
@@ -28,27 +28,27 @@ const DEFAULT_ROWS: NotificationRow[] = [
   {
     id: 'assigned-to-me',
     label: 'When a conversation is assigned to you',
-    channels: { desktop: true, email: false, mobile: false },
+    channels: { desktop: true, email: false },
   },
   {
     id: 'mentions',
     label: 'When you are mentioned in conversations',
-    channels: { desktop: true, email: false, mobile: false },
+    channels: { desktop: true, email: false },
   },
   {
     id: 'decisions',
     label: 'When an agent needs your decision on an assigned conversation',
-    channels: { desktop: true, email: false, mobile: false, slack: false },
+    channels: { desktop: true, email: false, slack: false },
   },
   {
     id: 'ops-run-failed',
     label: 'When an agent run or trigger fails',
-    channels: { desktop: true, email: false, mobile: false },
+    channels: { desktop: true, email: false },
   },
   {
     id: 'ops-channel-disconnect',
     label: 'When a connected channel stops syncing',
-    channels: { desktop: true, email: false, mobile: false },
+    channels: { desktop: true, email: false },
   },
   {
     id: 'billing-alerts',
@@ -251,7 +251,7 @@ export default function NotificationSettings() {
             </p>
             <p className="text-xs text-text-secondary">
               {pushSupported
-                ? 'Get a system notification for new messages and pending decisions, even when Bokito is closed. Applies to this browser only.'
+                ? 'Get a system notification for new messages and pending decisions, even when Bokito is closed. Applies to this browser only; decision pushes follow your in-app preference above.'
                 : 'This browser does not support push notifications.'}
             </p>
             {pushError ? <p className="text-xs text-status-error">{pushError}</p> : null}

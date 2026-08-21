@@ -189,6 +189,9 @@ async def test_onboarding_status_endpoint(client: AsyncClient):
     data = resp.json()
     step_ids = [step["id"] for step in data["steps"]]
     assert step_ids == ["email", "company", "assistant", "first_decision", "team"]
-    # Fresh tenant: nothing completed yet.
     assert data["completed"] is False
-    assert all(step["done"] is False for step in data["steps"])
+    by_id = {step["id"]: step["done"] for step in data["steps"]}
+    # The built-in Bokito address is provisioned at bootstrap, so the email
+    # channel works from day one; everything else starts unfinished.
+    assert by_id["email"] is True
+    assert all(by_id[key] is False for key in ("company", "assistant", "first_decision", "team"))

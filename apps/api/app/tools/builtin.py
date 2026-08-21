@@ -286,24 +286,29 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
             target_signal_id = UUID(str(raw_signal))
         except ValueError:
             target_signal_id = None
+    from app.services.notification_mail import decision_bell_status
+
+    bell_status = await decision_bell_status(ctx.session, ctx.tenant_id, ctx.user_id)
     notification = Notification(
         tenant_id=ctx.tenant_id,
         user_id=ctx.user_id,
         kind="decision_request",
         title=tool_input["title"],
         body=tool_input.get("summary", ""),
+        status=bell_status,
         payload_json=json.dumps(tool_input),
     )
     ctx.session.add(notification)
     await ctx.session.flush()
-    from app.gateway.publish import publish_notification
+    if bell_status == "unread":
+        from app.gateway.publish import publish_notification
 
-    await publish_notification(
-        ctx.tenant_id,
-        notification_id=notification.id,
-        kind=notification.kind,
-        title=notification.title,
-    )
+        await publish_notification(
+            ctx.tenant_id,
+            notification_id=notification.id,
+            kind=notification.kind,
+            title=notification.title,
+        )
     project_uuid = None
     raw_project = tool_input.get("project_id")
     if raw_project:

@@ -17,7 +17,7 @@ export type InboxQueue = (typeof INBOX_QUEUES)[number]
 export const RUNS_QUEUES = ['all', 'updates', 'results', 'awaiting-decision'] as const
 export type RunsQueue = (typeof RUNS_QUEUES)[number]
 
-export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'whatsapp', 'slack'] as const
+export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'slack'] as const
 export type ChannelKey = (typeof CHANNEL_KEYS)[number]
 
 export type HubLeaf =

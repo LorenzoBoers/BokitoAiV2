@@ -113,12 +113,15 @@ async def create_action_suggestion(
         },
     ]
 
+    from app.services.notification_mail import decision_bell_status
+
     notification = Notification(
         tenant_id=tenant_id,
         user_id=signal.assigned_user_id,
         kind="decision_request",
         title="No reply needed",
         body=text[:500],
+        status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
         payload_json=json.dumps(
             {
                 "kind": "action_suggestion",
@@ -216,12 +219,15 @@ async def create_reply_suggestion(
         if isinstance(opt.get("payload"), dict):
             opt["payload"]["signal_id"] = str(signal.id)
 
+    from app.services.notification_mail import decision_bell_status
+
     notification = Notification(
         tenant_id=tenant_id,
         user_id=signal.assigned_user_id,
         kind="decision_request",
         title="Suggested reply",
         body=text[:500],
+        status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
         payload_json=json.dumps(
             {
                 "kind": "reply_suggestion",

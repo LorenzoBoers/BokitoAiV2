@@ -178,7 +178,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
               disabled={saving}
               onClick={() => {
                 const name = contact.displayName || contact.address || 'this contact'
-                if (window.confirm(`Block ${name}? New messages from them will be marked as spam.`)) {
+                if (window.confirm(`Block ${name}? New messages from them will be dropped and never reach your inbox.`)) {
                   void setStatus('blocked')
                 }
               }}

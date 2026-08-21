@@ -29,7 +29,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { label: 'Email & messages', to: '/settings/channels' },
       { label: 'Chat widget', to: ASSISTANT_DEFAULT_PATH, match: '/ai/assistant' },
       { label: 'Communication agent', to: '/settings/communication', match: '/settings/communication' },
-      { label: 'Help center', to: '/settings/help-centers' },
+      { label: 'Knowledge base', to: '/settings/help-centers' },
     ],
   },
   {

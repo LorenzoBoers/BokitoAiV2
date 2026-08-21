@@ -4,22 +4,24 @@
  * Widget preview uses the same keys in data-preview-overrides JSON.
  */
 
-export type MessengerModuleKey = 'home' | 'messages' | 'help' | 'changelog'
+// Mirrors the widget's real tabs (Home / Messages / Help / Tools). The Help
+// tab additionally requires published help-center articles to appear.
+export type MessengerModuleKey = 'home' | 'messages' | 'help' | 'tools'
 
-export const MESSENGER_MODULE_KEYS: MessengerModuleKey[] = ['home', 'messages', 'help', 'changelog']
+export const MESSENGER_MODULE_KEYS: MessengerModuleKey[] = ['home', 'messages', 'help', 'tools']
 
 export const MESSENGER_MODULE_LABELS: Record<MessengerModuleKey, string> = {
   home: 'Home',
   messages: 'Messages',
   help: 'Help',
-  changelog: 'Changelog',
+  tools: 'Tools',
 }
 
 export const DEFAULT_MESSENGER_MODULES: Record<MessengerModuleKey, boolean> = {
   home: true,
   messages: true,
   help: true,
-  changelog: false,
+  tools: true,
 }
 
 export interface MessengerAppearance {
@@ -118,6 +120,7 @@ export function serializeAppearanceForWidgetPreview(a: MessengerAppearance): Rec
     welcome_title: a.welcome_title,
     welcome_subtitle: a.welcome_subtitle,
     widget_favicon_url: a.widget_favicon_url || '',
+    modules: { ...a.modules },
   }
 }
 

@@ -124,12 +124,12 @@ export default function SetupHubPage() {
           'Connect the channels where customers reach you. Every workspace starts with a built-in Bokito email address that receives mail instantly — connect Gmail or Outlook when you want your own mailbox in the loop.',
         icon: Mail,
         done: emailDone,
-        detail: emailDone ? 'Mailbox connected' : 'Built-in Bokito address ready',
+        detail: emailDone ? 'Email channel live' : 'No email channel yet',
         logos: ['bokito', 'gmail', 'outlook'],
         actions: [
           { label: 'View your Bokito address', to: '/settings/channels', primary: !emailDone },
           { label: 'Connect a mailbox', to: '/settings/channels' },
-          { label: 'Browse channels', to: '/settings/marketplace?kind=channel' },
+          { label: 'Browse channels', to: '/settings/marketplace?kind=inbox' },
         ],
       },
       {

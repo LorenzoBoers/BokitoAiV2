@@ -887,6 +887,7 @@ class BokitoChatWidget extends HTMLElement {
   #helpArticles = null; // null = not fetched yet, [] = none published (tab stays hidden)
   #soundEffectsEnabled = true; #soundNotificationsEnabled = true;
   #themeSchemeMedia = null; #themeSchemeListenerBound = false;
+  #helpModuleEnabled = true;
   #badge; #unreadTotal = 0;
   #attachBtn; #fileInput; #previewStrip;
   #imageViewer; #imageViewerImg; #imageViewerClose;
@@ -998,6 +999,7 @@ class BokitoChatWidget extends HTMLElement {
     pick('welcome_subtitle');
     pick('chatbot_name');
     pick('widget_favicon_url');
+    if (pv.modules && typeof pv.modules === 'object') out.modules = { ...pv.modules };
     return out;
   }
 
@@ -1010,6 +1012,37 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#headerName) this.#headerName.textContent = name;
     this.#syncHomeHeroFromTheme(eff);
     this.#syncHeaderAvatarFromTheme(eff);
+    this.#applyModuleVisibility(eff);
+  }
+
+  /* ── Messenger modules (tenant-configured widget tabs) ────────── */
+
+  #moduleEnabled(theme, key) {
+    const mods = theme && typeof theme.modules === 'object' ? theme.modules : null;
+    if (!mods) return true;
+    return mods[key] !== false;
+  }
+
+  /** Hide widget tabs the tenant disabled in Messenger settings. The Help
+   * tab additionally requires published articles (see #maybeLoadHelpArticles). */
+  #applyModuleVisibility(theme) {
+    const tabs = ['home', 'messages', 'help', 'tools'];
+    for (const tab of tabs) {
+      const btn = this.#root?.querySelector(`.bk-tab-btn[data-tab="${tab}"]`);
+      if (!btn) continue;
+      const enabled = this.#moduleEnabled(theme, tab);
+      if (tab === 'help') {
+        this.#helpModuleEnabled = enabled;
+        btn.hidden = !enabled || !(Array.isArray(this.#helpArticles) && this.#helpArticles.length > 0);
+      } else {
+        btn.hidden = !enabled;
+      }
+    }
+    const active = this.#activeHomeTab;
+    if (active && !this.#moduleEnabled(theme, active)) {
+      const fallback = tabs.find((t) => this.#moduleEnabled(theme, t)) || 'messages';
+      this.#switchHomeTab(fallback);
+    }
   }
 
   #syncHomeHeroFromTheme(theme) {
@@ -4576,7 +4609,7 @@ class BokitoChatWidget extends HTMLElement {
       this.#helpArticles = [];
     }
     const btn = this.#root.querySelector('.bk-tab-btn[data-tab="help"]');
-    if (btn) btn.hidden = this.#helpArticles.length === 0;
+    if (btn) btn.hidden = !this.#helpModuleEnabled || this.#helpArticles.length === 0;
   }
 
   #renderHelpList() {

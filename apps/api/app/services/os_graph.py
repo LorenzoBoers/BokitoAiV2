@@ -207,7 +207,7 @@ async def _resolve_node_summary(
         base["title"] = agent.name if agent else node.label or "Orchestrator"
         base["subtitle"] = role_slug(agent) if agent else "orchestrator"
         base["status"] = (agent.runtime_status if agent else "unknown") or "standby"
-        base["href"] = f"/os/agents/{node.ref_id}" if agent else None
+        base["href"] = f"/agents/{node.ref_id}" if agent else None
         return base
 
     if node.node_type == "workstream":
@@ -540,7 +540,7 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
         "workspace": {
             "present": doc_count > 0,
             "doc_count": doc_count,
-            "href": "/os/docs",
+            "href": "/knowledge",
         },
         "projects": project_nodes,
         "backbone": {

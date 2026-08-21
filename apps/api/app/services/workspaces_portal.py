@@ -722,8 +722,8 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
         ).first()
     )
 
-    # A real mailbox (Outlook/Gmail OAuth) is the flagship channel for the
-    # accountancy journey, so it gets its own first-class step.
+    # Any working email channel counts: the built-in Bokito address receives
+    # mail from day one, so it completes this step just like an OAuth mailbox.
     email_done = bool(
         (
             await session.execute(
@@ -731,7 +731,7 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
                 .where(
                     ChannelAccount.tenant_id == tenant_id,
                     ChannelAccount.channel == "email",
-                    ChannelAccount.provider.in_(["outlook", "gmail"]),  # type: ignore[attr-defined]
+                    ChannelAccount.provider.in_(["outlook", "gmail", "bokito"]),  # type: ignore[attr-defined]
                 )
                 .limit(1)
             )

@@ -89,11 +89,11 @@ PROVIDERS: list[dict[str, Any]] = [
     _provider(
         "outlook",
         "Microsoft 365 / Outlook",
-        "Mailbox en agenda via Microsoft Graph.",
+        "Mailbox via Microsoft Graph.",
         "Communicatie",
         "oauth2",
         host_slug="microsoft",
-        capabilities={"email": True, "calendar": True},
+        capabilities={"email": True},
         sort_order=2,
     ),
     _provider(
@@ -138,6 +138,7 @@ PROVIDERS: list[dict[str, Any]] = [
         "oauth2",
         host_slug="shopify",
         capabilities={"mcp_tools": True},
+        status="coming_soon",
         sort_order=12,
     ),
     _provider(

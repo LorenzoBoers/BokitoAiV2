@@ -218,17 +218,28 @@ async def create_trigger(
 
 
 async def _resolve_agent(session: AsyncSession, trigger: Trigger) -> Agent | None:
+    """Resolve the agent for a trigger. Paused agents never fire.
+
+    Pause in the UI must mean pause everywhere: inbound routing already skips
+    inactive agents, and scheduled wakes respect the same flag here.
+    """
     if trigger.agent_id:
         result = await session.execute(
             select(Agent).where(Agent.id == trigger.agent_id, Agent.tenant_id == trigger.tenant_id)
         )
         agent = result.scalar_one_or_none()
         if agent:
-            return agent
+            return agent if agent.is_active else None
     role = trigger.agent_role or "orchestra"
     roles = ("orchestra", "orchestrator") if role in ("orchestra", "orchestrator") else (role,)
     result = await session.execute(
-        select(Agent).where(Agent.tenant_id == trigger.tenant_id, Agent.role.in_(roles)).limit(1)
+        select(Agent)
+        .where(
+            Agent.tenant_id == trigger.tenant_id,
+            Agent.role.in_(roles),
+            Agent.is_active == True,  # noqa: E712
+        )
+        .limit(1)
     )
     return result.scalar_one_or_none()
 
@@ -373,11 +384,22 @@ async def fire_trigger(
 
     agent = await _resolve_agent(session, trigger)
     if not agent:
-        trigger.last_status = "no_agent"
+        status = "no_agent"
+        if trigger.agent_id:
+            bound = (
+                await session.execute(
+                    select(Agent).where(
+                        Agent.id == trigger.agent_id, Agent.tenant_id == trigger.tenant_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if bound and not bound.is_active:
+                status = "agent_paused"
+        trigger.last_status = status
         trigger.next_run_at = compute_next_run(trigger, now)
         session.add(trigger)
         await session.commit()
-        return {"status": "no_agent"}
+        return {"status": status}
 
     if trigger.kind == "heartbeat":
         checklist = await _heartbeat_checklist(session, trigger.tenant_id)

@@ -297,7 +297,7 @@ export default function ActivityPage() {
           className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
         >
           <Trash2 size={12} />
-          Clear
+          Clear view
         </button>
         <span className="ml-auto text-[11px] text-text-muted">{visible.length} events</span>
       </div>

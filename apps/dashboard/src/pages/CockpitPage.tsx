@@ -46,8 +46,9 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
 }
 
+// The usage ledger meters costs in USD (provider pricing); keep the label honest.
 function formatCost(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' }).format(cents / 100)
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
 function timeAgo(iso: string): string {
@@ -254,10 +255,10 @@ export default function CockpitPage() {
           to="/settings/autonomy"
         />
         <StatCard
-          label="Time saved 7d"
+          label="Time saved 7d (est.)"
           value={summary ? `${formatNumber(summary.time_saved_minutes_week)}m` : '-'}
           icon={Timer}
-          to="/agenda"
+          to="/cockpit/usage"
         />
         <StatCard
           label="CSAT 30d"

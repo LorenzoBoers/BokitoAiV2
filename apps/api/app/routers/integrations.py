@@ -24,7 +24,6 @@ from app.services.integrations_platform import (
     create_api_key_connection,
     ensure_email_account,
     ensure_github_connection,
-    ensure_oauth_connection,
     install_mcp,
     list_connections as list_platform_connections,
     list_mcp_bindings,
@@ -157,6 +156,8 @@ async def platform_oauth_start(
     del project_id
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
+    if PROVIDER_BY_SLUG[provider].get("status") == "coming_soon":
+        raise HTTPException(status_code=400, detail="This integration is not available yet.")
 
     # Email providers connect a mailbox (flow="email"); github connects an
     # integration. Try a real provider redirect first; fall back to the mock
@@ -208,14 +209,11 @@ async def platform_oauth_start(
             return_url, {"oauth_provider": "gmail", "oauth_status": "connected"}
         )
     else:
-        await ensure_oauth_connection(
-            session,
-            auth.tenant.id,
-            provider,
-            display_name=PROVIDER_BY_SLUG[provider]["name"],
-        )
-        authorize_url = mock_authorize_url(
-            return_url, {"integration": "connected", "provider": provider}
+        # No mock success for generic integrations: a "connected" state must
+        # always be backed by a real OAuth exchange.
+        raise HTTPException(
+            status_code=503,
+            detail=f"OAuth for {provider} is not implemented yet.",
         )
 
     return {"authorize_url": authorize_url, "provider": provider}
@@ -263,28 +261,18 @@ async def mcp_oauth_start(
     provider: str = Query(...),
     return_url: str = Query(...),
 ):
+    del session, return_url
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
-    if settings.is_production:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "MCP OAuth is not available in production yet. "
-                "Install the MCP server with its URL and API key instead."
-            ),
-        )
-    await install_mcp(
-        session,
-        auth.tenant.id,
-        provider=provider,
-        api_key="mock-mcp-oauth",
-        display_name=PROVIDER_BY_SLUG[provider]["name"],
-        auth_type="oauth2",
+    # No mock success: MCP OAuth connects only ship together with a real
+    # authorization flow. Until then the catalog lists these as coming_soon.
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            "MCP OAuth is not available yet. "
+            "Install the MCP server with its URL and API key instead."
+        ),
     )
-    authorize_url = mock_authorize_url(
-        return_url, {"integration": "connected", "provider": provider}
-    )
-    return {"authorize_url": authorize_url, "provider": provider, "state": "mock"}
 
 
 @router.post("/mcp/install", dependencies=[Depends(rate_limit("mcp-install", limit=10))])

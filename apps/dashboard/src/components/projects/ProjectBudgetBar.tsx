@@ -2,7 +2,8 @@ import type { ProjectBudgetResponse } from '../../lib/projects-api'
 import { cn } from '../../lib/utils'
 
 /**
- * Compact daily token budget indicator: usage bar + numbers. Used on project
+ * Compact daily token indicator: project usage measured against the
+ * workspace-wide daily cap (there is no per-project budget). Used on project
  * cards and the project detail page.
  */
 export function ProjectBudgetBar({
@@ -24,10 +25,12 @@ export function ProjectBudgetBar({
   return (
     <div className={cn('space-y-1', className)}>
       <div className="flex items-center justify-between text-xs text-text-muted">
-        <span>Tokens today</span>
+        <span title="Project tokens used today, measured against the workspace daily cap">
+          Tokens today (workspace cap)
+        </span>
         <span>
           {used.toLocaleString()} / {limit.toLocaleString()}
-          {budget.blocked ? <span className="ml-1.5 font-medium text-status-error">Budget exhausted</span> : null}
+          {budget.blocked ? <span className="ml-1.5 font-medium text-status-error">Workspace cap reached</span> : null}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">

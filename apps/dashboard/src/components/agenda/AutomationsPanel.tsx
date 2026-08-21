@@ -145,6 +145,8 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
       const result = await runTrigger(triggerId)
       if (result.status === 'no_agent') {
         toast.error('Trigger has no agent or workstream target — edit it and pick one.')
+      } else if (result.status === 'agent_paused') {
+        toast.error('The linked agent is paused. Resume the agent to let this trigger fire.')
       } else {
         toast.success(`Trigger fired (${result.status || 'ok'})`)
       }
