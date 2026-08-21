@@ -1,4 +1,4 @@
-export type MailboxProvider = 'outlook' | 'gmail';
+export type MailboxProvider = 'outlook' | 'gmail' | 'bokito';
 
 export type MailboxStatus = 'connected' | 'syncing' | 'error' | 'token_expired' | 'needs_auth' | 'paused';
 

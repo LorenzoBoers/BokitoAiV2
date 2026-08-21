@@ -51,6 +51,7 @@ import { BRAND_ASSETS, BRAND_ASSET_PATHS, brandAssetUrl } from './brand-assets'
 export { brandAssetUrl, BRAND_ASSET_PATHS as HOST_STATIC_LOGO_FALLBACK }
 
 export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: string; name: string }> = {
+  bokito: { initials: 'BK', color: '#7c3aed', name: 'Bokito' },
   github: { initials: 'GH', color: '#24292f', name: 'GitHub' },
   microsoft: { initials: 'MS', color: '#0078d4', name: 'Microsoft' },
   google: { initials: 'GO', color: '#4285f4', name: 'Google' },

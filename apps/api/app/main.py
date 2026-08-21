@@ -28,6 +28,7 @@ from app.routers import (
     govern,
     health,
     help_center,
+    inbound,
     kb,
     livechat,
     integrations,
@@ -164,6 +165,7 @@ app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(integrations.router, prefix=api_prefix)
 app.include_router(github_integrations.router, prefix=api_prefix)
 app.include_router(email.router, prefix=api_prefix)
+app.include_router(inbound.router, prefix=api_prefix)
 app.include_router(kb.router, prefix=api_prefix)
 app.include_router(help_center.router, prefix=api_prefix)
 app.include_router(channels.router, prefix=api_prefix)

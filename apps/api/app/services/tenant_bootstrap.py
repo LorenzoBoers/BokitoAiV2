@@ -97,6 +97,11 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     ).scalars().first()
     if assistant and profiles.get("executor-standard"):
         assistant.default_runtime_profile_id = profiles["executor-standard"].id
+    # Built-in receive/send address ({slug}-{token}@in.bokito.ai) so every
+    # workspace can get mail before connecting Gmail/Outlook.
+    from app.services.bokito_mailbox import ensure_bokito_mailbox
+
+    await ensure_bokito_mailbox(session, tenant_id, commit=False)
     await seed_default_triggers(session, tenant_id)
 
 

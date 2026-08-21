@@ -77,6 +77,9 @@ def _has_access_token(account: ChannelAccount) -> bool:
 def _connection_status(account: ChannelAccount) -> str:
     """Derive UI status from enablement + real credentials (not is_enabled alone)."""
     settings = _load_settings(account)
+    if account.provider == "bokito":
+        # Built-in address: no OAuth credentials, always ready when enabled.
+        return "connected" if account.is_enabled else "paused"
     if settings.get("last_error") and _has_access_token(account) and account.is_enabled:
         return "error"
     if not account.is_enabled:
@@ -88,8 +91,10 @@ def _connection_status(account: ChannelAccount) -> str:
 
 def _serialize_connection(account: ChannelAccount, *, is_primary: bool) -> dict[str, Any]:
     settings = _load_settings(account)
-    # Never coerce mock/unknown to gmail — only real OAuth providers are listed.
-    provider = account.provider if account.provider in ("gmail", "outlook") else account.provider
+    provider = account.provider
+    is_ready = account.is_enabled and (
+        provider == "bokito" or _has_access_token(account)
+    )
     return {
         # Numeric id matches the `email_connection_id` filter on /api/signals.
         "id": user_numeric_id(account.id),
@@ -106,7 +111,7 @@ def _serialize_connection(account: ChannelAccount, *, is_primary: bool) -> dict[
         "sync_window_days": _sync_window_days(settings),
         "status": _connection_status(account),
         # Backward-compatible alias used by older clients that only know active/revoked.
-        "legacy_status": "active" if account.is_enabled and _has_access_token(account) else "revoked",
+        "legacy_status": "active" if is_ready else "revoked",
     }
 
 
@@ -116,11 +121,12 @@ async def _list_email_accounts(session: AsyncSession, tenant_id: UUID) -> list[C
         .where(ChannelAccount.tenant_id == tenant_id, ChannelAccount.channel == "email")
         .order_by(ChannelAccount.created_at)
     )
-    # Hide phantom seed/mock rows — settings only show connectable providers.
+    # Hide phantom seed/mock rows — settings only show connectable providers
+    # plus the built-in Bokito address.
     return [
         a
         for a in result.scalars().all()
-        if a.provider in ("gmail", "outlook")
+        if a.provider in ("gmail", "outlook", "bokito")
     ]
 
 
@@ -144,6 +150,23 @@ async def list_accounts(
         _serialize_connection(a, is_primary=(not explicit_primary and index == 0))
         for index, a in enumerate(accounts)
     ]
+
+
+@router.get("/bokito-address")
+async def get_bokito_address(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """The tenant's built-in address; lazily created for pre-existing tenants."""
+    from app.services.bokito_mailbox import ensure_bokito_mailbox, inbound_domain
+
+    account = await ensure_bokito_mailbox(session, auth.tenant.id)
+    return {
+        "address": account.address,
+        "domain": inbound_domain(),
+        "connection_id": user_numeric_id(account.id),
+        "is_enabled": account.is_enabled,
+    }
 
 
 def _parse_addresses(raw: str | None) -> list[str]:
@@ -494,6 +517,11 @@ async def disconnect_email_connection(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     account = await _require_account(session, auth.tenant.id, connection_id)
+    if account.provider == "bokito":
+        raise HTTPException(
+            status_code=400,
+            detail="The built-in Bokito address cannot be removed. You can pause it instead.",
+        )
     address = account.address
     provider = account.provider
     # Postgres enforces the FK constraints on channel_accounts.id, so first

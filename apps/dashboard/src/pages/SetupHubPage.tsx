@@ -121,13 +121,14 @@ export default function SetupHubPage() {
         id: 'communication',
         title: '1. Communication',
         description:
-          'Connect the channels where customers reach you. Your AI agents read along, learn, and help you reply.',
+          'Connect the channels where customers reach you. Every workspace starts with a built-in Bokito email address that receives mail instantly — connect Gmail or Outlook when you want your own mailbox in the loop.',
         icon: Mail,
         done: emailDone,
-        detail: emailDone ? 'Mailbox connected' : 'No mailbox connected yet',
-        logos: ['gmail', 'outlook'],
+        detail: emailDone ? 'Mailbox connected' : 'Built-in Bokito address ready',
+        logos: ['bokito', 'gmail', 'outlook'],
         actions: [
-          { label: 'Connect a mailbox', to: '/settings/channels', primary: !emailDone },
+          { label: 'View your Bokito address', to: '/settings/channels', primary: !emailDone },
+          { label: 'Connect a mailbox', to: '/settings/channels' },
           { label: 'Browse channels', to: '/settings/marketplace?kind=channel' },
         ],
       },

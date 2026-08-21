@@ -143,6 +143,11 @@ jobs:
                 && sed -i "s|^RESEND_API_KEY=.*|RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}|" .env.staging \
                 || echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> .env.staging
             fi
+            if [ -n "${{ secrets.RESEND_WEBHOOK_SECRET }}" ]; then
+              grep -q '^RESEND_WEBHOOK_SECRET=' .env.staging \
+                && sed -i "s|^RESEND_WEBHOOK_SECRET=.*|RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}|" .env.staging \
+                || echo "RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}" >> .env.staging
+            fi
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             ./scripts/vps-pull-deploy.sh staging ${{ needs.resolve-sha.outputs.sha }}
             docker compose -p bokito-staging --env-file .env.staging \
@@ -185,6 +190,11 @@ jobs:
               grep -q '^RESEND_API_KEY=' .env.prod \
                 && sed -i "s|^RESEND_API_KEY=.*|RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}|" .env.prod \
                 || echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> .env.prod
+            fi
+            if [ -n "${{ secrets.RESEND_WEBHOOK_SECRET }}" ]; then
+              grep -q '^RESEND_WEBHOOK_SECRET=' .env.prod \
+                && sed -i "s|^RESEND_WEBHOOK_SECRET=.*|RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}|" .env.prod \
+                || echo "RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}" >> .env.prod
             fi
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             ./scripts/vps-pull-deploy.sh prod ${{ needs.resolve-sha.outputs.sha }}

@@ -6,11 +6,11 @@ import {
   apiPost,
   apiPut,
 } from './api'
-import type { ConnectionStatus, OAuthProvider } from './email-oauth'
+import type { ConnectionStatus, OAuthProvider, Provider } from './email-oauth'
 
 export type EmailConnection = {
   id: number
-  provider: OAuthProvider
+  provider: Extract<Provider, 'outlook' | 'gmail' | 'bokito'>
   mailboxEmail: string
   displayName: string
   status: ConnectionStatus
@@ -125,7 +125,7 @@ function normalizeConnection(row: unknown): EmailConnection | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
   const provider = asString(raw.provider).toLowerCase()
-  if (provider !== 'outlook' && provider !== 'gmail') return null
+  if (provider !== 'outlook' && provider !== 'gmail' && provider !== 'bokito') return null
   const id = asNumber(raw.id ?? raw.connection_pk, NaN)
   if (!Number.isFinite(id)) return null
   const statusValue = asString(raw.status).toLowerCase()
@@ -190,6 +190,29 @@ export async function sendNewEmail(
   if (input.attachments?.length) body.attachments = input.attachments
   const payload = await apiPost<{ thread_id?: string }>(integrationsRoutes.email.send, body, token)
   return { threadId: asString(payload.thread_id) }
+}
+
+export type BokitoAddress = {
+  address: string
+  domain: string
+  connectionId: number
+  isEnabled: boolean
+}
+
+/** The tenant's built-in address; the server creates it on first request. */
+export async function getBokitoAddress(token: string): Promise<BokitoAddress> {
+  const payload = await apiGet<{
+    address?: string
+    domain?: string
+    connection_id?: number
+    is_enabled?: boolean
+  }>(integrationsRoutes.email.connections.bokitoAddress, token)
+  return {
+    address: asString(payload.address),
+    domain: asString(payload.domain),
+    connectionId: asNumber(payload.connection_id, 0),
+    isEnabled: payload.is_enabled !== false,
+  }
 }
 
 export async function listEmailConnections(token: string): Promise<EmailConnection[]> {

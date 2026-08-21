@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # dev log. When neither is configured, mail is logged instead and
     # non-production responses include dev magic links so flows stay testable.
     resend_api_key: str = ""
+    # Svix signing secret (whsec_...) of the Resend `email.received` webhook;
+    # empty disables the /api/inbound/resend endpoint.
+    resend_webhook_secret: str = ""
+    # Domain for the built-in per-tenant email address ({slug}-{token}@domain).
+    bokito_inbound_domain: str = "in.bokito.ai"
     # From header for all transactional mail; falls back to smtp_from.
     mail_from: str = ""
     smtp_host: str = ""

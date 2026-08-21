@@ -1,5 +1,6 @@
 export type OAuthProvider = 'outlook' | 'gmail'
-export type Provider = OAuthProvider | 'smtp_imap'
+/** `bokito` is the built-in per-tenant address (no OAuth). */
+export type Provider = OAuthProvider | 'smtp_imap' | 'bokito'
 export type ConnectionStatus = 'active' | 'error' | 'revoked' | 'connected' | 'needs_auth' | 'paused'
 
 export type OAuthProviderConfig = {
@@ -16,6 +17,7 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
   outlook: 'Outlook',
   gmail: 'Gmail',
   smtp_imap: 'SMTP / IMAP',
+  bokito: 'Bokito address',
 }
 
 export type OAuthCallbackResult = {

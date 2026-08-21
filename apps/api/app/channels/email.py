@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 GMAIL_SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 GRAPH_SEND_URL = "https://graph.microsoft.com/v1.0/me/sendMail"
+RESEND_SEND_URL = "https://api.resend.com/emails"
 
 
 def normalize_inbound(payload: dict[str, Any], account: ChannelAccount) -> InboundMessage:
@@ -132,6 +133,38 @@ def format_outbound(
             # Threads the sent reply in the connected mailbox itself.
             payload["threadId"] = thread_provider_id
         return payload
+    if account.provider == "bokito":
+        # Resend Send API. Threading relies on standard RFC headers.
+        sender = (
+            f"{account.display_name} <{account.address}>"
+            if account.display_name
+            else account.address
+        )
+        resend_payload: dict[str, Any] = {
+            "from": sender,
+            "to": to_addrs,
+            "subject": subject,
+            "text": body_text,
+            "html": html_body,
+        }
+        if cc_addrs:
+            resend_payload["cc"] = cc_addrs
+        if bcc_addrs:
+            resend_payload["bcc"] = bcc_addrs
+        if in_reply_to:
+            resend_payload["headers"] = {
+                "In-Reply-To": in_reply_to,
+                "References": references or in_reply_to,
+            }
+        if files:
+            resend_payload["attachments"] = [
+                {
+                    "filename": str(item.get("name") or "file"),
+                    "content": base64.b64encode(item.get("data") or b"").decode(),
+                }
+                for item in files
+            ]
+        return resend_payload
     if account.provider == "outlook":
         message: dict[str, Any] = {
             "subject": subject,
@@ -273,6 +306,26 @@ async def send_via_provider(
     )
     if account.provider == "mock":
         return "sent"
+
+    if account.provider == "bokito":
+        # Built-in address: platform-level Resend key, no per-account OAuth.
+        from app.config import get_settings
+
+        api_key = get_settings().resend_api_key
+        if not api_key:
+            if not get_settings().is_production:
+                return "sent"
+            return "failed:no_credentials"
+        try:
+            res = await _post_send(RESEND_SEND_URL, payload, api_key)
+        except httpx.HTTPError:
+            return "failed:network"
+        if res.status_code in (200, 201, 202):
+            return "sent"
+        logger.warning(
+            "resend send failed status=%s body=%s", res.status_code, res.text[:300]
+        )
+        return f"failed:{res.status_code}"
 
     creds = _credentials(account)
     token = creds.get("access_token")

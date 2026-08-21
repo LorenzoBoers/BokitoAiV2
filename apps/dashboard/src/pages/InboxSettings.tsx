@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
+  Check,
+  Copy,
   Folder,
+  Mail,
   MoreHorizontal,
   PenLine,
   Plus,
@@ -44,6 +47,7 @@ import { describeOAuthCallbackSummary, logOAuthRedirectDebugInDev, parseOAuthCal
 import {
   createRoutingRule,
   deleteRoutingRule,
+  getBokitoAddress,
   getConnectionSignature,
   listRoutingRules,
   saveConnectionSignature,
@@ -51,6 +55,7 @@ import {
   syncMailboxes,
   updateMailboxSettings,
   updateRoutingRule,
+  type BokitoAddress,
   type RoutingRuleApi,
 } from '../lib/email-api'
 import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
@@ -152,6 +157,8 @@ type MailboxRowActionsProps = {
   syncing: boolean
   deleting: boolean
   canMakePrimary: boolean
+  /** Built-in Bokito address: push-based, cannot reconnect/sync/remove. */
+  builtin: boolean
   onReconnect: () => void
   onSync: () => void
   onFolders: () => void
@@ -167,6 +174,7 @@ function MailboxRowActions({
   syncing,
   deleting,
   canMakePrimary,
+  builtin,
   onReconnect,
   onSync,
   onFolders,
@@ -198,7 +206,7 @@ function MailboxRowActions({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          {!needsReconnect ? (
+          {!needsReconnect && !builtin ? (
             <DropdownMenuItem className="gap-2 text-xs" disabled={syncing} onSelect={onSync}>
               <RefreshCw size={13} />
               Sync now
@@ -228,15 +236,19 @@ function MailboxRowActions({
               Make primary
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="gap-2 text-xs text-status-error focus:text-status-error"
-            disabled={deleting}
-            onSelect={onRemove}
-          >
-            <Trash2 size={13} />
-            Remove
-          </DropdownMenuItem>
+          {!builtin ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-2 text-xs text-status-error focus:text-status-error"
+                disabled={deleting}
+                onSelect={onRemove}
+              >
+                <Trash2 size={13} />
+                Remove
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -266,8 +278,39 @@ export default function InboxSettings() {
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [bokitoAddress, setBokitoAddress] = useState<BokitoAddress | null>(null)
+  const [addressCopied, setAddressCopied] = useState(false)
 
   const mailboxes = useMemo(() => connections.map(toMailbox), [connections])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    getBokitoAddress(token)
+      .then((result) => {
+        if (cancelled) return
+        setBokitoAddress(result)
+        // First call may lazily create the mailbox row server-side.
+        void refresh()
+      })
+      .catch(() => {
+        // Non-blocking: the card simply stays hidden when unavailable.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, refresh])
+
+  const handleCopyBokitoAddress = useCallback(async () => {
+    if (!bokitoAddress?.address) return
+    try {
+      await navigator.clipboard.writeText(bokitoAddress.address)
+      setAddressCopied(true)
+      window.setTimeout(() => setAddressCopied(false), 2000)
+    } catch {
+      toast.error('Could not copy the address.')
+    }
+  }, [bokitoAddress])
 
   const handleSyncNow = useCallback(async () => {
     if (!token || syncing) return
@@ -554,6 +597,38 @@ export default function InboxSettings() {
       {loading ? <LoadingBlock variant="inline" label="Loading mailboxes…" /> : null}
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
+        {bokitoAddress?.address ? (
+          <section className="panel flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                <Mail size={15} />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-semibold text-text-heading">Your Bokito address</h3>
+                  <Badge variant="success" className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide">
+                    Ready
+                  </Badge>
+                </div>
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  Built in and ready to receive. Share it directly or set up forwarding from your
+                  existing mailbox — incoming mail lands in your inbox and replies are sent from
+                  this address.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="rounded-md border border-border/60 bg-bg-elevated px-2.5 py-1.5 text-xs font-medium text-text-heading">
+                {bokitoAddress.address}
+              </code>
+              <Button variant="secondary" size="sm" onClick={() => void handleCopyBokitoAddress()}>
+                {addressCopied ? <Check size={14} /> : <Copy size={14} />}
+                {addressCopied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
         <SettingsSection
           title="Connected inboxes"
           description="Manage mailbox connections, signatures and routing per inbox."
@@ -597,10 +672,12 @@ export default function InboxSettings() {
               ) : (
                 mailboxes.map((mailbox) => {
                   const statusVariant = MAILBOX_STATUS_VARIANTS[mailbox.status]
+                  const builtin = mailbox.provider === 'bokito'
                   const needsReconnect =
-                    mailbox.status === 'token_expired' ||
-                    mailbox.status === 'needs_auth' ||
-                    mailbox.status === 'error'
+                    !builtin &&
+                    (mailbox.status === 'token_expired' ||
+                      mailbox.status === 'needs_auth' ||
+                      mailbox.status === 'error')
 
                   return (
                     <TableRow key={mailbox.id}>
@@ -632,30 +709,38 @@ export default function InboxSettings() {
                         />
                       </TableCell>
                       <TableCell>
-                        <select
-                          value={String(mailbox.sync_window_days)}
-                          disabled={mailboxSavingId === mailbox.id}
-                          onChange={(e) => handleChangeSyncWindow(mailbox, Number(e.target.value))}
-                          aria-label="How far back to sync mail history"
-                          title="How far back mail is backfilled when this mailbox (re)connects"
-                          className="h-8 rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
-                        >
-                          {![7, 30, 90, 365, 0].includes(mailbox.sync_window_days) ? (
-                            <option value={String(mailbox.sync_window_days)}>
-                              {mailbox.sync_window_days} days
-                            </option>
-                          ) : null}
-                          <option value="7">7 days</option>
-                          <option value="30">30 days</option>
-                          <option value="90">90 days</option>
-                          <option value="365">1 year</option>
-                          <option value="0">Everything</option>
-                        </select>
+                        {builtin ? (
+                          <span className="text-xs text-text-muted" title="Mail is delivered instantly; no backfill applies">
+                            Instant
+                          </span>
+                        ) : (
+                          <select
+                            value={String(mailbox.sync_window_days)}
+                            disabled={mailboxSavingId === mailbox.id}
+                            onChange={(e) => handleChangeSyncWindow(mailbox, Number(e.target.value))}
+                            aria-label="How far back to sync mail history"
+                            title="How far back mail is backfilled when this mailbox (re)connects"
+                            className="h-8 rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
+                          >
+                            {![7, 30, 90, 365, 0].includes(mailbox.sync_window_days) ? (
+                              <option value={String(mailbox.sync_window_days)}>
+                                {mailbox.sync_window_days} days
+                              </option>
+                            ) : null}
+                            <option value="7">7 days</option>
+                            <option value="30">30 days</option>
+                            <option value="90">90 days</option>
+                            <option value="365">1 year</option>
+                            <option value="0">Everything</option>
+                          </select>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div>
                           <Badge variant={statusVariant}>{MAILBOX_STATUS_LABELS[mailbox.status]}</Badge>
-                          <div className="mt-1 text-xs text-text-muted">{formatLastSync(mailbox.last_sync_at)}</div>
+                          <div className="mt-1 text-xs text-text-muted">
+                            {builtin ? 'Delivered in real time' : formatLastSync(mailbox.last_sync_at)}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -663,6 +748,7 @@ export default function InboxSettings() {
                           mailbox={mailbox}
                           needsReconnect={needsReconnect}
                           syncing={syncing}
+                          builtin={builtin}
                           deleting={deletingId === mailbox.id}
                           canMakePrimary={mailbox.sync_enabled && mailboxSavingId !== mailbox.id}
                           onReconnect={() => setConnectDialogOpen(true)}
@@ -715,6 +801,22 @@ export default function InboxSettings() {
                       </span>
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    disabled
+                    className="col-span-2 cursor-not-allowed rounded-md border border-border/60 px-3 py-2 text-sm text-text-muted opacity-70"
+                    title="Connect any mailbox over SMTP/IMAP — coming soon"
+                  >
+                    <span className="inline-flex w-full items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-2">
+                        <ProviderLogo provider="smtp_imap" className="h-4 w-4 object-contain" />
+                        <span>SMTP / IMAP</span>
+                      </span>
+                      <Badge variant="neutral" className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide">
+                        Coming soon
+                      </Badge>
+                    </span>
+                  </button>
                 </div>
                 <p className="text-xs text-text-muted">After connecting you will be redirected to the provider's OAuth page.</p>
                 {connectError ? <p className="text-xs text-status-error">{connectError}</p> : null}

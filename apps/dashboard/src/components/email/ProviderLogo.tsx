@@ -8,6 +8,7 @@ const EMAIL_PROVIDER_SLUG: Record<Provider, string> = {
   outlook: 'outlook',
   gmail: 'gmail',
   smtp_imap: 'smtp_imap',
+  bokito: 'bokito',
 }
 
 type ProviderLogoProps = {
