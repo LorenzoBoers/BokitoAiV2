@@ -1,18 +1,17 @@
-import { useState, useRef, useCallback } from 'react';
-import { 
-  Bold, 
-  Italic, 
-  Underline, 
-  Link, 
-  Image, 
-  Type,
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Bold,
+  Code,
   Eye,
+  Italic,
+  Link,
   Save,
-  X
+  Type,
+  Underline,
+  X,
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 interface SignatureEditorProps {
@@ -23,28 +22,54 @@ interface SignatureEditorProps {
   mailboxEmail: string;
 }
 
-export default function SignatureEditor({ 
-  open, 
-  onOpenChange, 
-  initialSignature = '', 
+const SAMPLE_VARIABLES: Record<string, string> = {
+  name: 'Jane Doe',
+  company: 'Acme Inc.',
+  function: 'Support Lead',
+  address: '123 Main Street, Springfield',
+  phone: '+1 555 0100',
+  website: 'www.example.com',
+};
+
+function withSampleData(html: string): string {
+  return html.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key: string) =>
+    SAMPLE_VARIABLES[key] ?? match,
+  );
+}
+
+export default function SignatureEditor({
+  open,
+  onOpenChange,
+  initialSignature = '',
   onSave,
-  mailboxEmail 
+  mailboxEmail,
 }: SignatureEditorProps) {
   const [signature, setSignature] = useState(initialSignature);
-  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const editorRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<'edit' | 'html' | 'preview'>('edit');
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  // Latest HTML for the callback ref below, so the visual editor always mounts
+  // with current content without re-running the ref on every keystroke.
+  const signatureRef = useRef(signature);
+  signatureRef.current = signature;
 
-  const handleCommand = useCallback((command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    if (editorRef.current) {
-      setSignature(editorRef.current.innerHTML);
+  // Re-initialize when the dialog opens (possibly for a different mailbox).
+  useEffect(() => {
+    if (open) {
+      setSignature(initialSignature);
+      setActiveTab('edit');
+    }
+  }, [open, initialSignature]);
+
+  // The contentEditable is uncontrolled: content is written once on mount and
+  // read back on input. Binding innerHTML to state would reset the caret to the
+  // start of the editor on every keystroke. Radix unmounts inactive tab content,
+  // so switching Edit <-> HTML re-mounts the editor with the latest source.
+  const initEditor = useCallback((node: HTMLDivElement | null) => {
+    editorRef.current = node;
+    if (node) {
+      node.innerHTML = signatureRef.current;
     }
   }, []);
-
-  const handleSave = useCallback(() => {
-    onSave(signature);
-    onOpenChange(false);
-  }, [signature, onSave, onOpenChange]);
 
   const handleContentChange = useCallback(() => {
     if (editorRef.current) {
@@ -52,31 +77,40 @@ export default function SignatureEditor({
     }
   }, []);
 
-  const insertTemplate = useCallback((template: string) => {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
-      const templateNode = document.createElement('span');
-      templateNode.innerHTML = template;
-      range.insertNode(templateNode);
+  const handleCommand = useCallback(
+    (command: string, value?: string) => {
+      editorRef.current?.focus();
+      document.execCommand(command, false, value);
       handleContentChange();
+    },
+    [handleContentChange],
+  );
+
+  const handleSave = useCallback(() => {
+    onSave(signature);
+    onOpenChange(false);
+  }, [signature, onSave, onOpenChange]);
+
+  const applyTemplate = useCallback((html: string) => {
+    setSignature(html);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = html;
     }
-  }, [handleContentChange]);
+  }, []);
 
   const defaultTemplates = [
     {
       name: 'Standard business',
-      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: {{phone}}</p>`
+      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: {{phone}}</p>`,
     },
     {
       name: 'Short',
-      html: `<p>Regards,<br><strong>{{name}}</strong></p>`
+      html: `<p>Regards,<br><strong>{{name}}</strong></p>`,
     },
     {
       name: 'Extended',
-      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${mailboxEmail}<br>T: {{phone}}<br>W: {{website}}</p>`
-    }
+      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${mailboxEmail}<br>T: {{phone}}<br>W: {{website}}</p>`,
+    },
   ];
 
   return (
@@ -100,11 +134,18 @@ export default function SignatureEditor({
               For mailbox: <strong>{mailboxEmail}</strong>
             </div>
 
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'edit' | 'preview')}>
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as 'edit' | 'html' | 'preview')}
+            >
               <TabsList>
                 <TabsTrigger value="edit" className="flex items-center gap-2">
                   <Type size={14} />
                   Edit
+                </TabsTrigger>
+                <TabsTrigger value="html" className="flex items-center gap-2">
+                  <Code size={14} />
+                  HTML
                 </TabsTrigger>
                 <TabsTrigger value="preview" className="flex items-center gap-2">
                   <Eye size={14} />
@@ -142,9 +183,9 @@ export default function SignatureEditor({
                   >
                     <Underline size={14} />
                   </Button>
-                  
+
                   <div className="w-px h-6 bg-border mx-1" />
-                  
+
                   <Button
                     type="button"
                     variant="ghost"
@@ -162,11 +203,10 @@ export default function SignatureEditor({
                 {/* Editor */}
                 <div className="border border-border rounded-md">
                   <div
-                    ref={editorRef}
+                    ref={initEditor}
                     contentEditable
                     className="min-h-[200px] p-4 focus:outline-none focus:ring-2 focus:ring-accent/20 text-sm"
                     style={{ fontFamily: 'system-ui, sans-serif' }}
-                    dangerouslySetInnerHTML={{ __html: signature }}
                     onInput={handleContentChange}
                     suppressContentEditableWarning
                   />
@@ -182,12 +222,7 @@ export default function SignatureEditor({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={() => {
-                          setSignature(template.html);
-                          if (editorRef.current) {
-                            editorRef.current.innerHTML = template.html;
-                          }
-                        }}
+                        onClick={() => applyTemplate(template.html)}
                         className="text-left justify-start"
                       >
                         {template.name}
@@ -202,19 +237,27 @@ export default function SignatureEditor({
                 </div>
               </TabsContent>
 
+              <TabsContent value="html" className="space-y-4">
+                <textarea
+                  value={signature}
+                  onChange={(event) => setSignature(event.target.value)}
+                  spellCheck={false}
+                  aria-label="Signature HTML source"
+                  placeholder={'<p>Kind regards,<br><strong>{{name}}</strong></p>'}
+                  className="min-h-[280px] w-full resize-y rounded-md border border-border bg-bg-elevated p-4 font-mono text-xs leading-relaxed text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20"
+                />
+                <div className="text-xs text-text-muted space-y-1">
+                  <p>
+                    Edit or paste the raw HTML of your signature, for example one exported
+                    from a signature generator. Inline styles are kept as-is when sending.
+                  </p>
+                  <p>Switch to Preview to check the result before saving.</p>
+                </div>
+              </TabsContent>
+
               <TabsContent value="preview" className="space-y-4">
                 <div className="border border-border rounded-md p-4 bg-white text-black min-h-[200px]">
-                  <div 
-                    dangerouslySetInnerHTML={{ 
-                      __html: signature
-                        .replace(/\{\{name\}\}/g, 'Jane Doe')
-                        .replace(/\{\{company\}\}/g, 'Acme Inc.')
-                        .replace(/\{\{function\}\}/g, 'Support Lead')
-                        .replace(/\{\{address\}\}/g, '123 Main Street, Springfield')
-                        .replace(/\{\{phone\}\}/g, '+1 555 0100')
-                        .replace(/\{\{website\}\}/g, 'www.example.com')
-                    }} 
-                  />
+                  <div dangerouslySetInnerHTML={{ __html: withSampleData(signature) }} />
                 </div>
                 <p className="text-xs text-text-muted">
                   This is how your signature looks with sample data.
