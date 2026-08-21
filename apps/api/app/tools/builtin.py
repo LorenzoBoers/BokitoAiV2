@@ -270,6 +270,78 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     return {"ok": True, "signal_id": str(signal.id), "status": "closed"}
 
 
+async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Escalate a conversation to the team: pause AI replies, alert operators.
+
+    The visitor keeps chatting in the same thread; a team member takes over
+    from the inbox (``Signal.ai_paused`` silences the agent until released).
+    """
+    from datetime import datetime
+
+    from app.gateway.publish import publish_thread_update
+    from app.models.signal import Signal, SignalEvent
+    from app.services.ops_alerts import notify_tenant_admins
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            pass
+    if not signal_id:
+        return {"error": "signal_id required"}
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+
+    reason = str(tool_input.get("reason") or "").strip()
+    if not signal.ai_paused:
+        signal.ai_paused = True
+        signal.has_unread = True
+        signal.updated_at = datetime.utcnow()
+        ctx.session.add(signal)
+        ctx.session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=ctx.tenant_id,
+                event_type="ai_paused",
+                actor_type="agent" if ctx.agent else "user",
+                actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+                payload_json=json.dumps(
+                    {"ai_paused": True, "via": "handoff_to_human", "reason": reason}
+                ),
+            )
+        )
+        await ctx.session.flush()
+        await publish_thread_update(signal)
+
+    who = signal.contact_name or "A visitor"
+    await notify_tenant_admins(
+        ctx.session,
+        ctx.tenant_id,
+        category="handoff",
+        title=f"Human takeover requested: {signal.subject or who}"[:200],
+        body=reason
+        or f"{who} asked for a human. AI replies are paused until someone takes over the thread.",
+        payload={"signal_id": str(signal.id), "channel": signal.channel},
+        cooldown_minutes=30,
+    )
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "ai_paused": True,
+        "note": (
+            "The team has been notified and AI replies are paused on this thread. "
+            "Tell the visitor a team member will take over in this same conversation."
+        ),
+    }
+
+
 async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.agent.style import strip_emoji
 
@@ -774,6 +846,33 @@ register_tool(
             "required": [],
         },
         handler=_close_thread,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="handoff_to_human",
+        description=(
+            "Hand this conversation over to a human team member. Pauses AI replies "
+            "on the thread and notifies the team so someone can take over in the "
+            "same conversation. Use when the visitor asks for a human/employee, is "
+            "frustrated, or when you cannot help."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "reason": {
+                    "type": "string",
+                    "description": "Short summary of why the visitor needs a human.",
+                },
+            },
+            "required": [],
+        },
+        handler=_handoff_to_human,
+        # Escalating TO a human must never itself wait on human approval.
+        gated=False,
     )
 )
 

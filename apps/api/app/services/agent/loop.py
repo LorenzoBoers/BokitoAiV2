@@ -64,6 +64,14 @@ class AgentLoop:
         tools = filter_tools_for_agent(get_tool_definitions(), agent)
         if allowed_tool_names is not None:
             tools = [t for t in tools if t["name"] in allowed_tool_names]
+        # External conversations (widget/inbound) must always be able to
+        # escalate to a human, regardless of the agent's tool allowlist.
+        if trust == "external" and not any(t["name"] == "handoff_to_human" for t in tools):
+            handoff = next(
+                (t for t in get_tool_definitions() if t["name"] == "handoff_to_human"), None
+            )
+            if handoff:
+                tools = [*tools, handoff]
         self.tools = tools
         self.max_loops = agent.max_loops if agent else 15
         # Compact step log for chat history (tool calls / think) + token usage UI.
@@ -217,6 +225,16 @@ class AgentLoop:
             )
         if rag_context:
             parts.append(f"## Relevant context\n{rag_context}")
+        if self.trust == "external":
+            parts.append(
+                "## Human handoff\n"
+                "You can hand this conversation to a human team member at any time "
+                "by calling the handoff_to_human tool. Do this when the visitor asks "
+                "for a human, employee, or agent, when they are clearly frustrated, "
+                "or when you cannot help. Never claim you are unable to connect them "
+                "with a human. After the tool succeeds, tell the visitor a team "
+                "member will take over in this same conversation."
+            )
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.

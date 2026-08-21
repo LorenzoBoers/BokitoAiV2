@@ -282,6 +282,8 @@ DEFAULT_NOTIFICATION_ROWS = [
     {"id": "mentions", "label": "When you are mentioned in conversations", "channels": {"desktop": True, "email": False}},
     # Slack channel: decision cards as DM with Approve/Deny (services/slack_notify.py).
     {"id": "decisions", "label": "When an agent needs your decision on an assigned conversation", "channels": {"desktop": True, "email": False, "slack": False}},
+    # Human handoff (owners/admins; emitted via the handoff_to_human tool).
+    {"id": "handoff", "label": "When a visitor or customer asks for a human takeover", "channels": {"desktop": True, "email": False}},
     # Ops alerts (owners/admins only; emitted via services/ops_alerts.py).
     {"id": "ops-run-failed", "label": "When an agent run or trigger fails", "channels": {"desktop": True, "email": False}},
     {"id": "ops-channel-disconnect", "label": "When a connected channel stops syncing", "channels": {"desktop": True, "email": False}},

@@ -42,8 +42,11 @@ async def execute_tool(
     agent_id = agent.id if agent else None
     action = f"tool_call:{tool_name}"
 
-    # Passport allowlist enforcement (per-agent).
+    # Passport allowlist enforcement (per-agent). External conversations may
+    # always escalate to a human, even when the passport omits the tool.
     allowed_set = agent_allowed_tools(agent)
+    if tool_name == "handoff_to_human" and trust == "external":
+        allowed_set = None
     if allowed_set is not None and tool_name not in allowed_set:
         await record_audit(
             session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
