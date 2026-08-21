@@ -363,8 +363,9 @@ async def list_threads(
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
 
     if view == "all":
-        # No status filter: every thread in the active folder/channel scope.
-        pass
+        # Active workload across statuses; closed and spam threads live in
+        # their own views so closing a thread removes it from "All".
+        query = query.where(Signal.status.notin_(("closed", "spam")))
     elif view == "all_open":
         query = query.where(Signal.status == "open")
     elif view == "mine":

@@ -136,7 +136,8 @@ function configForLeaf(leaf: HubLeaf): LeafConfig {
 function threadFitsInboxQueue(thread: InboxThread, queue: InboxQueue, userId: number | null): boolean {
   switch (queue) {
     case 'all':
-      return true
+      // Mirrors view=all server-side: closing moves a thread out of "All".
+      return thread.status !== 'closed' && thread.status !== 'spam'
     case 'mine':
       return thread.status === 'open' && thread.assignedToUserId === userId
     case 'open':
@@ -506,12 +507,21 @@ export default function Communication() {
           else if (input.status === 'spam') toast.success(t('threadResolved.spam'))
           else toast.success(t('threadResolved.snoozed'))
           advanceToNextThread(fromId)
+          // Evict the row immediately instead of waiting for the refetch or
+          // the websocket update; closed/spam never fit the queue they were
+          // resolved from (they have dedicated queues).
+          if (
+            (input.status === 'closed' || input.status === 'spam') &&
+            !(leaf.type === 'inbox' && leaf.queue === input.status)
+          ) {
+            removeThread(fromId)
+          }
         }
       } finally {
         advancingRef.current = false
       }
     },
-    [patch, refreshThreads, refreshNavBadges, selectedThreadId, advanceToNextThread, t],
+    [patch, refreshThreads, refreshNavBadges, selectedThreadId, advanceToNextThread, removeThread, leaf, t],
   )
 
   const handleBulkAction = useCallback(

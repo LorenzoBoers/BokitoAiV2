@@ -173,6 +173,38 @@ async def test_channel_filter_and_inbox_folder(client: AsyncClient, session_over
 
 
 @pytest.mark.asyncio
+async def test_view_all_excludes_closed_and_spam(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    ingest = await client.post(
+        "/api/signals/inbound",
+        headers=headers,
+        json={
+            "channel": "email",
+            "source": "mock",
+            "subject": "To be closed",
+            "body_text": "Resolve me",
+            "contact_email": "close-me@test.com",
+        },
+    )
+    assert ingest.status_code == 200
+    signal_id = ingest.json()["id"]
+
+    listed = await client.get("/api/signals?view=all&folder=inbox", headers=headers)
+    assert signal_id in {item["id"] for item in listed.json()["items"]}
+
+    closed = await client.patch(
+        f"/api/signals/{signal_id}", headers=headers, json={"status": "closed"}
+    )
+    assert closed.status_code == 200
+
+    # Closed threads leave "All"; they live in the dedicated closed view.
+    after = await client.get("/api/signals?view=all&folder=inbox", headers=headers)
+    assert signal_id not in {item["id"] for item in after.json()["items"]}
+    in_closed = await client.get("/api/signals?view=closed&folder=inbox", headers=headers)
+    assert signal_id in {item["id"] for item in in_closed.json()["items"]}
+
+
+@pytest.mark.asyncio
 async def test_tag_filter(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     ingest = await client.post(

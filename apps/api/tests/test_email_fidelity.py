@@ -479,3 +479,26 @@ def test_sync_window_days_defaults_and_clamps():
     assert account_sync_window_days({"sync_window_days": 0}) == 0
     assert account_sync_window_days({"sync_window_days": -5}) == 0
     assert account_sync_window_days({"sync_window_days": "garbage"}) == 30
+
+
+def test_html_to_text_skips_style_script_and_head():
+    from app.services.email_sync import html_to_text
+
+    # Google-style notification mail: CSS wrapped in an HTML comment inside
+    # <style>. That comment body must never leak into previews/agent text.
+    html = (
+        "<html><head><title>Alert</title>"
+        "<style><!-- * {box-sizing:border-box} body {margin:0; padding:0} "
+        "a[x-apple-data-detectors] {color:inherit!important} --></style>"
+        "</head><body>"
+        "<script>var tracked = true;</script>"
+        "<p>A new sign-in was detected.</p>"
+        "<p>If this was you, no action is needed.</p>"
+        "</body></html>"
+    )
+    text = html_to_text(html)
+    assert "box-sizing" not in text
+    assert "tracked" not in text
+    assert "Alert" not in text
+    assert "A new sign-in was detected." in text
+    assert "If this was you, no action is needed." in text

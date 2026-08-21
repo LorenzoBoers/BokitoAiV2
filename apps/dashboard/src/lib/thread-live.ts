@@ -75,7 +75,8 @@ export function threadMatchesFilters(
   // Mirrors the view predicates in signal_threads.list_threads.
   switch (filters.view ?? 'all_open') {
     case 'all':
-      return true
+      // Closed and spam have dedicated views; closing evicts the row live.
+      return thread.status !== 'closed' && thread.status !== 'spam'
     case 'all_open':
       return thread.status === 'open'
     case 'mine':

@@ -73,6 +73,8 @@ describe('threadMatchesFilters', () => {
   it('applies view predicates that mirror the server', () => {
     const open = thread()
     expect(threadMatchesFilters(open, { view: 'all' }, me)).toBe(true)
+    expect(threadMatchesFilters(thread({ status: 'closed' }), { view: 'all' }, me)).toBe(false)
+    expect(threadMatchesFilters(thread({ status: 'spam' }), { view: 'all' }, me)).toBe(false)
     expect(threadMatchesFilters(open, { view: 'all_open' }, me)).toBe(true)
     expect(threadMatchesFilters(thread({ status: 'closed' }), { view: 'all_open' }, me)).toBe(false)
     expect(threadMatchesFilters(thread({ status: 'closed' }), { view: 'closed' }, me)).toBe(true)

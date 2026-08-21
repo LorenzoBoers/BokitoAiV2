@@ -135,22 +135,35 @@ def is_backfill_message(received_at: datetime | None, settings: dict[str, Any]) 
     return received_at < (live_since - AI_LIVE_SINCE_GRACE)
 
 
+# Tags whose text content is not prose (CSS, JS, metadata). Email HTML often
+# wraps CSS as `<style><!-- ... --></style>`; in CDATA mode that comment body
+# reaches handle_data raw, so without skipping it leaks into previews.
+_NON_CONTENT_TAGS = frozenset({"style", "script", "head", "title", "template"})
+
+
 class _HtmlTextExtractor(HTMLParser):
     """Minimal HTML -> plain text for provider bodies."""
 
     def __init__(self) -> None:
         super().__init__()
         self._parts: list[str] = []
+        self._skip_depth = 0
 
     def handle_data(self, data: str) -> None:
-        if data:
+        if data and not self._skip_depth:
             self._parts.append(data)
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _NON_CONTENT_TAGS:
+            self._skip_depth += 1
+            return
         if tag in ("br", "p", "div", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6"):
             self._parts.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
+        if tag in _NON_CONTENT_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+            return
         if tag in ("p", "div", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6"):
             self._parts.append("\n")
 
@@ -171,7 +184,9 @@ def html_to_text(html: str) -> str:
         parser.feed(raw)
         parser.close()
     except Exception:
-        return re.sub(r"<[^>]+>", " ", raw).strip()
+        stripped = re.sub(r"(?is)<(style|script|head|title)[^>]*>.*?</\1>", " ", raw)
+        stripped = re.sub(r"(?s)<!--.*?-->", " ", stripped)
+        return re.sub(r"<[^>]+>", " ", stripped).strip()
     return parser.get_text()
 
 
