@@ -230,6 +230,13 @@ export type UsageAgentRow = {
   customer_cost_micros: number
 }
 
+export type UsageUserRow = {
+  user_id: string | null
+  user_name: string
+  tokens: number
+  customer_cost_micros: number
+}
+
 export type UsageBreakdown = {
   days: number
   total_tokens: number
@@ -237,6 +244,7 @@ export type UsageBreakdown = {
   total_customer_cost_micros: number
   by_model: UsageModelRow[]
   by_agent: UsageAgentRow[]
+  by_user: UsageUserRow[]
 }
 
 export async function bokitoGetUsageBreakdown(token: string, days = 30) {

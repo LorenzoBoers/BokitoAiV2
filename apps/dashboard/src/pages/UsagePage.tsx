@@ -313,6 +313,31 @@ export default function UsagePage() {
               )}
             </div>
           </div>
+
+          <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">By user ({breakdown.days}d)</h3>
+            <div className="space-y-2">
+              {(breakdown.by_user ?? []).length === 0 ? (
+                <p className="text-[12px] text-text-muted">No user-attributed usage yet.</p>
+              ) : (
+                (breakdown.by_user ?? []).map((row) => (
+                  <div
+                    key={row.user_id ?? 'system'}
+                    className="flex items-center justify-between gap-3 text-[12.5px]"
+                  >
+                    <p className="min-w-0 truncate font-medium text-text-primary">{row.user_name}</p>
+                    <p className="shrink-0 text-[11px] text-text-muted">
+                      {formatNumber(row.tokens)} tok · {formatUsd(row.customer_cost_micros)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="mt-3 text-[11px] text-text-muted">
+              Chats started by a user are attributed to that user; autonomous runs are grouped
+              under Agents / system.
+            </p>
+          </div>
         </div>
       ) : null}
 

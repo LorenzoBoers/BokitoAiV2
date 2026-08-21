@@ -179,6 +179,8 @@ function MessengerSettingsContent({
 
   const [customizationPanel, setCustomizationPanel] = useState<CustomizationPanel>('content')
   const [previewTheme, setPreviewTheme] = useState<PreviewTheme>('dark')
+  const previewThemeRef = useRef(previewTheme)
+  previewThemeRef.current = previewTheme
 
   const [draft, setDraft] = useState<MessengerAppearance>(DEFAULT_MESSENGER_APPEARANCE)
   const [saved, setSaved] = useState<MessengerAppearance>(DEFAULT_MESSENGER_APPEARANCE)
@@ -346,6 +348,7 @@ function MessengerSettingsContent({
         if (currentWorkspace?.slug) el.dataset.tenant = currentWorkspace.slug
         el.dataset.previewMode = 'true'
         el.dataset.previewOverrides = previewOverridesJson
+        el.setAttribute('data-theme', previewThemeRef.current)
         previewHostRef.current.appendChild(el)
         previewWidgetRef.current = el
       })

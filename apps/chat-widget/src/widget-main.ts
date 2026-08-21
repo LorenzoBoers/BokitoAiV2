@@ -12,6 +12,8 @@
 // @ts-nocheck — legacy monolith migrated to TS bundling; tighten types incrementally.
 import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, apiGroupUrl, gatewayWebSocketUrl, livechatHttpUrl, normalizeLivechatApiBase } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
+import { applyBrandToHost, parseHexColor } from './brand'
+import { ICONS, MONKEY_MARK } from './icons'
 import {
   appendWorkLogEvent,
   collapseWorkLogStack,
@@ -458,19 +460,20 @@ class StateMachine {
 const WIDGET_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Jaro:opsz@6&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:ital,wght@0,300..700;1,300..700&display=swap');
 :host {
-  --bk-primary:       #00D986;
-  --bk-primary-dark:  #00B16D;
-  --bk-primary-light: color-mix(in srgb, var(--bk-primary) 14%, transparent);
+  --bk-brand:         #00D986;
+  --bk-primary:       var(--bk-brand);
+  --bk-primary-dark:  color-mix(in srgb, var(--bk-brand) 86%, #000);
+  --bk-primary-light: color-mix(in srgb, var(--bk-brand) 14%, transparent);
   --bk-on-primary:    #0f172a;
   --bk-text:          #161022;
   --bk-text-muted:    #5B5870;
   --bk-text-inverse:  #FFFFFF;
-  --bk-bg:            #F7FBF9;
+  --bk-bg:            #F7F8FA;
   --bk-bg-surface:    #FFFFFF;
-  --bk-bg-hover:      #F0F7F4;
-  --bk-border:        #DDEAE4;
-  --bk-border-light:  #EAF2EE;
-  --bk-header-bg:     linear-gradient(180deg,#161922 0%,#151A20 34%,#13251C 72%,#102218 100%);
+  --bk-bg-hover:      #F1F3F6;
+  --bk-border:        #E2E6EC;
+  --bk-border-light:  #EEF1F5;
+  --bk-header-bg:     linear-gradient(180deg, color-mix(in srgb, var(--bk-brand) 18%, var(--bk-bg)) 0%, var(--bk-bg) 100%);
   --bk-header-text:   #FFFFFF;
   --bk-shadow-sm:     0 1px 3px rgba(17,24,39,.08),0 1px 2px rgba(17,24,39,.06);
   --bk-shadow:        0 8px 20px rgba(12,18,32,.12),0 2px 8px rgba(12,18,32,.06);
@@ -498,9 +501,9 @@ const WIDGET_CSS = `
   --bk-launcher-ring: color-mix(in srgb, var(--bk-primary) 34%, transparent);
   --bk-launcher-close-color: #fff;
 }
-@media (prefers-color-scheme:dark){:host{--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:color-mix(in srgb,var(--bk-primary) 14%,transparent);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
-:host([data-theme="light"]){--bk-primary:#00D986;--bk-primary-dark:#00B16D;--bk-primary-light:color-mix(in srgb,var(--bk-primary) 14%,transparent);--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7FBF9;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F0F7F4;--bk-border:#DDEAE4;--bk-border-light:#EAF2EE;--bk-popover:#FFFFFF;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:none;--bk-launcher-bg:color-mix(in srgb,var(--bk-bg-surface) 90%,var(--bk-primary) 10%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 45%,var(--bk-border));--bk-launcher-shadow:0 8px 28px color-mix(in srgb,var(--bk-primary) 22%,rgba(2,6,23,.1)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 38px color-mix(in srgb,var(--bk-primary) 32%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-text);}
-:host([data-theme="dark"]){--bk-primary:#00FF99;--bk-primary-dark:#00D986;--bk-primary-light:color-mix(in srgb,var(--bk-primary) 14%,transparent);--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,#14171F 0%,#151A20 32%,#13241C 70%,#0F2218 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}
+@media (prefers-color-scheme:dark){:host{--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
+:host([data-theme="light"]){--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7F8FA;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F1F3F6;--bk-border:#E2E6EC;--bk-border-light:#EEF1F5;--bk-popover:#FFFFFF;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 16%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:none;--bk-launcher-bg:color-mix(in srgb,var(--bk-bg-surface) 90%,var(--bk-primary) 10%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 45%,var(--bk-border));--bk-launcher-shadow:0 8px 28px color-mix(in srgb,var(--bk-primary) 22%,rgba(2,6,23,.1)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 38px color-mix(in srgb,var(--bk-primary) 32%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-text);}
+:host([data-theme="dark"]){--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 @keyframes bk-spring-in{0%{transform:scale(.6) translateY(20px);opacity:0}60%{transform:scale(1.04) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
 @keyframes bk-slide-up{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -579,7 +582,7 @@ const WIDGET_CSS = `
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
 .bk-icon-btn{width:32px;height:32px;border-radius:var(--bk-radius-sm);background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;transition:background var(--bk-transition);}
 .bk-icon-btn:hover{background:rgba(255,255,255,.25);}
-.bk-icon-btn svg{width:16px;height:16px;}
+.bk-icon-btn svg{width:18px;height:18px;}
 .bk-user-wrap{position:relative;display:inline-flex;}
 .bk-header-user{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font:600 12px var(--bk-font);color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);user-select:none;cursor:pointer;padding:0;transition:transform var(--bk-transition),background var(--bk-transition);}
 .bk-header-user:hover{transform:scale(1.05);background:rgba(255,255,255,.25);}
@@ -640,15 +643,10 @@ const WIDGET_CSS = `
 .bk-home-footer{flex-shrink:0;background:var(--bk-bg);position:relative;z-index:2;display:flex;flex-direction:column;}
 .bk-tab-nav{display:flex;flex-direction:row;justify-content:space-between;align-items:stretch;min-height:64px;padding:2px 0 6px;}
 .bk-tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0;background:transparent;border:none;color:var(--bk-text-muted);font:600 12px var(--bk-font);cursor:pointer;transition:color .2s,opacity .2s;position:relative;opacity:.72;}
-.bk-tab-btn svg{width:24px;height:24px;display:block;stroke-width:1.5;}
+.bk-tab-btn svg{width:22px;height:22px;display:block;}
 .bk-tab-btn .bk-tab-label{margin-top:6px;line-height:1.1;letter-spacing:.005em;}
-.bk-tab-btn .bk-icon-body{opacity:.4;transition:opacity .2s,fill .2s;}
-.bk-tab-btn .bk-icon-detail{opacity:.9;transition:opacity .2s,fill .2s,stroke .2s;}
 .bk-tab-btn:hover{color:var(--bk-primary);}
-.bk-tab-btn:hover .bk-icon-body{opacity:.6;}
 .bk-tab-btn.is-active{color:var(--bk-primary);opacity:1;}
-.bk-tab-btn.is-active .bk-icon-body{opacity:1;}
-.bk-tab-btn.is-active .bk-icon-detail{fill:var(--bk-bg);stroke:var(--bk-bg);opacity:1;}
 .bk-tab-badge{position:absolute;top:14px;left:50%;transform:translateX(8px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bk-primary);color:var(--bk-on-primary);font:700 10px var(--bk-font);display:flex;align-items:center;justify-content:center;}
 .bk-window-powered{display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 12px max(8px, env(safe-area-inset-bottom, 0px));font-size:10.5px;color:var(--bk-text-muted);font-weight:500;flex-shrink:0;background:var(--bk-bg);text-decoration:none;cursor:pointer;box-sizing:border-box;width:100%;position:relative;z-index:1;}
 .bk-window-powered:hover{color:var(--bk-text);}
@@ -840,7 +838,7 @@ const WIDGET_CSS = `
 .bk-prechat input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--bk-border);border-radius:8px;background:var(--bk-bg);color:var(--bk-text);font-size:13px;font-family:inherit;outline:none;}
 .bk-prechat input:focus{border-color:var(--bk-primary);}
 .bk-prechat-actions{display:flex;gap:8px;align-items:center;margin-top:2px;}
-.bk-prechat-submit{padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:#0B0F14;font-size:13px;font-weight:600;cursor:pointer;}
+.bk-prechat-submit{padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:var(--bk-on-primary);font-size:13px;font-weight:600;cursor:pointer;}
 .bk-prechat-submit:disabled{opacity:0.6;cursor:default;}
 .bk-prechat-skip{padding:8px 10px;border:none;background:none;color:var(--bk-text-muted);font-size:12px;cursor:pointer;}
 .bk-prechat-error{font-size:12px;color:#DC2626;}
@@ -855,7 +853,7 @@ const WIDGET_CSS = `
 .bk-csat-star:disabled{cursor:default;}
 .bk-csat-comment{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--bk-border);border-radius:8px;background:var(--bk-bg);color:var(--bk-text);font-size:13px;font-family:inherit;outline:none;resize:none;}
 .bk-csat-comment:focus{border-color:var(--bk-primary);}
-.bk-csat-send{align-self:flex-start;padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:#0B0F14;font-size:13px;font-weight:600;cursor:pointer;}
+.bk-csat-send{align-self:flex-start;padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:var(--bk-on-primary);font-size:13px;font-weight:600;cursor:pointer;}
 .bk-worklog-stack{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:var(--bk-surface-muted,#f3f4f6);font-size:13px;color:var(--bk-text-secondary,#4b5563);}
 .bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#00D986);}
 .bk-worklog-title{font-weight:500;margin-bottom:6px;}
@@ -1005,8 +1003,8 @@ class BokitoChatWidget extends HTMLElement {
 
   #refreshChromeFromThemeAndPreview() {
     const eff = this.#mergedThemeForChrome();
-    this.#applyAgentTheme(eff);
     this.#applyUserThemeOverride();
+    this.#applyAgentTheme(eff);
     this.#syncAgentWindowAtmosphere();
     const name = typeof eff.chatbot_name === 'string' && eff.chatbot_name.trim() ? eff.chatbot_name.trim() : 'Bokito AI';
     if (this.#headerName) this.#headerName.textContent = name;
@@ -1251,6 +1249,7 @@ class BokitoChatWidget extends HTMLElement {
       if (workLogId) this.#subscribeWorkLog(String(workLogId));
     });
     this.#parsePreviewOverridesAttribute();
+    this.#refreshChromeFromThemeAndPreview();
     if (this.dataset.previewMode === 'true') {
       queueMicrotask(() => {
         void this.#openWidget();
@@ -1277,25 +1276,18 @@ class BokitoChatWidget extends HTMLElement {
           </g>
           </g>
         </svg>
-        <svg class="bk-launcher-icon bk-launcher-icon--close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        ${ICONS.close.replace('<svg ', '<svg class="bk-launcher-icon bk-launcher-icon--close" ')}
         <span class="bk-badge" style="display:none"></span>
       </button>
       <div class="bk-proactive-bubbles" hidden></div>
       <div class="bk-window" style="display:none">
         <div class="bk-header">
           <button class="bk-icon-btn bk-btn-back" title="Back to menu" aria-label="Back to menu" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            ${ICONS.back}
           </button>
           <div class="bk-header-avatar">
             <img class="bk-header-avatar-img" alt="" hidden />
-            <svg class="bk-avatar-logo" viewBox="-22 -24 361 403" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <style>
-                .bk-av-wink-g{transform-origin:158.5px 177.5px;animation:bkHeadWink 45s ease-in-out infinite}
-                .bk-av-g{transform-origin:158.5px 177.5px;animation:bkHeadMove 15s cubic-bezier(.42,0,.58,1) infinite}
-                .bk-av-f{animation:bkFaceExpr 45s cubic-bezier(.42,0,.58,1) infinite}
-              </style>
-              <g class="bk-av-wink-g"><g class="bk-av-g"><path class="bk-av-f" d="M26.6433 267.197C45.1327 277.878 75.6447 286.435 101.358 290.367C146.687 297.256 196.097 295.654 238.874 285.905C259.443 281.121 273.961 275.586 288.806 268.009C285.993 282.241 279.806 295.127 268.54 308.402C229.03 350.457 151.035 366.187 97.7947 344.087C67.3069 331.432 37.7979 305.137 28.1169 272.852C27.5527 270.971 27.0636 269.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 115.085C261.634 96.6836 247.099 68.673 225.354 70.0582C224.845 70.0897 224.339 70.1266 223.83 70.1685C209.08 76.2057 197.865 101.588 191.255 115.718C190.325 117.71 189.354 120.748 189.179 122.962L189.694 123.821C192.954 123.676 203.874 118.28 207.554 116.913C213.529 114.696 218.275 113.116 224.8 112.534C235.324 112.489 241.365 114.05 250.915 118.668C256.53 121.383 262.664 125.248 262.3 115.085ZM93.2605 71.108C90.6937 69.8213 87.4802 69.9627 84.9294 70.1441C63.3749 75.2763 51.8802 98.0641 52.7224 119.095C52.7689 120.263 53.5808 120.889 54.3152 121.607C58.0322 122.098 71.2004 114.553 76.6384 113.59C84.4266 112.212 87.9264 112.256 95.7996 113.206C100.812 114.322 123.644 124.057 125.413 123.759C125.971 122.434 125.164 119.889 124.471 118.538C117.079 104.119 108.177 78.5861 93.2605 71.108Z" fill="currentColor"/></g></g>
-            </svg>
+            ${MONKEY_MARK}
           </div>
           <div class="bk-header-info">
             <div class="bk-header-name">Bokito AI</div>
@@ -1304,7 +1296,7 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-header-actions">
             <div class="bk-chat-actions">
               <button class="bk-icon-btn bk-btn-more" title="Chat actions" aria-label="Chat actions" aria-expanded="false">
-                <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+                ${ICONS.more}
               </button>
               <div class="bk-chat-actions-menu" hidden>
                 <button class="bk-chat-actions-item" type="button" data-action="stop">Stop generating</button>
@@ -1315,7 +1307,7 @@ class BokitoChatWidget extends HTMLElement {
             </div>
             <div class="bk-user-wrap">
               <button type="button" class="bk-header-user" title="Account" aria-label="Account" aria-expanded="false" aria-haspopup="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                ${ICONS.user}
               </button>
               <div class="bk-user-popover" hidden></div>
             </div>
@@ -1323,7 +1315,7 @@ class BokitoChatWidget extends HTMLElement {
         </div>
         <div class="bk-login-required" style="display:none">
           <div class="bk-login-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            ${ICONS.lock}
           </div>
           <div class="bk-login-title">Sign in required</div>
           <div class="bk-login-sub">Sign in on this website to chat with the assistant.</div>
@@ -1340,7 +1332,7 @@ class BokitoChatWidget extends HTMLElement {
               </div>
               <button class="bk-home-new-btn">
                 <div class="bk-home-new-btn-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  ${ICONS.chat}
                 </div>
                 <span>Start new conversation</span>
               </button>
@@ -1358,7 +1350,7 @@ class BokitoChatWidget extends HTMLElement {
                 </div>
                 <div class="bk-help-article" hidden>
                   <button type="button" class="bk-help-back">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    ${ICONS.back}
                     All articles
                   </button>
                   <div class="bk-help-article-title"></div>
@@ -1377,20 +1369,20 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-home-footer">
             <nav class="bk-tab-nav" role="tablist">
               <button type="button" class="bk-tab-btn is-active" data-tab="home" role="tab" aria-selected="true" aria-label="Home">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M2.35157 13.2135C1.99855 10.9162 1.82204 9.76763 2.25635 8.74938C2.69065 7.73112 3.65421 7.03443 5.58132 5.64106L7.02117 4.6C9.41847 2.86667 10.6171 2 12.0002 2C13.3832 2 14.5819 2.86667 16.9792 4.6L18.419 5.64106C20.3462 7.03443 21.3097 7.73112 21.744 8.74938C22.1783 9.76763 22.0018 10.9162 21.6488 13.2135L21.3478 15.1724C20.8473 18.4289 20.5971 20.0572 19.4292 21.0286C18.2613 22 16.5538 22 13.139 22H10.8614C7.44652 22 5.73909 22 4.57118 21.0286C3.40327 20.0572 3.15305 18.4289 2.65261 15.1724L2.35157 13.2135Z" fill="currentColor"/><path class="bk-icon-detail" d="M15.0002 17C14.2007 17.6224 13.1504 18 12.0002 18C10.8499 18 9.79971 17.6224 9.00018 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+                ${ICONS.home}
                 <span class="bk-tab-label">Home</span>
               </button>
               <button type="button" class="bk-tab-btn" data-tab="messages" role="tab" aria-selected="false" aria-label="Messages">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M14.1706 20.8905C18.3536 20.6125 21.6856 17.2332 21.9598 12.9909C22.0134 12.1607 22.0134 11.3009 21.9598 10.4707C21.6856 6.22838 18.3536 2.84913 14.1706 2.57107C12.7435 2.47621 11.2536 2.47641 9.8294 2.57107C5.64639 2.84913 2.31441 6.22838 2.04024 10.4707C1.98659 11.3009 1.98659 12.1607 2.04024 12.9909C2.1401 14.536 2.82343 15.9666 3.62791 17.1746C4.09501 18.0203 3.78674 19.0758 3.30021 19.9978C2.94941 20.6626 2.77401 20.995 2.91484 21.2351C3.05568 21.4752 3.37026 21.4829 3.99943 21.4982C5.24367 21.5285 6.08268 21.1757 6.74868 20.6846C7.1264 20.4061 7.31527 20.2668 7.44544 20.2508C7.5756 20.2348 7.83177 20.3403 8.34401 20.5513C8.8044 20.7409 9.33896 20.8579 9.8294 20.8905C11.2536 20.9852 12.7435 20.9854 14.1706 20.8905Z" fill="currentColor"/><circle class="bk-icon-detail" cx="8" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="12" cy="12" r="1" fill="currentColor"/><circle class="bk-icon-detail" cx="16" cy="12" r="1" fill="currentColor"/></svg>
+                ${ICONS.messages}
                 <span class="bk-tab-label">Messages</span>
                 <span class="bk-tab-badge" hidden>0</span>
               </button>
               <button type="button" class="bk-tab-btn" data-tab="help" role="tab" aria-selected="false" aria-label="Help" hidden>
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle class="bk-icon-body" cx="12" cy="12" r="10" fill="currentColor"/><path class="bk-icon-detail" d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/><circle class="bk-icon-detail" cx="12" cy="16.6" r="1" fill="currentColor"/></svg>
+                ${ICONS.help}
                 <span class="bk-tab-label">Help</span>
               </button>
               <button type="button" class="bk-tab-btn" data-tab="tools" role="tab" aria-selected="false" aria-label="Tools">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="bk-icon-body" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.121 2.121 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" fill="currentColor"/><circle class="bk-icon-detail" cx="5.5" cy="18.5" r="1" fill="currentColor"/></svg>
+                ${ICONS.tools}
                 <span class="bk-tab-label">Tools</span>
               </button>
             </nav>
@@ -1398,11 +1390,11 @@ class BokitoChatWidget extends HTMLElement {
         </div>
         <div class="bk-chat-view" style="display:none">
           <div class="bk-agent-banner" style="display:none">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            ${ICONS.user}
             <span>A team member is helping you</span>
           </div>
           <div class="bk-offline-banner" style="display:none">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            ${ICONS.clock}
             <span class="bk-offline-text">We are currently offline. Leave a message and we will get back to you.</span>
           </div>
           <div class="bk-messages">
@@ -1421,13 +1413,13 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-inputbar">
             <div class="bk-inputbar-inner">
               <button class="bk-attach-btn" type="button" aria-label="Attach image">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                ${ICONS.attach}
               </button>
               <input class="bk-file-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple style="display:none">
               <textarea class="bk-textarea" placeholder="Ask a question..." rows="1" maxlength="4000"></textarea>
               <div class="bk-record-actions" hidden>
                 <button type="button" class="bk-record-btn bk-record-cancel" aria-label="Cancel recording">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  ${ICONS.close}
                 </button>
                 <button type="button" class="bk-record-btn bk-record-confirm bk-record-confirm--recording" aria-label="Send recording">
                   <svg class="bk-record-wave" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1440,10 +1432,10 @@ class BokitoChatWidget extends HTMLElement {
                 </button>
               </div>
               <button type="button" class="bk-record-btn bk-record-start" aria-label="Record voice" hidden>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                ${ICONS.mic}
               </button>
               <button class="bk-send-btn" disabled aria-label="Send">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                ${ICONS.send}
               </button>
             </div>
           </div>
@@ -1880,7 +1872,7 @@ class BokitoChatWidget extends HTMLElement {
     if (!isLoggedIn) {
       el.title = 'Not signed in';
       el.setAttribute('aria-label', 'Not signed in');
-      el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      el.innerHTML = ICONS.user;
       this.#refreshUserPopoverIfOpen();
       return;
     }
@@ -1958,7 +1950,7 @@ class BokitoChatWidget extends HTMLElement {
         this.#fillPopoverAvatarInitials(avatar, user, displayName);
       }
     } else {
-      avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      avatar.innerHTML = ICONS.user;
     }
 
     const info = document.createElement('div');
@@ -2644,14 +2636,8 @@ class BokitoChatWidget extends HTMLElement {
     const mainColor = theme.main_color || theme.primary_color;
     if (this.#isValidCssColor(mainColor)) {
       const trimmed = mainColor.trim();
-      host.style.setProperty('--bk-primary', trimmed);
-      const rgb = this.#parseColorToRgbTriplet(trimmed);
-      if (rgb) {
-        host.style.setProperty('--bk-primary-dark', this.#rgbTripletToCssRgb(this.#darkenRgbTriplet(rgb, 0.14)));
-        host.style.setProperty('--bk-primary-light', `rgba(${rgb.r},${rgb.g},${rgb.b},0.14)`);
-      } else {
-        host.style.setProperty('--bk-primary-dark', trimmed);
-      }
+      const rgb = parseHexColor(trimmed) || this.#parseColorToRgbTriplet(trimmed);
+      applyBrandToHost(host, trimmed, rgb);
     }
 
     if (this.#isValidCssColor(theme.text_color)) {
@@ -2773,7 +2759,7 @@ class BokitoChatWidget extends HTMLElement {
         el.dataset.convId = conv.id;
         const preview = conv.title || conv.last_message_preview || 'Conversation';
         el.innerHTML = `
-          <div class="bk-conv-item-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="bk-conv-item-avatar">${ICONS.chat}</div>
           <div class="bk-conv-item-body">
             <div class="bk-conv-item-row">
               <span class="bk-conv-item-title">${preview.slice(0,60)}</span>
@@ -2873,7 +2859,7 @@ class BokitoChatWidget extends HTMLElement {
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    closeBtn.innerHTML = ICONS.close;
     closeBtn.style.cssText = [
       'position:absolute',
       'top:-12px',
@@ -4723,7 +4709,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#isPreferencesHydrated = true;
     this.#soundEffectsEnabled = this.#storGet(LS_SOUND_EFFECTS_KEY) !== 'off';
     this.#soundNotificationsEnabled = this.#storGet(LS_SOUND_NOTIFICATIONS_KEY) !== 'off';
-    this.#applyUserThemeOverride();
+    this.#refreshChromeFromThemeAndPreview();
     this.#syncSettingsForm();
   }
 
@@ -4762,7 +4748,7 @@ class BokitoChatWidget extends HTMLElement {
     }
     this.#soundEffectsEnabled = this.#storGet(LS_SOUND_EFFECTS_KEY) !== 'off';
     this.#soundNotificationsEnabled = this.#storGet(LS_SOUND_NOTIFICATIONS_KEY) !== 'off';
-    this.#applyUserThemeOverride();
+    this.#refreshChromeFromThemeAndPreview();
     this.#syncSettingsForm();
     if (this.#sessionToken) this.#fetchRemotePreferences();
     this.#ensureThemeSchemeListener();
@@ -4795,11 +4781,11 @@ class BokitoChatWidget extends HTMLElement {
     if (!icon || !cap) return;
     const dark = this.#effectiveUserThemeIsDark();
     if (dark) {
-      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>';
+      icon.innerHTML = ICONS.sun;
       cap.textContent = 'Light mode';
       btn.setAttribute('aria-label', 'Switch to light theme');
     } else {
-      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+      icon.innerHTML = ICONS.moon;
       cap.textContent = 'Dark mode';
       btn.setAttribute('aria-label', 'Switch to dark theme');
     }
@@ -4812,12 +4798,11 @@ class BokitoChatWidget extends HTMLElement {
       else this.removeAttribute('data-theme');
     }
     this.#syncUserPopoverThemeToggle();
-    this.#syncAgentWindowAtmosphere();
   }
 
   #setUserTheme(value) {
     this.#storSet(LS_THEME_KEY, value);
-    this.#applyUserThemeOverride();
+    this.#refreshChromeFromThemeAndPreview();
     this.#syncSettingsForm();
     this.#persistPreferencePatch({ theme: value });
   }

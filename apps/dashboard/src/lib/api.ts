@@ -63,6 +63,9 @@ export function buildAuthHeaders(token?: string, includeJson = true): Record<str
 function parseApiErrorBody(body: unknown): string {
   const o = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
   if (typeof o.message === 'string' && o.message.trim()) return o.message.trim()
+  // FastAPI's exception handler wraps errors as { error: { code, message } }.
+  const nested = o.error && typeof o.error === 'object' ? (o.error as Record<string, unknown>) : null
+  if (nested && typeof nested.message === 'string' && nested.message.trim()) return nested.message.trim()
   const detail = o.detail
   if (typeof detail === 'string' && detail.trim()) return detail.trim()
   if (Array.isArray(detail)) {

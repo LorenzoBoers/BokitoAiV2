@@ -178,6 +178,34 @@ async def usage_breakdown(
         for row in agent_rows
     ]
 
+    # By user (user-initiated chats carry user_id; autonomous/system runs do not).
+    from app.models.auth import User
+
+    user_rows = (
+        await session.execute(
+            select(
+                UsageLedger.user_id,
+                User.display_name,
+                User.email,
+                func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out),
+                func.sum(UsageLedger.customer_cost_micros),
+            )
+            .outerjoin(User, User.id == UsageLedger.user_id)
+            .where(UsageLedger.tenant_id == tenant_id, UsageLedger.created_at >= since)
+            .group_by(UsageLedger.user_id, User.display_name, User.email)
+        )
+    ).all()
+
+    by_user = [
+        {
+            "user_id": str(row[0]) if row[0] else None,
+            "user_name": (row[1] or row[2] or "Agents / system"),
+            "tokens": int(row[3] or 0),
+            "customer_cost_micros": int(row[4] or 0),
+        }
+        for row in user_rows
+    ]
+
     totals = (
         await session.execute(
             select(
@@ -190,6 +218,7 @@ async def usage_breakdown(
 
     by_model.sort(key=lambda r: r["tokens"], reverse=True)
     by_agent.sort(key=lambda r: r["tokens"], reverse=True)
+    by_user.sort(key=lambda r: r["tokens"], reverse=True)
 
     return {
         "days": days,
@@ -198,6 +227,7 @@ async def usage_breakdown(
         "total_customer_cost_micros": int(totals[2] or 0),
         "by_model": by_model,
         "by_agent": by_agent,
+        "by_user": by_user,
     }
 
 

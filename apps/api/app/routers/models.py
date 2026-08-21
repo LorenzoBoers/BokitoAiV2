@@ -153,8 +153,49 @@ class TenantModelUpdateBody(BaseModel):
     output_cost_per_mtok_cents: int | None = None
 
 
+async def _managed_ai_status(
+    session: AsyncSession, tenant_id: UUID, *, overridden: bool
+) -> dict:
+    """Bokito AI: the platform-managed default provider, presented as a product.
+
+    Bokito selects and maintains models automatically (platform catalog +
+    platform keys). When the tenant runs self-managed models (BYOK), the
+    managed provider is on standby: BYOK models take precedence.
+    """
+    from app.services.model_resolution import _resolve_from_platform_catalog
+
+    async def _model_info(kind: str) -> dict:
+        resolved = await _resolve_from_platform_catalog(
+            session, tenant_id, kind=kind, model_slug=None
+        )
+        catalog_row = await catalog_svc.get_model(session, resolved.slug)
+        return {
+            "slug": resolved.slug,
+            "display_name": catalog_row.display_name if catalog_row else resolved.slug,
+            "provider": resolved.provider,
+            "key_source": resolved.key_source,
+            "ready": resolved.live,
+        }
+
+    chat = await _model_info("chat")
+    embedding = await _model_info("embedding")
+    if overridden:
+        status = "standby"
+    elif chat["ready"]:
+        status = "active"
+    else:
+        status = "unconfigured"
+    return {
+        "name": "Bokito AI",
+        "status": status,  # active | standby | unconfigured
+        "chat": chat,
+        "embedding": embedding,
+    }
+
+
 async def _tenant_models_payload(session: AsyncSession, tenant_id: UUID) -> dict:
     has_tenant = await tenant_model_catalog.tenant_has_models(session, tenant_id)
+    managed = await _managed_ai_status(session, tenant_id, overridden=has_tenant)
     if has_tenant:
         models = await tenant_model_catalog.list_models_with_connections(session, tenant_id)
         default_chat = next((m["slug"] for m in models if m.get("is_default_chat")), "")
@@ -162,6 +203,7 @@ async def _tenant_models_payload(session: AsyncSession, tenant_id: UUID) -> dict
         connections = await provider_connections.list_connections(session, tenant_id)
         return {
             "source": "tenant",
+            "managed": managed,
             "models": models,
             "connections": [provider_connections.serialize_connection(c) for c in connections],
             "default_chat": default_chat,
@@ -169,7 +211,7 @@ async def _tenant_models_payload(session: AsyncSession, tenant_id: UUID) -> dict
             "presets": serialize_presets(),
         }
 
-    # Legacy platform-catalog fallback when tenant has not configured providers yet.
+    # Managed default (Bokito AI): platform catalog + platform keys.
     from app.services import tenant_models, tenant_secrets
 
     platform_models = await catalog_svc.list_models(session, enabled_only=True)
@@ -178,6 +220,7 @@ async def _tenant_models_payload(session: AsyncSession, tenant_id: UUID) -> dict
     byok_providers = {row["provider"] for row in byok if row["is_set"]}
     return {
         "source": "platform",
+        "managed": managed,
         "models": [catalog_svc.serialize_model(m) for m in platform_models],
         "prefs": prefs,
         "byok": byok,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Cpu, Loader2, Plus, ShieldCheck, Zap } from 'lucide-react'
+import { ArrowUpRight, Check, Cpu, Loader2, Plus, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
@@ -22,6 +23,7 @@ import {
   updateTenantModel,
   type CatalogModel,
   type LlmProvider,
+  type ManagedAiStatus,
   type PlatformKeysPayload,
   type ProviderConnection,
   type ProviderType,
@@ -240,10 +242,10 @@ export default function ModelsSettings() {
           <Cpu size={18} />
         </span>
         <div>
-          <h2 className="text-[15px] font-semibold text-text-heading">Providers and models</h2>
+          <h2 className="text-[15px] font-semibold text-text-heading">AI providers</h2>
           <p className="text-[12.5px] text-text-muted">
-            Add LLM providers with your own API keys, enable models for this workspace, and assign
-            them to agents. Keys are encrypted; only the last four characters are shown.
+            Bokito AI runs your workspace by default. Optionally bring your own provider keys to
+            take control over models and pay the provider directly.
           </p>
         </div>
       </div>
@@ -255,10 +257,19 @@ export default function ModelsSettings() {
         </p>
       ) : null}
 
+      {data?.managed ? <ManagedAiCard managed={data.managed} /> : null}
+
       {/* Providers */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[13px] font-semibold text-text-heading">Providers</h3>
+          <div>
+            <h3 className="text-[13px] font-semibold text-text-heading">Your own providers</h3>
+            <p className="text-[11.5px] text-text-muted">
+              Optional. Models enabled on your own keys take precedence over Bokito AI; usage is
+              then billed by the provider, not through Bokito. Keys are encrypted; only the last
+              four characters are shown.
+            </p>
+          </div>
           <Button
             type="button"
             size="sm"
@@ -325,7 +336,9 @@ export default function ModelsSettings() {
         ) : null}
 
         {connections.length === 0 ? (
-          <p className="text-[12px] text-text-muted">No providers configured yet. Add one to get started.</p>
+          <p className="text-[12px] text-text-muted">
+            No own providers configured. Your workspace runs on Bokito AI.
+          </p>
         ) : (
           <div className="space-y-2">
             {connections.map((conn) => (
@@ -520,36 +533,84 @@ export default function ModelsSettings() {
             )}
           </section>
         </>
-      ) : (
-        <section className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-4">
-          <p className="text-[12.5px] text-text-secondary">
-            This workspace still uses the platform model catalog. Add a provider above and click
-            &quot;Enable presets&quot; to switch to self-managed models.
-          </p>
-          {data?.source === 'platform' ? (
-            <div className="mt-3 flex flex-wrap gap-2 text-[11.5px]">
-              {(['anthropic', 'openai'] as const).map((p) => {
-                const byok = data.byok.find((b) => b.provider === p)?.is_set
-                return (
-                  <span
-                    key={p}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 ${
-                      byok
-                        ? 'border-status-success/40 bg-status-success/10 text-status-success'
-                        : 'border-amber-400/40 bg-amber-400/10 text-amber-500'
-                    }`}
-                  >
-                    {p}: {byok ? 'Legacy BYOK key' : 'Platform key (billable)'}
-                  </span>
-                )
-              })}
-            </div>
-          ) : null}
-        </section>
-      )}
+      ) : null}
 
       {isStaff ? <StaffCatalogAdmin token={token} /> : null}
     </PageContent>
+  )
+}
+
+function ManagedAiCard({ managed }: { managed: ManagedAiStatus }) {
+  const statusBadge =
+    managed.status === 'active' ? (
+      <span className="inline-flex items-center gap-1 rounded-full border border-status-success/40 bg-status-success/10 px-2.5 py-1 text-[11.5px] font-medium text-status-success">
+        Active
+      </span>
+    ) : managed.status === 'standby' ? (
+      <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-hover/50 px-2.5 py-1 text-[11.5px] font-medium text-text-muted">
+        Standby
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11.5px] font-medium text-amber-500">
+        Not configured
+      </span>
+    )
+
+  return (
+    <section className="rounded-xl border border-accent/25 bg-gradient-to-br from-accent/[0.06] to-transparent p-4 shadow-card">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent">
+            <Sparkles size={18} />
+          </span>
+          <div>
+            <p className="text-[13.5px] font-semibold text-text-heading">Bokito AI</p>
+            <p className="max-w-xl text-[12px] text-text-muted">
+              Managed by Bokito: we select and maintain the best model for each task
+              automatically. Usage is metered per token for this workspace and counts toward your
+              budget.
+            </p>
+          </div>
+        </div>
+        {statusBadge}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px]">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-surface px-2.5 py-1 text-text-secondary">
+          Chat
+          <span className="font-medium text-text-primary">{managed.chat.display_name}</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-surface px-2.5 py-1 text-text-secondary">
+          Embeddings
+          <span className="font-medium text-text-primary">{managed.embedding.display_name}</span>
+        </span>
+        <Link
+          to="/usage"
+          className="ml-auto inline-flex items-center gap-1 text-[11.5px] font-medium text-accent hover:underline"
+        >
+          View usage <ArrowUpRight size={12} />
+        </Link>
+      </div>
+
+      {managed.status === 'standby' ? (
+        <p className="mt-2.5 text-[11.5px] text-text-muted">
+          This workspace runs on your own provider keys below; Bokito AI stays available as
+          fallback when you remove them.
+        </p>
+      ) : null}
+      {managed.status === 'unconfigured' ? (
+        <p className="mt-2.5 text-[11.5px] text-amber-500">
+          No platform key is configured, so AI calls run in mock mode. Contact Bokito support or
+          add your own provider key below.
+        </p>
+      ) : null}
+      {managed.chat.key_source === 'tenant' && managed.status === 'active' ? (
+        <p className="mt-2.5 text-[11.5px] text-text-muted">
+          Runs on your own {managed.chat.provider} key (legacy), so usage is not billed through
+          Bokito.
+        </p>
+      ) : null}
+    </section>
   )
 }
 

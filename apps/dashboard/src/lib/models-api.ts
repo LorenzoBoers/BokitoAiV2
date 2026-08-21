@@ -100,9 +100,26 @@ export type LlmKeyStatus = {
   updated_at: string | null
 }
 
+/** Bokito AI: the platform-managed default provider (models picked by Bokito). */
+export type ManagedAiModel = {
+  slug: string
+  display_name: string
+  provider: string
+  key_source: 'tenant' | 'platform' | 'mock'
+  ready: boolean
+}
+
+export type ManagedAiStatus = {
+  name: string
+  status: 'active' | 'standby' | 'unconfigured'
+  chat: ManagedAiModel
+  embedding: ManagedAiModel
+}
+
 export type TenantModelsPayload =
   | {
       source: 'tenant'
+      managed: ManagedAiStatus
       models: TenantModelRow[]
       connections: ProviderConnection[]
       default_chat: string
@@ -111,6 +128,7 @@ export type TenantModelsPayload =
     }
   | {
       source: 'platform'
+      managed: ManagedAiStatus
       models: CatalogModel[]
       prefs: TenantModelPrefs
       byok: LlmKeyStatus[]
