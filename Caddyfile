@@ -11,15 +11,23 @@
 		reverse_proxy api:8000
 	}
 
-	# Webchat widget static bundle.
+	# Webchat widget static bundle (stable filenames, so always revalidate).
 	handle_path /chat-widget/* {
 		root * /srv/chat-widget
+		header Cache-Control "no-cache"
 		file_server
 	}
 
 	# Dashboard SPA with client-side routing fallback.
+	# Hashed build assets are immutable; everything else (index.html, sw.js,
+	# logos) must revalidate so a deploy reaches users on the next navigation
+	# instead of leaving them on a stale bundle with missing routes/chunks.
 	handle {
 		root * /srv
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@shell not path /assets/*
+		header @shell Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}

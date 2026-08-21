@@ -19,6 +19,23 @@ initSentry()
 if (import.meta.env.PROD) {
   void registerServiceWorker()
 }
+
+// After a deploy the old hashed chunks disappear from the server. When a
+// lazy route chunk fails to load, reload once so the browser picks up the
+// new bundle instead of showing a broken page. The timestamp guard prevents
+// a reload loop when the server itself is unreachable.
+window.addEventListener('vite:preloadError', (event) => {
+  const key = 'bokito-chunk-reload-at'
+  const last = Number(sessionStorage.getItem(key) ?? 0)
+  if (Date.now() - last < 30_000) return
+  try {
+    sessionStorage.setItem(key, String(Date.now()))
+  } catch {
+    // ignore
+  }
+  event.preventDefault()
+  window.location.reload()
+})
 void i18n.changeLanguage('en')
 try {
   localStorage.setItem('bokito-language', 'en')
