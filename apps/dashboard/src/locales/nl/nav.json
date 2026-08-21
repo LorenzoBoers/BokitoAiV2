@@ -21,6 +21,10 @@
       "title": "Agents",
       "subtitle": "Je agent-workforce"
     },
+    "projects": {
+      "title": "Projecten",
+      "subtitle": "Repos, orchestratie en budgetten"
+    },
     "knowledge": {
       "title": "Kennis",
       "subtitle": "Documenten, skills en geheugen"
@@ -33,6 +37,7 @@
   "tabGroups": {
     "control": "Control",
     "agent": "Agent",
+    "ai": "AI",
     "settings": "Instellingen"
   },
   "palette": {

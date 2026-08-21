@@ -18,7 +18,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     label: 'Workspace',
     links: [
       { label: 'General', to: '/settings/general' },
-      { label: 'Projects', to: '/settings/projects' },
       { label: 'Branding', to: '/settings/branding' },
       { label: 'Members', to: '/settings/members' },
     ],

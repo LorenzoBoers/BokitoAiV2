@@ -44,7 +44,8 @@ const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
 const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
 const ModelsSettings = lazy(() => import('./pages/ModelsSettings'))
 const DeveloperSettings = lazy(() => import('./pages/DeveloperSettings'))
-const ProjectsSettings = lazy(() => import('./pages/ProjectsSettings'))
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings'))
 const WorkspaceSettings = lazy(() => import('./pages/WorkspaceSettings'))
 const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
@@ -285,10 +286,12 @@ export default function App() {
           <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />
           <Route path="/triggers" element={<Navigate to="/agenda" replace />} />
 
-          {/* Agent */}
+          {/* AI */}
           <Route path="/agents" element={<AiAgents />} />
           <Route path="/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetail />} />
           <Route path="/knowledge" element={<WorkspaceDocs />} />
           <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
 
@@ -313,7 +316,7 @@ export default function App() {
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/autonomy" element={<GovernPage />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
-            <Route path="/settings/projects" element={<ProjectsSettings />} />
+            <Route path="/settings/projects" element={<Navigate to="/projects" replace />} />
             <Route path="/ai/assistant" element={<Navigate to={ASSISTANT_DEFAULT_PATH} replace />} />
             <Route path="/ai/assistant/:audience/:section" element={<MessengerSettings />} />
             {/* Legacy Dutch route name */}

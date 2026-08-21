@@ -11,6 +11,7 @@ import {
   Brain,
   CalendarDays,
   Contact,
+  FolderKanban,
   Gauge,
   MessageSquare,
   Settings,
@@ -23,12 +24,13 @@ export type Tab =
   | 'contacts'
   | 'agenda'
   | 'agents'
+  | 'projects'
   | 'knowledge'
   | 'settings'
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
   { label: 'Control', tabs: ['cockpit', 'communication', 'contacts', 'agenda'] },
-  { label: 'Agent', tabs: ['agents', 'knowledge'] },
+  { label: 'AI', tabs: ['agents', 'projects', 'knowledge'] },
   { label: 'Settings', tabs: ['settings'] },
 ]
 
@@ -38,6 +40,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   contacts: '/contacts',
   agenda: '/agenda',
   agents: '/agents',
+  projects: '/projects',
   knowledge: '/knowledge',
   settings: '/settings',
 }
@@ -48,6 +51,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   contacts: Contact,
   agenda: CalendarDays,
   agents: Bot,
+  projects: FolderKanban,
   // Knowledge identity: violet brain, recurring across the platform.
   knowledge: Brain,
   settings: Settings,
@@ -59,6 +63,7 @@ const TAB_TITLES: Record<Tab, string> = {
   contacts: 'Contacts',
   agenda: 'Agenda',
   agents: 'Agents',
+  projects: 'Projects',
   knowledge: 'Knowledge',
   settings: 'Settings',
 }
@@ -69,6 +74,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   contacts: 'People across your channels',
   agenda: 'Scheduled wakes, tasks and events',
   agents: 'Your agent workforce',
+  projects: 'Repos, orchestration and budgets',
   knowledge: 'Docs, skills and memory',
   settings: 'Workspace configuration',
 }
@@ -103,6 +109,7 @@ export function tabFromPath(pathname: string): Tab | null {
   if (pathname.startsWith('/contacts')) return 'contacts'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/agents')) return 'agents'
+  if (pathname.startsWith('/projects')) return 'projects'
   if (
     pathname.startsWith('/knowledge') ||
     pathname.startsWith('/workspace') ||

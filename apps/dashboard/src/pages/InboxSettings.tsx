@@ -264,7 +264,8 @@ export default function InboxSettings() {
   const [routingRulesOpen, setRoutingRulesOpen] = useState(false)
   const [selectedMailbox, setSelectedMailbox] = useState<MailboxConnection | null>(null)
   const [routingRules, setRoutingRules] = useState<Record<number, RoutingRule[]>>({})
-  const [connectProvider, setConnectProvider] = useState<MailboxProvider>('outlook')
+  // Only OAuth providers are selectable in the connect dialog (not the built-in address).
+  const [connectProvider, setConnectProvider] = useState<'outlook' | 'gmail'>('outlook')
   const [connectError, setConnectError] = useState<string | null>(null)
   const [mailboxSavingId, setMailboxSavingId] = useState<number | null>(null)
   const [pageAlert, setPageAlert] = useState<InboxSettingsAlert | null>(null)

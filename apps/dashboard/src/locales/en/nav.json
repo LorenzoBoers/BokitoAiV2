@@ -6,12 +6,14 @@
     "contacts": { "title": "Contacts", "subtitle": "People across your channels" },
     "agenda": { "title": "Agenda", "subtitle": "Scheduled wakes, tasks and events" },
     "agents": { "title": "Agents", "subtitle": "Your agent workforce" },
+    "projects": { "title": "Projects", "subtitle": "Repos, orchestration and budgets" },
     "knowledge": { "title": "Knowledge", "subtitle": "Docs, skills and memory" },
     "settings": { "title": "Settings", "subtitle": "Workspace configuration" }
   },
   "tabGroups": {
     "control": "Control",
     "agent": "Agent",
+    "ai": "AI",
     "settings": "Settings"
   },
   "palette": {
