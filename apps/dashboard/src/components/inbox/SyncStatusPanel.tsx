@@ -99,10 +99,13 @@ export default function SyncStatusPanel({ className }: Props) {
               <span
                 className={cn(
                   'text-xs font-medium shrink-0',
-                  conn.status === 'active' ? 'text-status-success' : 'text-status-error',
+                  // Backend statuses: connected | paused | needs_auth | error
+                  (conn.status === 'connected' || conn.status === 'active') && 'text-status-success',
+                  conn.status === 'paused' && 'text-text-muted',
+                  conn.status !== 'connected' && conn.status !== 'active' && conn.status !== 'paused' && 'text-status-error',
                 )}
               >
-                {conn.status === 'active' ? (
+                {conn.status === 'connected' || conn.status === 'active' ? (
                   <CheckCircle size={13} className="inline mr-1" />
                 ) : (
                   <AlertCircle size={13} className="inline mr-1" />
