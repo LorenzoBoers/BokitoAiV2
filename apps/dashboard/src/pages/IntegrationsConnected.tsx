@@ -23,6 +23,7 @@ import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
+import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 
 function KindSection({
   title,
@@ -149,6 +150,7 @@ export default function IntegrationsConnected() {
 
   return (
     <PageContent width="xl" className="space-y-6">
+      <IntegrationsTabs />
       <p className="max-w-2xl text-sm text-text-secondary">
         {t('integrations.pageMeta.connected.description')}
       </p>

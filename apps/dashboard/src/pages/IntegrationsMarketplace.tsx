@@ -53,6 +53,7 @@ import { Input } from '../components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
+import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 
 function providerToIntegration(
   p: IntegrationProviderRow,
@@ -367,6 +368,7 @@ export default function IntegrationsMarketplace() {
 
   return (
     <PageContent width="xl">
+      <IntegrationsTabs />
       <div className="mb-6">
         <p className="max-w-2xl text-sm text-text-secondary">
           {t('integrations.pageMeta.marketplace.description')}

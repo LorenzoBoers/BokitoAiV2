@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import ContentHeader from './ContentHeader'
 import { ASSISTANT_DEFAULT_PATH } from '../../lib/assistant-settings-path'
 
-type SettingsLink = { label: string; to: string; match?: string }
+type SettingsLink = { label: string; to: string; match?: string | string[] }
 type SettingsGroup = { label: string; links: SettingsLink[] }
 
 const SETTINGS_GROUPS: SettingsGroup[] = [
@@ -20,40 +20,43 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { label: 'General', to: '/settings/general' },
       { label: 'Branding', to: '/settings/branding' },
       { label: 'Members', to: '/settings/members' },
+      { label: 'Setup guide', to: '/settings/setup' },
     ],
   },
   {
-    label: 'Channels',
+    label: 'Communication',
     links: [
       { label: 'Email & messages', to: '/settings/channels' },
-      { label: 'Assistant widget', to: ASSISTANT_DEFAULT_PATH, match: '/ai/assistant' },
+      { label: 'Chat widget', to: ASSISTANT_DEFAULT_PATH, match: '/ai/assistant' },
       { label: 'Communication agent', to: '/settings/communication', match: '/settings/communication' },
-      { label: 'Knowledge', to: '/knowledge' },
-      { label: 'Document index', to: '/settings/help-centers' },
+      { label: 'Help center', to: '/settings/help-centers' },
     ],
   },
   {
     label: 'Integrations',
     links: [
-      { label: 'Setup', to: '/settings/setup' },
-      { label: 'Connected', to: '/settings/integrations' },
-      { label: 'Marketplace', to: '/settings/marketplace' },
-      { label: 'Connected tools', to: '/settings/mcp' },
+      {
+        label: 'Integrations',
+        to: '/settings/integrations',
+        match: ['/settings/integrations', '/settings/marketplace', '/settings/mcp'],
+      },
       { label: 'Developers', to: '/settings/developers' },
     ],
   },
   {
     label: 'AI',
-    links: [{ label: 'Providers and models', to: '/settings/models' }],
-  },
-  {
-    label: 'Autonomy',
-    links: [{ label: 'Autonomy & approvals', to: '/settings/autonomy' }],
+    links: [
+      { label: 'Providers & models', to: '/settings/models' },
+      { label: 'Autonomy & approvals', to: '/settings/autonomy' },
+    ],
   },
 ]
 
 function linkIsActive(pathname: string, link: SettingsLink): boolean {
-  if (link.match) return pathname.startsWith(link.match)
+  if (link.match) {
+    const patterns = Array.isArray(link.match) ? link.match : [link.match]
+    return patterns.some((pattern) => pathname.startsWith(pattern))
+  }
   return pathname === link.to || pathname.startsWith(`${link.to}/`)
 }
 
