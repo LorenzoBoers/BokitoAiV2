@@ -199,40 +199,18 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setWorkspaceLoading(true);
     try {
       const hostTenantSubdomain = resolveTenantSubdomainFromHost();
-      const membershipWorkspaceList = getTenantFallbackWorkspaceList();
 
-      if (hostTenantSubdomain) {
-        const tenantWorkspace = membershipWorkspaceList.find(
-          (workspace) => normalizeSubdomainCandidate(workspace.slug || '') === hostTenantSubdomain,
-        ) ?? null;
-        setWorkspaces(tenantWorkspace ? [tenantWorkspace] : []);
-        setCurrentWorkspace(tenantWorkspace);
-        if (tenantWorkspace) {
-          try {
-            localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(tenantWorkspace.id));
-          } catch {
-            // Ignore storage failures.
-          }
-        }
-        return;
+      // The API is the source of truth: it returns full workspace payloads
+      // including branding (logo, favicon, brand_color). Memberships from the
+      // auth context only carry id/name/slug and are a fallback — using them
+      // as the primary source silently drops saved branding after a refresh.
+      let safeWorkspaceList: Workspace[] = [];
+      try {
+        const workspaceList = await appScopedGet<unknown>(appRoutes.workspaces.list, token);
+        safeWorkspaceList = normalizeWorkspaceList(workspaceList);
+      } catch (error) {
+        console.error('Failed to load workspaces from API:', error);
       }
-
-      if (membershipWorkspaceList.length > 0) {
-        setWorkspaces(membershipWorkspaceList);
-        const preferredWorkspace = resolvePreferredWorkspace(membershipWorkspaceList);
-        setCurrentWorkspace(preferredWorkspace);
-        if (preferredWorkspace) {
-          try {
-            localStorage.setItem(LAST_WORKSPACE_STORAGE_KEY, workspaceIdKey(preferredWorkspace.id));
-          } catch {
-            // Ignore storage failures.
-          }
-        }
-        return;
-      }
-
-      const workspaceList = await appScopedGet<unknown>(appRoutes.workspaces.list, token);
-      const safeWorkspaceList = normalizeWorkspaceList(workspaceList);
       const resolvedWorkspaceList = safeWorkspaceList.length > 0 ? safeWorkspaceList : getTenantFallbackWorkspaceList();
       if (safeWorkspaceList.length === 0 && resolvedWorkspaceList.length > 0) {
         console.info('WorkspaceContext: using tenant fallback workspace from auth context');
