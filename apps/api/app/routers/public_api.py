@@ -27,6 +27,23 @@ router = APIRouter(prefix="/public/v1", tags=["public-api"])
 
 _STATUSES = ("open", "pending", "closed", "spam")
 
+# REST scopes recognized on API tokens. Empty scopes_json = full access
+# (legacy tokens and deliberately unrestricted ones).
+REST_SCOPES = ("signals:read", "signals:write")
+
+
+def _require_scope(token: ApiToken, scope: str) -> None:
+    try:
+        scopes = json.loads(token.scopes_json or "[]")
+    except (json.JSONDecodeError, TypeError):
+        scopes = []
+    if not isinstance(scopes, list) or not scopes:
+        return
+    if scope not in {str(s) for s in scopes}:
+        raise HTTPException(
+            status_code=403, detail=f"Token is missing the '{scope}' scope"
+        )
+
 
 def _serialize_signal(signal: Signal) -> dict:
     return {
@@ -68,6 +85,7 @@ async def list_signals(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
+    _require_scope(token, "signals:read")
     query = select(Signal).where(Signal.tenant_id == token.tenant_id)
     count_query = select(func.count()).select_from(Signal).where(Signal.tenant_id == token.tenant_id)
     if status:
@@ -96,6 +114,7 @@ async def get_signal(
     token: Annotated[ApiToken, Depends(get_api_token)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    _require_scope(token, "signals:read")
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == token.tenant_id)
     )
@@ -130,6 +149,7 @@ async def create_signal(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Push an external event/message into the inbox as an API-channel signal."""
+    _require_scope(token, "signals:write")
     subject = body.subject.strip()[:200]
     text = body.body.strip()
     if not subject or not text:

@@ -61,8 +61,8 @@ def sent_mails(monkeypatch):
     """Capture notification mails instead of hitting SMTP."""
     sent: list[dict] = []
 
-    async def fake_send_mail(to: str, subject: str, text: str) -> bool:
-        sent.append({"to": to, "subject": subject, "text": text})
+    async def fake_send_mail(to: str, subject: str, text: str, html=None, **kwargs) -> bool:
+        sent.append({"to": to, "subject": subject, "text": text, "html": html})
         return True
 
     monkeypatch.setattr("app.services.notification_mail.send_mail", fake_send_mail)

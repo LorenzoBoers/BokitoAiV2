@@ -240,15 +240,8 @@ export const USER_ROLES = ['owner', 'admin', 'member'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const PERMISSION_ACTIONS = [
-  'edit_record',
-  'delete_record', 
-  'create_table',
-  'edit_schema',
-  'manage_api_keys',
-  'manage_webhooks',
   'delete_workspace',
   'invite_members',
-  'view_audit_log'
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 

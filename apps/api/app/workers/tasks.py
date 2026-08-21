@@ -392,6 +392,23 @@ async def send_tenant_digests_job(ctx):
     return {"daily": daily, "weekly": weekly}
 
 
+async def snapshot_platform_metrics_job(ctx):
+    """Daily snapshot points for platform-sourced custom metrics."""
+    from app.services.metrics import snapshot_platform_metrics
+
+    async with async_session_factory() as session:
+        written = await snapshot_platform_metrics(session)
+    return {"points": written}
+
+
+async def index_project_repo_job(ctx, tenant_id: str, project_id: str):
+    """Index a project's connected GitHub repo into the vector pipeline."""
+    from app.services.repo_index import index_project_repo
+
+    async with async_session_factory() as session:
+        return await index_project_repo(session, UUID(tenant_id), UUID(project_id))
+
+
 async def deliver_webhook_job(ctx, delivery_id: str):
     """Deliver one outbound webhook (HMAC-signed, with in-task retries)."""
     from app.models.webhook import WebhookDelivery
@@ -419,6 +436,7 @@ class WorkerSettings:
         run_workstream_orchestrated,
         sync_email_mailboxes_job,
         deliver_webhook_job,
+        index_project_repo_job,
     ]
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
@@ -426,6 +444,7 @@ class WorkerSettings:
     cron_jobs = [
         cron(sync_email_mailboxes_job, second=0),
         cron(send_tenant_digests_job, hour=6, minute=0),
+        cron(snapshot_platform_metrics_job, hour=5, minute=30),
     ]
 
 
@@ -454,6 +473,34 @@ async def enqueue_signal_processing(tenant_id: str, signal_id: str):
             except Exception:  # noqa: BLE001
                 logging.getLogger(__name__).exception(
                     "In-process signal processing failed for %s", signal_id
+                )
+
+        asyncio.create_task(_inline())
+        return
+
+
+async def enqueue_repo_index(tenant_id: str, project_id: str):
+    try:
+        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        await redis.enqueue_job("index_project_repo_job", tenant_id, project_id)
+    except Exception as exc:  # noqa: BLE001
+        # No Redis (local dev): index in-process so the flow still works.
+        import asyncio
+        import logging
+
+        from app.services.runtime_health import record_redis_enqueue_failure
+
+        logging.getLogger(__name__).warning(
+            "Redis unavailable, indexing repo for project %s in-process: %s", project_id, exc
+        )
+        record_redis_enqueue_failure(f"repo_index: {exc}")
+
+        async def _inline() -> None:
+            try:
+                await index_project_repo_job(None, tenant_id, project_id)
+            except Exception:  # noqa: BLE001
+                logging.getLogger(__name__).exception(
+                    "In-process repo indexing failed for project %s", project_id
                 )
 
         asyncio.create_task(_inline())

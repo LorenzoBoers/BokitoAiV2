@@ -42,36 +42,42 @@ async def test_create_and_get_project(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_project_orchestration_and_notifications(client: AsyncClient):
+async def test_project_workstreams_crud(client: AsyncClient):
     token = await _login(client)
     headers = _auth(token)
     created = await client.post(
         API,
         headers=headers,
         json={
-            "name": "Orch Project",
-            "slug": "orch-project",
-            "autonomous_scope": "Orchestration and notification preferences for automated agents.",
+            "name": "Stream Project",
+            "slug": "stream-project",
+            "autonomous_scope": "Workstream management for automated agents.",
         },
     )
     project_id = created.json()["id"]
 
-    orch = await client.get(f"{API}/{project_id}/orchestration", headers=headers)
-    assert orch.status_code == 200
-    assert orch.json()["wake_cadence"] == "daily"
+    stream = await client.post(
+        f"{API}/{project_id}/workstreams",
+        headers=headers,
+        json={"name": "Weekly digest", "description": "Summarize activity"},
+    )
+    assert stream.status_code == 200
+    body = stream.json()
+    assert body["project_id"] == project_id
+    assert body["enabled"] is True
+    assert body["steps_count"] == 0
 
     patched = await client.patch(
-        f"{API}/{project_id}/orchestration",
+        f"{API}/{project_id}/workstreams/{body['id']}",
         headers=headers,
-        json={"wake_cadence": "weekly", "continuous_enabled": True},
+        json={"enabled": False},
     )
     assert patched.status_code == 200
-    assert patched.json()["wake_cadence"] == "weekly"
-    assert patched.json()["continuous_enabled"] is True
+    assert patched.json()["enabled"] is False
 
-    prefs = await client.get(f"{API}/{project_id}/notifications/preferences", headers=headers)
-    assert prefs.status_code == 200
-    assert len(prefs.json()["preferences"]) == 12
+    listed = await client.get(f"{API}/{project_id}/workstreams", headers=headers)
+    assert listed.status_code == 200
+    assert any(s["id"] == body["id"] for s in listed.json()["items"])
 
 
 @pytest.mark.asyncio
@@ -101,9 +107,11 @@ async def test_project_repo_and_po_agent(client: AsyncClient):
     assert reindex.status_code == 200
     assert reindex.json()["queued"] is True
 
+    # Real indexing runs in the background; without a GitHub token it fails
+    # honestly instead of pretending to be ready.
     status = await client.get(f"{API}/{project_id}/repo/status", headers=headers)
     assert status.status_code == 200
-    assert status.json()["repo_index_status"] == "ready"
+    assert status.json()["repo_index_status"] in ("indexing", "error")
 
     po = await client.post(f"{API}/{project_id}/po-agent", headers=headers, json={"name": "Repo PO"})
     assert po.status_code == 200

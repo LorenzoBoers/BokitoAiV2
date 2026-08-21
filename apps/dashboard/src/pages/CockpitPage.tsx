@@ -30,7 +30,8 @@ import {
 } from '../lib/bokito-api'
 import { getPosture, listGovernChanges, type AutonomyPostureId } from '../lib/govern-api'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
-import { agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { agentRunsPath, channelPath, inboxPath } from '../lib/messages-paths'
+import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeLabel } from '../lib/labels'
 import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
@@ -266,9 +267,14 @@ export default function CockpitPage() {
           sub={
             summary && summary.csat_responses > 0
               ? `${formatNumber(summary.csat_responses)} response${summary.csat_responses === 1 ? '' : 's'}`
-              : 'No ratings yet'
+              : 'No ratings yet - install the widget'
           }
           icon={Star}
+          to={
+            summary && summary.csat_responses > 0
+              ? channelPath('webchat')
+              : '/ai/assistant/external/installation'
+          }
         />
         <StatCard
           label="Usage 30d"
@@ -363,27 +369,51 @@ export default function CockpitPage() {
                 No recent events. Agent runs will show up here.
               </p>
             ) : (
-              events.map((ev, idx) => (
-                <div key={`${ev.created_at}-${idx}`} className="flex items-start gap-2.5 rounded-lg px-2 py-1.5">
-                  <span
-                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                      ev.event_type === 'failed' || ev.event_type === 'error'
-                        ? 'bg-status-error'
-                        : ev.kind === 'agent_run'
-                          ? 'bg-accent'
-                          : 'bg-status-info'
-                    }`}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12px] text-text-primary">
-                      {ev.message || humanizeLabel(ev.event_type)}
+              events.map((ev, idx) => {
+                // Deep-link an event to its thread, or to the run detail.
+                const target = ev.signal_id
+                  ? inboxPath('all', ev.signal_id)
+                  : ev.agent_id && ev.run_id
+                    ? agentWorkforceRunUrl(ev.agent_id, ev.run_id)
+                    : ev.agent_id
+                      ? `/agents/${ev.agent_id}`
+                      : null
+                const body = (
+                  <>
+                    <span
+                      className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                        ev.event_type === 'failed' || ev.event_type === 'error'
+                          ? 'bg-status-error'
+                          : ev.kind === 'agent_run'
+                            ? 'bg-accent'
+                            : 'bg-status-info'
+                      }`}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12px] text-text-primary">
+                        {ev.message || humanizeLabel(ev.event_type)}
+                      </span>
+                      <span className="block text-[10px] text-text-muted">
+                        {ev.actor_name ? `${ev.actor_name} - ` : ''}
+                        {humanizeLabel(ev.event_type)} - {timeAgo(ev.created_at)}
+                      </span>
                     </span>
-                    <span className="block text-[10px] text-text-muted">
-                      {humanizeLabel(ev.kind)} - {humanizeLabel(ev.event_type)} - {timeAgo(ev.created_at)}
-                    </span>
-                  </span>
-                </div>
-              ))
+                  </>
+                )
+                return target ? (
+                  <Link
+                    key={`${ev.created_at}-${idx}`}
+                    to={target}
+                    className="flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-bg-hover/50"
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <div key={`${ev.created_at}-${idx}`} className="flex items-start gap-2.5 rounded-lg px-2 py-1.5">
+                    {body}
+                  </div>
+                )
+              })
             )}
           </div>
         </section>

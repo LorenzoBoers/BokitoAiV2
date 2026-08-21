@@ -221,7 +221,7 @@ async def check_and_send_spend_alerts(session: AsyncSession, tenant_id: UUID) ->
                     if threshold >= 1.0
                     else "Usage is approaching the configured cap. Review it on the Usage page."
                 )
-                sent += await notify_tenant_admins(
+                delivered = await notify_tenant_admins(
                     session,
                     tenant_id,
                     category=BILLING_ALERTS,
@@ -229,6 +229,23 @@ async def check_and_send_spend_alerts(session: AsyncSession, tenant_id: UUID) ->
                     body=body,
                     cooldown_minutes=cooldown,
                 )
+                sent += delivered
+                # Piggyback the notification cooldown for webhook dedupe: only
+                # emit when the in-app alert actually went out.
+                if delivered:
+                    from app.services.webhooks import emit_webhook_event
+
+                    await emit_webhook_event(
+                        session,
+                        tenant_id,
+                        "spend.threshold_reached",
+                        {
+                            "period": label,
+                            "threshold_pct": pct,
+                            "used": period["used"],
+                            "cap": period["cap"],
+                        },
+                    )
                 break  # only the highest crossed threshold per period
     return sent
 

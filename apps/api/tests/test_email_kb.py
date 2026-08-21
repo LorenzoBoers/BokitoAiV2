@@ -106,6 +106,9 @@ async def test_kb_collections_documents_and_search(client: AsyncClient):
     )
     assert doc.status_code == 200
     assert doc.json()["collection_id"] == collection_id
+    # Unfetchable file -> honest failure instead of a fake "indexed".
+    assert doc.json()["index_status"] == "failed"
+    assert doc.json()["index_error"]
 
     docs = await client.get(f"{API}/kb/collections/{collection_id}/documents", headers=headers)
     assert docs.status_code == 200
@@ -122,3 +125,53 @@ async def test_kb_collections_documents_and_search(client: AsyncClient):
     document_id = doc.json()["id"]
     removed = await client.delete(f"{API}/kb/documents/{document_id}", headers=headers)
     assert removed.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_kb_document_real_ingestion(client: AsyncClient, monkeypatch):
+    """Fetchable text file is extracted, chunked, and searchable by content."""
+    headers = _auth(await _login(client))
+
+    async def _fake_fetch(url: str) -> bytes | None:
+        return b"# Refund policy\n\nCustomers can request a refund within 30 days."
+
+    monkeypatch.setattr("app.services.storage.fetch_attachment_bytes", _fake_fetch)
+
+    collection = await client.post(
+        f"{API}/kb/collections",
+        headers=headers,
+        json={"name": "Policies", "description": None},
+    )
+    collection_id = collection.json()["id"]
+
+    doc = await client.post(
+        f"{API}/kb/collections/{collection_id}/documents",
+        headers=headers,
+        json={
+            "filename": "refunds.md",
+            "file_url": "/api/uploads/refunds.md",
+            "file_type": "md",
+            "file_size_bytes": 64,
+        },
+    )
+    assert doc.status_code == 200
+    assert doc.json()["index_status"] == "indexed"
+    assert doc.json()["index_error"] is None
+
+    # Chunks were written, so the collection reports real chunk counts.
+    collections = await client.get(f"{API}/kb/collections", headers=headers)
+    target = next(c for c in collections.json()["items"] if c["id"] == collection_id)
+    assert target["document_count"] == 1
+    assert target["total_chunks"] >= 1
+
+    # Content (not just the filename) is searchable.
+    search = await client.get(f"{API}/kb/search?query=refund&limit=5", headers=headers)
+    assert any(item["filename"] == "refunds.md" for item in search.json()["items"])
+
+    # Deleting the document also removes its chunks.
+    document_id = doc.json()["id"]
+    removed = await client.delete(f"{API}/kb/documents/{document_id}", headers=headers)
+    assert removed.status_code == 200
+    collections = await client.get(f"{API}/kb/collections", headers=headers)
+    target = next(c for c in collections.json()["items"] if c["id"] == collection_id)
+    assert target["total_chunks"] == 0

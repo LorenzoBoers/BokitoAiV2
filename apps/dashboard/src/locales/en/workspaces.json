@@ -5,7 +5,6 @@
   "nav": {
     "title": "Workspace hub",
     "workspaces": "Workspaces",
-    "billing": "Billing",
     "account": "Account",
     "support": "Support"
   },
@@ -42,10 +41,6 @@
     "title": "Create workspace",
     "description": "Enter a name to create your workspace.",
     "cancel": "Cancel"
-  },
-  "billing": {
-    "title": "Billing",
-    "placeholder": "Billing overview will be added here."
   },
   "account": {
     "title": "Account",

@@ -38,6 +38,9 @@ WEBHOOK_EVENTS = (
     "signal.closed",
     "decision.created",
     "decision.resolved",
+    "agent.run_failed",
+    "platform_change.applied",
+    "spend.threshold_reached",
 )
 
 _DELIVERY_TIMEOUT_S = 10.0
@@ -273,6 +276,18 @@ def signal_event_data(signal: Any) -> dict[str, Any]:
         "status": signal.status,
         "contact_name": signal.contact_name or "",
         "created_at": signal.created_at.isoformat() if signal.created_at else None,
+    }
+
+
+def platform_change_event_data(change: Any) -> dict[str, Any]:
+    return {
+        "change_id": str(change.id),
+        "resource_type": change.resource_type,
+        "resource_id": change.resource_id or "",
+        "change_kind": change.change_kind,
+        "summary": change.summary or "",
+        "status": change.status,
+        "resolved_at": change.resolved_at.isoformat() if change.resolved_at else None,
     }
 
 

@@ -206,6 +206,11 @@ async def propose_platform_change(
         )
         await session.commit()
         await session.refresh(change)
+        from app.services.webhooks import emit_webhook_event, platform_change_event_data
+
+        await emit_webhook_event(
+            session, tenant.id, "platform_change.applied", platform_change_event_data(change)
+        )
         return change, {"mode": "apply", "applied": result}
 
     # mode == "ask": pending change + inline decision
@@ -352,6 +357,11 @@ async def accept_platform_change(
     )
     await session.commit()
     await session.refresh(change)
+    from app.services.webhooks import emit_webhook_event, platform_change_event_data
+
+    await emit_webhook_event(
+        session, tenant_id, "platform_change.applied", platform_change_event_data(change)
+    )
     return change
 
 

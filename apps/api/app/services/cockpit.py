@@ -240,21 +240,59 @@ async def activity_timeline(
     """Unified newest-first activity: agent run events merged with human audit
     events, so the Cockpit shows one "who did what" timeline. `before` pages
     further into history."""
+    from app.models.agent import Agent, AgentRun
+    from app.models.orchestration import AgentTask
+
     events: list[dict[str, Any]] = []
 
     stmt = select(RunEvent).where(RunEvent.tenant_id == tenant_id)
     if before is not None:
         stmt = stmt.where(RunEvent.created_at < before)
-    run_events = await session.execute(stmt.order_by(RunEvent.created_at.desc()).limit(limit))
-    for ev in run_events.scalars().all():
+    run_event_rows = list(
+        (await session.execute(stmt.order_by(RunEvent.created_at.desc()).limit(limit))).scalars().all()
+    )
+
+    # Resolve run -> agent (name) and run -> task -> signal so the timeline can
+    # deep-link to the agent and the conversation thread.
+    run_ids = {ev.run_id for ev in run_event_rows}
+    run_info: dict[UUID, dict[str, Any]] = {}
+    if run_ids:
+        runs = (
+            await session.execute(select(AgentRun).where(AgentRun.id.in_(run_ids)))
+        ).scalars().all()
+        agent_ids = {r.agent_id for r in runs}
+        task_ids = {r.task_id for r in runs if r.task_id}
+        agent_names: dict[UUID, str] = {}
+        if agent_ids:
+            rows = await session.execute(select(Agent.id, Agent.name).where(Agent.id.in_(agent_ids)))
+            agent_names = {aid: name for aid, name in rows.all()}
+        task_signals: dict[UUID, UUID | None] = {}
+        if task_ids:
+            rows = await session.execute(
+                select(AgentTask.id, AgentTask.signal_id).where(AgentTask.id.in_(task_ids))
+            )
+            task_signals = {tid: sid for tid, sid in rows.all()}
+        for run in runs:
+            signal_id = task_signals.get(run.task_id) if run.task_id else None
+            run_info[run.id] = {
+                "agent_id": str(run.agent_id),
+                "agent_name": agent_names.get(run.agent_id),
+                "signal_id": str(signal_id) if signal_id else None,
+            }
+
+    for ev in run_event_rows:
+        info = run_info.get(ev.run_id, {})
         events.append(
             {
                 "id": str(ev.id),
                 "kind": "agent_run",
                 "event_type": ev.event_type,
                 "message": ev.message,
-                "actor_name": None,
+                "actor_name": info.get("agent_name"),
                 "created_at": ev.created_at.isoformat(),
+                "run_id": str(ev.run_id),
+                "agent_id": info.get("agent_id"),
+                "signal_id": info.get("signal_id"),
             }
         )
 
@@ -292,6 +330,11 @@ async def activity_timeline(
                 "message": ev.summary,
                 "actor_name": names.get(ev.actor_id),
                 "created_at": ev.created_at.isoformat(),
+                "run_id": str(ev.run_id) if ev.run_id else None,
+                "agent_id": str(ev.agent_id) if ev.agent_id else None,
+                "signal_id": ev.resource_id if ev.resource_type == "signal" and ev.resource_id else None,
+                "resource_type": ev.resource_type or None,
+                "resource_id": ev.resource_id or None,
             }
         )
 

@@ -1,30 +1,16 @@
-import { projectsRoutes } from '../api/routes'
-import { workforceGet, workforcePatch, workforcePost } from './api'
-
-export type WorkstreamStatus = 'active' | 'draft' | 'paused'
-
-export type WorkstreamStep = {
-  id: string
-  name: string
-  role_label: string
-  instruction: string
-  tool_keys: string[]
-}
+import { appRoutes, projectsRoutes } from '../api/routes'
+import { apiPost, workforceGet, workforcePatch, workforcePost } from './api'
+import type { AgentTask } from './orchestration-api'
 
 export type ProjectWorkstreamRow = {
   id: string
-  project_id: string
+  project_id: string | null
   tenant_id?: string
   name: string
-  slug: string
-  status: WorkstreamStatus
-  trigger_text?: string | null
-  output_text?: string | null
-  steps?: WorkstreamStep[] | null
-  position?: number | null
-  last_active_at?: string | number | null
+  description: string
+  enabled: boolean
+  steps_count: number
   created_at?: string | number | null
-  updated_at?: string | number | null
 }
 
 export type ProjectPoAgent = {
@@ -65,15 +51,7 @@ export async function listProjectWorkstreams(projectId: string): Promise<Project
 
 export async function createProjectWorkstream(
   projectId: string,
-  input: {
-    name: string
-    slug: string
-    status?: WorkstreamStatus
-    trigger_text?: string
-    output_text?: string
-    steps?: WorkstreamStep[]
-    position?: number
-  },
+  input: { name: string; description?: string; enabled?: boolean },
 ): Promise<ProjectWorkstreamRow> {
   return workforcePost<ProjectWorkstreamRow>(projectsRoutes.workstreams(projectId), input)
 }
@@ -81,17 +59,17 @@ export async function createProjectWorkstream(
 export async function patchProjectWorkstream(
   projectId: string,
   workstreamId: string,
-  patch: Partial<
-    Pick<
-      ProjectWorkstreamRow,
-      'name' | 'slug' | 'status' | 'trigger_text' | 'output_text' | 'steps' | 'position' | 'last_active_at'
-    >
-  >,
+  patch: Partial<Pick<ProjectWorkstreamRow, 'name' | 'description' | 'enabled'>>,
 ): Promise<ProjectWorkstreamRow> {
   return workforcePatch<ProjectWorkstreamRow>(
     projectsRoutes.workstreamById(projectId, workstreamId),
     patch,
   )
+}
+
+/** Project workstreams are runnable orchestration workstreams; same run API. */
+export async function runProjectWorkstream(workstreamId: string): Promise<AgentTask> {
+  return apiPost<AgentTask>(appRoutes.orchestration.workstreamRun(workstreamId), {})
 }
 
 export async function linkProjectPoAgent(

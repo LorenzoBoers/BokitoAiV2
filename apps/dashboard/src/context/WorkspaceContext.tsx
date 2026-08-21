@@ -5,6 +5,7 @@ import { appRoutes } from '../api/routes/app.routes';
 import { appScopedDelete, appScopedGet, appScopedPost } from '../lib/api';
 import { resolveTenantSubdomainFromHost } from '../lib/host-routing';
 import { normalizeMessengerAppearance } from '../lib/messenger-appearance';
+import { applyBrandColor, applyFavicon } from '../lib/tenant-branding';
 
 const LAST_WORKSPACE_STORAGE_KEY = 'bokito_current_workspace';
 
@@ -53,6 +54,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [invites, setInvites] = useState<WorkspaceInvite[]>([]);
   const workspaceIdKey = useCallback((id: number | string | null | undefined) => String(id ?? ''), []);
+
+  // Tenant branding follows the active workspace: favicon + accent CSS vars.
+  useEffect(() => {
+    applyBrandColor(currentWorkspace?.brand_color);
+    applyFavicon(currentWorkspace?.favicon);
+  }, [currentWorkspace?.brand_color, currentWorkspace?.favicon]);
 
   const normalizeWorkspaceList = useCallback((raw: unknown): Workspace[] => {
     if (!Array.isArray(raw)) return [];

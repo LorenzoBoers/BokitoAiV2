@@ -1,6 +1,6 @@
 """Project hub router (dashboard workforce contract)."""
 
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -40,42 +40,16 @@ class RepoConnectBody(BaseModel):
     github_connection_id: str | None = None
 
 
-class OrchestrationPatchBody(BaseModel):
-    wake_cadence: str | None = None
-    autonomy_mode: str | None = None
-    hitl_sensitivity: str | None = None
-    continuous_enabled: bool | None = None
-
-
-class NotificationPrefItem(BaseModel):
-    event_type: str
-    channel: str
-    enabled: bool
-
-
-class NotificationPrefsPatchBody(BaseModel):
-    preferences: list[NotificationPrefItem]
-
-
 class WorkstreamCreateBody(BaseModel):
     name: str
-    slug: str
-    status: str | None = None
-    trigger_text: str | None = None
-    output_text: str | None = None
-    steps: list[dict[str, Any]] | None = None
-    position: int | None = None
+    description: str = ""
+    enabled: bool = True
 
 
 class WorkstreamPatchBody(BaseModel):
     name: str | None = None
-    slug: str | None = None
-    status: str | None = None
-    trigger_text: str | None = None
-    output_text: str | None = None
-    steps: list[dict[str, Any]] | None = None
-    position: int | None = None
-    last_active_at: str | None = None
+    description: str | None = None
+    enabled: bool | None = None
 
 
 class PoAgentCreateBody(BaseModel):
@@ -192,55 +166,6 @@ async def repo_status(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await svc.repo_status(session, auth.tenant.id, project_id)
-
-
-@router.get("/{project_id}/orchestration")
-async def get_orchestration(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    row = await svc.get_or_create_orchestration(session, auth.tenant.id, project_id)
-    return svc.serialize_orchestration(row)
-
-
-@router.patch("/{project_id}/orchestration")
-async def patch_orchestration(
-    project_id: UUID,
-    body: OrchestrationPatchBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.patch_orchestration(
-        session,
-        auth.tenant.id,
-        project_id,
-        body.model_dump(exclude_unset=True),
-    )
-
-
-@router.get("/{project_id}/notifications/preferences")
-async def get_notification_prefs(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.notification_prefs_response(session, auth.tenant.id, project_id)
-
-
-@router.patch("/{project_id}/notifications/preferences")
-async def patch_notification_prefs(
-    project_id: UUID,
-    body: NotificationPrefsPatchBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.patch_notification_prefs(
-        session,
-        auth.tenant.id,
-        project_id,
-        [p.model_dump() for p in body.preferences],
-    )
 
 
 @router.get("/{project_id}/usage/budget")

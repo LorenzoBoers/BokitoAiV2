@@ -3,10 +3,6 @@ export const projectsRoutes = {
   byId: (projectId: string) => `/projects/${encodeURIComponent(projectId)}`,
   usageBudget: (projectId: string) =>
     `/projects/${encodeURIComponent(projectId)}/usage/budget`,
-  orchestration: (projectId: string) =>
-    `/projects/${encodeURIComponent(projectId)}/orchestration`,
-  notificationPreferences: (projectId: string) =>
-    `/projects/${encodeURIComponent(projectId)}/notifications/preferences`,
   usageSummary: (projectId: string, period?: string) => {
     const search = new URLSearchParams()
     if (period) search.set('period', period)

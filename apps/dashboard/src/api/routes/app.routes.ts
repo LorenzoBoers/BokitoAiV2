@@ -103,7 +103,6 @@ export const appRoutes = {
     settings: '/inbox/settings',
   },
   orchestration: {
-    settings: '/orchestration/settings',
     runtimeProfiles: '/orchestration/runtime-profiles',
     workstreams: '/orchestration/workstreams',
     tasks: '/orchestration/tasks',
@@ -130,6 +129,7 @@ export const appRoutes = {
   },
   channelAccounts: {
     list: '/channels/accounts',
+    byId: (id: string) => `/channels/accounts/${id}`,
   },
   contacts: {
     list: '/channels/contacts',

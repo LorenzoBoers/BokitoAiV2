@@ -39,6 +39,7 @@ import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import SyncStatusPanel from '../components/inbox/SyncStatusPanel'
+import SlackConnectCard from '../components/inbox/SlackConnectCard'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
 import { MAILBOX_STATUS_LABELS, MAILBOX_STATUS_VARIANTS } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
@@ -773,6 +774,8 @@ export default function InboxSettings() {
         </SettingsSection>
 
         {mailboxes.length > 0 ? <SyncStatusPanel className="panel p-4" /> : null}
+
+        <SlackConnectCard />
 
         <AutomationRulesManager />
 

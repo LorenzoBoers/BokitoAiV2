@@ -4,7 +4,8 @@ from sqlalchemy import select
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.models.project import Project, ProjectWorkstream
+from app.models.orchestra import Workstream
+from app.models.project import Project
 from app.models.notification import DecisionRequest
 
 
@@ -38,12 +39,12 @@ async def _seed_project(session_override, tenant_id) -> Project:
     session_override.add(project)
     await session_override.flush()
     session_override.add(
-        ProjectWorkstream(
+        Workstream(
             tenant_id=tenant_id,
             project_id=project.id,
             name="Build",
-            slug="build",
-            status="active",
+            description="Build pipeline",
+            enabled=True,
         )
     )
     session_override.add(

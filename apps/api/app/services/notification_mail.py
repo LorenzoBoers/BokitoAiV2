@@ -89,10 +89,29 @@ async def send_notification_mail(
     *,
     subject: str,
     text: str,
+    tenant_id: UUID | None = None,
 ) -> bool:
-    """Send a notification email to a user's account address. Best-effort."""
+    """Send a notification email to a user's account address. Best-effort.
+
+    When `tenant_id` is given the mail renders in the branded HTML layout
+    (tenant name/logo/color); the plain-text body remains the alternative.
+    """
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user or not user.email:
         return False
-    return await send_mail(user.email, subject, text)
+    html: str | None = None
+    if tenant_id is not None:
+        from app.models.auth import Tenant
+        from app.services.transactional_mail import render_mail_html, tenant_mail_branding
+
+        tenant = await session.get(Tenant, tenant_id)
+        branding = tenant_mail_branding(tenant)
+        html = render_mail_html(
+            title=subject,
+            paragraphs=[p for p in text.split("\n\n") if p.strip()],
+            brand_name=branding["brand_name"],
+            brand_color=branding["brand_color"],
+            logo_url=branding["logo_url"],
+        )
+    return await send_mail(user.email, subject, text, html, kind="notification")

@@ -88,7 +88,8 @@ def _serialize_document(doc: WorkspaceDoc) -> dict[str, Any]:
         "file_url": str(meta.get("file_url") or ""),
         "file_type": str(meta.get("file_type") or "other"),
         "file_size_bytes": int(meta.get("file_size_bytes") or 0),
-        "index_status": str(meta.get("index_status") or "indexed"),
+        "index_status": str(meta.get("index_status") or "pending"),
+        "index_error": str(meta.get("index_error") or "") or None,
     }
 
 
@@ -97,12 +98,26 @@ async def list_collections(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from sqlalchemy import func
+
+    from app.models.workspace import DocChunk
+
     collections = await _list_by_kind(session, auth.tenant.id, COLLECTION_KIND)
     documents = await _list_by_kind(session, auth.tenant.id, DOCUMENT_KIND)
+    chunks_by_doc: dict[UUID, int] = {}
+    if documents:
+        chunk_rows = await session.execute(
+            select(DocChunk.doc_id, func.count(DocChunk.id))
+            .where(DocChunk.doc_id.in_([doc.id for doc in documents]))
+            .group_by(DocChunk.doc_id)
+        )
+        chunks_by_doc = {row[0]: int(row[1]) for row in chunk_rows.all()}
     counts: dict[int, int] = {}
+    chunk_counts: dict[int, int] = {}
     for doc in documents:
         cid = int(_frontmatter(doc).get("collection_id") or 0)
         counts[cid] = counts.get(cid, 0) + 1
+        chunk_counts[cid] = chunk_counts.get(cid, 0) + chunks_by_doc.get(doc.id, 0)
     items = []
     for col in collections:
         numeric = user_numeric_id(col.id)
@@ -112,7 +127,7 @@ async def list_collections(
                 "name": col.title,
                 "description": col.content or None,
                 "document_count": counts.get(numeric, 0),
-                "total_chunks": counts.get(numeric, 0),
+                "total_chunks": chunk_counts.get(numeric, 0),
             }
         )
     return {"items": items}
@@ -179,24 +194,52 @@ async def create_document(
     filename = body.filename.strip()
     if not filename:
         raise HTTPException(status_code=400, detail="filename required")
+
+    # Real ingestion: fetch the uploaded file, extract text, and chunk it into
+    # the workspace vector pipeline so search_index actually finds it. The
+    # index_status reflects what happened instead of a hardcoded "indexed".
+    from app.services.doc_ingest import extract_text
+    from app.services.storage import fetch_attachment_bytes
+
+    content = ""
+    index_status = "pending"
+    index_error = ""
+    data = await fetch_attachment_bytes(body.file_url) if body.file_url else None
+    if data is None:
+        index_status = "failed"
+        index_error = "Could not fetch the uploaded file."
+    else:
+        try:
+            content = extract_text(filename, data)
+            index_status = "indexed"
+        except HTTPException as exc:
+            index_status = "unsupported" if exc.status_code == 415 else "failed"
+            index_error = str(exc.detail)
+
     doc = WorkspaceDoc(
         tenant_id=auth.tenant.id,
-        path=f"kb/docs/{_slug(filename)}",
+        path=f"kb/docs/{_slug(filename)}-{collection_id}",
         kind=DOCUMENT_KIND,
         title=filename,
-        content="",
+        content=content,
         frontmatter_json=json.dumps(
             {
                 "collection_id": collection_id,
                 "file_url": body.file_url,
                 "file_type": body.file_type,
                 "file_size_bytes": body.file_size_bytes,
-                "index_status": "indexed",
+                "index_status": index_status,
+                **({"index_error": index_error} if index_error else {}),
             }
         ),
         created_by_type="user",
     )
     session.add(doc)
+    await session.flush()
+    if content:
+        from app.services.workspace import reindex_doc
+
+        await reindex_doc(session, doc)
     await session.commit()
     await session.refresh(doc)
     return _serialize_document(doc)
@@ -211,6 +254,11 @@ async def delete_document(
     doc = await _get_by_numeric(session, auth.tenant.id, DOCUMENT_KIND, document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    from sqlalchemy import delete as sa_delete
+
+    from app.models.workspace import DocChunk
+
+    await session.execute(sa_delete(DocChunk).where(DocChunk.doc_id == doc.id))
     await session.delete(doc)
     await session.commit()
     return {"ok": True}

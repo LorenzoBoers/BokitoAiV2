@@ -127,9 +127,15 @@ export type CockpitActivityEvent = {
   kind: string
   event_type: string
   message: string
-  /** Display name of the acting user for audit events. */
+  /** Acting user (audit events) or agent name (run events). */
   actor_name?: string | null
   created_at: string
+  /** Deep-link targets resolved by the backend. */
+  run_id?: string | null
+  agent_id?: string | null
+  signal_id?: string | null
+  resource_type?: string | null
+  resource_id?: string | null
 }
 
 export async function bokitoGetCockpitActivity(token: string, limit = 50, before?: string) {

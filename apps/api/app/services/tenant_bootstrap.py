@@ -137,8 +137,6 @@ def default_tenant_settings() -> dict:
             "chatbot_name": "Assistant",
             "powered_by": True,
         },
-        "orchestra_enabled": False,
-        "monthly_budget_cents": 0,
         # How the AI handles inbound customer messages per channel:
         # suggest (draft for human approval) | auto (reply directly) | off.
         "channel_ai_modes": {

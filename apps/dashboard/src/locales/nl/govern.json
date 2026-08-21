@@ -25,7 +25,10 @@
     "empty": "Nog geen geaccepteerde wijzigingen."
   },
   "audit": {
-    "empty": "Nog geen auditgebeurtenissen."
+    "empty": "Nog geen auditgebeurtenissen.",
+    "openThread": "Open thread",
+    "openRun": "Open run",
+    "openAgent": "Open agent"
   },
   "posture": {
     "title": "Autonomiehouding",

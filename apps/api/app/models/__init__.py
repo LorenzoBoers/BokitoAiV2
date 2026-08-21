@@ -28,12 +28,7 @@ from app.models.custom_db import (
 )
 from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
-from app.models.project import (
-    Project,
-    ProjectNotificationPreference,
-    ProjectOrchestration,
-    ProjectWorkstream,
-)
+from app.models.project import Project
 from app.models.orchestration import (
     AgentTask,
     EvalCheckpoint,
@@ -81,9 +76,6 @@ __all__ = [
     "Workstream",
     "WorkstreamStep",
     "Project",
-    "ProjectOrchestration",
-    "ProjectWorkstream",
-    "ProjectNotificationPreference",
     "UsageLedger",
     "PushSubscription",
     "CustomTable",

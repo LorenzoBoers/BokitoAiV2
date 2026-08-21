@@ -342,18 +342,9 @@ function buildFallbackUserFromLogin(loginPayload: AuthTokens, loginEmail: string
 
 // Permission matrix: what each role can do
 const ROLE_PERMISSIONS: Record<UserRole, PermissionAction[]> = {
-  owner: [
-    'edit_record', 'delete_record', 'create_table', 'edit_schema',
-    'manage_api_keys', 'manage_webhooks', 'delete_workspace', 
-    'invite_members', 'view_audit_log'
-  ],
-  admin: [
-    'edit_record', 'delete_record', 'create_table', 'edit_schema',
-    'manage_api_keys', 'manage_webhooks', 'invite_members', 'view_audit_log'
-  ],
-  member: [
-    'edit_record', 'delete_record', 'create_table'
-  ]
+  owner: ['delete_workspace', 'invite_members'],
+  admin: ['invite_members'],
+  member: [],
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

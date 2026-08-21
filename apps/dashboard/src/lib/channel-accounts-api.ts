@@ -1,7 +1,7 @@
 /** Connected channel accounts (webchat, Slack, ...) for the Channels rail. */
 
 import { appRoutes } from '../api/routes/app.routes'
-import { apiGet } from './api'
+import { apiDelete, apiGet, apiPost } from './api'
 
 export type ChannelAccountRow = {
   id: string
@@ -31,4 +31,39 @@ export async function listChannelAccounts(token: string): Promise<ChannelAccount
   const data = await apiGet<{ accounts?: unknown[] }>(appRoutes.channelAccounts.list, token)
   const rows = Array.isArray(data.accounts) ? data.accounts : []
   return rows.map(normalizeAccount).filter((r): r is ChannelAccountRow => r !== null)
+}
+
+export async function createSlackAccount(
+  token: string,
+  payload: {
+    workspaceName: string
+    botToken: string
+    signingSecret: string
+    notifyChannelId?: string
+  },
+): Promise<ChannelAccountRow & { inboundSecret?: string }> {
+  const raw = await apiPost<Record<string, unknown>>(
+    appRoutes.channelAccounts.list,
+    {
+      channel: 'slack',
+      provider: 'slack',
+      display_name: payload.workspaceName,
+      credentials: {
+        bot_token: payload.botToken,
+        signing_secret: payload.signingSecret,
+      },
+      notify_channel_id: payload.notifyChannelId ?? '',
+    },
+    token,
+  )
+  const normalized = normalizeAccount(raw)
+  if (!normalized) throw new Error('Unexpected response while connecting Slack.')
+  return {
+    ...normalized,
+    inboundSecret: typeof raw.inbound_secret === 'string' ? raw.inbound_secret : undefined,
+  }
+}
+
+export async function deleteChannelAccount(token: string, accountId: string): Promise<void> {
+  await apiDelete(appRoutes.channelAccounts.byId(accountId), token)
 }

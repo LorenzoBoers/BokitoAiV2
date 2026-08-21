@@ -6,10 +6,13 @@ from sqlmodel import Field, SQLModel
 
 
 class Workstream(SQLModel, table=True):
+    """Runnable multi-step orchestration. Optionally scoped to a project."""
+
     __tablename__ = "workstreams"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     name: str
     description: str = ""
     enabled: bool = True

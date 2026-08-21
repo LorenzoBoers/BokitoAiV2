@@ -872,6 +872,7 @@ async def _notify_assignment(
                 f"{(signal.summary or '').strip()[:500]}\n\n"
                 f"Open the conversation:\n{thread_link(signal.id)}"
             ),
+            tenant_id=tenant_id,
         )
 
 
@@ -1431,6 +1432,7 @@ async def notify_mentions(
                 f"{plain[:500]}\n\n"
                 f"Open the conversation:\n{thread_link(signal.id)}"
             ),
+            tenant_id=tenant_id,
         )
     return notified
 

@@ -14,7 +14,7 @@ from app.models.agent import Agent
 from app.models.auth import Membership, Tenant, User, UserPreference
 from app.models.integration import McpServer
 from app.models.orchestra import Workstream, WorkstreamStep
-from app.models.project import Project, ProjectOrchestration
+from app.models.project import Project
 from app.models.signal import Signal
 from app.models.trigger import Trigger
 from app.services.orchestration.bootstrap import seed_tenant_runtime_profiles
@@ -237,11 +237,6 @@ async def get_or_create_mmxm_project(
     )
     session.add(project)
     await session.flush()
-    orch_row = await session.execute(
-        select(ProjectOrchestration).where(ProjectOrchestration.project_id == project.id)
-    )
-    if not orch_row.scalar_one_or_none():
-        session.add(ProjectOrchestration(tenant_id=tenant_id, project_id=project.id))
     return project
 
 

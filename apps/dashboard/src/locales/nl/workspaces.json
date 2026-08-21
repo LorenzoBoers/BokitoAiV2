@@ -5,7 +5,6 @@
   "nav": {
     "title": "Workspace hub",
     "workspaces": "Workspaces",
-    "billing": "Billing",
     "account": "Account",
     "support": "Support"
   },
@@ -42,10 +41,6 @@
     "title": "Workspace aanmaken",
     "description": "Vul een naam in om je workspace te maken.",
     "cancel": "Annuleren"
-  },
-  "billing": {
-    "title": "Billing",
-    "placeholder": "Billing-overzicht komt hier."
   },
   "account": {
     "title": "Account",

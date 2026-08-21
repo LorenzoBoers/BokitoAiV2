@@ -345,8 +345,6 @@ export default function App() {
           <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/settings/integrations" />} />
           <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/settings/marketplace" />} />
           <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
-          <Route path="/integrations/docs" element={<RedirectPreserveSearch to="/settings/integrations" />} />
-          <Route path="/integrations/api" element={<RedirectPreserveSearch to="/settings/integrations" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
           <Route path="/ai/communicatie" element={<Navigate to="/settings/communication" replace />} />

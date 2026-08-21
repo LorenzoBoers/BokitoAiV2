@@ -822,6 +822,11 @@
       "historyTitle": "Run history",
       "historyDescription": "Recent runs for this agent.",
       "projectLink": "Project: {{name}}",
+      "editTools": "Edit",
+      "cancelTools": "Cancel",
+      "saveTools": "Save tools",
+      "toolsPickerHint": "Select nothing to allow all tools (gated by workspace allowances). Selecting tools restricts this agent to exactly that set.",
+      "toolsLoading": "Loading tools…",
       "sidebar": {
         "loading": "Loading agents…",
         "showLess": "Show less",

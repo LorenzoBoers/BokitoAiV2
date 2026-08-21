@@ -154,7 +154,11 @@ async def send_tenant_digests(session: AsyncSession, *, period: str) -> int:
         raise ValueError(f"Unknown digest period: {period}")
 
     from app.services.notification_mail import notification_channels
-    from app.services.transactional_mail import render_mail_html, send_mail
+    from app.services.transactional_mail import (
+        render_mail_html,
+        send_mail,
+        tenant_mail_branding,
+    )
 
     category = f"digest-{period}"
     tenants = list((await session.execute(select(Tenant))).scalars().all())
@@ -185,12 +189,16 @@ async def send_tenant_digests(session: AsyncSession, *, period: str) -> int:
             label = "Daily" if period == "daily" else "Weekly"
             subject = f"{label} digest - {tenant.name}"
             paragraphs = digest_paragraphs(digest, tenant.name)
+            branding = tenant_mail_branding(tenant)
             html = render_mail_html(
                 title=f"{label} digest",
                 paragraphs=paragraphs,
                 cta_label="Open Bokito",
                 cta_url=f"{app_url}/communication",
                 footer="You receive this because the digest is enabled in your notification settings.",
+                brand_name=branding["brand_name"],
+                brand_color=branding["brand_color"],
+                logo_url=branding["logo_url"],
             )
             ok = await send_mail(
                 user.email, subject, "\n\n".join(paragraphs), html, kind=category

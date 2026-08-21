@@ -18,7 +18,7 @@ from app.models.auth import Membership, Tenant, User
 from app.models.channel import ChannelAccount, Contact
 from app.models.inbox import InboxSettings
 from app.models.integration import McpServer
-from app.models.project import Project, ProjectOrchestration
+from app.models.project import Project
 from app.services.auth import hash_password
 from app.services.personal_agents import get_or_create_personal_agent
 from app.services.workspace import get_doc_by_path, upsert_doc
@@ -412,7 +412,6 @@ async def _seed_demo_project(session, tenant):
     )
     session.add(project)
     await session.flush()
-    session.add(ProjectOrchestration(tenant_id=tenant.id, project_id=project.id))
     await _seed_workforce_demo(session, tenant, project, po)
 
 

@@ -40,6 +40,9 @@ class AccountCreateBody(BaseModel):
     display_name: str = ""
     credentials: dict = {}
     require_pairing: bool = False
+    # Slack: fallback channel for decision notifications when the assignee
+    # has no DM target (settings_json.notify_channel_id).
+    notify_channel_id: str = ""
 
 
 def _serialize_account(row: ChannelAccount) -> dict:
@@ -80,6 +83,9 @@ async def create_account(
     if body.channel not in CHANNEL_ACCOUNT_CHANNELS:
         raise HTTPException(status_code=400, detail=f"Invalid channel: {body.channel}")
     inbound_secret = secrets.token_urlsafe(24)
+    settings: dict = {"require_pairing": body.require_pairing, "inbound_secret": inbound_secret}
+    if body.notify_channel_id.strip():
+        settings["notify_channel_id"] = body.notify_channel_id.strip()
     account = ChannelAccount(
         tenant_id=auth.tenant.id,
         channel=body.channel,
@@ -87,9 +93,7 @@ async def create_account(
         address=body.address,
         display_name=body.display_name,
         credentials_json=json.dumps(body.credentials or {}),
-        settings_json=json.dumps(
-            {"require_pairing": body.require_pairing, "inbound_secret": inbound_secret}
-        ),
+        settings_json=json.dumps(settings),
     )
     session.add(account)
     await session.commit()

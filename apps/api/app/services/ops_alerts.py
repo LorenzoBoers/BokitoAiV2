@@ -130,6 +130,7 @@ async def _notify_tenant_admins(
             user_id,
             subject=title,
             text=f"{title}\n\n{body}".strip(),
+            tenant_id=tenant_id,
         )
     return len(created)
 
@@ -156,6 +157,15 @@ async def alert_run_failure(
         payload["signal_id"] = str(signal_id)
     if task_id:
         payload["task_id"] = str(task_id)
+
+    from app.services.webhooks import emit_webhook_event
+
+    await emit_webhook_event(
+        session,
+        tenant_id,
+        "agent.run_failed",
+        {"subject": subject[:200], "error": reason, **payload},
+    )
     return await notify_tenant_admins(
         session,
         tenant_id,

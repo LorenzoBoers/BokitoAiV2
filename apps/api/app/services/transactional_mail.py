@@ -11,10 +11,13 @@ the mail is logged and False is returned so callers (and the UI) can surface
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
 import smtplib
 from email.message import EmailMessage
 from html import escape
+from typing import Any
 
 import httpx
 
@@ -50,6 +53,32 @@ _P_STYLE = "margin:0 0 16px;font-size:15px;line-height:1.6;color:#3f3f46;"
 _MUTED_STYLE = "margin:24px 0 0;font-size:13px;line-height:1.5;color:#a1a1aa;"
 
 
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{3}$")
+
+
+def tenant_mail_branding(tenant: Any | None) -> dict[str, str | None]:
+    """Branding fields for tenant-facing mails (digests, notifications).
+
+    Logo is only used when it is a hosted URL — data URIs are stripped by most
+    mail clients. Color must be a hex value to survive inline CSS safely.
+    """
+    if tenant is None:
+        return {"brand_name": None, "brand_color": None, "logo_url": None}
+    color: str | None = None
+    try:
+        settings = json.loads(tenant.settings_json or "{}")
+        appearance = settings.get("appearance") if isinstance(settings, dict) else {}
+        raw = (appearance or {}).get("main_color") if isinstance(appearance, dict) else None
+        if isinstance(raw, str) and _HEX_COLOR_RE.match(raw.strip()):
+            color = raw.strip()
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    logo = getattr(tenant, "logo_url", None)
+    if not (isinstance(logo, str) and logo.startswith(("http://", "https://"))):
+        logo = None
+    return {"brand_name": tenant.name or None, "brand_color": color, "logo_url": logo}
+
+
 def render_mail_html(
     *,
     title: str,
@@ -57,13 +86,21 @@ def render_mail_html(
     cta_label: str | None = None,
     cta_url: str | None = None,
     footer: str = "",
+    brand_name: str | None = None,
+    brand_color: str | None = None,
+    logo_url: str | None = None,
 ) -> str:
-    """Minimal branded transactional layout. All values are escaped."""
+    """Minimal branded transactional layout. All values are escaped.
+
+    Platform mails omit the branding args and render as "Bokito"; tenant-facing
+    mails (digests, notifications) pass `tenant_mail_branding(tenant)` values.
+    """
+    button_color = brand_color if brand_color and _HEX_COLOR_RE.match(brand_color) else "#18181b"
     parts: list[str] = [f'<p style="{_P_STYLE}">{escape(p)}</p>' for p in paragraphs]
     if cta_label and cta_url:
         parts.append(
             '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 20px;">'
-            "<tr><td style=\"border-radius:8px;background:#18181b;\">"
+            f"<tr><td style=\"border-radius:8px;background:{button_color};\">"
             f'<a href="{escape(cta_url, quote=True)}" '
             'style="display:inline-block;padding:11px 22px;font-size:14px;font-weight:600;'
             'color:#fafafa;text-decoration:none;">'
@@ -78,6 +115,16 @@ def render_mail_html(
     if footer:
         parts.append(f'<p style="{_MUTED_STYLE}">{escape(footer)}</p>')
     body = "".join(parts)
+    if logo_url:
+        wordmark = (
+            f'<img src="{escape(logo_url, quote=True)}" alt="{escape(brand_name or "Bokito")}" '
+            'height="28" style="display:block;height:28px;max-width:180px;margin:0 0 24px;" />'
+        )
+    else:
+        wordmark = (
+            '<p style="margin:0 0 24px;font-size:15px;font-weight:700;letter-spacing:0.02em;'
+            f'color:#18181b;">{escape(brand_name or "Bokito")}</p>'
+        )
     return (
         "<!doctype html><html><body style=\"margin:0;padding:0;background:#f4f4f5;\">"
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
@@ -86,12 +133,12 @@ def render_mail_html(
         'style="max-width:520px;background:#ffffff;border-radius:12px;padding:32px;'
         "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"
         'text-align:left;"><tr><td>'
-        '<p style="margin:0 0 24px;font-size:15px;font-weight:700;letter-spacing:0.02em;color:#18181b;">Bokito</p>'
+        f"{wordmark}"
         f'<h1 style="margin:0 0 16px;font-size:19px;line-height:1.4;color:#18181b;">{escape(title)}</h1>'
         f"{body}"
         "</td></tr></table>"
-        '<p style="margin:16px 0 0;font-size:12px;color:#a1a1aa;">Bokito - the inbox, the agents, '
-        "and the approvals in one system.</p>"
+        '<p style="margin:16px 0 0;font-size:12px;color:#a1a1aa;">Powered by Bokito - the inbox, '
+        "the agents, and the approvals in one system.</p>"
         "</td></tr></table></body></html>"
     )
 

@@ -75,8 +75,6 @@ class Settings(BaseSettings):
     smtp_ssl: bool = False
 
     worker_inbound_secret: str = "dev-worker-secret"
-    orchestra_enabled: bool = False
-    orchestra_interval_minutes: int = 60
     use_signal_inbox: bool = True
 
     # File storage: local (dev) or s3 (R2 prod)

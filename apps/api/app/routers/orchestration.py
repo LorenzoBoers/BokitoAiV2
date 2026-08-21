@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.dependencies import AuthContext, get_current_auth, tenant_settings
+from app.dependencies import AuthContext, get_current_auth
 from app.models.agent import AgentRun, RunEvent
 from app.models.orchestration import AgentTask, RuntimeProfile, TaskArtifact
 from app.models.orchestra import Workstream, WorkstreamStep
@@ -230,15 +230,6 @@ async def list_artifacts(
         }
         for a in rows
     ]
-
-
-@router.get("/settings")
-async def orchestration_settings(auth: Annotated[AuthContext, Depends(get_current_auth)]):
-    settings = tenant_settings(auth.tenant)
-    return {
-        "orchestra_enabled": settings.get("orchestra_enabled", False),
-        "monthly_budget_cents": settings.get("monthly_budget_cents", 0),
-    }
 
 
 @router.get("/workstreams")

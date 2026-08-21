@@ -79,7 +79,8 @@ def upgrade() -> None:
                         "'{}', false, 0, 'system', '', :now, :now)"
                     ),
                     {
-                        "id": uuid.uuid4(),
+                        # Hex string binds on both SQLite (CHAR(32)) and Postgres (uuid).
+                        "id": uuid.uuid4().hex,
                         "tenant_id": tenant_id,
                         "content": content,
                         "now": datetime.utcnow(),

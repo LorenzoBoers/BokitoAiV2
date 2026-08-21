@@ -479,8 +479,10 @@ async def create_token(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    from app.routers.public_api import REST_SCOPES
+
     for scope in body.scopes:
-        if scope not in TOOL_CATEGORIES:
+        if scope not in TOOL_CATEGORIES and scope not in REST_SCOPES:
             raise HTTPException(status_code=400, detail=f"Unknown scope: {scope}")
     plain = f"bok_{secrets.token_urlsafe(32)}"
     token = ApiToken(

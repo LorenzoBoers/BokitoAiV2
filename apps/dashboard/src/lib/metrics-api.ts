@@ -11,13 +11,20 @@ export interface CustomMetricRow {
   unit: MetricUnit
   target: number | null
   sort_order: number
+  source: string
   latest_value: number | null
   latest_at: string | null
   latest_note: string
-  latest_source: 'agent' | 'user' | 'system' | null
+  latest_source: 'agent' | 'user' | 'system' | 'platform' | null
   previous_value: number | null
   delta: number | null
   created_at: string
+}
+
+export interface MetricSourceOption {
+  id: string
+  label: string
+  unit: MetricUnit
 }
 
 export interface MetricPointRow {
@@ -33,12 +40,18 @@ export async function listCustomMetrics(): Promise<CustomMetricRow[]> {
   return res.items
 }
 
+export async function listMetricSources(): Promise<MetricSourceOption[]> {
+  const res = await apiGet<{ items: MetricSourceOption[] }>(metricsRoutes.sources())
+  return res.items
+}
+
 export async function createCustomMetric(input: {
   label: string
   key?: string
   description?: string
   unit?: MetricUnit
   target?: number | null
+  source?: string
 }): Promise<CustomMetricRow> {
   return apiPost<CustomMetricRow>(metricsRoutes.list(), input)
 }
@@ -51,6 +64,7 @@ export async function updateCustomMetric(
     unit?: MetricUnit
     target?: number | null
     sort_order?: number
+    source?: string
   },
 ): Promise<CustomMetricRow> {
   return apiPatch<CustomMetricRow>(metricsRoutes.metric(metricId), patch)

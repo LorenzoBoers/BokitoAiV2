@@ -304,6 +304,7 @@ async def create_reply_suggestion(
                     f"{text[:500]}\n\n"
                     f"Review and decide:\n{thread_link(signal.id)}"
                 ),
+                tenant_id=tenant_id,
             )
 
     return {

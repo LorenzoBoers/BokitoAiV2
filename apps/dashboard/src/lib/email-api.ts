@@ -65,7 +65,9 @@ export type KbDocument = {
   file_url: string
   file_type: 'pdf' | 'docx' | 'txt' | 'md' | 'csv'
   file_size_bytes: number
-  index_status: 'queued' | 'indexing' | 'indexed' | 'error'
+  index_status: 'pending' | 'indexed' | 'unsupported' | 'failed'
+  /** Human-readable reason when index_status is unsupported or failed. */
+  index_error: string | null
 }
 
 function asString(value: unknown, fallback = ''): string {
@@ -415,6 +417,7 @@ export async function listKbDocuments(token: string, collectionId: number): Prom
         file_type: asString(raw.file_type) as KbDocument['file_type'],
         file_size_bytes: asNumber(raw.file_size_bytes),
         index_status: asString(raw.index_status) as KbDocument['index_status'],
+        index_error: asString(raw.index_error) || null,
       } satisfies KbDocument
     })
     .filter((item): item is KbDocument => item !== null)

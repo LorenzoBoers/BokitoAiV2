@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Bell, BellRing, Monitor } from 'lucide-react'
+import { listChannelAccounts } from '../lib/channel-accounts-api'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
@@ -77,6 +79,15 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  // Slack toggles only make sense with a connected workspace.
+  const [slackConnected, setSlackConnected] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    listChannelAccounts(token)
+      .then((accounts) => setSlackConnected(accounts.some((a) => a.channel === 'slack' && a.isEnabled)))
+      .catch(() => setSlackConnected(false))
+  }, [token])
 
   // Fade the "Saved" confirmation shortly after the last successful save.
   useEffect(() => {
@@ -204,12 +215,15 @@ export default function NotificationSettings() {
         </div>
       )
     }
+    const gatedOnSlack = channel === 'slack' && !slackConnected
     return (
       <div className="flex justify-center">
         <Switch
-          checked={Boolean(row.channels[channel])}
+          checked={gatedOnSlack ? false : Boolean(row.channels[channel])}
+          disabled={gatedOnSlack}
           onCheckedChange={(checked) => updateChannel(row.id, channel, checked)}
           aria-label={`${row.label} ${label}`}
+          title={gatedOnSlack ? 'Connect a Slack workspace first (Settings > Email & messages)' : undefined}
         />
       </div>
     )
@@ -275,6 +289,15 @@ export default function NotificationSettings() {
             In-app notifications appear in the bell menu in the top bar. Email notifications are
             sent to your account address. Slack sends a direct message with Approve/Deny buttons
             and requires a connected Slack workspace.
+            {!slackConnected ? (
+              <>
+                {' '}
+                <Link to="/settings/channels" className="text-accent hover:underline">
+                  Connect Slack
+                </Link>{' '}
+                to enable the Slack toggles.
+              </>
+            ) : null}
           </p>
           <p className="text-xs font-medium text-text-muted">{desktopEnabled} in-app enabled</p>
         </div>

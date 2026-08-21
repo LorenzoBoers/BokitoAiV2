@@ -3,8 +3,10 @@ import { toast } from 'sonner'
 import {
   BarChart3,
   Bot,
+  History,
   Pencil,
   Plus,
+  Sparkles,
   Target,
   Trash2,
   TrendingDown,
@@ -17,8 +19,12 @@ import {
   deleteCustomMetric,
   formatMetricValue,
   listCustomMetrics,
+  listMetricPoints,
+  listMetricSources,
   updateCustomMetric,
   type CustomMetricRow,
+  type MetricPointRow,
+  type MetricSourceOption,
   type MetricUnit,
 } from '../../lib/metrics-api'
 import { Button } from '../ui/button'
@@ -69,7 +75,9 @@ function MetricCard({
           {metric.label}
         </p>
         <span className="flex shrink-0 items-center gap-1">
-          {metric.latest_source === 'agent' ? (
+          {metric.source !== 'manual' ? (
+            <Sparkles size={12} className="text-accent/70" aria-label="Computed from platform data" />
+          ) : metric.latest_source === 'agent' ? (
             <Bot size={12} className="text-accent/70" aria-label="Last value recorded by an agent" />
           ) : null}
           <Pencil size={11} className="text-text-muted opacity-0 transition-opacity group-hover:opacity-100" />
@@ -123,6 +131,9 @@ export default function CustomMetricsSection() {
   const [target, setTarget] = useState('')
   const [newValue, setNewValue] = useState('')
   const [valueNote, setValueNote] = useState('')
+  const [source, setSource] = useState('manual')
+  const [sourceOptions, setSourceOptions] = useState<MetricSourceOption[]>([])
+  const [history, setHistory] = useState<MetricPointRow[] | null>(null)
 
   const load = useCallback(() => {
     listCustomMetrics()
@@ -133,6 +144,9 @@ export default function CustomMetricsSection() {
 
   useEffect(() => {
     load()
+    listMetricSources()
+      .then(setSourceOptions)
+      .catch(() => setSourceOptions([]))
   }, [load])
 
   const openCreate = () => {
@@ -141,6 +155,8 @@ export default function CustomMetricsSection() {
     setTarget('')
     setNewValue('')
     setValueNote('')
+    setSource('manual')
+    setHistory(null)
     setDialog({ mode: 'create' })
   }
 
@@ -150,7 +166,12 @@ export default function CustomMetricsSection() {
     setTarget(metric.target !== null ? String(metric.target) : '')
     setNewValue('')
     setValueNote('')
+    setSource(metric.source || 'manual')
+    setHistory(null)
     setDialog({ mode: 'edit', metric })
+    listMetricPoints(metric.id)
+      .then((points) => setHistory(points.slice(0, 8)))
+      .catch(() => setHistory([]))
   }
 
   const parsedTarget = useMemo(() => {
@@ -173,6 +194,7 @@ export default function CustomMetricsSection() {
       toast.error('Give the metric a name.')
       return
     }
+    const isPlatform = source !== 'manual'
     setBusy(true)
     try {
       if (dialog.mode === 'create') {
@@ -180,8 +202,9 @@ export default function CustomMetricsSection() {
           label: label.trim(),
           unit,
           target: parsedTarget,
+          source,
         })
-        if (parsedValue !== null) {
+        if (!isPlatform && parsedValue !== null) {
           await addMetricPoint(created.id, { value: parsedValue, note: valueNote.trim() })
         }
         toast.success('Metric added.')
@@ -190,8 +213,9 @@ export default function CustomMetricsSection() {
           label: label.trim(),
           unit,
           target: parsedTarget,
+          source,
         })
-        if (parsedValue !== null) {
+        if (!isPlatform && parsedValue !== null) {
           await addMetricPoint(dialog.metric.id, { value: parsedValue, note: valueNote.trim() })
         }
         toast.success('Metric updated.')
@@ -271,14 +295,38 @@ export default function CustomMetricsSection() {
                 placeholder="e.g. Monthly recurring revenue"
               />
             </div>
+            {sourceOptions.length > 0 ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="metric-source">Data source</Label>
+                <select
+                  id="metric-source"
+                  value={source}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    setSource(next)
+                    const option = sourceOptions.find((s) => s.id === next)
+                    if (option) setUnit(option.unit)
+                  }}
+                  className="h-9 w-full rounded-lg border border-border bg-bg-surface px-2.5 text-sm text-text-primary outline-none focus:border-accent/60"
+                >
+                  <option value="manual">Manual / agent fill</option>
+                  {sourceOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label} (platform)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="metric-unit">Unit</Label>
                 <select
                   id="metric-unit"
                   value={unit}
+                  disabled={source !== 'manual'}
                   onChange={(e) => setUnit(e.target.value as MetricUnit)}
-                  className="h-9 w-full rounded-lg border border-border bg-bg-surface px-2.5 text-sm text-text-primary outline-none focus:border-accent/60"
+                  className="h-9 w-full rounded-lg border border-border bg-bg-surface px-2.5 text-sm text-text-primary outline-none focus:border-accent/60 disabled:opacity-60"
                 >
                   {UNIT_OPTIONS.map((option) => (
                     <option key={option.id} value={option.id}>
@@ -298,34 +346,64 @@ export default function CustomMetricsSection() {
                 />
               </div>
             </div>
-            <div className="rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
-                {dialog?.mode === 'edit' ? 'Record a new value' : 'Starting value (optional)'}
-              </p>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <Input
-                  value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
-                  placeholder="Value"
-                  inputMode="decimal"
-                />
-                <Input
-                  value={valueNote}
-                  onChange={(e) => setValueNote(e.target.value)}
-                  placeholder="Note (optional)"
-                />
-              </div>
-              {dialog?.mode === 'edit' && dialog.metric.latest_value !== null ? (
-                <p className="mt-2 text-[11px] text-text-muted">
-                  Current: {formatMetricValue(dialog.metric.latest_value, dialog.metric.unit)}
-                  {dialog.metric.latest_at ? ` (${timeAgo(dialog.metric.latest_at)})` : ''}
+            {source === 'manual' ? (
+              <div className="rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
+                  {dialog?.mode === 'edit' ? 'Record a new value' : 'Starting value (optional)'}
                 </p>
-              ) : null}
-            </div>
-            <p className="text-[11px] text-text-muted">
-              Agents can update this metric automatically with the record_metric tool
-              {dialog?.mode === 'edit' ? ` using key "${dialog.metric.key}"` : ''}.
-            </p>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <Input
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    placeholder="Value"
+                    inputMode="decimal"
+                  />
+                  <Input
+                    value={valueNote}
+                    onChange={(e) => setValueNote(e.target.value)}
+                    placeholder="Note (optional)"
+                  />
+                </div>
+                {dialog?.mode === 'edit' && dialog.metric.latest_value !== null ? (
+                  <p className="mt-2 text-[11px] text-text-muted">
+                    Current: {formatMetricValue(dialog.metric.latest_value, dialog.metric.unit)}
+                    {dialog.metric.latest_at ? ` (${timeAgo(dialog.metric.latest_at)})` : ''}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-border/60 bg-bg-elevated/50 p-3 text-[11px] text-text-muted">
+                This value is computed from platform data and snapshotted daily, so
+                history builds automatically. Manual and agent fills are disabled.
+              </p>
+            )}
+            {dialog?.mode === 'edit' && history !== null && history.length > 0 ? (
+              <div className="rounded-lg border border-border/60 p-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
+                  <History size={11} />
+                  Recent values
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {history.map((point) => (
+                    <li key={point.id} className="flex items-center justify-between gap-2 text-[12px]">
+                      <span className="font-medium text-text-primary">
+                        {formatMetricValue(point.value, unit)}
+                      </span>
+                      <span className="truncate text-text-muted">{point.note}</span>
+                      <span className="shrink-0 text-[11px] text-text-muted">
+                        {timeAgo(point.recorded_at)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {source === 'manual' ? (
+              <p className="text-[11px] text-text-muted">
+                Agents can update this metric automatically with the record_metric tool
+                {dialog?.mode === 'edit' ? ` using key "${dialog.metric.key}"` : ''}.
+              </p>
+            ) : null}
           </div>
           <div className="flex items-center justify-between gap-2">
             {dialog?.mode === 'edit' ? (

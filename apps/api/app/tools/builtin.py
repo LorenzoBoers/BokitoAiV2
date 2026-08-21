@@ -363,6 +363,38 @@ async def _suggest_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     )
 
 
+async def _search_repo(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Hybrid search over indexed repository files (optionally one project)."""
+    from uuid import UUID as _UUID
+
+    from app.services.repo_index import search_repo_chunks
+
+    query = str(tool_input.get("query") or "").strip()
+    if not query:
+        return {"error": "query required"}
+    project_id = None
+    raw_project = str(tool_input.get("project_id") or "").strip()
+    if raw_project:
+        try:
+            project_id = _UUID(raw_project)
+        except ValueError:
+            return {"error": "invalid project_id"}
+    results = await search_repo_chunks(
+        ctx.session, ctx.tenant_id, query, project_id=project_id, top_k=6
+    )
+    if not results:
+        return {
+            "results": [],
+            "note": "No indexed repository content matched. Connect a repo on the project and run reindex first.",
+        }
+    return {
+        "results": [
+            {"path": r["path"], "title": r["title"], "score": r["score"], "content": r["content"]}
+            for r in results
+        ]
+    }
+
+
 async def _suggest_inbox_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Propose an inbox automation rule (learned from a correction or pattern).
 
@@ -420,6 +452,16 @@ async def _record_metric(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         return {"error": "value must be a number"}
 
     metric = await get_metric_by_key(ctx.session, ctx.tenant_id, key)
+    if metric is not None:
+        from app.services.metrics import PLATFORM_METRIC_SOURCES
+
+        if (metric.source or "manual") in PLATFORM_METRIC_SOURCES:
+            return {
+                "error": (
+                    f"Metric '{key}' is bound to platform data "
+                    f"({metric.source}) and cannot be filled by agents."
+                )
+            }
     if metric is None:
         try:
             metric = await create_metric(
@@ -832,6 +874,29 @@ register_tool(
             "required": ["provider", "reason"],
         },
         handler=_suggest_integration,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="search_repo",
+        description=(
+            "Search the indexed source code and docs of connected GitHub repositories. "
+            "Optionally scope to one project with project_id. Returns matching file "
+            "chunks with paths."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "project_id": {"type": "string"},
+            },
+            "required": ["query"],
+        },
+        handler=_search_repo,
+        mutating=False,
         gated=False,
     )
 )

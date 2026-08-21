@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, Trash2, Copy, ExternalLink } from 'lucide-react'
+import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
-import { agentRunsPath } from '../lib/messages-paths'
+import { agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { PageContent } from '../components/layout/PageContent'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -13,21 +14,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import {
   acceptGovernChange,
-  createApiToken,
   getAllowances,
   listAcceptedChanges,
   listAgentPassports,
-  listApiTokens,
   listGovernAudit,
   listGovernChanges,
   rejectGovernChange,
   rollbackGovernChange,
-  revokeApiToken,
   setPosture,
   setToolOverride,
   updateAllowances,
   type AllowanceMode,
-  type ApiTokenRow,
   type AuditEventRow,
   type AutonomyPostureId,
   type GovernToolRow,
@@ -85,9 +82,6 @@ export default function GovernPage() {
   const [allowances, setAllowances] = useState<Record<string, AllowanceMode>>({})
   const [categories, setCategories] = useState<string[]>([])
   const [tools, setTools] = useState<GovernToolRow[]>([])
-  const [tokens, setTokens] = useState<ApiTokenRow[]>([])
-  const [newTokenName, setNewTokenName] = useState('')
-  const [createdToken, setCreatedToken] = useState<string | null>(null)
   const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
   const [posturePresets, setPosturePresets] = useState<PosturePreset[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -109,9 +103,8 @@ export default function GovernPage() {
       listGovernAudit(),
       listAgentPassports(),
       getAllowances(),
-      listApiTokens(),
     ])
-      .then(([changeResp, historyResp, auditResp, passportResp, allowanceResp, tokenResp]) => {
+      .then(([changeResp, historyResp, auditResp, passportResp, allowanceResp]) => {
         setChanges(changeResp.items)
         setHistory(historyResp.items)
         setAudit(auditResp.items)
@@ -121,7 +114,6 @@ export default function GovernPage() {
         setTools(allowanceResp.tools)
         setPostureState(allowanceResp.posture)
         setPosturePresets(allowanceResp.presets)
-        setTokens(tokenResp.items)
       })
       .catch((err) => setError(formatApiErrorMessage(err, 'Could not load govern data.')))
       .finally(() => setLoading(false))
@@ -225,31 +217,6 @@ export default function GovernPage() {
       load()
     } finally {
       setSavingModes(false)
-    }
-  }
-
-  async function handleCreateToken() {
-    const name = newTokenName.trim()
-    if (!name) return
-    try {
-      const created = await createApiToken(name)
-      setCreatedToken(created.token ?? null)
-      setNewTokenName('')
-      const refreshed = await listApiTokens()
-      setTokens(refreshed.items)
-    } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not create token.'))
-    }
-  }
-
-  async function handleRevokeToken(id: string) {
-    try {
-      await revokeApiToken(id)
-      const refreshed = await listApiTokens()
-      setTokens(refreshed.items)
-      toast.success(t('tokens.revoked', { defaultValue: 'Token revoked.' }))
-    } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not revoke token.'))
     }
   }
 
@@ -528,78 +495,21 @@ export default function GovernPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <KeyRound className="h-4 w-4" aria-hidden />
-                  {t('tokens.title', { defaultValue: 'API tokens (MCP access)' })}
+                  {t('tokens.title', { defaultValue: 'API tokens' })}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent>
                 <p className="text-xs text-text-muted">
-                  {t('tokens.intro', {
+                  {t('tokens.movedIntro', {
                     defaultValue:
-                      'Connect Cursor or other MCP clients to this workspace at /api/mcp. Tokens use the same governed tools and allowance sliders as internal agents.',
+                      'Tokens for the public REST API and MCP clients are managed on the Developers page, including per-token scopes.',
                   })}
                 </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newTokenName}
-                    onChange={(e) => setNewTokenName(e.target.value)}
-                    placeholder={t('tokens.namePlaceholder', { defaultValue: 'Token name (e.g. Cursor)' })}
-                    className="flex-1 rounded border border-border bg-bg-surface px-2 py-1.5 text-xs"
-                  />
-                  <Button size="sm" onClick={() => void handleCreateToken()} disabled={!newTokenName.trim()}>
-                    {t('tokens.create', { defaultValue: 'Create token' })}
-                  </Button>
-                </div>
-                {createdToken ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 p-3">
-                    <code className="flex-1 break-all text-xs">{createdToken}</code>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(createdToken)
-                        toast.success(t('tokens.copied', { defaultValue: 'Copied.' }))
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5" aria-hidden />
-                    </Button>
-                  </div>
-                ) : null}
-                {tokens.length === 0 ? (
-                  <p className="text-xs text-text-muted">
-                    {t('tokens.empty', { defaultValue: 'No API tokens yet.' })}
-                  </p>
-                ) : (
-                  tokens.map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex items-center justify-between rounded-lg border border-border/60 p-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-text-heading">
-                          {row.name}{' '}
-                          <span className="font-mono text-xs text-text-muted">{row.token_prefix}…</span>
-                          {row.revoked_at ? (
-                            <Badge variant="destructive" className="ml-2 text-[10px]">
-                              {t('tokens.revokedBadge', { defaultValue: 'Revoked' })}
-                            </Badge>
-                          ) : null}
-                        </p>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          {row.scopes.length ? row.scopes.join(', ') : t('tokens.allScopes', { defaultValue: 'All categories' })}
-                          {row.last_used_at
-                            ? ` · ${t('tokens.lastUsed', { defaultValue: 'last used' })} ${formatGovernTimestamp(row.last_used_at)}`
-                            : null}
-                        </p>
-                      </div>
-                      {!row.revoked_at ? (
-                        <Button size="sm" variant="ghost" onClick={() => void handleRevokeToken(row.id)}>
-                          <Trash2 className="h-4 w-4" aria-hidden />
-                        </Button>
-                      ) : null}
-                    </div>
-                  ))
-                )}
+                <Button size="sm" variant="outline" className="mt-3" asChild>
+                  <Link to="/settings/developers">
+                    {t('tokens.manageLink', { defaultValue: 'Manage API tokens' })}
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -696,15 +606,40 @@ export default function GovernPage() {
                 {audit.length === 0 ? (
                   <p className="text-sm text-text-muted">{t('audit.empty')}</p>
                 ) : (
-                  audit.slice(0, 30).map((event) => (
-                    <div key={event.id} className="text-sm border-b border-border pb-2 last:border-0">
-                      <p className="font-medium text-text-heading">{event.summary || event.action}</p>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        {event.actor_type} · {event.outcome}
-                        {event.created_at ? ` · ${formatGovernTimestamp(event.created_at)}` : null}
-                      </p>
-                    </div>
-                  ))
+                  audit.slice(0, 30).map((event) => {
+                    // Deep-link the audited resource where a surface exists.
+                    const target =
+                      event.resource_type === 'signal' && event.resource_id
+                        ? inboxPath('all', event.resource_id)
+                        : event.agent_id && event.run_id
+                          ? agentWorkforceRunUrl(event.agent_id, event.run_id)
+                          : event.resource_type === 'agent' && event.resource_id
+                            ? `/agents/${event.resource_id}`
+                            : event.agent_id
+                              ? `/agents/${event.agent_id}`
+                              : null
+                    return (
+                      <div key={event.id} className="text-sm border-b border-border pb-2 last:border-0">
+                        <p className="font-medium text-text-heading">{event.summary || event.action}</p>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {event.actor_type} · {event.outcome}
+                          {event.created_at ? ` · ${formatGovernTimestamp(event.created_at)}` : null}
+                          {target ? (
+                            <>
+                              {' · '}
+                              <Link to={target} className="text-accent hover:underline">
+                                {event.resource_type === 'signal'
+                                  ? t('audit.openThread', { defaultValue: 'Open thread' })
+                                  : event.run_id
+                                    ? t('audit.openRun', { defaultValue: 'Open run' })
+                                    : t('audit.openAgent', { defaultValue: 'Open agent' })}
+                              </Link>
+                            </>
+                          ) : null}
+                        </p>
+                      </div>
+                    )
+                  })
                 )}
               </CardContent>
             </Card>

@@ -79,7 +79,7 @@ Everything important should map to a **small set of canonical entity types**. Pr
 - `Signal` / `SignalMessage` — conversation context (external and internal)
 - `Agent`, `Workstream`, `AgentRun` — orchestration
 - `DecisionRequest` — human action objects **within** threads, not parallel list UIs
-- `BlueprintBlock`, `BlueprintPage` — structured knowledge
+- `WorkspaceDoc`, `DocChunk` — workspace knowledge (markdown docs + vector-indexed chunks)
 - `os_canvas_nodes` / `os_canvas_edges` — visual graph overlay
 - `PlatformChange`, `AuditEvent` — governable mutations
 
@@ -107,7 +107,7 @@ When an action produces an outcome users care about, capture something for later
 
 - User feedback on agent output (`Feedback`)
 - Autonomy / escalation metrics (`EvalScore`, Cockpit)
-- Policy tightening (`ActionPolicy` modes: manual, whitelist, yolo)
+- Policy tightening (tool allowance sliders per category: deny, ask, allow — `app/tools/policy.py`)
 
 V1 uses **heuristics**, not ML fine-tuning — but the **hook must exist**. A feature that never records success, failure, or human override is unfinished.
 
@@ -115,10 +115,10 @@ V1 uses **heuristics**, not ML fine-tuning — but the **hook must exist**. A fe
 
 Agent autonomy is only valuable if it stays **trustworthy**:
 
-- **Autonomy posture** (tenant preset): `manual` | `assisted` | `autonomous` — dials `ActionPolicy.mode` and default `platform_apply_modes` together (`GET/PUT /api/govern/posture`). Default for new tenants: **assisted**.
-  - **Manual** — policy `manual`; all structural and canvas changes queue for review; humans approve every agent action class.
-  - **Assisted** — policy `whitelist`; structural changes queue in Govern; canvas layout auto-applies; routine whitelisted actions run without escalation.
-  - **Autonomous** — policy `yolo`; most structural changes auto-apply; **integrations always require a human decision**; AI runs operations, humans at the exception layer.
+- **Autonomy posture** (tenant preset): `manual` | `assisted` | `autonomous` — dials the tool allowance sliders and default `platform_apply_modes` together (`GET/PUT /api/govern/posture`). Default for new tenants: **assisted**.
+  - **Manual** — every tool category is `ask`; humans approve every mutating agent action before it applies.
+  - **Assisted** — messaging and workspace edits `allow`; structural categories (agents, channels, triggers, integrations, govern) `ask`.
+  - **Autonomous** — most categories `allow`; **integrations always require a human decision**; AI runs operations, humans at the exception layer.
 - **Permissions** per agent (`permission_scopes_json`, `platform_access.py`)
 - **Apply modes** per resource type: `draft`, `yolo`, or `decision` (`resolve_apply_mode()`) — advanced per-resource overrides in Govern beyond posture presets
 - **Trace** via `AuditEvent`

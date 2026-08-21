@@ -7,6 +7,8 @@ import {
   GitBranch,
   Loader2,
   MessageSquare,
+  Play,
+  Plus,
   Trash2,
   Wallet,
   Workflow,
@@ -39,13 +41,12 @@ import {
 } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { workLogDetailUrl } from '../lib/workforce-run-urls'
-import { listProjectWorkstreams, type ProjectWorkstreamRow } from '../lib/workstreams-api'
-
-const WORKSTREAM_STATUS_VARIANT: Record<string, 'secondary' | 'outline'> = {
-  active: 'secondary',
-  draft: 'outline',
-  paused: 'outline',
-}
+import {
+  createProjectWorkstream,
+  listProjectWorkstreams,
+  runProjectWorkstream,
+  type ProjectWorkstreamRow,
+} from '../lib/workstreams-api'
 
 async function copyText(value: string, label: string) {
   try {
@@ -75,6 +76,10 @@ export default function ProjectDetail() {
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  const [newStreamName, setNewStreamName] = useState('')
+  const [creatingStream, setCreatingStream] = useState(false)
+  const [runningStreamId, setRunningStreamId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -227,17 +232,97 @@ export default function ProjectDetail() {
                           key={stream.id}
                           className="flex items-center justify-between gap-2 rounded-md border border-border/50 px-2.5 py-1.5"
                         >
-                          <span className="truncate text-sm text-text-primary">{stream.name}</span>
-                          <Badge
-                            variant={WORKSTREAM_STATUS_VARIANT[stream.status] ?? 'outline'}
-                            className="px-1.5 py-0 text-[10px]"
-                          >
-                            {humanizeLabel(stream.status)}
-                          </Badge>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm text-text-primary">{stream.name}</span>
+                            <span className="block text-[11px] text-text-muted">
+                              {stream.steps_count > 0
+                                ? `${stream.steps_count} step${stream.steps_count === 1 ? '' : 's'}`
+                                : 'No steps yet'}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1.5">
+                            <Badge
+                              variant={stream.enabled ? 'secondary' : 'outline'}
+                              className="px-1.5 py-0 text-[10px]"
+                            >
+                              {humanizeLabel(stream.enabled ? 'active' : 'paused')}
+                            </Badge>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-1.5"
+                              disabled={runningStreamId !== null || stream.steps_count === 0}
+                              title={
+                                stream.steps_count === 0
+                                  ? 'Add steps on the Agenda page before running'
+                                  : 'Run this workstream now'
+                              }
+                              onClick={async () => {
+                                setRunningStreamId(stream.id)
+                                try {
+                                  await runProjectWorkstream(stream.id)
+                                  toast.success(`Workstream "${stream.name}" started.`)
+                                  void load()
+                                } catch (err) {
+                                  toast.error(
+                                    err instanceof Error ? err.message : 'Could not start workstream.',
+                                  )
+                                } finally {
+                                  setRunningStreamId(null)
+                                }
+                              }}
+                            >
+                              {runningStreamId === stream.id ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Play size={12} />
+                              )}
+                            </Button>
+                          </span>
                         </li>
                       ))}
                     </ul>
                   )}
+                  {isAdmin ? (
+                    <div className="flex gap-2 pt-1">
+                      <Input
+                        value={newStreamName}
+                        onChange={(e) => setNewStreamName(e.target.value)}
+                        placeholder="New workstream name"
+                        className="h-8 text-sm"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={creatingStream || !newStreamName.trim()}
+                        onClick={async () => {
+                          if (!projectId) return
+                          setCreatingStream(true)
+                          try {
+                            await createProjectWorkstream(projectId, { name: newStreamName.trim() })
+                            setNewStreamName('')
+                            toast.success('Workstream created. Add steps on the Agenda page.')
+                            void load()
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error ? err.message : 'Could not create workstream.',
+                            )
+                          } finally {
+                            setCreatingStream(false)
+                          }
+                        }}
+                      >
+                        {creatingStream ? (
+                          <Loader2 size={13} className="mr-1 animate-spin" />
+                        ) : (
+                          <Plus size={13} className="mr-1" />
+                        )}
+                        Add
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>

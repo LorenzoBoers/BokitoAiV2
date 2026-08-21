@@ -833,6 +833,11 @@
       "historyTitle": "Run-geschiedenis",
       "historyDescription": "Recente runs voor deze agent.",
       "projectLink": "Project: {{name}}",
+      "editTools": "Bewerken",
+      "cancelTools": "Annuleren",
+      "saveTools": "Tools opslaan",
+      "toolsPickerHint": "Selecteer niets om alle tools toe te staan (begrensd door workspace-regels). Selecteer tools om deze agent tot precies die set te beperken.",
+      "toolsLoading": "Tools laden…",
       "sidebar": {
         "loading": "Agents laden…",
         "showLess": "Minder tonen",

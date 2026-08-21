@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { OctagonAlert, RefreshCw } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import CockpitTabs from '../components/shell/CockpitTabs'
@@ -305,7 +306,16 @@ export default function UsagePage() {
                     key={row.agent_id ?? 'system'}
                     className="flex items-center justify-between gap-3 text-[12.5px]"
                   >
-                    <p className="min-w-0 truncate font-medium text-text-primary">{row.agent_name}</p>
+                    {row.agent_id ? (
+                      <Link
+                        to={`/agents/${row.agent_id}`}
+                        className="min-w-0 truncate font-medium text-text-primary hover:text-accent hover:underline"
+                      >
+                        {row.agent_name}
+                      </Link>
+                    ) : (
+                      <p className="min-w-0 truncate font-medium text-text-primary">{row.agent_name}</p>
+                    )}
                     <p className="shrink-0 text-[11px] text-text-muted">
                       {formatNumber(row.tokens)} tok · {formatUsd(row.customer_cost_micros)}
                     </p>

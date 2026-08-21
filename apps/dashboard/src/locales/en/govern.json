@@ -25,7 +25,10 @@
     "empty": "No accepted changes yet."
   },
   "audit": {
-    "empty": "No audit events yet."
+    "empty": "No audit events yet.",
+    "openThread": "Open thread",
+    "openRun": "Open run",
+    "openAgent": "Open agent"
   },
   "posture": {
     "title": "Autonomy posture",

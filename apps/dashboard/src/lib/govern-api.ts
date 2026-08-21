@@ -24,6 +24,10 @@ export type AuditEventRow = {
   action: string
   actor_type: string
   actor_id: string
+  agent_id: string | null
+  run_id: string | null
+  resource_type: string
+  resource_id: string
   outcome: string
   summary: string
   created_at: string

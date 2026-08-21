@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Pause, Play, RefreshCw, Trash2 } from 'lucide-react'
+import { inboxPath } from '../lib/messages-paths'
+import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
@@ -18,6 +21,9 @@ type ActivityEntry = {
   actorName: string | null
   createdAt: string
   live: boolean
+  runId: string | null
+  agentId: string | null
+  signalId: string | null
 }
 
 type SourceFilter = 'all' | 'agents' | 'people'
@@ -34,6 +40,9 @@ function fromCockpit(ev: CockpitActivityEvent, idx: number): ActivityEntry {
     actorName: ev.actor_name ?? null,
     createdAt: ev.created_at,
     live: false,
+    runId: ev.run_id ?? null,
+    agentId: ev.agent_id ?? null,
+    signalId: ev.signal_id ?? null,
   }
 }
 
@@ -57,6 +66,9 @@ function fromGateway(event: GatewayEvent): ActivityEntry | null {
     actorName: null,
     createdAt: event.ts ?? new Date().toISOString(),
     live: true,
+    runId: typeof data.run_id === 'string' ? data.run_id : null,
+    agentId: typeof data.agent_id === 'string' ? data.agent_id : null,
+    signalId: typeof data.signal_id === 'string' ? data.signal_id : null,
   }
 }
 
@@ -328,10 +340,33 @@ export default function ActivityPage() {
                   <p className="break-words text-[12.5px] text-text-primary">
                     {entry.message || humanizeLabel(entry.eventType)}
                   </p>
-                  <p className="text-[10.5px] text-text-muted">
-                    {entry.kind === 'audit'
-                      ? `${entry.actorName || 'Team member'} - ${humanizeLabel(entry.eventType)}`
-                      : `${humanizeLabel(entry.kind)} - ${humanizeLabel(entry.eventType)}`}
+                  <p className="flex flex-wrap items-center gap-x-2 text-[10.5px] text-text-muted">
+                    <span>
+                      {entry.kind === 'audit'
+                        ? `${entry.actorName || 'Team member'} - ${humanizeLabel(entry.eventType)}`
+                        : `${entry.actorName ? `${entry.actorName} - ` : ''}${humanizeLabel(entry.eventType)}`}
+                    </span>
+                    {entry.signalId ? (
+                      <Link
+                        to={inboxPath('all', entry.signalId)}
+                        className="text-accent hover:underline"
+                      >
+                        Thread
+                      </Link>
+                    ) : null}
+                    {entry.agentId && entry.runId ? (
+                      <Link
+                        to={agentWorkforceRunUrl(entry.agentId, entry.runId)}
+                        className="text-accent hover:underline"
+                      >
+                        Run
+                      </Link>
+                    ) : null}
+                    {entry.agentId ? (
+                      <Link to={`/agents/${entry.agentId}`} className="text-accent hover:underline">
+                        Agent
+                      </Link>
+                    ) : null}
                   </p>
                 </div>
                 <span className="shrink-0 font-mono text-[10.5px] text-text-muted">

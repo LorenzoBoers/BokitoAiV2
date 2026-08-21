@@ -240,8 +240,16 @@ export default function HelpCentersSettings() {
                     <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-input/45 px-3 py-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm text-text-primary">{doc.filename}</div>
-                        <div className="text-2xs text-text-muted">
+                        <div
+                          className={
+                            doc.index_status === 'failed' || doc.index_status === 'unsupported'
+                              ? 'text-2xs text-danger'
+                              : 'text-2xs text-text-muted'
+                          }
+                          title={doc.index_error ?? undefined}
+                        >
                           {doc.file_type.toUpperCase()} - {humanizeLabel(doc.index_status)}
+                          {doc.index_error ? ` (${doc.index_error})` : ''}
                         </div>
                       </div>
                       <Button

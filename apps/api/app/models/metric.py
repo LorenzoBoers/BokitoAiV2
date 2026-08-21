@@ -27,6 +27,9 @@ class CustomMetric(SQLModel, table=True):
     unit: str = "number"  # number | percent | currency | duration | count
     target: Optional[float] = None
     sort_order: int = 0
+    # "manual" = filled by users/agents; otherwise a platform aggregate id
+    # (see services.metrics.PLATFORM_METRIC_SOURCES) computed automatically.
+    source: str = Field(default="manual")
     created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

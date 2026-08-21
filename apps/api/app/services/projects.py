@@ -1,4 +1,4 @@
-"""Project hub service (CRUD, repo, orchestration, workstreams, usage)."""
+"""Project hub service (CRUD, repo, workstreams, usage)."""
 
 import json
 from datetime import datetime, timedelta
@@ -10,16 +10,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.project import (
-    Project,
-    ProjectNotificationPreference,
-    ProjectOrchestration,
-    ProjectWorkstream,
-)
+from app.models.project import Project
+from app.models.orchestra import Workstream
 from app.models.usage import UsageLedger
 
-EVENT_TYPES = ("decisions", "updates", "failures", "tokens")
-CHANNELS = ("desktop", "email", "mobile")
 DEFAULT_TOKEN_BUDGET_DAILY = 100_000
 
 
@@ -134,9 +128,6 @@ async def create_project(
         updated_at=now,
     )
     session.add(project)
-    await session.flush()
-    orch = ProjectOrchestration(tenant_id=tenant_id, project_id=project.id, updated_at=now)
-    session.add(orch)
     await session.commit()
     await session.refresh(project)
     return serialize_project(project)
@@ -174,21 +165,16 @@ async def delete_project(
     project, _ = await get_project_row(session, tenant_id, project_id)
     if confirm_name.strip() != project.name:
         raise HTTPException(status_code=400, detail="Confirmation name does not match")
-    prefs = await session.execute(
-        select(ProjectNotificationPreference).where(ProjectNotificationPreference.project_id == project_id)
-    )
-    for pref in prefs.scalars().all():
-        await session.delete(pref)
-    orch = await session.execute(
-        select(ProjectOrchestration).where(ProjectOrchestration.project_id == project_id)
-    )
-    for row in orch.scalars().all():
-        await session.delete(row)
+    # Detach (not delete) runnable workstreams: they may still be scheduled
+    # or referenced by past runs outside the project scope.
     streams = await session.execute(
-        select(ProjectWorkstream).where(ProjectWorkstream.project_id == project_id)
+        select(Workstream).where(
+            Workstream.project_id == project_id, Workstream.tenant_id == tenant_id
+        )
     )
     for stream in streams.scalars().all():
-        await session.delete(stream)
+        stream.project_id = None
+        session.add(stream)
     await session.delete(project)
     await session.commit()
     return {"deleted": True}
@@ -220,6 +206,11 @@ async def connect_repo(
     session.add(project)
     await session.commit()
     await session.refresh(project)
+
+    # Kick off the first index immediately; status transitions to indexing/ready.
+    from app.workers.tasks import enqueue_repo_index
+
+    await enqueue_repo_index(str(tenant_id), str(project_id))
     return serialize_project(project, po_agent)
 
 
@@ -227,6 +218,18 @@ async def disconnect_repo(
     session: AsyncSession, tenant_id: UUID, project_id: UUID
 ) -> dict[str, Any]:
     project, po_agent = await get_project_row(session, tenant_id, project_id)
+    # Remove indexed content so search stops returning a repo that is gone.
+    from sqlalchemy import delete as sa_delete
+
+    from app.models.workspace import DocChunk
+
+    await session.execute(
+        sa_delete(DocChunk).where(
+            DocChunk.tenant_id == tenant_id,
+            DocChunk.source_type == "repo_file",
+            DocChunk.source_id.like(f"{project_id}:%"),
+        )
+    )
     project.github_repo_full_name = None
     project.github_default_branch = None
     project.github_connection_id = None
@@ -245,6 +248,7 @@ async def disconnect_repo(
 
 
 async def reindex_repo(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> dict[str, bool]:
+    """Queue a real index run: GitHub tree + contents into repo_file DocChunks."""
     project, _ = await get_project_row(session, tenant_id, project_id)
     if not project.github_repo_full_name:
         raise HTTPException(status_code=400, detail="No repository connected")
@@ -253,11 +257,10 @@ async def reindex_repo(session: AsyncSession, tenant_id: UUID, project_id: UUID)
     project.updated_at = datetime.utcnow()
     session.add(project)
     await session.commit()
-    project.repo_index_status = "ready"
-    project.repo_indexed_at = datetime.utcnow()
-    project.repo_last_commit_sha = "mock-commit-sha"
-    session.add(project)
-    await session.commit()
+
+    from app.workers.tasks import enqueue_repo_index
+
+    await enqueue_repo_index(str(tenant_id), str(project_id))
     return {"queued": True}
 
 
@@ -270,128 +273,6 @@ async def repo_status(session: AsyncSession, tenant_id: UUID, project_id: UUID) 
         "repo_last_commit_sha": project.repo_last_commit_sha,
         "repo_index_error": project.repo_index_error,
     }
-
-
-async def get_or_create_orchestration(
-    session: AsyncSession, tenant_id: UUID, project_id: UUID
-) -> ProjectOrchestration:
-    await get_project_row(session, tenant_id, project_id)
-    result = await session.execute(
-        select(ProjectOrchestration).where(ProjectOrchestration.project_id == project_id)
-    )
-    row = result.scalar_one_or_none()
-    if row:
-        return row
-    row = ProjectOrchestration(tenant_id=tenant_id, project_id=project_id)
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return row
-
-
-def serialize_orchestration(row: ProjectOrchestration) -> dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "tenant_id": str(row.tenant_id),
-        "project_id": str(row.project_id),
-        "wake_cadence": row.wake_cadence,
-        "autonomy_mode": row.autonomy_mode,
-        "hitl_sensitivity": row.hitl_sensitivity,
-        "continuous_enabled": row.continuous_enabled,
-        "next_po_wake_at": _iso(row.next_po_wake_at),
-        "last_po_wake_at": _iso(row.last_po_wake_at),
-        "created_at": _iso(row.created_at) or datetime.utcnow().isoformat(),
-        "updated_at": _iso(row.updated_at) or datetime.utcnow().isoformat(),
-    }
-
-
-async def patch_orchestration(
-    session: AsyncSession,
-    tenant_id: UUID,
-    project_id: UUID,
-    patch: dict[str, Any],
-) -> dict[str, Any]:
-    row = await get_or_create_orchestration(session, tenant_id, project_id)
-    for key in ("wake_cadence", "autonomy_mode", "hitl_sensitivity", "continuous_enabled"):
-        if key in patch and patch[key] is not None:
-            setattr(row, key, patch[key])
-    row.updated_at = datetime.utcnow()
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return serialize_orchestration(row)
-
-
-def _default_enabled(event_type: str, channel: str) -> bool:
-    if channel == "desktop" and event_type in ("decisions", "failures"):
-        return True
-    if channel == "email" and event_type == "failures":
-        return True
-    return False
-
-
-async def ensure_notification_prefs(
-    session: AsyncSession, tenant_id: UUID, project_id: UUID
-) -> list[ProjectNotificationPreference]:
-    result = await session.execute(
-        select(ProjectNotificationPreference).where(ProjectNotificationPreference.project_id == project_id)
-    )
-    rows = list(result.scalars().all())
-    if rows:
-        return rows
-    created: list[ProjectNotificationPreference] = []
-    for event_type in EVENT_TYPES:
-        for channel in CHANNELS:
-            pref = ProjectNotificationPreference(
-                tenant_id=tenant_id,
-                project_id=project_id,
-                event_type=event_type,
-                channel=channel,
-                enabled=_default_enabled(event_type, channel),
-            )
-            session.add(pref)
-            created.append(pref)
-    await session.commit()
-    for pref in created:
-        await session.refresh(pref)
-    return created
-
-
-async def notification_prefs_response(
-    session: AsyncSession, tenant_id: UUID, project_id: UUID
-) -> dict[str, Any]:
-    await get_project_row(session, tenant_id, project_id)
-    rows = await ensure_notification_prefs(session, tenant_id, project_id)
-    return {
-        "project_id": str(project_id),
-        "preferences": [
-            {
-                "event_type": r.event_type,
-                "channel": r.channel,
-                "enabled": r.enabled,
-            }
-            for r in rows
-        ],
-    }
-
-
-async def patch_notification_prefs(
-    session: AsyncSession,
-    tenant_id: UUID,
-    project_id: UUID,
-    preferences: list[dict[str, Any]],
-) -> dict[str, Any]:
-    await get_project_row(session, tenant_id, project_id)
-    rows = await ensure_notification_prefs(session, tenant_id, project_id)
-    by_key = {(r.event_type, r.channel): r for r in rows}
-    for item in preferences:
-        key = (item.get("event_type"), item.get("channel"))
-        row = by_key.get(key)
-        if row and "enabled" in item:
-            row.enabled = bool(item["enabled"])
-            session.add(row)
-    await session.commit()
-    return await notification_prefs_response(session, tenant_id, project_id)
 
 
 async def _token_usage(
@@ -473,21 +354,33 @@ async def usage_summary(
     }
 
 
-def serialize_workstream(row: ProjectWorkstream) -> dict[str, Any]:
+async def _workstream_step_counts(
+    session: AsyncSession, workstream_ids: list[UUID]
+) -> dict[UUID, int]:
+    from sqlalchemy import func
+
+    from app.models.orchestra import WorkstreamStep
+
+    if not workstream_ids:
+        return {}
+    result = await session.execute(
+        select(WorkstreamStep.workstream_id, func.count())
+        .where(WorkstreamStep.workstream_id.in_(workstream_ids))
+        .group_by(WorkstreamStep.workstream_id)
+    )
+    return {row[0]: int(row[1]) for row in result.all()}
+
+
+def serialize_workstream(row: Workstream, *, steps_count: int = 0) -> dict[str, Any]:
     return {
         "id": str(row.id),
-        "project_id": str(row.project_id),
+        "project_id": str(row.project_id) if row.project_id else None,
         "tenant_id": str(row.tenant_id),
         "name": row.name,
-        "slug": row.slug,
-        "status": row.status,
-        "trigger_text": row.trigger_text,
-        "output_text": row.output_text,
-        "steps": _parse_json(row.steps_json),
-        "position": row.position,
-        "last_active_at": _iso(row.last_active_at),
+        "description": row.description or "",
+        "enabled": row.enabled,
+        "steps_count": steps_count,
         "created_at": _iso(row.created_at),
-        "updated_at": _iso(row.updated_at),
     }
 
 
@@ -496,11 +389,13 @@ async def list_workstreams(
 ) -> dict[str, Any]:
     project, po_agent = await get_project_row(session, tenant_id, project_id)
     result = await session.execute(
-        select(ProjectWorkstream)
-        .where(ProjectWorkstream.project_id == project_id, ProjectWorkstream.tenant_id == tenant_id)
-        .order_by(ProjectWorkstream.position, ProjectWorkstream.created_at)
+        select(Workstream)
+        .where(Workstream.project_id == project_id, Workstream.tenant_id == tenant_id)
+        .order_by(Workstream.created_at)
     )
-    items = [serialize_workstream(w) for w in result.scalars().all()]
+    rows = list(result.scalars().all())
+    counts = await _workstream_step_counts(session, [w.id for w in rows])
+    items = [serialize_workstream(w, steps_count=counts.get(w.id, 0)) for w in rows]
     return {"items": items, "po_agent": serialize_po_agent(po_agent)}
 
 
@@ -511,17 +406,12 @@ async def create_workstream(
     data: dict[str, Any],
 ) -> dict[str, Any]:
     await get_project_row(session, tenant_id, project_id)
-    slug = str(data.get("slug", "")).strip().lower()
-    row = ProjectWorkstream(
+    row = Workstream(
         tenant_id=tenant_id,
         project_id=project_id,
-        name=str(data.get("name", "Workstream")).strip(),
-        slug=slug or "workstream",
-        status=data.get("status") or "draft",
-        trigger_text=data.get("trigger_text"),
-        output_text=data.get("output_text"),
-        steps_json=json.dumps(data.get("steps") or []),
-        position=int(data.get("position") or 0),
+        name=str(data.get("name", "Workstream")).strip() or "Workstream",
+        description=str(data.get("description") or "").strip(),
+        enabled=bool(data.get("enabled", True)),
     )
     session.add(row)
     await session.commit()
@@ -537,27 +427,26 @@ async def patch_workstream(
     patch: dict[str, Any],
 ) -> dict[str, Any]:
     result = await session.execute(
-        select(ProjectWorkstream).where(
-            ProjectWorkstream.id == workstream_id,
-            ProjectWorkstream.project_id == project_id,
-            ProjectWorkstream.tenant_id == tenant_id,
+        select(Workstream).where(
+            Workstream.id == workstream_id,
+            Workstream.project_id == project_id,
+            Workstream.tenant_id == tenant_id,
         )
     )
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Workstream not found")
-    for key in ("name", "slug", "status", "trigger_text", "output_text", "position"):
-        if key in patch and patch[key] is not None:
-            setattr(row, key, patch[key])
-    if "steps" in patch and patch["steps"] is not None:
-        row.steps_json = json.dumps(patch["steps"])
-    if "last_active_at" in patch:
-        row.last_active_at = datetime.utcnow()
-    row.updated_at = datetime.utcnow()
+    if "name" in patch and patch["name"] is not None:
+        row.name = str(patch["name"]).strip() or row.name
+    if "description" in patch and patch["description"] is not None:
+        row.description = str(patch["description"]).strip()
+    if "enabled" in patch and patch["enabled"] is not None:
+        row.enabled = bool(patch["enabled"])
     session.add(row)
     await session.commit()
     await session.refresh(row)
-    return serialize_workstream(row)
+    counts = await _workstream_step_counts(session, [row.id])
+    return serialize_workstream(row, steps_count=counts.get(row.id, 0))
 
 
 async def po_agent_summary(

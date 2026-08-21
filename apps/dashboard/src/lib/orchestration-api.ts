@@ -46,20 +46,11 @@ export type WorkstreamStep = {
   eval_kind?: string
 }
 
-export type OrchestrationSettings = {
-  orchestra_enabled: boolean
-  monthly_budget_cents: number
-}
-
 export type Workstream = {
   id: string
   name: string
   description?: string
   enabled: boolean
-}
-
-export async function getOrchestrationSettings(): Promise<OrchestrationSettings> {
-  return apiGet<OrchestrationSettings>(appRoutes.orchestration.settings)
 }
 
 export async function listWorkstreams(): Promise<Workstream[]> {

@@ -14,6 +14,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.metric import CustomMetric, CustomMetricPoint
 from app.services.metrics import (
+    PLATFORM_METRIC_SOURCES,
     create_metric,
     list_metrics_with_latest,
     normalize_unit,
@@ -30,6 +31,7 @@ class MetricCreate(BaseModel):
     description: str = ""
     unit: str = "number"
     target: float | None = None
+    source: str = "manual"
 
 
 class MetricUpdate(BaseModel):
@@ -38,6 +40,7 @@ class MetricUpdate(BaseModel):
     unit: str | None = None
     target: float | None = None
     sort_order: int | None = None
+    source: str | None = None
 
 
 class MetricPointCreate(BaseModel):
@@ -67,6 +70,19 @@ async def list_metrics(
     return {"items": await list_metrics_with_latest(session, auth.tenant.id)}
 
 
+@router.get("/sources")
+async def list_metric_sources(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Platform aggregates a metric can be bound to (plus manual fill)."""
+    return {
+        "items": [
+            {"id": source_id, "label": meta["label"], "unit": meta["unit"]}
+            for source_id, meta in PLATFORM_METRIC_SOURCES.items()
+        ]
+    }
+
+
 @router.post("")
 async def create_metric_endpoint(
     body: MetricCreate,
@@ -82,6 +98,7 @@ async def create_metric_endpoint(
             description=body.description,
             unit=body.unit,
             target=body.target,
+            source=body.source,
             created_by_user_id=auth.user.id,
         )
     except ValueError as exc:
@@ -109,6 +126,12 @@ async def update_metric(
         metric.target = body.target
     if body.sort_order is not None:
         metric.sort_order = body.sort_order
+    if body.source is not None:
+        if body.source != "manual" and body.source not in PLATFORM_METRIC_SOURCES:
+            raise HTTPException(status_code=400, detail=f"Unknown metric source: {body.source}")
+        metric.source = body.source
+        if body.source in PLATFORM_METRIC_SOURCES:
+            metric.unit = PLATFORM_METRIC_SOURCES[body.source]["unit"]
     from datetime import datetime
 
     metric.updated_at = datetime.utcnow()
@@ -144,6 +167,11 @@ async def add_metric_point(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     metric = await _get_metric(session, auth.tenant.id, metric_id)
+    if (metric.source or "manual") in PLATFORM_METRIC_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail="This metric is computed from platform data and cannot be filled manually.",
+        )
     await record_metric_point(
         session,
         auth.tenant.id,

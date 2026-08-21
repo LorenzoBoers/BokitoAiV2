@@ -18,7 +18,8 @@ from app.models.os_graph import (
     OsCanvasEdge,
     OsCanvasNode,
 )
-from app.models.project import Project, ProjectWorkstream
+from app.models.orchestra import Workstream
+from app.models.project import Project
 from app.services.projects import serialize_po_agent
 from app.services.workforce_runtime import role_slug
 
@@ -95,12 +96,12 @@ async def ensure_canvas_seeded(session: AsyncSession, tenant_id: UUID) -> None:
             orchestrator_nodes[po_agent.id] = orch_node
 
         ws_result = await session.execute(
-            select(ProjectWorkstream)
+            select(Workstream)
             .where(
-                ProjectWorkstream.project_id == project.id,
-                ProjectWorkstream.tenant_id == tenant_id,
+                Workstream.project_id == project.id,
+                Workstream.tenant_id == tenant_id,
             )
-            .order_by(ProjectWorkstream.position, ProjectWorkstream.name)
+            .order_by(Workstream.name)
         )
         workstreams = list(ws_result.scalars().all())
         ws_nodes: list[OsCanvasNode] = []
@@ -212,19 +213,17 @@ async def _resolve_node_summary(
 
     if node.node_type == "workstream":
         result = await session.execute(
-            select(ProjectWorkstream).where(
-                ProjectWorkstream.id == node.ref_id,
-                ProjectWorkstream.tenant_id == tenant_id,
+            select(Workstream).where(
+                Workstream.id == node.ref_id,
+                Workstream.tenant_id == tenant_id,
             )
         )
         ws = result.scalar_one_or_none()
-        project_id = str(ws.project_id) if ws else None
+        project_id = str(ws.project_id) if ws and ws.project_id else None
         base["title"] = ws.name if ws else node.label or "Workstream"
-        base["subtitle"] = ws.slug if ws else ""
-        base["status"] = ws.status if ws else "draft"
-        base["href"] = (
-            f"/project/{project_id}/overview?stream={ws.slug}" if ws and project_id else None
-        )
+        base["subtitle"] = (ws.description or "")[:80] if ws else ""
+        base["status"] = ("active" if ws.enabled else "paused") if ws else "draft"
+        base["href"] = f"/project/{project_id}/overview" if project_id else None
         base["project_id"] = project_id
         return base
 
@@ -482,8 +481,8 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
             po_agent = po_result.scalar_one_or_none()
         ws_count = await session.execute(
             select(func.count())
-            .select_from(ProjectWorkstream)
-            .where(ProjectWorkstream.project_id == project.id)
+            .select_from(Workstream)
+            .where(Workstream.project_id == project.id)
         )
         pending = await session.execute(
             select(func.count())

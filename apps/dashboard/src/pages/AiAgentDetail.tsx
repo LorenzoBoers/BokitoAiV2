@@ -6,6 +6,7 @@ import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { AgentChatAccessCard } from '../components/workforce/AgentChatAccessCard'
 import { AgentModelCard } from '../components/workforce/AgentModelCard'
+import { AgentToolsPicker } from '../components/workforce/AgentToolsPicker'
 import { AgentInstructionsCard } from '../components/workforce/AgentInstructionsCard'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -422,27 +423,14 @@ export default function AiAgentDetail() {
                 )}
               </div>
               <div className="sm:col-span-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                  {t('workforce.agents.allowedTools', { defaultValue: 'Allowed tools' })}
-                </p>
-                {passport && passport.allowed_tools.length > 0 ? (
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {passport.allowed_tools.map((tool) => (
-                      <span
-                        key={tool}
-                        className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-[11px] text-text-secondary"
-                      >
-                        {tool}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1 text-sm text-text-muted">
-                    {t('workforce.agents.allToolsByPolicy', {
-                      defaultValue: 'All tools, gated by workspace allowances.',
-                    })}
-                  </p>
-                )}
+                <AgentToolsPicker
+                  agentId={agent.id}
+                  allowedTools={passport?.allowed_tools ?? []}
+                  canEdit={isAdmin}
+                  onSaved={(tools) =>
+                    setPassport((prev) => (prev ? { ...prev, allowed_tools: tools } : prev))
+                  }
+                />
               </div>
               {passport && passport.permission_scopes.length > 0 ? (
                 <div className="sm:col-span-3">
