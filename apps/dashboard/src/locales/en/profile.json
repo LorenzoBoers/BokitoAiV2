@@ -54,6 +54,14 @@
     "totpDisabled": "Two-factor authentication disabled",
     "totpDisableConfirm": "Enter your password to turn off two-factor authentication."
   },
+  "session": {
+    "title": "Session",
+    "description": "Manage your sign-in on this device."
+  },
+  "dangerZone": {
+    "title": "Danger zone",
+    "description": "Irreversible actions for your account."
+  },
   "account": {
     "title": "Account",
     "description": "Sign out or permanently delete your account.",

@@ -54,6 +54,14 @@
     "totpDisabled": "Tweestapsverificatie uitgeschakeld",
     "totpDisableConfirm": "Voer je wachtwoord in om tweestapsverificatie uit te schakelen."
   },
+  "session": {
+    "title": "Sessie",
+    "description": "Beheer je aanmelding op dit apparaat."
+  },
+  "dangerZone": {
+    "title": "Gevarenzone",
+    "description": "Onomkeerbare acties voor je account."
+  },
   "account": {
     "title": "Account",
     "description": "Log uit of verwijder je account permanent.",

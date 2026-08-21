@@ -1,4 +1,4 @@
-import { LayoutGrid, UserCircle2 } from 'lucide-react'
+import { LayoutGrid, LogOut, UserCircle2 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -13,7 +13,7 @@ function navItemClass(isActive: boolean) {
 
 export default function WorkspaceHubNav() {
   const { t } = useTranslation('workspaces')
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const displayName = user?.name || t('account.sidebar.fallbackName')
   const email = user?.email || t('account.sidebar.fallbackEmail')
   const initials = displayName
@@ -36,8 +36,8 @@ export default function WorkspaceHubNav() {
         </NavLink>
       </nav>
 
-      <div className="mt-auto border-t border-border/60 pt-3">
-        <NavLink to="/account" className={({ isActive }) => navItemClass(isActive)}>
+      <div className="mt-auto flex items-center gap-1 border-t border-border/60 pt-3">
+        <NavLink to="/account" className={({ isActive }) => `min-w-0 flex-1 ${navItemClass(isActive)}`}>
           <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-bg-hover/70 text-[11px] font-semibold text-text-primary">
             {initials}
           </span>
@@ -47,6 +47,15 @@ export default function WorkspaceHubNav() {
           </span>
           <UserCircle2 size={14} className="shrink-0 text-text-muted" />
         </NavLink>
+        <button
+          type="button"
+          onClick={() => void logout()}
+          title={t('account.session.signOut')}
+          aria-label={t('account.session.signOut')}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+        >
+          <LogOut size={15} />
+        </button>
       </div>
     </aside>
   )

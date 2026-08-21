@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, LaptopMinimal, Lock, Moon, Pencil, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
+import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
@@ -702,18 +702,25 @@ export function ProfileSettingsContent() {
         </Card>
       </Section>
 
-      {/* ── Account ── */}
-      <Section title={t('profile:account.title')} description={t('profile:account.description')}>
+      {/* ── Session ── */}
+      <Section title={t('profile:session.title')} description={t('profile:session.description')}>
         <Card>
-          <div className="flex items-center justify-between border-b border-border/60 py-3.5">
+          <div className="flex items-center justify-between py-3.5">
             <div>
               <p className="text-sm font-medium text-text-heading">{t('profile:account.signOutTitle')}</p>
               <p className="text-xs text-text-muted">{t('profile:account.signOutDescription')}</p>
             </div>
             <Button variant="secondary" size="sm" className="h-8 rounded-lg px-3 text-xs" onClick={() => void logout()}>
+              <LogOut size={12} />
               {t('common:actions.signOut')}
             </Button>
           </div>
+        </Card>
+      </Section>
+
+      {/* ── Danger zone ── */}
+      <Section title={t('profile:dangerZone.title')} description={t('profile:dangerZone.description')}>
+        <div className="rounded-xl border border-status-error/30 bg-status-error/[0.03] px-4 shadow-card">
           <div className="flex items-center justify-between py-3.5">
             <div>
               <p className="text-sm font-medium text-text-heading">{t('profile:account.deleteTitle')}</p>
@@ -730,7 +737,7 @@ export function ProfileSettingsContent() {
               {deleting ? t('profile:account.deleting') : t('common:actions.delete')}
             </Button>
           </div>
-        </Card>
+        </div>
       </Section>
     </div>
   )
