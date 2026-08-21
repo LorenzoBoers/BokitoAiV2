@@ -99,6 +99,12 @@ def serialize_thread(
         "tags": json.loads(signal.tags_json or "[]"),
         "ai_paused": signal.ai_paused,
         "suggested_actions": json.loads(signal.suggested_actions_json or "[]"),
+        # AI triage (INTERPRETATION layer) shown on the thread header.
+        "category": signal.category,
+        "urgency": signal.urgency,
+        "certainty": signal.certainty,
+        "ai_summary": signal.summary,
+        "triaged_at": _iso(signal.triaged_at),
         "last_message_at": _iso(signal.last_message_at),
         "has_unread": signal.has_unread,
         "is_pinned": is_pinned,

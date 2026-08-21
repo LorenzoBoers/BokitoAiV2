@@ -18,7 +18,6 @@ from app.models.auth import Membership, Tenant, User
 from app.models.channel import ChannelAccount, Contact
 from app.models.inbox import InboxSettings
 from app.models.integration import McpServer
-from app.models.policy import AssistantPersona
 from app.models.project import Project, ProjectOrchestration
 from app.services.auth import hash_password
 from app.services.personal_agents import get_or_create_personal_agent
@@ -322,7 +321,6 @@ async def _seed_tenant_data(session, tenant):
         await session.execute(select(InboxSettings).where(InboxSettings.tenant_id == tenant.id))
     ).scalar_one_or_none():
         session.add(InboxSettings(tenant_id=tenant.id))
-        session.add(AssistantPersona(tenant_id=tenant.id, tone="Professional"))
 
     if not await get_doc_by_path(session, tenant.id, "company.md"):
         await upsert_doc(

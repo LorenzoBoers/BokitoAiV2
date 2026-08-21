@@ -393,9 +393,40 @@ async def apply_change_to_domain(
         return await apply_canvas_edge_change(session, tenant_id, after)
     if rt == "autonomy_posture":
         return await apply_autonomy_posture_change(session, tenant_id, after)
-    # "persona_review" and other advisory kinds: accepting acknowledges the
-    # review; there is nothing to apply automatically.
+    if rt == "persona_review":
+        return await apply_persona_review_change(session, tenant_id, after)
     return {"status": "applied", "resource_type": rt, "payload": after}
+
+
+async def apply_persona_review_change(
+    session: AsyncSession, tenant_id: UUID, after: dict[str, Any]
+) -> dict[str, Any]:
+    """Approving a persona review appends its guidance to persona.md.
+
+    The proposal carries a `proposed_addition` built from the negative
+    feedback samples; approval writes it into the doc every agent reads, so
+    accepting the review changes real behavior instead of just acknowledging.
+    """
+    from datetime import datetime as _dt
+
+    from app.services.persona import append_persona_section
+
+    addition = str(after.get("proposed_addition") or "").strip()
+    if not addition:
+        samples = after.get("samples") or []
+        comments = [
+            f"- {str(s.get('comment', '')).strip()}"
+            for s in samples
+            if isinstance(s, dict) and str(s.get("comment", "")).strip()
+        ]
+        addition = (
+            "Recent feedback to account for in replies:\n" + "\n".join(comments)
+            if comments
+            else f"Reviewed {after.get('negative_count', 0)} negative feedback signal(s)."
+        )
+    heading = f"Feedback review {_dt.utcnow().strftime('%Y-%m-%d')}"
+    await append_persona_section(session, tenant_id, heading=heading, body=addition)
+    return {"status": "applied", "resource_type": "persona_review", "doc": "persona.md"}
 
 
 async def apply_autonomy_posture_change(

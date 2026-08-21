@@ -212,6 +212,81 @@ async def record_outcome(
     return payload
 
 
+async def suggest_rule(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    match_type: str,
+    match_value: str,
+    action: str,
+    label: str = "",
+    source: str = "learned",
+    reason: str = "",
+    observations: int = 1,
+) -> dict[str, Any] | None:
+    """Create or reinforce a *suggested* rule without activating it.
+
+    Used by the correction-chat agent tool and the feedback clustering in the
+    learning cycle: the rule shows up in Inbox settings (and inline cards)
+    where a human activates it. Paused rules are respected; already-active
+    rules teach nothing. Returns the serialized rule or None when skipped.
+    """
+    if match_type not in ("sender", "domain", "list_id") or action not in RULE_ACTIONS:
+        return None
+    value = (
+        normalize_address(match_value)
+        if match_type == "sender"
+        else (match_value or "").strip().lower()
+    )
+    if not value:
+        return None
+
+    rule = await _rule_by_key(session, tenant_id, match_type, value)
+    if rule is None:
+        rule = InboxRule(
+            tenant_id=tenant_id,
+            match_type=match_type,
+            match_value=value,
+            label=(label or value)[:120],
+            action=action,
+            status="suggested",
+            source=source,
+            observations=max(1, observations),
+        )
+        session.add(rule)
+        await session.flush()
+    elif rule.status in ("active", "paused"):
+        return None
+    elif rule.action == action:
+        rule.observations = max(rule.observations + 1, observations)
+        rule.updated_at = datetime.utcnow()
+        session.add(rule)
+    else:
+        rule.action = action
+        rule.observations = max(1, observations)
+        rule.updated_at = datetime.utcnow()
+        session.add(rule)
+
+    await record_audit(
+        session,
+        tenant_id,
+        action="inbox_rule:suggest",
+        actor_type="system" if source != "agent" else "agent",
+        resource_type="inbox_rule",
+        resource_id=str(rule.id),
+        outcome="proposed",
+        summary=(
+            f"Suggested {ACTION_LABELS.get(action, action)} for {match_type} {value}"
+            + (f" — {reason[:160]}" if reason else "")
+        ),
+        payload={"observations": rule.observations, "source": source, "reason": reason[:500]},
+        commit=False,
+    )
+    payload = serialize_rule(rule)
+    payload["ready_to_activate"] = rule.observations >= PROMOTION_THRESHOLD
+    return payload
+
+
 async def activate_rule_row(
     session: AsyncSession,
     tenant_id: UUID,

@@ -467,6 +467,13 @@
         "fr": "French",
         "es": "Spanish"
       },
+      "triageTitle": "Triage",
+      "triageDescription": "How confident the AI must be before its classification affects thread priority.",
+      "certaintyLabel": "Certainty threshold",
+      "certaintyHint": "Below this certainty, triage never raises a thread to high or urgent. Higher values mean fewer but more reliable priority bumps.",
+      "certaintyLow": "permissive",
+      "certaintyMedium": "balanced",
+      "certaintyHigh": "strict",
       "mailboxOverrideTitle": "Per-mailbox override",
       "mailboxOverrideDescription": "Give a specific mailbox its own AI mode and reply language instead of the workspace default.",
       "mailboxLanguageHint": "Reply language for drafts from this mailbox.",

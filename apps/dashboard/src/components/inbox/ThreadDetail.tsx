@@ -316,11 +316,13 @@ function ThreadMetaRow({
   priority,
   saving,
   onPatch,
+  triage,
 }: {
   tags: string[]
   priority: string
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
+  triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
 }) {
   const [addingTag, setAddingTag] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -377,6 +379,26 @@ function ThreadMetaRow({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {triage && (triage.category || triage.certainty != null) ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] text-text-secondary">
+              <Sparkles size={10} className="text-accent" />
+              {triage.category ? <span className="capitalize">{triage.category}</span> : null}
+              {triage.urgency != null ? (
+                <span className="text-text-muted">urgency {triage.urgency}</span>
+              ) : null}
+              {triage.certainty != null ? (
+                <span className="text-text-muted">certainty {triage.certainty}%</span>
+              ) : null}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-xs text-xs">
+            {triage.summary?.trim() || 'AI triage of this thread.'}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
 
       <span className="mx-0.5 h-3 w-px bg-border/50" aria-hidden />
 
@@ -1215,6 +1237,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           priority={thread.priority}
           saving={saving}
           onPatch={onPatch}
+          triage={{
+            category: thread.category,
+            urgency: thread.urgency,
+            certainty: thread.certainty,
+            summary: thread.aiSummary,
+          }}
         />
       ) : null}
 

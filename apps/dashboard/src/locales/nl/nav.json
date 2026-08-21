@@ -491,6 +491,13 @@
         "fr": "Frans",
         "es": "Spaans"
       },
+      "triageTitle": "Triage",
+      "triageDescription": "Hoe zeker de AI moet zijn voordat de classificatie de prioriteit van een thread beinvloedt.",
+      "certaintyLabel": "Zekerheidsdrempel",
+      "certaintyHint": "Onder deze zekerheid verhoogt triage nooit de prioriteit van een thread. Hogere waarden betekenen minder maar betrouwbaardere prioriteitsverhogingen.",
+      "certaintyLow": "soepel",
+      "certaintyMedium": "gebalanceerd",
+      "certaintyHigh": "strikt",
       "mailboxOverrideTitle": "Uitzondering per mailbox",
       "mailboxOverrideDescription": "Geef een specifieke mailbox een eigen AI-modus en antwoordtaal in plaats van de workspace-standaard.",
       "mailboxLanguageHint": "Antwoordtaal voor concepten vanuit deze mailbox.",

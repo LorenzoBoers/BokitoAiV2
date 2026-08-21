@@ -26,7 +26,7 @@ function correctionPrompt(subject: CorrectionSubject): string {
     `I want to correct your interpretation of the linked conversation - specifically the ${what}.`,
     quote ? `This is what you did:\n"""${quote}"""` : '',
     'I will explain what you should have done. Ask focused clarifying questions if anything is unclear.',
-    'When you understand the correction, make it stick: update the workspace knowledge or memory with what you learned, and if this looks like a recurring pattern, propose a rule or ask me to confirm one.',
+    'When you understand the correction, make it stick: use write_doc to record what you learned in workspace memory, and if this looks like a recurring pattern for this sender or type of message, use suggest_inbox_rule to propose an automation rule I can confirm.',
   ]
     .filter(Boolean)
     .join('\n\n')

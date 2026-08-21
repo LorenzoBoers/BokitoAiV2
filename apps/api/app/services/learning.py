@@ -202,6 +202,14 @@ async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool
         {"subject_type": f.subject_type, "subject_id": f.subject_id, "comment": (f.comment or "")[:300]}
         for f in negatives[:10]
     ]
+    # Concrete diff the approval will apply: a persona.md addition built from
+    # the feedback comments (see platform_apply.apply_persona_review_change).
+    comment_lines = [f"- {s['comment']}" for s in samples if s["comment"].strip()]
+    proposed_addition = (
+        "Recent feedback to account for in replies:\n" + "\n".join(comment_lines)
+        if comment_lines
+        else f"Reviewed {len(negatives)} negative feedback signal(s) without comments."
+    )
     session.add(
         PlatformChange(
             tenant_id=tenant_id,
@@ -212,12 +220,97 @@ async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool
                 f"{len(negatives)} negative feedback signal(s) this week. "
                 "Proposal: review the assistant persona and reply guidelines."
             ),
-            after_json=_json.dumps({"negative_count": len(negatives), "samples": samples}),
+            after_json=_json.dumps(
+                {
+                    "negative_count": len(negatives),
+                    "samples": samples,
+                    "proposed_addition": proposed_addition,
+                }
+            ),
             proposed_by_type="system",
         )
     )
     await session.commit()
     return True
+
+
+async def suggest_rules_from_feedback(session: AsyncSession, tenant_id: UUID) -> int:
+    """Cluster repeated thumbs-down per sender into a suggested mute_ai rule.
+
+    When operators keep rejecting AI output on threads from the same sender,
+    the honest lesson is usually "stop letting the AI handle this sender".
+    Reuses the inbox-rule suggestion path, so the proposal shows up in Inbox
+    settings where a human activates it. Returns the number of rules
+    suggested/reinforced.
+    """
+    from app.models.signal import Signal, SignalMessage
+    from app.services.inbox_rules import PROMOTION_THRESHOLD, suggest_rule
+
+    since = datetime.utcnow() - timedelta(days=7)
+    rows = (
+        await session.execute(
+            select(Feedback.subject_id)
+            .where(
+                Feedback.tenant_id == tenant_id,
+                Feedback.sentiment == "down",
+                Feedback.subject_type == "message",
+                Feedback.created_at >= since,
+            )
+            .limit(500)
+        )
+    ).scalars().all()
+    if not rows:
+        return 0
+
+    message_ids = []
+    for raw in rows:
+        try:
+            message_ids.append(UUID(str(raw)))
+        except (ValueError, TypeError):
+            continue
+    if not message_ids:
+        return 0
+
+    # Sender per thread; only external email threads can carry sender rules.
+    pairs = (
+        await session.execute(
+            select(Signal.contact_email, Signal.id)
+            .join(SignalMessage, SignalMessage.signal_id == Signal.id)
+            .where(
+                SignalMessage.id.in_(message_ids),
+                Signal.tenant_id == tenant_id,
+                Signal.channel == "email",
+            )
+        )
+    ).all()
+    threads_per_sender: dict[str, set] = {}
+    for sender, signal_id in pairs:
+        addr = (sender or "").strip().lower()
+        if "@" in addr:
+            threads_per_sender.setdefault(addr, set()).add(signal_id)
+
+    suggested = 0
+    for sender, signal_ids in threads_per_sender.items():
+        if len(signal_ids) < PROMOTION_THRESHOLD:
+            continue
+        payload = await suggest_rule(
+            session,
+            tenant_id,
+            match_type="sender",
+            match_value=sender,
+            action="mute_ai",
+            source="learned",
+            reason=(
+                f"{len(signal_ids)} threads from this sender got negative feedback "
+                "on AI output in the past week."
+            ),
+            observations=len(signal_ids),
+        )
+        if payload is not None:
+            suggested += 1
+    if suggested:
+        await session.commit()
+    return suggested
 
 
 async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[EvalScore]:
@@ -407,6 +500,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         return {"skipped": True, "reason": "learning_disabled"}
 
     mapped = await map_outcomes_to_feedback(session, tenant_id)
+    rules_suggested = await suggest_rules_from_feedback(session, tenant_id)
     batch = await process_feedback_batch(session, tenant_id)
     evals = await compute_eval_scores(session, tenant_id)
     guardrails = await apply_heuristic_guardrails(session, tenant_id)
@@ -443,6 +537,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
 
     return {
         "mapped_outcomes": mapped,
+        "rules_suggested": rules_suggested,
         "feedback_batch": batch,
         "eval_count": len(evals),
         "guardrails": guardrails,

@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.inbox import InboxSettings
-from app.models.policy import AssistantPersona
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
 
@@ -38,7 +37,7 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
         "persona.md",
         "persona",
-        "# Persona\n\nProfessional and helpful. Keep replies concise and concrete.\n",
+        "# Persona\n\n## Tone\nProfessional and helpful. Keep replies concise and concrete.\n",
     ),
     (
         "memory.md",
@@ -59,8 +58,8 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
 
 
 async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
+    # Persona lives in the persona.md workspace doc (DEFAULT_DOCS below).
     session.add(InboxSettings(tenant_id=tenant_id))
-    session.add(AssistantPersona(tenant_id=tenant_id, tone="Professional and helpful"))
     session.add(
         Agent(
             tenant_id=tenant_id,

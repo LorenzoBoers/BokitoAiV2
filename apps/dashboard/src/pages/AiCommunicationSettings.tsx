@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Globe, Languages, Mail, MessageSquareText } from 'lucide-react'
+import { Gauge, Globe, Languages, Mail, MessageSquareText } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
@@ -22,7 +22,9 @@ import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { getAiConfig, saveAiConfig, type MailboxAiMode, type MailboxReplyLanguage } from '../lib/email-api'
 import {
   getAiCommunicationSettings,
+  getInboxTriageSettings,
   saveAiCommunicationSettings,
+  saveInboxTriageSettings,
   type AiCommunicationSettings as AiSettings,
   type AiMode,
   type ChannelAiModes,
@@ -104,6 +106,10 @@ export default function AiCommunicationSettings() {
   const [savedAiSettings, setSavedAiSettings] = useState<AiSettings | null>(null)
   const [modesError, setModesError] = useState<string | null>(null)
 
+  // Triage certainty threshold (1-10)
+  const [certainty, setCertainty] = useState<number | null>(null)
+  const [savedCertainty, setSavedCertainty] = useState<number | null>(null)
+
   // Per-mailbox override
   const [connectionId, setConnectionId] = useState<number | null>(null)
   const [mailboxMode, setMailboxMode] = useState<MailboxAiMode | ''>('')
@@ -137,6 +143,22 @@ export default function AiCommunicationSettings() {
       cancelled = true
     }
   }, [token, t])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void getInboxTriageSettings(token)
+      .then((data) => {
+        if (!cancelled) {
+          setCertainty(data.certaintyThreshold)
+          setSavedCertainty(data.certaintyThreshold)
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   useEffect(() => {
     if (activeMailboxes.length === 0) {
@@ -180,7 +202,8 @@ export default function AiCommunicationSettings() {
     savedAiSettings != null &&
     JSON.stringify(aiSettings) !== JSON.stringify(savedAiSettings)
   const mailboxDirty = mailboxMode !== savedMailboxMode || mailboxLanguage !== savedMailboxLanguage
-  const isDirty = tenantDirty || mailboxDirty
+  const certaintyDirty = certainty != null && certainty !== savedCertainty
+  const isDirty = tenantDirty || mailboxDirty || certaintyDirty
 
   const handleSave = useCallback(async () => {
     if (!token) return
@@ -200,13 +223,17 @@ export default function AiCommunicationSettings() {
         setSavedMailboxMode(mailboxMode)
         setSavedMailboxLanguage(mailboxLanguage)
       }
+      if (certaintyDirty && certainty != null) {
+        await saveInboxTriageSettings(token, { certaintyThreshold: certainty })
+        setSavedCertainty(certainty)
+      }
       setSaveMessage(t('ai.communication.saved'))
     } catch (err) {
       setSaveMessage(err instanceof Error ? err.message : t('ai.communication.saveError'))
     } finally {
       setSaving(false)
     }
-  }, [token, aiSettings, tenantDirty, connectionId, mailboxDirty, mailboxMode, mailboxLanguage, t])
+  }, [token, aiSettings, tenantDirty, connectionId, mailboxDirty, mailboxMode, mailboxLanguage, certaintyDirty, certainty, t])
 
   return (
     <PageContent width="md" className="space-y-6">
@@ -337,6 +364,56 @@ export default function AiCommunicationSettings() {
                 }}
               />
             </div>
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5 space-y-5">
+        <div>
+          <h2 className="text-sm font-medium text-text-heading">
+            {t('ai.communication.triageTitle')}
+          </h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            {t('ai.communication.triageDescription')}
+          </p>
+        </div>
+        {certainty == null ? (
+          <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+        ) : (
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Gauge size={16} className="mt-0.5 text-accent" />
+              <div>
+                <Label htmlFor="ai-certainty-threshold" className="text-sm font-medium">
+                  {t('ai.communication.certaintyLabel')}
+                </Label>
+                <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                  {t('ai.communication.certaintyHint')}
+                </p>
+              </div>
+            </div>
+            <Select
+              value={String(certainty)}
+              onValueChange={(v) => {
+                setCertainty(Number(v))
+                setSaveMessage(null)
+              }}
+            >
+              <SelectTrigger id="ai-certainty-threshold" className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n} — {n <= 3
+                      ? t('ai.communication.certaintyLow')
+                      : n <= 7
+                        ? t('ai.communication.certaintyMedium')
+                        : t('ai.communication.certaintyHigh')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </Card>

@@ -191,6 +191,130 @@ async def test_persona_review_needs_three_negatives(client: AsyncClient, session
     assert await propose_persona_review(session_override, tenant.id) is False
 
 
+@pytest.mark.asyncio
+async def test_accepting_persona_review_appends_to_persona_doc(
+    client: AsyncClient, session_override
+):
+    from app.services.platform_changes import accept_platform_change
+    from app.services.workspace import get_doc_by_path
+
+    tenant = await _tenant(session_override)
+    for comment in ("Too formal", "Too long", "Missed the point"):
+        session_override.add(
+            Feedback(tenant_id=tenant.id, subject_type="message", sentiment="down", comment=comment)
+        )
+    await session_override.commit()
+
+    assert await propose_persona_review(session_override, tenant.id) is True
+    proposal = (
+        await session_override.execute(
+            select(PlatformChange).where(PlatformChange.resource_type == "persona_review")
+        )
+    ).scalar_one()
+
+    user = (await session_override.execute(select(User))).scalars().first()
+    change = await accept_platform_change(session_override, tenant.id, proposal.id, user.id)
+    assert change.status == "accepted"
+
+    doc = await get_doc_by_path(session_override, tenant.id, "persona.md")
+    assert doc is not None
+    assert "Feedback review" in doc.content
+    assert "Too formal" in doc.content
+
+
+# ── repeated thumbs-down clusters into a rule suggestion ──────────
+
+
+@pytest.mark.asyncio
+async def test_thumbs_down_cluster_suggests_mute_rule(client: AsyncClient, session_override):
+    from app.models.learning import InboxRule
+    from app.models.signal import Signal, SignalMessage
+    from app.services.learning import suggest_rules_from_feedback
+
+    tenant = await _tenant(session_override)
+    sender = "angry@customer.com"
+    for i in range(3):
+        signal = Signal(
+            tenant_id=tenant.id,
+            channel="email",
+            subject=f"Complaint {i}",
+            contact_email=sender,
+        )
+        session_override.add(signal)
+        await session_override.flush()
+        message = SignalMessage(
+            tenant_id=tenant.id,
+            signal_id=signal.id,
+            direction="outbound",
+            body_text="AI reply",
+        )
+        session_override.add(message)
+        await session_override.flush()
+        session_override.add(
+            Feedback(
+                tenant_id=tenant.id,
+                subject_type="message",
+                subject_id=str(message.id),
+                sentiment="down",
+            )
+        )
+    await session_override.commit()
+
+    assert await suggest_rules_from_feedback(session_override, tenant.id) == 1
+    rule = (
+        await session_override.execute(
+            select(InboxRule).where(
+                InboxRule.tenant_id == tenant.id, InboxRule.match_value == sender
+            )
+        )
+    ).scalar_one()
+    assert rule.status == "suggested"
+    assert rule.action == "mute_ai"
+    assert rule.observations >= 3
+
+    # An active rule for the sender means nothing more to learn.
+    rule.status = "active"
+    session_override.add(rule)
+    await session_override.commit()
+    assert await suggest_rules_from_feedback(session_override, tenant.id) == 0
+
+
+@pytest.mark.asyncio
+async def test_two_thumbs_down_threads_do_not_suggest(client: AsyncClient, session_override):
+    from app.models.signal import Signal, SignalMessage
+    from app.services.learning import suggest_rules_from_feedback
+
+    tenant = await _tenant(session_override)
+    for i in range(2):
+        signal = Signal(
+            tenant_id=tenant.id,
+            channel="email",
+            subject=f"Msg {i}",
+            contact_email="mild@customer.com",
+        )
+        session_override.add(signal)
+        await session_override.flush()
+        message = SignalMessage(
+            tenant_id=tenant.id,
+            signal_id=signal.id,
+            direction="outbound",
+            body_text="AI reply",
+        )
+        session_override.add(message)
+        await session_override.flush()
+        session_override.add(
+            Feedback(
+                tenant_id=tenant.id,
+                subject_type="message",
+                subject_id=str(message.id),
+                sentiment="down",
+            )
+        )
+    await session_override.commit()
+
+    assert await suggest_rules_from_feedback(session_override, tenant.id) == 0
+
+
 # ── digest learning stats ─────────────────────────────────────────
 
 

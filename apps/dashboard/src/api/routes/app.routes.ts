@@ -99,6 +99,9 @@ export const appRoutes = {
   learning: {
     feedback: '/learning/feedback',
   },
+  inbox: {
+    settings: '/inbox/settings',
+  },
   orchestration: {
     settings: '/orchestration/settings',
     runtimeProfiles: '/orchestration/runtime-profiles',

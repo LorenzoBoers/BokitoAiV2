@@ -47,6 +47,11 @@ export type InboxThread = {
   aiPaused?: boolean
   /** Next-action chips set by AI inbound processing (close / assign / create_task). */
   suggestedActions?: string[]
+  /** AI triage (category / urgency 0-100 / certainty 0-100), null until triaged. */
+  category?: string | null
+  urgency?: number | null
+  certainty?: number | null
+  aiSummary?: string | null
   createdAt: string
   channel?: string
   folder?: MessageFolder | string
@@ -320,6 +325,10 @@ function normalizeThread(row: unknown): InboxThread | null {
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
       : [],
+    category: asNullableString(raw.category),
+    urgency: typeof raw.urgency === 'number' ? raw.urgency : null,
+    certainty: typeof raw.certainty === 'number' ? raw.certainty : null,
+    aiSummary: asNullableString(raw.ai_summary),
     createdAt: asTimestampString(raw.created_at),
     channel: asString(raw.channel) || undefined,
     folder: asString(raw.folder) || undefined,
@@ -760,6 +769,27 @@ export async function saveAiCommunicationSettings(
   )
 }
 
+// ---------------------------------------------------------------------------
+// Triage settings (certainty threshold used by AI signal classification)
+// ---------------------------------------------------------------------------
+
+export type InboxTriageSettings = {
+  /** 1-10; triage below this certainty never raises thread priority. */
+  certaintyThreshold: number
+}
+
+export async function getInboxTriageSettings(token: string): Promise<InboxTriageSettings> {
+  const payload = await apiGet<{ certainty_threshold?: number }>(appRoutes.inbox.settings, token)
+  const raw = payload.certainty_threshold
+  return { certaintyThreshold: typeof raw === 'number' && raw >= 1 && raw <= 10 ? raw : 7 }
+}
+
+export async function saveInboxTriageSettings(
+  token: string,
+  input: InboxTriageSettings,
+): Promise<void> {
+  await apiPut(appRoutes.inbox.settings, { certainty_threshold: input.certaintyThreshold }, token)
+}
 
 // ---------------------------------------------------------------------------
 // Widget behaviour (pre-chat form, office hours, offline message)

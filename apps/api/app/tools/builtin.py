@@ -363,6 +363,38 @@ async def _suggest_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     )
 
 
+async def _suggest_inbox_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Propose an inbox automation rule (learned from a correction or pattern).
+
+    The rule lands as *suggested*; a human activates it from Inbox settings
+    (Automation rules) or an inline card. Never activates anything itself.
+    """
+    from app.services.inbox_rules import suggest_rule
+
+    payload = await suggest_rule(
+        ctx.session,
+        ctx.tenant_id,
+        match_type=str(tool_input.get("match_type") or "sender"),
+        match_value=str(tool_input.get("match_value") or ""),
+        action=str(tool_input.get("action") or ""),
+        label=str(tool_input.get("label") or ""),
+        source="agent",
+        reason=str(tool_input.get("reason") or ""),
+    )
+    if payload is None:
+        return {
+            "error": (
+                "Rule not suggested: invalid match/action, or a rule for this "
+                "sender already exists (active or paused)."
+            )
+        }
+    await ctx.session.commit()
+    return {
+        "rule": payload,
+        "note": "Suggested only - the operator confirms it under Inbox settings > Automation rules.",
+    }
+
+
 async def _propose_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     return await _suggest_integration(
         ctx,
@@ -800,6 +832,32 @@ register_tool(
             "required": ["provider", "reason"],
         },
         handler=_suggest_integration,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="suggest_inbox_rule",
+        description=(
+            "Suggest an inbox automation rule after learning from a correction or a "
+            "recurring pattern (e.g. always auto-close newsletters from a sender). "
+            "The operator must confirm before it activates. "
+            "Actions: auto_close, auto_task, mute_ai."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "match_type": {"type": "string", "enum": ["sender", "domain", "list_id"]},
+                "match_value": {"type": "string"},
+                "action": {"type": "string", "enum": ["auto_close", "auto_task", "mute_ai"]},
+                "label": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+            "required": ["match_value", "action", "reason"],
+        },
+        handler=_suggest_inbox_rule,
         gated=False,
     )
 )

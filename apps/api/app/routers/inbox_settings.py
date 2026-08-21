@@ -12,7 +12,6 @@ from app.dependencies import AuthContext, get_current_auth
 from app.models.inbox import InboxSettings
 from app.models.learning import Feedback
 from app.models.notification import UserNotificationPreference
-from app.models.policy import AssistantPersona
 from app.services.channel_ai import AI_MODES, default_ai_mode, tenant_channel_ai_modes
 
 router = APIRouter(tags=["inbox-settings"])
@@ -21,8 +20,6 @@ router = APIRouter(tags=["inbox-settings"])
 class InboxSettingsUpdate(BaseModel):
     autonomous_reply: bool | None = None
     certainty_threshold: int | None = None
-    rules_text: str | None = None
-    labeling_enabled: bool | None = None
 
 
 class FeedbackCreate(BaseModel):
@@ -60,8 +57,6 @@ async def get_inbox_settings(
     return {
         "autonomous_reply": settings_row.autonomous_reply,
         "certainty_threshold": settings_row.certainty_threshold,
-        "rules_text": settings_row.rules_text,
-        "labeling_enabled": settings_row.labeling_enabled,
     }
 
 
@@ -77,11 +72,9 @@ async def update_inbox_settings(
     if body.autonomous_reply is not None:
         row.autonomous_reply = body.autonomous_reply
     if body.certainty_threshold is not None:
+        if not 1 <= body.certainty_threshold <= 10:
+            raise HTTPException(status_code=400, detail="certainty_threshold must be 1-10")
         row.certainty_threshold = body.certainty_threshold
-    if body.rules_text is not None:
-        row.rules_text = body.rules_text
-    if body.labeling_enabled is not None:
-        row.labeling_enabled = body.labeling_enabled
     session.add(row)
     await session.commit()
     return {"ok": True}
@@ -359,18 +352,18 @@ async def patch_notification_preferences(
     return {"rows": rows}
 
 
+# Persona lives in the persona.md workspace doc (the same doc agents read in
+# their system prompt), so edits here take effect on the next agent run.
+
+
 @router.get("/persona")
 async def get_persona(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    result = await session.execute(
-        select(AssistantPersona).where(AssistantPersona.tenant_id == auth.tenant.id)
-    )
-    persona = result.scalar_one_or_none()
-    if not persona:
-        return {"tone": "", "do_text": "", "dont_text": ""}
-    return {"tone": persona.tone, "do_text": persona.do_text, "dont_text": persona.dont_text}
+    from app.services.persona import get_persona_fields
+
+    return await get_persona_fields(session, auth.tenant.id)
 
 
 @router.put("/persona")
@@ -380,16 +373,14 @@ async def update_persona(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    result = await session.execute(
-        select(AssistantPersona).where(AssistantPersona.tenant_id == auth.tenant.id)
+    from app.services.persona import update_persona_fields
+
+    await update_persona_fields(
+        session,
+        auth.tenant.id,
+        tone=body.tone,
+        do_text=body.do_text,
+        dont_text=body.dont_text,
+        created_by_id=str(auth.user.id),
     )
-    persona = result.scalar_one_or_none() or AssistantPersona(tenant_id=auth.tenant.id)
-    if body.tone is not None:
-        persona.tone = body.tone
-    if body.do_text is not None:
-        persona.do_text = body.do_text
-    if body.dont_text is not None:
-        persona.dont_text = body.dont_text
-    session.add(persona)
-    await session.commit()
     return {"ok": True}
