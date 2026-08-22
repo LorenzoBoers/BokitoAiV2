@@ -148,6 +148,15 @@ jobs:
                 && sed -i "s|^RESEND_WEBHOOK_SECRET=.*|RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}|" .env.staging \
                 || echo "RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}" >> .env.staging
             fi
+            if [ -n "${{ secrets.STORAGE_S3_ACCESS_KEY }}" ]; then
+              upsert_env() { grep -q "^$1=" .env.staging && sed -i "s|^$1=.*|$1=$2|" .env.staging || echo "$1=$2" >> .env.staging; }
+              upsert_env STORAGE_BACKEND s3
+              upsert_env STORAGE_S3_BUCKET "${{ secrets.STORAGE_S3_BUCKET }}"
+              upsert_env STORAGE_S3_REGION auto
+              upsert_env STORAGE_S3_ENDPOINT "${{ secrets.STORAGE_S3_ENDPOINT }}"
+              upsert_env STORAGE_S3_ACCESS_KEY "${{ secrets.STORAGE_S3_ACCESS_KEY }}"
+              upsert_env STORAGE_S3_SECRET_KEY "${{ secrets.STORAGE_S3_SECRET_KEY }}"
+            fi
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             ./scripts/vps-pull-deploy.sh staging ${{ needs.resolve-sha.outputs.sha }}
             docker compose -p bokito-staging --env-file .env.staging \
@@ -195,6 +204,15 @@ jobs:
               grep -q '^RESEND_WEBHOOK_SECRET=' .env.prod \
                 && sed -i "s|^RESEND_WEBHOOK_SECRET=.*|RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}|" .env.prod \
                 || echo "RESEND_WEBHOOK_SECRET=${{ secrets.RESEND_WEBHOOK_SECRET }}" >> .env.prod
+            fi
+            if [ -n "${{ secrets.STORAGE_S3_ACCESS_KEY }}" ]; then
+              upsert_env() { grep -q "^$1=" .env.prod && sed -i "s|^$1=.*|$1=$2|" .env.prod || echo "$1=$2" >> .env.prod; }
+              upsert_env STORAGE_BACKEND s3
+              upsert_env STORAGE_S3_BUCKET "${{ secrets.STORAGE_S3_BUCKET }}"
+              upsert_env STORAGE_S3_REGION auto
+              upsert_env STORAGE_S3_ENDPOINT "${{ secrets.STORAGE_S3_ENDPOINT }}"
+              upsert_env STORAGE_S3_ACCESS_KEY "${{ secrets.STORAGE_S3_ACCESS_KEY }}"
+              upsert_env STORAGE_S3_SECRET_KEY "${{ secrets.STORAGE_S3_SECRET_KEY }}"
             fi
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             ./scripts/vps-pull-deploy.sh prod ${{ needs.resolve-sha.outputs.sha }}

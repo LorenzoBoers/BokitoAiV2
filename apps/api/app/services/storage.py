@@ -1,4 +1,9 @@
-"""File storage abstraction: local disk (dev) or S3-compatible (R2 prod)."""
+"""File storage: local disk (dev) or S3-compatible (Cloudflare R2 in prod).
+
+Canonical attachment URLs always go through the auth-gated API
+(``/api/uploads/files/{tenant}/{filename}``). The bucket stays private;
+API and worker both talk to the same object store.
+"""
 
 from __future__ import annotations
 
@@ -37,6 +42,23 @@ class StoredFile:
         }
 
 
+@dataclass
+class FetchedFile:
+    data: bytes
+    mime: str
+
+
+def _canonical_url(tenant_id: str, filename: str) -> str:
+    return f"{settings.public_api_url.rstrip('/')}/api/uploads/files/{tenant_id}/{filename}"
+
+
+def _safe_key(tenant_id: str, filename: str) -> tuple[str, str, str]:
+    file_id = str(uuid.uuid4())
+    safe_name = Path(filename).name or "file"
+    stored_name = f"{file_id}_{safe_name}"
+    return file_id, safe_name, f"{tenant_id}/{stored_name}"
+
+
 class StorageBackend(ABC):
     @abstractmethod
     async def store(self, *, data: bytes, filename: str, mime: str, tenant_id: str) -> StoredFile:
@@ -46,34 +68,45 @@ class StorageBackend(ABC):
     async def delete(self, storage_key: str) -> None:
         raise NotImplementedError
 
+    @abstractmethod
+    async def fetch(self, storage_key: str) -> FetchedFile | None:
+        raise NotImplementedError
+
 
 class LocalStorageBackend(StorageBackend):
-    def __init__(self, root: Path, public_base: str) -> None:
+    def __init__(self, root: Path) -> None:
         self.root = root
-        self.public_base = public_base.rstrip("/")
         self.root.mkdir(parents=True, exist_ok=True)
 
     async def store(self, *, data: bytes, filename: str, mime: str, tenant_id: str) -> StoredFile:
-        file_id = str(uuid.uuid4())
-        safe_name = Path(filename).name or "file"
-        rel = Path(tenant_id) / f"{file_id}_{safe_name}"
-        path = self.root / rel
+        file_id, safe_name, key = _safe_key(tenant_id, filename)
+        path = self.root / key
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-        url = f"{self.public_base}/api/uploads/files/{rel.as_posix()}"
         return StoredFile(
             id=file_id,
             name=safe_name,
             mime=mime or "application/octet-stream",
             size=len(data),
-            url=url,
-            storage_key=rel.as_posix(),
+            url=_canonical_url(tenant_id, Path(key).name),
+            storage_key=key,
         )
 
     async def delete(self, storage_key: str) -> None:
         path = self.root / storage_key
         if path.exists():
             path.unlink()
+
+    async def fetch(self, storage_key: str) -> FetchedFile | None:
+        path = (self.root / storage_key).resolve()
+        root = self.root.resolve()
+        if not str(path).startswith(str(root)) or not path.is_file():
+            return None
+        mime = guess_mime(path.name, None)
+        try:
+            return FetchedFile(data=path.read_bytes(), mime=mime)
+        except OSError:
+            return None
 
 
 class S3StorageBackend(StorageBackend):
@@ -85,59 +118,60 @@ class S3StorageBackend(StorageBackend):
         access_key: str,
         secret_key: str,
         endpoint_url: str,
-        public_base: str,
     ) -> None:
         self.bucket = bucket
         self.region = region
         self.access_key = access_key
         self.secret_key = secret_key
         self.endpoint_url = endpoint_url.rstrip("/")
-        self.public_base = public_base.rstrip("/")
+        self._client = None
+
+    def _s3(self):
+        if self._client is None:
+            import boto3
+            from botocore.config import Config
+
+            self._client = boto3.client(
+                "s3",
+                region_name=self.region or "auto",
+                aws_access_key_id=self.access_key,
+                aws_secret_access_key=self.secret_key,
+                endpoint_url=self.endpoint_url,
+                config=Config(signature_version="s3v4"),
+            )
+        return self._client
 
     async def store(self, *, data: bytes, filename: str, mime: str, tenant_id: str) -> StoredFile:
-        import boto3
-        from botocore.config import Config
-
-        file_id = str(uuid.uuid4())
-        safe_name = Path(filename).name or "file"
-        key = f"{tenant_id}/{file_id}_{safe_name}"
-        client = boto3.client(
-            "s3",
-            region_name=self.region,
-            aws_access_key_id=self.access_key,
-            aws_secret_access_key=self.secret_key,
-            endpoint_url=self.endpoint_url,
-            config=Config(signature_version="s3v4"),
-        )
-        client.put_object(
+        file_id, safe_name, key = _safe_key(tenant_id, filename)
+        content_type = mime or "application/octet-stream"
+        self._s3().put_object(
             Bucket=self.bucket,
             Key=key,
             Body=data,
-            ContentType=mime or "application/octet-stream",
+            ContentType=content_type,
         )
-        url = f"{self.public_base}/{key}"
         return StoredFile(
             id=file_id,
             name=safe_name,
-            mime=mime or "application/octet-stream",
+            mime=content_type,
             size=len(data),
-            url=url,
+            url=_canonical_url(tenant_id, Path(key).name),
             storage_key=key,
         )
 
     async def delete(self, storage_key: str) -> None:
-        import boto3
-        from botocore.config import Config
+        self._s3().delete_object(Bucket=self.bucket, Key=storage_key)
 
-        client = boto3.client(
-            "s3",
-            region_name=self.region,
-            aws_access_key_id=self.access_key,
-            aws_secret_access_key=self.secret_key,
-            endpoint_url=self.endpoint_url,
-            config=Config(signature_version="s3v4"),
-        )
-        client.delete_object(Bucket=self.bucket, Key=storage_key)
+    async def fetch(self, storage_key: str) -> FetchedFile | None:
+        from botocore.exceptions import ClientError
+
+        try:
+            obj = self._s3().get_object(Bucket=self.bucket, Key=storage_key)
+        except ClientError:
+            return None
+        body = obj["Body"].read()
+        mime = str(obj.get("ContentType") or guess_mime(storage_key, None))
+        return FetchedFile(data=body, mime=mime)
 
 
 def get_storage_backend() -> StorageBackend:
@@ -148,11 +182,8 @@ def get_storage_backend() -> StorageBackend:
             access_key=settings.storage_s3_access_key,
             secret_key=settings.storage_s3_secret_key,
             endpoint_url=settings.storage_s3_endpoint,
-            public_base=settings.storage_public_base or settings.public_api_url.rstrip("/") + "/uploads",
         )
-    root = Path(settings.storage_local_path)
-    public_base = settings.public_api_url.rstrip("/")
-    return LocalStorageBackend(root, public_base)
+    return LocalStorageBackend(Path(settings.storage_local_path))
 
 
 def guess_mime(filename: str, content_type: str | None) -> str:
@@ -162,30 +193,45 @@ def guess_mime(filename: str, content_type: str | None) -> str:
     return guessed or "application/octet-stream"
 
 
-def _local_file_for_url(url: str) -> Path | None:
-    """Map a local-backend uploads URL to its on-disk path (uploads serving
-    requires auth, so server-side consumers read the file directly)."""
+def storage_key_from_url(url: str) -> str | None:
+    """Parse a canonical uploads URL into the storage key ``tenant/filename``."""
     marker = "/api/uploads/files/"
     if marker not in url:
         return None
-    rel = url.split(marker, 1)[1]
+    rel = url.split(marker, 1)[1].split("?", 1)[0]
     parts = [p for p in rel.split("/") if p and p not in (".", "..")]
     if len(parts) != 2:
         return None
+    return f"{parts[0]}/{parts[1]}"
+
+
+def _local_file_for_url(url: str) -> Path | None:
+    """Map a local-backend uploads URL to its on-disk path."""
+    key = storage_key_from_url(url)
+    if not key:
+        return None
     root = Path(settings.storage_local_path).resolve()
-    path = (root / parts[0] / parts[1]).resolve()
+    path = (root / key).resolve()
     if not str(path).startswith(str(root)):
         return None
     return path
 
 
 async def fetch_attachment_bytes(url: str) -> bytes | None:
-    local = _local_file_for_url(url)
-    if local is not None:
-        try:
-            return local.read_bytes() if local.is_file() else None
-        except OSError:
-            return None
+    key = storage_key_from_url(url)
+    if key:
+        fetched = await get_storage_backend().fetch(key)
+        if fetched is not None:
+            return fetched.data
+        # Local fallback when the process that wrote the file is this one
+        # and the backend is still local (tests / single-container).
+        if settings.storage_backend != "s3":
+            local = _local_file_for_url(url)
+            if local is not None:
+                try:
+                    return local.read_bytes() if local.is_file() else None
+                except OSError:
+                    return None
     if url.startswith("/"):
         url = f"{settings.public_api_url.rstrip('/')}{url}"
     try:

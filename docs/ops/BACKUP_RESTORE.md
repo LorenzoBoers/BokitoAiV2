@@ -69,9 +69,12 @@ curl -fsS https://app.bokito.ai/api/health/ready
 
 - Covered: the full Postgres database (all tenants, threads, settings).
 - Not covered: Redis (ephemeral queue/fanout state; safe to lose),
-  file uploads under `apps/api/data/uploads` when `STORAGE_BACKEND=local`
-  (use S3/R2 in prod, or add the uploads path to your offsite copy),
+  file uploads when `STORAGE_BACKEND=local` (Docker volume `bokito_uploads`;
+  still copy offsite or switch to R2 via `STORAGE_BACKEND=s3`),
   Caddy TLS material (re-issued automatically).
+- Covered when `STORAGE_BACKEND=s3`: object bytes live in the private R2
+  bucket; attachment URLs stay on `/api/uploads/files/...` and are not
+  public bucket links.
 
 ## Offsite copies
 

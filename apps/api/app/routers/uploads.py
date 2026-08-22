@@ -7,7 +7,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import Membership
 from app.services.auth import decode_access_token, verify_refresh_token
+from app.services.livechat_compat import decode_widget_session_token
 from app.services.storage import get_storage_backend, guess_mime
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -59,13 +60,20 @@ async def _authorize_file_access(
     token = (
         auth_header.removeprefix("Bearer ").strip()
         if auth_header.startswith("Bearer ")
-        else request.query_params.get("access_token", "").strip()
+        else (
+            request.query_params.get("access_token", "").strip()
+            or request.query_params.get("session_token", "").strip()
+        )
     )
     if token:
+        payload = None
         try:
             payload = decode_access_token(token)
-        except JWTError as exc:
-            raise HTTPException(status_code=401, detail="Invalid token") from exc
+        except JWTError:
+            try:
+                payload = decode_widget_session_token(token)
+            except Exception as exc:
+                raise HTTPException(status_code=401, detail="Invalid token") from exc
         if bool(payload.get("staff")) or str(payload.get("tenant_id", "")) == str(tenant_id):
             return
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -88,20 +96,19 @@ async def _authorize_file_access(
 
 
 @router.get("/files/{tenant_id}/{filename}")
-async def serve_local_file(
+async def serve_file(
     tenant_id: UUID,
     filename: str,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    if settings.storage_backend != "local":
-        raise HTTPException(status_code=404, detail="Not found")
     await _authorize_file_access(request, session, tenant_id)
-    root = Path(settings.storage_local_path).resolve()
-    tenant_dir = (root / str(tenant_id)).resolve()
-    path = (tenant_dir / Path(filename).name).resolve()
-    # Path(...).name plus the containment check blocks traversal via encoded
-    # separators in the filename segment.
-    if not str(path).startswith(str(tenant_dir)) or not path.is_file():
+    safe_name = Path(filename).name
+    fetched = await get_storage_backend().fetch(f"{tenant_id}/{safe_name}")
+    if fetched is None:
         raise HTTPException(status_code=404, detail="Not found")
-    return FileResponse(path)
+    return Response(
+        content=fetched.data,
+        media_type=fetched.mime or guess_mime(safe_name, None),
+        headers={"Cache-Control": "private, max-age=3600"},
+    )

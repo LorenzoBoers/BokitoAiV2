@@ -2844,11 +2844,25 @@ class BokitoChatWidget extends HTMLElement {
     this.#persistPreferencePatch({ hidden_conversations: list });
   }
 
+  #attachmentSrc(url) {
+    const raw = String(url || '')
+    if (!raw || !this.#sessionToken || !raw.includes('/api/uploads/files/')) return raw
+    try {
+      const parsed = new URL(raw, this.#apiUrl || window.location.origin)
+      if (!parsed.searchParams.get('session_token') && !parsed.searchParams.get('access_token')) {
+        parsed.searchParams.set('session_token', this.#sessionToken)
+      }
+      return parsed.toString()
+    } catch {
+      return raw
+    }
+  }
+
   #openImageViewer(url) {
     if (!url) return;
     this.#ensureGlobalImageViewer();
     if (!this.#globalImageViewer || !this.#globalImageViewerImg) return;
-    this.#globalImageViewerImg.src = String(url);
+    this.#globalImageViewerImg.src = this.#attachmentSrc(url);
     this.#globalImageViewer.style.display = 'flex';
     this.#globalImageViewerClose?.focus();
   }
@@ -4167,7 +4181,7 @@ class BokitoChatWidget extends HTMLElement {
     const attachments = msg.attachments ?? [];
     const imagesHtml = attachments.length
       ? `<div class="bk-msg-images">${attachments.map(a =>
-          `<img class="bk-msg-img" src="${a.url?.replace(/"/g, '')}" loading="lazy" alt="Bijlage">`
+          `<img class="bk-msg-img" src="${this.#attachmentSrc(a.url).replace(/"/g, '')}" loading="lazy" alt="Bijlage">`
         ).join('')}</div>`
       : '';
 
