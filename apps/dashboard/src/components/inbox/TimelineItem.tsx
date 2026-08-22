@@ -529,7 +529,7 @@ const AI_EVENT_TYPES = new Set([
 function eventPresentation(eventType: string): { ai: boolean; icon: ReactNode } {
   if (eventType === 'decision_approved') return { ai: true, icon: <Check size={10} /> }
   if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={10} /> }
-  if (AI_EVENT_TYPES.has(eventType) || eventType.startsWith('decision_')) {
+  if (AI_EVENT_TYPES.has(eventType) || (eventType && eventType.startsWith('decision_'))) {
     return { ai: true, icon: <Sparkles size={10} /> }
   }
   return { ai: false, icon: null }

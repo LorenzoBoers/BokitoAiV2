@@ -1,10 +1,22 @@
 import { FileText, X } from 'lucide-react'
 import type { MessageAttachment } from '../../lib/inbox-api'
 
+/** Stored chat attachments may omit mime/name (legacy widget `{id, url}`). */
+type AttachmentLike = Pick<MessageAttachment, 'id' | 'url'> & Partial<MessageAttachment>
+
 type Props = {
-  attachments: MessageAttachment[]
+  attachments: AttachmentLike[]
   onRemove?: (id: string) => void
   compact?: boolean
+}
+
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif)(\?|#|$)/i
+
+/** Older widget uploads stored `{id, url}` without mime/name. */
+function isImageAttachment(att: AttachmentLike): boolean {
+  const mime = String(att.mime || '')
+  if (mime.startsWith('image/')) return true
+  return IMAGE_EXT.test(att.name || '') || IMAGE_EXT.test(att.url || '')
 }
 
 export default function MessageAttachments({ attachments, onRemove, compact }: Props) {
@@ -12,7 +24,8 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
   return (
     <div className={`flex flex-wrap gap-2 ${compact ? '' : 'mt-2'}`}>
       {attachments.map((att) => {
-        const isImage = att.mime.startsWith('image/')
+        const name = att.name || 'file'
+        const isImage = isImageAttachment(att)
         return (
           <div
             key={att.id}
@@ -20,7 +33,7 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
           >
             {isImage ? (
               <a href={att.url} target="_blank" rel="noreferrer" className="block">
-                <img src={att.url} alt={att.name} className="h-14 w-14 rounded object-cover" />
+                <img src={att.url} alt={name} className="h-14 w-14 rounded object-cover" />
               </a>
             ) : (
               <a
@@ -30,7 +43,7 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
                 className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
               >
                 <FileText size={14} />
-                <span className="max-w-[140px] truncate">{att.name}</span>
+                <span className="max-w-[140px] truncate">{name}</span>
               </a>
             )}
             {onRemove ? (
@@ -38,7 +51,7 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
                 type="button"
                 onClick={() => onRemove(att.id)}
                 className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
-                aria-label={`Remove ${att.name}`}
+                aria-label={`Remove ${name}`}
               >
                 <X size={12} />
               </button>
