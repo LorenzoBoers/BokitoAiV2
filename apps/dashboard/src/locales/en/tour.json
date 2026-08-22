@@ -1,0 +1,65 @@
+{
+  "welcome": {
+    "eyebrow": "Welcome to Bokito",
+    "title": "Your AI workspace is ready",
+    "subtitle": "Bokito brings your customer conversations, an AI workforce and human control together in one operating system. Here is how it fits together.",
+    "pillars": {
+      "communication": {
+        "title": "Communication",
+        "body": "Email, website chat and internal threads land in one inbox. AI triages, drafts and asks you when it matters."
+      },
+      "ai": {
+        "title": "AI workforce",
+        "body": "Agents with clear permissions do the work. Projects and Knowledge give them context that grows over time."
+      },
+      "automations": {
+        "title": "Automations",
+        "body": "Schedules and triggers run work in the background, visible on your agenda."
+      },
+      "cockpit": {
+        "title": "Cockpit",
+        "body": "KPIs, costs and activity in one view, so you always know what your workspace is doing."
+      },
+      "control": {
+        "title": "You stay in control",
+        "body": "Decisions come to you inline. Dial autonomy up or down whenever you want."
+      }
+    },
+    "start": "Show me around",
+    "skip": "Skip for now"
+  },
+  "steps": {
+    "communication": {
+      "title": "Communication",
+      "body": "Every channel lands here: email, website chat and threads with your agents. AI handles the routine and asks for your decision when it matters."
+    },
+    "ai": {
+      "title": "Your AI workforce",
+      "body": "Agents are your digital coworkers. Projects group their work, and Knowledge is what they learn from. Teach it once, they use it everywhere."
+    },
+    "agenda": {
+      "title": "Agenda",
+      "body": "Scheduled runs and background automations. Set them up once and work happens while you are away."
+    },
+    "cockpit": {
+      "title": "Cockpit",
+      "body": "Your control tower: KPIs, autonomy, costs and everything your workspace has done."
+    },
+    "settings": {
+      "title": "Settings and setup guide",
+      "body": "Channels, branding, your team and the step-by-step setup guide all live here."
+    }
+  },
+  "finish": {
+    "title": "Set up together with your assistant",
+    "body": "The fastest way to configure Bokito is a conversation. Your assistant interviews you about your company and sets up channels, agents, knowledge and KPIs with you.",
+    "cta": "Start the setup chat",
+    "later": "I will explore on my own"
+  },
+  "progress": "{{current}} of {{total}}",
+  "next": "Next",
+  "back": "Back",
+  "skipTour": "Skip tour",
+  "replay": "Product tour",
+  "setupPrompt": "I just created my Bokito workspace. Interview me about my company and help me set everything up step by step: communication channels, agents, knowledge, automations and the KPIs that matter to me. Ask one question at a time."
+}

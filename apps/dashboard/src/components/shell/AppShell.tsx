@@ -8,6 +8,7 @@ import ShellTopbar from './ShellTopbar'
 import CommandPalette from './CommandPalette'
 import VerifyEmailBanner from './VerifyEmailBanner'
 import TwoFactorBanner from './TwoFactorBanner'
+import { TourProvider } from '../tour/TourContext'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -70,6 +71,7 @@ export default function AppShell() {
     <NavBadgeProvider>
       <InboxCommunicationProvider>
         <ChatSessionsProvider>
+          <TourProvider>
           <div className="flex h-screen overflow-hidden bg-bg">
             {/* Desktop sidebar */}
             <aside
@@ -124,6 +126,7 @@ export default function AppShell() {
           </div>
 
           <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          </TourProvider>
         </ChatSessionsProvider>
       </InboxCommunicationProvider>
     </NavBadgeProvider>

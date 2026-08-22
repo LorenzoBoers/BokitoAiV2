@@ -28,6 +28,14 @@ class AssistantPatch(BaseModel):
 
 class PreferencesPatch(BaseModel):
     ui_language: str | None = None
+    # First-run tour state (intro_done, completed, dismissed, version, ...).
+    # Shallow-merged so future tour keys need no API change.
+    tour: dict | None = None
+
+
+def _tour_state(stored: dict) -> dict:
+    tour = stored.get("tour")
+    return tour if isinstance(tour, dict) else {}
 
 
 @router.get("/preferences")
@@ -45,7 +53,7 @@ async def get_my_preferences(
     lang = stored.get("ui_language")
     if lang not in ("en", "nl"):
         lang = "en"
-    return {"ui_language": lang}
+    return {"ui_language": lang, "tour": _tour_state(stored)}
 
 
 @router.patch("/preferences")
@@ -66,10 +74,21 @@ async def patch_my_preferences(
         if body.ui_language not in ("en", "nl"):
             raise HTTPException(status_code=400, detail="ui_language must be en or nl")
         stored["ui_language"] = body.ui_language
+    if body.tour is not None:
+        merged = {**_tour_state(stored), **body.tour}
+        # Scalars only, bounded size: this is UI flag state, not a data store.
+        cleaned = {
+            str(k)[:40]: v
+            for k, v in merged.items()
+            if isinstance(v, (bool, int, float, str)) and len(str(v)) <= 64
+        }
+        if len(cleaned) > 20:
+            raise HTTPException(status_code=400, detail="tour state too large")
+        stored["tour"] = cleaned
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
     await session.commit()
-    return {"ui_language": stored.get("ui_language", "en")}
+    return {"ui_language": stored.get("ui_language", "en"), "tour": _tour_state(stored)}
 
 
 async def _assistant_payload(session: AsyncSession, auth: AuthContext) -> dict:

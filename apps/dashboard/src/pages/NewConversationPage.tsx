@@ -34,6 +34,9 @@ export default function NewConversationPage() {
   const [draft, setDraft] = useState(() => searchParams.get('prefill') ?? '')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // ?autosend=1 (first-run tour setup chat): fire the prefilled message as
+  // soon as the default recipient is resolved, once.
+  const autoSendRequested = useRef(searchParams.get('autosend') === '1')
 
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const pickerInputRef = useRef<HTMLInputElement>(null)
@@ -119,6 +122,12 @@ export default function NewConversationPage() {
       setSending(false)
     }
   }, [draft, token, selected, sending, navigate, refreshSessions])
+
+  useEffect(() => {
+    if (!autoSendRequested.current || loadingTargets || !selected || !draft.trim()) return
+    autoSendRequested.current = false
+    void start()
+  }, [loadingTargets, selected, draft, start])
 
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

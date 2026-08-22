@@ -1,0 +1,65 @@
+{
+  "welcome": {
+    "eyebrow": "Welkom bij Bokito",
+    "title": "Je AI-workspace staat klaar",
+    "subtitle": "Bokito brengt je klantgesprekken, een AI-workforce en menselijke controle samen in een besturingssysteem. Zo past alles in elkaar.",
+    "pillars": {
+      "communication": {
+        "title": "Communicatie",
+        "body": "E-mail, websitechat en interne threads komen samen in een inbox. AI triageert, stelt antwoorden op en vraagt jou wanneer het ertoe doet."
+      },
+      "ai": {
+        "title": "AI-workforce",
+        "body": "Agents met duidelijke rechten doen het werk. Projects en Knowledge geven ze context die meegroeit."
+      },
+      "automations": {
+        "title": "Automatiseringen",
+        "body": "Schema's en triggers voeren werk op de achtergrond uit, zichtbaar op je agenda."
+      },
+      "cockpit": {
+        "title": "Cockpit",
+        "body": "KPI's, kosten en activiteit in een overzicht, zodat je altijd weet wat je workspace doet."
+      },
+      "control": {
+        "title": "Jij houdt de controle",
+        "body": "Beslissingen komen inline naar je toe. Draai autonomie omhoog of omlaag wanneer je wilt."
+      }
+    },
+    "start": "Leid me rond",
+    "skip": "Nu overslaan"
+  },
+  "steps": {
+    "communication": {
+      "title": "Communicatie",
+      "body": "Elk kanaal komt hier binnen: e-mail, websitechat en threads met je agents. AI handelt routine af en vraagt om jouw beslissing wanneer het ertoe doet."
+    },
+    "ai": {
+      "title": "Je AI-workforce",
+      "body": "Agents zijn je digitale collega's. Projects bundelen hun werk en Knowledge is waar ze van leren. Een keer aanleren, overal gebruiken."
+    },
+    "agenda": {
+      "title": "Agenda",
+      "body": "Geplande runs en achtergrondautomatiseringen. Een keer instellen en het werk gebeurt terwijl jij weg bent."
+    },
+    "cockpit": {
+      "title": "Cockpit",
+      "body": "Je controletoren: KPI's, autonomie, kosten en alles wat je workspace heeft gedaan."
+    },
+    "settings": {
+      "title": "Instellingen en setupgids",
+      "body": "Kanalen, branding, je team en de stapsgewijze setupgids vind je hier."
+    }
+  },
+  "finish": {
+    "title": "Samen inrichten met je assistent",
+    "body": "De snelste manier om Bokito in te richten is een gesprek. Je assistent interviewt je over je bedrijf en zet samen met jou kanalen, agents, kennis en KPI's op.",
+    "cta": "Start de setupchat",
+    "later": "Ik verken het zelf"
+  },
+  "progress": "{{current}} van {{total}}",
+  "next": "Volgende",
+  "back": "Terug",
+  "skipTour": "Tour overslaan",
+  "replay": "Producttour",
+  "setupPrompt": "Ik heb net mijn Bokito-workspace aangemaakt. Interview mij over mijn bedrijf en help me alles stap voor stap in te richten: communicatiekanalen, agents, kennis, automatiseringen en de KPI's die voor mij belangrijk zijn. Stel een vraag per keer."
+}

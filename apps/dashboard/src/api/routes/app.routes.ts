@@ -9,6 +9,9 @@ export const appRoutes = {
     status: '/onboarding',
     demoThread: '/onboarding/demo-thread',
   },
+  me: {
+    preferences: '/me/preferences',
+  },
   workspaces: {
     list: '/workspaces',
     byId: (id: number | string) => `/workspaces/${id}`,

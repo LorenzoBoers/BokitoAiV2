@@ -8,6 +8,7 @@ import workspaceEn from '../locales/en/workspace.json'
 import communicationEn from '../locales/en/communication.json'
 import workspacesEn from '../locales/en/workspaces.json'
 import governEn from '../locales/en/govern.json'
+import tourEn from '../locales/en/tour.json'
 import commonNl from '../locales/nl/common.json'
 import navNl from '../locales/nl/nav.json'
 import profileNl from '../locales/nl/profile.json'
@@ -15,6 +16,7 @@ import workspaceNl from '../locales/nl/workspace.json'
 import communicationNl from '../locales/nl/communication.json'
 import workspacesNl from '../locales/nl/workspaces.json'
 import governNl from '../locales/nl/govern.json'
+import tourNl from '../locales/nl/tour.json'
 
 const resources = {
   en: {
@@ -25,6 +27,7 @@ const resources = {
     communication: communicationEn,
     workspaces: workspacesEn,
     govern: governEn,
+    tour: tourEn,
   },
   nl: {
     common: commonNl,
@@ -34,6 +37,7 @@ const resources = {
     communication: communicationNl,
     workspaces: workspacesNl,
     govern: governNl,
+    tour: tourNl,
   },
 }
 
@@ -45,7 +49,7 @@ i18n
     fallbackLng: 'en',
     supportedLngs: ['en', 'nl'],
     defaultNS: 'common',
-    ns: ['common', 'nav', 'profile', 'workspace', 'communication', 'workspaces', 'govern'],
+    ns: ['common', 'nav', 'profile', 'workspace', 'communication', 'workspaces', 'govern', 'tour'],
     interpolation: {
       escapeValue: false,
     },

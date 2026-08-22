@@ -103,7 +103,10 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             const isGroupCollapsed = collapsedGroups[group.label] ?? false
             const showItems = collapsed || !isGroupCollapsed
             return (
-              <section key={group.label}>
+              <section
+                key={group.label}
+                data-tour={group.label === 'AI' ? 'nav-group-ai' : undefined}
+              >
                 {!collapsed ? (
                   <button
                     type="button"
@@ -136,6 +139,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                           onClick={onNavigate}
                           title={tabTitle(tab)}
                           aria-label={tabTitle(tab)}
+                          data-tour={`nav-${tab}`}
                           className={`flex items-center rounded-lg text-[13px] transition-colors ${
                             collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
                           } ${
