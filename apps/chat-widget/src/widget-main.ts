@@ -3353,7 +3353,8 @@ class BokitoChatWidget extends HTMLElement {
       return;
     }
 
-    const attachments = readyAttachments.map(a => ({ id: a.id, url: a.url }));
+    // Full metadata (mime/name/size) so the backend can inline images for vision.
+    const attachments = readyAttachments.map(a => ({ id: a.id, url: a.url, mime: a.mime, name: a.name, size: a.size }));
     this.#sendMessageWithContent(text, attachments);
     this.#textarea.value = '';
     this.#textarea.style.height = 'auto';
@@ -4486,7 +4487,7 @@ class BokitoChatWidget extends HTMLElement {
       if (file.size > 10 * 1024 * 1024) { this.#showError('Images can be up to 10 MB.'); continue; }
 
       const localUrl = URL.createObjectURL(file);
-      const entry = { localUrl, id: null, url: null, uploading: true };
+      const entry = { localUrl, id: null, url: null, mime: null, name: null, size: null, uploading: true };
       this.#pendingAttachments.push(entry);
       this.#renderPreviewStrip();
       this.#updateSendBtnState();
@@ -4504,6 +4505,9 @@ class BokitoChatWidget extends HTMLElement {
         const data = await res.json();
         entry.id = data.id;
         entry.url = data.url;
+        entry.mime = data.mime || file.type || null;
+        entry.name = data.name || file.name || null;
+        entry.size = data.size ?? file.size ?? null;
         entry.uploading = false;
       } catch {
         // Remove failed upload from list

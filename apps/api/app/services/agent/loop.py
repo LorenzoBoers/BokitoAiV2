@@ -18,6 +18,36 @@ from app.services.agent.tools import (
 from app.services.workspace import build_workspace_context, hybrid_search
 
 
+def _sniff_image_mime(data: bytes) -> str | None:
+    """Detect common image formats from magic bytes (uploads may lack a mime)."""
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"GIF8"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _attachment_mime(att: dict) -> str:
+    """The attachment's mime, falling back to an extension guess.
+
+    Older widget bundles sent attachments as bare ``{id, url}`` without a
+    mime; those must still resolve to images so vision keeps working.
+    """
+    mime = str(att.get("mime", "") or "")
+    if mime:
+        return mime
+    import mimetypes
+
+    name = str(att.get("name") or att.get("filename") or "")
+    url = str(att.get("url") or "")
+    guessed, _ = mimetypes.guess_type(name if "." in name else url)
+    return guessed or ""
+
+
 def _truncate_trace_value(value: Any, max_chars: int = 480) -> Any:
     """Keep persisted step payloads small enough for message metadata."""
     try:
@@ -308,24 +338,28 @@ class AgentLoop:
 
         non_image_names: list[str] = []
         for att in attachments:
-            mime = str(att.get("mime", ""))
+            mime = _attachment_mime(att)
             name = str(att.get("name") or att.get("filename") or "file")
-            if mime.startswith("image/"):
-                url = str(att.get("url") or "")
-                data = await fetch_attachment_bytes(url) if url else None
-                if data:
-                    blocks.append(
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": mime,
-                                "data": base64.standard_b64encode(data).decode("ascii"),
-                            },
-                        }
-                    )
-                else:
-                    non_image_names.append(name)
+            url = str(att.get("url") or "")
+            data: bytes | None = None
+            # Unknown mime: fetch anyway and sniff — widget uploads are
+            # image-only, so a bare {id, url} attachment is almost certainly
+            # an image the model should see.
+            if url and (mime.startswith("image/") or not mime):
+                data = await fetch_attachment_bytes(url)
+                if data and not mime.startswith("image/"):
+                    mime = _sniff_image_mime(data) or mime
+            if data and mime.startswith("image/"):
+                blocks.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": mime,
+                            "data": base64.standard_b64encode(data).decode("ascii"),
+                        },
+                    }
+                )
             else:
                 non_image_names.append(name)
 
@@ -348,7 +382,7 @@ class AgentLoop:
 
     @staticmethod
     def _attachments_context(attachments: list[dict]) -> str:
-        image_count = sum(1 for a in attachments if str(a.get("mime", "")).startswith("image/"))
+        image_count = sum(1 for a in attachments if _attachment_mime(a).startswith("image/"))
         file_count = len(attachments) - image_count
         parts: list[str] = []
         if image_count:
