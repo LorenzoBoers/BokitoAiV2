@@ -12,8 +12,8 @@ export default function ContentHeader({ title, subtitle, meta }: ContentHeaderPr
   return (
     <section className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-[20px] font-semibold leading-tight text-text-heading">{title}</h1>
-        {subtitle ? <p className="mt-0.5 text-[13px] text-text-muted">{subtitle}</p> : null}
+        <h1 className="text-[20px] font-semibold leading-tight tracking-tight text-text-heading">{title}</h1>
+        {subtitle ? <p className="mt-1 text-[13px] text-text-muted">{subtitle}</p> : null}
       </div>
       {meta ? <div className="flex items-center gap-2">{meta}</div> : null}
     </section>

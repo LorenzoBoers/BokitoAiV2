@@ -4,12 +4,12 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default:
-          'btn-elevated border border-black/5 bg-accent text-accent-fg hover:bg-accent-hover',
+          'btn-elevated btn-sheen border border-black/5 bg-accent text-accent-fg hover:bg-accent-hover hover:brightness-105',
         secondary:
           'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover',
         ghost: 'text-text-secondary hover:bg-bg-hover/75 hover:text-text-primary',
@@ -17,7 +17,7 @@ const buttonVariants = cva(
           'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:bg-bg-hover',
         outline:
           'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:bg-bg-hover',
-        ai: 'btn-elevated border border-ai/30 bg-ai text-ai-fg hover:brightness-110',
+        ai: 'btn-elevated btn-sheen border border-ai/30 bg-ai text-ai-fg hover:brightness-110',
         destructive: 'bg-status-error/12 text-status-error hover:bg-status-error/18',
       },
       size: {

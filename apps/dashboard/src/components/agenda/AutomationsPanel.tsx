@@ -322,7 +322,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                 </div>
               ) : (
                 triggers.map((trigger) => (
-                  <div key={trigger.id} className="border-b border-border py-2 last:border-0">
+                  <div key={trigger.id} className="row-interactive rounded-lg border-b border-border px-1 py-2 last:border-0">
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <span
@@ -330,7 +330,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                           className={cn(
                             'h-2 w-2 shrink-0 rounded-full',
                             trigger.enabled
-                              ? 'bg-status-success shadow-[0_0_6px_rgba(52,211,153,0.55)]'
+                              ? 'pulse-dot bg-status-success shadow-[0_0_6px_rgba(52,211,153,0.55)]'
                               : 'border border-border bg-transparent',
                           )}
                         />

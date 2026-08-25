@@ -30,7 +30,7 @@ export default function NavCountBadge({
   if (placement === 'inline') {
     return (
       <span
-        className={`ml-auto inline-flex min-h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${colorClass} ${className}`}
+        className={`count-pop ml-auto inline-flex min-h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${colorClass} ${className}`}
         aria-hidden
       >
         {label}
@@ -40,7 +40,7 @@ export default function NavCountBadge({
 
   return (
     <span
-      className={`pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none shadow-sm ${colorClass} ${className}`}
+      className={`count-pop pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none shadow-sm ${colorClass} ${className}`}
       aria-hidden
     >
       {label}

@@ -88,7 +88,7 @@ export default function NotificationDropdown() {
     >
       <Bell size={16} />
       {unreadCount > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-accent rounded-full text-[8px] font-bold flex items-center justify-center text-accent-fg">
+        <span className="count-pop absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-accent rounded-full text-[8px] font-bold flex items-center justify-center text-accent-fg">
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
@@ -135,10 +135,11 @@ export default function NotificationDropdown() {
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
+                  data-active={unread || undefined}
                   className={`
-                    p-3 rounded-lg cursor-pointer transition-colors
+                    row-interactive p-3 rounded-lg cursor-pointer
                     hover:bg-bg-muted/50
-                    ${unread ? 'bg-accent/5 border-l-2 border-l-accent' : ''}
+                    ${unread ? 'bg-accent/5' : ''}
                   `}
                 >
                   <div className="flex gap-3">

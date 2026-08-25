@@ -124,7 +124,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
       <button
         type="button"
         onClick={onOpenPalette}
-        className="hidden items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-1.5 text-[12px] text-text-muted transition-colors hover:border-border hover:text-text-secondary sm:flex"
+        className="hidden items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-1.5 text-[12px] text-text-muted transition-[border-color,color,box-shadow,background-color] duration-200 hover:border-accent/35 hover:bg-bg-surface hover:text-text-secondary hover:shadow-sm sm:flex"
         title={t('topbar.openPalette')}
       >
         <Search size={12} />
@@ -150,7 +150,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full transition-opacity hover:opacity-80"
+            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full ring-0 transition-[box-shadow,transform] duration-200 hover:ring-2 hover:ring-accent/25 active:scale-95"
             aria-label={t('topbar.openUserMenu')}
           >
             <UserAvatar name={user?.name ?? 'Account'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={30} />

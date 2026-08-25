@@ -90,9 +90,12 @@ export default function ThreadListItem({
           onSelect(thread.id)
         }
       }}
+      data-active={isSelected || undefined}
       className={cn(
-        'w-full cursor-pointer text-left px-3 py-2.5 rounded-md transition-colors group/thread',
-        isSelected ? 'bg-accent/10 border border-accent/20' : 'hover:bg-bg-surface-hover border border-transparent',
+        'row-interactive w-full cursor-pointer text-left px-3 py-2.5 rounded-md group/thread',
+        isSelected
+          ? 'bg-accent/10 border border-accent/20'
+          : 'hover:bg-bg-hover/50 border border-transparent',
       )}
     >
       <div className="flex items-start gap-2 min-w-0">
@@ -155,7 +158,9 @@ export default function ThreadListItem({
             </div>
           </div>
           <div className="flex items-center gap-1 mb-1">
-            {priorityDot && !isDirect ? <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot)} /> : null}
+            {priorityDot && !isDirect ? (
+              <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot, thread.priority === 'urgent' && 'pulse-dot')} />
+            ) : null}
             <span className="text-xs font-medium text-text-secondary truncate">{secondaryLabel}</span>
           </div>
           {thread.assignedToUserId && !isDirect ? (

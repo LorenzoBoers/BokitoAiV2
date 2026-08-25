@@ -130,8 +130,8 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                       // Knowledge carries the violet brain identity, also in the rail.
                       const activeClass =
                         tab === 'knowledge'
-                          ? 'bg-violet-500/10 font-medium text-violet-500 dark:text-violet-300'
-                          : 'bg-accent/12 font-medium text-accent'
+                          ? 'bg-violet-500/10 font-medium text-violet-500 shadow-[inset_2px_0_0_0_rgb(139,92,246)] dark:text-violet-300'
+                          : 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
                       return (
                         <NavLink
                           key={tab}
@@ -140,7 +140,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                           title={tabTitle(tab)}
                           aria-label={tabTitle(tab)}
                           data-tour={`nav-${tab}`}
-                          className={`flex items-center rounded-lg text-[13px] transition-colors ${
+                          className={`relative flex items-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
                             collapsed ? 'h-9 w-9 justify-center' : 'gap-2.5 px-2.5 py-[7px]'
                           } ${
                             active
@@ -153,13 +153,13 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                             <>
                               <span className="min-w-0 flex-1 truncate">{tabTitle(tab)}</span>
                               {badge > 0 ? (
-                                <span className="ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">
+                                <span className="count-pop ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">
                                   {badge > 99 ? '99+' : badge}
                                 </span>
                               ) : null}
                             </>
                           ) : badge > 0 ? (
-                            <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                            <span className="pulse-dot absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
                           ) : null}
                         </NavLink>
                       )

@@ -219,11 +219,11 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       <button
         type="button"
         aria-label={t('palette.ariaClose')}
-        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/48 backdrop-blur-[6px] animate-fade-in"
         onClick={onClose}
       />
       <div
-        className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-2xl"
+        className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay animate-pop-in"
         role="dialog"
         aria-label={t('palette.ariaDialog')}
       >
@@ -256,8 +256,9 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     data-selected={selected}
                     onClick={() => runItem(item)}
                     onMouseEnter={() => setSelectedIndex(index)}
-                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ${
-                      selected ? 'bg-accent/12 text-text-primary' : 'text-text-secondary'
+                    data-active={selected || undefined}
+                    className={`row-interactive flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ${
+                      selected ? 'bg-accent/12 text-text-primary' : 'text-text-secondary hover:bg-bg-hover/50'
                     }`}
                   >
                     <Icon size={14} className={selected ? 'text-accent' : 'text-text-muted'} />

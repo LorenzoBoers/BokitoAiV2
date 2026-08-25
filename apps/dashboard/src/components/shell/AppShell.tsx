@@ -77,7 +77,7 @@ export default function AppShell() {
           <div className="app-atmosphere flex h-screen overflow-hidden">
             {/* Desktop sidebar */}
             <aside
-              className={`hidden shrink-0 border-r border-border/40 transition-[width] duration-150 lg:block ${
+              className={`hidden shrink-0 border-r border-border/40 transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] lg:block ${
                 navCollapsed ? 'w-[64px]' : 'w-[248px]'
               }`}
             >
@@ -90,10 +90,10 @@ export default function AppShell() {
                 <button
                   type="button"
                   aria-label={t('topbar.closeNavigation')}
-                  className="absolute inset-0 bg-black/50"
+                  className="absolute inset-0 bg-black/50 animate-fade-in"
                   onClick={() => setDrawerOpen(false)}
                 />
-                <div className="absolute inset-y-0 left-0 w-[268px] border-r border-border/60 shadow-2xl">
+                <div className="absolute inset-y-0 left-0 w-[268px] border-r border-border/60 bg-bg-sidebar shadow-2xl animate-slide-in-left">
                   <ShellSidebar
                     collapsed={false}
                     onToggleCollapsed={() => setDrawerOpen(false)}

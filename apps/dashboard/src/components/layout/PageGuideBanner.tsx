@@ -25,7 +25,7 @@ export function PageGuideBanner({ page, className }: PageGuideBannerProps) {
   return (
     <aside
       className={cn(
-        'flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] px-3.5 py-3',
+        'flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] px-3.5 py-3 animate-page-enter',
         className,
       )}
     >
@@ -39,7 +39,7 @@ export function PageGuideBanner({ page, className }: PageGuideBannerProps) {
         </p>
         <Link
           to={pageGuidePath(page)}
-          className="mt-1.5 inline-flex text-[12.5px] font-medium text-accent hover:underline"
+          className="link-draw mt-1.5 inline-flex text-[12.5px] font-medium text-accent"
         >
           {t('pageGuides.learnMore')}
         </Link>

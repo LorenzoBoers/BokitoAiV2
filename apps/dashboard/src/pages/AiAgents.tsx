@@ -222,7 +222,7 @@ export default function AiAgents() {
                 <li key={agent.id}>
                   <Link
                     to={`/agents/${agent.id}`}
-                    className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-bg-hover/50"
+                    className="row-interactive flex items-start justify-between gap-3 px-4 py-3 hover:bg-bg-hover/50"
                   >
                     <div className="flex min-w-0 items-start gap-2.5">
                       <AiAvatar name={agent.name} seed={agent.id} size={28} className="mt-0.5" />
@@ -291,7 +291,7 @@ export default function AiAgents() {
                 <li key={agent.id}>
                   <Link
                     to={`/agents/${agent.id}`}
-                    className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-bg-hover/50"
+                    className="row-interactive flex items-start justify-between gap-3 px-4 py-3 hover:bg-bg-hover/50"
                   >
                     <div className="flex min-w-0 items-start gap-2.5">
                       <AiAvatar name={agent.name} seed={agent.id} size={28} className="mt-0.5" />

@@ -11,7 +11,7 @@ export default function ThemeModeToggle({ compact = false }: { compact?: boolean
         onClick={toggleMode}
         title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-[color,background-color,transform] duration-200 hover:bg-bg-hover/60 hover:text-text-primary active:scale-95"
       >
         {isDark ? <Moon size={14} /> : <Sun size={14} />}
       </button>
@@ -19,12 +19,18 @@ export default function ThemeModeToggle({ compact = false }: { compact?: boolean
   }
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-bg-elevated/50 p-0.5">
+    <div className="relative flex items-center rounded-lg border border-border/60 bg-bg-elevated/50 p-0.5">
+      <span
+        aria-hidden
+        className={`pointer-events-none absolute inset-y-0.5 left-0.5 w-[calc(50%-2px)] rounded-md bg-bg-surface shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isDark ? 'translate-x-0' : 'translate-x-[calc(100%+2px)]'
+        }`}
+      />
       <button
         type="button"
         onClick={() => (isDark ? undefined : toggleMode())}
-        className={`flex h-6 flex-1 items-center justify-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ${
-          isDark ? 'bg-bg-hover text-text-primary shadow-sm' : 'text-text-muted hover:text-text-secondary'
+        className={`relative z-10 flex h-6 flex-1 items-center justify-center gap-1.5 rounded-md text-[11px] font-medium transition-colors duration-200 ${
+          isDark ? 'text-text-primary' : 'text-text-muted hover:text-text-secondary'
         }`}
         aria-pressed={isDark}
       >
@@ -34,8 +40,8 @@ export default function ThemeModeToggle({ compact = false }: { compact?: boolean
       <button
         type="button"
         onClick={() => (isDark ? toggleMode() : undefined)}
-        className={`flex h-6 flex-1 items-center justify-center gap-1.5 rounded-md text-[11px] font-medium transition-colors ${
-          !isDark ? 'bg-bg-hover text-text-primary shadow-sm' : 'text-text-muted hover:text-text-secondary'
+        className={`relative z-10 flex h-6 flex-1 items-center justify-center gap-1.5 rounded-md text-[11px] font-medium transition-colors duration-200 ${
+          !isDark ? 'text-text-primary' : 'text-text-muted hover:text-text-secondary'
         }`}
         aria-pressed={!isDark}
       >

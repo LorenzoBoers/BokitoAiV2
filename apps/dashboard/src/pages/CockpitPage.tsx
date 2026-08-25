@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -65,25 +65,34 @@ function StatCard({
   sub,
   to,
   icon: Icon,
+  index = 0,
 }: {
   label: string
   value: string
   sub?: string
   to?: string
   icon: React.ComponentType<{ size?: number; className?: string }>
+  index?: number
 }) {
   const body = (
-    <div className="flex h-full flex-col rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 transition-colors hover:border-accent/35 shadow-card">
+    <div
+      className="hover-lift flex h-full flex-col rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 shadow-card stagger-in"
+      style={{ '--stagger': index } as CSSProperties}
+    >
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">{label}</p>
-        <Icon size={13} className="text-text-muted" />
+        <Icon size={13} className="text-text-muted transition-colors duration-200 group-hover:text-accent" />
       </div>
-      <p className="mt-2 text-[22px] font-semibold leading-none text-text-heading">{value}</p>
+      <p className="mt-2 text-[22px] font-semibold leading-none tracking-tight text-text-heading">
+        <span key={value} className="count-pop tabular-nums">
+          {value}
+        </span>
+      </p>
       {sub ? <p className="mt-1.5 text-[11px] text-text-muted">{sub}</p> : null}
     </div>
   )
   return to ? (
-    <Link to={to} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+    <Link to={to} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
       {body}
     </Link>
   ) : (
@@ -230,24 +239,28 @@ export default function CockpitPage() {
       {/* Snapshot */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard
+          index={0}
           label={t('cockpitPage.conversations')}
           value={summary ? formatNumber(summary.volume_week) : '-'}
           icon={MessageSquare}
           to="/communication/inbox/all"
         />
         <StatCard
+          index={1}
           label={t('cockpitPage.awaitingDecision')}
           value={summary ? formatNumber(summary.open_decisions) : '-'}
           icon={Inbox}
           to="/communication/runs/awaiting-decision"
         />
         <StatCard
+          index={2}
           label={t('cockpitPage.autonomyRate')}
           value={summary ? `${formatNumber(summary.autonomy_rate_pct)}%` : '-'}
           icon={Gauge}
           to="/settings/govern?tab=policy"
         />
         <StatCard
+          index={3}
           label={t('cockpitPage.posture')}
           value={
             posture === 'manual'
@@ -262,12 +275,14 @@ export default function CockpitPage() {
           to="/settings/govern?tab=policy"
         />
         <StatCard
+          index={4}
           label={t('cockpitPage.timeSaved')}
           value={summary ? `${formatNumber(summary.time_saved_minutes_week)}m` : '-'}
           icon={Timer}
           to="/cockpit/usage"
         />
         <StatCard
+          index={5}
           label={t('cockpitPage.csat')}
           value={summary && summary.csat_score != null ? `${formatNumber(summary.csat_score)}/5` : '-'}
           sub={
@@ -283,6 +298,7 @@ export default function CockpitPage() {
           }
         />
         <StatCard
+          index={6}
           label={t('cockpitPage.usage')}
           value={summary ? formatNumber(summary.tokens_month) : '-'}
           sub={summary ? formatCost(summary.cost_cents_month) : undefined}
@@ -330,9 +346,9 @@ export default function CockpitPage() {
                         ? agentRunsPath('awaiting-decision', String(thread.id))
                         : inboxPath('all', String(thread.id))
                     }
-                    className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                    className="row-interactive group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 hover:border-accent/40"
                   >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
+                    <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12.5px] font-medium text-text-primary">
                         {thread.emailSubject || thread.contactName || t('cockpitPage.decisionNeeded')}
@@ -348,7 +364,7 @@ export default function CockpitPage() {
                 {pendingChanges > 0 ? (
                   <Link
                     to="/settings/govern?tab=drafts"
-                    className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
+                    className="row-interactive group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 hover:border-accent/40"
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                     <span className="min-w-0 flex-1">

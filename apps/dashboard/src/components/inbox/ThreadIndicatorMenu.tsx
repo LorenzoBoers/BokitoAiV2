@@ -77,7 +77,7 @@ export default function ThreadIndicatorMenu({
             />
           ) : hasUnread ? (
             <span
-              className="h-2 w-2 rounded-full bg-accent transition-[filter,transform] duration-150 group-hover/indicator:scale-110 group-hover/indicator:brightness-110"
+              className="pulse-dot h-2 w-2 rounded-full bg-accent transition-[filter,transform] duration-150 group-hover/indicator:scale-110 group-hover/indicator:brightness-110"
               aria-hidden
             />
           ) : (

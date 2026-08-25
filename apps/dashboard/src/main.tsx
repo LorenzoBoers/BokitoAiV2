@@ -74,7 +74,15 @@ createRoot(document.getElementById('root')!).render(
                 <NotificationProvider>
                   <ValidationProvider>
                     <App />
-                    <Toaster richColors closeButton position="top-right" />
+                    <Toaster
+                      richColors
+                      closeButton
+                      position="top-right"
+                      toastOptions={{
+                        duration: 3400,
+                        className: 'shadow-overlay',
+                      }}
+                    />
                   </ValidationProvider>
                 </NotificationProvider>
               </IntegrationBrandProvider>
