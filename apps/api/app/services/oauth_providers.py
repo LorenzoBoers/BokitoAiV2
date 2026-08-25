@@ -101,6 +101,7 @@ def build_authorize_url(
     state: str,
     redirect_uri: str,
     scopes: list[str] | None = None,
+    prompt: str | None = None,
 ) -> str:
     client_id, _ = _credentials(provider)
     params: dict[str, str] = {
@@ -120,6 +121,9 @@ def build_authorize_url(
         params["include_granted_scopes"] = "true"
     if provider == MICROSOFT:
         params["response_mode"] = "query"
+        # Mailbox connect must not silently reuse the browser's Microsoft session.
+        if prompt:
+            params["prompt"] = prompt
     return f"{_authorize_endpoint(provider)}?{urlencode(params)}"
 
 

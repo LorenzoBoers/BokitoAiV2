@@ -62,6 +62,8 @@ async def test_sso_start_uses_identity_scopes(client: AsyncClient, session_overr
     # SSO must not request mailbox scopes.
     assert "Mail.ReadWrite" not in scope
     assert "Mail.Send" not in scope
+    # Platform SSO may reuse the current Microsoft session; mailbox connect does not.
+    assert "prompt" not in parse_qs(urlparse(authorize_url).query)
 
     state_value = parse_qs(urlparse(authorize_url).query)["state"][0]
     row = (

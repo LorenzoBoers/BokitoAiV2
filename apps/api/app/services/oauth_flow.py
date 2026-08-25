@@ -64,10 +64,13 @@ async def start_real_oauth(
     )
     await session.commit()
     scopes = None
+    prompt = None
     if flow == "login" and provider == oauth_providers.MICROSOFT:
         scopes = oauth_providers.MICROSOFT_SSO_SCOPES
+    if flow == "email" and provider == oauth_providers.MICROSOFT:
+        prompt = "select_account"
     return oauth_providers.build_authorize_url(
-        provider, state=state, redirect_uri=redirect_uri, scopes=scopes
+        provider, state=state, redirect_uri=redirect_uri, scopes=scopes, prompt=prompt
     )
 
 

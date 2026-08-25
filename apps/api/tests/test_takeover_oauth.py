@@ -1,5 +1,7 @@
 """Tests for human takeover (ai_paused) and real-vs-mock OAuth start gating."""
 
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -126,6 +128,35 @@ async def test_oauth_start_real_when_configured(client: AsyncClient, session_ove
 
     states = (await session_override.execute(select(OAuthState))).scalars().all()
     assert any(s.provider == "gmail" and s.flow == "email" for s in states)
+
+
+@pytest.mark.asyncio
+async def test_outlook_oauth_start_forces_account_picker(
+    client: AsyncClient, session_override, monkeypatch
+):
+    from app.services import oauth_providers
+
+    monkeypatch.setattr(oauth_providers, "is_configured", lambda provider: provider == "outlook")
+    monkeypatch.setattr(
+        oauth_providers, "_credentials", lambda provider: ("test-client-id", "test-secret")
+    )
+
+    headers = await _auth_headers(client)
+    res = await client.get(
+        "/api/email/oauth/start",
+        headers=headers,
+        params={"provider": "outlook", "return_url": "http://localhost:5174/settings"},
+    )
+    assert res.status_code == 200
+    url = res.json()["authorize_url"]
+    assert url.startswith("https://login.microsoftonline.com/")
+    query = parse_qs(urlparse(url).query)
+    assert query["prompt"] == ["select_account"]
+    assert query["client_id"] == ["test-client-id"]
+    assert query["response_type"] == ["code"]
+
+    states = (await session_override.execute(select(OAuthState))).scalars().all()
+    assert any(s.provider == "outlook" and s.flow == "email" for s in states)
 
 
 @pytest.mark.asyncio
