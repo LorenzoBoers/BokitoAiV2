@@ -148,7 +148,7 @@ def _strip_signoff(text: str) -> str:
             continue
         if _CLOSING_RE.match(line):
             # Guard: never strip when the closing is (nearly) the whole draft.
-            remaining = [l for l in lines[:idx] if l.strip()]
+            remaining = [part for part in lines[:idx] if part.strip()]
             if not remaining:
                 return text
             return "\n".join(lines[:idx]).rstrip()
@@ -157,7 +157,7 @@ def _strip_signoff(text: str) -> str:
             r"^(?P<closing>[^,]{2,40}),\s*(?P<name>[^,]{1,64})$", line
         )
         if single and _CLOSING_RE.match(single.group("closing").strip() + ","):
-            remaining = [l for l in lines[:idx] if l.strip()]
+            remaining = [part for part in lines[:idx] if part.strip()]
             if not remaining:
                 return text
             return "\n".join(lines[:idx]).rstrip()

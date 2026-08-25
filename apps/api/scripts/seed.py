@@ -72,6 +72,9 @@ async def seed() -> None:
                 password_hash=hash_password(TEST_PASSWORD),
                 display_name="Bokito Admin",
                 email_verified=True,
+                # Playwright e2e assertions use English copy; pin the UI
+                # language so the platform default (Dutch) does not apply.
+                settings_json=json.dumps({"ui_language": "en"}),
             )
             session.add(user)
             await session.flush()

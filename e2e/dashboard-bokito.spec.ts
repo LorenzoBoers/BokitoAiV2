@@ -79,7 +79,7 @@ test.describe('Dashboard', () => {
     await page.goto('/communication')
     await expect(page).toHaveURL(/\/communication\/inbox\/all/, { timeout: 20000 })
     await page.goto('/govern')
-    await expect(page).toHaveURL(/\/settings\/autonomy/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/settings\/govern/, { timeout: 20000 })
     await page.goto('/os/docs')
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
   })
@@ -105,8 +105,8 @@ test.describe('Dashboard', () => {
   test('autonomy settings section renders govern content', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/settings/autonomy')
-    await expect(page.getByRole('heading', { name: 'Autonomy & approvals' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeVisible({ timeout: 20000 })
+    await expect(page).toHaveURL(/\/settings\/govern/, { timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Govern' })).toBeVisible({ timeout: 20000 })
   })
 
   test('my assistant settings page renders', async ({ page }) => {
