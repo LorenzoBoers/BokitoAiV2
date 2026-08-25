@@ -45,7 +45,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "kind": "VARCHAR DEFAULT 'company'",
         "owner_user_id": "VARCHAR",
         "chat_access": "VARCHAR DEFAULT 'nobody'",
-        "settings_json": "VARCHAR DEFAULT '{}'",
     },
     "signals": {
         "agent_id": "VARCHAR",

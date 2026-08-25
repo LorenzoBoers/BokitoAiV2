@@ -16,6 +16,33 @@ async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_o
 _MIGRATION_LOCK_KEY = 729_001
 
 
+def _assert_no_schema_drift(sync_conn) -> None:
+    """Fail fast when a model column has no matching column in the live schema.
+
+    Postgres is Alembic-managed; a model change without a revision otherwise
+    surfaces as opaque 500s on every select of that table (all backend tests
+    run on SQLite, where create_all/schema_patch mask the gap). Raising here
+    makes the deploy smoke test fail and triggers the automatic rollback.
+    """
+    from sqlalchemy import inspect
+
+    inspector = inspect(sync_conn)
+    drift: list[str] = []
+    for table_name, table in SQLModel.metadata.tables.items():
+        if not inspector.has_table(table_name):
+            drift.append(f"{table_name} (table missing)")
+            continue
+        existing = {c["name"] for c in inspector.get_columns(table_name)}
+        drift.extend(
+            f"{table_name}.{col.name}" for col in table.columns if col.name not in existing
+        )
+    if drift:
+        raise RuntimeError(
+            "Database schema is behind the models; write an Alembic revision for: "
+            + ", ".join(sorted(drift))
+        )
+
+
 def _alembic_upgrade_head() -> None:
     """Run `alembic upgrade head` in-process (called from a worker thread).
 
@@ -45,6 +72,7 @@ async def init_db() -> None:
                 await conn.execute(
                     text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY}
                 )
+            await conn.run_sync(_assert_no_schema_drift)
     else:
         # SQLite (tests/local dev without Postgres): create_all plus the frozen
         # schema patches — no Alembic, matching the historical behavior.
