@@ -16,6 +16,16 @@
     "saving": "Saving...",
     "savedSuccess": "Profile saved"
   },
+  "signature": {
+    "title": "Email signature",
+    "description": "Appended automatically to replies you send or approve as yourself.",
+    "empty": "No personal signature yet. Without one, the mailbox signature is used.",
+    "add": "Add signature",
+    "edit": "Edit signature",
+    "saved": "Signature saved",
+    "saveError": "Could not save the signature.",
+    "editorContext": "Your personal signature, used when a reply is sent as you."
+  },
   "language": {
     "title": "Language",
     "description": "Choose the language for your interface.",

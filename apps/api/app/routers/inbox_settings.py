@@ -40,6 +40,8 @@ class AiModesUpdate(BaseModel):
     reply_language: str | None = None
     # Language for AI text addressed to the team (summaries, explanations).
     workspace_language: str | None = None
+    # Default sender identity when approving a suggested reply: "user" | "agent".
+    reply_send_as: str | None = None
 
 
 @router.get("/inbox/settings")
@@ -86,6 +88,7 @@ async def get_ai_modes(
 ):
     """Tenant-wide AI mode per channel plus AI language policy."""
     from app.services.language import resolve_reply_language, resolve_workspace_language
+    from app.services.signatures import tenant_reply_send_as
 
     modes = tenant_channel_ai_modes(auth.tenant)
     return {
@@ -95,6 +98,7 @@ async def get_ai_modes(
         },
         "reply_language": resolve_reply_language(auth.tenant, None),
         "workspace_language": resolve_workspace_language(auth.tenant),
+        "reply_send_as": tenant_reply_send_as(auth.tenant),
     }
 
 
@@ -125,6 +129,10 @@ async def update_ai_modes(
         and body.workspace_language not in WORKSPACE_LANGUAGE_CHOICES
     ):
         raise HTTPException(status_code=400, detail="Invalid workspace_language")
+    from app.services.signatures import SEND_AS_CHOICES, tenant_reply_send_as
+
+    if body.reply_send_as is not None and body.reply_send_as not in SEND_AS_CHOICES:
+        raise HTTPException(status_code=400, detail="reply_send_as must be 'user' or 'agent'")
 
     tenant = auth.tenant
     settings = json.loads(tenant.settings_json or "{}")
@@ -137,6 +145,8 @@ async def update_ai_modes(
         settings["ai_reply_language"] = body.reply_language
     if body.workspace_language is not None:
         settings["ai_workspace_language"] = body.workspace_language
+    if body.reply_send_as is not None:
+        settings["reply_send_as"] = body.reply_send_as
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
     await session.commit()
@@ -144,6 +154,7 @@ async def update_ai_modes(
         "channel_ai_modes": modes,
         "reply_language": resolve_reply_language(tenant, None),
         "workspace_language": resolve_workspace_language(tenant),
+        "reply_send_as": tenant_reply_send_as(tenant),
     }
 
 

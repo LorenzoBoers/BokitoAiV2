@@ -84,6 +84,8 @@ class ResolveBody(BaseModel):
     body_html: str | None = None
     subject: str | None = None
     response_text: str | None = None
+    # Sender identity for approved reply suggestions: "user" (default) or "agent".
+    send_as: str | None = None
 
 
 class SessionStartBody(BaseModel):
@@ -880,6 +882,7 @@ async def resolve_decision(
         body_html=body.body_html,
         subject=body.subject,
         response_text=body.response_text,
+        send_as=body.send_as,
     )
 
 

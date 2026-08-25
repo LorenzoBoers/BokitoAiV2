@@ -653,6 +653,8 @@ export async function resolveSignalDecision(
     bodyHtml?: string
     subject?: string
     responseText?: string
+    /** Sender identity for approved reply suggestions. */
+    sendAs?: 'user' | 'agent'
   },
 ): Promise<ResolveDecisionResult> {
   const backendAction =
@@ -668,6 +670,7 @@ export async function resolveSignalDecision(
   if (opts?.responseText != null && opts.responseText.trim()) {
     payload.response_text = opts.responseText.trim()
   }
+  if (opts?.sendAs) payload.send_as = opts.sendAs
   const response = await apiPost<Record<string, unknown>>(
     appRoutes.signals.messageResolve(threadId, messageId),
     payload,

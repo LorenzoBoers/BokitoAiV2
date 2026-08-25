@@ -528,6 +528,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     key: string
     /** Set when the draft came from a suggestion card; sending resolves that decision. */
     decisionMessageId?: string
+    /** Sender identity chosen on the suggestion card (user | agent). */
+    sendAs?: 'user' | 'agent'
   } | null>(null)
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
@@ -895,6 +897,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           optionId: 'send',
           body: bodyText,
           subject: composerDraft?.subject,
+          sendAs: composerDraft?.sendAs,
         })
         setComposerDraft(null)
         onDecisionResolved?.()
@@ -1370,6 +1373,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                             subject: draft.subject,
                             key: `${draft.decisionMessageId}-${Date.now()}`,
                             decisionMessageId: draft.decisionMessageId,
+                            sendAs: draft.sendAs,
                           })
                         }}
                       />

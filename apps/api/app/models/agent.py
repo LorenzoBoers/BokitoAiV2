@@ -32,6 +32,8 @@ class Agent(SQLModel, table=True):
     permission_scopes_json: str = Field(default="[]")
     is_active: bool = True
     slug: str = ""
+    # Misc agent settings (e.g. email_signature_html used on outbound replies).
+    settings_json: str = Field(default="{}")
     runtime_status: str = Field(default="standby")
     parent_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
     default_runtime_profile_id: Optional[uuid.UUID] = Field(

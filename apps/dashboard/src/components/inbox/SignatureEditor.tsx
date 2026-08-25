@@ -20,7 +20,10 @@ interface SignatureEditorProps {
   onOpenChange: (open: boolean) => void;
   initialSignature?: string;
   onSave: (signature: string) => void;
-  mailboxEmail: string;
+  /** Shown in the "for" line and used in templates; empty for user/agent signatures. */
+  mailboxEmail?: string;
+  /** Overrides the "for mailbox X" line (e.g. "Your personal signature"). */
+  contextLabel?: string;
 }
 
 const SAMPLE_VARIABLES: Record<string, string> = {
@@ -30,6 +33,7 @@ const SAMPLE_VARIABLES: Record<string, string> = {
   address: '123 Main Street, Springfield',
   phone: '+1 555 0100',
   website: 'www.example.com',
+  email: 'jane@example.com',
 };
 
 function withSampleData(html: string): string {
@@ -43,7 +47,8 @@ export default function SignatureEditor({
   onOpenChange,
   initialSignature = '',
   onSave,
-  mailboxEmail,
+  mailboxEmail = '',
+  contextLabel,
 }: SignatureEditorProps) {
   const { t } = useTranslation('communication');
   const [signature, setSignature] = useState(initialSignature);
@@ -54,11 +59,12 @@ export default function SignatureEditor({
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
 
-  const defaultTemplates = useMemo(
-    () => [
+  const defaultTemplates = useMemo(() => {
+    const emailToken = mailboxEmail || '{{email}}';
+    return [
       {
         name: t('signatureEditor.templateStandard'),
-        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: {{phone}}</p>`,
+        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${emailToken}<br>T: {{phone}}</p>`,
       },
       {
         name: t('signatureEditor.templateShort'),
@@ -66,11 +72,10 @@ export default function SignatureEditor({
       },
       {
         name: t('signatureEditor.templateExtended'),
-        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${mailboxEmail}<br>T: {{phone}}<br>W: {{website}}</p>`,
+        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${emailToken}<br>T: {{phone}}<br>W: {{website}}</p>`,
       },
-    ],
-    [mailboxEmail, t],
-  );
+    ];
+  }, [mailboxEmail, t]);
 
   // Re-initialize when the dialog opens (possibly for a different mailbox).
   useEffect(() => {
@@ -136,7 +141,14 @@ export default function SignatureEditor({
 
           <div className="p-4 space-y-4 max-h-[calc(90vh-120px)] overflow-y-auto">
             <div className="text-sm text-text-secondary">
-              {t('signatureEditor.forMailbox')} <strong>{mailboxEmail}</strong>
+              {contextLabel ?? (
+                <>
+                  {t('signatureEditor.forMailbox')} <strong>{mailboxEmail}</strong>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {t('signatureEditor.mailboxFallbackHint')}
+                  </p>
+                </>
+              )}
             </div>
 
             <Tabs

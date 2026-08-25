@@ -1162,7 +1162,13 @@ async def reply_to_thread(
         send_status = "scheduled"
     elif direction == "outbound":
         from app.channels import deliver_outbound
+        from app.services.signatures import resolve_signature_html
 
+        # Manual replies are sent as the operator: their signature (mailbox
+        # signature as fallback) is appended server-side.
+        signature_html = await resolve_signature_html(
+            session, tenant_id, send_as="user", user_id=user_id
+        )
         send_status = await deliver_outbound(
             session,
             signal,
@@ -1171,6 +1177,7 @@ async def reply_to_thread(
             cc=cc,
             bcc=bcc,
             attachments=attachments,
+            signature_html=signature_html,
         )
         if send_status == "skipped":
             send_status = "sent"
@@ -1288,6 +1295,15 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
             attachments = json.loads(message.attachments_json or "[]")
         except (TypeError, ValueError):
             attachments = []
+        from app.services.signatures import resolve_signature_html
+
+        signature_html = await resolve_signature_html(
+            session,
+            message.tenant_id,
+            send_as="user" if message.author_user_id else "agent",
+            user_id=message.author_user_id,
+            agent_id=message.author_agent_id or signal.agent_id,
+        )
         try:
             status = await deliver_outbound(
                 session,
@@ -1297,6 +1313,7 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
                 cc=meta.get("cc"),
                 bcc=meta.get("bcc"),
                 attachments=attachments or None,
+                signature_html=signature_html,
             )
         except Exception as exc:  # noqa: BLE001 — one bad message must not stall the queue
             logger.exception("Scheduled send failed for message %s", message.id)
@@ -1628,10 +1645,15 @@ async def resolve_message_decision(
     body_html: str | None = None,
     subject: str | None = None,
     response_text: str | None = None,
+    # Sender identity for approved reply suggestions ("user" | "agent").
+    send_as: str | None = None,
     # External resolution channel (e.g. "slack:U123"); lands in the event payload.
     source: str | None = None,
 ) -> dict[str, Any]:
     from app.services.decisions import resolve_decision_message
+
+    if send_as is not None and send_as not in ("user", "agent"):
+        raise HTTPException(status_code=400, detail="send_as must be 'user' or 'agent'")
 
     msg_result = await session.execute(
         select(SignalMessage).where(
@@ -1654,6 +1676,8 @@ async def resolve_message_decision(
         payload_override["subject"] = subject
     if response_text is not None and response_text.strip():
         payload_override["response_text"] = response_text.strip()
+    if send_as is not None:
+        payload_override["send_as"] = send_as
 
     await resolve_decision_message(
         session,

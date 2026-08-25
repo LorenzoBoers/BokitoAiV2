@@ -51,6 +51,8 @@ class AgentCreateBody(BaseModel):
 class AgentUpdateBody(BaseModel):
     name: str | None = None
     system_prompt: str | None = None
+    # Signature (HTML) appended to outbound replies sent as this agent.
+    email_signature_html: str | None = None
 
 
 class TriggerAgentBody(BaseModel):
@@ -305,6 +307,7 @@ async def update_agent(
         agent_id,
         name=body.name,
         system_prompt=body.system_prompt,
+        email_signature_html=body.email_signature_html,
     )
     from app.services.audit import record_audit
 

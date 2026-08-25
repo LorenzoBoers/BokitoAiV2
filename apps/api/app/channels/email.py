@@ -70,8 +70,13 @@ def _parse_address_list(raw: str | None) -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
-def _append_signature(html_body: str, account: ChannelAccount) -> str:
-    signature = account_settings(account).get("signature_html") or ""
+def _append_signature(
+    html_body: str, account: ChannelAccount, override: str | None = None
+) -> str:
+    """Append exactly one signature: the resolved identity signature when
+    provided (user or agent, see services/signatures.py), otherwise the
+    mailbox-level `signature_html` fallback."""
+    signature = override if override else (account_settings(account).get("signature_html") or "")
     if not signature:
         return html_body
     return f"{html_body}<br><br>{signature}"
@@ -90,13 +95,14 @@ def format_outbound(
     references: str | None = None,
     thread_provider_id: str | None = None,
     attachment_payloads: list[dict[str, Any]] | None = None,
+    signature_html: str | None = None,
 ) -> dict[str, Any]:
     """Build the provider request payload for an outbound email.
 
     `attachment_payloads` items carry hydrated bytes: {name, mime, data}.
     """
     html_body = body_html or f"<p>{body_text.replace(chr(10), '<br>')}</p>"
-    html_body = _append_signature(html_body, account)
+    html_body = _append_signature(html_body, account, override=signature_html)
     # `to_address` may carry multiple comma/semicolon-separated recipients
     # (compose to several people); normalize once for both providers.
     to_addrs = _parse_address_list(to_address) or [to_address]
@@ -288,6 +294,7 @@ async def send_via_provider(
     thread_provider_id: str | None = None,
     attachments: list[dict[str, Any]] | None = None,
     session: AsyncSession | None = None,
+    signature_html: str | None = None,
 ) -> str:
     """Send an email through the account's provider. Returns a send status."""
     attachment_payloads = await _load_attachment_payloads(attachments)
@@ -303,6 +310,7 @@ async def send_via_provider(
         references=references,
         thread_provider_id=thread_provider_id,
         attachment_payloads=attachment_payloads,
+        signature_html=signature_html,
     )
     if account.provider == "mock":
         return "sent"
@@ -362,6 +370,7 @@ async def send_via_provider(
                 cc=cc,
                 bcc=bcc,
                 attachment_payloads=attachment_payloads,
+                signature_html=signature_html,
             )
             return await _post_send(GRAPH_SEND_URL, fresh, current_token)
         return res

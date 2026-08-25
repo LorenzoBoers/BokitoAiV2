@@ -1,8 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { BellOff, Loader2, MessageSquareWarning, ThumbsDown, ThumbsUp, Zap } from 'lucide-react'
+import {
+  BellOff,
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  MessageSquareWarning,
+  PenLine,
+  StickyNote,
+  ThumbsDown,
+  ThumbsUp,
+  UserRound,
+  Zap,
+} from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
@@ -16,8 +29,10 @@ import {
   type InboxEvent,
   type InboxMessage,
   type InboxRuleSuggestion,
+  type ReplySendAs,
   type ThreadId,
 } from '../../lib/inbox-api'
+import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib/reply-send-as'
 import { useAuth } from '../../context/AuthContext'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
@@ -37,7 +52,12 @@ type Props = {
   threadId: ThreadId
   events: InboxEvent[]
   onResolved?: () => void
-  onEditDraft?: (draft: { body: string; subject?: string; decisionMessageId: string }) => void
+  onEditDraft?: (draft: {
+    body: string
+    subject?: string
+    decisionMessageId: string
+    sendAs?: ReplySendAs
+  }) => void
   /** Name of the agent bound to this thread, used for the correction action. */
   agentName?: string | null
 }
@@ -108,6 +128,15 @@ function draftBodyFromOptions(options: DecisionOption[], fallback: string): stri
     if (body.trim()) return body
   }
   return fallback
+}
+
+/** Team-facing remarks the agent produced alongside the draft (never emailed). */
+function internalNoteFromOptions(options: DecisionOption[]): string {
+  for (const option of options) {
+    const note = option.payload?.internal_note
+    if (typeof note === 'string' && note.trim()) return note.trim()
+  }
+  return ''
 }
 
 /**
@@ -206,6 +235,27 @@ export default function DecisionRequestMessage({
   const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
   // Automated/no-reply mail: the agent proposes an action instead of a reply.
   const isActionSuggestion = !isSuggestion && options.some((o) => o.action_type === 'close_thread')
+  const internalNote = useMemo(() => internalNoteFromOptions(options), [options])
+  const [noteOpen, setNoteOpen] = useState(false)
+
+  // Sender identity for the approved reply: the operator's last choice wins,
+  // otherwise the tenant default (fetched once per session).
+  const [sendAs, setSendAs] = useState<ReplySendAs>(() => rememberedSendAs() ?? 'user')
+  useEffect(() => {
+    if (!token || rememberedSendAs()) return
+    let cancelled = false
+    void tenantDefaultSendAs(token).then((value) => {
+      if (!cancelled) setSendAs(value)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  function chooseSendAs(value: ReplySendAs) {
+    setSendAs(value)
+    rememberSendAs(value)
+  }
 
   async function resolve(
     action: 'approve' | 'defer' | 'reject',
@@ -213,6 +263,7 @@ export default function DecisionRequestMessage({
     bodyOverride?: string,
     successLabel?: string,
     answerText?: string,
+    sendAsOverride?: ReplySendAs,
   ) {
     if (!token || resolved) return
     setBusy(true)
@@ -222,6 +273,7 @@ export default function DecisionRequestMessage({
         optionId,
         body: bodyOverride,
         responseText: answerText,
+        sendAs: sendAsOverride,
       })
       toast.success(
         successLabel ??
@@ -305,11 +357,12 @@ export default function DecisionRequestMessage({
         body: draftBody,
         subject: typeof option.payload?.subject === 'string' ? option.payload.subject : undefined,
         decisionMessageId: String(message.id),
+        sendAs,
       })
       return
     }
     if (option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email') {
-      await resolve('approve', option.id, draftBody, t('decisionCard.toastSent'))
+      await resolve('approve', option.id, draftBody, t('decisionCard.toastSent'), undefined, sendAs)
       return
     }
     if (option.id === 'escalate' || option.action_type === 'escalate') {
@@ -390,8 +443,76 @@ export default function DecisionRequestMessage({
             <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
               <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
             </div>
+            {internalNote ? (
+              <div className="mt-2 rounded-lg border border-yellow-200/60 bg-yellow-50 dark:border-yellow-700/30 dark:bg-yellow-900/10">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs font-medium text-yellow-800 dark:text-yellow-200"
+                  onClick={() => setNoteOpen((open) => !open)}
+                >
+                  {noteOpen ? (
+                    <ChevronDown size={12} aria-hidden />
+                  ) : (
+                    <ChevronRight size={12} aria-hidden />
+                  )}
+                  <StickyNote size={12} aria-hidden />
+                  {t('decisionCard.internalNote.title')}
+                  <span className="ml-1 font-normal text-yellow-700/70 dark:text-yellow-300/60">
+                    {t('decisionCard.internalNote.notSent')}
+                  </span>
+                </button>
+                {noteOpen ? (
+                  <p className="whitespace-pre-wrap px-3 pb-2.5 pl-8 text-xs text-yellow-900/90 dark:text-yellow-100/80">
+                    {internalNote}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </>
         )}
+        {!resolved && isSuggestion ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="text-xs text-text-muted">{t('decisionCard.sendAs.label')}</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => chooseSendAs('user')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                  sendAs === 'user'
+                    ? 'border-accent/50 bg-accent/10 text-text-primary'
+                    : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                )}
+              >
+                <UserRound size={12} aria-hidden />
+                {t('decisionCard.sendAs.you')}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => chooseSendAs('agent')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                  sendAs === 'agent'
+                    ? 'border-ai/40 bg-ai/10 text-text-primary'
+                    : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                )}
+              >
+                <Bot size={12} aria-hidden />
+                {agentName || t('decisionCard.sendAs.agentFallback')}
+              </button>
+            </div>
+            <span className="flex items-center gap-1 text-[11px] text-text-muted/80">
+              <PenLine size={11} aria-hidden />
+              {sendAs === 'user'
+                ? t('decisionCard.sendAs.signatureYou')
+                : t('decisionCard.sendAs.signatureAgent', {
+                    name: agentName || t('decisionCard.sendAs.agentFallback'),
+                  })}
+            </span>
+          </div>
+        ) : null}
         {!resolved ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {options.length > 0 ? (

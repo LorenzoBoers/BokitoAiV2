@@ -8,6 +8,7 @@ import { AgentChatAccessCard } from '../components/workforce/AgentChatAccessCard
 import { AgentModelCard } from '../components/workforce/AgentModelCard'
 import { AgentToolsPicker } from '../components/workforce/AgentToolsPicker'
 import { AgentInstructionsCard } from '../components/workforce/AgentInstructionsCard'
+import { AgentSignatureCard } from '../components/workforce/AgentSignatureCard'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { LoadingBlock } from '../components/ui/loading-block'
@@ -404,6 +405,16 @@ export default function AiAgentDetail() {
               agentId={agent.id}
               name={agent.name}
               systemPrompt={agent.system_prompt ?? ''}
+              canEdit={isAdmin}
+              onChanged={() => void load()}
+            />
+          ) : null}
+
+          {agent.kind !== 'personal' ? (
+            <AgentSignatureCard
+              agentId={agent.id}
+              agentName={agent.name}
+              signatureHtml={agent.email_signature_html ?? ''}
               canEdit={isAdmin}
               onChanged={() => void load()}
             />

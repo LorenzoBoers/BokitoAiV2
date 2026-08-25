@@ -95,6 +95,8 @@ class ProfilePatchRequest(BaseModel):
     # True marks first-time onboarding as done (persisted as `onboarded_at`
     # in User.settings_json). Sent by the accept-invite welcome step.
     onboarded: bool | None = None
+    # Personal email signature (HTML), appended to replies sent as this user.
+    email_signature_html: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -145,6 +147,8 @@ class TotpVerifyRequest(BaseModel):
 
 
 def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) -> dict:
+    from app.services.signatures import user_signature_html
+
     return {
         "id": str(user.id),
         "email": user.email,
@@ -153,6 +157,7 @@ def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) ->
         "is_staff": is_staff,
         "email_verified": user.email_verified,
         "totp_enabled": user.totp_enabled,
+        "email_signature_html": user_signature_html(user),
         "tenant": {"id": str(tenant.id), "slug": tenant.slug, "name": tenant.name},
     }
 
@@ -980,7 +985,7 @@ async def patch_profile(
         user.display_name = body.name.strip()
     if body.job_title is not None:
         user.job_title = body.job_title.strip()
-    if body.onboarded:
+    if body.onboarded or body.email_signature_html is not None:
         import json as _json
 
         try:
@@ -989,7 +994,18 @@ async def patch_profile(
             stored = {}
         if not isinstance(stored, dict):
             stored = {}
-        stored.setdefault("onboarded_at", datetime.utcnow().isoformat())
+        if body.onboarded:
+            stored.setdefault("onboarded_at", datetime.utcnow().isoformat())
+        if body.email_signature_html is not None:
+            from app.services.signatures import MAX_SIGNATURE_LENGTH, SIGNATURE_KEY
+
+            signature = body.email_signature_html.strip()
+            if len(signature) > MAX_SIGNATURE_LENGTH:
+                raise HTTPException(status_code=400, detail="Signature too long")
+            if signature:
+                stored[SIGNATURE_KEY] = signature
+            else:
+                stored.pop(SIGNATURE_KEY, None)
         user.settings_json = _json.dumps(stored)
     email_changed = False
     if body.email is not None:

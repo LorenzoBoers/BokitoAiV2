@@ -84,6 +84,8 @@ export interface RuntimeAgent {
   model?: string
   provider?: string
   system_prompt?: string
+  /** Signature (HTML) appended to outbound replies sent as this agent. */
+  email_signature_html?: string
   chat_access?: 'everyone' | 'selected' | 'nobody'
   kind?: 'company' | 'personal'
   current_session_id: string | null

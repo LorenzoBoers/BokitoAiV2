@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.channels.outbound import deliver_outbound
 from app.models.agent import Agent
 from app.models.notification import DecisionRequest, Notification
-from app.models.signal import Signal, SignalEvent
+from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.assistant_threads import append_signal_chat_message
+from app.services.suggestion_format import split_suggestion
 
 
 _SKIP_REPLIES = frozenset({"", "Done.", "HEARTBEAT_OK"})
@@ -43,6 +45,7 @@ def _suggestion_options(
     body_text: str,
     subject: str,
     to_address: str,
+    internal_note: str = "",
 ) -> list[dict]:
     payload = {
         "body_text": body_text,
@@ -51,6 +54,10 @@ def _suggestion_options(
         "to": to_address,
         "signal_id": None,  # filled by caller
     }
+    if internal_note:
+        # Team-facing context extracted from the model output; the decision
+        # card shows it collapsed and it is never part of the outbound email.
+        payload["internal_note"] = internal_note
     return [
         {
             "id": "send",
@@ -210,11 +217,19 @@ async def create_reply_suggestion(
     if text in _SKIP_REPLIES:
         return {"skipped": True, "reason": "empty"}
 
+    # The stored draft must be pure customer-facing text: strip research
+    # preambles, internal note blocks, and model-written sign-offs (the
+    # signature system appends exactly one signature at send time).
+    parts = split_suggestion(text)
+    text = parts.body
+    internal_note = parts.internal_note
+
     subject = f"Re: {signal.subject}" if signal.subject else "Reply"
     options = _suggestion_options(
         body_text=text,
         subject=subject,
         to_address=signal.contact_email or "",
+        internal_note=internal_note,
     )
     for opt in options:
         if isinstance(opt.get("payload"), dict):
@@ -264,6 +279,27 @@ async def create_reply_suggestion(
         agent_id=agent.id,
         signal_id=signal.id,
     )
+
+    if internal_note:
+        # Team-facing remarks live as an internal note on the thread — never
+        # in the draft that can be approved and emailed to the contact.
+        note_message = SignalMessage(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            kind="internal_note",
+            direction="internal",
+            role="assistant",
+            author_agent_id=agent.id,
+            body_text=internal_note,
+            body_preview=internal_note[:200],
+            received_at=datetime.utcnow(),
+        )
+        session.add(note_message)
+        await session.flush()
+        from app.gateway.publish import publish_signal_message
+
+        await publish_signal_message(signal, note_message)
+
     apply_suggested_actions(signal)
     session.add(signal)
     session.add(
@@ -348,6 +384,25 @@ async def persist_inbound_agent_reply(
             run_id=run_id,
         )
 
+    # Auto mode delivers straight to the customer: the same cleaning applies
+    # (no research preamble, no internal notes, no model-written sign-off).
+    parts = split_suggestion(text)
+    text = parts.body
+    if parts.internal_note:
+        note_message = SignalMessage(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            kind="internal_note",
+            direction="internal",
+            role="assistant",
+            author_agent_id=agent.id,
+            body_text=parts.internal_note,
+            body_preview=parts.internal_note[:200],
+            received_at=datetime.utcnow(),
+        )
+        session.add(note_message)
+        await session.flush()
+
     metadata: dict = {"inbound_auto_reply": True}
     if run_id:
         metadata["run_id"] = str(run_id)
@@ -365,11 +420,19 @@ async def persist_inbound_agent_reply(
 
     delivery_status = "skipped"
     if signal.channel in _DELIVERABLE_CHANNELS:
+        from app.services.signatures import resolve_signature_html
+
+        # Auto mode sends carry the agent identity: agent signature, with the
+        # mailbox signature as fallback.
+        signature_html = await resolve_signature_html(
+            session, tenant_id, send_as="agent", agent_id=agent.id
+        )
         delivery_status = await deliver_outbound(
             session,
             signal,
             body_text=text,
             subject=f"Re: {signal.subject}" if signal.subject else "Reply",
+            signature_html=signature_html,
         )
         if delivery_status.startswith("sent"):
             message.auto_sent = True

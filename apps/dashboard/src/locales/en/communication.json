@@ -37,7 +37,7 @@
     "savedReplies": "Saved replies",
     "loadingSavedReplies": "Loading...",
     "attachFile": "Attach file",
-    "withSignature": "With signature",
+    "withSignature": "Your signature is added",
     "ccBcc": "CC/BCC",
     "channel": {
       "email": "Email",
@@ -123,6 +123,17 @@
     "toastSent": "Reply sent",
     "toastEscalated": "Escalated to human",
     "toastAnswerSubmitted": "Answer submitted",
+    "internalNote": {
+      "title": "Internal note",
+      "notSent": "not part of the email"
+    },
+    "sendAs": {
+      "label": "Send as:",
+      "you": "You",
+      "agentFallback": "Agent",
+      "signatureYou": "Your signature is added automatically",
+      "signatureAgent": "The signature of {{name}} is added automatically"
+    },
     "rulePrompt": {
       "autoClose": "Always close messages from {{sender}}?",
       "autoTask": "Always create a task for messages from {{sender}}?",
@@ -597,6 +608,7 @@
   "signatureEditor": {
     "title": "Edit email signature",
     "forMailbox": "For mailbox:",
+    "mailboxFallbackHint": "Used as a fallback when the sender (teammate or agent) has no personal signature.",
     "tabEdit": "Edit",
     "tabHtml": "HTML",
     "tabPreview": "Preview",

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Gauge, Globe, Languages, Mail, MessageCircle, MessageSquareText } from 'lucide-react'
+import { Gauge, Globe, Languages, Mail, MessageCircle, MessageSquareText, UserRound } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
@@ -30,8 +30,10 @@ import {
   type AiMode,
   type ChannelAiModes,
   type ReplyLanguage,
+  type ReplySendAs,
   type WorkspaceLanguage,
 } from '../lib/inbox-api'
+import { resetTenantDefaultSendAs } from '../lib/reply-send-as'
 import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
 
 const MODES: AiMode[] = ['suggest', 'auto', 'off']
@@ -217,8 +219,11 @@ export default function AiCommunicationSettings() {
           modes: aiSettings.modes,
           replyLanguage: aiSettings.replyLanguage,
           workspaceLanguage: aiSettings.workspaceLanguage,
+          replySendAs: aiSettings.replySendAs,
         })
         setSavedAiSettings(aiSettings)
+        // Decision cards cache the tenant default per session; refresh it.
+        resetTenantDefaultSendAs()
       }
       if (connectionId != null && mailboxDirty) {
         await saveAiConfig(token, connectionId, { mode: mailboxMode, replyLanguage: mailboxLanguage })
@@ -403,6 +408,36 @@ export default function AiCommunicationSettings() {
                   setSaveMessage(null)
                 }}
               />
+            </div>
+            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
+              <div className="flex items-start gap-3">
+                <UserRound size={16} className="mt-0.5 text-accent" />
+                <div>
+                  <Label htmlFor="ai-reply-send-as" className="text-sm font-medium">
+                    {t('ai.communication.sendAsLabel')}
+                  </Label>
+                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                    {t('ai.communication.sendAsHint')}
+                  </p>
+                </div>
+              </div>
+              <Select
+                value={aiSettings.replySendAs}
+                onValueChange={(v) => {
+                  setAiSettings((prev) =>
+                    prev ? { ...prev, replySendAs: v as ReplySendAs } : prev,
+                  )
+                  setSaveMessage(null)
+                }}
+              >
+                <SelectTrigger id="ai-reply-send-as" className="w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">{t('ai.communication.sendAsUser')}</SelectItem>
+                  <SelectItem value="agent">{t('ai.communication.sendAsAgent')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}

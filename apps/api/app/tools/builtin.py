@@ -160,12 +160,34 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     if to_override and not signal.contact_email:
         signal.contact_email = to_override
 
+    # Sender identity: "user" (human approved — the default for approvals) or
+    # "agent" (auto mode, or explicitly chosen). It drives the appended
+    # signature and the timeline attribution; the From address stays the
+    # mailbox (technical requirement of the connected account).
+    send_as = str(tool_input.get("send_as") or "").strip().lower()
+    if send_as not in ("user", "agent"):
+        send_as = "agent" if ctx.agent else "user"
+    identity_agent_id = ctx.agent.id if ctx.agent else signal.agent_id
+    if send_as == "user" and not ctx.user_id:
+        send_as = "agent"
+
+    from app.services.signatures import resolve_signature_html
+
+    signature_html = await resolve_signature_html(
+        ctx.session,
+        ctx.tenant_id,
+        send_as=send_as,
+        user_id=ctx.user_id,
+        agent_id=identity_agent_id,
+    )
+
     delivery = await deliver_outbound(
         ctx.session,
         signal,
         body_text=body_text,
         subject=subject,
         body_html=body_html if isinstance(body_html, str) else None,
+        signature_html=signature_html,
     )
     if delivery == "skipped":
         # Channels without provider delivery (widget/chat): the visitor
@@ -174,14 +196,23 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     if not delivery.startswith("sent"):
         return {"error": f"Delivery failed: {delivery}", "delivery": delivery}
 
+    as_user = send_as == "user"
+    metadata: dict[str, Any] = {
+        "source": "send_reply_tool",
+        "delivery": delivery,
+        "send_as": send_as,
+    }
+    if ctx.user_id:
+        # Keep the approving human traceable even on agent-identity sends.
+        metadata["approved_by_user_id"] = str(ctx.user_id)
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=ctx.tenant_id,
-        kind="agent_message",
+        kind="user_message" if as_user else "agent_message",
         direction="outbound",
-        role="assistant" if ctx.agent else "user",
-        author_agent_id=ctx.agent.id if ctx.agent else None,
-        author_user_id=ctx.user_id,
+        role="user" if as_user else "assistant",
+        author_agent_id=None if as_user else identity_agent_id,
+        author_user_id=ctx.user_id if as_user else None,
         subject=subject,
         body_text=body_text,
         body_html=body_html if isinstance(body_html, str) else "",
@@ -189,7 +220,7 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         send_status=delivery,
         auto_sent=False,
         received_at=datetime.utcnow(),
-        metadata_json=json.dumps({"source": "send_reply_tool", "delivery": delivery}),
+        metadata_json=json.dumps(metadata),
     )
     ctx.session.add(message)
     signal.last_message_at = datetime.utcnow()
@@ -200,9 +231,11 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
             signal_id=signal.id,
             tenant_id=ctx.tenant_id,
             event_type="replied",
-            actor_type="agent" if ctx.agent else "user",
-            actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
-            payload_json=json.dumps({"delivery": delivery, "via": "send_reply"}),
+            actor_type="user" if as_user else "agent",
+            actor_id=str(ctx.user_id if as_user else identity_agent_id or ""),
+            payload_json=json.dumps(
+                {"delivery": delivery, "via": "send_reply", "send_as": send_as}
+            ),
         )
     )
     await ctx.session.flush()
@@ -825,6 +858,11 @@ register_tool(
                 "body": {"type": "string"},
                 "subject": {"type": "string"},
                 "to": {"type": "string"},
+                "send_as": {
+                    "type": "string",
+                    "enum": ["user", "agent"],
+                    "description": "Sender identity for attribution + signature (default: approving user).",
+                },
             },
             "required": [],
         },

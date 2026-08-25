@@ -16,6 +16,16 @@
     "saving": "Opslaan...",
     "savedSuccess": "Profiel opgeslagen"
   },
+  "signature": {
+    "title": "E-mailhandtekening",
+    "description": "Wordt automatisch toegevoegd aan antwoorden die je zelf verstuurt of goedkeurt.",
+    "empty": "Nog geen persoonlijke handtekening. Zonder handtekening wordt die van de mailbox gebruikt.",
+    "add": "Handtekening toevoegen",
+    "edit": "Handtekening bewerken",
+    "saved": "Handtekening opgeslagen",
+    "saveError": "Handtekening opslaan is niet gelukt.",
+    "editorContext": "Je persoonlijke handtekening, gebruikt wanneer een antwoord als jou wordt verstuurd."
+  },
   "language": {
     "title": "Taal",
     "description": "Kies de taal voor je interface.",

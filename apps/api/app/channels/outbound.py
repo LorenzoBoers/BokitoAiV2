@@ -64,11 +64,15 @@ async def deliver_outbound(
     cc: str | None = None,
     bcc: str | None = None,
     attachments: list[dict] | None = None,
+    signature_html: str | None = None,
 ) -> str:
     """Send `body_text` to the external party of this thread.
 
     Returns a send status string (`sent`, `failed:...`, or `skipped` for
     channels without external delivery such as internal/assistant threads).
+
+    `signature_html` is the identity-resolved signature (user or agent, see
+    services/signatures.py); when None the mailbox signature is the fallback.
     """
     if signal.channel not in ("email", "slack", "whatsapp"):
         return "skipped"
@@ -100,6 +104,7 @@ async def deliver_outbound(
             thread_provider_id=(signal.external_id or "").strip() or None,
             attachments=attachments,
             session=session,
+            signature_html=signature_html,
         )
     if signal.channel == "whatsapp":
         # thread_external_id IS the customer's wa_id (one thread per number).

@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
+import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
@@ -9,6 +9,7 @@ import { authRoutes } from '../../api/routes/auth.routes'
 import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders, resendVerificationEmail } from '../../lib/api'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import SignatureEditor from '../inbox/SignatureEditor'
 
 // ── inline editable field ────────────────────────────────────────────────────
 
@@ -348,6 +349,19 @@ export function ProfileSettingsContent() {
     patchLocalUser({ jobTitle: next || null })
   }, [token, patchLocalUser])
 
+  // Personal email signature: appended to replies sent as this user.
+  const [signatureEditorOpen, setSignatureEditorOpen] = useState(false)
+  const saveEmailSignature = useCallback(async (signature: string) => {
+    if (!token) return
+    try {
+      await apiPatchAuth(authRoutes.profile.patch, { email_signature_html: signature }, token)
+      patchLocalUser({ emailSignatureHtml: signature })
+      toast.success(t('profile:signature.saved'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('profile:signature.saveError'))
+    }
+  }, [token, patchLocalUser, t])
+
   const handleChangePassword = async () => {
     if (newPw !== confirmPw) { setPwError(t('profile:security.passwordMismatch')); return }
     if (!token) return
@@ -488,6 +502,41 @@ export function ProfileSettingsContent() {
             onSave={saveJobTitle}
           />
         </Card>
+      </Section>
+
+      {/* ── Email signature ── */}
+      <Section title={t('profile:signature.title')} description={t('profile:signature.description')}>
+        <Card>
+          <div className="flex items-center justify-between gap-4 py-3.5 pr-4">
+            <div className="min-w-0 flex-1">
+              {user?.emailSignatureHtml ? (
+                <div
+                  className="prose prose-sm max-h-24 overflow-hidden text-sm text-text-secondary [&_p]:my-0.5"
+                  dangerouslySetInnerHTML={{ __html: user.emailSignatureHtml }}
+                />
+              ) : (
+                <p className="text-sm text-text-muted">{t('profile:signature.empty')}</p>
+              )}
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 shrink-0 rounded-lg px-3 text-xs"
+              onClick={() => setSignatureEditorOpen(true)}
+            >
+              <PenLine size={12} />
+              {user?.emailSignatureHtml ? t('profile:signature.edit') : t('profile:signature.add')}
+            </Button>
+          </div>
+        </Card>
+        <SignatureEditor
+          open={signatureEditorOpen}
+          onOpenChange={setSignatureEditorOpen}
+          initialSignature={user?.emailSignatureHtml ?? ''}
+          onSave={(signature) => void saveEmailSignature(signature)}
+          mailboxEmail={user?.email ?? ''}
+          contextLabel={t('profile:signature.editorContext')}
+        />
       </Section>
 
       {/* ── Language ── */}

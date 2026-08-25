@@ -109,6 +109,8 @@ interface User {
   avatarUrl: string | null;
   /** Public signature image URL used in outbound mail signatures. */
   signatureUrl: string | null;
+  /** Personal email signature (HTML) appended to replies sent as this user. */
+  emailSignatureHtml: string;
   accountId: number | null;
   /** `user.organisation_id` (UUID); required for tenant-scoped APIs such as email. */
   organisationId: string | null;
@@ -168,7 +170,7 @@ interface AuthContextValue {
   hasPermission: (action: PermissionAction) => boolean;
   setUserRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
-  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified' | 'totpEnabled'>>) => void;
+  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled'>>) => void;
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
   isStaff: boolean;
@@ -309,6 +311,8 @@ function normalizeAuthUser(raw: unknown): User {
     jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,
     avatarUrl: avatarUrl || null,
     signatureUrl: signatureUrl || null,
+    emailSignatureHtml:
+      typeof payload.email_signature_html === 'string' ? payload.email_signature_html : '',
     accountId: toNumber(payload.account_id),
     organisationId: normalizeOrganisationId(payload),
     role: mapTenantRoleToUserRole(payload.role),
@@ -725,7 +729,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token]);
 
-  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailVerified' | 'totpEnabled'>>) => {
+  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled'>>) => {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 

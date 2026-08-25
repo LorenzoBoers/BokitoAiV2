@@ -37,7 +37,7 @@
     "savedReplies": "Opgeslagen antwoorden",
     "loadingSavedReplies": "Laden...",
     "attachFile": "Bestand toevoegen",
-    "withSignature": "Met handtekening",
+    "withSignature": "Je handtekening wordt toegevoegd",
     "ccBcc": "CC/BCC",
     "channel": {
       "email": "E-mail",
@@ -123,6 +123,17 @@
     "toastSent": "Antwoord verzonden",
     "toastEscalated": "Geëscaleerd naar mens",
     "toastAnswerSubmitted": "Antwoord ingediend",
+    "internalNote": {
+      "title": "Interne notitie",
+      "notSent": "geen onderdeel van de e-mail"
+    },
+    "sendAs": {
+      "label": "Versturen als:",
+      "you": "Jij",
+      "agentFallback": "Agent",
+      "signatureYou": "Je eigen handtekening wordt automatisch toegevoegd",
+      "signatureAgent": "De handtekening van {{name}} wordt automatisch toegevoegd"
+    },
     "rulePrompt": {
       "autoClose": "Berichten van {{sender}} voortaan altijd sluiten?",
       "autoTask": "Voor berichten van {{sender}} voortaan altijd een taak aanmaken?",
@@ -597,6 +608,7 @@
   "signatureEditor": {
     "title": "E-mailhandtekening bewerken",
     "forMailbox": "Voor mailbox:",
+    "mailboxFallbackHint": "Wordt als terugval gebruikt wanneer de afzender (teamlid of agent) geen persoonlijke handtekening heeft.",
     "tabEdit": "Bewerken",
     "tabHtml": "HTML",
     "tabPreview": "Voorbeeld",

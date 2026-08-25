@@ -645,6 +645,8 @@ export async function resolveThreadDecision(
     bodyHtml?: string
     subject?: string
     responseText?: string
+    /** Sender identity for approved reply suggestions. */
+    sendAs?: 'user' | 'agent'
   },
 ): Promise<ResolveDecisionResult> {
   return resolveSignalDecision(token, String(threadId), String(messageId), action, opts)
@@ -716,10 +718,14 @@ export type ChannelAiModes = {
 export type ReplyLanguage = 'auto' | 'nl' | 'en' | 'de' | 'fr' | 'es'
 export type WorkspaceLanguage = Exclude<ReplyLanguage, 'auto'>
 
+/** Sender identity when a human approves a suggested reply. */
+export type ReplySendAs = 'user' | 'agent'
+
 export type AiCommunicationSettings = {
   modes: ChannelAiModes
   replyLanguage: ReplyLanguage
   workspaceLanguage: WorkspaceLanguage
+  replySendAs: ReplySendAs
 }
 
 const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
@@ -729,6 +735,7 @@ export async function getAiCommunicationSettings(token: string): Promise<AiCommu
     channel_ai_modes?: Record<string, string>
     reply_language?: string
     workspace_language?: string
+    reply_send_as?: string
   }>(policyRoutes.aiModes(), token)
   const modes = payload.channel_ai_modes ?? {}
   const valid = (value: unknown, fallback: AiMode): AiMode =>
@@ -749,6 +756,7 @@ export async function getAiCommunicationSettings(token: string): Promise<AiCommu
     },
     replyLanguage,
     workspaceLanguage,
+    replySendAs: payload.reply_send_as === 'agent' ? 'agent' : 'user',
   }
 }
 
@@ -758,6 +766,7 @@ export async function saveAiCommunicationSettings(
     modes?: Partial<ChannelAiModes>
     replyLanguage?: ReplyLanguage
     workspaceLanguage?: WorkspaceLanguage
+    replySendAs?: ReplySendAs
   },
 ): Promise<void> {
   await apiPut(
@@ -766,6 +775,7 @@ export async function saveAiCommunicationSettings(
       channel_ai_modes: input.modes,
       reply_language: input.replyLanguage,
       workspace_language: input.workspaceLanguage,
+      reply_send_as: input.replySendAs,
     },
     token,
   )

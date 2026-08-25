@@ -281,6 +281,13 @@ async def send_email(
         recipients = to_addresses
 
     attachments = [a for a in (body.attachments or []) if isinstance(a, dict)]
+    from app.services.signatures import resolve_signature_html
+
+    # Composed mail is sent as the authoring user: their signature applies
+    # (mailbox signature as fallback).
+    signature_html = await resolve_signature_html(
+        session, auth.tenant.id, send_as="user", user_id=auth.user.id
+    )
     send_status = await deliver_outbound(
         session,
         signal,
@@ -292,6 +299,7 @@ async def send_email(
         cc=body.cc,
         bcc=body.bcc,
         attachments=attachments,
+        signature_html=signature_html,
     )
     if send_status == "skipped":
         # Mock/dev accounts skip actual delivery; record as sent for dev UX.

@@ -95,6 +95,9 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
         "system_prompt": agent.system_prompt or "",
         "chat_access": agent.chat_access,
         "kind": agent.kind,
+        "email_signature_html": str(
+            _parse_json(agent.settings_json).get("email_signature_html") or ""
+        ),
         "current_session_id": session_id,
         "current_activity_id": activity_id,
         "current_activity_summary": summary or None,
@@ -322,8 +325,9 @@ async def update_agent(
     *,
     name: str | None = None,
     system_prompt: str | None = None,
+    email_signature_html: str | None = None,
 ) -> dict[str, Any]:
-    """Edit a company agent's identity (name) and system prompt."""
+    """Edit a company agent's identity (name), system prompt, and signature."""
     result = await session.execute(
         select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
     )
@@ -337,6 +341,18 @@ async def update_agent(
         agent.name = clean
     if system_prompt is not None:
         agent.system_prompt = system_prompt.strip()
+    if email_signature_html is not None:
+        from app.services.signatures import MAX_SIGNATURE_LENGTH, SIGNATURE_KEY
+
+        signature = email_signature_html.strip()
+        if len(signature) > MAX_SIGNATURE_LENGTH:
+            raise HTTPException(status_code=400, detail="Signature too long")
+        stored = _parse_json(agent.settings_json)
+        if signature:
+            stored[SIGNATURE_KEY] = signature
+        else:
+            stored.pop(SIGNATURE_KEY, None)
+        agent.settings_json = json.dumps(stored)
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()
