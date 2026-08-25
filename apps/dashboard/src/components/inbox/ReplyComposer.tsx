@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BookmarkPlus, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { BookmarkPlus, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -22,7 +23,6 @@ import {
   type MentionQuery,
 } from '../../lib/mentions'
 import { createSavedReply, listSavedReplies, type SavedReplyRow } from '../../lib/signals-api'
-import { SNOOZE_PRESETS } from '../../lib/snooze'
 import { uploadAttachment } from '../../lib/uploads-api'
 import MentionPopover from './MentionPopover'
 import MessageAttachments from './MessageAttachments'
@@ -96,6 +96,7 @@ export default function ReplyComposer({
   replyDisabledNotice,
 }: Props) {
   const { t } = useTranslation('communication')
+  const navigate = useNavigate()
   const { token } = useAuth()
   const [tab, setTab] = useState<ComposerTab>(surface.defaultTab)
   const [body, setBody] = useState('')
@@ -191,7 +192,7 @@ export default function ReplyComposer({
       setSavedReplies(await listSavedReplies(token))
     } catch (err) {
       setSavedReplies([])
-      toast.error(formatApiErrorMessage(err, 'Could not load saved replies.'))
+      toast.error(formatApiErrorMessage(err, t('composer.loadSavedRepliesError')))
     }
   }
   const insertSavedReply = (row: SavedReplyRow) => {
@@ -200,16 +201,16 @@ export default function ReplyComposer({
   }
   const saveCurrentAsReply = async () => {
     if (!token || !body.trim()) return
-    const title = window.prompt('Template name:', body.trim().slice(0, 40))
+    const title = window.prompt(t('composer.templateNamePrompt'), body.trim().slice(0, 40))
     if (!title?.trim()) return
     try {
       const created = await createSavedReply(token, { title: title.trim(), bodyText: body.trim() })
       if (created) {
         setSavedReplies((prev) => (prev ? [...prev, created] : [created]))
-        toast.success('Saved reply created')
+        toast.success(t('composer.savedReplyCreated'))
       }
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not save reply template.'))
+      toast.error(formatApiErrorMessage(err, t('composer.saveReplyError')))
     }
   }
 
@@ -248,7 +249,7 @@ export default function ReplyComposer({
       setCcBccOpen(false)
       writeStoredDraft(persistKey, '')
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, tab === 'note' ? 'Could not save note.' : 'Could not send message.'))
+      toast.error(formatApiErrorMessage(err, tab === 'note' ? t('composer.saveNoteError') : t('composer.sendError')))
     }
   }
 
@@ -263,7 +264,7 @@ export default function ReplyComposer({
       }
       setAttachments((prev) => [...prev, ...uploaded])
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not upload attachment.'))
+      toast.error(formatApiErrorMessage(err, t('composer.uploadError')))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -309,6 +310,21 @@ export default function ReplyComposer({
 
   const ReplyIcon = tabIcon(surface, 'reply')
   const isNote = tab === 'note'
+  const replyLabel = t(`composer.channel.${surface.channel}`, { defaultValue: surface.replyLabel })
+  const recipientLabel = t(
+    surface.recipientLabel === 'To'
+      ? 'composer.recipient.to'
+      : surface.recipientLabel === 'With'
+        ? 'composer.recipient.with'
+        : surface.recipientLabel === 'Assistant'
+          ? 'composer.recipient.assistant'
+          : surface.recipientLabel === 'Agent'
+            ? 'composer.recipient.agent'
+            : surface.recipientLabel === 'Channel'
+              ? 'composer.recipient.channel'
+              : 'composer.recipient.to',
+    { defaultValue: surface.recipientLabel },
+  )
 
   return (
     <div className="shrink-0 border-t border-border/40 px-4 pb-4 pt-2">
@@ -325,7 +341,7 @@ export default function ReplyComposer({
               }`}
             >
               <ReplyIcon size={11} />
-              {surface.replyLabel}
+              {replyLabel}
             </button>
           ) : null}
           {showNoteTab ? (
@@ -339,7 +355,7 @@ export default function ReplyComposer({
               }`}
             >
               <StickyNote size={11} />
-              Note
+              {t('composer.tabNote')}
             </button>
           ) : null}
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
@@ -354,7 +370,7 @@ export default function ReplyComposer({
         {!isNote && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
           <div className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
             <div className="flex items-center gap-2">
-              <span className="shrink-0 font-medium text-text-muted">{surface.recipientLabel}</span>
+              <span className="shrink-0 font-medium text-text-muted">{recipientLabel}</span>
               <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
               <span className="ml-auto flex shrink-0 items-center gap-2">
                 {surface.channel === 'email' ? (
@@ -367,11 +383,11 @@ export default function ReplyComposer({
                         : 'text-text-muted hover:text-text-primary'
                     }`}
                   >
-                    CC/BCC
+                    {t('composer.ccBcc')}
                   </button>
                 ) : null}
                 {surface.includeSignature ? (
-                  <span className="text-[10px] text-text-muted">With signature</span>
+                  <span className="text-[10px] text-text-muted">{t('composer.withSignature')}</span>
                 ) : null}
               </span>
             </div>
@@ -437,7 +453,7 @@ export default function ReplyComposer({
             }}
             onBlur={() => setMentionQuery(null)}
             disabled={disabled || saving}
-            placeholder={isNote ? 'Internal note (not visible to the customer)...' : surface.replyPlaceholder}
+            placeholder={isNote ? t('composer.notePlaceholder') : surface.replyPlaceholder}
             rows={Math.min(6, Math.max(1, body.split('\n').length))}
             className="max-h-[180px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none disabled:opacity-50"
           />
@@ -454,7 +470,7 @@ export default function ReplyComposer({
                 <button
                   type="button"
                   disabled={saving || disabled}
-                  title="Saved replies"
+                  title={t('composer.savedReplies')}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
                 >
                   <MessageSquareText size={14} />
@@ -463,11 +479,14 @@ export default function ReplyComposer({
               <DropdownMenuContent align="end" className="w-64">
                 {savedReplies === null ? (
                   <DropdownMenuItem disabled className="text-xs">
-                    Loading...
+                    {t('composer.loadingSavedReplies')}
                   </DropdownMenuItem>
                 ) : savedReplies.length === 0 ? (
-                  <DropdownMenuItem disabled className="text-xs">
-                    No saved replies yet
+                  <DropdownMenuItem
+                    className="text-xs"
+                    onSelect={() => navigate('/settings/channels#saved-replies')}
+                  >
+                    {t('composer.noSavedReplies')}
                   </DropdownMenuItem>
                 ) : (
                   savedReplies.map((row) => (
@@ -487,6 +506,12 @@ export default function ReplyComposer({
                     Save current text as template
                   </DropdownMenuItem>
                 ) : null}
+                <DropdownMenuItem
+                  className="text-xs"
+                  onSelect={() => navigate('/settings/channels#saved-replies')}
+                >
+                  {t('composer.manageSavedReplies')}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
@@ -494,7 +519,7 @@ export default function ReplyComposer({
             type="button"
             disabled={uploading || saving || disabled}
             onClick={() => fileInputRef.current?.click()}
-            title="Attach file"
+            title={t('composer.attachFile')}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
           >
             <Paperclip size={14} />
@@ -503,11 +528,11 @@ export default function ReplyComposer({
             type="button"
             disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
             onClick={() => void handleSubmit('send')}
-            title={isNote ? 'Add note' : 'Send'}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition-colors disabled:opacity-40 ${
+            title={isNote ? t('composer.addNoteTitle') : t('composer.sendTitle')}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
               isNote
-                ? 'bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600'
-                : 'bg-accent hover:bg-accent-hover'
+                ? 'bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600'
+                : 'bg-accent text-accent-fg hover:bg-accent-hover'
             }`}
           >
             {isNote ? <StickyNote size={13} /> : <Send size={13} />}
@@ -523,44 +548,15 @@ export default function ReplyComposer({
               : t('composer.hintChat')}
           </p>
           {!isNote && showReplyTab ? (
-            <div className="flex items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
-                    title="Send, then snooze the thread until it wakes or the customer replies"
-                    className="h-6 gap-1 px-2 text-[11px] text-text-muted hover:text-text-primary"
-                  >
-                    <Clock size={11} />
-                    Send &amp; snooze
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {SNOOZE_PRESETS.map((preset) => (
-                    <DropdownMenuItem
-                      key={preset.key}
-                      className="text-xs"
-                      onSelect={() =>
-                        void handleSubmit('send_and_pending', preset.minutes() ?? undefined)
-                      }
-                    >
-                      {preset.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
-                onClick={() => void handleSubmit('send_and_close')}
-                className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
-              >
-                Send and close
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
+              onClick={() => void handleSubmit('send_and_close')}
+              className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
+            >
+              Send and close
+            </Button>
           ) : null}
         </div>
         )}

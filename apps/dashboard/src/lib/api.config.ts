@@ -54,3 +54,13 @@ export function livechatWidgetHostedScriptUrl(): string {
 
 /** Agent slug for the chat widget embed (matches tenant bootstrap `assistant`). */
 export const DASHBOARD_CHAT_AGENT_SLUG = import.meta.env.VITE_DASHBOARD_CHAT_AGENT_SLUG || 'assistant'
+
+/** Platform UI default (`nl` | `en`). Override with VITE_PLATFORM_DEFAULT_LANGUAGE. */
+export const PLATFORM_DEFAULT_LANGUAGE: 'nl' | 'en' =
+  import.meta.env.VITE_PLATFORM_DEFAULT_LANGUAGE === 'en' ? 'en' : 'nl'
+
+export function parseUiLanguage(value: string | null | undefined): 'nl' | 'en' {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (normalized === 'en' || normalized === 'nl') return normalized
+  return PLATFORM_DEFAULT_LANGUAGE
+}

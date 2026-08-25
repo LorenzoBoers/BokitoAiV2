@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { RefreshCw, AlertCircle, CheckCircle, Folder } from 'lucide-react'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { useAuth } from '../../context/AuthContext'
 import { syncMailboxes } from '../../lib/email-api'
 import { getSyncStatus, type SyncConnectionStatus } from '../../lib/inbox-api'
-import { humanizeLabel } from '../../lib/labels'
+import { mailboxStatusLabel } from '../../lib/status-labels'
 import { cn } from '../../lib/utils'
 
-function formatDate(iso: string | null): string {
-  if (!iso) return 'Never'
+function formatDate(iso: string | null, neverLabel: string): string {
+  if (!iso) return neverLabel
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '–'
   return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -20,6 +21,7 @@ type Props = {
 }
 
 export default function SyncStatusPanel({ className }: Props) {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [statuses, setStatuses] = useState<SyncConnectionStatus[]>([])
   const [loading, setLoading] = useState(false)
@@ -34,11 +36,11 @@ export default function SyncStatusPanel({ className }: Props) {
       const result = await getSyncStatus(token)
       setStatuses(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load sync status.')
+      setError(err instanceof Error ? err.message : t('syncStatus.couldNotLoad'))
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, t])
 
   const syncNow = useCallback(async () => {
     if (!token || syncing) return
@@ -47,16 +49,16 @@ export default function SyncStatusPanel({ className }: Props) {
       const result = await syncMailboxes(token)
       toast.success(
         result.synced > 0
-          ? `Synced ${result.synced} new message${result.synced === 1 ? '' : 's'}`
-          : 'Mailboxes synced — no new messages',
+          ? t('syncStatus.synced', { count: result.synced })
+          : t('syncStatus.syncedNone'),
       )
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not sync mailboxes.'))
+      toast.error(formatApiErrorMessage(err, t('syncStatus.couldNotSync')))
     } finally {
       setSyncing(false)
     }
-  }, [token, syncing, load])
+  }, [token, syncing, load, t])
 
   useEffect(() => {
     void load()
@@ -65,7 +67,7 @@ export default function SyncStatusPanel({ className }: Props) {
   return (
     <div className={cn('space-y-3', className)}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-text-heading">Sync status</h3>
+        <h3 className="text-sm font-semibold text-text-heading">{t('syncStatus.title')}</h3>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -73,14 +75,14 @@ export default function SyncStatusPanel({ className }: Props) {
             disabled={loading || syncing}
             className="rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 disabled:opacity-40"
           >
-            {syncing ? 'Syncing...' : 'Sync now'}
+            {syncing ? t('syncStatus.syncing') : t('syncStatus.syncNow')}
           </button>
           <button
             type="button"
             onClick={() => void load()}
             disabled={loading || syncing}
             className="text-text-muted hover:text-text-primary transition-colors disabled:opacity-40"
-            title="Refresh status"
+            title={t('syncStatus.refresh')}
           >
             <RefreshCw size={14} className={loading || syncing ? 'animate-spin' : ''} />
           </button>
@@ -90,7 +92,10 @@ export default function SyncStatusPanel({ className }: Props) {
       {error ? (
         <p className="text-xs text-status-error">{error}</p>
       ) : statuses.length === 0 && !loading ? (
-        <p className="text-xs text-text-muted">No mailboxes found.</p>
+        <div className="space-y-1">
+          <p className="text-xs text-text-muted">{t('syncStatus.noMailboxes')}</p>
+          <p className="text-[11px] text-text-muted/80">{t('syncStatus.openChannelsHint')}</p>
+        </div>
       ) : (
         statuses.map((conn) => (
           <div key={conn.id} className="rounded-lg border border-border/60 p-3 space-y-2">
@@ -110,12 +115,12 @@ export default function SyncStatusPanel({ className }: Props) {
                 ) : (
                   <AlertCircle size={13} className="inline mr-1" />
                 )}
-                {humanizeLabel(conn.status)}
+                {mailboxStatusLabel(conn.status, t)}
               </span>
             </div>
 
             <div className="text-xs text-text-secondary">
-              Last sync: {formatDate(conn.lastSyncAt)}
+              {t('syncStatus.lastSync', { when: formatDate(conn.lastSyncAt, t('syncStatus.never')) })}
             </div>
 
             {conn.lastError ? (
@@ -135,7 +140,7 @@ export default function SyncStatusPanel({ className }: Props) {
                         <span className="text-xs text-text-secondary truncate">{f.folderName}</span>
                       </div>
                       <div className="flex items-center gap-3 shrink-0 text-xs text-text-muted">
-                        <span>{f.messagesSynced} messages</span>
+                        <span>{t('syncStatus.messages', { count: f.messagesSynced })}</span>
                         {f.lastError ? (
                           <span title={f.lastError}>
                             <AlertCircle size={11} className="text-status-error" />

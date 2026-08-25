@@ -73,7 +73,18 @@
     "deletePasswordPrompt": "Voer je wachtwoord in om verwijdering te bevestigen:",
     "deleting": "Verwijderen..."
   },
+  "errors": {
+    "saveField": "Kon {{label}} niet opslaan.",
+    "uploadAvatar": "Kon foto niet uploaden.",
+    "uploadAvatarDetail": "Kon foto niet uploaden ({{detail}}).",
+    "deleteAccount": "Kon het account niet verwijderen.",
+    "resendVerification": "Kon de verificatie-e-mail niet opnieuw versturen.",
+    "totpStart": "Kon tweestapsverificatie niet starten.",
+    "totpDisable": "Kon tweestapsverificatie niet uitschakelen.",
+    "verificationSent": "Verificatie-e-mail verstuurd indien van toepassing.",
+    "verificationSentDev": "Verificatie-e-mail verstuurd. Controleer de ontwikkelingslink in de serverlogs."
+  },
   "links": {
-    "openInboxSettings": "Open inbox-instellingen"
+    "openInboxSettings": "Open kanaalinstellingen"
   }
 }

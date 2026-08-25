@@ -126,6 +126,7 @@ async def create_action_suggestion(
             {
                 "kind": "action_suggestion",
                 "channel": signal.channel,
+                "signal_id": str(signal.id),
                 "reason": reason,
                 "run_id": str(run_id) if run_id else None,
             }
@@ -232,6 +233,7 @@ async def create_reply_suggestion(
             {
                 "kind": "reply_suggestion",
                 "channel": signal.channel,
+                "signal_id": str(signal.id),
                 "run_id": str(run_id) if run_id else None,
             }
         ),

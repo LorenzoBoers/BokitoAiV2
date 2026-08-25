@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import AppShell from './components/shell/AppShell'
 import MessagesHub from './components/shell/MessagesHub'
-import SettingsLayout from './components/shell/SettingsLayout'
+import SettingsLayout, { SettingsHomeRedirect } from './components/shell/SettingsLayout'
 import WorkspaceHubLayout from './components/layout/WorkspaceHubLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import ControlPlaneRoute from './components/auth/ControlPlaneRoute'
@@ -10,7 +11,7 @@ import { useWorkspace } from './context/WorkspaceContext'
 import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
 import { ASSISTANT_DEFAULT_PATH } from './lib/assistant-settings-path'
-import { useLanguagePreferenceSync } from './lib/language-preference'
+import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { agentChatPath, agentRunsPath, assistantPath, channelPath, inboxPath } from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
@@ -33,6 +34,7 @@ const DirectCommunication = lazy(() => import('./pages/DirectCommunication'))
 const ActivityPage = lazy(() => import('./pages/ActivityPage'))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
+const LearnPage = lazy(() => import('./pages/LearnPage'))
 
 // Agent
 const AiAgents = lazy(() => import('./pages/AiAgents'))
@@ -65,23 +67,34 @@ const Workspaces = lazy(() => import('./pages/Workspaces'))
 const WorkspaceAccount = lazy(() => import('./pages/WorkspaceAccount'))
 
 function RouteFallback() {
+  const { t } = useTranslation('nav')
   return (
     <div className="flex min-h-[40vh] items-center justify-center">
-      <span className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent" aria-label="Loading" />
+      <span
+        className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent"
+        aria-label={t('app.loading')}
+      />
     </div>
   )
 }
 
 function HomeRoute() {
-  const { workspaceLoading, workspaces } = useWorkspace()
+  const { t } = useTranslation('nav')
+  const { workspaceLoading, workspaces, currentWorkspace } = useWorkspace()
   const { user } = useAuth()
   const tenantSubdomain = resolveTenantSubdomainFromHost()
 
   if (workspaceLoading) {
-    return <div className="py-6 text-sm text-text-muted">Loading workspaces...</div>
+    return <div className="py-6 text-sm text-text-muted">{t('app.loadingWorkspaces')}</div>
   }
 
   if (tenantSubdomain) {
+    return <Navigate to={inboxPath('all')} replace />
+  }
+
+  // Daily login should resume work, not the workspace picker.
+  // Switch workspaces from the user menu → Workspaces (`/workspaces`).
+  if (currentWorkspace) {
     return <Navigate to={inboxPath('all')} replace />
   }
 
@@ -206,6 +219,7 @@ function LegacyInboxRedirect() {
 
 export default function App() {
   const { token } = useAuth()
+  useOnboardingLanguageFromUrl()
   useLanguagePreferenceSync(token)
   return (
     <Suspense fallback={<RouteFallback />}>
@@ -283,6 +297,7 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/learn/:slug" element={<LearnPage />} />
           <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />
           <Route path="/triggers" element={<Navigate to="/agenda" replace />} />
 
@@ -297,7 +312,7 @@ export default function App() {
 
           {/* Settings */}
           <Route element={<SettingsLayout />}>
-            <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
+            <Route path="/settings" element={<SettingsHomeRedirect />} />
             <Route path="/settings/setup" element={<SetupHubPage />} />
             <Route path="/settings/profile" element={<ProfileSettings />} />
             <Route path="/settings/assistant" element={<MyAssistantSettings />} />
@@ -314,7 +329,8 @@ export default function App() {
             <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
-            <Route path="/settings/autonomy" element={<GovernPage />} />
+            <Route path="/settings/govern" element={<GovernPage />} />
+            <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/projects" element={<Navigate to="/projects" replace />} />
             <Route path="/ai/assistant" element={<Navigate to={ASSISTANT_DEFAULT_PATH} replace />} />
@@ -338,7 +354,7 @@ export default function App() {
           <Route path="/messages" element={<LegacyMessagesRedirect />} />
           <Route path="/inbox/*" element={<LegacyInboxRedirect />} />
           <Route path="/inbox" element={<LegacyInboxRedirect />} />
-          <Route path="/govern" element={<RedirectPreserveSearch to="/settings/autonomy" />} />
+          <Route path="/govern" element={<RedirectPreserveSearch to="/settings/govern" />} />
           <Route path="/automations" element={<Navigate to="/agenda" replace />} />
           <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
           <Route path="/integrations" element={<RedirectPreserveSearch to="/settings/integrations" />} />

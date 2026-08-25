@@ -7,8 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.inbox import InboxSettings
+from app.services.language import platform_default_ui_language
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
+
+DEFAULT_BRAND_COLOR = "#0D9488"
+_LEGACY_DEFAULT_BRAND_COLORS = frozenset({"#00FF99", "#00D986"})
+
+
+def resolve_brand_color(value: str | None) -> str:
+    raw = (value or "").strip()
+    if not raw or raw.upper() in {item.upper() for item in _LEGACY_DEFAULT_BRAND_COLORS}:
+        return DEFAULT_BRAND_COLOR
+    return raw
 
 
 ONBOARDING_SYSTEM_PROMPT = """You are the Bokito onboarding assistant. Interview the user about their organization:
@@ -37,22 +48,22 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
         "persona.md",
         "persona",
-        "# Persona\n\n## Tone\nProfessional and helpful. Keep replies concise and concrete.\n",
+        "# How we sound\n\n## Tone\nProfessional and helpful. Keep replies concise and concrete.\n",
     ),
     (
         "memory.md",
         "memory",
-        "# Long-term memory\n\nDurable facts about this organization, learned over time.\n",
+        "# What we remember\n\nDurable facts about this organization, learned over time.\n",
     ),
     (
         "company.md",
         "doc",
-        "# Company\n\nDescribe what the organization does, who its customers are, and how it operates. Filled during onboarding.\n",
+        "# About the company\n\nDescribe what the organization does, who its customers are, and how it operates. Filled during onboarding.\n",
     ),
     (
         "heartbeat.md",
         "heartbeat",
-        "# Heartbeat checklist\n\n- Review open threads needing a reply\n- Check pending decisions\n",
+        "# Daily check-in\n\n- Review open conversations needing a reply\n- Check pending decisions\n",
     ),
 ]
 
@@ -131,7 +142,7 @@ async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:
 def default_tenant_settings() -> dict:
     base = {
         "appearance": {
-            "main_color": "#00FF99",
+            "main_color": DEFAULT_BRAND_COLOR,
             "welcome_title": "Welcome",
             "welcome_subtitle": "How can we help?",
             "chatbot_name": "Assistant",
@@ -149,6 +160,11 @@ def default_tenant_settings() -> dict:
         },
     }
     base["autonomy_posture"] = DEFAULT_AUTONOMY_POSTURE
+    base["ai_workspace_language"] = platform_default_ui_language()
+    base["security"] = {
+        "require_2fa": False,
+        "allow_platform_support": True,
+    }
     return base
 
 

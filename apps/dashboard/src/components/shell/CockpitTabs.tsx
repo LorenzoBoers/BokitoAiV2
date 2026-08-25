@@ -1,15 +1,20 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const TABS = [
-  { label: 'Overview', to: '/cockpit', end: true },
-  { label: 'Activity', to: '/cockpit/activity', end: false },
-  { label: 'Usage', to: '/cockpit/usage', end: false },
+  { labelKey: 'cockpitTabs.overview', defaultLabel: 'Overview', to: '/cockpit', end: true },
+  { labelKey: 'cockpitTabs.activity', defaultLabel: 'Activity', to: '/cockpit/activity', end: false },
+  { labelKey: 'cockpitTabs.usage', defaultLabel: 'Usage', to: '/cockpit/usage', end: false },
 ] as const
 
 /** Inner tab strip for the Cockpit surface (Overview / Activity / Usage). */
 export default function CockpitTabs() {
+  const { t } = useTranslation('nav')
   return (
-    <nav className="mb-4 flex items-center gap-1 border-b border-border/60" aria-label="Cockpit sections">
+    <nav
+      className="mb-4 flex items-center gap-1 border-b border-border/60"
+      aria-label={t('cockpitTabs.aria', { defaultValue: 'Cockpit sections' })}
+    >
       {TABS.map((tab) => (
         <NavLink
           key={tab.to}
@@ -23,7 +28,7 @@ export default function CockpitTabs() {
             }`
           }
         >
-          {tab.label}
+          {t(tab.labelKey, { defaultValue: tab.defaultLabel })}
         </NavLink>
       ))}
     </nav>

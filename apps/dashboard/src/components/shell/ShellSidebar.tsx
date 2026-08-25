@@ -79,7 +79,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
               }}
             />
             <span className="flex min-w-0 flex-col leading-tight">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">Control</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">{t('topbar.controlBrand')}</span>
               <span className="truncate text-[14px] font-semibold text-text-heading">Bokito</span>
             </span>
           </NavLink>
@@ -87,8 +87,8 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
         <button
           type="button"
           onClick={onToggleCollapsed}
-          title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          title={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')}
+          aria-label={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
         >
           {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}

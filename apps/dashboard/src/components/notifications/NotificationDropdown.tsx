@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, AtSign, Bell, CalendarClock, MessageSquare, ShieldCheck, UserCheck } from 'lucide-react';
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
 import { Button } from '../ui/button';
@@ -15,7 +16,7 @@ const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: 
   ops_alert: AlertTriangle,
 };
 
-function formatTimeAgo(timestamp: string): string {
+function formatTimeAgo(timestamp: string, t: (key: string, opts?: { count: number }) => string): string {
   const now = new Date();
   const time = new Date(timestamp);
   const diffMs = now.getTime() - time.getTime();
@@ -23,10 +24,16 @@ function formatTimeAgo(timestamp: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMins < 1) return 'Now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
+  if (diffMins < 1) return t('notificationsUi.now');
+  if (diffMins < 60) return t('notificationsUi.minutesAgo', { count: diffMins });
+  if (diffHours < 24) return t('notificationsUi.hoursAgo', { count: diffHours });
+  return t('notificationsUi.daysAgo', { count: diffDays });
+}
+
+function isInternalPayload(payload: Record<string, unknown>): boolean {
+  const channel = typeof payload.channel === 'string' ? payload.channel : '';
+  const folder = typeof payload.folder === 'string' ? payload.folder : '';
+  return folder === 'internal' || channel === 'internal' || channel === 'assistant';
 }
 
 /** Route a notification to the surface that owns it. */
@@ -34,25 +41,33 @@ function notificationTarget(notification: AppNotification): string | null {
   const payload = notification.payload;
   const signalId = typeof payload.signal_id === 'string' ? payload.signal_id : null;
   if (signalId) {
-    // Agent activity / decisions surface under Activity; customer mentions stay in Inbox.
-    if (notification.kind === 'decision_request' || notification.kind === 'status_update') {
-      return agentRunsPath('all', signalId);
+    if (isInternalPayload(payload)) {
+      return notification.kind === 'decision_request'
+        ? agentRunsPath('awaiting-decision', signalId)
+        : agentRunsPath('all', signalId);
     }
     return inboxPath('all', signalId);
   }
-  if (typeof payload.platform_change_id === 'string') return '/settings/autonomy';
+  if (typeof payload.platform_change_id === 'string') return '/settings/govern?tab=drafts';
   if (typeof payload.trigger_id === 'string') return '/agenda';
   if (notification.kind === 'ops_alert') {
-    // Channel problems are fixed in settings; run failures live under Activity.
+    // Channel problems are fixed in settings; run failures live under Agent runs.
     if (typeof payload.account_id === 'string') return '/settings/channels';
     return agentRunsPath('all');
   }
-  if (notification.kind === 'decision_request') return agentRunsPath('awaiting-decision');
-  if (notification.kind === 'status_update') return agentRunsPath('all');
+  if (notification.kind === 'decision_request') {
+    return isInternalPayload(payload)
+      ? agentRunsPath('awaiting-decision')
+      : inboxPath('all');
+  }
+  if (notification.kind === 'status_update') {
+    return isInternalPayload(payload) ? agentRunsPath('all') : inboxPath('all');
+  }
   return null;
 }
 
 export default function NotificationDropdown() {
+  const { t } = useTranslation('nav');
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
 
@@ -69,11 +84,11 @@ export default function NotificationDropdown() {
       variant="ghost"
       size="icon"
       className="relative"
-      aria-label="Notifications"
+      aria-label={t('notificationsUi.aria')}
     >
       <Bell size={16} />
       {unreadCount > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-accent rounded-full text-[8px] font-bold flex items-center justify-center text-white">
+        <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-accent rounded-full text-[8px] font-bold flex items-center justify-center text-accent-fg">
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
@@ -85,7 +100,7 @@ export default function NotificationDropdown() {
       <div className="p-3">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-sm text-text-heading">
-            Notifications
+            {t('notificationsUi.title')}
           </h3>
           {unreadCount > 0 && (
             <Button
@@ -94,15 +109,22 @@ export default function NotificationDropdown() {
               onClick={markAllAsRead}
               className="text-xs h-6 px-2"
             >
-              Mark all read
+              {t('notificationsUi.markAll')}
             </Button>
           )}
         </div>
 
         <div className="space-y-1 max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="text-center py-6 text-text-muted text-sm">
-              No notifications
+            <div className="py-6 text-center">
+              <p className="text-sm text-text-muted">{t('notificationsUi.empty')}</p>
+              <button
+                type="button"
+                onClick={() => navigate(inboxPath('all'))}
+                className="mt-2 text-xs font-medium text-accent hover:underline"
+              >
+                {t('notificationsUi.openCommunication')}
+              </button>
             </div>
           ) : (
             notifications.map((notification) => {
@@ -134,7 +156,7 @@ export default function NotificationDropdown() {
                         {notification.body}
                       </p>
                       <p className="text-xs text-text-muted mt-1">
-                        {formatTimeAgo(notification.createdAt)}
+                        {formatTimeAgo(notification.createdAt, t)}
                       </p>
                     </div>
                   </div>

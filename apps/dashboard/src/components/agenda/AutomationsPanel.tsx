@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { LoadingBlock } from '../ui/loading-block'
@@ -13,6 +14,7 @@ import { cn } from '../../lib/utils'
 import { useAuth } from '../../context/AuthContext'
 import { listAgents } from '../../lib/agents-api'
 import { agentRunsPath } from '../../lib/messages-paths'
+import { workLogStatusLabel } from '../../lib/status-labels'
 import {
   createRuntimeProfile,
   createWorkstream,
@@ -70,6 +72,7 @@ type AutomationsPanelProps = {
 }
 
 export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: AutomationsPanelProps) {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState('triggers')
@@ -129,11 +132,11 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
       setNewStepAgentId((prev) => prev || agentOpts[0]?.id || '')
       await Promise.all(wsList.map((w) => loadSteps(w.id)))
     } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not load automations.'))
+      setError(formatApiErrorMessage(err, t('agendaPage.loadAutomationsError')))
     } finally {
       setLoading(false)
     }
-  }, [token, loadSteps])
+  }, [token, loadSteps, t])
 
   useEffect(() => {
     void load()
@@ -144,15 +147,15 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
     try {
       const result = await runTrigger(triggerId)
       if (result.status === 'no_agent') {
-        toast.error('Trigger has no agent or workstream target — edit it and pick one.')
+        toast.error(t('agendaPage.noTarget'))
       } else if (result.status === 'agent_paused') {
-        toast.error('The linked agent is paused. Resume the agent to let this trigger fire.')
+        toast.error(t('agendaPage.agentPaused'))
       } else {
-        toast.success(`Trigger fired (${result.status || 'ok'})`)
+        toast.success(t('agendaPage.triggerFired', { status: result.status || 'ok' }))
       }
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not run trigger.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.runTriggerError')))
     } finally {
       setRunningId(null)
     }
@@ -164,7 +167,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
       await updateTrigger(trigger.id, { enabled: !trigger.enabled })
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not update trigger.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.updateTriggerError')))
     } finally {
       setRunningId(null)
     }
@@ -174,10 +177,10 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
     setRunningId(triggerId)
     try {
       await deleteTrigger(triggerId)
-      toast.success('Trigger deleted')
+      toast.success(t('agendaPage.triggerDeleted'))
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not delete trigger.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.deleteTriggerError')))
     } finally {
       setRunningId(null)
     }
@@ -187,7 +190,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
     if (!token) return
     const steps = stepsByWs[workstreamId] ?? []
     if (steps.length === 0) {
-      toast.error('Add at least one step before running this workstream.')
+      toast.error(t('agendaPage.needStep'))
       setExpandedWs(workstreamId)
       return
     }
@@ -195,13 +198,13 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
     try {
       const task = await runWorkstreamOrchestrated(workstreamId)
       const threadPath = task.signal_id ? agentRunsPath('all', task.signal_id) : null
-      toast.success('Workstream started', {
+      toast.success(t('agendaPage.flowStarted'), {
         description: threadPath
-          ? 'Open the run thread in Messages to follow progress and decisions.'
-          : 'Track progress under Runs.',
+          ? t('agendaPage.flowStartedThread')
+          : t('agendaPage.flowStartedRuns'),
         action: threadPath
           ? {
-              label: 'Open in Messages',
+              label: t('agendaPage.openInCommunication'),
               onClick: () => navigate(threadPath),
             }
           : undefined,
@@ -209,7 +212,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
       await load()
       setTab('runs')
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not run workstream.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.runFlowError')))
     } finally {
       setRunningId(null)
     }
@@ -227,29 +230,29 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
           name: 'Step 1',
           order: 0,
           agent_id: defaultAgentId,
-          prompt_template: `Execute the "${name}" workstream.`,
+          prompt_template: `Execute the "${name}" flow.`,
         })
       }
       setNewWsName('')
-      toast.success(defaultAgentId ? 'Workstream created with a first step' : 'Workstream created — add a step to run it')
+      toast.success(defaultAgentId ? t('agendaPage.flowCreatedStep') : t('agendaPage.flowCreated'))
       await load()
       setExpandedWs(created.id)
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not create workstream.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.createFlowError')))
     } finally {
       setCreatingWs(false)
     }
   }
 
   const removeStep = async (workstreamId: string, stepId: string) => {
-    if (!window.confirm('Remove this step from the workstream?')) return
+    if (!window.confirm(t('agendaPage.removeStepConfirm'))) return
     setRemovingStepId(stepId)
     try {
       await deleteWorkstreamStep(workstreamId, stepId)
-      toast.success('Step removed')
+      toast.success(t('agendaPage.stepRemoved'))
       await loadSteps(workstreamId)
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not remove step.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.removeStepError')))
     } finally {
       setRemovingStepId(null)
     }
@@ -259,7 +262,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
     const name = newStepName.trim()
     if (!name) return
     if (newStepKind === 'agent' && !newStepAgentId) {
-      toast.error('Pick an agent for this step.')
+      toast.error(t('agendaPage.pickAgentStep'))
       return
     }
     setAddingStep(true)
@@ -277,16 +280,18 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
       })
       setNewStepName('')
       setNewStepKind('agent')
-      toast.success(newStepKind === 'human_gate' ? 'Approval gate added' : 'Step added')
+      toast.success(
+        newStepKind === 'human_gate' ? t('agendaPage.approvalGateAdded') : t('agendaPage.stepAdded'),
+      )
       await loadSteps(workstreamId)
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not add step.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.addStepError')))
     } finally {
       setAddingStep(false)
     }
   }
 
-  if (loading) return <LoadingBlock label="Loading automations..." />
+  if (loading) return <LoadingBlock label={t('agendaPage.loadingAutomations')} />
 
   return (
     <div className="space-y-4">
@@ -294,22 +299,27 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex h-auto flex-wrap">
-          <TabsTrigger value="triggers">Triggers</TabsTrigger>
-          <TabsTrigger value="workstreams">Workstreams</TabsTrigger>
-          <TabsTrigger value="runtime">Runtime profiles</TabsTrigger>
-          <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="triggers">{t('agendaPage.triggers')}</TabsTrigger>
+          <TabsTrigger value="workstreams">{t('agendaPage.workstreams')}</TabsTrigger>
+          <TabsTrigger value="runtime">{t('agendaPage.runtime')}</TabsTrigger>
+          <TabsTrigger value="runs">{t('agendaPage.runs')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="triggers" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>All triggers</CardTitle>
+              <CardTitle>{t('agendaPage.allTriggers')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {triggers.length === 0 ? (
-                <p className="text-sm text-text-muted">
-                  No triggers yet. Use New on the Agenda to schedule wakes, one-off tasks, and events.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-text-muted">
+                    {t('agendaPage.noTriggers')}
+                  </p>
+                  <Button type="button" size="sm" variant="outline" asChild>
+                    <Link to="/agenda">{t('agendaPage.backToAgenda')}</Link>
+                  </Button>
+                </div>
               ) : (
                 triggers.map((trigger) => (
                   <div key={trigger.id} className="border-b border-border py-2 last:border-0">
@@ -334,7 +344,17 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                             {trigger.name}
                           </span>
                           <span className="ml-2 text-text-muted">
-                            {trigger.kind} · {triggerSchedule(trigger)}
+                            {(() => {
+                              const kindLabel = t(`triggerDialog.kinds.${trigger.kind}`, {
+                                defaultValue: trigger.kind,
+                              })
+                              const name = trigger.name.trim().toLowerCase()
+                              const hideKind =
+                                name === kindLabel.toLowerCase() || name === String(trigger.kind).toLowerCase()
+                              return hideKind
+                                ? triggerSchedule(trigger)
+                                : `${kindLabel} · ${triggerSchedule(trigger)}`
+                            })()}
                           </span>
                         </div>
                         <Badge
@@ -346,19 +366,23 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                               : 'border-border text-text-muted',
                           )}
                         >
-                          {trigger.enabled ? 'Active' : 'Paused'}
+                          {trigger.enabled ? t('agendaPage.active') : t('agendaPage.paused')}
                         </Badge>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                         {onEditTrigger ? (
                           <Button type="button" size="sm" variant="ghost" onClick={() => onEditTrigger(trigger)}>
-                            Edit
+                            {t('agendaPage.edit')}
                           </Button>
                         ) : null}
                         <Switch
                           checked={trigger.enabled}
                           disabled={runningId === trigger.id}
-                          aria-label={trigger.enabled ? `Pause ${trigger.name}` : `Activate ${trigger.name}`}
+                          aria-label={
+                            trigger.enabled
+                              ? t('agendaPage.pauseTrigger', { name: trigger.name })
+                              : t('agendaPage.activateTrigger', { name: trigger.name })
+                          }
                           onCheckedChange={() => void toggleTrigger(trigger)}
                           className="h-5 w-9 [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-[16px]"
                         />
@@ -370,7 +394,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                           disabled={runningId === trigger.id}
                           onClick={() => void removeTrigger(trigger.id)}
                         >
-                          Delete
+                          {t('agendaPage.delete')}
                         </Button>
                         <Button
                           type="button"
@@ -379,7 +403,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                           disabled={runningId === trigger.id}
                           onClick={() => void fireTrigger(trigger.id)}
                         >
-                          {runningId === trigger.id ? 'Running...' : 'Run now'}
+                          {runningId === trigger.id ? t('agendaPage.running') : t('agendaPage.runNow')}
                         </Button>
                       </div>
                     </div>
@@ -398,20 +422,20 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
         <TabsContent value="runtime" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Runtime profiles</CardTitle>
+              <CardTitle>{t('agendaPage.runtime')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-border/60">
                 <input
                   value={newProfileName}
                   onChange={(e) => setNewProfileName(e.target.value)}
-                  placeholder="Profile name"
+                  placeholder={t('agendaPage.profileName')}
                   className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
                 />
                 <input
                   value={newProfileModel}
                   onChange={(e) => setNewProfileModel(e.target.value)}
-                  placeholder="Model (optional)"
+                  placeholder={t('agendaPage.modelOptional')}
                   className="h-8 min-w-[10rem] rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
                 />
                 <select
@@ -419,9 +443,9 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                   onChange={(e) => setNewProfileRole(e.target.value)}
                   className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-sm"
                 >
-                  <option value="executor">Executor</option>
-                  <option value="orchestrator">Orchestrator</option>
-                  <option value="evaluator">Evaluator</option>
+                  <option value="executor">{t('agendaPage.executor')}</option>
+                  <option value="orchestrator">{t('agendaPage.orchestrator')}</option>
+                  <option value="evaluator">{t('agendaPage.evaluator')}</option>
                 </select>
                 <Button
                   type="button"
@@ -441,20 +465,25 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                         toast.success('Runtime profile created')
                         await load()
                       } catch (err) {
-                        toast.error(formatApiErrorMessage(err, 'Could not create runtime profile.'))
+                        toast.error(formatApiErrorMessage(err, t('agendaPage.createProfileError')))
                       } finally {
                         setCreatingProfile(false)
                       }
                     })()
                   }}
                 >
-                  {creatingProfile ? 'Creating...' : 'Add profile'}
+                  {creatingProfile ? t('agendaPage.creating') : t('agendaPage.addProfile')}
                 </Button>
               </div>
               {runtimeProfiles.length === 0 ? (
-                <p className="text-sm text-text-muted">
-                  No runtime profiles yet. Profiles set the model, role, and budget per agent or workstream step.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-text-muted">
+                    {t('agendaPage.noProfiles')}
+                  </p>
+                  <Button type="button" size="sm" variant="outline" asChild>
+                    <Link to="/agents">{t('agendaPage.openAgents')}</Link>
+                  </Button>
+                </div>
               ) : (
                 runtimeProfiles.map((p) => (
                   <div
@@ -478,14 +507,14 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
         <TabsContent value="workstreams" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Workstreams</CardTitle>
+              <CardTitle>{t('agendaPage.workstreams')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   value={newWsName}
                   onChange={(e) => setNewWsName(e.target.value)}
-                  placeholder="New workstream name"
+                  placeholder={t('agendaPage.newWorkstream')}
                   className="h-8 min-w-[12rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void addWorkstream()
@@ -497,13 +526,18 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                   disabled={creatingWs || !newWsName.trim()}
                   onClick={() => void addWorkstream()}
                 >
-                  {creatingWs ? 'Creating...' : 'Create'}
+                  {creatingWs ? t('agendaPage.creating') : t('agendaPage.create')}
                 </Button>
               </div>
               {workstreams.length === 0 ? (
-                <p className="text-sm text-text-muted">
-                  No workstreams yet. Create one to group multi-step agent runs.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-text-muted">
+                    {t('agendaPage.noWorkstreams')}
+                  </p>
+                  <Button type="button" size="sm" variant="outline" asChild>
+                    <Link to="/projects">{t('agendaPage.openProjects')}</Link>
+                  </Button>
+                </div>
               ) : (
                 workstreams.map((w) => {
                   const steps = stepsByWs[w.id] ?? []
@@ -530,11 +564,11 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                             {w.name}
                           </span>
                           <Badge variant="outline" className="shrink-0 text-[10px]">
-                            {steps.length} step{steps.length === 1 ? '' : 's'}
+                            {t('agendaPage.steps', { count: steps.length })}
                           </Badge>
                           {!w.enabled ? (
                             <Badge variant="outline" className="shrink-0 border-border text-[10px] text-text-muted">
-                              Paused
+                              {t('agendaPage.paused')}
                             </Badge>
                           ) : null}
                         </button>
@@ -543,17 +577,17 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                           size="sm"
                           variant="secondary"
                           disabled={!w.enabled || runningId === w.id || steps.length === 0}
-                          title={steps.length === 0 ? 'Add a step first' : undefined}
+                          title={steps.length === 0 ? t('agendaPage.addStepFirst') : undefined}
                           onClick={() => void runWorkstream(w.id)}
                         >
-                          {runningId === w.id ? 'Starting...' : 'Run'}
+                          {runningId === w.id ? t('agendaPage.starting') : t('agendaPage.run')}
                         </Button>
                       </div>
                       {open ? (
                         <div className="space-y-2 border-t border-border/60 bg-bg-muted/20 px-3 py-3">
                           {steps.length === 0 ? (
                             <p className="text-xs text-text-muted">
-                              No steps yet. Add an agent step or an approval gate so Run has something to execute.
+                              {t('agendaPage.noSteps')}
                             </p>
                           ) : (
                             <ol className="space-y-1">
@@ -561,7 +595,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                                 const isGate = step.step_kind === 'human_gate'
                                 const agentName =
                                   agents.find((a) => a.id === step.agent_id)?.name ??
-                                  (step.agent_id ? 'Agent' : 'No agent')
+                                  (step.agent_id ? t('agendaPage.agent') : t('agendaPage.noAgentsOption'))
                                 return (
                                   <li
                                     key={step.id}
@@ -570,7 +604,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                                     <span className="w-5 tabular-nums text-text-muted">{index + 1}.</span>
                                     <span className="font-medium text-text-heading">{step.name}</span>
                                     <span className="min-w-0 flex-1 truncate text-text-muted">
-                                      · {isGate ? 'Approval gate' : agentName}
+                                      · {isGate ? t('agendaPage.approvalGate') : agentName}
                                     </span>
                                     <Button
                                       type="button"
@@ -578,7 +612,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                                       variant="ghost"
                                       className="h-7 w-7 shrink-0 p-0"
                                       disabled={removingStepId === step.id}
-                                      aria-label={`Remove step ${step.name}`}
+                                      aria-label={t('agendaPage.removeStepAria', { name: step.name })}
                                       onClick={() => void removeStep(w.id, step.id)}
                                     >
                                       <Trash2 size={12} />
@@ -592,7 +626,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                             <input
                               value={newStepName}
                               onChange={(e) => setNewStepName(e.target.value)}
-                              placeholder="Step name"
+                              placeholder={t('agendaPage.stepName')}
                               className="h-8 min-w-[8rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') void addStep(w.id)
@@ -605,8 +639,8 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                               }
                               className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
                             >
-                              <option value="agent">Agent</option>
-                              <option value="human_gate">Approval gate</option>
+                              <option value="agent">{t('agendaPage.agent')}</option>
+                              <option value="human_gate">{t('agendaPage.approvalGate')}</option>
                             </select>
                             {newStepKind === 'agent' ? (
                               <select
@@ -615,7 +649,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                                 className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
                               >
                                 {agents.length === 0 ? (
-                                  <option value="">No agents</option>
+                                  <option value="">{t('agendaPage.noAgentsOption')}</option>
                                 ) : (
                                   agents.map((a) => (
                                     <option key={a.id} value={a.id}>
@@ -636,7 +670,7 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                               }
                               onClick={() => void addStep(w.id)}
                             >
-                              {addingStep ? 'Adding...' : 'Add step'}
+                              {addingStep ? t('agendaPage.adding') : t('agendaPage.addStep')}
                             </Button>
                           </div>
                         </div>
@@ -653,29 +687,34 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
           <Card>
             <CardContent className="pt-6 space-y-2">
               {tasks.length === 0 ? (
-                <p className="text-sm text-text-muted">
-                  No task runs yet. Run a workstream or trigger to see execution history here.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-text-muted">
+                    {t('agendaPage.noRuns')}
+                  </p>
+                  <Button type="button" size="sm" variant="outline" asChild>
+                    <Link to="/agents">{t('agendaPage.openAgents')}</Link>
+                  </Button>
+                </div>
               ) : (
-                tasks.map((t) => (
+                tasks.map((task) => (
                   <div
-                    key={t.id}
+                    key={task.id}
                     className="flex items-center justify-between gap-3 text-sm border-b border-border py-2 last:border-0"
                   >
                     <div className="min-w-0">
-                      <span className="font-medium text-text-heading truncate">{t.title}</span>
-                      {t.created_at ? (
-                        <span className="ml-2 text-text-muted">{formatWhen(t.created_at)}</span>
+                      <span className="font-medium text-text-heading truncate">{task.title}</span>
+                      {task.created_at ? (
+                        <span className="ml-2 text-text-muted">{formatWhen(task.created_at)}</span>
                       ) : null}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {t.signal_id ? (
+                      {task.signal_id ? (
                         <Button variant="ghost" size="sm" asChild>
-                          <Link to={agentRunsPath('all', t.signal_id)}>Open</Link>
+                          <Link to={agentRunsPath('all', task.signal_id)}>{t('agendaPage.openRun')}</Link>
                         </Button>
                       ) : null}
-                      <Badge variant={runStatusVariant(t.status)} className="capitalize">
-                        {t.status}
+                      <Badge variant={runStatusVariant(task.status)} className="capitalize">
+                        {workLogStatusLabel(task.status, t)}
                       </Badge>
                     </div>
                   </div>

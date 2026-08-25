@@ -10,7 +10,9 @@ import { McpIntegrationsTable } from './McpIntegrationsTable'
 const CONNECT_PARAM = 'connect'
 
 function parseConnectPreset(value: string | null): McpConnectPreset | undefined {
-  if (value === 'custom_mcp' || value === 'bjorn_lunden_mcp') return value
+  if (value === 'custom_mcp' || value === 'bjorn_lunden_mcp' || value === 'king_accountancy') {
+    return value
+  }
   return undefined
 }
 
@@ -60,7 +62,7 @@ export function McpServerSetupTab() {
           <h2 className="text-lg font-medium text-text-heading">{t('integrations.mcp.servers.title')}</h2>
           <p className="text-sm text-text-secondary mt-1">{t('integrations.mcp.servers.description')}</p>
           <p className="text-xs text-text-muted mt-2">
-            The MCP URL must be reachable from the Bokito API server (Docker internal hostnames are fine).
+            {t('integrations.mcp.servers.reachabilityHint')}
           </p>
           <Link
             to="/settings/integrations"

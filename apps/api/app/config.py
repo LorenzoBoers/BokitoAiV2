@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     debug: bool = False
     api_prefix: str = "/api"
 
+    # Platform UI / team-facing AI fallback. `en` or `nl`; anything else is `nl`.
+    # Dashboard SPA uses VITE_PLATFORM_DEFAULT_LANGUAGE (baked at build time).
+    platform_default_language: str = "nl"
+
     # "dev" | "prod" — prod enables fail-fast config checks and Secure cookies.
     environment: str = "dev"
 
@@ -33,6 +37,13 @@ class Settings(BaseSettings):
     # bjorn_lunden_mcp integration targets this URL; when empty, the built-in
     # native BLA API integration (services/bjorn_lunden.py) is used.
     bjorn_lunden_mcp_url: str = ""
+    # KING Finance / KING Accountancy Cloudswitch partnerkey issued by
+    # Björn Lundén NL (partners@muis.nl). Platform secret — never entered in
+    # the dashboard. Empty = install stays pending; live reads need this plus
+    # per-administratie omgevingscodes on the connection.
+    king_finance_partner_key: str = ""
+    # SOAP endpoint. Default is the documented Cloudswitch XML service.
+    king_finance_base_url: str = "https://api.kingfinance.nl/v1/ws1_xml.asmx"
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     default_chat_model: str = "claude-sonnet-4-20250514"
@@ -106,6 +117,13 @@ class Settings(BaseSettings):
     microsoft_oauth_client_secret: str = ""
     microsoft_oauth_tenant: str = "common"
 
+    # WhatsApp Business Cloud API (Meta). One app-level webhook serves all
+    # tenants: {public_api_url}/api/channels/whatsapp/webhook. When empty the
+    # channel is effectively disabled (webhook rejects everything).
+    meta_app_id: str = ""
+    meta_app_secret: str = ""
+    whatsapp_verify_token: str = ""
+
     @property
     def oauth_redirect_uri(self) -> str:
         return f"{self.public_api_url.rstrip('/')}/api/integrations/oauth/callback"
@@ -152,6 +170,13 @@ def validate_production_settings(settings: "Settings") -> list[str]:
             errors.append(
                 f"{name}_OAUTH_CLIENT_ID and {name}_OAUTH_CLIENT_SECRET must both be set (or both empty)."
             )
+    # WhatsApp webhook needs both the app secret (signature check) and the
+    # verify token (subscription handshake); one without the other means a
+    # half-configured channel that silently drops events.
+    if bool(settings.meta_app_secret) != bool(settings.whatsapp_verify_token):
+        errors.append(
+            "META_APP_SECRET and WHATSAPP_VERIFY_TOKEN must both be set (or both empty)."
+        )
     return errors
 
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Copy, Loader2, RefreshCw, Zap } from 'lucide-react'
 import { Badge } from '../ui/badge'
@@ -21,12 +22,12 @@ type Props = {
   compact?: boolean
 }
 
-async function copyText(value: string, label: string) {
+async function copyText(value: string, _label: string, copied: string, failed: string) {
   try {
     await navigator.clipboard.writeText(value)
-    toast.success(`${label} copied`)
+    toast.success(copied)
   } catch {
-    toast.error(`Could not copy ${label.toLowerCase()}`)
+    toast.error(failed)
   }
 }
 
@@ -37,6 +38,7 @@ export function WebhookTriggerPanel({
   onUpdated,
   compact = false,
 }: Props) {
+  const { t } = useTranslation('nav')
   const [rotating, setRotating] = useState(false)
   const [testing, setTesting] = useState(false)
   const [localSecret, setLocalSecret] = useState<string | null>(null)
@@ -63,11 +65,11 @@ export function WebhookTriggerPanel({
       const updated = await rotateWebhookSecret(trigger.id)
       if (updated.webhook_secret) {
         setLocalSecret(updated.webhook_secret)
-        toast.success('New webhook secret generated. Copy it now — it is shown once.')
+        toast.success(t('agendaPage.webhookSecretRotated'))
       }
       onUpdated?.()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not rotate secret.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.webhookRotateError')))
     } finally {
       setRotating(false)
     }
@@ -78,13 +80,13 @@ export function WebhookTriggerPanel({
     try {
       const result = await testWebhookTrigger(trigger.id)
       if (result.ok) {
-        toast.success(`Test webhook sent (${result.status ?? 'ok'})`)
+        toast.success(t('agendaPage.webhookTestSent', { status: result.status ?? 'ok' }))
       } else {
-        toast.error('Test webhook failed')
+        toast.error(t('agendaPage.webhookTestFailed'))
       }
       onUpdated?.()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not send test webhook.'))
+      toast.error(formatApiErrorMessage(err, t('agendaPage.webhookTestError')))
     } finally {
       setTesting(false)
     }
@@ -94,35 +96,59 @@ export function WebhookTriggerPanel({
     <div className={`rounded-lg border border-border/60 bg-bg-elevated ${compact ? 'p-3' : 'p-4'} space-y-3`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium text-text-heading">External webhook</p>
+          <p className="text-sm font-medium text-text-heading">{t('agendaPage.webhookTitle')}</p>
           <p className="text-xs text-text-muted mt-0.5">
-            POST JSON to the hook URL with header X-Bokito-Secret or ?secret= query param.
+            {t('agendaPage.webhookBody')}
           </p>
         </div>
         <Badge variant={trigger.has_webhook_secret || activeSecret ? 'success' : 'neutral'}>
-          {trigger.has_webhook_secret || activeSecret ? 'Secret configured' : 'No secret'}
+          {trigger.has_webhook_secret || activeSecret ? t('agendaPage.webhookSecretOn') : t('agendaPage.webhookSecretOff')}
         </Badge>
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs text-text-muted">Hook URL</Label>
+        <Label className="text-xs text-text-muted">{t('agendaPage.webhookHookUrl')}</Label>
         <div className="flex gap-2">
           <code className="flex-1 truncate rounded-md border border-border/60 bg-bg-base px-2 py-1.5 text-xs text-text-secondary">
             {hookUrl}
           </code>
-          <Button type="button" size="sm" variant="outline" onClick={() => void copyText(hookUrl, 'Hook URL')}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              void copyText(
+                hookUrl,
+                t('agendaPage.webhookHookUrl'),
+                t('agendaPage.webhookCopied', { label: t('agendaPage.webhookHookUrl') }),
+                t('agendaPage.webhookCopyError', { label: t('agendaPage.webhookHookUrl') }),
+              )
+            }
+          >
             <Copy size={14} />
           </Button>
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs text-text-muted">Trigger ID</Label>
+        <Label className="text-xs text-text-muted">{t('agendaPage.webhookTriggerId')}</Label>
         <div className="flex gap-2">
           <code className="flex-1 truncate rounded-md border border-border/60 bg-bg-base px-2 py-1.5 text-xs text-text-secondary">
             {trigger.id}
           </code>
-          <Button type="button" size="sm" variant="outline" onClick={() => void copyText(trigger.id, 'Trigger ID')}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              void copyText(
+                trigger.id,
+                t('agendaPage.webhookTriggerId'),
+                t('agendaPage.webhookCopied', { label: t('agendaPage.webhookTriggerId') }),
+                t('agendaPage.webhookCopyError', { label: t('agendaPage.webhookTriggerId') }),
+              )
+            }
+          >
             <Copy size={14} />
           </Button>
         </div>
@@ -130,7 +156,7 @@ export function WebhookTriggerPanel({
 
       {activeSecret ? (
         <div className="space-y-1.5 rounded-md border border-status-warning/40 bg-status-warning/5 p-3">
-          <Label className="text-xs text-text-muted">Webhook secret (shown once)</Label>
+          <Label className="text-xs text-text-muted">{t('agendaPage.webhookSecretOnce')}</Label>
           <div className="flex gap-2">
             <code className="flex-1 break-all rounded-md border border-border/60 bg-bg-base px-2 py-1.5 text-xs text-text-secondary">
               {activeSecret}
@@ -139,38 +165,57 @@ export function WebhookTriggerPanel({
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => void copyText(activeSecret, 'Webhook secret')}
+              onClick={() =>
+                void copyText(
+                  activeSecret,
+                  t('agendaPage.webhookSecretOnce'),
+                  t('agendaPage.webhookCopied', { label: t('agendaPage.webhookSecretOnce') }),
+                  t('agendaPage.webhookCopyError', { label: t('agendaPage.webhookSecretOnce') }),
+                )
+              }
             >
               <Copy size={14} />
             </Button>
           </div>
           {onSecretConsumed ? (
             <Button type="button" size="sm" variant="ghost" className="text-xs" onClick={onSecretConsumed}>
-              I copied the secret
+              {t('agendaPage.webhookCopiedSecret')}
             </Button>
           ) : null}
         </div>
       ) : null}
 
       <div className="space-y-1.5">
-        <Label className="text-xs text-text-muted">Integration credentials (.env)</Label>
+        <Label className="text-xs text-text-muted">{t('agendaPage.webhookEnvLabel')}</Label>
         <pre className="overflow-x-auto rounded-md border border-border/60 bg-bg-base p-2 text-[11px] text-text-secondary whitespace-pre-wrap">
           {envSnippet}
         </pre>
-        <Button type="button" size="sm" variant="outline" onClick={() => void copyText(envSnippet, 'Env snippet')}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            void copyText(
+              envSnippet,
+              t('agendaPage.webhookLabelEnv'),
+              t('agendaPage.webhookCopied', { label: t('agendaPage.webhookLabelEnv') }),
+              t('agendaPage.webhookCopyError', { label: t('agendaPage.webhookLabelEnv') }),
+            )
+          }
+        >
           <Copy size={14} className="mr-1.5" />
-          Copy env snippet
+          {t('agendaPage.webhookCopyEnv')}
         </Button>
       </div>
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" variant="secondary" disabled={testing} onClick={() => void testPing()}>
           {testing ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Zap size={14} className="mr-1.5" />}
-          Test ping
+          {t('agendaPage.webhookTest')}
         </Button>
         <Button type="button" size="sm" variant="outline" disabled={rotating} onClick={() => void rotate()}>
           {rotating ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <RefreshCw size={14} className="mr-1.5" />}
-          Rotate secret
+          {t('agendaPage.webhookRotate')}
         </Button>
       </div>
     </div>

@@ -25,14 +25,23 @@ Result: "Sign in with Microsoft" works on `/login` and `/signup`
 (`GET /api/auth/microsoft/start`), and Outlook mailbox connect works from
 Settings > Channels. Until set, SSO start returns 503 (no silent mock in prod).
 
-## 2. Björn Lundén MCP
+## 2. Björn Lundén MCP (Swedish BLA)
 
-- Set `BJORN_LUNDEN_MCP_URL` in `/opt/bokito/.env.prod` to the real BL MCP
-  server URL. Without it, installing the BL integration in prod is refused
-  with a 422 (mock `mock://` servers are blocked when `ENVIRONMENT=prod`).
-- The client's BL credentials are entered at install time in
-  Settings > Marketplace > Björn Lundén (API-key or OAuth depending on the
-  BL server's auth).
+- Optional: set `BJORN_LUNDEN_MCP_URL` in `/opt/bokito/.env.prod` only when
+  using an external MCP server. Empty uses the native Swedish BLA adapter
+  (`native://bjorn-lunden`).
+- Client ID / client secret are entered at install time. This is not the
+  Dutch KING Accountancy path.
+
+## 2b. KING Accountancy / KING Finance Cloudswitch (Dutch)
+
+- Set `KING_FINANCE_PARTNER_KEY` in `/opt/bokito/.env.prod` (issued by
+  `partners@muis.nl` after the partner agreement). Ask BL to allowlist the
+  VPS outbound IP on that key.
+- Tenants add omgevingscodes per administratie in Marketplace > KING
+  Accountancy. Do not store King usernames or passwords.
+- Sandbox (before the live key): partnerkey `abcdefghijklmnopqrstuvwxyz`,
+  omgevingscode `00000`, admin 2000 at https://kingfinance.nl/demo.
 
 ## 3. Transactional + notification email (SMTP)
 

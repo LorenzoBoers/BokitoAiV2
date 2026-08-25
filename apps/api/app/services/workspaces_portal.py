@@ -17,7 +17,12 @@ from app.exceptions import AppError
 from app.models.auth import Invite, Membership, Tenant, User
 from app.models.auth import user_numeric_id
 from app.services.auth import create_invite_token
-from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
+from app.services.tenant_bootstrap import (
+    bootstrap_tenant,
+    default_tenant_settings,
+    resolve_brand_color,
+    serialize_settings,
+)
 from app.services.workforce_runtime import tenant_numeric_id
 
 MAX_UPLOAD_BYTES = 512_000
@@ -29,6 +34,36 @@ def parse_settings(tenant: Tenant) -> dict[str, Any]:
     except json.JSONDecodeError:
         data = {}
     return data if isinstance(data, dict) else {}
+
+
+def allows_platform_support(settings_or_tenant: dict[str, Any] | Tenant) -> bool:
+    """Whether Bokito operators may enter this workspace. Missing key = allow."""
+    settings = (
+        parse_settings(settings_or_tenant)
+        if isinstance(settings_or_tenant, Tenant)
+        else settings_or_tenant
+    )
+    security = settings.get("security") if isinstance(settings.get("security"), dict) else {}
+    return bool(security.get("allow_platform_support", True))
+
+
+async def first_allowed_support_tenant(
+    session: AsyncSession,
+    *,
+    preferred_id: UUID | None = None,
+) -> Tenant | None:
+    """Tenant a staff user may land in (preferred if still allowed)."""
+    if preferred_id:
+        preferred = (
+            await session.execute(select(Tenant).where(Tenant.id == preferred_id))
+        ).scalar_one_or_none()
+        if preferred and allows_platform_support(preferred):
+            return preferred
+    result = await session.execute(select(Tenant).order_by(Tenant.created_at))
+    for tenant in result.scalars().all():
+        if allows_platform_support(tenant):
+            return tenant
+    return None
 
 
 def save_settings(tenant: Tenant, settings: dict[str, Any]) -> None:
@@ -48,16 +83,16 @@ def workspace_payload(tenant: Tenant, role: str) -> dict[str, Any]:
     if not isinstance(livechat, dict):
         livechat = {}
     livechat_appearance = livechat.get("appearance") if isinstance(livechat.get("appearance"), dict) else {}
-    main_color = (
+    main_color = resolve_brand_color(
         str(livechat_appearance.get("main_color") or appearance.get("main_color") or livechat.get("main_color") or "")
-    ).strip()
+    )
     logo_url = tenant.logo_url or str(livechat.get("logo_url") or "")
     favicon_url = str(livechat.get("favicon_url") or settings.get("favicon_url") or "")
     merged_livechat: dict[str, Any] = {
         **livechat,
         "subdomain": tenant.slug,
-        "main_color": main_color or "#00FF99",
-        "appearance": {**appearance, **livechat_appearance, "main_color": main_color or "#00FF99"},
+        "main_color": main_color,
+        "appearance": {**appearance, **livechat_appearance, "main_color": main_color},
     }
     if logo_url:
         merged_livechat["logo"] = _asset_object(logo_url)
@@ -72,8 +107,9 @@ def workspace_payload(tenant: Tenant, role: str) -> dict[str, Any]:
         "timezone": str(settings.get("timezone") or "Europe/Amsterdam"),
         "logo": logo_url or None,
         "favicon": favicon_url or None,
-        "brand_color": main_color or None,
+        "brand_color": main_color,
         "require_2fa": bool(security.get("require_2fa", False)),
+        "allow_platform_support": allows_platform_support(settings),
         "livechat_settings": merged_livechat,
         "role": role,
         "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
@@ -84,7 +120,7 @@ def workspace_payload(tenant: Tenant, role: str) -> dict[str, Any]:
 async def accessible_tenants(session: AsyncSession, user: User, *, is_staff: bool) -> list[tuple[Tenant, str]]:
     if is_staff:
         result = await session.execute(select(Tenant).order_by(Tenant.name))
-        return [(t, "admin") for t in result.scalars().all()]
+        return [(t, "admin") for t in result.scalars().all() if allows_platform_support(t)]
     result = await session.execute(
         select(Tenant, Membership.role)
         .join(Membership, Membership.tenant_id == Tenant.id)
@@ -106,6 +142,14 @@ async def resolve_tenant_for_workspace(
         raise AppError("Invalid workspace id", status_code=400)
 
     tenants = await accessible_tenants(session, user, is_staff=is_staff)
+    if is_staff:
+        # Staff may still resolve an opted-out workspace they are already in
+        # (e.g. to turn platform support back on). Entering stays gated.
+        extras = (await session.execute(select(Tenant))).scalars().all()
+        seen = {tenant.id for tenant, _role in tenants}
+        for tenant in extras:
+            if tenant.id not in seen:
+                tenants.append((tenant, "admin"))
     for tenant, role in tenants:
         if key == str(tenant.id) or key == tenant.slug:
             return tenant, role
@@ -216,6 +260,12 @@ async def update_workspace(
             security = {}
             settings["security"] = security
         security["require_2fa"] = data["require_2fa"]
+    if "allow_platform_support" in data and isinstance(data["allow_platform_support"], bool):
+        security = settings.setdefault("security", {})
+        if not isinstance(security, dict):
+            security = {}
+            settings["security"] = security
+        security["allow_platform_support"] = data["allow_platform_support"]
     save_settings(tenant, settings)
     await session.commit()
     await session.refresh(tenant)

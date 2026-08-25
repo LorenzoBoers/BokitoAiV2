@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Bot } from 'lucide-react'
 import { toast } from 'sonner'
 import ThreadList from '../components/inbox/ThreadList'
@@ -41,6 +42,7 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
  * customer threads: nav target, thread list, chat detail + context panel.
  */
 export default function DirectCommunication() {
+  const { t } = useTranslation('communication')
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -237,7 +239,7 @@ export default function DirectCommunication() {
         void refreshNavBadges()
         void refreshThreads()
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Delete failed.')
+        toast.error(err instanceof Error ? err.message : t('directChat.deleteFailed'))
       } finally {
         setDeletingThreadId(null)
       }
@@ -251,9 +253,9 @@ export default function DirectCommunication() {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
         <Bot size={28} className="text-text-muted" />
-        <p className="mt-3 text-sm text-text-secondary">No assistant configured for this workspace.</p>
+        <p className="mt-3 text-sm text-text-secondary">{t('directChat.noAssistantConfigured')}</p>
         <Link to="/settings/assistant" className="mt-3 text-sm font-medium text-accent hover:underline">
-          Configure assistant
+          {t('directChat.configureAssistant')}
         </Link>
       </div>
     )

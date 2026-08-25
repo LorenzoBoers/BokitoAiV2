@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { closeAgentSession, type ThreadSession } from '../../lib/signals-api'
 import { bokitoListMessages, type ChatMessage } from '../../lib/bokito-api'
+import { translateMockAgentBody } from '../../lib/activity-labels'
 import DirectChatPanel from './DirectChatPanel'
 import { Button } from '../ui/button'
 import { toast } from 'sonner'
@@ -73,11 +74,11 @@ function ReadOnlyTranscript({ sessionId }: { sessionId: string }) {
           </div>
         ) : (
           <div key={m.id} className="flex items-start gap-2">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-accent">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
               <Bot size={11} />
             </span>
-            <div className="max-w-[82%] rounded-xl rounded-tl-sm border border-border/60 bg-bg-surface px-3 py-1.5 text-[12.5px] leading-relaxed text-text-primary">
-              <ChatMarkdown content={m.content} />
+            <div className="max-w-[82%] rounded-xl rounded-tl-sm border border-ai/20 bg-ai/[0.06] px-3 py-1.5 text-[12.5px] leading-relaxed text-text-primary">
+              <ChatMarkdown content={translateMockAgentBody(m.content, t)} />
             </div>
           </div>
         ),
@@ -116,15 +117,15 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
 
   if (session.state === 'active') {
     return (
-      <div className="overflow-hidden rounded-xl border border-accent/35 bg-bg-surface shadow-card">
-        <div className="flex items-center gap-2 border-b border-accent/20 bg-accent/6 px-3 py-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-accent/30 bg-bg-elevated text-accent">
+      <div className="overflow-hidden rounded-xl border border-ai/30 bg-bg-surface shadow-card">
+        <div className="flex items-center gap-2 border-b border-ai/20 bg-ai/6 px-3 py-2">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/30 bg-ai/10 text-ai-ink">
             <Bot size={13} />
           </span>
           <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-[12.5px] font-medium text-text-primary">
               {session.agentName ?? t('agentSession.title')}
-              <span className="ml-2 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+              <span className="ml-2 rounded-full bg-ai/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ai-ink">
                 {t('agentSession.activeBadge')}
               </span>
             </p>
@@ -176,7 +177,9 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
           </p>
           <p className="truncate text-[11px] text-text-muted">
             {t('agentSession.messages', { count: session.messageCount })}
-            {session.actions.length > 0 ? ` · ${session.actions.length} ${t('agentSession.actionsTitle').toLowerCase()}` : ''}
+            {session.actions.length > 0
+              ? ` · ${t('agentSession.actionsCount', { count: session.actions.length })}`
+              : ''}
           </p>
         </div>
         {expanded ? (
@@ -188,7 +191,7 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
 
       {session.summary && !expanded ? (
         <p className="line-clamp-2 border-t border-border/40 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
-          {session.summary}
+          {translateMockAgentBody(session.summary, t)}
         </p>
       ) : null}
 
@@ -196,7 +199,7 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
         <div className="border-t border-border/40">
           {session.summary ? (
             <p className="whitespace-pre-wrap break-words border-b border-border/40 px-3 py-2 text-[12px] leading-relaxed text-text-secondary">
-              {session.summary}
+              {translateMockAgentBody(session.summary, t)}
             </p>
           ) : null}
           <div className="border-b border-border/40 px-3 py-2">

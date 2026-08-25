@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, Check, Cpu, Loader2, Plus, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -42,6 +43,7 @@ function pricePerMtok(cents: number): string {
 }
 
 export default function ModelsSettings() {
+  const { t } = useTranslation('nav')
   const { token, isStaff } = useAuth()
   const [data, setData] = useState<TenantModelsPayload | null>(null)
   const [connections, setConnections] = useState<ProviderConnection[]>([])
@@ -73,11 +75,11 @@ export default function ModelsSettings() {
       setData(modelsPayload)
       setConnections(providersPayload.connections)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load models.')
+      setError(err instanceof Error ? err.message : t('modelsPage.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     void load()
@@ -106,7 +108,7 @@ export default function ModelsSettings() {
       flashSaved()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add provider.')
+      setError(err instanceof Error ? err.message : t('modelsPage.addProviderError'))
     } finally {
       setBusy(false)
     }
@@ -120,7 +122,7 @@ export default function ModelsSettings() {
       flashSaved()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not enable preset models.')
+      setError(err instanceof Error ? err.message : t('modelsPage.enablePresetsError'))
     } finally {
       setBusy(false)
     }
@@ -134,7 +136,7 @@ export default function ModelsSettings() {
       flashSaved()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update model.')
+      setError(err instanceof Error ? err.message : t('modelsPage.updateModelError'))
     } finally {
       setBusy(false)
     }
@@ -148,7 +150,7 @@ export default function ModelsSettings() {
       flashSaved()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not set default.')
+      setError(err instanceof Error ? err.message : t('modelsPage.setDefaultError'))
     } finally {
       setBusy(false)
     }
@@ -169,7 +171,7 @@ export default function ModelsSettings() {
       flashSaved()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add model.')
+      setError(err instanceof Error ? err.message : t('modelsPage.addModelError'))
     } finally {
       setBusy(false)
     }
@@ -177,17 +179,17 @@ export default function ModelsSettings() {
 
   const handleTestConnection = async (connectionId: string) => {
     if (!token) return
-    setTestResults((prev) => ({ ...prev, [connectionId]: 'Testing...' }))
+    setTestResults((prev) => ({ ...prev, [connectionId]: t('modelsPage.testing') }))
     try {
       const result = await testProvider(token, connectionId)
       setTestResults((prev) => ({
         ...prev,
-        [connectionId]: result.ok ? 'Connection OK' : result.message,
+        [connectionId]: result.ok ? t('modelsPage.connectionOk') : result.message,
       }))
     } catch (err) {
       setTestResults((prev) => ({
         ...prev,
-        [connectionId]: err instanceof Error ? err.message : 'Test failed',
+        [connectionId]: err instanceof Error ? err.message : t('modelsPage.testFailed'),
       }))
     }
   }
@@ -200,7 +202,7 @@ export default function ModelsSettings() {
       flashSaved()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove provider.')
+      setError(err instanceof Error ? err.message : t('modelsPage.removeProviderError'))
     } finally {
       setBusy(false)
     }
@@ -214,7 +216,7 @@ export default function ModelsSettings() {
       flashSaved()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update provider.')
+      setError(err instanceof Error ? err.message : t('modelsPage.updateProviderError'))
     } finally {
       setBusy(false)
     }
@@ -242,10 +244,9 @@ export default function ModelsSettings() {
           <Cpu size={18} />
         </span>
         <div>
-          <h2 className="text-[15px] font-semibold text-text-heading">AI providers</h2>
+          <h2 className="text-[15px] font-semibold text-text-heading">{t('modelsPage.pageTitle')}</h2>
           <p className="text-[12.5px] text-text-muted">
-            Bokito AI runs your workspace by default. Optionally bring your own provider keys to
-            take control over models and pay the provider directly.
+            {t('modelsPage.pageSubtitle')}
           </p>
         </div>
       </div>
@@ -253,7 +254,7 @@ export default function ModelsSettings() {
       {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
       {saved ? (
         <p className="inline-flex items-center gap-1 text-[12px] text-status-success">
-          <Check size={13} /> Saved
+          <Check size={13} /> {t('modelsPage.saved')}
         </p>
       ) : null}
 
@@ -263,11 +264,9 @@ export default function ModelsSettings() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-[13px] font-semibold text-text-heading">Your own providers</h3>
+            <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.ownProvidersTitle')}</h3>
             <p className="text-[11.5px] text-text-muted">
-              Optional. Models enabled on your own keys take precedence over Bokito AI; usage is
-              then billed by the provider, not through Bokito. Keys are encrypted; only the last
-              four characters are shown.
+              {t('modelsPage.ownProvidersBody')}
             </p>
           </div>
           <Button
@@ -278,7 +277,7 @@ export default function ModelsSettings() {
             disabled={busy}
           >
             <Plus size={14} className="mr-1" />
-            Add provider
+            {t('modelsPage.addProvider')}
           </Button>
         </div>
 
@@ -286,7 +285,7 @@ export default function ModelsSettings() {
           <div className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1.5">
-                <Label>Provider type</Label>
+                <Label>{t('modelsPage.providerType')}</Label>
                 <select
                   value={newProviderType}
                   onChange={(e) => setNewProviderType(e.target.value as ProviderType)}
@@ -300,45 +299,56 @@ export default function ModelsSettings() {
                 </select>
               </label>
               <label className="space-y-1.5">
-                <Label>Label (optional)</Label>
-                <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="e.g. Production OpenAI" />
+                <Label>{t('modelsPage.labelOptional')}</Label>
+                <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t('modelsPage.labelPlaceholder')} />
               </label>
             </div>
             {newProviderType === 'openai_compatible' ? (
               <label className="space-y-1.5">
-                <Label>Base URL</Label>
+                <Label>{t('modelsPage.baseUrl')}</Label>
                 <Input
                   value={newBaseUrl}
                   onChange={(e) => setNewBaseUrl(e.target.value)}
-                  placeholder="https://openrouter.ai/api/v1"
+                  placeholder={t('modelsPage.baseUrlPlaceholder')}
                 />
               </label>
             ) : null}
             <label className="space-y-1.5">
-              <Label>API key</Label>
+              <Label>{t('modelsPage.apiKey')}</Label>
               <Input
                 type="password"
                 autoComplete="off"
                 value={newApiKey}
                 onChange={(e) => setNewApiKey(e.target.value)}
-                placeholder="sk-..."
+                placeholder={t('modelsPage.apiKeyPlaceholder')}
               />
             </label>
             <div className="flex gap-2">
               <Button type="button" onClick={() => void handleAddProvider()} disabled={busy || !newApiKey.trim()}>
-                Save provider
+                {t('modelsPage.saveProvider')}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setShowAddProvider(false)}>
-                Cancel
+                {t('modelsPage.cancel')}
               </Button>
             </div>
           </div>
         ) : null}
 
         {connections.length === 0 ? (
-          <p className="text-[12px] text-text-muted">
-            No own providers configured. Your workspace runs on Bokito AI.
-          </p>
+          <div>
+            <p className="text-[12px] text-text-muted">{t('modelsPage.noProviders')}</p>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+              <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                {t('modelsPage.openSetup')}
+              </Link>
+              <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                {t('modelsPage.openAgents')}
+              </Link>
+              <Link to="/cockpit/usage" className="text-[12px] font-medium text-accent hover:underline">
+                {t('modelsPage.openUsage')}
+              </Link>
+            </div>
+          </div>
         ) : (
           <div className="space-y-2">
             {connections.map((conn) => (
@@ -352,7 +362,7 @@ export default function ModelsSettings() {
                     <span className="text-[11px] font-normal text-text-muted">({conn.provider_type})</span>
                   </p>
                   <p className="text-[11px] text-text-muted">
-                    {conn.is_set ? `Key set ····${conn.last4}` : 'No key'}
+                    {conn.is_set ? t('modelsPage.keySet', { last4: conn.last4 }) : t('modelsPage.noKey')}
                     {conn.base_url ? ` · ${conn.base_url}` : ''}
                   </p>
                   {testResults[conn.id] ? (
@@ -365,7 +375,7 @@ export default function ModelsSettings() {
                     onClick={() => void handleTestConnection(conn.id)}
                     className="rounded-full border border-border/60 px-3 py-1 text-[11.5px] text-text-secondary hover:text-accent"
                   >
-                    Test
+                    {t('modelsPage.test')}
                   </button>
                   {conn.provider_type !== 'openai_compatible' ? (
                     <button
@@ -374,7 +384,7 @@ export default function ModelsSettings() {
                       disabled={busy}
                       className="inline-flex items-center gap-1 rounded-full border border-accent/40 px-3 py-1 text-[11.5px] text-accent hover:bg-accent/5 disabled:opacity-50"
                     >
-                      <Zap size={12} /> Enable presets
+                      <Zap size={12} /> {t('modelsPage.enablePresets')}
                     </button>
                   ) : null}
                   <button
@@ -387,7 +397,7 @@ export default function ModelsSettings() {
                         : 'border-border/60 text-text-muted'
                     }`}
                   >
-                    {conn.enabled ? 'Enabled' : 'Disabled'}
+                    {conn.enabled ? t('modelsPage.enabled') : t('modelsPage.disabled')}
                   </button>
                   <button
                     type="button"
@@ -395,7 +405,7 @@ export default function ModelsSettings() {
                     disabled={busy}
                     className="rounded-full border border-border/60 px-3 py-1 text-[11.5px] text-text-muted hover:text-status-error disabled:opacity-50"
                   >
-                    Remove
+                    {t('modelsPage.remove')}
                   </button>
                 </div>
               </div>
@@ -407,9 +417,9 @@ export default function ModelsSettings() {
       {/* Custom model for compatible providers */}
       {connections.some((c) => c.provider_type === 'openai_compatible') ? (
         <section className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated p-4">
-          <h3 className="text-[13px] font-semibold text-text-heading">Add custom model</h3>
+          <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.addCustomModelTitle')}</h3>
           <p className="text-[11.5px] text-text-muted">
-            For OpenAI-compatible providers, enter the model ID your endpoint expects.
+            {t('modelsPage.addCustomModelBody')}
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <select
@@ -417,7 +427,7 @@ export default function ModelsSettings() {
               onChange={(e) => setCustomModelConn(e.target.value)}
               className="rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
             >
-              <option value="">Select provider</option>
+              <option value="">{t('modelsPage.selectProvider')}</option>
               {connections
                 .filter((c) => c.provider_type === 'openai_compatible')
                 .map((c) => (
@@ -429,12 +439,12 @@ export default function ModelsSettings() {
             <Input
               value={customModelId}
               onChange={(e) => setCustomModelId(e.target.value)}
-              placeholder="Model ID"
+              placeholder={t('modelsPage.modelIdPlaceholder')}
             />
             <Input
               value={customDisplayName}
               onChange={(e) => setCustomDisplayName(e.target.value)}
-              placeholder="Display name (optional)"
+              placeholder={t('modelsPage.displayNamePlaceholder')}
             />
           </div>
           <Button
@@ -443,7 +453,7 @@ export default function ModelsSettings() {
             onClick={() => void handleAddCustomModel()}
             disabled={busy || !customModelConn || !customModelId.trim()}
           >
-            Add model
+            {t('modelsPage.addModel')}
           </Button>
         </section>
       ) : null}
@@ -452,10 +462,10 @@ export default function ModelsSettings() {
       {isTenantMode ? (
         <>
           <section className="space-y-3">
-            <h3 className="text-[13px] font-semibold text-text-heading">Default models</h3>
+            <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.defaultModels')}</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1.5">
-                <span className="text-[11.5px] font-medium text-text-muted">Default chat model</span>
+                <span className="text-[11.5px] font-medium text-text-muted">{t('modelsPage.defaultChatModel')}</span>
                 <select
                   value={data.default_chat}
                   onChange={(e) => {
@@ -464,7 +474,7 @@ export default function ModelsSettings() {
                   }}
                   className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
                 >
-                  <option value="">None</option>
+                  <option value="">{t('modelsPage.none')}</option>
                   {chatModels.filter((m) => m.enabled).map((m) => (
                     <option key={m.id} value={m.slug}>
                       {m.display_name}
@@ -473,7 +483,7 @@ export default function ModelsSettings() {
                 </select>
               </label>
               <label className="space-y-1.5">
-                <span className="text-[11.5px] font-medium text-text-muted">Default embedding model</span>
+                <span className="text-[11.5px] font-medium text-text-muted">{t('modelsPage.defaultEmbeddingModel')}</span>
                 <select
                   value={data.default_embedding}
                   onChange={(e) => {
@@ -482,7 +492,7 @@ export default function ModelsSettings() {
                   }}
                   className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
                 >
-                  <option value="">None</option>
+                  <option value="">{t('modelsPage.none')}</option>
                   {embeddingModels.filter((m) => m.enabled).map((m) => (
                     <option key={m.id} value={m.slug}>
                       {m.display_name}
@@ -494,11 +504,19 @@ export default function ModelsSettings() {
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-[13px] font-semibold text-text-heading">Models</h3>
+            <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.modelsTitle')}</h3>
             {tenantModels.length === 0 ? (
-              <p className="text-[12px] text-text-muted">
-                Enable preset models on a provider or add a custom model above.
-              </p>
+              <div>
+                <p className="text-[12px] text-text-muted">{t('modelsPage.modelsEmpty')}</p>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                    {t('modelsPage.openAgents')}
+                  </Link>
+                  <Link to="/settings/govern?tab=policy" className="text-[12px] font-medium text-accent hover:underline">
+                    {t('modelsPage.openGovern')}
+                  </Link>
+                </div>
+              </div>
             ) : (
               <div className="space-y-2">
                 {tenantModels.map((m) => (
@@ -511,7 +529,10 @@ export default function ModelsSettings() {
                       <p className="text-[11px] text-text-muted">
                         {m.connection_label ?? m.provider_type} · {m.slug} · {m.model_id}
                         {m.kind === 'chat'
-                          ? ` · in ${pricePerMtok(m.input_cost_per_mtok_cents)} · out ${pricePerMtok(m.output_cost_per_mtok_cents)}`
+                          ? ` · ${t('modelsPage.pricingInOut', {
+                              in: pricePerMtok(m.input_cost_per_mtok_cents),
+                              out: pricePerMtok(m.output_cost_per_mtok_cents),
+                            })}`
                           : ''}
                       </p>
                     </div>
@@ -525,7 +546,7 @@ export default function ModelsSettings() {
                           : 'border-border/60 text-text-muted'
                       }`}
                     >
-                      {m.enabled ? 'Enabled' : 'Disabled'}
+                      {m.enabled ? t('modelsPage.enabled') : t('modelsPage.disabled')}
                     </button>
                   </div>
                 ))}
@@ -541,18 +562,19 @@ export default function ModelsSettings() {
 }
 
 function ManagedAiCard({ managed }: { managed: ManagedAiStatus }) {
+  const { t } = useTranslation('nav')
   const statusBadge =
     managed.status === 'active' ? (
       <span className="inline-flex items-center gap-1 rounded-full border border-status-success/40 bg-status-success/10 px-2.5 py-1 text-[11.5px] font-medium text-status-success">
-        Active
+        {t('modelsPage.managed.active')}
       </span>
     ) : managed.status === 'standby' ? (
       <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-hover/50 px-2.5 py-1 text-[11.5px] font-medium text-text-muted">
-        Standby
+        {t('modelsPage.managed.standby')}
       </span>
     ) : (
       <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 text-[11.5px] font-medium text-amber-500">
-        Not configured
+        {t('modelsPage.managed.notConfigured')}
       </span>
     )
 
@@ -564,11 +586,9 @@ function ManagedAiCard({ managed }: { managed: ManagedAiStatus }) {
             <Sparkles size={18} />
           </span>
           <div>
-            <p className="text-[13.5px] font-semibold text-text-heading">Bokito AI</p>
+            <p className="text-[13.5px] font-semibold text-text-heading">{t('modelsPage.managed.title')}</p>
             <p className="max-w-xl text-[12px] text-text-muted">
-              Managed by Bokito: we select and maintain the best model for each task
-              automatically. Usage is metered per token for this workspace and counts toward your
-              budget.
+              {t('modelsPage.managed.body')}
             </p>
           </div>
         </div>
@@ -577,37 +597,34 @@ function ManagedAiCard({ managed }: { managed: ManagedAiStatus }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px]">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-surface px-2.5 py-1 text-text-secondary">
-          Chat
+          {t('modelsPage.managed.chat')}
           <span className="font-medium text-text-primary">{managed.chat.display_name}</span>
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-surface px-2.5 py-1 text-text-secondary">
-          Embeddings
+          {t('modelsPage.managed.embeddings')}
           <span className="font-medium text-text-primary">{managed.embedding.display_name}</span>
         </span>
         <Link
           to="/usage"
           className="ml-auto inline-flex items-center gap-1 text-[11.5px] font-medium text-accent hover:underline"
         >
-          View usage <ArrowUpRight size={12} />
+          {t('modelsPage.managed.viewUsage')} <ArrowUpRight size={12} />
         </Link>
       </div>
 
       {managed.status === 'standby' ? (
         <p className="mt-2.5 text-[11.5px] text-text-muted">
-          This workspace runs on your own provider keys below; Bokito AI stays available as
-          fallback when you remove them.
+          {t('modelsPage.managed.standbyHint')}
         </p>
       ) : null}
       {managed.status === 'unconfigured' ? (
         <p className="mt-2.5 text-[11.5px] text-amber-500">
-          No platform key is configured, so AI calls run in mock mode. Contact Bokito support or
-          add your own provider key below.
+          {t('modelsPage.managed.mockModeHint')}
         </p>
       ) : null}
       {managed.chat.key_source === 'tenant' && managed.status === 'active' ? (
         <p className="mt-2.5 text-[11.5px] text-text-muted">
-          Runs on your own {managed.chat.provider} key (legacy), so usage is not billed through
-          Bokito.
+          {t('modelsPage.managed.legacyKeyHint', { provider: managed.chat.provider })}
         </p>
       ) : null}
     </section>
@@ -615,6 +632,7 @@ function ManagedAiCard({ managed }: { managed: ManagedAiStatus }) {
 }
 
 function StaffCatalogAdmin({ token }: { token: string | null }) {
+  const { t } = useTranslation('nav')
   const [models, setModels] = useState<CatalogModel[]>([])
   const [keys, setKeys] = useState<PlatformKeysPayload | null>(null)
   const [markupDraft, setMarkupDraft] = useState('')
@@ -630,9 +648,9 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
       setKeys(k)
       setMarkupDraft(String(k.markup ?? ''))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load staff catalog.')
+      setError(err instanceof Error ? err.message : t('modelsPage.staffCatalogError'))
     }
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     void load()
@@ -677,7 +695,7 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
     if (!token) return
     const value = Number(markupDraft)
     if (!Number.isFinite(value) || value < 1) {
-      setError('Markup must be at least 1.0')
+      setError(t('modelsPage.staff.markupError'))
       return
     }
     setBusy(true)
@@ -692,12 +710,12 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
     <section className="space-y-4 rounded-xl border border-accent/30 bg-accent/[0.03] p-4">
       <div className="flex items-center gap-2">
         <ShieldCheck size={16} className="text-accent" />
-        <h3 className="text-[13px] font-semibold text-text-heading">Platform administration (staff)</h3>
+        <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.staff.title')}</h3>
       </div>
       {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
 
       <div className="space-y-2">
-        <p className="text-[11.5px] font-medium text-text-muted">Platform catalog (legacy fallback)</p>
+        <p className="text-[11.5px] font-medium text-text-muted">{t('modelsPage.staff.catalogTitle')}</p>
         {models.map((m) => (
           <div
             key={m.slug}
@@ -721,14 +739,14 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
                   : 'border-border/60 text-text-muted'
               }`}
             >
-              {m.enabled ? 'Enabled' : 'Disabled'}
+              {m.enabled ? t('modelsPage.enabled') : t('modelsPage.disabled')}
             </button>
           </div>
         ))}
       </div>
 
       <div className="space-y-3">
-        <p className="text-[11.5px] font-medium text-text-muted">Bokito fallback keys</p>
+        <p className="text-[11.5px] font-medium text-text-muted">{t('modelsPage.staff.fallbackKeysTitle')}</p>
         {(['anthropic', 'openai'] as const).map((provider) => {
           const ps = keys?.providers.find((p) => p.provider === provider)
           return (
@@ -739,16 +757,16 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
                 autoComplete="off"
                 value={keyDrafts[provider]}
                 onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [provider]: e.target.value }))}
-                placeholder={ps?.is_set ? `Set ····${ps.last4} — replace` : 'Enter platform key'}
+                placeholder={ps?.is_set ? t('modelsPage.staff.platformKeyReplace', { last4: ps.last4 }) : t('modelsPage.staff.platformKeyPlaceholder')}
                 className="min-w-[240px] flex-1 rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px]"
               />
               <button
                 type="button"
                 onClick={() => void saveKey(provider)}
                 disabled={busy || !keyDrafts[provider].trim()}
-                className="rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-white disabled:opacity-50"
+                className="rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-accent-fg disabled:opacity-50"
               >
-                Save
+                {t('modelsPage.staff.save')}
               </button>
               {ps?.is_set ? (
                 <button
@@ -757,7 +775,7 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
                   disabled={busy}
                   className="rounded-lg border border-border/60 px-3 py-2 text-[12.5px] text-text-secondary"
                 >
-                  Remove
+                  {t('modelsPage.remove')}
                 </button>
               ) : null}
             </div>
@@ -767,7 +785,7 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="space-y-1.5">
-          <span className="text-[11.5px] font-medium text-text-muted">Token resale markup (x)</span>
+          <span className="text-[11.5px] font-medium text-text-muted">{t('modelsPage.staff.markupLabel')}</span>
           <input
             type="number"
             step="0.05"
@@ -781,9 +799,9 @@ function StaffCatalogAdmin({ token }: { token: string | null }) {
           type="button"
           onClick={() => void saveMarkup()}
           disabled={busy}
-          className="rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-accent-fg disabled:opacity-50"
         >
-          Save markup
+          {t('modelsPage.staff.saveMarkup')}
         </button>
       </div>
     </section>

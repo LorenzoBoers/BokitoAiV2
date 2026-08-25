@@ -11,7 +11,8 @@ Two independent language axes:
 
 - **Workspace language** — the language of text the AI writes *for the
   team*: no-reply summaries, explanations, decision context. Tenant-wide
-  (``settings.ai_workspace_language``), default English.
+  (``settings.ai_workspace_language``), falling back to
+  ``PLATFORM_DEFAULT_LANGUAGE`` (Dutch unless overridden).
 
 Static UI copy on suggestion cards (titles, button labels) is not handled
 here; the dashboard translates those client-side via i18n.
@@ -38,7 +39,16 @@ LANGUAGE_NAMES: dict[str, str] = {
 REPLY_LANGUAGE_CHOICES = (AUTO, *LANGUAGE_NAMES.keys())
 WORKSPACE_LANGUAGE_CHOICES = tuple(LANGUAGE_NAMES.keys())
 
-DEFAULT_WORKSPACE_LANGUAGE = "en"
+def normalize_platform_language(value: str | None) -> str:
+    """UI languages are ``en`` or ``nl``. Empty or unknown values become ``nl``."""
+    raw = (value or "").strip().lower()
+    return raw if raw in ("en", "nl") else "nl"
+
+
+def platform_default_ui_language() -> str:
+    from app.config import get_settings
+
+    return normalize_platform_language(get_settings().platform_default_language)
 
 
 def _tenant_settings(tenant: Tenant | None) -> dict[str, Any]:
@@ -66,7 +76,7 @@ def resolve_workspace_language(tenant: Tenant | None) -> str:
     value = _tenant_settings(tenant).get("ai_workspace_language")
     if value in WORKSPACE_LANGUAGE_CHOICES:
         return value
-    return DEFAULT_WORKSPACE_LANGUAGE
+    return platform_default_ui_language()
 
 
 def reply_language_instruction(code: str) -> str:

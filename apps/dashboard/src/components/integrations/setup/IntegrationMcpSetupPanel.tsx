@@ -9,7 +9,9 @@ type Props = {
 
 export function IntegrationMcpSetupPanel({ config, onSaved, onCancel }: Props) {
   const preset: McpConnectPreset =
-    config.mcpPreset === 'bjorn_lunden_mcp' ? 'bjorn_lunden_mcp' : 'custom_mcp'
+    config.mcpPreset === 'king_accountancy' || config.mcpPreset === 'bjorn_lunden_mcp'
+      ? config.mcpPreset
+      : 'custom_mcp'
 
   return (
     <McpConnectionForm

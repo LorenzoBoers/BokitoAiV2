@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { ValidationRules, useFormValidation } from '../components/ui/form-validation';
+import { useFormValidation } from '../components/ui/form-validation';
 
 export default function ResetPassword() {
+  const { t } = useTranslation('nav');
   const { resetPassword } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -29,17 +31,12 @@ export default function ResetPassword() {
     { password, passwordConfirmation },
     {
       password: [
-        ValidationRules.required('Password'),
-        ValidationRules.minLength(8, 'Password'),
+        (value: string) => (value ? null : t('resetPage.passwordRequired')),
+        (value: string) => (value && value.length < 8 ? t('resetPage.passwordMin') : null),
       ],
       passwordConfirmation: [
-        ValidationRules.required('Password confirmation'),
-        (value: string) => {
-          if (value !== password) {
-            return 'Passwords do not match';
-          }
-          return null;
-        },
+        (value: string) => (value ? null : t('resetPage.confirmRequired')),
+        (value: string) => (value !== password ? t('resetPage.mismatch') : null),
       ],
     }
   );
@@ -61,7 +58,7 @@ export default function ResetPassword() {
         navigate('/login');
       }, 3000);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong';
+      const message = err instanceof Error ? err.message : t('resetPage.failed');
       setError(message);
     } finally {
       setIsLoading(false);
@@ -92,22 +89,22 @@ export default function ResetPassword() {
           <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
-              Password reset
+              {t('resetPage.successTitle')}
             </h1>
             <p className="text-text-secondary mb-6">
-              Your password has been changed. You will be redirected to the sign-in page.
+              {t('resetPage.successBody')}
             </p>
             
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-accent-fg rounded-md transition-colors"
             >
-              Sign in now
+              {t('resetPage.signInNow')}
             </Link>
           </div>
 
           <p className="text-center text-xs text-text-muted mt-6">
-            © {new Date().getFullYear()} Bokito.ai · All rights reserved
+            © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
           </p>
         </div>
       </div>
@@ -131,7 +128,7 @@ export default function ResetPassword() {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">Set a new password</span>
+          <span className="text-sm text-text-secondary mt-1">{t('resetPage.subtitle')}</span>
         </div>
 
         {/* Card */}
@@ -140,7 +137,7 @@ export default function ResetPassword() {
             {/* New Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1.5">
-                New password *
+                {t('resetPage.newPassword')} *
               </label>
               <div className="relative">
                 <input
@@ -149,7 +146,7 @@ export default function ResetPassword() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
-                  placeholder="At least 8 characters"
+                  placeholder={t('resetPage.passwordPlaceholder')}
                   autoFocus
                 />
                 <button
@@ -172,7 +169,7 @@ export default function ResetPassword() {
             {/* Confirm Password */}
             <div>
               <label htmlFor="passwordConfirmation" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Confirm password *
+                {t('resetPage.confirmPassword')} *
               </label>
               <div className="relative">
                 <input
@@ -181,7 +178,7 @@ export default function ResetPassword() {
                   value={passwordConfirmation}
                   onChange={(e) => setPasswordConfirmation(e.target.value)}
                   className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
-                  placeholder="Repeat your new password"
+                  placeholder={t('resetPage.confirmPlaceholder')}
                 />
                 <button
                   type="button"
@@ -211,9 +208,9 @@ export default function ResetPassword() {
             <button
               type="submit"
               disabled={isLoading || !validation.isValid}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
-              {isLoading ? 'Saving...' : 'Change password'}
+              {isLoading ? t('resetPage.saving') : t('resetPage.change')}
             </button>
           </form>
 
@@ -223,13 +220,13 @@ export default function ResetPassword() {
               className="inline-flex items-center gap-2 text-sm text-accent hover:text-accent-hover transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to sign in
+              {t('loginPage.backToSignIn')}
             </Link>
           </div>
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · All rights reserved
+          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
       </div>
     </div>

@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Link2, MailPlus, Search, Send, Trash2 } from 'lucide-react'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { useAuth } from '../context/AuthContext'
@@ -7,7 +9,6 @@ import { appRoutes } from '../api/routes/app.routes'
 import { toast } from 'sonner'
 import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '../lib/api'
 import { inviteMailFeedback } from '../lib/invite-feedback'
-import { memberRoleLabel } from '../lib/labels'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
@@ -46,16 +47,8 @@ type Invite = {
 }
 
 // Owner is assigned via the member row controls, not via invites.
-const INVITE_ROLE_OPTIONS: Array<{ value: MemberRole; label: string }> = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'member', label: 'Member' },
-]
-
-const MEMBER_ROLE_OPTIONS: Array<{ value: MemberRole; label: string }> = [
-  { value: 'owner', label: 'Owner' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'member', label: 'Member' },
-]
+const INVITE_ROLE_VALUES: MemberRole[] = ['admin', 'member']
+const MEMBER_ROLE_VALUES: MemberRole[] = ['owner', 'admin', 'member']
 
 function asRole(value: unknown): MemberRole {
   const normalized = typeof value === 'string' ? value.toLowerCase() : ''
@@ -63,10 +56,10 @@ function asRole(value: unknown): MemberRole {
   return 'member'
 }
 
-function toDateLabel(value: string | null): string {
-  if (!value) return 'Unknown'
+function toDateLabel(value: string | null, unknownLabel: string): string {
+  if (!value) return unknownLabel
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return 'Unknown'
+  if (Number.isNaN(parsed.getTime())) return unknownLabel
   return parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -89,7 +82,7 @@ function mapMemberRow(item: unknown, currentUserId: string | undefined): Member 
   }
 }
 
-function mapInviteRow(item: unknown): Invite | null {
+function mapInviteRow(item: unknown, unknownLabel: string): Invite | null {
   const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : null
   if (!row) return null
   const id = row.id ?? row.invite_id ?? row.uuid
@@ -104,13 +97,14 @@ function mapInviteRow(item: unknown): Invite | null {
         ? row.invited_by_name
         : typeof row.invited_by === 'string'
           ? row.invited_by
-          : 'Unknown',
+          : unknownLabel,
     invitedAt: typeof row.invited_at === 'string' ? row.invited_at : null,
     inviteLink: typeof row.invite_link === 'string' ? row.invite_link : null,
   }
 }
 
 export default function MemberManagement() {
+  const { t } = useTranslation('nav')
   const { user, token, hasPermission } = useAuth()
   const { currentWorkspace, workspaceLoading } = useWorkspace()
   const canInviteMembers = hasPermission('invite_members')
@@ -162,8 +156,12 @@ export default function MemberManagement() {
       })
     }
     setMembers(mappedMembers)
-    setInvites(Array.isArray(rawInvites) ? rawInvites.map(mapInviteRow).filter((r): r is Invite => r !== null) : [])
-  }, [token, workspaceId, user])
+    setInvites(
+      Array.isArray(rawInvites)
+        ? rawInvites.map((row) => mapInviteRow(row, t('membersPage.unknown'))).filter((r): r is Invite => r !== null)
+        : [],
+    )
+  }, [token, workspaceId, user, t])
 
   useEffect(() => {
     const load = async () => {
@@ -194,7 +192,7 @@ export default function MemberManagement() {
         }
         await reload()
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'Could not load members')
+        setError(loadError instanceof Error ? loadError.message : t('membersPage.loadError'))
       } finally {
         setLoading(false)
       }
@@ -236,7 +234,7 @@ export default function MemberManagement() {
       setInviteEmail('')
       setInviteRole('member')
     } catch (inviteError) {
-      setError(inviteError instanceof Error ? inviteError.message : 'Failed to send invitation')
+      setError(inviteError instanceof Error ? inviteError.message : t('membersPage.inviteError'))
     } finally {
       setInviteLoading(false)
     }
@@ -255,7 +253,7 @@ export default function MemberManagement() {
       await reload()
       await notifyInviteResult(invite.email, result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resend the invite.')
+      setError(err instanceof Error ? err.message : t('membersPage.resendError'))
     } finally {
       setRowBusyId(null)
     }
@@ -268,20 +266,20 @@ export default function MemberManagement() {
       setCopiedInviteId(invite.id)
       window.setTimeout(() => setCopiedInviteId((prev) => (prev === invite.id ? null : prev)), 1600)
     } catch {
-      setError('Could not copy the invite link.')
+      setError(t('membersPage.copyError'))
     }
   }
 
   const revokeInvite = async (invite: Invite) => {
     if (!token || !workspaceId) return
-    if (!window.confirm(`Revoke the invite for ${invite.email}?`)) return
+    if (!window.confirm(t('membersPage.revokeConfirm', { email: invite.email }))) return
     setRowBusyId(invite.id)
     setError(null)
     try {
       await appScopedDelete(appRoutes.workspaces.invite(workspaceId, invite.id), token)
       await reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not revoke the invite.')
+      setError(err instanceof Error ? err.message : t('membersPage.revokeError'))
     } finally {
       setRowBusyId(null)
     }
@@ -299,7 +297,7 @@ export default function MemberManagement() {
       )
       await reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not change the role.')
+      setError(err instanceof Error ? err.message : t('membersPage.roleError'))
     } finally {
       setRowBusyId(null)
     }
@@ -307,14 +305,14 @@ export default function MemberManagement() {
 
   const removeMember = async (member: Member) => {
     if (!token || !workspaceId) return
-    if (!window.confirm(`Remove ${member.name} from this workspace?`)) return
+    if (!window.confirm(t('membersPage.removeConfirm', { name: member.name }))) return
     setRowBusyId(member.id)
     setError(null)
     try {
       await appScopedDelete(appRoutes.workspaces.member(workspaceId, member.uuid ?? member.id), token)
       await reload()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove the member.')
+      setError(err instanceof Error ? err.message : t('membersPage.removeError'))
     } finally {
       setRowBusyId(null)
     }
@@ -346,15 +344,15 @@ export default function MemberManagement() {
   }, [allRows, filterTab, search])
 
   const tabs: { id: FilterTab; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: members.length + invites.length },
-    { id: 'active', label: 'Active', count: members.length },
-    { id: 'pending', label: 'Pending', count: invites.length },
+    { id: 'all', label: t('membersPage.tabAll'), count: members.length + invites.length },
+    { id: 'active', label: t('membersPage.tabActive'), count: members.length },
+    { id: 'pending', label: t('membersPage.tabPending'), count: invites.length },
   ]
 
   return (
     <PageContent width="xl" className="space-y-5">
       <p className="text-sm text-text-secondary">
-        Manage members and invites in your workspace.
+        {t('membersPage.body')}
       </p>
 
       {error ? (
@@ -365,41 +363,39 @@ export default function MemberManagement() {
 
       {mailConfigured === false && canInviteMembers ? (
         <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
-          Transactional email is not configured on this server, so invite emails are not
-          delivered. Invitees can still join via the copyable invite link. Configure
-          RESEND_API_KEY (or SMTP_HOST) and MAIL_FROM to enable email delivery.
+          {t('membersPage.mailNotConfigured')}
         </div>
       ) : null}
 
       {/* Invite bar */}
-      <Card className="space-y-4 p-5">
+      <Card id="member-invite" className="space-y-4 p-5 scroll-mt-24">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-text-heading">Invite member</p>
-          <p className="text-sm text-text-secondary">Invite a new team member with the right role.</p>
+          <p className="text-sm font-medium text-text-heading">{t('membersPage.inviteTitle')}</p>
+          <p className="text-sm text-text-secondary">{t('membersPage.inviteBody')}</p>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto]">
           <Input
             type="email"
             value={inviteEmail}
             onChange={(event) => setInviteEmail(event.target.value)}
-            placeholder="name@company.com"
+            placeholder={t('membersPage.emailPlaceholder')}
             disabled={!canInviteMembers || !workspaceId || inviteLoading}
           />
           <Select value={inviteRole} onValueChange={(value) => setInviteRole(asRole(value))} disabled={!canInviteMembers}>
             <SelectTrigger>
-              <SelectValue placeholder="Role" />
+              <SelectValue placeholder={t('membersPage.role')} />
             </SelectTrigger>
             <SelectContent>
-              {INVITE_ROLE_OPTIONS.map((role) => (
-                <SelectItem key={role.value} value={role.value}>
-                  {role.label}
+              {INVITE_ROLE_VALUES.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {t(`membersPage.roles.${role}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button onClick={() => void handleInvite()} disabled={!canInviteMembers || !workspaceId || !inviteEmail.trim() || inviteLoading}>
             <MailPlus size={14} />
-            {inviteLoading ? 'Sending...' : 'Invite'}
+            {inviteLoading ? t('membersPage.sending') : t('membersPage.invite')}
           </Button>
         </div>
       </Card>
@@ -435,7 +431,7 @@ export default function MemberManagement() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
+              placeholder={t('membersPage.search')}
               className="pl-8 pr-3 py-1.5 text-[13px] bg-bg-input/60 border border-border/60 rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/55 transition-colors w-48"
             />
           </div>
@@ -445,23 +441,44 @@ export default function MemberManagement() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Invited by</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="w-[120px] text-right">Actions</TableHead>
+              <TableHead>{t('membersPage.colName')}</TableHead>
+              <TableHead>{t('membersPage.colEmail')}</TableHead>
+              <TableHead>{t('membersPage.colRole')}</TableHead>
+              <TableHead>{t('membersPage.colStatus')}</TableHead>
+              <TableHead>{t('membersPage.colInvitedBy')}</TableHead>
+              <TableHead>{t('membersPage.colDate')}</TableHead>
+              <TableHead className="w-[120px] text-right">{t('membersPage.colActions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-sm text-text-muted">Loading...</TableCell>
+                <TableCell colSpan={7} className="text-sm text-text-muted">{t('membersPage.loading')}</TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-sm text-text-muted">No results.</TableCell>
+                <TableCell colSpan={7}>
+                  <div className="py-6 text-center">
+                    <p className="text-sm text-text-muted">{t('membersPage.empty')}</p>
+                    <p className="mt-1 text-xs text-text-muted">{t('membersPage.emptyHint')}</p>
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                      {canInviteMembers ? (
+                        <a
+                          href="#member-invite"
+                          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                        >
+                          {t('membersPage.inviteFromEmpty')}
+                        </a>
+                      ) : null}
+                      <Link
+                        to="/settings/setup"
+                        className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                      >
+                        {t('membersPage.openSetup')}
+                      </Link>
+                    </div>
+                  </div>
+                </TableCell>
               </TableRow>
             ) : (
               filteredRows.map((row) => {
@@ -474,7 +491,7 @@ export default function MemberManagement() {
                         <div className="flex items-center gap-2">
                           <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={26} />
                           <span>{m.name}</span>
-                          {m.isCurrentUser ? <Badge variant="secondary">You</Badge> : null}
+                          {m.isCurrentUser ? <Badge variant="secondary">{t('membersPage.you')}</Badge> : null}
                         </div>
                       </TableCell>
                       <TableCell className="text-text-secondary">{m.email || '-'}</TableCell>
@@ -489,21 +506,21 @@ export default function MemberManagement() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {MEMBER_ROLE_OPTIONS.map((role) => (
-                                <SelectItem key={role.value} value={role.value}>
-                                  {role.label}
+                              {MEMBER_ROLE_VALUES.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {t(`membersPage.roles.${role}`)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant="neutral">{memberRoleLabel(m.role)}</Badge>
+                          <Badge variant="neutral">{t(`membersPage.roles.${m.role}`)}</Badge>
                         )}
                       </TableCell>
-                      <TableCell><Badge variant="success">Active</Badge></TableCell>
+                      <TableCell><Badge variant="success">{t('membersPage.statusActive')}</Badge></TableCell>
                       <TableCell className="text-text-muted">-</TableCell>
                       <TableCell className="text-text-secondary">
-                        {m.joinedAt ? toDateLabel(m.joinedAt) : '-'}
+                        {m.joinedAt ? toDateLabel(m.joinedAt, t('membersPage.unknown')) : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         {canManageMembers && !m.isCurrentUser ? (
@@ -512,7 +529,7 @@ export default function MemberManagement() {
                             size="sm"
                             disabled={busy}
                             onClick={() => void removeMember(m)}
-                            title="Remove member"
+                            title={t('membersPage.removeTitle')}
                             className="text-text-muted hover:text-status-error"
                           >
                             <Trash2 size={14} />
@@ -528,10 +545,10 @@ export default function MemberManagement() {
                   <TableRow key={`i-${inv.id}`}>
                     <TableCell className="text-text-muted">-</TableCell>
                     <TableCell>{inv.email}</TableCell>
-                    <TableCell><Badge variant="neutral">{memberRoleLabel(inv.role)}</Badge></TableCell>
-                    <TableCell><Badge variant="warning">Pending</Badge></TableCell>
+                    <TableCell><Badge variant="neutral">{t(`membersPage.roles.${inv.role}`)}</Badge></TableCell>
+                    <TableCell><Badge variant="warning">{t('membersPage.statusPending')}</Badge></TableCell>
                     <TableCell className="text-text-secondary">{inv.invitedBy}</TableCell>
-                    <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt)}</TableCell>
+                    <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt, t('membersPage.unknown'))}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {canManageMembers ? (
@@ -540,7 +557,7 @@ export default function MemberManagement() {
                             size="sm"
                             disabled={busy}
                             onClick={() => void resendInvite(inv)}
-                            title="Resend invite email"
+                            title={t('membersPage.resendTitle')}
                             className="text-text-muted hover:text-text-primary"
                           >
                             <Send size={14} />
@@ -551,7 +568,7 @@ export default function MemberManagement() {
                             variant="ghost"
                             size="sm"
                             onClick={() => void copyInviteLink(inv)}
-                            title="Copy invite link"
+                            title={t('membersPage.copyTitle')}
                             className="text-text-muted hover:text-text-primary"
                           >
                             {copiedInviteId === inv.id ? <Check size={14} className="text-status-success" /> : <Link2 size={14} />}
@@ -563,7 +580,7 @@ export default function MemberManagement() {
                             size="sm"
                             disabled={busy}
                             onClick={() => void revokeInvite(inv)}
-                            title="Revoke invite"
+                            title={t('membersPage.revokeTitle')}
                             className="text-text-muted hover:text-status-error"
                           >
                             <Trash2 size={14} />

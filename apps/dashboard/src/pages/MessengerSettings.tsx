@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Navigate, Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronDown,
   Check,
@@ -31,7 +32,6 @@ import { ensureChatWidgetScript } from '../lib/chat-widget-loader'
 import {
   DEFAULT_MESSENGER_APPEARANCE,
   MESSENGER_MODULE_KEYS,
-  MESSENGER_MODULE_LABELS,
   appearanceToBrandingJson,
   messengerAppearanceEquals,
   serializeAppearanceForWidgetPreview,
@@ -49,6 +49,7 @@ import {
   saveWidgetSettings,
   type WidgetSettings,
 } from '../lib/inbox-api'
+import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 
@@ -171,6 +172,7 @@ function MessengerSettingsContent({
   audience: AssistantAudience
   section: AssistantSection
 }) {
+  const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const { currentWorkspace, refreshWorkspaces } = useWorkspace()
   const { token } = useAuth()
@@ -201,8 +203,8 @@ function MessengerSettingsContent({
   const previewPanelActive = section === 'customization' || section === 'installation'
 
   const embedNavOptions: { value: AssistantAudience; label: string; icon: ReactNode }[] = [
-    { value: 'internal', label: 'Internal', icon: <Users className="h-3.5 w-3.5 opacity-70" /> },
-    { value: 'external', label: 'External', icon: <Globe className="h-3.5 w-3.5 opacity-70" /> },
+    { value: 'internal', label: t('messengerPage.internal'), icon: <Users className="h-3.5 w-3.5 opacity-70" /> },
+    { value: 'external', label: t('messengerPage.external'), icon: <Globe className="h-3.5 w-3.5 opacity-70" /> },
   ]
 
   const installationHtmlSnippet = useMemo(() => {
@@ -245,13 +247,13 @@ function MessengerSettingsContent({
   const copyInstallationSnippet = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(installationHtmlSnippet)
-      toast.success('HTML copied to clipboard')
+      toast.success(t('messengerPage.copiedHtml'))
       setInstallSnippetCopied(true)
       window.setTimeout(() => setInstallSnippetCopied(false), 2000)
     } catch {
-      toast.error('Copy failed')
+      toast.error(t('messengerPage.copyFailed'))
     }
-  }, [installationHtmlSnippet])
+  }, [installationHtmlSnippet, t])
 
   useEffect(() => {
     const base = currentWorkspace?.messengerAppearance ?? DEFAULT_MESSENGER_APPEARANCE
@@ -300,13 +302,13 @@ function MessengerSettingsContent({
         officeHours: widgetBehaviour.officeHours,
       })
       setWidgetBehaviour(next)
-      toast.success('Widget availability saved')
+      toast.success(t('messengerPage.availabilitySaved'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not save widget availability')
+      toast.error(err instanceof Error ? err.message : t('messengerPage.availabilityError'))
     } finally {
       setWidgetBehaviourSaving(false)
     }
-  }, [token, widgetBehaviour])
+  }, [token, widgetBehaviour, t])
 
   const dirty = useMemo(() => {
     if (widgetFaviconFile) return true
@@ -383,7 +385,7 @@ function MessengerSettingsContent({
     e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setSaveError('Choose an image file.')
+      setSaveError(t('messengerPage.chooseImage'))
       return
     }
     setSaveError(null)
@@ -405,7 +407,7 @@ function MessengerSettingsContent({
 
   const handleSave = async () => {
     if (!token || !currentWorkspace?.id) {
-      setSaveError('No active workspace or session.')
+      setSaveError(t('messengerPage.noWorkspace'))
       return
     }
     setSaving(true)
@@ -415,7 +417,7 @@ function MessengerSettingsContent({
       const form = new FormData()
       form.append('name', (currentWorkspace.name || '').trim())
       form.append('subdomain', (currentWorkspace.slug || '').trim().toLowerCase())
-      form.append('brand_color', (currentWorkspace.brand_color || '#4652f2').trim())
+      form.append('brand_color', (currentWorkspace.brand_color || DEFAULT_BRAND_COLOR).trim())
       form.append('appearance_json', JSON.stringify(appearanceToBrandingJson(draft)))
       if (widgetFaviconFile) {
         form.append('widget_favicon', widgetFaviconFile)
@@ -454,39 +456,39 @@ function MessengerSettingsContent({
         }),
       })
       if (!personaRes.ok) {
-        throw new Error('Could not save agent persona')
+        throw new Error(t('messengerPage.personaError'))
       }
 
       setSaveOk(true)
       window.setTimeout(() => setSaveOk(false), 2200)
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Save failed')
+      setSaveError(err instanceof Error ? err.message : t('messengerPage.saveFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   const mainOptions: { value: AssistantSection; label: string }[] = [
-    { value: 'customization', label: 'Customization' },
-    { value: 'agent', label: 'Agent settings' },
-    { value: 'installation', label: 'Installation' },
+    { value: 'customization', label: t('messengerPage.customization') },
+    { value: 'agent', label: t('messengerPage.agent') },
+    { value: 'installation', label: t('messengerPage.installation') },
   ]
 
   const customizationOptions: { value: CustomizationPanel; label: string; icon: ReactNode }[] = [
-    { value: 'content', label: 'Content', icon: <Type className="h-3.5 w-3.5 opacity-70" /> },
-    { value: 'styling', label: 'Styling', icon: <Palette className="h-3.5 w-3.5 opacity-70" /> },
+    { value: 'content', label: t('messengerPage.content'), icon: <Type className="h-3.5 w-3.5 opacity-70" /> },
+    { value: 'styling', label: t('messengerPage.styling'), icon: <Palette className="h-3.5 w-3.5 opacity-70" /> },
   ]
 
   const previewThemeOptions: { value: PreviewTheme; label: string; icon: ReactNode }[] = [
-    { value: 'light', label: 'Light', icon: <Sun className="h-3.5 w-3.5 opacity-70" /> },
-    { value: 'dark', label: 'Dark', icon: <Moon className="h-3.5 w-3.5 opacity-70" /> },
+    { value: 'light', label: t('messengerPage.light'), icon: <Sun className="h-3.5 w-3.5 opacity-70" /> },
+    { value: 'dark', label: t('messengerPage.dark'), icon: <Moon className="h-3.5 w-3.5 opacity-70" /> },
   ]
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex flex-col gap-3 border-b border-border/60 pb-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
-          <h2 className="shrink-0 text-[17px] font-semibold leading-none text-text-heading">Assistant</h2>
+          <h2 className="shrink-0 text-[17px] font-semibold leading-none text-text-heading">{t('messengerPage.title')}</h2>
           <SegmentedControl
             value={audience}
             onChange={(v) => navigate(assistantSettingsPath(v, section))}
@@ -506,12 +508,12 @@ function MessengerSettingsContent({
             {saving ? (
               <>
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                Saving
+                {t('messengerPage.saving')}
               </>
             ) : saveOk ? (
-              'Saved'
+              t('messengerPage.saved')
             ) : (
-              'Save changes'
+              t('messengerPage.saveChanges')
             )}
           </Button>
         </div>
@@ -532,18 +534,16 @@ function MessengerSettingsContent({
           <div className="flex flex-col gap-4 p-4 sm:p-6">
             {section === 'installation' ? (
               <p className="text-2xs leading-relaxed text-text-muted">
-                One script at{' '}
-                <span className="font-mono text-text-muted">/chat-widget/bokito-chat.js</span> serves both
-                audiences; <span className="font-mono text-text-muted">data-auth-mode</span> controls whether
-                visitors chat anonymously or must be signed in. Livechat API:{' '}
-                <span className="font-mono text-text-muted">/api/livechat/*</span>.
+                {audience === 'internal'
+                  ? t('messengerPage.installInternalBody')
+                  : t('messengerPage.installExternalBody')}
               </p>
             ) : null}
 
             {section === 'customization' ? (
               <>
                 <div>
-                  <label className="mb-3 block text-sm font-medium text-text-heading">Choose what you want to customize</label>
+                  <label className="mb-3 block text-sm font-medium text-text-heading">{t('messengerPage.customizeWhat')}</label>
                   <SegmentedControl
                     value={customizationPanel}
                     onChange={setCustomizationPanel}
@@ -553,9 +553,9 @@ function MessengerSettingsContent({
 
                 {customizationPanel === 'content' ? (
                   <div className="space-y-1">
-                    <FoldableSection title="Modules configuration" defaultOpen>
+                    <FoldableSection title={t('messengerPage.modulesTitle')} defaultOpen>
                       <p className="mb-3 text-xs text-text-secondary">
-                        Configure which modules should be available in your messenger.
+                        {t('messengerPage.modulesBody')}
                       </p>
                       <div className="space-y-2">
                         {MESSENGER_MODULE_KEYS.map((key) => (
@@ -563,46 +563,46 @@ function MessengerSettingsContent({
                             key={key}
                             className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-surface/80 px-3 py-2.5 shadow-sm backdrop-blur-sm dark:bg-bg-surface/40"
                           >
-                            <span className="text-sm text-text-primary">{MESSENGER_MODULE_LABELS[key]}</span>
+                            <span className="text-sm text-text-primary">{t(`messengerPage.modules.${key}`)}</span>
                             <Switch
                               checked={draft.modules[key]}
                               onCheckedChange={(checked) =>
                                 patchDraft({ modules: { ...draft.modules, [key]: checked } })
                               }
-                              aria-label={MESSENGER_MODULE_LABELS[key]}
+                              aria-label={t(`messengerPage.modules.${key}`)}
                             />
                           </div>
                         ))}
                       </div>
                     </FoldableSection>
 
-                    <FoldableSection title="Welcome messages" defaultOpen>
+                    <FoldableSection title={t('messengerPage.welcomeTitle')} defaultOpen>
                       <div className="space-y-4 pt-1">
                         <div>
-                          <p className="text-sm font-medium text-text-heading">Assistant display name</p>
+                          <p className="text-sm font-medium text-text-heading">{t('messengerPage.displayName')}</p>
                           <Input
                             className="mt-2"
                             value={draft.chatbot_name}
                             onChange={(e) => patchDraft({ chatbot_name: e.target.value })}
-                            placeholder="Bokito AI"
+                            placeholder={t('messengerPage.displayNamePlaceholder')}
                           />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-text-heading">Welcome title</p>
+                          <p className="text-sm font-medium text-text-heading">{t('messengerPage.welcomeHeading')}</p>
                           <Input
                             className="mt-2"
                             value={draft.welcome_title}
                             onChange={(e) => patchDraft({ welcome_title: e.target.value })}
-                            placeholder="Hi!"
+                            placeholder={t('messengerPage.welcomeHeadingPlaceholder')}
                           />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-text-heading">Welcome subtitle</p>
+                          <p className="text-sm font-medium text-text-heading">{t('messengerPage.welcomeSubtitle')}</p>
                           <Input
                             className="mt-2"
                             value={draft.welcome_subtitle}
                             onChange={(e) => patchDraft({ welcome_subtitle: e.target.value })}
-                            placeholder="Ask your question..."
+                            placeholder={t('messengerPage.welcomeSubtitlePlaceholder')}
                           />
                         </div>
                       </div>
@@ -610,19 +610,19 @@ function MessengerSettingsContent({
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <FoldableSection title="Colors" defaultOpen>
-                      <p className="mb-3 text-xs text-text-secondary">Used in the chat widget for buttons and highlights.</p>
+                    <FoldableSection title={t('messengerPage.colorsTitle')} defaultOpen>
+                      <p className="mb-3 text-xs text-text-secondary">{t('messengerPage.colorsBody')}</p>
                       <div>
-                        <p className="text-sm font-medium text-text-heading">Accent</p>
+                        <p className="text-sm font-medium text-text-heading">{t('messengerPage.accent')}</p>
                         <div className="mt-2">
                           <ColorField value={draft.main_color} onChange={(v) => patchDraft({ main_color: v })} />
                         </div>
                       </div>
                     </FoldableSection>
 
-                    <FoldableSection title="Widget icon" defaultOpen>
+                    <FoldableSection title={t('messengerPage.iconTitle')} defaultOpen>
                       <p className="mb-3 text-xs text-text-secondary">
-                        Shown in the widget header. Separate from the browser tab favicon in company branding.
+                        {t('messengerPage.iconBody')}
                       </p>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-bg-surface/60">
@@ -642,12 +642,12 @@ function MessengerSettingsContent({
                             onClick={clearWidgetFavicon}
                             className="rounded-md border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover"
                           >
-                            Remove
+                            {t('messengerPage.remove')}
                           </button>
                         ) : (
                           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover">
                             <Upload size={12} />
-                            Upload
+                            {t('messengerPage.upload')}
                             <input type="file" accept="image/*" className="hidden" onChange={handleWidgetFaviconPick} />
                           </label>
                         )}
@@ -660,19 +660,19 @@ function MessengerSettingsContent({
 
             {section === 'agent' ? (
               <div className="space-y-4">
-                <FoldableSection title="Assistant persona" defaultOpen>
+                <FoldableSection title={t('messengerPage.personaTitle')} defaultOpen>
                     <div className="space-y-3 pt-1">
                       <div>
-                        <p className="text-sm font-medium text-text-heading">Tone</p>
+                        <p className="text-sm font-medium text-text-heading">{t('messengerPage.tone')}</p>
                         <Input
                           className="mt-2"
                           value={personaTone}
                           onChange={(e) => setPersonaTone(e.target.value)}
-                          placeholder="Professional and helpful"
+                          placeholder={t('messengerPage.tonePlaceholder')}
                         />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-text-heading">Do</p>
+                        <p className="text-sm font-medium text-text-heading">{t('messengerPage.do')}</p>
                         <textarea
                           className="mt-2 w-full min-h-[80px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                           value={personaDo}
@@ -680,7 +680,7 @@ function MessengerSettingsContent({
                         />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-text-heading">Do not</p>
+                        <p className="text-sm font-medium text-text-heading">{t('messengerPage.dont')}</p>
                         <textarea
                           className="mt-2 w-full min-h-[80px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                           value={personaDont}
@@ -688,22 +688,21 @@ function MessengerSettingsContent({
                         />
                       </div>
                       <p className="text-xs text-text-secondary">
-                        Saved with the Save button (same as customization). The assistant model is managed per agent
-                        on the agent detail page.
+                        {t('messengerPage.personaHint')}
                       </p>
                     </div>
                 </FoldableSection>
 
-                <FoldableSection title="Availability" defaultOpen>
+                <FoldableSection title={t('messengerPage.availability')} defaultOpen>
                   {!widgetBehaviour ? (
-                    <p className="pt-1 text-sm text-text-muted">Loading…</p>
+                    <p className="pt-1 text-sm text-text-muted">{t('messengerPage.loading')}</p>
                   ) : (
                     <div className="space-y-4 pt-1">
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
-                          <span className="text-sm text-text-primary">Pre-chat form</span>
+                          <span className="text-sm text-text-primary">{t('messengerPage.preChat')}</span>
                           <p className="text-2xs text-text-muted">
-                            Ask anonymous visitors for a name and email before their first message.
+                            {t('messengerPage.preChatHint')}
                           </p>
                         </div>
                         <Switch
@@ -711,18 +710,18 @@ function MessengerSettingsContent({
                           onCheckedChange={(checked) =>
                             setWidgetBehaviour({ ...widgetBehaviour, preChatForm: checked })
                           }
-                          aria-label="Pre-chat form"
+                          aria-label={t('messengerPage.preChat')}
                         />
                       </div>
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
-                          <span className="text-sm text-text-primary">Office hours</span>
+                          <span className="text-sm text-text-primary">{t('messengerPage.officeHours')}</span>
                           <p className="text-2xs text-text-muted">
-                            Outside these hours the widget shows your offline message.
+                            {t('messengerPage.officeHoursHint')}
                             {widgetBehaviour.officeHours.enabled
                               ? widgetBehaviour.officeOpen
-                                ? ' Currently open.'
-                                : ' Currently closed.'
+                                ? ` ${t('messengerPage.currentlyOpen')}`
+                                : ` ${t('messengerPage.currentlyClosed')}`
                               : ''}
                           </p>
                         </div>
@@ -734,7 +733,7 @@ function MessengerSettingsContent({
                               officeHours: { ...widgetBehaviour.officeHours, enabled: checked },
                             })
                           }
-                          aria-label="Office hours"
+                          aria-label={t('messengerPage.officeHours')}
                         />
                       </div>
                       {widgetBehaviour.officeHours.enabled ? (
@@ -771,7 +770,7 @@ function MessengerSettingsContent({
                           </div>
                           <div className="flex flex-wrap items-center gap-3">
                             <div>
-                              <p className="text-2xs font-medium text-text-muted">From</p>
+                              <p className="text-2xs font-medium text-text-muted">{t('messengerPage.from')}</p>
                               <Input
                                 className="mt-1 w-[110px]"
                                 type="time"
@@ -785,7 +784,7 @@ function MessengerSettingsContent({
                               />
                             </div>
                             <div>
-                              <p className="text-2xs font-medium text-text-muted">Until</p>
+                              <p className="text-2xs font-medium text-text-muted">{t('messengerPage.until')}</p>
                               <Input
                                 className="mt-1 w-[110px]"
                                 type="time"
@@ -799,7 +798,7 @@ function MessengerSettingsContent({
                               />
                             </div>
                             <div>
-                              <p className="text-2xs font-medium text-text-muted">Timezone</p>
+                              <p className="text-2xs font-medium text-text-muted">{t('messengerPage.timezone')}</p>
                               <Input
                                 className="mt-1 w-[200px]"
                                 value={widgetBehaviour.officeHours.timezone}
@@ -809,21 +808,21 @@ function MessengerSettingsContent({
                                     officeHours: { ...widgetBehaviour.officeHours, timezone: e.target.value },
                                   })
                                 }
-                                placeholder="Europe/Amsterdam"
+                                placeholder={t('messengerPage.timezonePlaceholder')}
                               />
                             </div>
                           </div>
                         </div>
                       ) : null}
                       <div>
-                        <p className="text-sm font-medium text-text-heading">Offline message</p>
+                        <p className="text-sm font-medium text-text-heading">{t('messengerPage.offlineMessage')}</p>
                         <textarea
                           className="mt-2 w-full min-h-[64px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
                           value={widgetBehaviour.offlineMessage}
                           onChange={(e) =>
                             setWidgetBehaviour({ ...widgetBehaviour, offlineMessage: e.target.value })
                           }
-                          placeholder="We are currently offline. Leave a message and we will get back to you."
+                          placeholder={t('messengerPage.offlinePlaceholder')}
                         />
                       </div>
                       <Button
@@ -834,10 +833,10 @@ function MessengerSettingsContent({
                         {widgetBehaviourSaving ? (
                           <>
                             <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                            Saving
+                            {t('messengerPage.saving')}
                           </>
                         ) : (
-                          'Save availability'
+                          t('messengerPage.saveAvailability')
                         )}
                       </Button>
                     </div>
@@ -852,8 +851,8 @@ function MessengerSettingsContent({
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
                     <p className="text-sm font-medium text-text-heading">
                       {audience === 'internal'
-                        ? 'Assistant for logged-in users'
-                        : 'Widget for website visitors'}
+                        ? t('messengerPage.installInternalTitle')
+                        : t('messengerPage.installExternalTitle')}
                     </p>
                     <Button
                       type="button"
@@ -861,35 +860,25 @@ function MessengerSettingsContent({
                       variant="secondary"
                       className="shrink-0 gap-1.5"
                       onClick={() => void copyInstallationSnippet()}
-                      aria-label="Copy embed HTML"
+                      aria-label={t('messengerPage.copyAria')}
                     >
                       {installSnippetCopied ? (
                         <>
                           <Check className="h-3.5 w-3.5" />
-                          Copied
+                          {t('messengerPage.copied')}
                         </>
                       ) : (
                         <>
                           <Copy className="h-3.5 w-3.5" />
-                          Copy
+                          {t('messengerPage.copySnippet')}
                         </>
                       )}
                     </Button>
                   </div>
                   <p className="px-4 pt-3 text-xs text-text-secondary">
-                    {audience === 'internal' ? (
-                      <>
-                        Paste this snippet into your platform for signed-in users. Provide the user's access token
-                        via <span className="font-mono text-text-muted">window.BokitoConfig.getAuthToken</span> so
-                        conversations are linked to their account; the widget shows a sign-in prompt when the token
-                        is missing.
-                      </>
-                    ) : (
-                      <>
-                        Paste this snippet into any website. Visitors chat anonymously; conversations land in your
-                        Communication inbox on the webchat channel.
-                      </>
-                    )}
+                    {audience === 'internal'
+                      ? t('messengerPage.installInternalBody')
+                      : t('messengerPage.installExternalBody')}
                   </p>
                   <div className="p-4 pt-2">
                     <pre className="max-h-[min(60vh,420px)] overflow-auto rounded-lg border border-border/60 bg-[#141824] p-4 text-left shadow-inner">
@@ -897,6 +886,26 @@ function MessengerSettingsContent({
                         {installationHtmlSnippet}
                       </code>
                     </pre>
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border/60 px-4 py-3">
+                    <Link
+                      to="/communication/inbox/all"
+                      className="text-[12px] font-medium text-accent hover:underline"
+                    >
+                      {t('messengerPage.openCommunication')}
+                    </Link>
+                    <Link
+                      to="/settings/help-centers"
+                      className="text-[12px] font-medium text-accent hover:underline"
+                    >
+                      {t('messengerPage.openHelpCenters')}
+                    </Link>
+                    <Link
+                      to="/settings/setup"
+                      className="text-[12px] font-medium text-accent hover:underline"
+                    >
+                      {t('messengerPage.openSetup')}
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -907,7 +916,7 @@ function MessengerSettingsContent({
         {previewPanelActive ? (
           <div className="messenger-preview-canvas min-h-[380px] border-t border-border/40 md:min-h-0 md:w-1/2 md:max-w-[50%] md:border-l md:border-t-0">
             <div className="messenger-preview-stage flex min-h-0 flex-1 flex-col">
-              <p className="sr-only">Live messenger preview</p>
+              <p className="sr-only">{t('messengerPage.previewAria')}</p>
               <div className="relative z-[2] flex min-h-0 flex-1 flex-col">
                 <div className="messenger-preview-theme-row flex shrink-0 justify-center px-4 pb-2 pt-2">
                   <SegmentedControl

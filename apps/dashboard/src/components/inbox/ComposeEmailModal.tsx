@@ -82,7 +82,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
       }
       setAttachments((prev) => [...prev, ...uploaded])
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not upload attachment.'))
+      toast.error(formatApiErrorMessage(err, t('compose.uploadError')))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -97,18 +97,18 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
     try {
       const result = await sendNewEmail(token, {
         toAddresses: to.trim(),
-        subject: subject.trim() || '(No subject)',
+        subject: subject.trim() || t('compose.noSubject'),
         bodyText: body.trim(),
         cc: cc.trim() || undefined,
         bcc: bcc.trim() || undefined,
         connectionId: connectionId ?? undefined,
         attachments: attachments.length ? attachments : undefined,
       })
-      toast.success(t('compose.sent', { defaultValue: 'Email sent' }))
+      toast.success(t('compose.sent'))
       onSent(result.threadId)
       onClose()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not send email.'))
+      toast.error(formatApiErrorMessage(err, t('compose.sendError')))
     } finally {
       setSending(false)
     }
@@ -119,7 +119,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
       <DialogContent className="max-w-xl gap-3">
         <DialogHeader>
           <DialogTitle className="text-base">
-            {t('compose.title', { defaultValue: 'New email' })}
+            {t('compose.title')}
           </DialogTitle>
         </DialogHeader>
 
@@ -180,7 +180,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder={t('compose.subjectPlaceholder', { defaultValue: 'Subject' })}
+            placeholder={t('compose.subjectPlaceholder')}
             className={FIELD}
           />
         </div>
@@ -188,7 +188,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder={t('compose.bodyPlaceholder', { defaultValue: 'Write your message...' })}
+          placeholder={t('compose.bodyPlaceholder')}
           rows={10}
           className="max-h-[320px] min-h-[160px] w-full resize-y rounded-md border border-border/60 bg-bg-input px-2.5 py-2 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
         />
@@ -219,13 +219,13 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           </Button>
           <div className="flex items-center gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={sending}>
-              {t('compose.cancel', { defaultValue: 'Cancel' })}
+              {t('compose.cancel')}
             </Button>
             <Button type="button" size="sm" disabled={!canSend} onClick={() => void handleSend()} className="gap-1.5">
               <Send size={13} />
               {sending
-                ? t('compose.sending', { defaultValue: 'Sending...' })
-                : t('compose.send', { defaultValue: 'Send' })}
+                ? t('compose.sending')
+                : t('compose.send')}
             </Button>
           </div>
         </div>

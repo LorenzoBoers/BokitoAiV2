@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.dependencies import tenant_settings
 from app.models.auth import Tenant, User
 from app.services.auth import decode_access_token
+from app.services.tenant_bootstrap import resolve_brand_color
 
 settings = get_settings()
 
@@ -51,11 +52,10 @@ def livechat_theme_from_tenant(tenant: Tenant) -> dict[str, Any]:
     if not isinstance(flat_appearance, dict):
         flat_appearance = {}
 
-    main_color = (
+    main_color = resolve_brand_color(
         str(appearance.get("main_color") or "").strip()
         or str(livechat.get("main_color") or "").strip()
         or str(flat_appearance.get("main_color") or "").strip()
-        or "#00FF99"
     )
     favicon = _asset_url(appearance.get("widget_favicon")) or _asset_url(
         appearance.get("widget_favicon_url")

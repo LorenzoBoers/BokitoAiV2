@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
   Activity,
@@ -20,8 +21,9 @@ import { listAgentTasks, type AgentTask } from '../../lib/orchestration-api'
 import type { GovernToolRow } from '../../lib/govern-api'
 import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
+import { agentRuntimeStatusLabel, threadStatusLabel, workLogStatusLabel } from '../../lib/status-labels'
 import { humanizeLabel } from '../../lib/labels'
-import { agentRunsPath, inboxPath } from '../../lib/messages-paths'
+import { agentChatPath, agentRunsPath, inboxPath } from '../../lib/messages-paths'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ThreadProjectPicker } from './ThreadProjectPicker'
 
@@ -53,15 +55,15 @@ const STATUS_CLASS: Record<string, string> = {
 /** Task statuses worth surfacing inline (still in flight or needs a human). */
 const ACTIVE_TASK_STATUSES = new Set(['running', 'queued', 'paused', 'awaiting_decision'])
 
-function timeAgo(iso: string | null): string {
+function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!iso) return ''
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return 'now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 1) return t('contactPanel.now')
+  if (minutes < 60) return t('contactPanel.minutesAgo', { count: minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  if (hours < 24) return t('contactPanel.hoursAgo', { count: hours })
+  return t('contactPanel.daysAgo', { count: Math.floor(hours / 24) })
 }
 
 function SectionHeading({ title }: { title: string }) {
@@ -117,6 +119,7 @@ function DisclosureRow({
 }
 
 export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Props) {
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [passport, setPassport] = useState<AgentPassport | null>(null)
   const [toolCatalog, setToolCatalog] = useState<GovernToolRow[]>([])
@@ -191,20 +194,20 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
 
       {loadFailed && !loading ? (
         <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 px-3 py-2">
-          <span className="text-[11px] text-text-secondary">Some agent context failed to load.</span>
+          <span className="text-[11px] text-text-secondary">{t('agentContext.loadFailed')}</span>
           <button
             type="button"
             onClick={() => void load()}
             className="shrink-0 text-[11px] font-medium text-accent hover:underline"
           >
-            Retry
+            {t('agentContext.retry')}
           </button>
         </div>
       ) : null}
 
       {/* Identity */}
       <div className="border-b border-border/40 px-4 pb-3 pt-4">
-        <SectionHeading title="Agent" />
+        <SectionHeading title={t('agentContext.agent')} />
         {agent && agentId ? (
           <Link
             to={`/agents/${agentId}`}
@@ -223,7 +226,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                     STATUS_CLASS[status] ?? 'text-text-muted'
                   }`}
                 >
-                  {humanizeLabel(status)}
+                  {agentRuntimeStatusLabel(status, t)}
                 </span>
               ) : null}
               {agent.current_activity_summary ? (
@@ -237,11 +240,37 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         ) : (
           <div className="rounded-lg border border-border/60 bg-bg-elevated px-3 py-2.5">
             <p className="text-sm font-semibold text-text-heading">
-              {agent?.name || 'Workspace assistant'}
+              {agent?.name || t('agentContext.workspaceAssistant')}
             </p>
             <p className="mt-1 text-xs text-text-muted">{role}</p>
           </div>
         )}
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+          <Link to="/settings/communication" className="text-[11px] font-medium text-accent hover:underline">
+            {t('agentContext.inboxAiSettings')}
+          </Link>
+          {agentId ? (
+            <Link to={`/agents/${agentId}`} className="text-[11px] font-medium text-accent hover:underline">
+              {t('agentContext.agentProfile')}
+            </Link>
+          ) : null}
+        </div>
+        {agentId ? (
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+            <Link to={`/agenda?agent=${agentId}`} className="font-medium text-accent hover:underline">
+              {t('agentContext.schedule')}
+            </Link>
+            <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
+              {t('agentContext.govern')}
+            </Link>
+            <Link to="/settings/integrations" className="font-medium text-accent hover:underline">
+              {t('agentContext.openIntegrations')}
+            </Link>
+            <Link to={`/agents/${agentId}`} className="font-medium text-accent hover:underline">
+              {t('agentContext.openAgent')}
+            </Link>
+          </div>
+        ) : null}
         {model ? (
           <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-text-secondary">
             <Cpu size={12} className="shrink-0 text-text-muted" />
@@ -256,27 +285,28 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
       {loading ? (
         <div className="flex items-center gap-2 px-4 py-3 text-[12px] text-text-muted">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading agent details...
+          {t('agentContext.loading')}
         </div>
       ) : null}
 
       {/* Tools & integrations */}
       <DisclosureRow
         icon={Wrench}
-        label="Tools & integrations"
+        label={t('agentContext.toolsAndIntegrations')}
         count={toolCount + mcpRows.length}
       >
         {mcpRows.length > 0 ? (
           <div className="mb-2">
             <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
               <Plug size={10} />
-              Integrations
+              {t('agentContext.integrations')}
             </p>
             <div className="space-y-1">
               {mcpRows.map((row) => (
-                <div
+                <Link
                   key={row.id}
-                  className="flex items-center gap-2 rounded-md border border-border/40 bg-bg-elevated/45 px-2 py-1"
+                  to="/settings/integrations"
+                  className="flex items-center gap-2 rounded-md border border-border/40 bg-bg-elevated/45 px-2 py-1 transition-colors hover:border-accent/40"
                 >
                   <span
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[9px] font-semibold text-white"
@@ -290,7 +320,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                       <span className="block truncate text-[10px] text-text-muted">{row.endpoint}</span>
                     ) : null}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -298,8 +328,12 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
         <div>
           <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
             <Wrench size={10} />
-            Tools
-            {unrestricted ? <span className="ml-1 normal-case text-text-muted">(unrestricted)</span> : null}
+            {t('agentContext.tools')}
+            {unrestricted ? (
+              <span className="ml-1 normal-case text-text-muted">
+                ({t('agentContext.unrestricted')})
+              </span>
+            ) : null}
           </p>
           {unrestricted ? (
             <div className="flex flex-wrap gap-1">
@@ -313,7 +347,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
                 </span>
               ))}
               {toolCatalog.length === 0 ? (
-                <span className="text-[11px] text-text-muted">All registered tools are available.</span>
+                <span className="text-[11px] text-text-muted">{t('agentContext.allToolsAvailable')}</span>
               ) : null}
             </div>
           ) : (
@@ -335,9 +369,9 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
       {/* Govern scopes */}
       <DisclosureRow
         icon={ShieldCheck}
-        label="Govern scopes"
+        label={t('agentContext.mayDo')}
         count={scopes.length}
-        countLabel={scopes.length === 0 ? 'Role defaults' : undefined}
+        countLabel={scopes.length === 0 ? t('agentContext.roleDefaults') : undefined}
       >
         <div className="flex flex-wrap gap-1">
           {scopes.map((scope) => (
@@ -354,16 +388,16 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
       {/* Active task (minimal) */}
       {task ? (
         <div className="border-b border-border/40 px-4 py-3">
-          <SectionHeading title="Active task" />
+          <SectionHeading title={t('agentContext.activeTask')} />
           <Link
             to={agentRunsPath('all', task.signal_id || String(thread.id))}
             className="block rounded-lg border border-border/60 bg-bg-elevated/50 px-3 py-2 transition-colors hover:border-accent/40"
           >
             <p className="truncate text-[12.5px] font-medium text-text-primary">{task.title}</p>
-            <p className="mt-0.5 text-[11px] capitalize text-text-muted">
-              {task.status.replace(/_/g, ' ')}
-              {task.pause_reason ? ` (${task.pause_reason.replace(/_/g, ' ')})` : ''}
-              {' · Open run'}
+            <p className="mt-0.5 text-[11px] text-text-muted">
+              {workLogStatusLabel(task.status, t)}
+              {task.pause_reason ? ` (${humanizeLabel(task.pause_reason)})` : ''}
+              {' · '}{t('agentContext.openRun')}
             </p>
           </Link>
         </div>
@@ -371,27 +405,35 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
 
       {/* Recent conversations */}
       <div className="px-4 py-3">
-        <SectionHeading title="Recent conversations" />
+        <SectionHeading title={t('agentContext.recentConversations')} />
         {recent.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border/60 px-3 py-3 text-[11.5px] text-text-muted">
-            No other conversations with this agent.
-          </p>
+          <div className="rounded-lg border border-dashed border-border/60 px-3 py-3">
+            <p className="text-[11.5px] text-text-muted">{t('agentContext.noOtherConversations')}</p>
+            {agent?.id ? (
+              <Link
+                to={agentChatPath(agent.id)}
+                className="mt-1.5 inline-block text-[11px] font-medium text-accent hover:underline"
+              >
+                {t('agentContext.chatWithAgent')}
+              </Link>
+            ) : null}
+          </div>
         ) : (
           <div className="space-y-1">
-            {recent.slice(0, 8).map((t) => (
+            {recent.slice(0, 8).map((thread) => (
               <Link
-                key={String(t.id)}
-                to={t.folder === 'internal' ? agentRunsPath('all', String(t.id)) : inboxPath('all', String(t.id))}
+                key={String(thread.id)}
+                to={thread.folder === 'internal' ? agentRunsPath('all', String(thread.id)) : inboxPath('all', String(thread.id))}
                 className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
                 <MessageSquare size={12} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[12px] font-medium text-text-primary">
-                    {t.emailSubject || '(No subject)'}
+                    {thread.emailSubject || t('listItem.noSubject')}
                   </span>
                   <span className="block truncate text-[10.5px] text-text-muted">
-                    {humanizeLabel(t.status)}
-                    {t.lastMessageAt ? ` - ${timeAgo(t.lastMessageAt)}` : ''}
+                    {threadStatusLabel(thread.status, t)}
+                    {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                   </span>
                 </span>
               </Link>

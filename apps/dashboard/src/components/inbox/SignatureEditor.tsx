@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bold,
   Code,
@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
@@ -44,6 +45,7 @@ export default function SignatureEditor({
   onSave,
   mailboxEmail,
 }: SignatureEditorProps) {
+  const { t } = useTranslation('communication');
   const [signature, setSignature] = useState(initialSignature);
   const [activeTab, setActiveTab] = useState<'edit' | 'html' | 'preview'>('edit');
   const editorRef = useRef<HTMLDivElement | null>(null);
@@ -51,6 +53,24 @@ export default function SignatureEditor({
   // with current content without re-running the ref on every keystroke.
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
+
+  const defaultTemplates = useMemo(
+    () => [
+      {
+        name: t('signatureEditor.templateStandard'),
+        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: {{phone}}</p>`,
+      },
+      {
+        name: t('signatureEditor.templateShort'),
+        html: `<p>Regards,<br><strong>{{name}}</strong></p>`,
+      },
+      {
+        name: t('signatureEditor.templateExtended'),
+        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${mailboxEmail}<br>T: {{phone}}<br>W: {{website}}</p>`,
+      },
+    ],
+    [mailboxEmail, t],
+  );
 
   // Re-initialize when the dialog opens (possibly for a different mailbox).
   useEffect(() => {
@@ -98,21 +118,6 @@ export default function SignatureEditor({
     }
   }, []);
 
-  const defaultTemplates = [
-    {
-      name: 'Standard business',
-      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${mailboxEmail}<br>T: {{phone}}</p>`,
-    },
-    {
-      name: 'Short',
-      html: `<p>Regards,<br><strong>{{name}}</strong></p>`,
-    },
-    {
-      name: 'Extended',
-      html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${mailboxEmail}<br>T: {{phone}}<br>W: {{website}}</p>`,
-    },
-  ];
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -120,7 +125,7 @@ export default function SignatureEditor({
         <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[800px] max-w-[95vw] max-h-[90vh] bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <Dialog.Title className="text-lg font-semibold text-text-heading">
-              Edit email signature
+              {t('signatureEditor.title')}
             </Dialog.Title>
             <Dialog.Close asChild>
               <Button variant="ghost" size="icon">
@@ -131,7 +136,7 @@ export default function SignatureEditor({
 
           <div className="p-4 space-y-4 max-h-[calc(90vh-120px)] overflow-y-auto">
             <div className="text-sm text-text-secondary">
-              For mailbox: <strong>{mailboxEmail}</strong>
+              {t('signatureEditor.forMailbox')} <strong>{mailboxEmail}</strong>
             </div>
 
             <Tabs
@@ -141,15 +146,15 @@ export default function SignatureEditor({
               <TabsList>
                 <TabsTrigger value="edit" className="flex items-center gap-2">
                   <Type size={14} />
-                  Edit
+                  {t('signatureEditor.tabEdit')}
                 </TabsTrigger>
                 <TabsTrigger value="html" className="flex items-center gap-2">
                   <Code size={14} />
-                  HTML
+                  {t('signatureEditor.tabHtml')}
                 </TabsTrigger>
                 <TabsTrigger value="preview" className="flex items-center gap-2">
                   <Eye size={14} />
-                  Preview
+                  {t('signatureEditor.tabPreview')}
                 </TabsTrigger>
               </TabsList>
 
@@ -161,7 +166,7 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCommand('bold')}
-                    title="Bold"
+                    title={t('signatureEditor.bold')}
                   >
                     <Bold size={14} />
                   </Button>
@@ -170,7 +175,7 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCommand('italic')}
-                    title="Italic"
+                    title={t('signatureEditor.italic')}
                   >
                     <Italic size={14} />
                   </Button>
@@ -179,7 +184,7 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCommand('underline')}
-                    title="Underline"
+                    title={t('signatureEditor.underline')}
                   >
                     <Underline size={14} />
                   </Button>
@@ -191,10 +196,10 @@ export default function SignatureEditor({
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      const url = prompt('Enter URL:');
+                      const url = prompt(t('signatureEditor.enterUrl'));
                       if (url) handleCommand('createLink', url);
                     }}
-                    title="Add link"
+                    title={t('signatureEditor.addLink')}
                   >
                     <Link size={14} />
                   </Button>
@@ -214,7 +219,9 @@ export default function SignatureEditor({
 
                 {/* Templates */}
                 <div>
-                  <h4 className="text-sm font-medium text-text-heading mb-2">Templates</h4>
+                  <h4 className="text-sm font-medium text-text-heading mb-2">
+                    {t('signatureEditor.templates')}
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {defaultTemplates.map((template) => (
                       <Button
@@ -232,8 +239,11 @@ export default function SignatureEditor({
                 </div>
 
                 <div className="text-xs text-text-muted space-y-1">
-                  <p><strong>Tip:</strong> Use variables like {'{{name}}'}, {'{{company}}'}, {'{{function}}'} for dynamic content.</p>
-                  <p>These are replaced automatically when sending emails.</p>
+                  <p>
+                    <strong>{t('signatureEditor.tipTitle')}</strong>{' '}
+                    {t('signatureEditor.tipVariables')}
+                  </p>
+                  <p>{t('signatureEditor.tipReplaced')}</p>
                 </div>
               </TabsContent>
 
@@ -242,16 +252,13 @@ export default function SignatureEditor({
                   value={signature}
                   onChange={(event) => setSignature(event.target.value)}
                   spellCheck={false}
-                  aria-label="Signature HTML source"
+                  aria-label={t('signatureEditor.htmlAria')}
                   placeholder={'<p>Kind regards,<br><strong>{{name}}</strong></p>'}
                   className="min-h-[280px] w-full resize-y rounded-md border border-border bg-bg-elevated p-4 font-mono text-xs leading-relaxed text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
                 <div className="text-xs text-text-muted space-y-1">
-                  <p>
-                    Edit or paste the raw HTML of your signature, for example one exported
-                    from a signature generator. Inline styles are kept as-is when sending.
-                  </p>
-                  <p>Switch to Preview to check the result before saving.</p>
+                  <p>{t('signatureEditor.htmlHint1')}</p>
+                  <p>{t('signatureEditor.htmlHint2')}</p>
                 </div>
               </TabsContent>
 
@@ -259,20 +266,18 @@ export default function SignatureEditor({
                 <div className="border border-border rounded-md p-4 bg-white text-black min-h-[200px]">
                   <div dangerouslySetInnerHTML={{ __html: withSampleData(signature) }} />
                 </div>
-                <p className="text-xs text-text-muted">
-                  This is how your signature looks with sample data.
-                </p>
+                <p className="text-xs text-text-muted">{t('signatureEditor.previewHint')}</p>
               </TabsContent>
             </Tabs>
           </div>
 
           <div className="flex items-center justify-end gap-2 p-4 border-t border-border bg-bg-elevated">
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('signatureEditor.cancel')}
             </Button>
             <Button onClick={handleSave}>
               <Save size={14} />
-              Save
+              {t('signatureEditor.save')}
             </Button>
           </div>
         </Dialog.Content>

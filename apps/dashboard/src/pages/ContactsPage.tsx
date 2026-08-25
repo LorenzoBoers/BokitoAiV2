@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
@@ -21,6 +22,7 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import {
   backfillCompanies,
   createContact,
@@ -38,7 +40,7 @@ import {
   type ContactRow,
   type ContactStatus,
 } from '../lib/contacts-api'
-import { humanizeLabel } from '../lib/labels'
+import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
 import { inboxPath } from '../lib/messages-paths'
 import type { InboxThread } from '../lib/inbox-api'
 
@@ -48,25 +50,19 @@ const STATUS_STYLE: Record<ContactStatus, string> = {
   blocked: 'bg-status-error/15 text-status-error',
 }
 
-const CHANNEL_LABELS: Record<string, string> = {
-  email: 'Email',
-  widget: 'Widget',
-  slack: 'Slack',
-  internal: 'Internal',
-}
-
-function timeAgo(iso: string | null): string {
+function timeAgo(iso: string | null, t: (key: string, opts?: { count: number }) => string): string {
   if (!iso) return '-'
   const diff = Date.now() - new Date(iso).getTime()
   const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return 'now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 1) return t('contactsPage.now')
+  if (minutes < 60) return t('contactsPage.minutesAgo', { count: minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  if (hours < 24) return t('contactsPage.hoursAgo', { count: hours })
+  return t('contactsPage.daysAgo', { count: Math.floor(hours / 24) })
 }
 
 function ContactDetail({ contactId }: { contactId: string }) {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [contact, setContact] = useState<ContactRow | null>(null)
@@ -99,11 +95,11 @@ function ContactDetail({ contactId }: { contactId: string }) {
     } catch (err) {
       setContact(null)
       setThreads([])
-      toast.error(formatApiErrorMessage(err, 'Could not load contact.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.loadContactError')))
     } finally {
       setLoading(false)
     }
-  }, [token, contactId])
+  }, [token, contactId, t])
 
   useEffect(() => {
     void load()
@@ -122,9 +118,9 @@ function ContactDetail({ contactId }: { contactId: string }) {
       })
       if (updated) setContact(updated)
       setDirty(false)
-      toast.success('Contact saved')
+      toast.success(t('contactsPage.savedContact'))
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not save contact.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.saveContactError')))
     } finally {
       setSaving(false)
     }
@@ -136,9 +132,15 @@ function ContactDetail({ contactId }: { contactId: string }) {
     try {
       const updated = await updateContact(token, contact.id, { status })
       if (updated) setContact((prev) => (prev ? { ...prev, status: updated.status } : updated))
-      toast.success(status === 'blocked' ? 'Contact blocked' : status === 'approved' ? 'Contact approved' : 'Status updated')
+      toast.success(
+        status === 'blocked'
+          ? t('contactsPage.blocked')
+          : status === 'approved'
+            ? t('contactsPage.approved')
+            : t('contactsPage.statusUpdated'),
+      )
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not update contact status.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.statusError')))
     } finally {
       setSaving(false)
     }
@@ -146,15 +148,15 @@ function ContactDetail({ contactId }: { contactId: string }) {
 
   const removeContact = async () => {
     if (!token || !contact || saving) return
-    const label = contact.displayName || contact.address || 'this contact'
-    if (!window.confirm(`Delete ${label}? Conversations are kept but unlinked.`)) return
+    const label = contact.displayName || contact.address || t('contactsPage.thisContact')
+    if (!window.confirm(t('contactsPage.deleteContactConfirm', { label }))) return
     setSaving(true)
     try {
       await deleteContact(token, contact.id)
-      toast.success('Contact deleted')
+      toast.success(t('contactsPage.deletedContact'))
       navigate('/contacts')
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not delete contact.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.deleteContactError')))
       setSaving(false)
     }
   }
@@ -170,13 +172,13 @@ function ContactDetail({ contactId }: { contactId: string }) {
   if (!contact) {
     return (
       <div className="pt-10 text-center">
-        <p className="text-sm text-text-muted">Contact not found.</p>
+        <p className="text-sm text-text-muted">{t('contactsPage.contactNotFound')}</p>
         <button
           type="button"
           onClick={() => navigate('/contacts')}
           className="mt-3 text-sm font-medium text-accent hover:underline"
         >
-          Back to contacts
+          {t('contactsPage.backToContacts')}
         </button>
       </div>
     )
@@ -200,8 +202,8 @@ function ContactDetail({ contactId }: { contactId: string }) {
   return (
     <PageContent width="xl">
       <ContentHeader
-        title={contact.displayName || contact.address || 'Contact'}
-        subtitle={[contact.title, contact.company].filter(Boolean).join(' - ') || CHANNEL_LABELS[contact.channel] || contact.channel}
+        title={contact.displayName || contact.address || t('contactsPage.newContact')}
+        subtitle={[contact.title, contact.company].filter(Boolean).join(' - ') || t(`contactsPage.channels.${contact.channel}`, { defaultValue: contact.channel })}
         meta={
           <>
             <Link
@@ -209,7 +211,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
               className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
-              All contacts
+              {t('contactsPage.allContacts')}
             </Link>
             {contact.status !== 'approved' ? (
               <button
@@ -219,7 +221,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
               >
                 <ShieldCheck size={12} />
-                Approve
+                {t('contactsPage.approve')}
               </button>
             ) : null}
             {contact.status !== 'blocked' ? (
@@ -230,7 +232,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
               >
                 <ShieldBan size={12} />
-                Block
+                {t('contactsPage.block')}
               </button>
             ) : null}
             <button
@@ -240,7 +242,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
               className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
-              Delete
+              {t('contactsPage.delete')}
             </button>
           </>
         }
@@ -249,25 +251,25 @@ function ContactDetail({ contactId }: { contactId: string }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-text-heading">Profile</h2>
+            <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
             <span
               className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[contact.status]}`}
             >
-              {humanizeLabel(contact.status)}
+              {contactStatusLabel(contact.status, t)}
             </span>
           </div>
           <div className="mt-3 space-y-3">
             <p className="flex items-center gap-2 text-[12.5px] text-text-secondary">
               <Mail size={13} className="text-text-muted" />
-              {contact.address || 'No address'}
+              {contact.address || t('contactsPage.noAddress')}
               <span className="ml-auto text-[11px] text-text-muted">
-                {CHANNEL_LABELS[contact.channel] ?? contact.channel}
+                {t(`contactsPage.channels.${contact.channel}`, { defaultValue: contact.channel })}
               </span>
             </p>
-            {field('Name', 'displayName', 'Full name')}
+            {field(t('contactsPage.fieldName'), 'displayName', t('contactsPage.namePlaceholderFull'))}
             <div className="grid grid-cols-2 gap-3">
-              {field('Company', 'company', 'Company')}
-              {field('Title', 'title', 'Role / title')}
+              {field(t('contactsPage.fieldCompany'), 'company', t('contactsPage.fieldCompany'))}
+              {field(t('contactsPage.fieldTitle'), 'title', t('contactsPage.titlePlaceholder'))}
             </div>
             {contact.companyId ? (
               <Link
@@ -275,12 +277,12 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
               >
                 <Building2 size={12} />
-                View company record
+                {t('contactsPage.viewCompany')}
               </Link>
             ) : null}
-            {field('Phone', 'phone', 'Phone number')}
+            {field(t('contactsPage.fieldPhone'), 'phone', t('contactsPage.phonePlaceholder'))}
             <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Notes</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('contactsPage.notes')}</span>
               <textarea
                 value={draft.notes}
                 onChange={(e) => {
@@ -288,7 +290,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                   setDirty(true)
                 }}
                 rows={4}
-                placeholder="Internal notes about this contact..."
+                placeholder={t('contactsPage.notesPlaceholder')}
                 className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
             </label>
@@ -297,42 +299,55 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void save()}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 <Check size={12} />
-                {saving ? 'Saving...' : 'Save changes'}
+                {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
               </button>
             ) : null}
           </div>
         </section>
 
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="text-[14px] font-semibold text-text-heading">Conversations</h2>
+          <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
           <p className="text-[12px] text-text-muted">
-            {threads.length === 1
-              ? '1 thread with this contact'
-              : `${threads.length} threads with this contact`}
+            {t('contactsPage.threadCount', { count: threads.length })}
           </p>
           <div className="mt-3 space-y-1.5">
             {threads.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
-                No conversations yet.
-              </p>
+              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+                <p className="text-[12px] text-text-muted">{t('contactsPage.noConversations')}</p>
+                <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noConversationsHint')}</p>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    to="/settings/channels"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                  >
+                    {t('contactsPage.connectChannels')}
+                  </Link>
+                  <Link
+                    to={inboxPath('all')}
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+                  >
+                    {t('contactsPage.openCommunication')}
+                  </Link>
+                </div>
+              </div>
             ) : (
-              threads.map((t) => (
+              threads.map((thread) => (
                 <Link
-                  key={String(t.id)}
-                  to={inboxPath('all', String(t.id))}
+                  key={String(thread.id)}
+                  to={inboxPath('all', String(thread.id))}
                   className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <MessageSquare size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12.5px] font-medium text-text-primary">
-                      {t.emailSubject || '(No subject)'}
+                      {thread.emailSubject || t('contactsPage.noSubject')}
                     </span>
                     <span className="block truncate text-[11px] text-text-muted">
-                      {humanizeLabel(t.status)}
-                      {t.lastMessageAt ? ` - ${timeAgo(t.lastMessageAt)}` : ''}
+                      {threadStatusLabel(thread.status, t)}
+                      {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                     </span>
                   </span>
                 </Link>
@@ -346,6 +361,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
 }
 
 function CompanyDetailView({ companyId }: { companyId: string }) {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [company, setCompany] = useState<CompanyDetailData | null>(null)
@@ -364,11 +380,11 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
       setDirty(false)
     } catch (err) {
       setCompany(null)
-      toast.error(formatApiErrorMessage(err, 'Could not load company.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.loadCompanyError')))
     } finally {
       setLoading(false)
     }
-  }, [token, companyId])
+  }, [token, companyId, t])
 
   useEffect(() => {
     void load()
@@ -385,9 +401,9 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
       })
       if (updated) setCompany((prev) => (prev ? { ...prev, ...updated } : prev))
       setDirty(false)
-      toast.success('Company saved')
+      toast.success(t('contactsPage.savedCompany'))
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not save company.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.saveCompanyError')))
     } finally {
       setSaving(false)
     }
@@ -395,14 +411,14 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
 
   const remove = async () => {
     if (!token || !company || saving) return
-    if (!window.confirm(`Delete ${company.name || company.domain}? Contacts are kept but unlinked.`)) return
+    if (!window.confirm(t('contactsPage.deleteCompanyConfirm', { label: company.name || company.domain }))) return
     setSaving(true)
     try {
       await deleteCompany(token, company.id)
-      toast.success('Company deleted')
+      toast.success(t('contactsPage.deletedCompany'))
       navigate('/contacts')
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not delete company.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.deleteCompanyError')))
       setSaving(false)
     }
   }
@@ -418,13 +434,13 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
   if (!company) {
     return (
       <div className="pt-10 text-center">
-        <p className="text-sm text-text-muted">Company not found.</p>
+        <p className="text-sm text-text-muted">{t('contactsPage.companyNotFound')}</p>
         <button
           type="button"
           onClick={() => navigate('/contacts')}
           className="mt-3 text-sm font-medium text-accent hover:underline"
         >
-          Back to contacts
+          {t('contactsPage.backToContacts')}
         </button>
       </div>
     )
@@ -449,7 +465,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
     <PageContent width="xl">
       <ContentHeader
         title={company.name || company.domain}
-        subtitle={`${company.domain} - ${company.contactCount} contact${company.contactCount === 1 ? '' : 's'}`}
+        subtitle={`${company.domain} - ${t('contactsPage.contactCount', { count: company.contactCount })}`}
         meta={
           <>
             <Link
@@ -457,7 +473,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
               className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
-              All contacts
+              {t('contactsPage.allContacts')}
             </Link>
             <button
               type="button"
@@ -466,7 +482,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
               className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
-              Delete
+              {t('contactsPage.delete')}
             </button>
           </>
         }
@@ -474,12 +490,12 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="text-[14px] font-semibold text-text-heading">Company</h2>
+          <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.companySection')}</h2>
           <div className="mt-3 space-y-3">
-            {field('Name', 'name', 'Company name')}
-            {field('Website', 'website', 'https://...')}
+            {field(t('contactsPage.fieldName'), 'name', t('contactsPage.companyNamePlaceholder'))}
+            {field(t('contactsPage.colWebsite'), 'website', t('contactsPage.websitePlaceholder'))}
             <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Notes</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('contactsPage.notes')}</span>
               <textarea
                 value={draft.notes}
                 onChange={(e) => {
@@ -487,7 +503,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                   setDirty(true)
                 }}
                 rows={4}
-                placeholder="Internal notes about this company..."
+                placeholder={t('contactsPage.companyNotesPlaceholder')}
                 className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
             </label>
@@ -496,20 +512,35 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void save()}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 <Check size={12} />
-                {saving ? 'Saving...' : 'Save changes'}
+                {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
               </button>
             ) : null}
           </div>
 
-          <h3 className="mt-5 text-[13px] font-semibold text-text-heading">People</h3>
+          <h3 className="mt-5 text-[13px] font-semibold text-text-heading">{t('contactsPage.peopleSection')}</h3>
           <div className="mt-2 space-y-1.5">
             {company.contacts.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center text-[12px] text-text-muted">
-                No linked contacts.
-              </p>
+              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+                <p className="text-[12px] text-text-muted">{t('contactsPage.noLinkedContacts')}</p>
+                <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noLinkedContactsHint')}</p>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    to="/settings/channels"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                  >
+                    {t('contactsPage.connectChannels')}
+                  </Link>
+                  <Link
+                    to="/contacts"
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+                  >
+                    {t('contactsPage.browseContacts')}
+                  </Link>
+                </div>
+              </div>
             ) : (
               company.contacts.map((c) => (
                 <Link
@@ -531,28 +562,43 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
         </section>
 
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="text-[14px] font-semibold text-text-heading">Conversations</h2>
-          <p className="text-[12px] text-text-muted">Recent threads across this company's contacts</p>
+          <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
+          <p className="text-[12px] text-text-muted">{t('contactsPage.companyThreadsHint')}</p>
           <div className="mt-3 space-y-1.5">
             {company.threads.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
-                No conversations yet.
-              </p>
+              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+                <p className="text-[12px] text-text-muted">{t('contactsPage.noConversations')}</p>
+                <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noConversationsHint')}</p>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    to="/settings/channels"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                  >
+                    {t('contactsPage.connectChannels')}
+                  </Link>
+                  <Link
+                    to={inboxPath('all')}
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+                  >
+                    {t('contactsPage.openCommunication')}
+                  </Link>
+                </div>
+              </div>
             ) : (
-              company.threads.map((t) => (
+              company.threads.map((thread) => (
                 <Link
-                  key={String(t.id)}
-                  to={inboxPath('all', String(t.id))}
+                  key={String(thread.id)}
+                  to={inboxPath('all', String(thread.id))}
                   className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <MessageSquare size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12.5px] font-medium text-text-primary">
-                      {t.emailSubject || '(No subject)'}
+                      {thread.emailSubject || t('contactsPage.noSubject')}
                     </span>
                     <span className="block truncate text-[11px] text-text-muted">
-                      {humanizeLabel(t.status)}
-                      {t.lastMessageAt ? ` - ${timeAgo(t.lastMessageAt)}` : ''}
+                      {threadStatusLabel(thread.status, t)}
+                      {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                     </span>
                   </span>
                 </Link>
@@ -565,18 +611,26 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
   )
 }
 
-const STATUS_FILTERS: ReadonlyArray<{ key: ContactStatus | 'all'; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'blocked', label: 'Blocked' },
+const STATUS_FILTERS: ReadonlyArray<{ key: ContactStatus | 'all'; labelKey: string }> = [
+  { key: 'all', labelKey: 'contactsPage.statusAll' },
+  { key: 'approved', labelKey: 'contactsPage.statusApproved' },
+  { key: 'pending', labelKey: 'contactsPage.statusPending' },
+  { key: 'blocked', labelKey: 'contactsPage.statusBlocked' },
 ]
 
+function parseContactsView(raw: string | null): 'people' | 'companies' {
+  return raw === 'companies' ? 'companies' : 'people'
+}
+
 export default function ContactsPage() {
+  const { t } = useTranslation('nav')
   const { contactId, companyId } = useParams<{ contactId?: string; companyId?: string }>()
   const { token } = useAuth()
   const navigate = useNavigate()
-  const [view, setView] = useState<'people' | 'companies'>('people')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [view, setView] = useState<'people' | 'companies'>(() =>
+    companyId ? 'companies' : parseContactsView(searchParams.get('view')),
+  )
   const [contacts, setContacts] = useState<ContactRow[]>([])
   const [companies, setCompanies] = useState<CompanyRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -588,6 +642,23 @@ export default function ContactsPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [backfilling, setBackfilling] = useState(false)
+
+  const handleViewChange = useCallback(
+    (next: 'people' | 'companies') => {
+      setView(next)
+      const params = new URLSearchParams(searchParams)
+      if (next === 'people') params.delete('view')
+      else params.set('view', 'companies')
+      setSearchParams(params, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  useEffect(() => {
+    if (companyId) return
+    const fromUrl = parseContactsView(searchParams.get('view'))
+    setView((current) => (current === fromUrl ? current : fromUrl))
+  }, [searchParams, companyId])
 
   const load = useCallback(async () => {
     if (!token) return
@@ -609,11 +680,11 @@ export default function ContactsPage() {
     } catch (err) {
       setContacts([])
       setCompanies([])
-      setListError(err instanceof Error ? err.message : 'Could not load contacts.')
+      setListError(err instanceof Error ? err.message : t('contactsPage.couldNotLoad'))
     } finally {
       setLoading(false)
     }
-  }, [token, search, statusFilter, view])
+  }, [token, search, statusFilter, view, t])
 
   useEffect(() => {
     if (contactId || companyId) return
@@ -628,12 +699,12 @@ export default function ContactsPage() {
       const result = await backfillCompanies(token)
       toast.success(
         result.linked > 0
-          ? `Linked ${result.linked} contact${result.linked === 1 ? '' : 's'} to companies.`
-          : 'All contacts are already linked.',
+          ? t('contactsPage.linkSuccess', { count: result.linked })
+          : t('contactsPage.linkNone'),
       )
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not link contacts.'))
+      toast.error(formatApiErrorMessage(err, t('contactsPage.linkError')))
     } finally {
       setBackfilling(false)
     }
@@ -643,7 +714,7 @@ export default function ContactsPage() {
     if (!token || creating) return
     const address = createDraft.address.trim()
     if (!address) {
-      setCreateError('Email address is required.')
+      setCreateError(t('contactsPage.emailRequired'))
       return
     }
     setCreating(true)
@@ -657,10 +728,10 @@ export default function ContactsPage() {
       })
       setCreateOpen(false)
       setCreateDraft({ address: '', displayName: '', company: '' })
-      toast.success('Contact created')
+      toast.success(t('contactsPage.created'))
       if (created) navigate(`/contacts/${created.id}`)
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create contact.')
+      setCreateError(err instanceof Error ? err.message : t('contactsPage.createError'))
     } finally {
       setCreating(false)
     }
@@ -686,9 +757,10 @@ export default function ContactsPage() {
 
   return (
     <PageContent width="xl">
+      <PageGuideBanner page="contacts" className="mb-4" />
       <ContentHeader
-        title="Contacts"
-        subtitle="People and companies across your channels"
+        title={t('tabs.contacts.title')}
+        subtitle={t('tabs.contacts.subtitle')}
         meta={
           <>
             <button
@@ -697,7 +769,7 @@ export default function ContactsPage() {
               className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-              Refresh
+              {t('contactsPage.refresh')}
             </button>
             {view === 'companies' ? (
               <button
@@ -707,16 +779,16 @@ export default function ContactsPage() {
                 className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
               >
                 {backfilling ? <Loader2 size={12} className="animate-spin" /> : <Building2 size={12} />}
-                Link contacts
+                {t('contactsPage.linkContacts')}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover"
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover"
               >
                 <Plus size={12} />
-                New contact
+                {t('contactsPage.newContact')}
               </button>
             )}
           </>
@@ -730,8 +802,8 @@ export default function ContactsPage() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder={
             view === 'companies'
-              ? 'Search by company name or domain...'
-              : 'Search by name, address or company...'
+              ? t('contactsPage.searchCompanies')
+              : t('contactsPage.searchPeople')
           }
           className="w-full bg-transparent text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none"
         />
@@ -743,14 +815,14 @@ export default function ContactsPage() {
             <button
               key={v}
               type="button"
-              onClick={() => setView(v)}
+              onClick={() => handleViewChange(v)}
               className={
                 view === v
                   ? 'rounded-md bg-accent/15 px-2.5 py-1 text-[12px] font-medium text-accent'
                   : 'rounded-md px-2.5 py-1 text-[12px] text-text-secondary hover:text-text-primary'
               }
             >
-              {v === 'people' ? 'People' : 'Companies'}
+              {v === 'people' ? t('contactsPage.people') : t('contactsPage.companies')}
             </button>
           ))}
         </div>
@@ -766,7 +838,7 @@ export default function ContactsPage() {
                     : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-[12px] text-text-secondary hover:text-text-primary'
                 }
               >
-                {f.label}
+                {t(f.labelKey)}
               </button>
             ))
           : null}
@@ -775,10 +847,10 @@ export default function ContactsPage() {
       {createOpen ? (
         <div className="mb-4 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-text-heading">New contact</h2>
+            <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.newContact')}</h2>
             <button
               type="button"
-              aria-label="Close"
+              aria-label={t('contactsPage.closeAria')}
               onClick={() => setCreateOpen(false)}
               className="rounded p-1 text-text-muted hover:bg-bg-hover hover:text-text-primary"
             >
@@ -789,19 +861,19 @@ export default function ContactsPage() {
             <input
               value={createDraft.address}
               onChange={(e) => setCreateDraft((p) => ({ ...p, address: e.target.value }))}
-              placeholder="Email address *"
+              placeholder={t('contactsPage.emailPlaceholder')}
               className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <input
               value={createDraft.displayName}
               onChange={(e) => setCreateDraft((p) => ({ ...p, displayName: e.target.value }))}
-              placeholder="Full name"
+              placeholder={t('contactsPage.namePlaceholder')}
               className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <input
               value={createDraft.company}
               onChange={(e) => setCreateDraft((p) => ({ ...p, company: e.target.value }))}
-              placeholder="Company"
+              placeholder={t('contactsPage.companyPlaceholder')}
               className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
           </div>
@@ -811,10 +883,10 @@ export default function ContactsPage() {
               type="button"
               disabled={creating || !createDraft.address.trim()}
               onClick={() => void handleCreate()}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {creating ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-              {creating ? 'Creating...' : 'Create contact'}
+              {creating ? t('contactsPage.creating') : t('contactsPage.create')}
             </button>
           </div>
         </div>
@@ -827,14 +899,14 @@ export default function ContactsPage() {
       ) : listError ? (
         <div className="rounded-xl border border-dashed border-status-error/40 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />
-          <h2 className="mt-3 text-[15px] font-semibold text-text-heading">Could not load contacts</h2>
+          <h2 className="mt-3 text-[15px] font-semibold text-text-heading">{t('contactsPage.couldNotLoad')}</h2>
           <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">{listError}</p>
           <button
             type="button"
             onClick={() => void load()}
             className="mt-4 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:border-accent/40 hover:text-text-primary"
           >
-            Try again
+            {t('contactsPage.tryAgain')}
           </button>
         </div>
       ) : view === 'companies' ? (
@@ -842,23 +914,41 @@ export default function ContactsPage() {
           <div className="rounded-xl border border-dashed border-border/60 px-4 py-12 text-center">
             <Building2 size={22} className="mx-auto text-text-muted" />
             <h2 className="mt-3 text-[15px] font-semibold text-text-heading">
-              {search.trim() ? 'No matching companies' : 'No companies yet'}
+              {search.trim() ? t('contactsPage.noMatchingCompanies') : t('contactsPage.noCompanies')}
             </h2>
             <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">
               {search.trim()
-                ? 'Try a different search.'
-                : 'Companies are created automatically from business email domains. Use "Link contacts" to backfill existing contacts.'}
+                ? t('contactsPage.tryDifferentSearch')
+                : t('contactsPage.noCompaniesHint')}
             </p>
+            {search.trim() ? null : (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  disabled={backfilling}
+                  onClick={() => void handleBackfill()}
+                  className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+                >
+                  {backfilling ? t('contactsPage.linking') : t('contactsPage.linkContacts')}
+                </button>
+                <Link
+                  to={inboxPath('all')}
+                  className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('contactsPage.openCommunication')}
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-card">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                  <th className="px-4 py-2.5">Company</th>
-                  <th className="hidden px-4 py-2.5 sm:table-cell">Domain</th>
-                  <th className="hidden px-4 py-2.5 md:table-cell">Website</th>
-                  <th className="px-4 py-2.5 text-right">Contacts</th>
+                  <th className="px-4 py-2.5">{t('contactsPage.colCompany')}</th>
+                  <th className="hidden px-4 py-2.5 sm:table-cell">{t('contactsPage.colDomain')}</th>
+                  <th className="hidden px-4 py-2.5 md:table-cell">{t('contactsPage.colWebsite')}</th>
+                  <th className="px-4 py-2.5 text-right">{t('contactsPage.colContacts')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -897,25 +987,47 @@ export default function ContactsPage() {
         <div className="rounded-xl border border-dashed border-border/60 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />
           <h2 className="mt-3 text-[15px] font-semibold text-text-heading">
-            {search.trim() || statusFilter !== 'all' ? 'No matching contacts' : 'No contacts yet'}
+            {search.trim() || statusFilter !== 'all' ? t('contactsPage.noMatchingContacts') : t('contactsPage.noContacts')}
           </h2>
           <p className="mx-auto mt-1 max-w-sm text-[12.5px] text-text-muted">
             {search.trim() || statusFilter !== 'all'
-              ? 'Try a different search or clear the status filter.'
-              : 'Contacts are created automatically when customers reach out through your channels.'}
+              ? t('contactsPage.clearFilters')
+              : t('contactsPage.noContactsHint')}
           </p>
+          {search.trim() || statusFilter !== 'all' ? null : (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <Link
+                to="/settings/channels"
+                className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+              >
+                {t('contactsPage.connectEmail')}
+              </Link>
+              <Link
+                to="/ai/assistant/external/installation"
+                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('contactsPage.installWidget')}
+              </Link>
+              <Link
+                to="/settings/setup"
+                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('contactsPage.openSetup')}
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-card">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                <th className="px-4 py-2.5">Name</th>
-                <th className="hidden px-4 py-2.5 sm:table-cell">Channel</th>
-                <th className="hidden px-4 py-2.5 md:table-cell">Company</th>
-                <th className="hidden px-4 py-2.5 lg:table-cell">Last seen</th>
-                <th className="px-4 py-2.5 text-right">Threads</th>
-                <th className="px-4 py-2.5 text-right">Status</th>
+                <th className="px-4 py-2.5">{t('contactsPage.colName')}</th>
+                <th className="hidden px-4 py-2.5 sm:table-cell">{t('contactsPage.colChannel')}</th>
+                <th className="hidden px-4 py-2.5 md:table-cell">{t('contactsPage.colCompany')}</th>
+                <th className="hidden px-4 py-2.5 lg:table-cell">{t('contactsPage.colLastSeen')}</th>
+                <th className="px-4 py-2.5 text-right">{t('contactsPage.colThreads')}</th>
+                <th className="px-4 py-2.5 text-right">{t('contactsPage.colStatus')}</th>
               </tr>
             </thead>
             <tbody>
@@ -932,14 +1044,14 @@ export default function ContactsPage() {
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-[13px] font-medium text-text-primary">
-                          {contact.displayName || contact.address || 'Unknown'}
+                          {contact.displayName || contact.address || t('contactsPage.noAddress')}
                         </span>
                         <span className="block truncate text-[11px] text-text-muted">{contact.address}</span>
                       </span>
                     </span>
                   </td>
                   <td className="hidden px-4 py-2.5 text-[12.5px] text-text-secondary sm:table-cell">
-                    {CHANNEL_LABELS[contact.channel] ?? contact.channel}
+                    {t(`contactsPage.channels.${contact.channel}`, { defaultValue: contact.channel })}
                   </td>
                   <td className="hidden px-4 py-2.5 md:table-cell">
                     {contact.company ? (
@@ -952,10 +1064,30 @@ export default function ContactsPage() {
                     )}
                   </td>
                   <td className="hidden px-4 py-2.5 text-[12.5px] text-text-secondary lg:table-cell">
-                    {timeAgo(contact.lastSeenAt)}
+                    {timeAgo(contact.lastSeenAt, t)}
                   </td>
                   <td className="px-4 py-2.5 text-right text-[12.5px] text-text-secondary">
-                    {contact.threadCount}
+                    {contact.threadCount > 0 ? (
+                      <button
+                        type="button"
+                        className="text-accent hover:underline"
+                        onClick={async (event) => {
+                          event.stopPropagation()
+                          if (!token) return
+                          try {
+                            const history = await getContactThreads(token, contact.id)
+                            const latest = history[0]
+                            navigate(latest ? inboxPath('all', String(latest.id)) : `/contacts/${contact.id}`)
+                          } catch {
+                            navigate(`/contacts/${contact.id}`)
+                          }
+                        }}
+                      >
+                        {contact.threadCount}
+                      </button>
+                    ) : (
+                      contact.threadCount
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <span
@@ -963,7 +1095,7 @@ export default function ContactsPage() {
                     >
                       {contact.status === 'blocked' ? <ShieldBan size={10} /> : null}
                       {contact.status === 'approved' ? <Check size={10} /> : null}
-                      {humanizeLabel(contact.status)}
+                      {contactStatusLabel(contact.status, t)}
                     </span>
                   </td>
                 </tr>

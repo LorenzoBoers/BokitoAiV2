@@ -33,7 +33,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
 
   const runTest = async (row: McpIntegrationRow) => {
     if (!row.mcpServerId) {
-      toast.error('No MCP server id on this connection')
+      toast.error(t('integrations.mcp.servers.noServerId'))
       return
     }
     const serverId = String(row.mcpServerId)
@@ -49,12 +49,12 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
         },
       }))
       if (result.ok) {
-        toast.success(`Connected — ${result.tool_count} tool${result.tool_count === 1 ? '' : 's'} found`)
+        toast.success(t('integrations.mcp.servers.testSuccess', { count: result.tool_count }))
       } else {
-        toast.error(result.error ?? 'Connection test failed')
+        toast.error(result.error ?? t('integrations.mcp.servers.testFailed'))
       }
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Connection test failed'))
+      toast.error(formatApiErrorMessage(err, t('integrations.mcp.servers.testFailed')))
     } finally {
       setTestingId(null)
     }
@@ -123,8 +123,8 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                     {testResults[row.id] ? (
                       <span className={`text-[10px] ${testResults[row.id].ok ? 'text-status-success' : 'text-status-error'}`}>
                         {testResults[row.id].ok
-                          ? `${testResults[row.id].toolCount} tools`
-                          : testResults[row.id].error ?? 'Test failed'}
+                          ? t('integrations.mcp.servers.testCount', { count: testResults[row.id].toolCount })
+                          : testResults[row.id].error ?? t('integrations.mcp.servers.testFailed')}
                       </span>
                     ) : null}
                   </div>
@@ -136,7 +136,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                       size="sm"
                       disabled={testingId === row.id}
                       onClick={() => void runTest(row)}
-                      aria-label="Test connection"
+                      aria-label={t('integrations.mcp.servers.testConnection')}
                     >
                       {testingId === row.id ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
                     </Button>

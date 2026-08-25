@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { requestPasswordReset } from '../lib/api';
-import { ValidatedInput, ValidationRules, useFormValidation } from '../components/ui/form-validation';
+import { ValidatedInput, useFormValidation } from '../components/ui/form-validation';
 
 export default function ForgotPassword() {
+  const { t } = useTranslation('nav');
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -15,8 +17,9 @@ export default function ForgotPassword() {
     { email },
     {
       email: [
-        ValidationRules.required('Email'),
-        ValidationRules.email('Email'),
+        (value: string) => (value ? null : t('forgotPage.emailRequired')),
+        (value: string) =>
+          value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? t('forgotPage.emailInvalid') : null,
       ],
     }
   );
@@ -34,7 +37,7 @@ export default function ForgotPassword() {
       }
       setIsSuccess(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Password reset request failed');
+      toast.error(error instanceof Error ? error.message : t('forgotPage.failed'));
     } finally {
       setIsLoading(false);
     }
@@ -64,16 +67,15 @@ export default function ForgotPassword() {
           <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
-              Email sent
+              {t('forgotPage.sentTitle')}
             </h1>
             <p className="text-text-secondary mb-6">
-              We sent a password reset link to <strong>{email}</strong>.
-              Check your inbox and spam folder.
+              {t('forgotPage.sentBody', { email })}
             </p>
             {devLink ? (
               <div className="mb-6 rounded-md border border-border bg-bg-input/50 px-4 py-3 text-left text-sm">
-                <p className="font-medium text-text-heading mb-1">Local dev reset link</p>
-                <p className="text-text-secondary mb-2">No SMTP in dev — use this link instead:</p>
+                <p className="font-medium text-text-heading mb-1">{t('forgotPage.devTitle')}</p>
+                <p className="text-text-secondary mb-2">{t('forgotPage.devBody')}</p>
                 <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
                   {devLink}
                 </Link>
@@ -85,12 +87,12 @@ export default function ForgotPassword() {
               className="inline-flex items-center gap-2 text-accent hover:text-accent-hover transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to sign in
+              {t('loginPage.backToSignIn')}
             </Link>
           </div>
 
           <p className="text-center text-xs text-text-muted mt-6">
-            © {new Date().getFullYear()} Bokito.ai · All rights reserved
+            © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
           </p>
         </div>
       </div>
@@ -114,7 +116,7 @@ export default function ForgotPassword() {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">Forgot password</span>
+          <span className="text-sm text-text-secondary mt-1">{t('forgotPage.subtitle')}</span>
         </div>
 
         {/* Card */}
@@ -122,21 +124,21 @@ export default function ForgotPassword() {
           <div className="text-center mb-6">
             <Mail className="w-12 h-12 text-accent mx-auto mb-3" />
             <h1 className="text-xl font-semibold text-text-heading mb-2">
-              Reset password
+              {t('forgotPage.title')}
             </h1>
             <p className="text-sm text-text-secondary">
-              Enter your email and we will send you a link to reset your password.
+              {t('forgotPage.body')}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <ValidatedInput
-              label="Email"
+              label={t('loginPage.email')}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               error={validation.errors.find(e => e.field === 'email')?.message}
-              placeholder="you@company.com"
+              placeholder={t('forgotPage.emailPlaceholder')}
               required
               autoFocus
             />
@@ -144,9 +146,9 @@ export default function ForgotPassword() {
             <button
               type="submit"
               disabled={isLoading || !validation.isValid}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
-              {isLoading ? 'Sending...' : 'Send reset link'}
+              {isLoading ? t('forgotPage.sending') : t('forgotPage.sendLink')}
             </button>
           </form>
 
@@ -156,13 +158,13 @@ export default function ForgotPassword() {
               className="inline-flex items-center gap-2 text-sm text-accent hover:text-accent-hover transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to sign in
+              {t('loginPage.backToSignIn')}
             </Link>
           </div>
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · All rights reserved
+          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
       </div>
     </div>

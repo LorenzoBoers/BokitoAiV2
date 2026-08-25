@@ -5,7 +5,8 @@ import secrets
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.channels import ingest_inbound
 from app.channels import email as email_adapter
 from app.channels import slack as slack_adapter
+from app.channels import whatsapp as whatsapp_adapter
 from app.channels.base import BlockedContactError, account_settings
+from app.config import get_settings
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.channel import (
@@ -559,6 +562,92 @@ async def slack_events(
     if should_process:
         await enqueue_signal_processing(str(account.tenant_id), str(signal.id))
     return {"ok": True, "signal_id": str(signal.id)}
+
+
+@router.get("/whatsapp/setup")
+async def whatsapp_setup(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Setup values for the WhatsApp connect card (webhook URL + verify token).
+
+    The verify token only gates Meta's subscription handshake; exposing it to
+    tenant admins is required for the BYO-app self-serve flow.
+    """
+    auth.require_role("owner", "admin")
+    settings = get_settings()
+    return {
+        "webhook_url": f"{settings.public_api_url.rstrip('/')}/api/channels/whatsapp/webhook",
+        "verify_token": settings.whatsapp_verify_token,
+        "configured": bool(settings.meta_app_secret and settings.whatsapp_verify_token),
+    }
+
+
+@router.get("/whatsapp/webhook")
+async def whatsapp_verify(
+    hub_mode: Annotated[str, Query(alias="hub.mode")] = "",
+    hub_verify_token: Annotated[str, Query(alias="hub.verify_token")] = "",
+    hub_challenge: Annotated[str, Query(alias="hub.challenge")] = "",
+):
+    """Meta webhook verification handshake (app-level, one URL for all tenants)."""
+    settings = get_settings()
+    expected = settings.whatsapp_verify_token
+    if not expected or hub_mode != "subscribe" or hub_verify_token != expected:
+        raise HTTPException(status_code=403, detail="Verification failed")
+    return PlainTextResponse(hub_challenge)
+
+
+@router.post("/whatsapp/webhook")
+async def whatsapp_webhook(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    x_hub_signature_256: Annotated[str | None, Header()] = None,
+):
+    """WhatsApp Cloud API events (one app-level URL; account resolved per payload).
+
+    Always returns 200 for processable payloads — Meta retries aggressively on
+    non-2xx and eventually disables the webhook.
+    """
+    settings = get_settings()
+    body = await request.body()
+    if not whatsapp_adapter.verify_signature(
+        app_secret=settings.meta_app_secret,
+        signature=x_hub_signature_256 or "",
+        body=body,
+    ):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+    try:
+        payload = json.loads(body or "{}")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+
+    results: list[dict] = []
+    for value in whatsapp_adapter.extract_message_values(payload):
+        phone_number_id = str((value.get("metadata") or {}).get("phone_number_id") or "")
+        if not phone_number_id:
+            continue
+        account_result = await session.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.channel == "whatsapp",
+                ChannelAccount.address == phone_number_id,
+                ChannelAccount.is_enabled == True,  # noqa: E712
+            )
+        )
+        account = account_result.scalar_one_or_none()
+        if not account:
+            results.append({"phone_number_id": phone_number_id, "ignored": "no_account"})
+            continue
+        for inbound in whatsapp_adapter.normalize_inbound(value, account):
+            try:
+                signal, should_process = await ingest_inbound(
+                    session, account.tenant_id, inbound
+                )
+            except BlockedContactError:
+                results.append({"dropped": "blocked_contact"})
+                continue
+            if should_process:
+                await enqueue_signal_processing(str(account.tenant_id), str(signal.id))
+            results.append({"signal_id": str(signal.id)})
+    return {"ok": True, "results": results}
 
 
 @router.post("/slack/interactions")

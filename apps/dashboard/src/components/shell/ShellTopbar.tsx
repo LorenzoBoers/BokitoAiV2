@@ -1,4 +1,4 @@
-import { Bell, Building2, ChevronDown, Compass, LogOut, Menu, Search, UserCircle2 } from 'lucide-react'
+import { Bell, Building2, ChevronDown, Compass, LogOut, Menu, Search, Sparkles, UserCircle2 } from 'lucide-react'
 import { useLocation, useNavigate, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -18,6 +18,7 @@ import StaffTenantBar from '../layout/StaffTenantBar'
 import InboxHeaderSearch from '../inbox/InboxHeaderSearch'
 import NotificationDropdown from '../notifications/NotificationDropdown'
 import { useTour } from '../tour/TourContext'
+import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 
 type ShellTopbarProps = {
   onOpenNavDrawer: () => void
@@ -31,6 +32,8 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   const { t: tTour } = useTranslation('tour')
   const { user, logout } = useAuth()
   const { start: startTour } = useTour()
+  const { status: onboardingStatus } = useOnboardingStatus()
+  const setupIncomplete = Boolean(onboardingStatus && !onboardingStatus.completed)
   const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace()
   const tab = tabFromPath(pathname)
   const pageTitle = tab ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) }) : 'Bokito'
@@ -171,6 +174,12 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
             <Compass size={14} className="mr-2 text-text-muted" />
             {tTour('replay')}
           </DropdownMenuItem>
+          {setupIncomplete ? (
+            <DropdownMenuItem onClick={() => navigate('/settings/setup')}>
+              <Sparkles size={14} className="mr-2 text-text-muted" />
+              {t('topbar.resumeSetup')}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout}>
             <LogOut size={14} className="mr-2 text-text-muted" />

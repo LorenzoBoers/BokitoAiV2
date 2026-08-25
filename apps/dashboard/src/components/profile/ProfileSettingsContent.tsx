@@ -30,6 +30,7 @@ function EditableField({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { t } = useTranslation('profile')
 
   const startEdit = () => {
     setDraft(value)
@@ -52,7 +53,7 @@ function EditableField({
       setEditing(false)
     } catch (err) {
       // Keep edit mode open so the user does not mistake a failure for a save.
-      toast.error(err instanceof Error ? err.message : `Could not save ${label.toLowerCase()}.`)
+      toast.error(err instanceof Error ? err.message : t('errors.saveField', { label: label.toLowerCase() }))
     } finally {
       setSaving(false)
     }
@@ -82,7 +83,7 @@ function EditableField({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg hover:bg-accent/90 disabled:opacity-50"
           >
             <Check size={13} />
           </button>
@@ -272,7 +273,11 @@ export function ProfileSettingsContent() {
       const url = data.avatar?.url ?? data.avatar?.path ?? null
       if (url) patchLocalUser({ avatarUrl: url })
     } catch (err) {
-      toast.error(err instanceof Error ? `Could not upload avatar (${err.message}).` : 'Could not upload avatar.')
+      toast.error(
+        err instanceof Error
+          ? t('profile:errors.uploadAvatarDetail', { detail: err.message })
+          : t('profile:errors.uploadAvatar'),
+      )
     } finally {
       setAvatarUploading(false)
       // Reset so the same file can be re-selected
@@ -293,7 +298,7 @@ export function ProfileSettingsContent() {
       await logout()
       window.location.assign('/login')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not delete the account.')
+      toast.error(err instanceof Error ? err.message : t('profile:errors.deleteAccount'))
       setDeleting(false)
     }
   }, [token, deleting, t, logout])
@@ -326,16 +331,16 @@ export function ProfileSettingsContent() {
     try {
       const result = await resendVerificationEmail(user.email)
       if (result.dev_link) {
-        toast.success('Verification email sent. Check the dev link in the API response or server logs.')
+        toast.success(t('profile:errors.verificationSentDev'))
       } else {
-        toast.success('Verification email sent if applicable.')
+        toast.success(t('profile:errors.verificationSent'))
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not resend verification email')
+      toast.error(error instanceof Error ? error.message : t('profile:errors.resendVerification'))
     } finally {
       setVerifySending(false)
     }
-  }, [user?.email])
+  }, [user?.email, t])
 
   const saveJobTitle = useCallback(async (next: string) => {
     if (!token) return
@@ -378,7 +383,7 @@ export function ProfileSettingsContent() {
       setTotpSetup({ secret: data.secret, otpauthUri: data.otpauth_uri })
       setTotpEnrollCode('')
     } catch (err) {
-      setTotpError(err instanceof Error ? err.message : 'Could not start 2FA setup')
+      setTotpError(err instanceof Error ? err.message : t('profile:errors.totpStart'))
     } finally {
       setTotpBusy(false)
     }
@@ -392,9 +397,9 @@ export function ProfileSettingsContent() {
       patchLocalUser({ totpEnabled: true })
       setTotpSetup(null)
       setTotpEnrollCode('')
-      toast.success(t('profile:security.totpEnabled', { defaultValue: 'Two-factor authentication enabled' }))
+      toast.success(t('profile:security.totpEnabled'))
     } catch {
-      setTotpError(t('profile:security.totpInvalidCode', { defaultValue: 'Invalid verification code. Try again.' }))
+      setTotpError(t('profile:security.totpInvalidCode'))
     } finally {
       setTotpBusy(false)
     }
@@ -408,9 +413,9 @@ export function ProfileSettingsContent() {
       patchLocalUser({ totpEnabled: false })
       setShowTotpDisable(false)
       setTotpDisablePw('')
-      toast.success(t('profile:security.totpDisabled', { defaultValue: 'Two-factor authentication disabled' }))
+      toast.success(t('profile:security.totpDisabled'))
     } catch (err) {
-      setTotpError(err instanceof Error ? err.message : 'Could not disable 2FA')
+      setTotpError(err instanceof Error ? err.message : t('profile:errors.totpDisable'))
     } finally {
       setTotpBusy(false)
     }
@@ -585,12 +590,12 @@ export function ProfileSettingsContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-heading">
-                  {t('profile:security.totpTitle', { defaultValue: 'Two-factor authentication' })}
+                  {t('profile:security.totpTitle')}
                 </p>
                 <p className="text-xs text-text-muted">
                   {user?.totpEnabled
-                    ? t('profile:security.totpOnDescription', { defaultValue: 'Signing in requires a code from your authenticator app.' })
-                    : t('profile:security.totpOffDescription', { defaultValue: 'Add an extra sign-in step with an authenticator app.' })}
+                    ? t('profile:security.totpOnDescription')
+                    : t('profile:security.totpOffDescription')}
                 </p>
               </div>
               {user?.totpEnabled ? (
@@ -600,7 +605,7 @@ export function ProfileSettingsContent() {
                   className="h-8 rounded-lg px-3 text-xs"
                   onClick={() => { setShowTotpDisable((v) => !v); setTotpError(null) }}
                 >
-                  {t('profile:security.totpDisable', { defaultValue: 'Disable' })}
+                  {t('profile:security.totpDisable')}
                 </Button>
               ) : (
                 <Button
@@ -613,7 +618,7 @@ export function ProfileSettingsContent() {
                   <ShieldCheck size={12} />
                   {totpSetup
                     ? t('profile:security.cancel')
-                    : t('profile:security.totpEnable', { defaultValue: 'Enable' })}
+                    : t('profile:security.totpEnable')}
                 </Button>
               )}
             </div>
@@ -621,9 +626,7 @@ export function ProfileSettingsContent() {
             {totpSetup && !user?.totpEnabled && (
               <div className="mt-3 space-y-3 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
                 <p className="text-xs text-text-secondary">
-                  {t('profile:security.totpStep1', {
-                    defaultValue: 'Add this key to your authenticator app (Google Authenticator, 1Password, Microsoft Authenticator, ...), then enter the 6-digit code it shows.',
-                  })}
+                  {t('profile:security.totpStep1')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <code className="rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 font-mono text-[12px] tracking-wider text-text-primary">
@@ -635,16 +638,16 @@ export function ProfileSettingsContent() {
                     className="h-7 rounded-lg px-2.5 text-[11px]"
                     onClick={() => {
                       void navigator.clipboard.writeText(totpSetup.secret)
-                      toast.success(t('common:actions.copied', { defaultValue: 'Copied' }))
+                      toast.success(t('common:actions.copied'))
                     }}
                   >
-                    {t('common:actions.copy', { defaultValue: 'Copy' })}
+                    {t('common:actions.copy')}
                   </Button>
                   <a
                     href={totpSetup.otpauthUri}
                     className="text-[11.5px] font-medium text-accent hover:text-accent-hover"
                   >
-                    {t('profile:security.totpOpenApp', { defaultValue: 'Open in authenticator app' })}
+                    {t('profile:security.totpOpenApp')}
                   </a>
                 </div>
                 <div className="flex items-center gap-2">
@@ -664,7 +667,7 @@ export function ProfileSettingsContent() {
                   >
                     {totpBusy
                       ? t('profile:personalInformation.saving')
-                      : t('profile:security.totpConfirm', { defaultValue: 'Verify and enable' })}
+                      : t('profile:security.totpConfirm')}
                   </Button>
                 </div>
                 {totpError && <p className="text-xs text-status-error">{totpError}</p>}
@@ -674,7 +677,7 @@ export function ProfileSettingsContent() {
             {showTotpDisable && user?.totpEnabled && (
               <div className="mt-3 space-y-2.5 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
                 <p className="text-xs text-text-secondary">
-                  {t('profile:security.totpDisableConfirm', { defaultValue: 'Enter your password to turn off two-factor authentication.' })}
+                  {t('profile:security.totpDisableConfirm')}
                 </p>
                 <div className="flex items-center gap-2">
                   <Input
@@ -691,7 +694,7 @@ export function ProfileSettingsContent() {
                     disabled={totpBusy || !totpDisablePw}
                     onClick={() => void disableTotp()}
                   >
-                    {t('profile:security.totpDisable', { defaultValue: 'Disable' })}
+                    {t('profile:security.totpDisable')}
                   </Button>
                 </div>
                 {totpError && <p className="text-xs text-status-error">{totpError}</p>}

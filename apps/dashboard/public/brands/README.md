@@ -15,7 +15,7 @@ Used when `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/lib/b
 | `logo-microsoft.svg` | Microsoft four-square ([worldvectorlogo.com](https://worldvectorlogo.com/logo/microsoft-5)) |
 | `logo-gmail.svg` | Gmail product mark (Google colors, existing repo asset) |
 | `logo-outlook.svg` | Outlook product icon (existing repo asset; optional dark variant for Microsoft host) |
-| `logo-bjorn-lunden.svg` | Official SVG from [bjornlunden.com](https://bjornlunden.com/wp-content/uploads/Bjorn-Lunden-logo.svg) |
+| `logo-bjorn-lunden.svg` | Official SVG from [bjornlunden.com](https://bjornlunden.com/wp-content/uploads/Bjorn-Lunden-logo.svg). Also used as the KING Accountancy host fallback (same vendor). |
 | `logo-custom.svg` | [Model Context Protocol](https://modelcontextprotocol.io/) mark via `cdn.simpleicons.org` (neutral host for custom MCP URLs) |
 | `logo-higgsfield.svg` | Higgsfield wordmark-style mark (Bokito fallback; dark tile + accent) |
 | `logo-smtp-imap.svg` | Neutral mail icon (Bokito) |

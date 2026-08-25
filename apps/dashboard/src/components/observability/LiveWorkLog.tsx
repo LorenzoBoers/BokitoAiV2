@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   fetchWorkLogEvents,
   type WorkLogEvent,
@@ -12,6 +13,7 @@ type Props = {
 }
 
 export function LiveWorkLog({ workLogId }: Props) {
+  const { t } = useTranslation('nav')
   const [events, setEvents] = useState<WorkLogEvent[]>([])
   const [status, setStatus] = useState<WorkLogStatus | null>(null)
   const [taskSubject, setTaskSubject] = useState<string | null>(null)
@@ -75,7 +77,9 @@ export function LiveWorkLog({ workLogId }: Props) {
         setTokensUsed(data.tokens_used ?? null)
         setError(null)
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load run events')
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : t('workforce.runLog.loadError'))
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -118,21 +122,21 @@ export function LiveWorkLog({ workLogId }: Props) {
       unsubscribe?.()
       if (pollTimer) clearInterval(pollTimer)
     }
-  }, [workLogId])
+  }, [workLogId, t])
 
   return (
     <div className="space-y-3">
       <div className="rounded border border-border/60 bg-bg-elevated px-3 py-2 text-sm">
-        <p className="font-medium text-text-primary">{taskSubject || 'Agent run'}</p>
+        <p className="font-medium text-text-primary">{taskSubject || t('workforce.runLog.title')}</p>
         <p className="text-text-muted">
-          Status: {status || 'unknown'}
-          {runtimeModel ? ` | Model: ${runtimeModel}` : null}
-          {tokensUsed != null ? ` | Tokens: ${tokensUsed}` : null}
+          {t('workforce.runLog.status')}: {status || t('workforce.runLog.unknown')}
+          {runtimeModel ? ` | ${t('workforce.runLog.model')}: ${runtimeModel}` : null}
+          {tokensUsed != null ? ` | ${t('workforce.runLog.tokens')}: ${tokensUsed}` : null}
         </p>
         {contextPct != null ? (
           <div className="mt-2">
             <div className="flex justify-between text-xs text-text-muted">
-              <span>Context window</span>
+              <span>{t('workforce.runLog.contextWindow')}</span>
               <span>{contextPct}%</span>
             </div>
             <div className="mt-0.5 h-1.5 rounded-full bg-bg-surface overflow-hidden">
@@ -144,16 +148,16 @@ export function LiveWorkLog({ workLogId }: Props) {
 
       <div className="max-h-96 space-y-2 overflow-y-auto rounded border border-border/60 bg-bg-surface p-3 font-mono text-xs">
         {loading && events.length === 0 && !error ? (
-          <p className="text-text-muted">Loading events...</p>
+          <p className="text-text-muted">{t('workforce.runLog.loadingEvents')}</p>
         ) : error ? (
           <p className="text-destructive">{error}</p>
         ) : events.length === 0 ? (
-          <p className="text-text-muted">Waiting for events...</p>
+          <p className="text-text-muted">{t('workforce.runLog.waiting')}</p>
         ) : (
           events.map((ev, i) => (
             <details key={i} className="rounded bg-bg-elevated p-2">
               <summary className="cursor-pointer text-text-primary">
-                [{ev.type}] {ev.title || 'event'}
+                [{ev.type}] {ev.title || t('workforce.runLog.eventFallback')}
               </summary>
               {ev.body ? <pre className="mt-1 whitespace-pre-wrap text-text-muted">{ev.body}</pre> : null}
               {ev.payload ? (

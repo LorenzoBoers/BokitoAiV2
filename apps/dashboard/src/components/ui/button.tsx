@@ -8,11 +8,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border border-accent/40 bg-accent text-white shadow-[0_1px_0_rgba(255,255,255,0.06)_inset] hover:bg-accent-hover',
-        secondary: 'border border-border/60 bg-bg-elevated text-text-primary shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] hover:bg-bg-hover',
+        default:
+          'btn-elevated border border-black/5 bg-accent text-accent-fg hover:bg-accent-hover',
+        secondary:
+          'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover',
         ghost: 'text-text-secondary hover:bg-bg-hover/75 hover:text-text-primary',
-        subtle: 'border border-border/60 bg-bg-surface text-text-secondary hover:bg-bg-hover/70 hover:text-text-primary',
-        outline: 'border border-border/60 bg-transparent text-text-primary hover:bg-bg-hover/70',
+        subtle:
+          'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:bg-bg-hover',
+        outline:
+          'btn-elevated border border-border-light bg-bg-surface text-text-heading hover:bg-bg-hover',
+        ai: 'btn-elevated border border-ai/30 bg-ai text-ai-fg hover:brightness-110',
         destructive: 'bg-status-error/12 text-status-error hover:bg-status-error/18',
       },
       size: {

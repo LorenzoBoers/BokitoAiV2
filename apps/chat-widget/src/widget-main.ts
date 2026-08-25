@@ -460,7 +460,7 @@ class StateMachine {
 const WIDGET_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Jaro:opsz@6&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:ital,wght@0,300..700;1,300..700&display=swap');
 :host {
-  --bk-brand:         #00D986;
+  --bk-brand:         #0D9488;
   --bk-primary:       var(--bk-brand);
   --bk-primary-dark:  color-mix(in srgb, var(--bk-brand) 86%, #000);
   --bk-primary-light: color-mix(in srgb, var(--bk-brand) 14%, transparent);
@@ -855,7 +855,7 @@ const WIDGET_CSS = `
 .bk-csat-comment:focus{border-color:var(--bk-primary);}
 .bk-csat-send{align-self:flex-start;padding:8px 14px;border:none;border-radius:8px;background:var(--bk-primary);color:var(--bk-on-primary);font-size:13px;font-weight:600;cursor:pointer;}
 .bk-worklog-stack{margin:8px 16px 0;padding:10px 12px;border-radius:12px;background:var(--bk-surface-muted,#f3f4f6);font-size:13px;color:var(--bk-text-secondary,#4b5563);}
-.bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#00D986);}
+.bk-worklog-stack--done .bk-worklog-title{font-weight:600;color:var(--bk-accent,#0D9488);}
 .bk-worklog-title{font-weight:500;margin-bottom:6px;}
 .bk-worklog-list{margin:0;padding-left:18px;}
 .bk-worklog-list li{margin:2px 0;}
@@ -2619,7 +2619,7 @@ class BokitoChatWidget extends HTMLElement {
     const int = Math.min(1, Math.max(0, Number(intensity) || 1));
     const end = Math.min(96, Math.max(52, Number(linearFadeEndPct) || 88));
     const cs = getComputedStyle(this);
-    const primary = (cs.getPropertyValue('--bk-primary').trim() || '#00D986');
+    const primary = (cs.getPropertyValue('--bk-primary').trim() || '#0D9488');
     const bg = (cs.getPropertyValue('--bk-bg').trim() || '#F7FBF9');
     const a1 = Math.round(100 * 0.18 * int);
     const a2 = Math.round(100 * 0.06 * int);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -29,7 +30,7 @@ import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
-import { humanizeLabel } from '../lib/labels'
+import { flowStatusLabel } from '../lib/status-labels'
 import { inboxPath } from '../lib/messages-paths'
 import {
   deleteProject,
@@ -48,16 +49,17 @@ import {
   type ProjectWorkstreamRow,
 } from '../lib/workstreams-api'
 
-async function copyText(value: string, label: string) {
+async function copyText(value: string, copied: string, copyError: string) {
   try {
     await navigator.clipboard.writeText(value)
-    toast.success(`${label} copied`)
+    toast.success(copied)
   } catch {
-    toast.error(`Could not copy ${label.toLowerCase()}`)
+    toast.error(copyError)
   }
 }
 
 export default function ProjectDetail() {
+  const { t } = useTranslation('nav')
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
@@ -106,11 +108,11 @@ export default function ProjectDetail() {
           : [],
       )
     } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not load project.'))
+      setError(formatApiErrorMessage(err, t('projects.detail.loadError')))
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, t])
 
   useEffect(() => {
     void load()
@@ -132,9 +134,9 @@ export default function ProjectDetail() {
       setProject(updated)
       setName(updated.name)
       setDescription(updated.description ?? '')
-      toast.success('Project saved')
+      toast.success(t('projects.detail.saved'))
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not save project.'))
+      toast.error(formatApiErrorMessage(err, t('projects.detail.saveError')))
     } finally {
       setSaving(false)
     }
@@ -145,10 +147,10 @@ export default function ProjectDetail() {
     setDeleting(true)
     try {
       await deleteProject(project.id, project.name)
-      toast.success('Project deleted')
+      toast.success(t('projects.detail.deleted'))
       navigate('/projects')
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not delete project.'))
+      toast.error(formatApiErrorMessage(err, t('projects.detail.deleteError')))
     } finally {
       setDeleting(false)
     }
@@ -169,13 +171,13 @@ export default function ProjectDetail() {
         className="inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
       >
         <ArrowLeft size={14} />
-        Back to projects
+        {t('projects.detail.back')}
       </Link>
 
       {loading ? (
-        <LoadingBlock label="Loading project…" />
+        <LoadingBlock label={t('projects.detail.loading')} />
       ) : error || !project ? (
-        <ApiErrorBanner message={error ?? 'Project not found.'} onRetry={() => void load()} />
+        <ApiErrorBanner message={error ?? t('projects.detail.notFound')} onRetry={() => void load()} />
       ) : (
         <>
           <header className="flex flex-wrap items-start justify-between gap-3">
@@ -192,7 +194,7 @@ export default function ProjectDetail() {
               <Button asChild type="button" size="sm" variant="outline">
                 <Link to={threadsHref}>
                   <MessageSquare size={14} className="mr-1" />
-                  View threads
+                  {t('projects.detail.viewThreads')}
                 </Link>
               </Button>
               <Button
@@ -203,7 +205,7 @@ export default function ProjectDetail() {
                 onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 size={14} className="mr-1" />
-                Delete
+                {t('projects.detail.delete')}
               </Button>
             </div>
           </header>
@@ -213,7 +215,7 @@ export default function ProjectDetail() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Bot size={16} className="text-text-muted" />
-                  Orchestration
+                  {t('projects.detail.orchestration')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -221,10 +223,15 @@ export default function ProjectDetail() {
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs text-text-muted">
                     <Workflow size={12} />
-                    Workstreams
+                    {t('projects.detail.flows')}
                   </Label>
                   {workstreams.length === 0 ? (
-                    <p className="text-sm text-text-muted">No workstreams configured yet.</p>
+                    <p className="text-sm text-text-muted">
+                      {t('projects.detail.noFlows')}{' '}
+                      <Link to="/agenda" className="text-accent hover:underline">
+                        {t('projects.detail.addOnAgenda')}
+                      </Link>
+                    </p>
                   ) : (
                     <ul className="space-y-1">
                       {workstreams.map((stream) => (
@@ -235,9 +242,16 @@ export default function ProjectDetail() {
                           <span className="min-w-0">
                             <span className="block truncate text-sm text-text-primary">{stream.name}</span>
                             <span className="block text-[11px] text-text-muted">
-                              {stream.steps_count > 0
-                                ? `${stream.steps_count} step${stream.steps_count === 1 ? '' : 's'}`
-                                : 'No steps yet'}
+                              {stream.steps_count > 0 ? (
+                                t('projects.detail.stepCount', { count: stream.steps_count })
+                              ) : (
+                                <>
+                                  {t('projects.detail.noSteps')}{' '}
+                                  <Link to="/agenda" className="text-accent hover:underline">
+                                    {t('projects.detail.addOnAgenda')}
+                                  </Link>
+                                </>
+                              )}
                             </span>
                           </span>
                           <span className="flex shrink-0 items-center gap-1.5">
@@ -245,7 +259,7 @@ export default function ProjectDetail() {
                               variant={stream.enabled ? 'secondary' : 'outline'}
                               className="px-1.5 py-0 text-[10px]"
                             >
-                              {humanizeLabel(stream.enabled ? 'active' : 'paused')}
+                              {flowStatusLabel(stream.enabled, t)}
                             </Badge>
                             <Button
                               type="button"
@@ -255,18 +269,18 @@ export default function ProjectDetail() {
                               disabled={runningStreamId !== null || stream.steps_count === 0}
                               title={
                                 stream.steps_count === 0
-                                  ? 'Add steps on the Agenda page before running'
-                                  : 'Run this workstream now'
+                                  ? t('projects.detail.addStepsFirst')
+                                  : t('projects.detail.runFlow')
                               }
                               onClick={async () => {
                                 setRunningStreamId(stream.id)
                                 try {
                                   await runProjectWorkstream(stream.id)
-                                  toast.success(`Workstream "${stream.name}" started.`)
+                                  toast.success(t('projects.detail.started', { name: stream.name }))
                                   void load()
                                 } catch (err) {
                                   toast.error(
-                                    err instanceof Error ? err.message : 'Could not start workstream.',
+                                    err instanceof Error ? err.message : t('projects.detail.startError'),
                                   )
                                 } finally {
                                   setRunningStreamId(null)
@@ -289,7 +303,7 @@ export default function ProjectDetail() {
                       <Input
                         value={newStreamName}
                         onChange={(e) => setNewStreamName(e.target.value)}
-                        placeholder="New workstream name"
+                        placeholder={t('projects.detail.newFlowName')}
                         className="h-8 text-sm"
                       />
                       <Button
@@ -303,11 +317,18 @@ export default function ProjectDetail() {
                           try {
                             await createProjectWorkstream(projectId, { name: newStreamName.trim() })
                             setNewStreamName('')
-                            toast.success('Workstream created. Add steps on the Agenda page.')
+                            toast.success(
+                              <span>
+                                {t('projects.detail.created')}{' '}
+                                <Link to="/agenda" className="font-medium underline">
+                                  {t('projects.detail.addOnAgenda')}
+                                </Link>
+                              </span>,
+                            )
                             void load()
                           } catch (err) {
                             toast.error(
-                              err instanceof Error ? err.message : 'Could not create workstream.',
+                              err instanceof Error ? err.message : t('projects.detail.createError'),
                             )
                           } finally {
                             setCreatingStream(false)
@@ -319,7 +340,7 @@ export default function ProjectDetail() {
                         ) : (
                           <Plus size={13} className="mr-1" />
                         )}
-                        Add
+                        {t('projects.detail.add')}
                       </Button>
                     </div>
                   ) : null}
@@ -343,7 +364,7 @@ export default function ProjectDetail() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Wallet size={16} className="text-text-muted" />
-                  Budget
+                  {t('projects.detail.budgetTitle')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -352,13 +373,13 @@ export default function ProjectDetail() {
                     <ProjectBudgetBar budget={budget} />
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <p className="text-xs text-text-muted">Remaining today</p>
+                        <p className="text-xs text-text-muted">{t('projects.detail.remainingToday')}</p>
                         <p className="font-medium text-text-heading">
                           {budget.remaining_today.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-text-muted">Remaining this hour</p>
+                        <p className="text-xs text-text-muted">{t('projects.detail.remainingHour')}</p>
                         <p className="font-medium text-text-heading">
                           {budget.remaining_hour.toLocaleString()}
                         </p>
@@ -366,42 +387,48 @@ export default function ProjectDetail() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-sm text-text-muted">No budget data available.</p>
+                  <p className="text-sm text-text-muted">{t('projects.detail.noBudget')}</p>
                 )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">About this project</CardTitle>
+                <CardTitle className="text-base">{t('projects.detail.about')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="project-name">Name</Label>
+                  <Label htmlFor="project-name">{t('projects.detail.name')}</Label>
                   <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="project-description">Description for your AI team</Label>
+                  <Label htmlFor="project-description">{t('projects.detail.description')}</Label>
                   <Input
                     id="project-description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What is this project about?"
+                    placeholder={t('projects.detail.descriptionPlaceholder')}
                   />
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => void copyText(project.id, 'Project ID')}
+                    onClick={() =>
+                      void copyText(
+                        project.id,
+                        t('projects.detail.copied', { label: t('projects.detail.copyId') }),
+                        t('projects.detail.copyError', { label: t('projects.detail.copyId') }),
+                      )
+                    }
                     className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
                     title={project.id}
                   >
                     <Copy size={12} />
-                    Copy project ID
+                    {t('projects.detail.copyId')}
                   </button>
                   <Button type="button" size="sm" disabled={!dirty || saving || !name.trim()} onClick={() => void saveAbout()}>
                     {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                    Save changes
+                    {t('projects.detail.save')}
                   </Button>
                 </div>
               </CardContent>
@@ -410,14 +437,22 @@ export default function ProjectDetail() {
 
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-text-heading">Recent activity</h2>
+              <h2 className="text-sm font-semibold text-text-heading">{t('projects.detail.activity')}</h2>
               <Button asChild type="button" size="sm" variant="ghost">
-                <Link to={threadsHref}>Open project threads</Link>
+                <Link to={threadsHref}>{t('projects.detail.openThreads')}</Link>
               </Button>
             </div>
             {runs.length === 0 ? (
               <Card className="p-4">
-                <p className="text-sm text-text-muted">No agent runs for this project yet.</p>
+                <p className="text-sm text-text-muted">{t('projects.detail.noRuns')}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <Link to="/agenda" className="text-sm font-medium text-accent hover:underline">
+                    {t('projects.detail.scheduleRun')}
+                  </Link>
+                  <Link to={threadsHref} className="text-sm font-medium text-accent hover:underline">
+                    {t('projects.detail.openThreads')}
+                  </Link>
+                </div>
               </Card>
             ) : (
               <WorkLogsTable
@@ -433,10 +468,10 @@ export default function ProjectDetail() {
 
       {deleteOpen && project ? (
         <ConfirmDeleteDialog
-          title="Delete project"
-          itemLabel="the project"
+          title={t('projects.detail.deleteTitle')}
+          itemLabel={t('projects.detail.deleteItem')}
           itemName={project.name}
-          impactText="Threads and tasks linked to this project keep their history but lose the project grouping. Agents are unlinked but not deleted."
+          impactText={t('projects.detail.deleteImpact')}
           isDeleting={deleting}
           onCancel={() => setDeleteOpen(false)}
           onConfirm={confirmDelete}

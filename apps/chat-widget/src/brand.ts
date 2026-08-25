@@ -1,6 +1,6 @@
 /** Brand / accent tokens applied on the widget host. Theme CSS must not override these. */
 
-export const DEFAULT_BRAND = '#00D986'
+export const DEFAULT_BRAND = '#0D9488'
 
 export type Rgb = { r: number; g: number; b: number }
 

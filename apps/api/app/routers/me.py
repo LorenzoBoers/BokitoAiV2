@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import UserPreference
+from app.services.language import platform_default_ui_language
 from app.services.personal_agents import (
     allowed_company_agents,
     get_or_create_personal_agent,
@@ -52,7 +53,7 @@ async def get_my_preferences(
         stored = {}
     lang = stored.get("ui_language")
     if lang not in ("en", "nl"):
-        lang = "en"
+        lang = platform_default_ui_language()
     return {"ui_language": lang, "tour": _tour_state(stored)}
 
 
@@ -88,7 +89,11 @@ async def patch_my_preferences(
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
     await session.commit()
-    return {"ui_language": stored.get("ui_language", "en"), "tour": _tour_state(stored)}
+    stored_lang = stored.get("ui_language")
+    return {
+        "ui_language": stored_lang if stored_lang in ("en", "nl") else platform_default_ui_language(),
+        "tour": _tour_state(stored),
+    }
 
 
 async def _assistant_payload(session: AsyncSession, auth: AuthContext) -> dict:

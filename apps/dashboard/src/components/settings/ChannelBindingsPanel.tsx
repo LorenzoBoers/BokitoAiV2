@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -14,17 +16,13 @@ import {
 } from '../../lib/channel-bindings-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
-// Only channels with a real adapter + connect path. WhatsApp returns here
-// once a channel adapter ships.
-const CHANNELS = [
-  { value: 'email', label: 'Email' },
-  { value: 'widget', label: 'Webchat' },
-  { value: 'slack', label: 'Slack' },
-] as const
+// Only channels with a real adapter + connect path.
+const CHANNELS = ['email', 'widget', 'slack', 'whatsapp'] as const
 
 type AgentOption = { id: string; name: string }
 
 export default function ChannelBindingsPanel() {
+  const { t } = useTranslation('nav')
   const [bindings, setBindings] = useState<ChannelBinding[]>([])
   const [agents, setAgents] = useState<AgentOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,32 +42,37 @@ export default function ChannelBindingsPanel() {
       setAgents(agentRows.map((a) => ({ id: a.id, name: a.name })))
       setAgentId((prev) => prev || agentRows[0]?.id || '')
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not load channel bindings.'))
+      toast.error(formatApiErrorMessage(err, t('channelsPage.bindings.loadError')))
       setBindings([])
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? 'Agent'
-  const channelLabel = (value: string) => CHANNELS.find((c) => c.value === value)?.label ?? value
+  const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? t('workforce.agents.types.worker')
+  const channelLabel = (value: string) => {
+    if (value === 'email' || value === 'widget' || value === 'slack' || value === 'whatsapp') {
+      return t(`channelsPage.bindings.${value}`)
+    }
+    return value
+  }
 
   const addBinding = async () => {
     if (!agentId) {
-      toast.error('Pick an agent for this binding.')
+      toast.error(t('channelsPage.bindings.pickAgent'))
       return
     }
     setSaving(true)
     try {
       await createChannelBinding({ channel, agent_id: agentId, priority: 10, enabled: true })
-      toast.success('Channel binding created')
+      toast.success(t('channelsPage.bindings.created'))
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not create binding.'))
+      toast.error(formatApiErrorMessage(err, t('channelsPage.bindings.createError')))
     } finally {
       setSaving(false)
     }
@@ -79,10 +82,10 @@ export default function ChannelBindingsPanel() {
     setRemovingId(id)
     try {
       await deleteChannelBinding(id)
-      toast.success('Binding removed')
+      toast.success(t('channelsPage.bindings.removed'))
       setBindings((prev) => prev.filter((b) => b.id !== id))
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not remove binding.'))
+      toast.error(formatApiErrorMessage(err, t('channelsPage.bindings.removeError')))
     } finally {
       setRemovingId(null)
     }
@@ -91,21 +94,33 @@ export default function ChannelBindingsPanel() {
   return (
     <Card className="space-y-5 p-5">
       <div>
-        <h2 className="text-sm font-medium text-text-heading">Channel bindings</h2>
+        <h2 className="text-sm font-medium text-text-heading">{t('channelsPage.bindings.title')}</h2>
         <p className="mt-0.5 text-xs text-text-muted">
-          Route inbound conversations on a channel to a specific agent. Without a binding, the
-          default assistant handles new threads.
+          {t('channelsPage.bindings.body')}
         </p>
       </div>
 
       {loading ? (
-        <LoadingBlock variant="inline" label="Loading bindings..." />
+        <LoadingBlock variant="inline" label={t('channelsPage.bindings.loading')} />
       ) : (
         <>
           {bindings.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center text-xs text-text-muted">
-              No bindings yet. New messages use the default assistant until you add one.
-            </p>
+            <div className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center">
+              <p className="text-xs text-text-muted">
+                {t('channelsPage.bindings.empty')}
+              </p>
+              {agents.length === 0 ? null : (
+                <p className="mt-1.5 text-[11px] text-text-muted">{t('channelsPage.bindings.emptyHint')}</p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+                  {t('channelsPage.bindings.openAgents')}
+                </Link>
+                <Link to="/communication/inbox/all" className="text-xs font-medium text-accent hover:underline">
+                  {t('channelsPage.bindings.openCommunication')}
+                </Link>
+              </div>
+            </div>
           ) : (
             <ul className="space-y-2">
               {bindings.map((row) => (
@@ -118,8 +133,8 @@ export default function ChannelBindingsPanel() {
                       {channelLabel(row.channel)} → {agentName(row.agent_id)}
                     </p>
                     <p className="text-[11px] text-text-muted">
-                      Priority {row.priority}
-                      {!row.enabled ? ' · disabled' : ''}
+                      {t('channelsPage.bindings.priority', { priority: row.priority })}
+                      {!row.enabled ? ` · ${t('channelsPage.bindings.disabled')}` : ''}
                     </p>
                   </div>
                   <Button
@@ -128,7 +143,7 @@ export default function ChannelBindingsPanel() {
                     variant="ghost"
                     disabled={removingId === row.id}
                     onClick={() => void removeBinding(row.id)}
-                    aria-label="Remove binding"
+                    aria-label={t('channelsPage.bindings.removeAria')}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -138,16 +153,16 @@ export default function ChannelBindingsPanel() {
           )}
 
           <div className="space-y-2 border-t border-border/60 pt-4">
-            <Label className="text-xs">Add binding</Label>
+            <Label className="text-xs">{t('channelsPage.bindings.add')}</Label>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
                 className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
               >
-                {CHANNELS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
+                {CHANNELS.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`channelsPage.bindings.${value}`)}
                   </option>
                 ))}
               </select>
@@ -157,7 +172,7 @@ export default function ChannelBindingsPanel() {
                 className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
               >
                 {agents.length === 0 ? (
-                  <option value="">No agents</option>
+                  <option value="">{t('channelsPage.bindings.noAgents')}</option>
                 ) : (
                   agents.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -172,7 +187,7 @@ export default function ChannelBindingsPanel() {
                 disabled={saving || !agentId}
                 onClick={() => void addBinding()}
               >
-                {saving ? 'Adding...' : 'Add'}
+                {saving ? t('channelsPage.bindings.adding') : t('channelsPage.bindings.add')}
               </Button>
             </div>
           </div>

@@ -12,7 +12,9 @@
     "workspace": {
       "current": "Current",
       "openCta": "Open workspace",
-      "defaultSlug": "workspace"
+      "defaultSlug": "workspace",
+      "subdomainRequired": "Set a subdomain to open this workspace",
+      "setSubdomainCta": "Set a subdomain first"
     },
     "create": {
       "title": "Create workspace",
@@ -21,7 +23,8 @@
       "button": "Create workspace",
       "creating": "Creating...",
       "error": "Creating workspace failed",
-      "openDialogCta": "Set up workspace"
+      "openDialogCta": "Set up workspace",
+      "subdomainPlaceholder": "acme"
     }
   },
   "empty": {

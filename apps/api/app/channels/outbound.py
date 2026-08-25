@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels import email as email_adapter
 from app.channels import slack as slack_adapter
+from app.channels import whatsapp as whatsapp_adapter
 from app.models.channel import ChannelAccount
 from app.models.signal import Signal, SignalMessage
 
@@ -69,7 +70,7 @@ async def deliver_outbound(
     Returns a send status string (`sent`, `failed:...`, or `skipped` for
     channels without external delivery such as internal/assistant threads).
     """
-    if signal.channel not in ("email", "slack"):
+    if signal.channel not in ("email", "slack", "whatsapp"):
         return "skipped"
     if not signal.channel_account_id:
         return "skipped"
@@ -99,6 +100,12 @@ async def deliver_outbound(
             thread_provider_id=(signal.external_id or "").strip() or None,
             attachments=attachments,
             session=session,
+        )
+    if signal.channel == "whatsapp":
+        # thread_external_id IS the customer's wa_id (one thread per number).
+        recipient = (to_address or "").strip() or (signal.external_id or "").strip()
+        return await whatsapp_adapter.send_message(
+            account, to_address=recipient, body_text=body_text
         )
     return await slack_adapter.send_message(
         account, thread_external_id=signal.external_id, body_text=body_text

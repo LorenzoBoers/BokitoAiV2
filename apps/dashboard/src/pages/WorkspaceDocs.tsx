@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   ExternalLink,
@@ -18,6 +19,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import MarkdownView from '../components/docs/MarkdownView'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { KnowledgeMark, KnowledgeTile, LearnedChip } from '../components/knowledge/KnowledgeMark'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -37,15 +39,6 @@ import { cn } from '../lib/utils'
 
 const KIND_ORDER: WorkspaceDocKind[] = ['persona', 'memory', 'skill', 'heartbeat', 'doc', 'daily_log']
 
-const KIND_LABELS: Record<WorkspaceDocKind, string> = {
-  persona: 'Persona',
-  memory: 'Memory',
-  skill: 'Skills',
-  heartbeat: 'Heartbeat',
-  doc: 'Docs',
-  daily_log: 'Daily logs',
-}
-
 /** Kinds that agents write and maintain themselves (auto-learning surface). */
 const AI_MAINTAINED_KINDS = new Set<WorkspaceDocKind>(['memory', 'heartbeat', 'daily_log'])
 
@@ -55,23 +48,44 @@ function isPublished(doc: WorkspaceDocRow | null): boolean {
   return TRUTHY.has(String(doc?.frontmatter?.published ?? '').toLowerCase())
 }
 
-/** Drop a leading `# Title` that duplicates the doc title shown in the header. */
-function stripDuplicateTitle(content: string, title: string): string {
+const LEGACY_DOC_HEADINGS = new Set([
+  'persona',
+  'how we sound',
+  'heartbeat checklist',
+  'daily check-in',
+  'long-term memory',
+  'what we remember',
+  'company',
+  'about the company',
+])
+
+/** Drop a leading `# Title` that duplicates the header or a known remapped name. */
+function stripDuplicateTitle(content: string, titles: string[]): string {
   const lines = content.split('\n')
   let idx = 0
   while (idx < lines.length && lines[idx].trim() === '') idx += 1
   const first = lines[idx] ?? ''
   const heading = first.match(/^#\s+(.*)$/)
-  if (heading && heading[1].trim().toLowerCase() === title.trim().toLowerCase()) {
+  if (!heading) return content
+  const text = heading[1].trim().toLowerCase()
+  const aliases = titles.map((title) => title.trim().toLowerCase()).filter(Boolean)
+  if (aliases.includes(text) || LEGACY_DOC_HEADINGS.has(text)) {
     return lines.slice(idx + 1).join('\n')
   }
   return content
 }
 
 export default function WorkspaceDocs() {
+  const { t } = useTranslation('nav')
   const { docId } = useParams<{ docId?: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+
+  const kindLabel = (kind: WorkspaceDocKind) => t(`knowledgePage.kinds.${kind}`)
+  const docTitle = (doc: WorkspaceDocRow) => {
+    const known = t(`knowledgePage.paths.${doc.path}`, { defaultValue: '' })
+    return known || doc.title || doc.path
+  }
   const [publishing, setPublishing] = useState(false)
   const [docs, setDocs] = useState<WorkspaceDocRow[]>([])
   const [active, setActive] = useState<WorkspaceDocRow | null>(null)
@@ -94,11 +108,11 @@ export default function WorkspaceDocs() {
       const rows = await listWorkspaceDocs()
       setDocs(rows)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load workspace docs.')
+      setError(err instanceof Error ? err.message : t('knowledgePage.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void refresh()
@@ -122,14 +136,14 @@ export default function WorkspaceDocs() {
       } catch {
         if (!cancelled) {
           setActive(null)
-          toast.error('Could not load this document.')
+          toast.error(t('knowledgePage.loadDocError'))
         }
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [docId])
+  }, [docId, t])
 
   const grouped = useMemo(() => {
     const groups = new Map<WorkspaceDocKind, WorkspaceDocRow[]>()
@@ -150,9 +164,9 @@ export default function WorkspaceDocs() {
       setHits(await searchWorkspace(query.trim()))
     } catch {
       setHits([])
-      toast.error('Search failed. Try again.')
+      toast.error(t('knowledgePage.searchError'))
     }
-  }, [query])
+  }, [query, t])
 
   const handleSave = useCallback(async () => {
     if (!active) return
@@ -162,16 +176,16 @@ export default function WorkspaceDocs() {
       setActive(updated)
       setEditing(false)
       setError(null)
-      toast.success('Document saved')
+      toast.success(t('knowledgePage.saved'))
       await refresh()
     } catch (err) {
-      const message = formatApiErrorMessage(err, 'Save failed.')
+      const message = formatApiErrorMessage(err, t('knowledgePage.saveError'))
       setError(message)
       toast.error(message)
     } finally {
       setSaving(false)
     }
-  }, [active, draft, refresh])
+  }, [active, draft, refresh, t])
 
   const handleCreate = useCallback(async () => {
     const path = newPath.trim()
@@ -181,15 +195,15 @@ export default function WorkspaceDocs() {
       setCreating(false)
       setNewPath('')
       setError(null)
-      toast.success('Document created')
+      toast.success(t('knowledgePage.created'))
       await refresh()
       navigate(`/knowledge/${doc.id}`)
     } catch (err) {
-      const message = formatApiErrorMessage(err, 'Create failed.')
+      const message = formatApiErrorMessage(err, t('knowledgePage.createError'))
       setError(message)
       toast.error(message)
     }
-  }, [navigate, newPath, refresh])
+  }, [navigate, newPath, refresh, t])
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -197,11 +211,11 @@ export default function WorkspaceDocs() {
       try {
         const doc = await uploadWorkspaceDocument(file)
         setError(null)
-        toast.success(`${file.name} added to the knowledge base`)
+        toast.success(t('knowledgePage.uploaded', { name: file.name }))
         await refresh()
         navigate(`/knowledge/${doc.id}`)
       } catch (err) {
-        const message = formatApiErrorMessage(err, 'Upload failed.')
+        const message = formatApiErrorMessage(err, t('knowledgePage.uploadError'))
         setError(message)
         toast.error(message)
       } finally {
@@ -209,7 +223,7 @@ export default function WorkspaceDocs() {
         if (uploadInputRef.current) uploadInputRef.current.value = ''
       }
     },
-    [navigate, refresh],
+    [navigate, refresh, t],
   )
 
   const handlePublishToggle = useCallback(async () => {
@@ -219,40 +233,43 @@ export default function WorkspaceDocs() {
     try {
       const updated = await publishWorkspaceDoc(active.id, publish)
       setActive((prev) => (prev ? { ...prev, frontmatter: updated.frontmatter } : prev))
-      toast.success(publish ? 'Published to help center' : 'Removed from help center')
+      toast.success(publish ? t('knowledgePage.published') : t('knowledgePage.unpublished'))
       await refresh()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not update publish state.'))
+      toast.error(formatApiErrorMessage(err, t('knowledgePage.publishError')))
     } finally {
       setPublishing(false)
     }
-  }, [active, refresh])
+  }, [active, refresh, t])
 
   const handleDelete = useCallback(async () => {
     if (!active) return
-    if (!window.confirm(`Delete ${active.path}?`)) return
+    if (!window.confirm(t('knowledgePage.deleteConfirm', { path: active.path }))) return
     try {
       await deleteWorkspaceDoc(active.id)
       setActive(null)
       setError(null)
-      toast.success('Document deleted')
+      toast.success(t('knowledgePage.deleted'))
       await refresh()
       navigate('/knowledge')
     } catch (err) {
-      const message = formatApiErrorMessage(err, 'Could not delete document.')
+      const message = formatApiErrorMessage(err, t('knowledgePage.deleteError'))
       setError(message)
       toast.error(message)
     }
-  }, [active, navigate, refresh])
+  }, [active, navigate, refresh, t])
 
-  const activeTitle = active ? active.title || active.path : ''
-  const displayContent = active ? stripDuplicateTitle(active.content ?? '', activeTitle) : ''
+  const activeTitle = active ? docTitle(active) : ''
+  const displayContent = active
+    ? stripDuplicateTitle(active.content ?? '', [activeTitle, active.title || '', active.path])
+    : ''
   const frontmatterEntries = active
     ? Object.entries(active.frontmatter ?? {}).filter(([k]) => k !== 'published')
     : []
 
   return (
-    <div className="flex h-full min-h-0 p-3 animate-page-enter">
+    <div className="flex h-full min-h-0 flex-col p-3 animate-page-enter">
+      <PageGuideBanner page="knowledge" className="mb-3 shrink-0" />
       <div className="featurebase-shell-panel flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border/40">
           <div className="space-y-2.5 border-b border-border/40 px-3 pb-3 pt-3.5">
@@ -260,9 +277,9 @@ export default function WorkspaceDocs() {
               <div className="flex min-w-0 items-center gap-2.5">
                 <KnowledgeTile />
                 <div className="min-w-0 leading-tight">
-                  <h2 className="truncate text-sm font-semibold text-text-heading">Knowledge</h2>
+                  <h2 className="truncate text-sm font-semibold text-text-heading">{t('knowledgePage.title')}</h2>
                   <p className="truncate text-[11px] text-text-muted">
-                    What your agents know and learn
+                    {t('knowledgePage.subtitle')}
                   </p>
                 </div>
               </div>
@@ -271,7 +288,7 @@ export default function WorkspaceDocs() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  title="Refresh"
+                  title={t('knowledgePage.refresh')}
                   onClick={() => void refresh()}
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
@@ -280,7 +297,7 @@ export default function WorkspaceDocs() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  title="Upload document (PDF, Word, text)"
+                  title={t('knowledgePage.upload')}
                   disabled={uploading}
                   onClick={() => uploadInputRef.current?.click()}
                 >
@@ -294,7 +311,7 @@ export default function WorkspaceDocs() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  title="New markdown doc"
+                  title={t('knowledgePage.newDoc')}
                   onClick={() => setCreating((v) => !v)}
                 >
                   <FilePlus className="h-3.5 w-3.5" />
@@ -316,7 +333,7 @@ export default function WorkspaceDocs() {
                 <Input
                   value={newPath}
                   onChange={(e) => setNewPath(e.target.value)}
-                  placeholder="skills/triage.md"
+                  placeholder={t('knowledgePage.pathPlaceholder')}
                   className="h-8 text-xs"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void handleCreate()
@@ -324,7 +341,7 @@ export default function WorkspaceDocs() {
                   autoFocus
                 />
                 <Button size="sm" className="h-8" onClick={() => void handleCreate()}>
-                  Add
+                  {t('knowledgePage.add')}
                 </Button>
               </div>
             ) : null}
@@ -336,7 +353,7 @@ export default function WorkspaceDocs() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') void runSearch()
                 }}
-                placeholder="Search docs"
+                placeholder={t('knowledgePage.searchPlaceholder')}
                 className="h-8 pl-7 text-xs"
               />
             </div>
@@ -351,10 +368,12 @@ export default function WorkspaceDocs() {
                     setQuery('')
                   }}
                 >
-                  Clear search
+                  {t('knowledgePage.clearSearch')}
                 </button>
                 {hits.length === 0 ? (
-                  <p className="px-2 py-4 text-xs text-text-muted">No matches.</p>
+                  <p className="px-2 py-4 text-xs text-text-muted">
+                    {t('knowledgePage.noMatches')}
+                  </p>
                 ) : (
                   hits.map((hit, idx) => (
                     <button
@@ -375,13 +394,29 @@ export default function WorkspaceDocs() {
                 )}
               </div>
             ) : loading ? (
-              <p className="px-2 py-4 text-xs text-text-muted">Loading…</p>
+              <p className="px-2 py-4 text-xs text-text-muted">{t('knowledgePage.loading')}</p>
             ) : error ? (
               <p className="px-2 py-4 text-xs text-status-error">{error}</p>
             ) : docs.length === 0 ? (
-              <p className="px-2 py-4 text-xs text-text-muted">
-                No docs yet. Use the + button to add your first one.
-              </p>
+              <div className="space-y-1.5 px-2 py-4">
+                <p className="text-xs text-text-muted">
+                  {t('knowledgePage.emptyHint')}
+                </p>
+                <div className="flex flex-col gap-1">
+                  <Link to="/agents" className="text-[11px] font-medium text-accent hover:underline">
+                    {t('knowledgePage.openAgents')}
+                  </Link>
+                  <Link to="/settings/setup" className="text-[11px] font-medium text-accent hover:underline">
+                    {t('knowledgePage.openSetup')}
+                  </Link>
+                  <Link to="/communication/new" className="text-[11px] font-medium text-accent hover:underline">
+                    {t('knowledgePage.talkAssistant')}
+                  </Link>
+                  <Link to="/settings/help-centers" className="text-[11px] font-medium text-accent hover:underline">
+                    {t('knowledgePage.openHelpCenter')}
+                  </Link>
+                </div>
+              </div>
             ) : (
               KIND_ORDER.map((kind) => {
                 const rows = grouped.get(kind) ?? []
@@ -389,7 +424,7 @@ export default function WorkspaceDocs() {
                 return (
                   <div key={kind} className="mb-3">
                     <p className="flex items-center gap-1.5 px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-text-muted">
-                      {KIND_LABELS[kind]}
+                      {kindLabel(kind)}
                       {AI_MAINTAINED_KINDS.has(kind) ? <KnowledgeMark size={11} /> : null}
                     </p>
                     {rows.map((doc) => (
@@ -407,10 +442,10 @@ export default function WorkspaceDocs() {
                         ) : (
                           <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
                         )}
-                        <span className="min-w-0 flex-1 truncate">{doc.title || doc.path}</span>
+                        <span className="min-w-0 flex-1 truncate">{docTitle(doc)}</span>
                         {isPublished(doc) ? (
                           <span
-                            title="Published on the help center"
+                            title={t('knowledgePage.publishedHelp')}
                             className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
                           />
                         ) : null}
@@ -428,19 +463,41 @@ export default function WorkspaceDocs() {
             <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
               <KnowledgeTile size="lg" className="knowledge-glow" />
               <div className="space-y-1.5">
-                <h1 className="text-lg font-semibold text-text-heading">Workspace knowledge</h1>
+                <h1 className="text-lg font-semibold text-text-heading">{t('knowledgePage.emptyTitle')}</h1>
                 <p className="mx-auto max-w-md text-sm leading-6 text-text-secondary">
-                  Docs, skills and memory that your agents read while working — and keep up to
-                  date themselves as they learn from your feedback and outcomes.
+                  {t('knowledgePage.emptyBody')}
                 </p>
               </div>
               {!loading && docs.length === 0 ? (
-                <Button size="sm" onClick={() => setCreating(true)}>
-                  <FilePlus className="mr-1.5 h-3.5 w-3.5" />
-                  Create first doc
-                </Button>
+                <div className="flex flex-col items-center gap-3">
+                  <Button size="sm" onClick={() => setCreating(true)}>
+                    <FilePlus className="mr-1.5 h-3.5 w-3.5" />
+                    {t('knowledgePage.createFirst')}
+                  </Button>
+                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
+                    <Link to="/settings/setup" className="font-medium text-accent hover:underline">
+                      {t('knowledgePage.openSetup')}
+                    </Link>
+                    <Link to="/agents" className="font-medium text-accent hover:underline">
+                      {t('knowledgePage.openAgents')}
+                    </Link>
+                    <Link to="/communication/new" className="font-medium text-accent hover:underline">
+                      {t('knowledgePage.talkAssistant')}
+                    </Link>
+                  </div>
+                </div>
               ) : (
-                <p className="text-xs text-text-muted">Select a doc, or create one with the + button.</p>
+                <div className="space-y-2">
+                  <p className="text-xs text-text-muted">{t('knowledgePage.selectHint')}</p>
+                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
+                    <Link to="/settings/setup" className="font-medium text-accent hover:underline">
+                      {t('knowledgePage.openSetup')}
+                    </Link>
+                    <Link to="/agents" className="font-medium text-accent hover:underline">
+                      {t('knowledgePage.openAgents')}
+                    </Link>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -449,22 +506,22 @@ export default function WorkspaceDocs() {
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h1 className="text-2xl font-semibold tracking-tight text-text-heading">
-                    {activeTitle}
+                    {docTitle(active)}
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <span className="inline-flex items-center rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] font-medium text-text-secondary">
-                      {KIND_LABELS[active.kind] ?? active.kind}
+                      {kindLabel(active.kind)}
                     </span>
                     <span className="inline-flex items-center rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-[11px] text-text-muted">
                       {active.path}
                     </span>
                     {AI_MAINTAINED_KINDS.has(active.kind) ? (
-                      <LearnedChip label="AI-maintained" />
+                      <LearnedChip label={t('knowledgePage.aiMaintained')} />
                     ) : null}
                     {isPublished(active) ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                         <Globe size={11} />
-                        Published
+                        {t('knowledgePage.publishedBadge')}
                       </span>
                     ) : null}
                   </div>
@@ -473,10 +530,10 @@ export default function WorkspaceDocs() {
                   {editing ? (
                     <>
                       <Button variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={saving}>
-                        Cancel
+                        {t('knowledgePage.cancel')}
                       </Button>
                       <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
-                        {saving ? 'Saving…' : 'Save'}
+                        {saving ? t('knowledgePage.saving') : t('knowledgePage.save')}
                       </Button>
                     </>
                   ) : (
@@ -489,12 +546,16 @@ export default function WorkspaceDocs() {
                           onClick={() => void handlePublishToggle()}
                           title={
                             isPublished(active)
-                              ? 'Remove from the public help center'
-                              : 'Publish on the public help center'
+                              ? t('knowledgePage.unpublishTitle')
+                              : t('knowledgePage.publishTitle')
                           }
                         >
                           <Globe className="mr-1.5 h-3.5 w-3.5" />
-                          {publishing ? 'Saving…' : isPublished(active) ? 'Published' : 'Publish'}
+                          {publishing
+                            ? t('knowledgePage.saving')
+                            : isPublished(active)
+                              ? t('knowledgePage.publishedBadge')
+                              : t('knowledgePage.publish')}
                         </Button>
                       ) : null}
                       <Button
@@ -506,13 +567,13 @@ export default function WorkspaceDocs() {
                         }}
                       >
                         <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                        Edit
+                        {t('knowledgePage.edit')}
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        title="Delete document"
+                        title={t('knowledgePage.delete')}
                         onClick={() => void handleDelete()}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -529,7 +590,9 @@ export default function WorkspaceDocs() {
                   className="mb-4 flex items-center gap-1.5 text-xs text-accent hover:underline"
                 >
                   <ExternalLink className="h-3 w-3" />
-                  View on help center: /help/{user.tenant.slug}/{active.frontmatter?.slug ?? ''}
+                  {t('knowledgePage.viewHelp', {
+                    path: `/help/${user.tenant.slug}/${active.frontmatter?.slug ?? ''}`,
+                  })}
                 </a>
               ) : null}
               {frontmatterEntries.length > 0 && !editing ? (

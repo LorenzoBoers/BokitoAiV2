@@ -11,9 +11,22 @@ import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
 import App from './App'
 import i18n from './i18n'
+import { PLATFORM_DEFAULT_LANGUAGE } from './lib/api.config'
 import { initSentry } from './lib/sentry'
 import { registerServiceWorker } from './lib/web-push'
 import './index.css'
+
+function resolveBootLanguage(): 'nl' | 'en' {
+  const fromQuery = new URLSearchParams(window.location.search).get('lang')
+  if (fromQuery === 'en' || fromQuery === 'nl') return fromQuery
+  try {
+    const stored = window.localStorage.getItem('bokito-language')
+    if (stored === 'en' || stored === 'nl') return stored
+  } catch {
+    // Ignore private-mode storage failures.
+  }
+  return PLATFORM_DEFAULT_LANGUAGE
+}
 
 initSentry()
 if (import.meta.env.PROD) {
@@ -36,11 +49,18 @@ window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault()
   window.location.reload()
 })
-void i18n.changeLanguage('en')
+const bootLanguage = resolveBootLanguage()
+void i18n.changeLanguage(bootLanguage)
+document.documentElement.lang = bootLanguage
 try {
-  localStorage.setItem('bokito-language', 'en')
+  const fromQuery = new URLSearchParams(window.location.search).get('lang')
+  if (fromQuery === 'en' || fromQuery === 'nl') {
+    localStorage.setItem('bokito-language', fromQuery)
+  } else if (!localStorage.getItem('bokito-language')) {
+    localStorage.setItem('bokito-language', PLATFORM_DEFAULT_LANGUAGE)
+  }
 } catch {
-  // ignore
+  // Ignore private-mode storage failures.
 }
 
 createRoot(document.getElementById('root')!).render(

@@ -25,6 +25,7 @@ HOSTS: list[dict[str, Any]] = [
     {"id": host_id("microsoft"), "slug": "microsoft", "name": "Microsoft", "brand_color": "#0078d4", "initials": "MS"},
     {"id": host_id("google"), "slug": "google", "name": "Google", "brand_color": "#4285f4", "initials": "GO"},
     {"id": host_id("bjorn_lunden"), "slug": "bjorn_lunden", "name": "Bjorn Lunden", "brand_color": "#0f766e", "initials": "BL"},
+    {"id": host_id("king"), "slug": "king", "name": "KING Accountancy", "brand_color": "#0f766e", "initials": "KA"},
     {"id": host_id("custom"), "slug": "custom", "name": "Custom MCP", "brand_color": "#475569", "initials": "MC"},
     {"id": host_id("notion"), "slug": "notion", "name": "Notion", "brand_color": "#000000", "initials": "NO"},
     {"id": host_id("linear"), "slug": "linear", "name": "Linear", "brand_color": "#5e6ad2", "initials": "LN"},
@@ -36,6 +37,7 @@ HOSTS: list[dict[str, Any]] = [
     {"id": host_id("stripe"), "slug": "stripe", "name": "Stripe", "brand_color": "#635bff", "initials": "ST"},
     {"id": host_id("shopify"), "slug": "shopify", "name": "Shopify", "brand_color": "#96bf48", "initials": "SH"},
     {"id": host_id("higgsfield"), "slug": "higgsfield", "name": "Higgsfield", "brand_color": "#111111", "initials": "HF"},
+    {"id": host_id("whatsapp"), "slug": "whatsapp", "name": "WhatsApp", "brand_color": "#25d366", "initials": "WA"},
 ]
 
 HOST_BY_SLUG = {h["slug"]: h for h in HOSTS}
@@ -107,6 +109,16 @@ PROVIDERS: list[dict[str, Any]] = [
         sort_order=3,
     ),
     _provider(
+        "whatsapp",
+        "WhatsApp Business",
+        "WhatsApp Business-berichten in de inbox via de Cloud API.",
+        "Communicatie",
+        "api_key",
+        host_slug="whatsapp",
+        capabilities={"inbox_sync": True},
+        sort_order=4,
+    ),
+    _provider(
         "bjorn_lunden_mcp",
         "Bjorn Lunden MCP",
         "Accounting tools via the native Bjorn Lunden (BLA) API integration.",
@@ -119,6 +131,16 @@ PROVIDERS: list[dict[str, Any]] = [
         # unset means the built-in native BLA API integration is used.
         mcp_remote_url=get_settings().bjorn_lunden_mcp_url or None,
         mcp_transport="streamable_http",
+    ),
+    _provider(
+        "king_accountancy",
+        "KING Accountancy",
+        "Read-only tools for KING Accountancy / KING Finance client administraties via Cloudswitch.",
+        "Productiviteit",
+        "api_key",
+        host_slug="king",
+        capabilities={"mcp_tools": True},
+        sort_order=9,
     ),
     _provider(
         "custom_mcp",

@@ -64,6 +64,52 @@ export async function createSlackAccount(
   }
 }
 
+export async function createWhatsAppAccount(
+  token: string,
+  payload: {
+    displayName: string
+    phoneNumberId: string
+    accessToken: string
+    wabaId?: string
+  },
+): Promise<ChannelAccountRow> {
+  const raw = await apiPost<Record<string, unknown>>(
+    appRoutes.channelAccounts.list,
+    {
+      channel: 'whatsapp',
+      provider: 'whatsapp_cloud',
+      address: payload.phoneNumberId,
+      display_name: payload.displayName,
+      credentials: {
+        access_token: payload.accessToken,
+        waba_id: payload.wabaId ?? '',
+      },
+    },
+    token,
+  )
+  const normalized = normalizeAccount(raw)
+  if (!normalized) throw new Error('Unexpected response while connecting WhatsApp.')
+  return normalized
+}
+
+export type WhatsAppSetupInfo = {
+  webhookUrl: string
+  verifyToken: string
+  configured: boolean
+}
+
+export async function getWhatsAppSetup(token: string): Promise<WhatsAppSetupInfo> {
+  const raw = await apiGet<Record<string, unknown>>(
+    appRoutes.channelAccounts.whatsappSetup,
+    token,
+  )
+  return {
+    webhookUrl: typeof raw.webhook_url === 'string' ? raw.webhook_url : '',
+    verifyToken: typeof raw.verify_token === 'string' ? raw.verify_token : '',
+    configured: raw.configured === true,
+  }
+}
+
 export async function deleteChannelAccount(token: string, accountId: string): Promise<void> {
   await apiDelete(appRoutes.channelAccounts.byId(accountId), token)
 }

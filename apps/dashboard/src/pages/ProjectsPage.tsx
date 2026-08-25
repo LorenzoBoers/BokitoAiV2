@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
   Bot,
@@ -14,6 +15,7 @@ import {
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -42,7 +44,7 @@ import {
   type ProjectBudgetResponse,
   type ProjectRow,
 } from '../lib/projects-api'
-import { humanizeLabel } from '../lib/labels'
+import { indexStatusLabel } from '../lib/status-labels'
 
 function slugify(value: string): string {
   return value
@@ -68,6 +70,7 @@ function ProjectCard({
   budget: ProjectBudgetResponse | undefined
   onDelete: () => void
 }) {
+  const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const threadsHref = `${inboxPath('all')}?project_id=${encodeURIComponent(project.id)}`
 
@@ -112,7 +115,7 @@ function ProjectCard({
                 onSelect={() => navigate(threadsHref)}
               >
                 <MessageSquare size={14} />
-                Open threads
+                {t('projects.page.openThreads')}
               </DropdownMenu.Item>
               {project.po_agent ? (
                 <DropdownMenu.Item
@@ -120,7 +123,7 @@ function ProjectCard({
                   onSelect={() => navigate(`/agents/${project.po_agent!.id}`)}
                 >
                   <Bot size={14} />
-                  Open orchestrator
+                  {t('projects.page.openLead')}
                 </DropdownMenu.Item>
               ) : null}
               <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
@@ -129,7 +132,7 @@ function ProjectCard({
                 onSelect={onDelete}
               >
                 <Trash2 size={14} />
-                Delete
+                {t('projects.page.delete')}
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
@@ -146,7 +149,7 @@ function ProjectCard({
           {project.po_agent ? (
             <span className="truncate">{project.po_agent.name}</span>
           ) : (
-            <span className="text-text-muted">No orchestrator</span>
+            <span className="text-text-muted">{t('projects.page.noLead')}</span>
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-text-secondary">
@@ -159,12 +162,12 @@ function ProjectCard({
                   variant={REPO_STATUS_VARIANT[project.repo_index_status] ?? 'outline'}
                   className="px-1.5 py-0 text-[10px]"
                 >
-                  {humanizeLabel(project.repo_index_status)}
+                  {indexStatusLabel(project.repo_index_status, t)}
                 </Badge>
               ) : null}
             </>
           ) : (
-            <span className="text-text-muted">No repository</span>
+            <span className="text-text-muted">{t('projects.page.noRepo')}</span>
           )}
         </div>
         {budget ? <ProjectBudgetBar budget={budget} /> : null}
@@ -174,6 +177,7 @@ function ProjectCard({
 }
 
 export default function ProjectsPage() {
+  const { t } = useTranslation('nav')
   const isAdmin = useIsAdmin()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [budgets, setBudgets] = useState<Record<string, ProjectBudgetResponse>>({})
@@ -206,11 +210,11 @@ export default function ProjectsPage() {
       )
       setBudgets(Object.fromEntries(budgetEntries.filter((e): e is [string, ProjectBudgetResponse] => e !== null)))
     } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not load projects.'))
+      setError(formatApiErrorMessage(err, t('projects.page.loadError')))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -230,10 +234,10 @@ export default function ProjectsPage() {
       setSlug('')
       setDescription('')
       setCreateOpen(false)
-      toast.success('Project created')
+      toast.success(t('projects.page.created'))
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not create project.'))
+      toast.error(formatApiErrorMessage(err, t('projects.page.createError')))
     } finally {
       setCreating(false)
     }
@@ -244,11 +248,11 @@ export default function ProjectsPage() {
     setDeleting(true)
     try {
       await deleteProject(deleteTarget.id, deleteTarget.name)
-      toast.success('Project deleted')
+      toast.success(t('projects.page.deleted'))
       setDeleteTarget(null)
       await load()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not delete project.'))
+      toast.error(formatApiErrorMessage(err, t('projects.page.deleteError')))
     } finally {
       setDeleting(false)
     }
@@ -260,22 +264,22 @@ export default function ProjectsPage() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
+      <PageGuideBanner page="projects" />
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-text-heading">Projects</h1>
+          <h1 className="text-2xl font-semibold text-text-heading">{t('projects.page.title')}</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Bundle threads, agents, knowledge and code under one goal. Each project pairs an
-            orchestrator with the repositories and budgets it works within.
+            {t('projects.page.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-            Refresh
+            {t('projects.page.refresh')}
           </Button>
           <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1 h-4 w-4" aria-hidden />
-            New project
+            {t('projects.page.new')}
           </Button>
         </div>
       </header>
@@ -283,17 +287,31 @@ export default function ProjectsPage() {
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
       {loading ? (
-        <LoadingBlock label="Loading projects…" />
+        <LoadingBlock label={t('projects.page.loading')} />
       ) : projects.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
-          title="No projects yet"
-          description="A project groups threads, agents, knowledge and an optional code repository around one goal. Create your first project to give your AI workforce a shared context."
+          title={t('projects.page.emptyTitle')}
+          description={t('projects.page.emptyBody')}
           action={
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1 h-4 w-4" aria-hidden />
-              New project
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" aria-hidden />
+                {t('projects.page.new')}
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/agents">{t('projects.page.openAgents')}</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/knowledge">{t('projects.page.openKnowledge')}</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/communication/inbox/all">{t('projects.page.openCommunication')}</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/settings/setup">{t('projects.page.openSetup')}</Link>
+              </Button>
+            </div>
           }
         />
       ) : (
@@ -312,14 +330,14 @@ export default function ProjectsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>New project</DialogTitle>
+            <DialogTitle>{t('projects.page.dialogTitle')}</DialogTitle>
             <DialogDescription>
-              Give the project a name; the URL slug is generated automatically.
+              {t('projects.page.dialogBody')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="project-name">Name</Label>
+              <Label htmlFor="project-name">{t('projects.page.name')}</Label>
               <Input
                 id="project-name"
                 value={name}
@@ -328,31 +346,31 @@ export default function ProjectsPage() {
                   setName(e.target.value)
                   if (!slug || slug === slugify(name)) setSlug(slugify(e.target.value))
                 }}
-                placeholder="Operations"
+                placeholder={t('projects.page.namePlaceholder')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="project-slug">Slug</Label>
+              <Label htmlFor="project-slug">{t('projects.page.slug')}</Label>
               <Input
                 id="project-slug"
                 value={slug}
                 onChange={(e) => setSlug(slugify(e.target.value))}
-                placeholder="operations"
+                placeholder={t('projects.page.slugPlaceholder')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="project-description">Description (optional)</Label>
+              <Label htmlFor="project-description">{t('projects.page.description')}</Label>
               <Input
                 id="project-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What is this project about?"
+                placeholder={t('projects.page.descriptionPlaceholder')}
               />
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t('projects.page.cancel')}
             </Button>
             <Button
               type="button"
@@ -360,7 +378,7 @@ export default function ProjectsPage() {
               onClick={() => void create()}
             >
               {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus size={14} className="mr-1.5" />}
-              Create project
+              {t('projects.page.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -368,10 +386,10 @@ export default function ProjectsPage() {
 
       {deleteTarget ? (
         <ConfirmDeleteDialog
-          title="Delete project"
-          itemLabel="the project"
+          title={t('projects.page.deleteTitle')}
+          itemLabel={t('projects.page.deleteItem')}
           itemName={deleteTarget.name}
-          impactText="Threads and tasks linked to this project keep their history but lose the project grouping."
+          impactText={t('projects.page.deleteImpact')}
           isDeleting={deleting}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={confirmDelete}

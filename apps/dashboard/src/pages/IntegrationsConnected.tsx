@@ -117,34 +117,34 @@ export default function IntegrationsConnected() {
   const handleDisconnectGithub = async (connectionId: string) => {
     if (
       !window.confirm(
-        t('integrations.actions.disconnectConfirm', { defaultValue: 'Disconnect this account?' }),
+        t('integrations.actions.disconnectConfirm'),
       )
     ) {
       return
     }
     try {
       await revokeIntegrationConnection(connectionId)
-      toast.success(t('integrations.actions.disconnected', { defaultValue: 'Connection removed' }))
+      toast.success(t('integrations.actions.disconnected'))
       await refresh()
     } catch {
-      toast.error(t('integrations.actions.disconnectFailed', { defaultValue: 'Could not disconnect' }))
+      toast.error(t('integrations.actions.disconnectFailed'))
     }
   }
 
   const handleDisconnectMcp = async (connectionId: string) => {
     if (
       !window.confirm(
-        t('integrations.actions.disconnectConfirm', { defaultValue: 'Disconnect this server?' }),
+        t('integrations.actions.disconnectConfirm'),
       )
     ) {
       return
     }
     try {
       await revokeMcpConnection(connectionId)
-      toast.success(t('integrations.actions.disconnected', { defaultValue: 'Connection removed' }))
+      toast.success(t('integrations.actions.disconnected'))
       await refresh()
     } catch {
-      toast.error(t('integrations.actions.disconnectFailed', { defaultValue: 'Could not disconnect' }))
+      toast.error(t('integrations.actions.disconnectFailed'))
     }
   }
 
@@ -166,7 +166,7 @@ export default function IntegrationsConnected() {
       </div>
 
       {loadError ? (
-        <p className="text-xs text-text-muted">{t(loadError, { defaultValue: loadError })}</p>
+        <p className="text-xs text-text-muted">{loadError}</p>
       ) : null}
 
       {kindFilter === 'all' && !loading ? (
@@ -191,17 +191,22 @@ export default function IntegrationsConnected() {
 
       {loading ? (
         <LoadingBlock label={t('integrations.connected.loading')} />
-      ) : !hasAnyConnection ? (
+      ) : !hasAnyConnection && kindFilter === 'all' ? (
         <EmptyState
           icon={Link2}
           title={t('integrations.connected.emptyAllTitle')}
           description={t('integrations.connected.emptyAllDescription')}
           action={
-            <Button size="sm" asChild>
-              <Link to="/settings/marketplace">
-                {t('integrations.connected.goToMarketplace')}
+            <div className="flex flex-col items-center gap-2">
+              <Button size="sm" asChild>
+                <Link to="/settings/marketplace">
+                  {t('integrations.connected.goToMarketplace')}
+                </Link>
+              </Button>
+              <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
+                {t('integrations.connected.setupGuideHint')}
               </Link>
-            </Button>
+            </div>
           }
         />
       ) : (
@@ -257,9 +262,14 @@ export default function IntegrationsConnected() {
                       </Badge>
                     </div>
                   </div>
-                  <Button size="sm" variant="secondary" className="mt-4" asChild>
-                    <Link to="/settings/channels">{t('integrations.connections.manageInbox')}</Link>
-                  </Button>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" asChild>
+                      <Link to="/settings/channels">{t('integrations.connections.manageInbox')}</Link>
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to="/communication/inbox/all">{t('integrations.connected.openInbox')}</Link>
+                    </Button>
+                  </div>
                 </>
               )}
             </KindSection>
@@ -281,7 +291,7 @@ export default function IntegrationsConnected() {
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/agents">{t('integrations.connected.openAgents', { defaultValue: 'Open agents' })}</Link>
+                    <Link to="/agents">{t('integrations.connected.openAgents')}</Link>
                   </Button>
                   <Button size="sm" onClick={() => void addGithubAccount()}>
                     {github.length === 0
@@ -340,11 +350,18 @@ export default function IntegrationsConnected() {
               {mcpRows.length === 0 ? (
                 <div className="space-y-3">
                   <p className="text-xs text-text-muted">{t('integrations.mcp.servers.empty')}</p>
-                  <Button size="sm" variant="secondary" asChild>
-                    <Link to={marketplacePathWithKind('mcp')}>
-                      {t('integrations.connected.browseMcp')}
-                    </Link>
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" asChild>
+                      <Link to={marketplacePathWithKind('mcp')}>
+                        {t('integrations.connected.browseMcp')}
+                      </Link>
+                    </Button>
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link to="/settings/govern?tab=policy">
+                        {t('integrations.connected.openGovern')}
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <ul className="space-y-2">

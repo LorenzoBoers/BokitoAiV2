@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import {
@@ -39,13 +40,13 @@ type TriggerDialogProps = {
   onSaved: () => void
 }
 
-const KIND_OPTIONS: Array<{ value: TriggerKind; label: string; hint: string }> = [
-  { value: 'once', label: 'One-off task', hint: 'Wakes the agent once at the scheduled time, then completes.' },
-  { value: 'event', label: 'Event', hint: 'Calendar item with a notification at the scheduled time. No agent run.' },
-  { value: 'cron', label: 'Cron schedule', hint: 'Recurring wake on a cron expression (UTC).' },
-  { value: 'interval', label: 'Interval', hint: 'Recurring wake every N minutes.' },
-  { value: 'heartbeat', label: 'Heartbeat', hint: 'Recurring checklist wake; agent reports only when something needs attention.' },
-  { value: 'webhook', label: 'Webhook', hint: 'Fires when an external system calls the webhook URL.' },
+const KIND_OPTIONS: Array<{ value: TriggerKind }> = [
+  { value: 'once' },
+  { value: 'event' },
+  { value: 'cron' },
+  { value: 'interval' },
+  { value: 'heartbeat' },
+  { value: 'webhook' },
 ]
 
 function toLocalInputValue(iso: string | null | undefined): string {
@@ -70,6 +71,7 @@ export default function TriggerDialog({
   initialRunAt,
   onSaved,
 }: TriggerDialogProps) {
+  const { t } = useTranslation('nav')
   const editing = trigger != null
   const [name, setName] = useState('')
   const [kind, setKind] = useState<TriggerKind>('once')
@@ -116,7 +118,7 @@ export default function TriggerDialog({
     setRevealedSecret(null)
   }, [open, trigger, initialRunAt, agents, workstreams])
 
-  const kindHint = useMemo(() => KIND_OPTIONS.find((k) => k.value === kind)?.hint ?? '', [kind])
+  const kindHint = t(`triggerDialog.hints.${kind}`)
   const needsRunAt = kind === 'once' || kind === 'event'
   const needsTarget = kind !== 'event'
 
@@ -185,7 +187,7 @@ export default function TriggerDialog({
         }
       }
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not save.'))
+      toast.error(formatApiErrorMessage(err, t('triggerDialog.saveError')))
     } finally {
       setSaving(false)
     }
@@ -200,7 +202,7 @@ export default function TriggerDialog({
       onOpenChange(false)
       onSaved()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not delete.'))
+      toast.error(formatApiErrorMessage(err, t('triggerDialog.deleteError')))
     } finally {
       setDeleting(false)
     }
@@ -210,28 +212,26 @@ export default function TriggerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Edit schedule' : 'New schedule'}</DialogTitle>
+          <DialogTitle>{editing ? t('triggerDialog.editTitle') : t('triggerDialog.newTitle')}</DialogTitle>
           <DialogDescription>
-            {editing
-              ? 'Adjust when this item runs and what it does.'
-              : 'Plan an agent wake, a one-off task, or a calendar event.'}
+            {editing ? t('triggerDialog.editDescription') : t('triggerDialog.newDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="trigger-name">Name</Label>
+            <Label htmlFor="trigger-name">{t('triggerDialog.name')}</Label>
             <Input
               id="trigger-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Morning briefing"
+              placeholder={t('triggerDialog.namePlaceholder')}
             />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Type</Label>
+              <Label>{t('triggerDialog.type')}</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as TriggerKind)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -239,7 +239,7 @@ export default function TriggerDialog({
                 <SelectContent>
                   {KIND_OPTIONS.map((k) => (
                     <SelectItem key={k.value} value={k.value}>
-                      {k.label}
+                      {t(`triggerDialog.kinds.${k.value}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -248,7 +248,7 @@ export default function TriggerDialog({
 
             {needsRunAt ? (
               <div className="space-y-1.5">
-                <Label htmlFor="trigger-run-at">When</Label>
+                <Label htmlFor="trigger-run-at">{t('triggerDialog.when')}</Label>
                 <Input
                   id="trigger-run-at"
                   type="datetime-local"
@@ -258,7 +258,7 @@ export default function TriggerDialog({
               </div>
             ) : kind === 'cron' ? (
               <div className="space-y-1.5">
-                <Label htmlFor="trigger-cron">Cron expression (UTC)</Label>
+                <Label htmlFor="trigger-cron">{t('triggerDialog.cron')}</Label>
                 <Input
                   id="trigger-cron"
                   value={cronExpr}
@@ -268,7 +268,7 @@ export default function TriggerDialog({
               </div>
             ) : kind === 'interval' || kind === 'heartbeat' ? (
               <div className="space-y-1.5">
-                <Label htmlFor="trigger-interval">Every (minutes)</Label>
+                <Label htmlFor="trigger-interval">{t('triggerDialog.everyMinutes')}</Label>
                 <Input
                   id="trigger-interval"
                   type="number"
@@ -284,35 +284,35 @@ export default function TriggerDialog({
 
           {needsTarget ? (
             <div className="space-y-1.5">
-              <Label>Target</Label>
+              <Label>{t('triggerDialog.target')}</Label>
               <Select value={target} onValueChange={setTarget}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick an agent or workstream" />
+                  <SelectValue placeholder={t('triggerDialog.targetPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {agents.map((a) => (
                     <SelectItem key={a.id} value={`agent:${a.id}`}>
-                      Agent: {a.name}
+                      {t('triggerDialog.agentPrefix', { name: a.name })}
                     </SelectItem>
                   ))}
                   {workstreams.map((w) => (
                     <SelectItem key={w.id} value={`ws:${w.id}`}>
-                      Workstream: {w.name}
+                      {t('triggerDialog.workstreamPrefix', { name: w.name })}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {agents.length === 0 && workstreams.length === 0 ? (
-                <p className="text-xs text-status-error">Create an agent first — schedules need a target to run.</p>
+                <p className="text-xs text-status-error">{t('triggerDialog.needTarget')}</p>
               ) : target === 'none' ? (
-                <p className="text-xs text-text-muted">Required for agent wakes and webhooks.</p>
+                <p className="text-xs text-text-muted">{t('triggerDialog.targetRequired')}</p>
               ) : null}
             </div>
           ) : null}
 
           <div className="space-y-1.5">
             <Label htmlFor="trigger-instructions">
-              {kind === 'event' ? 'Description' : 'Instructions for the agent'}
+              {kind === 'event' ? t('triggerDialog.description') : t('triggerDialog.instructions')}
             </Label>
             <Textarea
               id="trigger-instructions"
@@ -321,16 +321,16 @@ export default function TriggerDialog({
               rows={3}
               placeholder={
                 kind === 'event'
-                  ? 'What is this event about?'
-                  : 'What should the agent do when it wakes?'
+                  ? t('triggerDialog.eventPlaceholder')
+                  : t('triggerDialog.wakePlaceholder')
               }
             />
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
             <div>
-              <p className="text-sm font-medium text-text-heading">Enabled</p>
-              <p className="text-xs text-text-muted">Disabled items stay on the agenda but never fire.</p>
+              <p className="text-sm font-medium text-text-heading">{t('triggerDialog.enabled')}</p>
+              <p className="text-xs text-text-muted">{t('triggerDialog.enabledHint')}</p>
             </div>
             <Switch checked={enabled} onCheckedChange={setEnabled} />
           </div>
@@ -349,16 +349,16 @@ export default function TriggerDialog({
           <div>
             {editing ? (
               <Button type="button" variant="ghost" className="text-status-error" disabled={deleting || saving} onClick={() => void remove()}>
-                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : t('triggerDialog.delete')}
               </Button>
             ) : null}
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              {savedWebhook ? 'Close' : 'Cancel'}
+              {savedWebhook ? t('triggerDialog.close') : t('triggerDialog.cancel')}
             </Button>
             <Button type="button" onClick={() => void save()} disabled={!canSave || saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? 'Save' : 'Schedule'}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? t('triggerDialog.save') : t('triggerDialog.schedule')}
             </Button>
           </div>
         </DialogFooter>

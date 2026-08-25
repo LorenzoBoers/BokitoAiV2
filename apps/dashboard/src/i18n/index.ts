@@ -1,6 +1,7 @@
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
+import { PLATFORM_DEFAULT_LANGUAGE } from '../lib/api.config'
 import commonEn from '../locales/en/common.json'
 import navEn from '../locales/en/nav.json'
 import profileEn from '../locales/en/profile.json'
@@ -46,7 +47,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: 'en',
+    fallbackLng: PLATFORM_DEFAULT_LANGUAGE,
     supportedLngs: ['en', 'nl'],
     defaultNS: 'common',
     ns: ['common', 'nav', 'profile', 'workspace', 'communication', 'workspaces', 'govern', 'tour'],
@@ -54,8 +55,9 @@ i18n
       escapeValue: false,
     },
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['querystring', 'localStorage'],
       caches: ['localStorage'],
+      lookupQuerystring: 'lang',
       lookupLocalStorage: 'bokito-language',
     },
   })

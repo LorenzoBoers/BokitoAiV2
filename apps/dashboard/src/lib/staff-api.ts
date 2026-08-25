@@ -7,6 +7,7 @@ export interface StaffTenantOption {
   id: string
   slug: string
   name: string
+  supportAllowed: boolean
 }
 
 export async function listStaffTenants(token?: string): Promise<StaffTenantOption[]> {
@@ -36,7 +37,8 @@ export async function listStaffTenants(token?: string): Promise<StaffTenantOptio
       const slug = typeof item.slug === 'string' ? item.slug : ''
       const name = typeof item.name === 'string' ? item.name : slug
       if (!id || !slug) return null
-      return { id, slug, name } satisfies StaffTenantOption
+      const supportAllowed = item.support_allowed !== false
+      return { id, slug, name, supportAllowed } satisfies StaffTenantOption
     })
     .filter((row): row is StaffTenantOption => row !== null)
 }

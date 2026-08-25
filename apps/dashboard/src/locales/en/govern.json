@@ -1,40 +1,65 @@
 {
   "title": "Govern",
-  "subtitle": "Review platform drafts, set autonomy posture, and manage how agent changes apply.",
-  "openCanvas": "Open AI OS canvas",
+  "subtitle": "Review drafts, decide how much agents can do on their own, and see what changed.",
+  "openCanvas": "Open Agents",
   "loading": "Loading govern data...",
+  "loadError": "Could not load govern data.",
+  "postureError": "Could not update how much agents can do.",
+  "allowancesError": "Could not save allowances.",
+  "toolOverrideError": "Could not save this tool override.",
   "refresh": "Refresh",
   "tabs": {
     "drafts": "Pending drafts",
     "policy": "Policy",
     "history": "Version history",
-    "passports": "Agent passports",
+    "passports": "Agent access",
     "audit": "Recent audit"
   },
   "drafts": {
-    "empty": "No pending platform changes. Agents can propose edits from the AI OS canvas or workforce tools.",
+    "empty": "Nothing waiting for review. Customer decisions stay in Communication. Workspace edits show up here when you ask agents to wait.",
+    "openCommunication": "Open Communication",
+    "openAgents": "Open Agents",
+    "openInboxAi": "Open Inbox AI",
+    "openInCommunication": "Open in Communication",
     "viewDiff": "View changes",
     "accept": "Accept",
     "reject": "Reject",
     "acceptConfirm": "Apply this change to your workspace?",
     "rejectConfirm": "Reject this change? It will not be applied.",
     "accepted": "Change accepted and applied",
-    "rejected": "Change rejected"
+    "rejected": "Change rejected",
+    "acceptTitle": "Accept change",
+    "rejectTitle": "Reject change",
+    "acceptAction": "Accept",
+    "rejectAction": "Reject"
   },
   "history": {
-    "empty": "No accepted changes yet."
+    "empty": "No accepted changes yet.",
+    "openDrafts": "Open pending drafts",
+    "rollback": "Undo",
+    "rolledBack": "Change undone",
+    "rollbackError": "Could not undo this change."
+  },
+  "passports": {
+    "empty": "No agent access yet. Create an agent first, then set what it may do on the agent page.",
+    "openAgents": "Open Agents",
+    "autonomy": "How much it may do: {{level}}",
+    "scopes": "What it may use: {{scopes}}",
+    "roleDefaults": "role defaults",
+    "openAgent": "Open agent"
   },
   "audit": {
-    "empty": "No audit events yet.",
+    "empty": "No audit events yet. Agent work and approvals will show up here.",
+    "openCommunication": "Open Communication",
     "openThread": "Open thread",
     "openRun": "Open run",
     "openAgent": "Open agent"
   },
   "posture": {
-    "title": "Autonomy posture",
-    "intro": "Choose how much AI can run without human review. You can fine-tune individual tool categories below.",
-    "saved": "Autonomy posture updated",
-    "current": "Current posture",
+    "title": "How much agents can do",
+    "intro": "Choose how much agents can do without waiting for you. You can fine-tune individual tool categories below.",
+    "saved": "Autonomy setting updated",
+    "current": "Current setting",
     "manual": {
       "label": "Manual",
       "summary": "Humans approve every mutating agent action before it applies."
@@ -51,18 +76,107 @@
   "allowances": {
     "title": "Allowance sliders",
     "intro": "Per tool category: deny blocks the action, ask creates an inline decision, allow runs it automatically with an audit record.",
-    "saved": "Allowance saved."
+    "saved": "Allowance saved.",
+    "toolOverrideSaved": "{{toolName}}: {{mode}}",
+    "toolOverrideCleared": "{{toolName}}: category default"
+  },
+  "toolCategories": {
+    "messaging": { "label": "Messaging", "hint": "Replies, decisions, and thread actions." },
+    "workspace": { "label": "Workspace", "hint": "Memory, docs, skill edits, and canvas nodes." },
+    "agents": { "label": "Agents", "hint": "Creating and updating agents, flows, and tasks." },
+    "channels": { "label": "Channels", "hint": "Channel accounts and routing." },
+    "triggers": { "label": "Triggers", "hint": "Schedules, check-ins, and incoming triggers." },
+    "integrations": { "label": "Integrations", "hint": "External connections and connected tools." },
+    "govern": { "label": "Govern", "hint": "Policy and governance changes." },
+    "handoff": { "label": "Handoff", "hint": "Routing work to teammates or other agents." }
   },
   "tokens": {
-    "title": "API tokens (MCP access)",
-    "intro": "Connect Cursor or other MCP clients to this workspace at /api/mcp. Tokens use the same governed tools and allowance sliders as internal agents.",
+    "title": "App tokens",
+    "intro": "Connect Cursor or other apps to this workspace. Tokens follow the same Govern rules as agents.",
     "namePlaceholder": "Token name (e.g. Cursor)",
     "create": "Create token",
     "copied": "Copied.",
-    "empty": "No API tokens yet.",
+    "empty": "No app tokens yet.",
     "revoked": "Token revoked.",
     "revokedBadge": "Revoked",
     "allScopes": "All categories",
-    "lastUsed": "last used"
+    "lastUsed": "last used",
+    "movedIntro": "Tokens for Cursor and other apps live on Developers. They follow the same Govern rules as agents.",
+    "manageLink": "Open Developers"
+  },
+  "allowanceModes": {
+    "deny": {
+      "label": "Deny",
+      "hint": "Agents cannot use these tools at all."
+    },
+    "ask": {
+      "label": "Ask first",
+      "hint": "Each action opens an inline decision for approve or reject."
+    },
+    "allow": {
+      "label": "Allow",
+      "hint": "Actions run automatically and are recorded in the audit log."
+    }
+  },
+  "toolOverride": {
+    "default": "Default",
+    "override": "override",
+    "useCategoryDefault": "Use category default ({{mode}})",
+    "effectiveNow": "Effective now: {{mode}}",
+    "categoryAria": "{{category}} allowance"
+  },
+  "changeMeta": {
+    "resourceType": {
+      "agent": "Agent",
+      "workstream": "Flow",
+      "workspace_doc": "Knowledge doc",
+      "integration": "Integration",
+      "mcp_server": "Connected tools",
+      "canvas_node": "Canvas node",
+      "canvas_edge": "Canvas connection",
+      "autonomy_posture": "How much agents can do",
+      "persona_review": "Voice review"
+    },
+    "changeKind": {
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete",
+      "connect": "Connect",
+      "review": "Review"
+    },
+    "status": {
+      "pending_review": "Pending review",
+      "draft": "Draft",
+      "accepted": "Accepted",
+      "applied_yolo": "Applied automatically",
+      "rejected": "Rejected",
+      "superseded": "Superseded"
+    }
+  },
+  "diff": {
+    "add": "Add {{label}}: {{value}}",
+    "remove": "Remove {{label}}",
+    "change": "Change {{label}}: {{before}} → {{after}}",
+    "empty": "No field-level differences recorded.",
+    "emptyValue": "(empty)",
+    "yes": "yes",
+    "no": "no"
+  },
+  "diffFields": {
+    "name": "Name",
+    "role": "Role",
+    "system_prompt": "Instructions",
+    "description": "Description",
+    "enabled": "Enabled",
+    "provider": "Provider",
+    "display_name": "Display name",
+    "server_url": "Server URL",
+    "path": "Doc path",
+    "content": "Content",
+    "kind": "Doc kind",
+    "agent_id": "Agent",
+    "workstream_id": "Flow",
+    "node_type": "Node type",
+    "ref_id": "Reference"
   }
 }

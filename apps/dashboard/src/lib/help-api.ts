@@ -27,7 +27,8 @@ async function publicGet<T>(path: string): Promise<T> {
     } catch {
       // Non-JSON error body; fall back to the status code below.
     }
-    throw new Error(detail || `Request failed (HTTP ${res.status})`)
+    if (res.status === 404) throw new Error('NOT_FOUND')
+    throw new Error(detail || 'LOAD_FAILED')
   }
   return (await res.json()) as T
 }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Loader2, MessageSquare } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Card } from '../ui/card'
@@ -10,15 +11,18 @@ import {
 } from '../../lib/workforce-api'
 import { cn } from '../../lib/utils'
 
-const MODES: { value: ChatAccessMode; label: string; description: string }[] = [
-  { value: 'everyone', label: 'Everyone', description: 'All members can chat with this agent' },
-  { value: 'selected', label: 'Selected users', description: 'Only the members you pick' },
-  { value: 'nobody', label: 'Nobody', description: 'Background work only, no direct chat' },
-]
-
 /** Admin card: who in the workspace may open a direct chat with this company agent. */
 export function AgentChatAccessCard({ agentId }: { agentId: string }) {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const modes = useMemo(
+    (): { value: ChatAccessMode; label: string; description: string }[] => [
+      { value: 'everyone', label: t('workforce.agents.chatAccessEveryone'), description: t('workforce.agents.chatAccessEveryoneHint') },
+      { value: 'selected', label: t('workforce.agents.chatAccessSelected'), description: t('workforce.agents.chatAccessSelectedHint') },
+      { value: 'nobody', label: t('workforce.agents.chatAccessNobody'), description: t('workforce.agents.chatAccessNobodyHint') },
+    ],
+    [t],
+  )
   const [access, setAccess] = useState<AgentChatAccess | null>(null)
   const [mode, setMode] = useState<ChatAccessMode>('nobody')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -38,7 +42,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
         setMode(data.mode)
         setSelectedIds(new Set(data.members.filter((m) => m.selected).map((m) => m.id)))
       } catch {
-        if (!cancelled) setError('Could not load chat access.')
+        if (!cancelled) setError(t('workforce.agents.chatAccessLoadError'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -47,7 +51,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
     return () => {
       cancelled = true
     }
-  }, [token, agentId])
+  }, [token, agentId, t])
 
   const save = useCallback(
     async (nextMode: ChatAccessMode, nextIds: Set<string>) => {
@@ -67,12 +71,12 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
         setSaved(true)
         window.setTimeout(() => setSaved(false), 2000)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not save chat access.')
+        setError(err instanceof Error ? err.message : t('workforce.agents.chatAccessSaveError'))
       } finally {
         setSaving(false)
       }
     },
-    [token, agentId],
+    [token, agentId, t],
   )
 
   const chooseMode = (next: ChatAccessMode) => {
@@ -91,7 +95,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
   if (loading) {
     return (
       <Card className="flex items-center gap-2 px-4 py-3 text-sm text-text-muted">
-        <Loader2 size={14} className="animate-spin" /> Loading chat access...
+        <Loader2 size={14} className="animate-spin" /> {t('workforce.agents.chatAccessLoading')}
       </Card>
     )
   }
@@ -103,17 +107,17 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
         <div>
           <h3 className="flex items-center gap-1.5 text-base font-semibold text-text-heading">
             <MessageSquare size={15} className="text-text-muted" aria-hidden />
-            Communication
+            {t('workforce.agents.chatAccessTitle')}
           </h3>
           <p className="text-sm text-text-muted">
-            Who can open a direct chat with this agent from the Communication hub.
+            {t('workforce.agents.chatAccessBody')}
           </p>
         </div>
         <span className="flex items-center gap-1.5 text-[12px] text-text-muted">
           {saving ? <Loader2 size={12} className="animate-spin" /> : null}
           {saved ? (
             <span className="inline-flex items-center gap-1 text-status-success">
-              <Check size={12} /> Saved
+              <Check size={12} /> {t('workforce.agents.chatAccessSaved')}
             </span>
           ) : null}
         </span>
@@ -122,7 +126,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
       {error ? <p className="mt-2 text-[12px] text-status-error">{error}</p> : null}
 
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {MODES.map((m) => (
+        {modes.map((m) => (
           <button
             key={m.value}
             type="button"
@@ -145,7 +149,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
       {mode === 'selected' ? (
         <div className="mt-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            Allowed members
+            {t('workforce.agents.chatAccessMembers')}
           </p>
           <div className="mt-1.5 space-y-1">
             {access.members.map((member) => {

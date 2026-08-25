@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import type { AgentStep } from '../hooks/useSignalStream'
 
 export type AgentUsage = {
@@ -29,39 +30,54 @@ export function isKnowledgeStep(step: AgentStep | PersistedAgentStep): boolean {
   return isKnowledgeTool('name' in step ? step.name : undefined)
 }
 
-export function stepLabel(step: AgentStep): string {
-  if (step.stepType === 'tool_call') return 'Tool call'
-  if (step.stepType === 'tool_result') return 'Tool result'
-  if (step.stepType === 'think') return 'Thinking'
+export function stepLabel(step: AgentStep, t: TFunction): string {
+  if (step.stepType === 'tool_call') return t('agentSteps.toolCall', { ns: 'communication' })
+  if (step.stepType === 'tool_result') return t('agentSteps.toolResult', { ns: 'communication' })
+  if (step.stepType === 'think') return t('agentSteps.thinking', { ns: 'communication' })
   return step.stepType
 }
 
-export function stepHeadline(step: AgentStep): string {
+export function stepHeadline(step: AgentStep, t: TFunction): string {
   if (isKnowledgeTool(step.name)) {
     if (step.name === 'write_doc') {
-      return step.stepType === 'tool_result' ? 'Updated knowledge' : 'Updating knowledge...'
+      return step.stepType === 'tool_result'
+        ? t('agentSteps.updatedKnowledge', { ns: 'communication' })
+        : t('agentSteps.updatingKnowledge', { ns: 'communication' })
     }
-    return step.stepType === 'tool_result' ? 'Consulted knowledge' : 'Consulting knowledge...'
+    return step.stepType === 'tool_result'
+      ? t('agentSteps.consultedKnowledge', { ns: 'communication' })
+      : t('agentSteps.consultingKnowledge', { ns: 'communication' })
   }
-  if (step.stepType === 'tool_call') return `Running ${step.name || 'tool'}`
-  if (step.stepType === 'tool_result') return `Finished ${step.name || 'tool'}`
-  // Backend publishes think-steps as "Loop N" (internal telemetry); never
-  // surface that in the UI.
-  if (step.stepType === 'think') return 'Thinking...'
-  return step.name || stepLabel(step)
+  if (step.stepType === 'tool_call') {
+    return t('agentSteps.runningTool', {
+      ns: 'communication',
+      name: step.name || t('agentSteps.toolFallback', { ns: 'communication' }),
+    })
+  }
+  if (step.stepType === 'tool_result') {
+    return t('agentSteps.finishedTool', {
+      ns: 'communication',
+      name: step.name || t('agentSteps.toolFallback', { ns: 'communication' }),
+    })
+  }
+  if (step.stepType === 'think') return t('agentSteps.thinkingActive', { ns: 'communication' })
+  return step.name || stepLabel(step, t)
 }
 
 export function currentActivityHeadline(
   steps: AgentStep[],
   active: boolean,
+  t: TFunction,
   opts?: { thinkingText?: string; streamText?: string },
 ): string {
   const thinking = (opts?.thinkingText ?? '').trim()
   const stream = (opts?.streamText ?? '').trim()
-  if (active && thinking && !stream) return 'Thinking...'
-  if (active && stream) return 'Writing...'
-  if (steps.length > 0) return stepHeadline(steps[steps.length - 1])
-  return active ? 'Thinking...' : 'Thought'
+  if (active && thinking && !stream) return t('agentSteps.thinkingActive', { ns: 'communication' })
+  if (active && stream) return t('agentSteps.writing', { ns: 'communication' })
+  if (steps.length > 0) return stepHeadline(steps[steps.length - 1], t)
+  return active
+    ? t('agentSteps.thinkingActive', { ns: 'communication' })
+    : t('agentSteps.thought', { ns: 'communication' })
 }
 
 export function formatThinkingDuration(ms?: number | null): string | null {
@@ -72,11 +88,11 @@ export function formatThinkingDuration(ms?: number | null): string | null {
 }
 
 /** Collapsed label above an agent reply: "Thought for 2.4s" or "Thought". */
-export function reasoningDisclosureLabel(thinking?: AgentThinking | null): string {
+export function reasoningDisclosureLabel(thinking: AgentThinking | null | undefined, t: TFunction): string {
   const duration = formatThinkingDuration(thinking?.ms)
-  if (duration) return `Thought for ${duration}`
-  if ((thinking?.text ?? '').trim()) return 'Thought'
-  return 'Thought'
+  if (duration) return t('agentSteps.thoughtFor', { ns: 'communication', duration })
+  if ((thinking?.text ?? '').trim()) return t('agentSteps.thought', { ns: 'communication' })
+  return t('agentSteps.thought', { ns: 'communication' })
 }
 
 export function formatStepDetail(step: AgentStep): string | null {
@@ -119,6 +135,7 @@ export function formatTokenCount(n: number): string {
 /** Cursor-style one-line activity summary parts (plain + token highlight). */
 export function summarizeAgentActivity(
   steps: AgentStep[],
+  t: TFunction,
   usage?: AgentUsage | null,
 ): { parts: string[]; tokenLabel: string | null; total: number; usedKnowledge: boolean } {
   const toolCalls = steps.filter((s) => s.stepType === 'tool_call')
@@ -127,25 +144,39 @@ export function summarizeAgentActivity(
   const parts: string[] = []
 
   if (toolCalls.length === 1) {
-    parts.push(`Used ${toolCalls[0].name || 'tool'}`)
+    parts.push(
+      t('agentSteps.usedTool', {
+        ns: 'communication',
+        name: toolCalls[0].name || t('agentSteps.toolFallback', { ns: 'communication' }),
+      }),
+    )
   } else if (toolCalls.length > 1) {
     const names = [...new Set(toolCalls.map((s) => s.name).filter(Boolean))]
     if (names.length > 0 && names.length <= 3) {
-      parts.push(`${toolCalls.length} tool calls (${names.join(', ')})`)
+      parts.push(
+        t('agentSteps.toolCallsNamed', {
+          ns: 'communication',
+          count: toolCalls.length,
+          names: names.join(', '),
+        }),
+      )
     } else {
-      parts.push(`${toolCalls.length} tool calls`)
+      parts.push(t('agentSteps.toolCalls', { ns: 'communication', count: toolCalls.length }))
     }
   }
 
-  if (thinks.length === 1) parts.push('1 thinking step')
-  else if (thinks.length > 1) parts.push(`${thinks.length} thinking steps`)
+  if (thinks.length === 1) parts.push(t('agentSteps.thinkingStep', { ns: 'communication' }))
+  else if (thinks.length > 1) {
+    parts.push(t('agentSteps.thinkingSteps', { ns: 'communication', count: thinks.length }))
+  }
 
   if (parts.length === 0 && steps.length > 0) {
-    parts.push(`${steps.length} steps`)
+    parts.push(t('agentSteps.steps', { ns: 'communication', count: steps.length }))
   }
 
   const total = totalTokens(usage)
-  const tokenLabel = total > 0 ? `+${formatTokenCount(total)} tokens` : null
+  const tokenLabel =
+    total > 0 ? t('agentSteps.tokens', { ns: 'communication', count: formatTokenCount(total) }) : null
   return { parts, tokenLabel, total, usedKnowledge }
 }
 

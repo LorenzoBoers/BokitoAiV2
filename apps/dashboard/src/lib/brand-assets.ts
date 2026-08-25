@@ -10,6 +10,7 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   google: { logoUrl: '/brands/logo-gmail.svg' },
   smtp: { logoUrl: '/brands/logo-smtp-imap.svg' },
   bjorn_lunden: { logoUrl: '/brands/logo-bjorn-lunden.svg' },
+  king: { logoUrl: '/brands/logo-bjorn-lunden.svg' },
   custom: { logoUrl: '/brands/logo-custom.svg' },
   notion: { logoUrl: '/brands/logo-notion.svg' },
   linear: { logoUrl: '/brands/logo-linear.svg' },

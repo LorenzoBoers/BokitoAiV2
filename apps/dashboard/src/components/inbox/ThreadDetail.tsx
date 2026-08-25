@@ -1,6 +1,7 @@
-import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, ListPlus, Mail, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, UserPlus, X } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Flag, Forward, Hand, ListPlus, Mail, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, UserPlus, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   listInboxMembers,
@@ -15,6 +16,7 @@ import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
 import { Button } from '../ui/button'
+import { AI_ICON_BOX_CLASS } from '../ai/AiMark'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +24,6 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso } from '../../lib/snooze'
 import {
   isInternalThread,
   resolveComposerSurface,
@@ -148,6 +149,7 @@ function DraftWithAiButton({
   disabled: boolean
   onDraft: (instruction: string) => void
 }) {
+  const { t } = useTranslation('communication')
   const [open, setOpen] = useState(false)
   const [instruction, setInstruction] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -176,15 +178,15 @@ function DraftWithAiButton({
         variant="secondary"
         disabled={drafting || disabled}
         onClick={() => setOpen((v) => !v)}
-        className="gap-1.5"
+        className="gap-1.5 border-ai/25 bg-ai/10 text-ai-ink shadow-[var(--shadow-btn)] hover:bg-ai/15"
       >
         {drafting ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-        {drafting ? 'Drafting…' : 'Draft with AI'}
+        {drafting ? t('composer.drafting') : t('composer.draftWithAi')}
       </Button>
       {open ? (
         <div className="absolute bottom-full right-0 z-30 mb-1.5 w-80 rounded-xl border border-border/60 bg-bg-surface p-3 shadow-overlay">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-            Guidance (optional)
+            {t('composer.guidanceTitle')}
           </p>
           <textarea
             value={instruction}
@@ -198,16 +200,16 @@ function DraftWithAiButton({
             }}
             autoFocus
             rows={2}
-            placeholder="e.g. Apologize for the delay and offer a replacement"
+            placeholder={t('composer.guidancePlaceholder')}
             className="mb-2 w-full resize-none rounded-lg border border-border/60 bg-bg-input px-2.5 py-1.5 text-[12.5px] text-text-primary placeholder:text-text-muted focus:border-accent/50 focus:outline-none"
           />
           <div className="flex justify-end gap-1.5">
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)} className="h-7 px-2 text-[11.5px]">
-              Cancel
+              {t('composer.cancel')}
             </Button>
-            <Button size="sm" onClick={submit} className="h-7 gap-1 px-2.5 text-[11.5px]">
+            <Button size="sm" variant="ai" onClick={submit} className="h-7 gap-1 px-2.5 text-[11.5px]">
               <Sparkles size={11} />
-              Draft reply
+              {t('composer.draftReply')}
             </Button>
           </div>
         </div>
@@ -268,7 +270,7 @@ function AgentSessionLauncher({
       size="sm"
       variant="ghost"
       disabled={disabled || starting}
-      className="gap-1.5 text-text-secondary"
+      className="gap-1.5 text-ai-ink"
       onClick={targets.length <= 1 ? () => void start(targets[0]?.id ?? null) : undefined}
     >
       {starting ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
@@ -301,10 +303,10 @@ function AgentSessionLauncher({
   )
 }
 
-const PRIORITY_META: Record<string, { label: string; dot: string }> = {
-  normal: { label: 'Normal', dot: 'bg-text-muted/40' },
-  high: { label: 'High', dot: 'bg-status-warning' },
-  urgent: { label: 'Urgent', dot: 'bg-status-error' },
+const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
+  normal: { labelKey: 'priority.normal', dot: 'bg-text-muted/40' },
+  high: { labelKey: 'priority.high', dot: 'bg-status-warning' },
+  urgent: { labelKey: 'priority.urgent', dot: 'bg-status-error' },
 }
 
 /**
@@ -324,6 +326,7 @@ function ThreadMetaRow({
   onPatch: (input: PatchThreadInput) => Promise<void>
   triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
 }) {
+  const { t } = useTranslation('communication')
   const [addingTag, setAddingTag] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -345,6 +348,7 @@ function ThreadMetaRow({
   }
 
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
+  const priorityLabel = t(priorityMeta.labelKey)
 
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-border/40 bg-bg-elevated px-3 py-1 shrink-0">
@@ -353,7 +357,7 @@ function ThreadMetaRow({
           <button
             type="button"
             disabled={saving}
-            aria-label="Set priority"
+            aria-label={t('threadChrome.setPriority')}
             className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
               priority === 'normal'
                 ? 'border-border/60 text-text-muted hover:border-border hover:text-text-secondary'
@@ -362,7 +366,7 @@ function ThreadMetaRow({
           >
             <Flag size={10} />
             <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
-            {priorityMeta.label}
+            {priorityLabel}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-36">
@@ -373,7 +377,7 @@ function ThreadMetaRow({
               onSelect={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-              {meta.label}
+              {t(meta.labelKey)}
               {value === priority ? <span className="ml-auto text-accent">•</span> : null}
             </DropdownMenuItem>
           ))}
@@ -383,19 +387,19 @@ function ThreadMetaRow({
       {triage && (triage.category || triage.certainty != null) ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] text-text-secondary">
-              <Sparkles size={10} className="text-accent" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2 py-0.5 text-[11px] text-ai-ink">
+              <Sparkles size={10} className="text-ai-ink" />
               {triage.category ? <span className="capitalize">{triage.category}</span> : null}
               {triage.urgency != null ? (
-                <span className="text-text-muted">urgency {triage.urgency}</span>
+                <span className="text-text-muted">{t('triage.urgency', { value: triage.urgency })}</span>
               ) : null}
               {triage.certainty != null ? (
-                <span className="text-text-muted">certainty {triage.certainty}%</span>
+                <span className="text-text-muted">{t('triage.certainty', { value: triage.certainty })}</span>
               ) : null}
             </span>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-xs text-xs">
-            {triage.summary?.trim() || 'AI triage of this thread.'}
+            {triage.summary?.trim() || t('triage.summaryFallback')}
           </TooltipContent>
         </Tooltip>
       ) : null}
@@ -412,7 +416,7 @@ function ThreadMetaRow({
           <button
             type="button"
             disabled={saving}
-            aria-label={`Remove label ${tag}`}
+            aria-label={t('tags.removeLabel', { tag })}
             onClick={() => removeTag(tag)}
             className="-mr-0.5 rounded-full p-0.5 text-text-muted/50 hover:text-status-error transition-colors disabled:opacity-40"
           >
@@ -437,7 +441,7 @@ function ThreadMetaRow({
             }
           }}
           onBlur={commitTag}
-          placeholder="Label…"
+          placeholder={t('tags.placeholder')}
           className="h-5 w-24 rounded-full border border-accent/40 bg-bg-input px-2 text-[11px] text-text-primary placeholder:text-text-muted focus:outline-none"
         />
       ) : (
@@ -448,18 +452,12 @@ function ThreadMetaRow({
           className="inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-[11px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary disabled:opacity-40"
         >
           <Plus size={9} />
-          Label
+          {t('tags.addLabel')}
         </button>
       )}
     </div>
   )
 }
-
-const DAY_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
 
 function makeDayKey(date: Date): string {
   const y = date.getFullYear()
@@ -468,19 +466,31 @@ function makeDayKey(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-function makeDayLabel(date: Date): string {
+function makeDayLabel(
+  date: Date,
+  t: (key: string) => string,
+  locale?: string,
+): string {
   const now = new Date()
   const todayKey = makeDayKey(now)
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
   const yesterdayKey = makeDayKey(yesterday)
   const key = makeDayKey(date)
-  if (key === todayKey) return 'Today'
-  if (key === yesterdayKey) return 'Yesterday'
-  return DAY_FORMATTER.format(date)
+  if (key === todayKey) return t('timeline.today')
+  if (key === yesterdayKey) return t('timeline.yesterday')
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
 }
 
-function groupByDay(entries: TimelineEntry[]): DayGroup[] {
+function groupByDay(
+  entries: TimelineEntry[],
+  t: (key: string) => string,
+  locale?: string,
+): DayGroup[] {
   const map = new Map<string, DayGroup>()
   for (const entry of entries) {
     const date = new Date(entry.time)
@@ -488,7 +498,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
     const key = makeDayKey(date)
     let group = map.get(key)
     if (!group) {
-      group = { dayKey: key, label: makeDayLabel(date), entries: [] }
+      group = { dayKey: key, label: makeDayLabel(date, t, locale), entries: [] }
       map.set(key, group)
     }
     group.entries.push(entry)
@@ -497,7 +507,7 @@ function groupByDay(entries: TimelineEntry[]): DayGroup[] {
 }
 
 export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -534,7 +544,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       })
       .catch(() => {
         if (!cancelled) {
-          toast.error('Could not load agents; @agent mentions are unavailable.', {
+          toast.error(t('threadChrome.agentsLoadError'), {
             id: 'thread-agents-load',
           })
         }
@@ -542,7 +552,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, t])
   const mentionAgents: MentionItem[] = useMemo(
     () =>
       agents.map((a) => ({
@@ -567,7 +577,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       })
       .catch(() => {
         if (!cancelled) {
-          toast.error('Could not load team members; @mentions may be incomplete.', {
+          toast.error(t('threadChrome.teamLoadError'), {
             id: 'thread-members-load',
           })
         }
@@ -575,7 +585,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, t])
 
   const messageLayout: 'chat' | 'email' =
     detail && resolveComposerSurface(detail.thread).channel === 'email' ? 'email' : 'chat'
@@ -612,8 +622,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         data: s,
       })),
     ].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-    return groupByDay(timeline)
-  }, [detail])
+    return groupByDay(timeline, t, i18n.language)
+  }, [detail, t, i18n.language])
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const container = scrollRef.current
@@ -803,20 +813,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     setCreatingTask(true)
     try {
       const task = await createAgentTask({
-        title: detail.thread.emailSubject || `Follow up: ${detail.thread.contactName || 'thread'}`,
-        description: `Created from communication thread ${detail.thread.id} (${detail.thread.contactEmail || detail.thread.contactName || 'unknown contact'}).`,
+        title: detail.thread.emailSubject || t('threadChrome.followUp', { name: detail.thread.contactName || 'thread' }),
+        description: t('threadChrome.taskDescription', {
+          who: detail.thread.contactEmail || detail.thread.contactName || t('threadChrome.unknownContact'),
+        }),
         signal_id: String(detail.thread.id),
       })
-      toast.success(`Task created: ${task.title}`, {
-        description: 'Progress appears in this thread and under Activity.',
+      toast.success(t('threadChrome.taskCreated', { title: task.title }), {
+        description: t('threadChrome.taskCreatedHint'),
       })
       onRefresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not create a task.')
+      toast.error(err instanceof Error ? err.message : t('threadChrome.taskCreateError'))
     } finally {
       setCreatingTask(false)
     }
-  }, [detail, creatingTask])
+  }, [detail, creatingTask, t])
 
   const handleDraftWithAi = useCallback(async (instruction = '') => {
     if (!token || !detail || drafting) return
@@ -827,14 +839,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (draft) {
         setComposerDraft({ body: draft, key: `ai-draft-${Date.now()}` })
       } else {
-        setDraftError('The AI returned an empty draft. Try again.')
+        setDraftError(t('actions.draftEmpty'))
       }
     } catch (err) {
-      setDraftError(err instanceof Error ? err.message : 'Could not draft a reply.')
+      setDraftError(err instanceof Error ? err.message : t('actions.draftError'))
     } finally {
       setDrafting(false)
     }
-  }, [token, detail, drafting])
+  }, [token, detail, drafting, t])
 
   const agentIdsAtStreamStartRef = useRef<Set<string>>(new Set())
   const wasStreamingRef = useRef(false)
@@ -929,8 +941,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (uniqueIds.length === 0) return
       const instruction = stripMentionMarkup(bodyText)
       for (const agentId of uniqueIds) {
-        const agentName = agents.find((a) => String(a.id) === agentId)?.name ?? 'Agent'
-        toast.info(`${agentName} is working on this thread...`)
+        const agentName = agents.find((a) => String(a.id) === agentId)?.name ?? t('listItem.assistant')
+        toast.info(t('threadChrome.agentWorking', { name: agentName }))
         try {
           await invokeSignalAgent(token, String(detail.thread.id), {
             agentId,
@@ -940,11 +952,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onRefresh()
           window.setTimeout(() => scrollToBottom('smooth'), 120)
         } catch {
-          toast.error(`${agentName} could not complete the request.`)
+          toast.error(t('threadChrome.agentFailed', { name: agentName }))
         }
       }
     },
-    [onNote, scrollToBottom, token, detail, agents, onRefresh],
+    [onNote, scrollToBottom, token, detail, agents, onRefresh, t],
   )
 
   const detailMatchesRoute =
@@ -968,13 +980,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <AlertCircle size={28} className="text-status-error" />
         <div className="space-y-1">
           <p className="text-sm font-medium text-text-heading">
-            Thread #{threadId} could not be loaded.
+            {t('threadChrome.loadFailed', { id: threadId })}
           </p>
           <p className="text-xs text-text-muted max-w-md break-words">{error}</p>
         </div>
         <Button size="sm" variant="secondary" onClick={onRefresh} className="gap-1.5">
           <RefreshCw size={13} />
-          Try again
+          {t('threadChrome.tryAgain')}
         </Button>
       </div>
     )
@@ -984,8 +996,25 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     // On small screens the list already fills the viewport when nothing is
     // selected, so the placeholder pane only exists from md up.
     return (
-      <div className={`${threadId == null ? 'hidden md:flex' : 'flex'} flex-1 items-center justify-center`}>
-        <p className="text-sm text-text-muted">Select a thread to view.</p>
+      <div className={`${threadId == null ? 'hidden md:flex' : 'flex'} flex-1 items-center justify-center px-6`}>
+        <div className="max-w-sm text-center">
+          <p className="text-sm font-medium text-text-heading">{t('threadChrome.selectThreadTitle')}</p>
+          <p className="mt-1 text-xs text-text-muted">{t('threadChrome.selectThreadHint')}</p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              to="/communication/new"
+              className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              {t('threadChrome.startNewChat')}
+            </Link>
+            <Link
+              to="/settings/setup"
+              className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              {t('threadChrome.openSetupGuide')}
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
@@ -1001,7 +1030,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           <button
             type="button"
             onClick={onBack}
-            aria-label="Back to conversations"
+            aria-label={t('threadChrome.backToConversations')}
             className="md:hidden -ml-1 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
           >
             <ArrowLeft size={16} />
@@ -1010,17 +1039,33 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <div className="min-w-0 flex-1 leading-tight">
           <h2 className="text-[13px] font-medium text-text-heading truncate">{thread.emailSubject}</h2>
           <p className="text-[11px] text-text-muted truncate">
-            {isInternalThread(thread)
-              ? `Internal · ${threadCounterpartyName(thread)}`
-              : thread.contactEmail || thread.contactName}
+            {isInternalThread(thread) ? (
+              `${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`
+            ) : thread.contactId ? (
+              <Link to={`/contacts/${thread.contactId}`} className="hover:text-accent hover:underline">
+                {thread.contactEmail || thread.contactName || t('listItem.contact')}
+              </Link>
+            ) : (
+              thread.contactEmail || thread.contactName
+            )}
           </p>
         </div>
+        {!isInternalThread(thread) && (thread.agentId || thread.agentName) ? (
+          <Link
+            to={thread.agentId ? `/agents/${thread.agentId}` : '/agents'}
+            className="flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40 hover:text-accent"
+            title={t('threadChrome.agentHandling')}
+          >
+            <Bot size={11} />
+            {thread.agentName || t('listItem.agent')}
+          </Link>
+        ) : null}
         {detail.csat ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <span
                 className="flex items-center gap-1 shrink-0 rounded-full border border-border/60 bg-bg-surface-hover/40 px-2 py-0.5 text-[11px] font-medium text-text-primary"
-                aria-label={`Customer rating ${detail.csat.score} of 5`}
+                aria-label={t('threadChrome.customerRatingScore', { score: detail.csat.score })}
               >
                 <Star size={11} className="text-amber-500 fill-amber-500" />
                 {detail.csat.score}/5
@@ -1028,15 +1073,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-64">
               {detail.csat.comment
-                ? `Customer rating - "${detail.csat.comment}"`
-                : 'Customer rating'}
+                ? t('threadChrome.customerRatingWithComment', { comment: detail.csat.comment })
+                : t('threadChrome.customerRating')}
             </TooltipContent>
           </Tooltip>
         ) : null}
         <div
           className="flex items-center shrink-0 rounded-lg border border-border/60 bg-bg-surface-hover/30 p-0.5"
           role="toolbar"
-          aria-label="Thread actions"
+          aria-label={t('threadChrome.threadActions')}
         >
           <AssigneeSelector
             currentAssigneeId={thread.assignedToUserId}
@@ -1051,58 +1096,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 onClick={() =>
                   void onPatch({ status: thread.status === 'closed' ? 'open' : 'closed' })
                 }
-                aria-label={thread.status === 'closed' ? 'Reopen' : 'Close'}
+                aria-label={thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
                 className={HEADER_ICON}
               >
                 {thread.status === 'closed' ? <ArchiveRestore size={14} /> : <Archive size={14} />}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {thread.status === 'closed' ? 'Reopen' : 'Close'}
+              {thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
             </TooltipContent>
           </Tooltip>
-          {!isInternalThread(thread) ? (
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={saving}
-                      aria-label={thread.status === 'pending' ? 'Snoozed' : 'Snooze'}
-                      className={`${HEADER_ICON}${thread.status === 'pending' ? ' text-accent' : ''}`}
-                    >
-                      <Clock size={14} />
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {thread.status === 'pending'
-                    ? formatWakeTime(thread.snoozedUntil) ?? 'Snoozed until reply'
-                    : 'Snooze'}
-                </TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="w-52">
-                {SNOOZE_PRESETS.map((preset) => (
-                  <DropdownMenuItem
-                    key={preset.key}
-                    className="text-xs"
-                    onSelect={() => void onPatch({ status: 'pending', snoozedUntil: snoozeUntilIso(preset) })}
-                  >
-                    {preset.label}
-                  </DropdownMenuItem>
-                ))}
-                {thread.status === 'pending' ? (
-                  <DropdownMenuItem
-                    className="text-xs text-accent"
-                    onSelect={() => void onPatch({ status: 'open', snoozedUntil: null })}
-                  >
-                    Unsnooze now
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
           {onForward ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1110,13 +1113,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   type="button"
                   disabled={saving || loading}
                   onClick={onForward}
-                  aria-label="Forward as new email"
+                  aria-label={t('threadChrome.forwardAsEmail')}
                   className={HEADER_ICON}
                 >
                   <Forward size={14} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Forward as new email</TooltipContent>
+              <TooltipContent side="bottom">{t('threadChrome.forwardAsEmail')}</TooltipContent>
             </Tooltip>
           ) : null}
           {!isInternalThread(thread) ? (
@@ -1128,14 +1131,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   onClick={() =>
                     void onPatch({ status: thread.status === 'spam' ? 'open' : 'spam' })
                   }
-                  aria-label={thread.status === 'spam' ? 'Not spam' : 'Mark as spam'}
+                  aria-label={thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
                   className={`${HEADER_ICON}${thread.status === 'spam' ? ' text-status-error' : ''}`}
                 >
                   <OctagonAlert size={14} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {thread.status === 'spam' ? 'Not spam' : 'Mark as spam'}
+                {thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -1146,13 +1149,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   type="button"
                   disabled={saving || deleting}
                   onClick={() => void onDelete()}
-                  aria-label="Delete"
+                  aria-label={t('threadChrome.delete')}
                   className={`${HEADER_ICON} hover:text-status-error`}
                 >
                   <Trash2 size={14} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Delete</TooltipContent>
+              <TooltipContent side="bottom">{t('threadChrome.delete')}</TooltipContent>
             </Tooltip>
           ) : null}
           {onMarkUnread && !thread.hasUnread ? (
@@ -1162,24 +1165,24 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   type="button"
                   disabled={saving || loading}
                   onClick={() => void onMarkUnread()}
-                  aria-label="Mark as unread"
+                  aria-label={t('threadChrome.markUnread')}
                   className={HEADER_ICON}
                 >
                   <Mail size={14} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Mark as unread</TooltipContent>
+              <TooltipContent side="bottom">{t('threadChrome.markUnread')}</TooltipContent>
             </Tooltip>
           ) : null}
           {onToggleTakeover &&
-          ['email', 'widget', 'chat', 'assistant'].includes(thread.channel ?? '') ? (
+          ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   disabled={saving || loading}
                   onClick={() => void onToggleTakeover()}
-                  aria-label={thread.aiPaused ? 'Hand back to AI' : 'Take over from AI'}
+                  aria-label={thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
                   aria-pressed={thread.aiPaused}
                   className={`${HEADER_ICON}${thread.aiPaused ? ' text-accent' : ''}`}
                 >
@@ -1187,7 +1190,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {thread.aiPaused ? 'Hand back to AI' : 'Take over from AI'}
+                {thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -1198,7 +1201,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   type="button"
                   disabled={saving || loading}
                   onClick={() => void onTogglePin()}
-                  aria-label={thread.isPinned ? 'Unpin thread' : 'Pin thread'}
+                  aria-label={thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
                   aria-pressed={thread.isPinned}
                   className={`${HEADER_ICON}${thread.isPinned ? ' text-accent' : ''}`}
                 >
@@ -1206,7 +1209,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {thread.isPinned ? 'Unpin thread' : 'Pin thread'}
+                {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -1216,7 +1219,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <button
                   type="button"
                   onClick={onToggleContact}
-                  aria-label={contactOpen ? 'Hide details' : 'Show details'}
+                  aria-label={contactOpen ? t('threadChrome.hideDetails') : t('threadChrome.showDetails')}
                   aria-pressed={contactOpen}
                   className={`${HEADER_ICON}${contactOpen ? ' text-accent' : ''}`}
                 >
@@ -1224,7 +1227,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {contactOpen ? 'Hide details' : 'Show details'}
+                {contactOpen ? t('threadChrome.hideDetails') : t('threadChrome.showDetails')}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -1252,7 +1255,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       (thread.suggestedActions?.length ?? 0) > 0 ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated px-3 py-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-            Next
+            {t('threadChrome.next')}
           </span>
           {thread.suggestedActions?.includes('close') ? (
             <button
@@ -1262,7 +1265,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
             >
               <Archive size={11} />
-              Close thread
+              {t('threadChrome.closeThread')}
             </button>
           ) : null}
           {thread.suggestedActions?.includes('assign') && !thread.assignedToUserId && myMemberId != null ? (
@@ -1273,7 +1276,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
             >
               <UserPlus size={11} />
-              Assign to me
+              {t('threadChrome.assignToMe')}
             </button>
           ) : null}
           {thread.suggestedActions?.includes('create_task') ? (
@@ -1284,7 +1287,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
             >
               <ListPlus size={11} />
-              {creatingTask ? 'Creating…' : 'Create task'}
+              {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
             </button>
           ) : null}
         </div>
@@ -1298,12 +1301,28 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <div ref={contentRef} className="mx-auto w-full max-w-[860px]">
         {groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-xs text-text-muted">
-            <p>No messages in this thread yet.</p>
+            <p>{t('threadChrome.emptyTitle')}</p>
             <p className="mt-1 text-[11px] opacity-70">
               {thread.channel === 'email'
-                ? 'New email will appear after the next mailbox sync.'
-                : 'Send a message or wait for the agent to post an update.'}
+                ? t('threadChrome.emptyEmail')
+                : t('threadChrome.emptyChat')}
             </p>
+            {thread.channel === 'email' ? (
+              <Link
+                to="/settings/channels"
+                className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
+              >
+                {t('threadChrome.openEmailSettings')}
+              </Link>
+            ) : null}
+            {thread.channel && ['email', 'widget', 'chat', 'whatsapp'].includes(thread.channel) ? (
+              <Link
+                to="/settings/communication"
+                className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
+              >
+                {t('threadChrome.openInboxAi')}
+              </Link>
+            ) : null}
           </div>
         ) : (
           groups.map((group) => (
@@ -1386,7 +1405,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         )}
         {gatewayStream.streaming ? (
           <div className="mb-3 flex items-start gap-2.5">
-            <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
+            <span className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
               <Bot size={14} />
             </span>
             <ThinkingTrace
@@ -1436,7 +1455,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           mentionExtras={mentionAgents}
           extraActions={
             onAskAssistant && isInternalThread(thread) ? (
-              <Button size="sm" variant="secondary" onClick={onAskAssistant} className="gap-1.5">
+              <Button size="sm" variant="secondary" onClick={onAskAssistant} className="gap-1.5 border-ai/25 bg-ai/10 text-ai-ink hover:bg-ai/15">
                 <Sparkles size={12} />
                 Ask assistant
               </Button>

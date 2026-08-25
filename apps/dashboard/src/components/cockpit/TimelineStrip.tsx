@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 
 /** One dot on the horizontal platform timeline. */
@@ -23,8 +24,11 @@ const PX_PER_MINUTE = 4
 const STRIP_HEIGHT = 92
 const LINE_Y = 40
 const EDGE_PADDING = 48
-/** Future window so upcoming planned items have room on the right. */
-const FUTURE_MINUTES = 8 * 60
+/** Cap the default past window so sparse history does not draw days of empty hours. */
+const MAX_PAST_MINUTES = 12 * 60
+const COMPACT_PAST_MINUTES = 2 * 60
+const FUTURE_MINUTES_PLANNED = 4 * 60
+const FUTURE_MINUTES_EMPTY = 60
 
 const minutesBetween = (a: Date, b: Date) => (b.getTime() - a.getTime()) / 60_000
 
@@ -80,18 +84,30 @@ function formatDayLabel(d: Date): string {
  * loads older history.
  */
 export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOlder }: Props) {
+  const { t } = useTranslation('nav')
   const scrollRef = useRef<HTMLDivElement>(null)
   const didInitialScroll = useRef(false)
   const prevStartMs = useRef<number | null>(null)
 
   const now = new Date()
   const clusters = useMemo(() => clusterPoints(points), [points])
-
-  const oldest = clusters.length ? clusters[0].at : new Date(now.getTime() - 60 * 60_000)
+  const hasPlanned = clusters.some((cluster) => cluster.tone === 'planned' && cluster.at.getTime() >= now.getTime())
+  const futureMinutes = hasPlanned ? FUTURE_MINUTES_PLANNED : FUTURE_MINUTES_EMPTY
+  const capStartMs = now.getTime() - MAX_PAST_MINUTES * 60_000
+  const endMs = now.getTime() + futureMinutes * 60_000
+  const end = new Date(endMs)
+  const visibleClusters = useMemo(
+    () => clusters.filter((cluster) => cluster.at.getTime() >= capStartMs && cluster.at.getTime() <= endMs),
+    [clusters, capStartMs, endMs],
+  )
+  const oldestVisible = visibleClusters.find((cluster) => cluster.at.getTime() <= now.getTime())
+  const rawStartMs = oldestVisible
+    ? Math.min(oldestVisible.at.getTime(), now.getTime() - 60 * 60_000)
+    : now.getTime() - COMPACT_PAST_MINUTES * 60_000
   // Round the visible range outward to the hour so ticks land cleanly.
-  const start = new Date(Math.floor(Math.min(oldest.getTime(), now.getTime() - 60 * 60_000) / 3_600_000) * 3_600_000)
-  const end = new Date(now.getTime() + FUTURE_MINUTES * 60_000)
-  const totalWidth = Math.max(600, minutesBetween(start, end) * PX_PER_MINUTE + EDGE_PADDING * 2)
+  const start = new Date(Math.floor(Math.max(rawStartMs, capStartMs) / 3_600_000) * 3_600_000)
+  const totalWidth = Math.max(420, minutesBetween(start, end) * PX_PER_MINUTE + EDGE_PADDING * 2)
+  const atPastCap = start.getTime() <= capStartMs + 3_600_000
 
   const xFor = useCallback(
     (d: Date) => EDGE_PADDING + minutesBetween(start, d) * PX_PER_MINUTE,
@@ -133,9 +149,9 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current
-    if (!el || !onLoadOlder || !hasMore || loadingOlder) return
+    if (!el || !onLoadOlder || !hasMore || loadingOlder || atPastCap) return
     if (el.scrollLeft < 160) onLoadOlder()
-  }, [onLoadOlder, hasMore, loadingOlder])
+  }, [onLoadOlder, hasMore, loadingOlder, atPastCap])
 
   const nowX = xFor(now)
 
@@ -144,7 +160,7 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
       {loadingOlder ? (
         <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-md bg-bg-elevated/90 px-2 py-1 text-[10.5px] text-text-muted">
           <Loader2 size={11} className="animate-spin" />
-          Loading history...
+          {t('activityPage.timelineLoading')}
         </div>
       ) : null}
       <div
@@ -184,12 +200,12 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
           <div className="absolute" style={{ left: nowX, top: 8, bottom: 8 }}>
             <div className="h-full w-px bg-accent/70" />
             <span className="absolute -translate-x-1/2 rounded bg-accent/15 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-accent" style={{ top: -2, left: 0 }}>
-              Now
+              {t('activityPage.timelineNow')}
             </span>
           </div>
 
           {/* Event / planned dots */}
-          {clusters.map((cluster) => {
+          {visibleClusters.map((cluster) => {
             const size = Math.min(14, 8 + (cluster.points.length - 1) * 2)
             const titleLines = cluster.points
               .slice(0, 6)
@@ -210,11 +226,13 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
         </div>
       </div>
       <div className="flex items-center gap-3 border-t border-border/40 px-3 py-1.5 text-[10px] text-text-muted">
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-accent/80" /> Executed</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-error" /> Failed</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-success" /> Live</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full border-2 border-accent" /> Planned</span>
-        <span className="ml-auto">Scroll left for history</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-accent/80" /> {t('activityPage.timelineExecuted')}</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-error" /> {t('activityPage.timelineFailed')}</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-status-success" /> {t('activityPage.timelineLive')}</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full border-2 border-accent" /> {t('activityPage.timelinePlanned')}</span>
+        {hasMore && !atPastCap ? (
+          <span className="ml-auto">{t('activityPage.timelineScrollHistory')}</span>
+        ) : null}
       </div>
     </div>
   )

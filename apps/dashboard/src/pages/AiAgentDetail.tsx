@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Archive, CalendarDays, MessageSquare, Network, Pause, Play, ShieldCheck } from 'lucide-react'
+import { Archive, CalendarDays, MessageSquare, Network, Pause, Play, Settings, ShieldCheck } from 'lucide-react'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { AgentChatAccessCard } from '../components/workforce/AgentChatAccessCard'
@@ -15,8 +15,9 @@ import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
-import { humanizeLabel } from '../lib/labels'
-import { inboxPath } from '../lib/messages-paths'
+import { agentAutonomyLevelLabel } from '../lib/labels'
+import { agendaKindLabel } from '../lib/status-labels'
+import { agentChatPath, inboxPath } from '../lib/messages-paths'
 import { archiveAgent, updateAgentStatus } from '../lib/workforce-api'
 import { listAgentPassports, updateAgentPassport } from '../lib/govern-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
@@ -106,7 +107,7 @@ export default function AiAgentDetail() {
       setAgent(null)
       setRuns([])
       setError(
-        e instanceof Error ? e.message : t('workforce.agents.detailLoadError', { defaultValue: 'Could not load agent.' }),
+        e instanceof Error ? e.message : t('workforce.agents.detailLoadError'),
       )
     } finally {
       setLoading(false)
@@ -135,19 +136,15 @@ export default function AiAgentDetail() {
       const result = await updateAgentStatus(undefined, agent.id, next)
       setAgent(result.agent)
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Could not update agent status.')
+      setActionError(e instanceof Error ? e.message : t('workforce.agents.statusUpdateError'))
     } finally {
       setStatusBusy(false)
     }
-  }, [agent, statusBusy])
+  }, [agent, statusBusy, t])
 
   const handleArchive = useCallback(async () => {
     if (!agent || archiveBusy) return
-    const confirmed = window.confirm(
-      t('workforce.agents.archiveConfirm', {
-        defaultValue: 'Archive this agent? It will disappear from the workforce list. Run history is preserved.',
-      }),
-    )
+    const confirmed = window.confirm(t('workforce.agents.archiveConfirm'))
     if (!confirmed) return
     setArchiveBusy(true)
     setActionError(null)
@@ -155,7 +152,7 @@ export default function AiAgentDetail() {
       await archiveAgent(undefined, agent.id)
       navigate(AGENTS_DEFAULT_PATH, { replace: true })
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Could not archive agent.')
+      setActionError(e instanceof Error ? e.message : t('workforce.agents.archiveError'))
       setArchiveBusy(false)
     }
   }, [agent, archiveBusy, navigate, t])
@@ -169,12 +166,12 @@ export default function AiAgentDetail() {
         const result = await updateAgentPassport(agent.id, { autonomy_level: level })
         setPassport(result.passport as unknown as AgentPassport)
       } catch (e) {
-        setActionError(e instanceof Error ? e.message : 'Could not update autonomy level.')
+        setActionError(e instanceof Error ? e.message : t('workforce.agents.autonomyUpdateError'))
       } finally {
         setAutonomyBusy(false)
       }
     },
-    [agent, autonomyBusy],
+    [agent, autonomyBusy, t],
   )
 
   const isDefaultAssistant = agent?.slug === 'assistant'
@@ -194,7 +191,7 @@ export default function AiAgentDetail() {
           to={`/agents/${agentId}`}
           className="text-sm text-accent hover:underline"
         >
-          {t('workforce.agents.backToAgent', { defaultValue: 'Back to agent' })}
+          {t('workforce.agents.backToAgent')}
         </Link>
         <LiveWorkLog workLogId={workLogId} />
       </PageContent>
@@ -208,11 +205,11 @@ export default function AiAgentDetail() {
       </Link>
 
       {loading ? (
-        <LoadingBlock label={t('workforce.agents.loading', { defaultValue: 'Loading agents…' })} />
+        <LoadingBlock label={t('workforce.agents.loading')} />
       ) : !agent ? (
         <Card className="p-4">
           <p className="text-sm text-status-error">
-            {error ?? t('workforce.agents.notFound', { defaultValue: 'Agent not found.' })}
+            {error ?? t('workforce.agents.notFound')}
           </p>
           {error ? (
             <Button size="sm" variant="secondary" className="mt-2" onClick={() => void load()}>
@@ -229,14 +226,14 @@ export default function AiAgentDetail() {
                 <div>
                   <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
                   <p className="mt-0.5 text-sm text-text-muted">
-                    {agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown', { defaultValue: 'Unknown role' })}
+                    {agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown')}
                   </p>
                 </div>
               </div>
               <span
                 className={cn('text-sm font-medium capitalize', STATUS_CLASS[agent.status])}
               >
-                {t(`workforce.agents.status.${agent.status}`, { defaultValue: agent.status })}
+                {t(`workforce.agents.status.${agent.status}`)}
               </span>
             </div>
             {agent.current_activity_summary ? (
@@ -245,30 +242,60 @@ export default function AiAgentDetail() {
             {isOrchestratorAgent(agent) && linkedProject ? (
               <div className="mt-3 rounded-lg border border-border/60 bg-bg-input/35 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                  {t('project.po.title', { defaultValue: 'Orchestrator' })}
+                  {t('workforce.agents.types.orchestrator')}
                 </p>
-                <p className="mt-1 text-sm font-medium text-text-heading">{linkedProject.name}</p>
+                <Link
+                  to={`/projects/${linkedProject.id}`}
+                  className="mt-1 block text-sm font-medium text-text-heading hover:underline"
+                >
+                  {linkedProject.name}
+                </Link>
               </div>
             ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
+              {agent.kind !== 'personal' ? (
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link to={agentChatPath(agent.id)}>
+                    <MessageSquare size={14} className="mr-1.5" aria-hidden />
+                    {t('workforce.agents.chatWith')}
+                  </Link>
+                </Button>
+              ) : null}
               {(agent.role_slug === 'orchestrator' || agent.role_slug === 'po' || agent.role_slug === 'orchestra') ? (
                 <Button type="button" size="sm" variant="outline" asChild>
-                  <Link to="/settings/autonomy">
+                  <Link to="/settings/govern?tab=policy">
                     <ShieldCheck size={14} className="mr-1.5" aria-hidden />
-                    {t('workforce.agents.openGovern', { defaultValue: 'Autonomy settings' })}
+                    {t('workforce.agents.openGovern')}
                   </Link>
                 </Button>
               ) : null}
               <Button type="button" size="sm" variant="outline" asChild>
                 <Link to={`/agenda?agent=${agent.id}`}>
                   <CalendarDays size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.openAgenda', { defaultValue: 'Agenda' })}
+                  {t('workforce.agents.openAgenda')}
                 </Link>
               </Button>
               <Button type="button" size="sm" variant="outline" asChild>
-                <Link to="/communication/runs/all">
+                <Link to={`${inboxPath('all')}?agent=${encodeURIComponent(agent.id)}`}>
                   <MessageSquare size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.openThreads', { defaultValue: 'Agent threads' })}
+                  {t('workforce.agents.openThreads')}
+                </Link>
+              </Button>
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to="/knowledge">
+                  <Network size={14} className="mr-1.5" aria-hidden />
+                  {t('workforce.agents.openKnowledge')}
+                </Link>
+              </Button>
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to="/settings/communication">
+                  <Settings size={14} className="mr-1.5" aria-hidden />
+                  {t('workforce.agents.openInboxAi')}
+                </Link>
+              </Button>
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to="/settings/setup">
+                  {t('workforce.agents.openSetup')}
                 </Link>
               </Button>
               {isAdmin ? (
@@ -285,8 +312,8 @@ export default function AiAgentDetail() {
                     <Play size={14} className="mr-1.5" aria-hidden />
                   )}
                   {agent.status === 'active'
-                    ? t('workforce.agents.pause', { defaultValue: 'Pause' })
-                    : t('workforce.agents.wake', { defaultValue: 'Wake' })}
+                    ? t('workforce.agents.pause')
+                    : t('workforce.agents.wake')}
                 </Button>
               ) : null}
               {isAdmin && !isDefaultAssistant ? (
@@ -299,7 +326,7 @@ export default function AiAgentDetail() {
                   onClick={() => void handleArchive()}
                 >
                   <Archive size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.archive', { defaultValue: 'Archive' })}
+                  {t('workforce.agents.archive')}
                 </Button>
               ) : null}
             </div>
@@ -311,40 +338,63 @@ export default function AiAgentDetail() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-base font-semibold text-text-heading">
-                    {t('workforce.agents.agendaTitle', { defaultValue: 'Upcoming on the agenda' })}
+                    {t('workforce.agents.agendaTitle')}
                   </h3>
                   <p className="text-sm text-text-muted">
-                    {t('workforce.agents.agendaDescription', {
-                      defaultValue: 'Scheduled wakes and tasks for this agent in the next two weeks.',
-                    })}
+                    {t('workforce.agents.agendaDescription')}
                   </p>
                 </div>
                 <Button type="button" size="sm" variant="outline" asChild>
                   <Link to={`/agenda?agent=${agent.id}`}>
-                    {t('workforce.agents.openFullAgenda', { defaultValue: 'Open Agenda' })}
+                    {t('workforce.agents.openFullAgenda')}
                   </Link>
                 </Button>
               </div>
               <div className="mt-3 space-y-1.5">
-                {agendaItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm"
-                  >
-                    <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
-                    <span className="min-w-0 flex-1 truncate font-medium text-text-heading">{item.name}</span>
-                    <span className="shrink-0 text-xs text-text-muted">{humanizeLabel(item.kind)}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-text-muted">
-                      {new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`).toLocaleString(undefined, {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                ))}
+                {agendaItems.map((item) => {
+                  const href =
+                    item.run_id && item.agent_id
+                      ? agentWorkforceRunUrl(item.agent_id, item.run_id)
+                      : item.trigger_id
+                        ? `/agenda?trigger=${item.trigger_id}`
+                        : `/agenda?agent=${agent.id}`
+                  return (
+                    <Link
+                      key={item.id}
+                      to={href}
+                      className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm transition-colors hover:border-accent/40"
+                    >
+                      <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
+                      <span className="min-w-0 flex-1 truncate font-medium text-text-heading">{item.name}</span>
+                      <span className="shrink-0 text-xs text-text-muted">{agendaKindLabel(item.kind, t)}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-text-muted">
+                        {new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`).toLocaleString(undefined, {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </Card>
+          ) : agent && !loading ? (
+            <Card className="px-4 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-text-heading">
+                    {t('workforce.agents.agendaTitle')}
+                  </h3>
+                  <p className="mt-1 text-sm text-text-muted">{t('workforce.agents.agendaEmptyHint')}</p>
+                </div>
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link to={`/agenda?agent=${agent.id}`}>
+                    {t('workforce.agents.scheduleOnAgenda')}
+                  </Link>
+                </Button>
               </div>
             </Card>
           ) : null}
@@ -373,25 +423,23 @@ export default function AiAgentDetail() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-text-heading">
-                  {t('workforce.agents.permissionsTitle', { defaultValue: 'Tools & permissions' })}
+                  {t('workforce.agents.permissionsTitle')}
                 </h3>
                 <p className="text-sm text-text-muted">
-                  {t('workforce.agents.permissionsDescription', {
-                    defaultValue: 'What this agent is allowed to do. Workspace-wide policies live in Autonomy settings.',
-                  })}
+                  {t('workforce.agents.permissionsDescription')}
                 </p>
               </div>
               <Button type="button" size="sm" variant="outline" asChild>
-                <Link to="/settings/autonomy">
+                <Link to="/settings/govern?tab=policy">
                   <ShieldCheck size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.editPolicies', { defaultValue: 'Workspace policies' })}
+                  {t('workforce.agents.editPolicies')}
                 </Link>
               </Button>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                  {t('workforce.agents.autonomyLevel', { defaultValue: 'Autonomy level' })}
+                  {t('workforce.agents.autonomyLevel')}
                 </p>
                 {isAdmin ? (
                   <select
@@ -405,20 +453,23 @@ export default function AiAgentDetail() {
                     onChange={(e) => void handleAutonomyChange(e.target.value)}
                   >
                     <option value="manual">
-                      {t('workforce.agents.autonomyManual', { defaultValue: 'Manual — always ask' })}
+                      {t('workforce.agents.autonomyManual')}
                     </option>
                     <option value="approval">
-                      {t('workforce.agents.autonomyApproval', { defaultValue: 'Approval — gated actions' })}
+                      {t('workforce.agents.autonomyApproval')}
                     </option>
                     <option value="auto">
-                      {t('workforce.agents.autonomyAuto', { defaultValue: 'Auto — act independently' })}
+                      {t('workforce.agents.autonomyAuto')}
                     </option>
                   </select>
                 ) : (
-                  <p className="mt-1 text-sm font-medium capitalize text-text-heading">
-                    {passport?.autonomy_level != null && passport.autonomy_level !== ''
-                      ? String(passport.autonomy_level)
-                      : t('workforce.agents.autonomyDefault', { defaultValue: 'Workspace default' })}
+                  <p className="mt-1 text-sm font-medium text-text-heading">
+                    {agentAutonomyLevelLabel(
+                      passport?.autonomy_level != null && passport.autonomy_level !== ''
+                        ? String(passport.autonomy_level)
+                        : null,
+                      t,
+                    )}
                   </p>
                 )}
               </div>
@@ -435,7 +486,7 @@ export default function AiAgentDetail() {
               {passport && passport.permission_scopes.length > 0 ? (
                 <div className="sm:col-span-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                    {t('workforce.agents.permissionScopes', { defaultValue: 'Permission scopes' })}
+                    {t('workforce.agents.permissionScopes')}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     {passport.permission_scopes.map((scope) => (
@@ -459,7 +510,25 @@ export default function AiAgentDetail() {
             <p className="text-sm text-text-muted">{t('workforce.agents.historyDescription')}</p>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             {runs.length === 0 ? (
-              <EmptyState title={t('workforce.runs.empty')} />
+              <EmptyState
+                title={t('workforce.runs.empty')}
+                description={t('workforce.agents.runsEmptyHint')}
+                action={
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {agent.kind !== 'personal' ? (
+                      <Button size="sm" asChild>
+                        <Link to={agentChatPath(agent.id)}>{t('workforce.agents.chatWith')}</Link>
+                      </Button>
+                    ) : null}
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to={inboxPath('all')}>{t('workforce.agents.openCommunication')}</Link>
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to={`/agenda?agent=${agent.id}`}>{t('agendaPage.openAgenda')}</Link>
+                    </Button>
+                  </div>
+                }
+              />
             ) : (
               <WorkLogsTable
                 runs={runs}

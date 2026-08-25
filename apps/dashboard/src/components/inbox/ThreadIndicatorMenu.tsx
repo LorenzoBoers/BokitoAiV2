@@ -1,4 +1,5 @@
 import { Mail, MailOpen, Pin, PinOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import {
   DropdownMenu,
@@ -36,9 +37,17 @@ export default function ThreadIndicatorMenu({
   onMarkUnread,
   onTogglePin,
 }: Props) {
+  const { t } = useTranslation('communication')
+
   const stop = (e: React.MouseEvent | React.PointerEvent | React.KeyboardEvent) => {
     e.stopPropagation()
   }
+
+  const ariaLabel = isPinned
+    ? t('threadChrome.threadActionsPinned')
+    : hasUnread
+      ? t('threadChrome.threadActionsUnread')
+      : t('threadChrome.threadActions')
 
   return (
     <DropdownMenu>
@@ -50,13 +59,7 @@ export default function ThreadIndicatorMenu({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') stop(e)
           }}
-          aria-label={
-            isPinned
-              ? 'Thread actions (pinned)'
-              : hasUnread
-                ? 'Thread actions (unread)'
-                : 'Thread actions'
-          }
+          aria-label={ariaLabel}
           className={cn(
             'group/indicator mt-1.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full',
             'transition-[background-color,box-shadow] duration-150 ring-0',
@@ -99,7 +102,7 @@ export default function ThreadIndicatorMenu({
             className="gap-2"
           >
             <MailOpen size={14} className="text-text-muted" />
-            Mark as read
+            {t('threadChrome.markRead')}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
@@ -110,7 +113,7 @@ export default function ThreadIndicatorMenu({
             className="gap-2"
           >
             <Mail size={14} className="text-text-muted" />
-            Mark as unread
+            {t('threadChrome.markUnread')}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
@@ -123,12 +126,12 @@ export default function ThreadIndicatorMenu({
           {isPinned ? (
             <>
               <PinOff size={14} className="text-text-muted" />
-              Unpin
+              {t('threadChrome.unpin')}
             </>
           ) : (
             <>
               <Pin size={14} className="text-text-muted" />
-              Pin
+              {t('threadChrome.pin')}
             </>
           )}
         </DropdownMenuItem>

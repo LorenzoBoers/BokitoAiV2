@@ -1,13 +1,13 @@
 import { Brain } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { AI_PILL_CLASS, AI_TEXT_CLASS } from '../ai/AiMark'
 
 /**
- * Platform-wide knowledge identity: a violet brain. Used everywhere knowledge
- * or auto-learning shows up (Knowledge page, rail, agent knowledge steps,
- * learned rules) so the concept stays instantly recognizable.
+ * Platform-wide knowledge identity: a violet brain. Shares the AI violet
+ * tokens so knowledge and agent UI read as one system.
  */
 
-export const KNOWLEDGE_TEXT_CLASS = 'text-violet-500 dark:text-violet-300'
+export const KNOWLEDGE_TEXT_CLASS = AI_TEXT_CLASS
 
 type KnowledgeMarkProps = {
   size?: number
@@ -32,7 +32,7 @@ export function KnowledgeTile({
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-center border border-violet-500/20 bg-violet-500/10',
+        'flex shrink-0 items-center justify-center border border-ai/20 bg-ai/10',
         box,
         className,
       )}
@@ -55,8 +55,8 @@ export function LearnedChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium',
-        KNOWLEDGE_TEXT_CLASS,
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+        AI_PILL_CLASS,
         glow && 'knowledge-glow',
         className,
       )}

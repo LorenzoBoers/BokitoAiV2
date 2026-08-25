@@ -20,6 +20,9 @@ async def test_tour_state_roundtrip(client: AsyncClient):
     res = await client.get("/api/me/preferences", headers=headers)
     assert res.status_code == 200
     assert res.json()["tour"] == {}
+    from app.services.language import platform_default_ui_language
+
+    assert res.json()["ui_language"] == platform_default_ui_language()
 
     res = await client.patch(
         "/api/me/preferences",

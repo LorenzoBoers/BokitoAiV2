@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, AlertCircle, Mail } from 'lucide-react'
 import { toast } from 'sonner'
@@ -7,6 +8,7 @@ import { resendVerificationEmail, verifyEmail } from '../lib/api'
 type VerifyState = 'pending' | 'success' | 'error' | 'missing'
 
 export default function VerifyEmail() {
+  const { t } = useTranslation('nav')
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const token = searchParams.get('token')
@@ -26,14 +28,14 @@ export default function VerifyEmail() {
       } catch (err) {
         if (!cancelled) {
           setState('error')
-          setError(err instanceof Error ? err.message : 'Verification failed')
+          setError(err instanceof Error ? err.message : t('verifyEmailPage.failed'))
         }
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, t])
 
   const handleResend = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -43,9 +45,9 @@ export default function VerifyEmail() {
     try {
       const result = await resendVerificationEmail(email)
       if (result.dev_link) setDevLink(result.dev_link)
-      toast.success('Verification email sent if applicable.')
+      toast.success(t('verifyEmailPage.sentToast'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not resend verification email')
+      toast.error(err instanceof Error ? err.message : t('verifyEmailPage.resendFailed'))
     } finally {
       setResending(false)
     }
@@ -53,23 +55,23 @@ export default function VerifyEmail() {
 
   if (state === 'pending') {
     return (
-      <AuthShell title="Verifying email" subtitle="Please wait while we confirm your address.">
-        <p className="text-sm text-text-secondary text-center">Verifying...</p>
+      <AuthShell title={t('verifyEmailPage.pendingTitle')} subtitle={t('verifyEmailPage.pendingSubtitle')}>
+        <p className="text-sm text-text-secondary text-center">{t('verifyEmailPage.pending')}</p>
       </AuthShell>
     )
   }
 
   if (state === 'success') {
     return (
-      <AuthShell title="Email verified" subtitle="Your email address is confirmed.">
+      <AuthShell title={t('verifyEmailPage.successTitle')} subtitle={t('verifyEmailPage.successSubtitle')}>
         <div className="text-center">
           <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
-          <p className="text-text-secondary mb-6">You can sign in with your account.</p>
+          <p className="text-text-secondary mb-6">{t('verifyEmailPage.successBody')}</p>
           <Link
             to="/login"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-md transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-accent-fg rounded-md transition-colors"
           >
-            Sign in
+            {t('loginPage.signIn')}
           </Link>
         </div>
       </AuthShell>
@@ -78,11 +80,11 @@ export default function VerifyEmail() {
 
   return (
     <AuthShell
-      title={state === 'missing' ? 'Verify your email' : 'Verification failed'}
+      title={state === 'missing' ? t('verifyEmailPage.missingTitle') : t('verifyEmailPage.errorTitle')}
       subtitle={
         state === 'missing'
-          ? 'This link is missing a token. Request a new verification email below.'
-          : 'The link may have expired. Request a new one below.'
+          ? t('verifyEmailPage.missingSubtitle')
+          : t('verifyEmailPage.errorSubtitle')
       }
     >
       {state === 'error' && error ? (
@@ -95,14 +97,14 @@ export default function VerifyEmail() {
       <form onSubmit={handleResend} className="space-y-4">
         <div>
           <label htmlFor="resend-email" className="block text-sm font-medium text-text-secondary mb-1.5">
-            Email
+            {t('loginPage.email')}
           </label>
           <input
             id="resend-email"
             type="email"
             value={resendEmail}
             onChange={(event) => setResendEmail(event.target.value)}
-            placeholder="you@company.com"
+            placeholder={t('verifyEmailPage.emailPlaceholder')}
             className="w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
             required
           />
@@ -110,16 +112,16 @@ export default function VerifyEmail() {
         <button
           type="submit"
           disabled={resending || !resendEmail.trim()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
         >
           <Mail size={16} />
-          {resending ? 'Sending...' : 'Resend verification email'}
+          {resending ? t('verifyEmailPage.sending') : t('verifyEmailPage.resend')}
         </button>
       </form>
 
       {devLink ? (
         <div className="mt-4 rounded-md border border-border bg-bg-input/50 px-4 py-3 text-sm">
-          <p className="font-medium text-text-heading mb-1">Local dev verification link</p>
+          <p className="font-medium text-text-heading mb-1">{t('verifyEmailPage.devTitle')}</p>
           <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
             {devLink}
           </Link>
@@ -133,7 +135,7 @@ export default function VerifyEmail() {
           className="inline-flex items-center gap-2 text-sm text-accent hover:text-accent-hover transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to sign in
+          {t('loginPage.backToSignIn')}
         </button>
       </div>
     </AuthShell>
@@ -149,6 +151,7 @@ function AuthShell({
   subtitle: string
   children: ReactNode
 }) {
+  const { t } = useTranslation('nav')
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg px-4">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -175,7 +178,7 @@ function AuthShell({
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · All rights reserved
+          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
       </div>
     </div>

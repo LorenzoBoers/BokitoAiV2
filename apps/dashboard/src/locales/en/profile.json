@@ -73,7 +73,18 @@
     "deletePasswordPrompt": "Enter your password to confirm deletion:",
     "deleting": "Deleting..."
   },
+  "errors": {
+    "saveField": "Could not save {{label}}.",
+    "uploadAvatar": "Could not upload photo.",
+    "uploadAvatarDetail": "Could not upload photo ({{detail}}).",
+    "deleteAccount": "Could not delete the account.",
+    "resendVerification": "Could not resend the verification email.",
+    "totpStart": "Could not start two-factor setup.",
+    "totpDisable": "Could not turn off two-factor authentication.",
+    "verificationSent": "Verification email sent if applicable.",
+    "verificationSentDev": "Verification email sent. Check the development link in the server logs."
+  },
   "links": {
-    "openInboxSettings": "Open inbox settings"
+    "openInboxSettings": "Open channel settings"
   }
 }

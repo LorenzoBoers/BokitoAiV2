@@ -30,7 +30,9 @@ from app.services.auth import (
 )
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
 from app.services.workspaces_portal import (
+    allows_platform_support,
     apply_branding,
+    first_allowed_support_tenant,
     resolve_tenant_for_workspace,
     tenant_by_subdomain,
 )
@@ -283,23 +285,37 @@ async def _workspace_required_response(session: AsyncSession, user: User):
     )
 
 
+async def _staff_landing_tenant(session: AsyncSession, user: User) -> Tenant | None:
+    return await first_allowed_support_tenant(session, preferred_id=user.last_tenant_id)
+
+
 async def _complete_login(
     session: AsyncSession, response: Response, user: User
 ):
     tenant_ctx = await get_tenant_for_user(session, user.id, preferred_tenant_id=user.last_tenant_id)
-    if not tenant_ctx:
+    tenant: Tenant | None = None
+    role = "member"
+    if tenant_ctx:
+        tenant, membership = tenant_ctx
+        role = "admin" if user.is_staff else membership.role
+        if user.is_staff and not allows_platform_support(tenant):
+            tenant = await _staff_landing_tenant(session, user)
+            role = "admin" if tenant else role
+    elif user.is_staff:
+        tenant = await _staff_landing_tenant(session, user)
+        role = "admin"
+    if not tenant:
         return await _workspace_required_response(session, user)
-    tenant, membership = tenant_ctx
     if user.last_tenant_id != tenant.id:
         user.last_tenant_id = tenant.id
         session.add(user)
         await session.commit()
-    access_token = create_access_token(user.id, tenant.id, user.email)
+    access_token = create_access_token(user.id, tenant.id, user.email, staff=user.is_staff)
     refresh_token, _ = await create_refresh_session(session, user.id)
     _set_refresh_cookie(response, refresh_token)
     return LoginResponse(
         access_token=access_token,
-        user=_user_dict(user, tenant, membership.role),
+        user=_user_dict(user, tenant, role, is_staff=user.is_staff),
         tenant=_tenant_dict(tenant),
     )
 
@@ -459,15 +475,9 @@ async def staff_login(
     user = await authenticate_user(session, body.email, body.password)
     if not user or not user.is_staff:
         raise HTTPException(status_code=401, detail="Invalid staff credentials")
-    tenant = None
-    if user.last_tenant_id:
-        tenant_result = await session.execute(select(Tenant).where(Tenant.id == user.last_tenant_id))
-        tenant = tenant_result.scalar_one_or_none()
+    tenant = await first_allowed_support_tenant(session, preferred_id=user.last_tenant_id)
     if not tenant:
-        tenant_result = await session.execute(select(Tenant).order_by(Tenant.created_at).limit(1))
-        tenant = tenant_result.scalar_one_or_none()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="No tenant available")
+        raise HTTPException(status_code=404, detail="No workspace allows platform support")
     if user.last_tenant_id != tenant.id:
         user.last_tenant_id = tenant.id
         session.add(user)
@@ -489,9 +499,9 @@ async def _switch_workspace_response(
 ) -> LoginResponse:
     """Issue a fresh access token scoped to the requested workspace.
 
-    Staff may enter any tenant (logged); members may only switch to tenants
-    where they hold a membership. `last_tenant_id` is persisted so refresh and
-    the next login keep the same workspace.
+    Staff may enter any workspace that allows platform support (logged);
+    members may only switch to tenants where they hold a membership.
+    `last_tenant_id` is persisted so refresh and the next login keep the same workspace.
     """
     tenant_result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = tenant_result.scalar_one_or_none()
@@ -499,6 +509,20 @@ async def _switch_workspace_response(
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     if auth.user.is_staff:
+        if not allows_platform_support(tenant):
+            raise HTTPException(
+                status_code=403,
+                detail="This workspace does not allow platform support.",
+            )
+        previous_id = auth.user.last_tenant_id
+        if previous_id and previous_id != tenant.id:
+            session.add(
+                StaffAccessLog(
+                    staff_user_id=auth.user.id,
+                    tenant_id=previous_id,
+                    action="leave",
+                )
+            )
         role = "admin"
         session.add(StaffAccessLog(staff_user_id=auth.user.id, tenant_id=tenant.id, action="enter"))
     else:
@@ -552,7 +576,15 @@ async def list_tenants(
     if not auth.user.is_staff:
         raise HTTPException(status_code=403, detail="Staff only")
     result = await session.execute(select(Tenant).order_by(Tenant.name))
-    return [{"id": str(t.id), "slug": t.slug, "name": t.name} for t in result.scalars().all()]
+    return [
+        {
+            "id": str(t.id),
+            "slug": t.slug,
+            "name": t.name,
+            "support_allowed": allows_platform_support(t),
+        }
+        for t in result.scalars().all()
+    ]
 
 
 @router.post("/invite")
@@ -807,13 +839,13 @@ async def refresh(
     user = await verify_refresh_token(session, raw)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-    if user.is_staff and user.last_tenant_id:
-        # Staff can be scoped to tenants without a membership row.
-        staff_tenant_result = await session.execute(
-            select(Tenant).where(Tenant.id == user.last_tenant_id)
-        )
-        staff_tenant = staff_tenant_result.scalar_one_or_none()
+    if user.is_staff:
+        staff_tenant = await first_allowed_support_tenant(session, preferred_id=user.last_tenant_id)
         if staff_tenant:
+            if user.last_tenant_id != staff_tenant.id:
+                user.last_tenant_id = staff_tenant.id
+                session.add(user)
+                await session.commit()
             access_token = create_access_token(user.id, staff_tenant.id, user.email, staff=True)
             return LoginResponse(
                 access_token=access_token,
@@ -838,6 +870,8 @@ async def _build_memberships(session: AsyncSession, user: User) -> list[dict]:
     if user.is_staff:
         result = await session.execute(select(Tenant).order_by(Tenant.name))
         for tenant in result.scalars().all():
+            if not allows_platform_support(tenant):
+                continue
             memberships.append(
                 {
                     "tenant_id": str(tenant.id),

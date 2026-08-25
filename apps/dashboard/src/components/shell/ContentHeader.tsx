@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 type ContentHeaderProps = {
   title: string
-  subtitle?: string
+  subtitle?: ReactNode
   /** Right-aligned controls (buttons, pills, filters). */
   meta?: ReactNode
 }

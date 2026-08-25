@@ -23,19 +23,24 @@ export function McpConnectionDialog({ open, onOpenChange, onSaved, presetProvide
   const { t } = useTranslation('nav')
   const provider = presetProvider ?? 'custom_mcp'
   const isBjorn = provider === 'bjorn_lunden_mcp'
+  const isKing = provider === 'king_accountancy'
   const brand = useIntegrationBrand(provider)
 
-  const title = isBjorn
-    ? t('integrations.mcp.servers.dialogBjornTitle')
-    : t('integrations.mcp.servers.addTitle')
+  const title = isKing
+    ? t('integrations.mcp.servers.dialogKingTitle')
+    : isBjorn
+      ? t('integrations.mcp.servers.dialogBjornTitle')
+      : t('integrations.mcp.servers.addTitle')
 
-  const description = isBjorn
-    ? t('integrations.mcp.servers.dialogBjornDescription')
-    : t('integrations.mcp.servers.modalDescription')
+  const description = isKing
+    ? t('integrations.mcp.servers.dialogKingDescription')
+    : isBjorn
+      ? t('integrations.mcp.servers.dialogBjornDescription')
+      : t('integrations.mcp.servers.modalDescription')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={isKing ? 'sm:max-w-lg' : 'sm:max-w-md'}>
         <DialogHeader>
           <div className="flex items-center gap-3">
             <IntegrationHostLogo

@@ -138,19 +138,16 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
     [movableOrder, setOrder],
   )
 
-  const visibleLabel = t('support.customize.visible', { defaultValue: 'Show' })
-  const collapsedLabel = t('support.customize.collapsed', { defaultValue: 'Collapse' })
+  const visibleLabel = t('support.customize.visible')
+  const collapsedLabel = t('support.customize.collapsed')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('support.customize.title', { defaultValue: 'Customize sidebar' })}</DialogTitle>
+          <DialogTitle>{t('support.customize.title')}</DialogTitle>
           <DialogDescription>
-            {t('support.customize.description', {
-              defaultValue:
-                'Drag Agents and Channels to reorder them. Settings stays at the bottom of the rail.',
-            })}
+            {t('support.customize.description')}
           </DialogDescription>
         </DialogHeader>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -160,9 +157,7 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
                 <SectionToggles
                   key={section}
                   section={section}
-                  label={t(SECTION_LABELS[section].labelKey, {
-                    defaultValue: SECTION_LABELS[section].defaultLabel,
-                  })}
+                  label={t(SECTION_LABELS[section].labelKey)}
                   hidden={prefs.hidden.includes(section)}
                   collapsed={prefs.collapsed.includes(section)}
                   onHiddenChange={(hidden) => setSectionHidden(section, hidden)}
@@ -175,13 +170,11 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
           </SortableContext>
         </DndContext>
         <p className="pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
-          {t('support.customize.anchored', { defaultValue: 'Anchored' })}
+          {t('support.customize.anchored')}
         </p>
         <SectionToggles
           section="settings"
-          label={t(SECTION_LABELS.settings.labelKey, {
-            defaultValue: SECTION_LABELS.settings.defaultLabel,
-          })}
+          label={t(SECTION_LABELS.settings.labelKey)}
           hidden={prefs.hidden.includes('settings')}
           collapsed={prefs.collapsed.includes('settings')}
           onHiddenChange={(hidden) => setSectionHidden('settings', hidden)}
@@ -196,7 +189,7 @@ export default function SidebarCustomizeDialog({ open, onOpenChange }: Props) {
             onClick={resetPrefs}
             className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
           >
-            {t('support.customize.reset', { defaultValue: 'Reset to defaults' })}
+            {t('support.customize.reset')}
           </button>
         </div>
       </DialogContent>

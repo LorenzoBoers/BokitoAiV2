@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CornerDownLeft, Inbox, MessageSquare, Moon, Plus, User } from 'lucide-react'
+import { CornerDownLeft, Inbox, MessageSquare, Moon, Plus, Settings, User } from 'lucide-react'
+import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
@@ -81,6 +82,26 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => navigate(pathForTab(tab)),
       })),
     )
+    const inboxQueues: PaletteItem[] = (
+      [
+        { id: 'inbox-all', queue: 'all' as const, labelKey: 'support.inbox.all' },
+        { id: 'inbox-mine', queue: 'mine' as const, labelKey: 'support.inbox.mine' },
+        { id: 'inbox-unassigned', queue: 'unassigned' as const, labelKey: 'support.inbox.unassigned' },
+      ] as const
+    ).map((item) => ({
+      id: item.id,
+      label: t(item.labelKey),
+      group: t('palette.groupInbox'),
+      icon: Inbox,
+      run: () => navigate(inboxPath(item.queue)),
+    }))
+    const settings: PaletteItem[] = SETTINGS_PALETTE_LINKS.map((link) => ({
+      id: `settings-${link.to}`,
+      label: t(link.labelKey),
+      group: t('palette.groupSettings'),
+      icon: Settings,
+      run: () => navigate(link.to),
+    }))
     const sessions: PaletteItem[] = conversations.slice(0, 8).map((c) => ({
       id: `session-${c.id}`,
       label: c.title || t('palette.untitledConversation'),
@@ -97,6 +118,20 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => startNewChat(),
       },
       {
+        id: 'action-connect-mailbox',
+        label: t('palette.connectMailbox'),
+        group: t('palette.groupActions'),
+        icon: Inbox,
+        run: () => navigate('/settings/channels'),
+      },
+      {
+        id: 'action-setup-guide',
+        label: t('palette.openSetupGuide'),
+        group: t('palette.groupActions'),
+        icon: Settings,
+        run: () => navigate('/settings/setup'),
+      },
+      {
         id: 'action-theme',
         label: isDark ? t('palette.switchToLight') : t('palette.switchToDark'),
         group: t('palette.groupActions'),
@@ -104,7 +139,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => toggleMode(),
       },
     ]
-    return [...nav, ...sessions, ...actions]
+    return [...nav, ...inboxQueues, ...settings, ...sessions, ...actions]
   }, [conversations, navigate, startNewChat, toggleMode, isDark, t])
 
   const remoteItems = useMemo<PaletteItem[]>(() => {
@@ -183,14 +218,14 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[14vh]">
       <button
         type="button"
-        aria-label="Close command palette"
+        aria-label={t('palette.ariaClose')}
         className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div
         className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-2xl"
         role="dialog"
-        aria-label="Command palette"
+        aria-label={t('palette.ariaDialog')}
       >
         <input
           ref={inputRef}

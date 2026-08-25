@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   BarChart3,
@@ -37,22 +39,24 @@ import {
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 
-const UNIT_OPTIONS: { id: MetricUnit; label: string }[] = [
-  { id: 'number', label: 'Number' },
-  { id: 'count', label: 'Count' },
-  { id: 'percent', label: 'Percent' },
-  { id: 'currency', label: 'Currency (EUR)' },
-  { id: 'duration', label: 'Duration (minutes)' },
-]
+const UNIT_IDS: MetricUnit[] = ['number', 'count', 'percent', 'currency', 'duration']
 
-function timeAgo(iso: string): string {
+const UNIT_LABEL_KEYS: Record<MetricUnit, string> = {
+  number: 'cockpitPage.unitNumber',
+  count: 'cockpitPage.unitCount',
+  percent: 'cockpitPage.unitPercent',
+  currency: 'cockpitPage.unitCurrency',
+  duration: 'cockpitPage.unitDuration',
+}
+
+function timeAgo(iso: string, t: (key: string, opts?: { count: number }) => string): string {
   const diffMs = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diffMs / 60_000)
-  if (mins < 1) return 'now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return t('cockpitPage.now')
+  if (mins < 60) return t('cockpitPage.minutesAgo', { count: mins })
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  if (hours < 24) return t('cockpitPage.hoursAgo', { count: hours })
+  return t('cockpitPage.daysAgo', { count: Math.floor(hours / 24) })
 }
 
 function MetricCard({
@@ -62,6 +66,7 @@ function MetricCard({
   metric: CustomMetricRow
   onEdit: (metric: CustomMetricRow) => void
 }) {
+  const { t } = useTranslation('nav')
   const deltaUp = metric.delta !== null && metric.delta > 0
   const deltaDown = metric.delta !== null && metric.delta < 0
   return (
@@ -76,9 +81,9 @@ function MetricCard({
         </p>
         <span className="flex shrink-0 items-center gap-1">
           {metric.source !== 'manual' ? (
-            <Sparkles size={12} className="text-accent/70" aria-label="Computed from platform data" />
+            <Sparkles size={12} className="text-accent/70" aria-label={t('cockpitPage.computedAria')} />
           ) : metric.latest_source === 'agent' ? (
-            <Bot size={12} className="text-accent/70" aria-label="Last value recorded by an agent" />
+            <Bot size={12} className="text-accent/70" aria-label={t('cockpitPage.agentAria')} />
           ) : null}
           <Pencil size={11} className="text-text-muted opacity-0 transition-opacity group-hover:opacity-100" />
         </span>
@@ -105,7 +110,7 @@ function MetricCard({
             {formatMetricValue(metric.target, metric.unit)}
           </span>
         ) : null}
-        {metric.latest_at ? <span>{timeAgo(metric.latest_at)}</span> : <span>No data yet</span>}
+        {metric.latest_at ? <span>{timeAgo(metric.latest_at, t)}</span> : <span>{t('cockpitPage.noDataYet')}</span>}
       </p>
     </button>
   )
@@ -121,6 +126,8 @@ type DialogState =
  * dialog) or agents (via the `record_metric` tool); the newest point wins.
  */
 export default function CustomMetricsSection() {
+  const { t } = useTranslation('nav')
+  const [searchParams, setSearchParams] = useSearchParams()
   const [metrics, setMetrics] = useState<CustomMetricRow[]>([])
   const [loaded, setLoaded] = useState(false)
   const [dialog, setDialog] = useState<DialogState>(null)
@@ -160,6 +167,21 @@ export default function CustomMetricsSection() {
     setDialog({ mode: 'create' })
   }
 
+  useEffect(() => {
+    if (searchParams.get('addMetric') !== '1') return
+    setLabel('')
+    setUnit('number')
+    setTarget('')
+    setNewValue('')
+    setValueNote('')
+    setSource('manual')
+    setHistory(null)
+    setDialog({ mode: 'create' })
+    const next = new URLSearchParams(searchParams)
+    next.delete('addMetric')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
   const openEdit = (metric: CustomMetricRow) => {
     setLabel(metric.label)
     setUnit(metric.unit)
@@ -191,7 +213,7 @@ export default function CustomMetricsSection() {
   async function submit() {
     if (!dialog || busy) return
     if (!label.trim()) {
-      toast.error('Give the metric a name.')
+      toast.error(t('cockpitPage.nameRequired'))
       return
     }
     const isPlatform = source !== 'manual'
@@ -207,7 +229,7 @@ export default function CustomMetricsSection() {
         if (!isPlatform && parsedValue !== null) {
           await addMetricPoint(created.id, { value: parsedValue, note: valueNote.trim() })
         }
-        toast.success('Metric added.')
+        toast.success(t('cockpitPage.metricAdded'))
       } else {
         await updateCustomMetric(dialog.metric.id, {
           label: label.trim(),
@@ -218,12 +240,12 @@ export default function CustomMetricsSection() {
         if (!isPlatform && parsedValue !== null) {
           await addMetricPoint(dialog.metric.id, { value: parsedValue, note: valueNote.trim() })
         }
-        toast.success('Metric updated.')
+        toast.success(t('cockpitPage.metricUpdated'))
       }
       setDialog(null)
       load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not save metric.')
+      toast.error(err instanceof Error ? err.message : t('cockpitPage.couldNotSave'))
     } finally {
       setBusy(false)
     }
@@ -234,11 +256,11 @@ export default function CustomMetricsSection() {
     setBusy(true)
     try {
       await deleteCustomMetric(dialog.metric.id)
-      toast.success('Metric removed.')
+      toast.success(t('cockpitPage.metricRemoved'))
       setDialog(null)
       load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not remove metric.')
+      toast.error(err instanceof Error ? err.message : t('cockpitPage.couldNotRemove'))
     } finally {
       setBusy(false)
     }
@@ -251,14 +273,14 @@ export default function CustomMetricsSection() {
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 size={14} className="text-text-muted" />
-          <h2 className="text-[13px] font-semibold text-text-heading">Your metrics</h2>
+          <h2 className="text-[13px] font-semibold text-text-heading">{t('cockpitPage.yourMetrics')}</h2>
           <span className="text-[11px] text-text-muted">
-            Filled by you or your agents
+            {t('cockpitPage.metricsHint')}
           </span>
         </div>
         <Button type="button" size="sm" variant="ghost" className="text-text-secondary" onClick={openCreate}>
           <Plus size={13} className="mr-1" />
-          Add metric
+          {t('cockpitPage.addMetric')}
         </Button>
       </div>
       {metrics.length === 0 ? (
@@ -268,7 +290,7 @@ export default function CustomMetricsSection() {
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-4 py-5 text-[12px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary"
         >
           <Plus size={13} />
-          Track a business KPI (revenue, open tickets, response time, ...) — agents can update it with record_metric
+          {t('cockpitPage.trackKpi')}
         </button>
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
@@ -282,22 +304,22 @@ export default function CustomMetricsSection() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {dialog?.mode === 'edit' ? 'Edit metric' : 'New metric'}
+              {dialog?.mode === 'edit' ? t('cockpitPage.editMetric') : t('cockpitPage.newMetric')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="metric-label">Name</Label>
+              <Label htmlFor="metric-label">{t('cockpitPage.metricName')}</Label>
               <Input
                 id="metric-label"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. Monthly recurring revenue"
+                placeholder={t('cockpitPage.metricNamePlaceholder')}
               />
             </div>
             {sourceOptions.length > 0 ? (
               <div className="space-y-1.5">
-                <Label htmlFor="metric-source">Data source</Label>
+                <Label htmlFor="metric-source">{t('cockpitPage.dataSource')}</Label>
                 <select
                   id="metric-source"
                   value={source}
@@ -309,10 +331,10 @@ export default function CustomMetricsSection() {
                   }}
                   className="h-9 w-full rounded-lg border border-border bg-bg-surface px-2.5 text-sm text-text-primary outline-none focus:border-accent/60"
                 >
-                  <option value="manual">Manual / agent fill</option>
+                  <option value="manual">{t('cockpitPage.manualFill')}</option>
                   {sourceOptions.map((option) => (
                     <option key={option.id} value={option.id}>
-                      {option.label} (platform)
+                      {t('cockpitPage.platformSuffix', { label: option.label })}
                     </option>
                   ))}
                 </select>
@@ -320,7 +342,7 @@ export default function CustomMetricsSection() {
             ) : null}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="metric-unit">Unit</Label>
+                <Label htmlFor="metric-unit">{t('cockpitPage.unit')}</Label>
                 <select
                   id="metric-unit"
                   value={unit}
@@ -328,20 +350,20 @@ export default function CustomMetricsSection() {
                   onChange={(e) => setUnit(e.target.value as MetricUnit)}
                   className="h-9 w-full rounded-lg border border-border bg-bg-surface px-2.5 text-sm text-text-primary outline-none focus:border-accent/60 disabled:opacity-60"
                 >
-                  {UNIT_OPTIONS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
+                  {UNIT_IDS.map((id) => (
+                    <option key={id} value={id}>
+                      {t(UNIT_LABEL_KEYS[id])}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="metric-target">Target (optional)</Label>
+                <Label htmlFor="metric-target">{t('cockpitPage.targetOptional')}</Label>
                 <Input
                   id="metric-target"
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
-                  placeholder="e.g. 10000"
+                  placeholder={t('cockpitPage.targetPlaceholder')}
                   inputMode="decimal"
                 />
               </div>
@@ -349,39 +371,40 @@ export default function CustomMetricsSection() {
             {source === 'manual' ? (
               <div className="rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
                 <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
-                  {dialog?.mode === 'edit' ? 'Record a new value' : 'Starting value (optional)'}
+                  {dialog?.mode === 'edit' ? t('cockpitPage.recordValue') : t('cockpitPage.startingValue')}
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-3">
                   <Input
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
-                    placeholder="Value"
+                    placeholder={t('cockpitPage.value')}
                     inputMode="decimal"
                   />
                   <Input
                     value={valueNote}
                     onChange={(e) => setValueNote(e.target.value)}
-                    placeholder="Note (optional)"
+                    placeholder={t('cockpitPage.noteOptional')}
                   />
                 </div>
                 {dialog?.mode === 'edit' && dialog.metric.latest_value !== null ? (
                   <p className="mt-2 text-[11px] text-text-muted">
-                    Current: {formatMetricValue(dialog.metric.latest_value, dialog.metric.unit)}
-                    {dialog.metric.latest_at ? ` (${timeAgo(dialog.metric.latest_at)})` : ''}
+                    {t('cockpitPage.currentValue', {
+                      value: formatMetricValue(dialog.metric.latest_value, dialog.metric.unit),
+                    })}
+                    {dialog.metric.latest_at ? ` (${timeAgo(dialog.metric.latest_at, t)})` : ''}
                   </p>
                 ) : null}
               </div>
             ) : (
               <p className="rounded-lg border border-border/60 bg-bg-elevated/50 p-3 text-[11px] text-text-muted">
-                This value is computed from platform data and snapshotted daily, so
-                history builds automatically. Manual and agent fills are disabled.
+                {t('cockpitPage.platformComputed')}
               </p>
             )}
             {dialog?.mode === 'edit' && history !== null && history.length > 0 ? (
               <div className="rounded-lg border border-border/60 p-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
                   <History size={11} />
-                  Recent values
+                  {t('cockpitPage.recentValues')}
                 </p>
                 <ul className="mt-2 space-y-1">
                   {history.map((point) => (
@@ -391,7 +414,7 @@ export default function CustomMetricsSection() {
                       </span>
                       <span className="truncate text-text-muted">{point.note}</span>
                       <span className="shrink-0 text-[11px] text-text-muted">
-                        {timeAgo(point.recorded_at)}
+                        {timeAgo(point.recorded_at, t)}
                       </span>
                     </li>
                   ))}
@@ -400,8 +423,9 @@ export default function CustomMetricsSection() {
             ) : null}
             {source === 'manual' ? (
               <p className="text-[11px] text-text-muted">
-                Agents can update this metric automatically with the record_metric tool
-                {dialog?.mode === 'edit' ? ` using key "${dialog.metric.key}"` : ''}.
+                {dialog?.mode === 'edit'
+                  ? t('cockpitPage.agentsCanUpdateKey', { key: dialog.metric.key })
+                  : t('cockpitPage.agentsCanUpdate')}
               </p>
             ) : null}
           </div>
@@ -416,17 +440,17 @@ export default function CustomMetricsSection() {
                 onClick={() => void remove()}
               >
                 <Trash2 size={13} className="mr-1" />
-                Remove
+                {t('cockpitPage.remove')}
               </Button>
             ) : (
               <span />
             )}
             <div className="flex gap-2">
               <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => setDialog(null)}>
-                Cancel
+                {t('cockpitPage.cancel')}
               </Button>
               <Button type="button" size="sm" disabled={busy} onClick={() => void submit()}>
-                Save
+                {t('cockpitPage.save')}
               </Button>
             </div>
           </div>

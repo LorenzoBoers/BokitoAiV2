@@ -26,6 +26,7 @@ _CHANNEL_DEFAULTS = {
     "email": "suggest",
     "widget": "auto",
     "chat": "auto",
+    "whatsapp": "suggest",
 }
 _FALLBACK_MODE = "suggest"
 

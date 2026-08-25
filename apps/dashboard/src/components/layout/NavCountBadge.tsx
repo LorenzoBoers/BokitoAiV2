@@ -25,7 +25,7 @@ export default function NavCountBadge({
   const colorClass =
     variant === 'muted'
       ? 'bg-text-muted text-bg'
-      : 'bg-accent text-white border border-bg'
+      : 'bg-accent text-accent-fg border border-bg'
 
   if (placement === 'inline') {
     return (

@@ -12,7 +12,9 @@
     "workspace": {
       "current": "Huidig",
       "openCta": "Open workspace",
-      "defaultSlug": "workspace"
+      "defaultSlug": "workspace",
+      "subdomainRequired": "Stel een subdomein in om deze workspace te openen",
+      "setSubdomainCta": "Stel eerst een subdomein in"
     },
     "create": {
       "title": "Workspace aanmaken",
@@ -21,7 +23,8 @@
       "button": "Workspace aanmaken",
       "creating": "Aanmaken...",
       "error": "Workspace aanmaken mislukt",
-      "openDialogCta": "Start setup"
+      "openDialogCta": "Start setup",
+      "subdomainPlaceholder": "mijn-bedrijf"
     }
   },
   "empty": {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MailWarning } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
@@ -12,6 +13,7 @@ import { resendVerificationEmail } from '../../lib/api'
  * never see it.
  */
 export default function VerifyEmailBanner() {
+  const { t } = useTranslation('nav')
   const { user } = useAuth()
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
@@ -25,12 +27,12 @@ export default function VerifyEmailBanner() {
       const result = await resendVerificationEmail(user.email)
       setSent(true)
       if (result.dev_link) {
-        toast.success('Verification email sent. Dev link available in the server logs.')
+        toast.success(t('verifyEmail.sentDev'))
       } else {
-        toast.success(`Verification email sent to ${user.email}.`)
+        toast.success(t('verifyEmail.sentToast', { email: user.email }))
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not send the verification email.')
+      toast.error(err instanceof Error ? err.message : t('verifyEmail.failed'))
     } finally {
       setSending(false)
     }
@@ -40,7 +42,7 @@ export default function VerifyEmailBanner() {
     <div className="flex items-center gap-3 border-b border-status-warning/30 bg-status-warning/10 px-4 py-1.5 text-[13px] text-text-primary">
       <MailWarning size={14} className="shrink-0 text-status-warning" />
       <span className="min-w-0 truncate">
-        Verify {user.email} to send messages and connect mailboxes.
+        {t('verifyEmail.body', { email: user.email })}
       </span>
       <button
         type="button"
@@ -48,7 +50,7 @@ export default function VerifyEmailBanner() {
         disabled={sending || sent}
         className="ml-auto shrink-0 rounded-md border border-border/60 px-2.5 py-0.5 font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-60"
       >
-        {sent ? 'Sent' : sending ? 'Sending...' : 'Resend email'}
+        {sent ? t('verifyEmail.sent') : sending ? t('verifyEmail.sending') : t('verifyEmail.resend')}
       </button>
     </div>
   )

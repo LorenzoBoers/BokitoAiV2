@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
+import { Bot, X } from 'lucide-react'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listAgents } from '../../lib/agents-api'
 import type { InboxThread } from '../../lib/inbox-api'
@@ -14,6 +16,7 @@ type Props = {
 }
 
 export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: Props) {
+  const { t } = useTranslation(['nav', 'communication'])
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [targetAgent, setTargetAgent] = useState<RuntimeAgent | null>(null)
   // External/customer threads show the contact; assistant and internal threads
@@ -74,7 +77,7 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
         name: orchestrator.name,
         slug: orchestrator.slug ?? '',
         role_id: null,
-        role_name: orchestrator.role ?? 'Orchestrator',
+        role_name: orchestrator.role ?? t('workforce.agents.types.orchestrator', { ns: 'nav' }),
         role_slug: orchestrator.agent_type ?? null,
         parent_agent_id: null,
         status: (orchestrator.status as RuntimeAgent['status']) ?? 'active',
@@ -91,7 +94,10 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
         name: thread.agentName,
         slug: '',
         role_id: null,
-        role_name: thread.agentKind === 'orchestrator' ? 'Orchestrator' : 'Agent',
+        role_name:
+          thread.agentKind === 'orchestrator'
+            ? t('workforce.agents.types.orchestrator', { ns: 'nav' })
+            : t('workforce.agents.types.worker', { ns: 'nav' }),
         role_slug: null,
         parent_agent_id: null,
         status: 'active',
@@ -102,20 +108,20 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
       }
     }
     return null
-  }, [targetAgent, orchestrator, thread.agentId, thread.agentName, thread.agentKind, thread.organisationId])
+  }, [targetAgent, orchestrator, thread.agentId, thread.agentName, thread.agentKind, thread.organisationId, t])
 
   return (
     <aside className="hidden h-full min-h-0 w-72 shrink-0 flex-col border-l border-border/60 bg-bg-surface lg:flex">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-          {isExternal ? 'Contact' : 'Agent'}
+          {isExternal ? t('sidePanel.contact', { ns: 'communication' }) : t('sidePanel.agent', { ns: 'communication' })}
         </span>
         <button
           type="button"
           onClick={onClose}
           className="rounded-sm p-0.5 text-text-muted hover:text-text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
-          aria-label="Close context panel"
-          title="Close"
+          aria-label={t('directChat.closeContextPanel', { ns: 'communication' })}
+          title={t('directChat.close', { ns: 'communication' })}
         >
           <X size={14} />
         </button>
@@ -123,12 +129,32 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isExternal ? (
-          <ContactPanel
-            contactId={thread.contactId}
-            fallbackName={thread.contactName}
-            fallbackEmail={thread.contactEmail}
-            currentThreadId={thread.id}
-          />
+          <>
+            {thread.agentId || thread.agentName ? (
+              <Link
+                to={thread.agentId ? `/agents/${thread.agentId}` : '/agents'}
+                className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-ai/20 bg-ai/5 px-2.5 py-1.5 text-left transition-colors hover:border-ai/40"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-ai/25 bg-ai/10 text-ai-ink">
+                  <Bot size={12} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                    {t('sidePanel.handling', { ns: 'communication' })}
+                  </span>
+                  <span className="block truncate text-[12px] font-medium text-text-heading">
+                    {thread.agentName || 'Agent'}
+                  </span>
+                </span>
+              </Link>
+            ) : null}
+            <ContactPanel
+              contactId={thread.contactId}
+              fallbackName={thread.contactName}
+              fallbackEmail={thread.contactEmail}
+              currentThreadId={thread.id}
+            />
+          </>
         ) : (
           <AgentContextPanel thread={thread} agent={contextAgent} onThreadUpdated={onThreadUpdated} />
         )}

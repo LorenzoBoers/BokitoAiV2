@@ -29,8 +29,8 @@ export type Tab =
   | 'settings'
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Control', tabs: ['cockpit', 'communication', 'contacts', 'agenda'] },
-  { label: 'AI', tabs: ['agents', 'projects', 'knowledge'] },
+  { label: 'Control', tabs: ['cockpit', 'communication', 'contacts', 'agenda', 'projects'] },
+  { label: 'AI', tabs: ['agents', 'knowledge'] },
   { label: 'Settings', tabs: ['settings'] },
 ]
 
@@ -73,8 +73,8 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   communication: 'Chats, customer and agent threads',
   contacts: 'People across your channels',
   agenda: 'Scheduled wakes, tasks and events',
-  agents: 'Your agent workforce',
-  projects: 'Repos, orchestration and budgets',
+  agents: 'People and agents you can chat with',
+  projects: 'Shared goals for agents and threads',
   knowledge: 'Docs, skills and memory',
   settings: 'Workspace configuration',
 }

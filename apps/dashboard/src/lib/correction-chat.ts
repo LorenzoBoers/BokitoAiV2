@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
@@ -23,7 +24,7 @@ function correctionPrompt(subject: CorrectionSubject): string {
   const what = subject.subjectType === 'decision' ? 'decision you proposed' : 'reply you wrote'
   const quote = (subject.summary || '').trim().slice(0, 500)
   return [
-    `I want to correct your interpretation of the linked conversation - specifically the ${what}.`,
+    `This is not right — specifically the ${what}.`,
     quote ? `This is what you did:\n"""${quote}"""` : '',
     'I will explain what you should have done. Ask focused clarifying questions if anything is unclear.',
     'When you understand the correction, make it stick: use write_doc to record what you learned in workspace memory, and if this looks like a recurring pattern for this sender or type of message, use suggest_inbox_rule to propose an automation rule I can confirm.',
@@ -39,6 +40,7 @@ function correctionPrompt(subject: CorrectionSubject): string {
  * starts asking what it should have done differently.
  */
 export function useCorrectionChat() {
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [starting, setStarting] = useState(false)
@@ -58,7 +60,7 @@ export function useCorrectionChat() {
 
         const created = await bokitoCreateConversation(
           token,
-          'Correct interpretation',
+          'Correction',
           subject.agentId ?? undefined,
           { contextSignalId: subject.threadId },
         )
@@ -68,12 +70,12 @@ export function useCorrectionChat() {
             : assistantPath(created.id)
         navigate(path, { state: { autoSend: correctionPrompt(subject) } })
       } catch {
-        toast.error('Could not start the correction chat.')
+        toast.error(t('actions.correctionStartError'))
       } finally {
         setStarting(false)
       }
     },
-    [token, starting, navigate],
+    [token, starting, navigate, t],
   )
 
   return { startCorrection, starting }

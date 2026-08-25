@@ -276,6 +276,32 @@ async def test_bjorn_lunden_install_discovers_accounting_tools(
 
 
 @pytest.mark.asyncio
+async def test_king_accountancy_install_discovers_read_tools(client: AsyncClient):
+    headers = await _auth_headers(client)
+
+    install = await client.post(
+        "/api/integrations/mcp/install",
+        headers=headers,
+        json={
+            "provider": "king_accountancy",
+            "display_name": "KING Accountancy",
+            "auth": {
+                "administraties": [
+                    {"id": "adm-1", "name": "Bakker BV", "omgevingscode": "ENV-1"}
+                ]
+            },
+        },
+    )
+    assert install.status_code == 200, install.text
+    body = install.json()
+    assert body["binding"]["config"]["server_url"] == "native://king-accountancy"
+    discovery = body.get("discovery")
+    assert discovery and discovery["ok"] is True
+    tool_names = {t["name"] for t in discovery["tools"]}
+    assert {"list_companies", "search_customers", "list_recent_bookings"} <= tool_names
+
+
+@pytest.mark.asyncio
 async def test_mock_accounting_mcp_call_returns_invoices(session_override):
     tenant = Tenant(slug="acct", name="Accountancy")
     session_override.add(tenant)

@@ -19,7 +19,7 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-CHANNEL_ACCOUNT_CHANNELS = ("email", "widget", "slack", "internal")
+CHANNEL_ACCOUNT_CHANNELS = ("email", "widget", "slack", "whatsapp", "internal")
 CONTACT_STATUSES = ("approved", "pending", "blocked")
 
 
@@ -30,8 +30,8 @@ class ChannelAccount(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     connection_id: Optional[uuid.UUID] = Field(default=None, foreign_key="integration_connections.id")
     channel: str = Field(default="email", index=True)
-    provider: str = Field(default="mock")  # mock | gmail | outlook | widget | slack
-    address: str = Field(default="", index=True)  # email address / widget slug / slack team id
+    provider: str = Field(default="mock")  # mock | gmail | outlook | widget | slack | whatsapp_cloud
+    address: str = Field(default="", index=True)  # email address / widget slug / slack team id / whatsapp phone_number_id
     display_name: str = ""
     is_enabled: bool = True
     sync_cursor: str = ""

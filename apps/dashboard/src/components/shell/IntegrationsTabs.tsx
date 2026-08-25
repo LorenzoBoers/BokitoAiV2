@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const TABS = [
-  { label: 'Connected', to: '/settings/integrations' },
-  { label: 'Marketplace', to: '/settings/marketplace' },
-  { label: 'Connected tools', to: '/settings/mcp' },
+  { labelKey: 'integrations.pageMeta.connected.title', defaultLabel: 'Connected', to: '/settings/integrations' },
+  { labelKey: 'integrations.pageMeta.marketplace.title', defaultLabel: 'Marketplace', to: '/settings/marketplace' },
+  { labelKey: 'integrations.pageMeta.mcp.title', defaultLabel: 'Connected tools', to: '/settings/mcp' },
 ] as const
 
 /**
@@ -11,10 +12,11 @@ const TABS = [
  * three views: what is connected, what can be connected, and MCP tool servers.
  */
 export default function IntegrationsTabs() {
+  const { t } = useTranslation('nav')
   return (
     <nav
       className="mb-4 flex items-center gap-1 border-b border-border/60"
-      aria-label="Integrations sections"
+      aria-label={t('integrations.tabsAria', { defaultValue: 'Integrations sections' })}
     >
       {TABS.map((tab) => (
         <NavLink
@@ -28,7 +30,7 @@ export default function IntegrationsTabs() {
             }`
           }
         >
-          {tab.label}
+          {t(tab.labelKey, { defaultValue: tab.defaultLabel })}
         </NavLink>
       ))}
     </nav>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Pencil, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { getAllowances, updateAgentPassport, type GovernToolRow } from '../../lib/govern-api'
-import { humanizeLabel } from '../../lib/labels'
+import { toolCategoryLabel } from '../../lib/govern-labels'
 import { cn } from '../../lib/utils'
 
 type Props = {
@@ -65,18 +66,18 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
       onSaved(list)
       setEditing(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save tools.')
+      setError(e instanceof Error ? e.message : t('workforce.agents.toolsSaveError'))
     } finally {
       setBusy(false)
     }
-  }, [agentId, selected, onSaved])
+  }, [agentId, selected, onSaved, t])
 
   if (!editing) {
     return (
       <div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t('workforce.agents.allowedTools', { defaultValue: 'Allowed tools' })}
+            {t('workforce.agents.allowedTools')}
           </p>
           {canEdit ? (
             <button
@@ -85,9 +86,21 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
               onClick={() => setEditing(true)}
             >
               <Pencil size={11} aria-hidden />
-              {t('workforce.agents.editTools', { defaultValue: 'Edit' })}
+              {t('workforce.agents.editTools')}
             </button>
           ) : null}
+          <Link
+            to="/settings/govern?tab=policy"
+            className="text-[11px] text-accent hover:underline"
+          >
+            {t('workforce.agents.openGovern')}
+          </Link>
+          <Link
+            to="/settings/integrations"
+            className="text-[11px] text-accent hover:underline"
+          >
+            {t('workforce.agents.openIntegrations')}
+          </Link>
         </div>
         {allowedTools.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1.5">
@@ -102,9 +115,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
           </div>
         ) : (
           <p className="mt-1 text-sm text-text-muted">
-            {t('workforce.agents.allToolsByPolicy', {
-              defaultValue: 'All tools, gated by workspace allowances.',
-            })}
+            {t('workforce.agents.allToolsByPolicy')}
           </p>
         )}
       </div>
@@ -115,35 +126,32 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
     <div>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-          {t('workforce.agents.allowedTools', { defaultValue: 'Allowed tools' })}
+          {t('workforce.agents.allowedTools')}
         </p>
         <div className="flex items-center gap-1.5">
           <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>
             <X size={13} className="mr-1" aria-hidden />
-            {t('workforce.agents.cancelTools', { defaultValue: 'Cancel' })}
+            {t('workforce.agents.cancelTools')}
           </Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => void save()} disabled={busy}>
-            {t('workforce.agents.saveTools', { defaultValue: 'Save tools' })}
+            {t('workforce.agents.saveTools')}
           </Button>
         </div>
       </div>
       <p className="mt-1 text-xs text-text-muted">
-        {t('workforce.agents.toolsPickerHint', {
-          defaultValue:
-            'Select nothing to allow all tools (gated by workspace allowances). Selecting tools restricts this agent to exactly that set.',
-        })}
+        {t('workforce.agents.toolsPickerHint')}
       </p>
       {error ? <p className="mt-1 text-xs text-status-error">{error}</p> : null}
       {available === null ? (
         <p className="mt-2 text-sm text-text-muted">
-          {t('workforce.agents.toolsLoading', { defaultValue: 'Loading tools…' })}
+          {t('workforce.agents.toolsLoading')}
         </p>
       ) : (
         <div className="mt-2 max-h-72 space-y-3 overflow-y-auto pr-1">
           {byCategory.map(([category, tools]) => (
             <div key={category}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                {humanizeLabel(category)}
+                {toolCategoryLabel(category, t)}
               </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {tools.map((tool) => {

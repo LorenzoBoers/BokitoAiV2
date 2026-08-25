@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
   Bot,
   ChevronDown,
@@ -8,8 +8,10 @@ import {
   Hash,
   Inbox,
   Mail,
+  MessageCircle,
   MessageSquare,
   Plus,
+  Puzzle,
   Settings,
   Sparkles,
 } from 'lucide-react'
@@ -34,6 +36,7 @@ import {
   type HubLeaf,
   type InboxQueue,
 } from '../../lib/messages-paths'
+import { ASSISTANT_DEFAULT_PATH } from '../../lib/assistant-settings-path'
 import NavCountBadge from '../layout/NavCountBadge'
 import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
@@ -47,12 +50,14 @@ function navLinkClass(isActive: boolean) {
   )
 }
 
+const PRIMARY_INBOX_QUEUES: ReadonlyArray<InboxQueue> = ['all', 'mine', 'open', 'unassigned']
+const MORE_INBOX_QUEUES: ReadonlyArray<InboxQueue> = ['closed', 'spam']
+
 const INBOX_QUEUE_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string; defaultLabel: string }> = [
   { queue: 'all', labelKey: 'support.inbox.all', defaultLabel: 'All' },
   { queue: 'mine', labelKey: 'support.inbox.mine', defaultLabel: 'Mine' },
   { queue: 'open', labelKey: 'support.inbox.open', defaultLabel: 'Open' },
   { queue: 'unassigned', labelKey: 'support.inbox.unassigned', defaultLabel: 'Unassigned' },
-  { queue: 'snoozed', labelKey: 'support.inbox.snoozed', defaultLabel: 'Snoozed' },
   { queue: 'closed', labelKey: 'support.inbox.closed', defaultLabel: 'Closed' },
   { queue: 'spam', labelKey: 'support.inbox.spam', defaultLabel: 'Spam' },
 ]
@@ -148,11 +153,12 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
     [connections],
   )
   const hasSlack = accounts.some((a) => a.channel === 'slack' && a.isEnabled)
+  const hasWhatsApp = accounts.some((a) => a.channel === 'whatsapp' && a.isEnabled)
 
   return (
     <div className="space-y-0.5">
       {connectionsLoading ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.channels.loading', { defaultValue: 'Loading channels...' })}</p>
+        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.channels.loading')}</p>
       ) : null}
       {enabledConnections.map((conn) => (
         <LeafLink
@@ -167,17 +173,26 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
       <LeafLink
         leaf={{ type: 'channel', channelKey: 'webchat' }}
         to={channelPath('webchat')}
-        label={t('support.channels.webchat', { defaultValue: 'Webchat' })}
+        label={t('support.channels.webchat')}
         icon={<Globe size={14} className="shrink-0 text-text-muted" />}
         activeLeaf={activeLeaf}
       />
       <LeafLink
         leaf={{ type: 'channel', channelKey: 'internal' }}
         to={channelPath('internal')}
-        label={t('support.channels.internal', { defaultValue: 'Internal chat' })}
+        label={t('support.channels.internal')}
         icon={<MessageSquare size={14} className="shrink-0 text-text-muted" />}
         activeLeaf={activeLeaf}
       />
+      {hasWhatsApp ? (
+        <LeafLink
+          leaf={{ type: 'channel', channelKey: 'whatsapp' }}
+          to={channelPath('whatsapp')}
+          label="WhatsApp"
+          icon={<MessageCircle size={14} className="shrink-0 text-text-muted" />}
+          activeLeaf={activeLeaf}
+        />
+      ) : null}
       {hasSlack ? (
         <LeafLink
           leaf={{ type: 'channel', channelKey: 'slack' }}
@@ -211,17 +226,27 @@ function AgentsSection({ assistant, agents, loading, activeLeaf, t }: AgentsSect
           leaf={{ type: 'assistant' }}
           to={assistantPath()}
           label={assistant.name}
-          icon={<Sparkles size={14} className="shrink-0 text-text-muted" />}
+          icon={<Sparkles size={14} className="shrink-0 text-ai-ink" />}
           activeLeaf={activeLeaf}
         />
       ) : null}
       {loading ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.agents.loading', { defaultValue: 'Loading agents...' })}</p>
+        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.agents.loading')}</p>
       ) : null}
       {!loading && agents.length === 0 && !assistant ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">
-          {t('support.agents.empty', { defaultValue: 'No agents available for chat.' })}
-        </p>
+        <div className="space-y-1 px-3 py-1">
+          <p className="text-[12px] text-text-muted">
+            {t('support.agents.empty')}
+          </p>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+            <Link to="/agents" className="text-[11px] font-medium text-accent hover:underline">
+              {t('tabs.agents.title')}
+            </Link>
+            <Link to="/settings/setup" className="text-[11px] font-medium text-accent hover:underline">
+              {t('settings.links.setupGuide')}
+            </Link>
+          </div>
+        </div>
       ) : null}
       {agents.map((agent) => (
         <LeafLink
@@ -239,7 +264,7 @@ function AgentsSection({ assistant, agents, loading, activeLeaf, t }: AgentsSect
       >
         <Bot size={14} className="shrink-0 text-text-muted" />
         <span className="min-w-0 flex-1 truncate">
-          {t('support.links.activity', { defaultValue: 'Activity' })}
+          {t('support.links.activity')}
         </span>
       </NavLink>
     </div>
@@ -252,13 +277,34 @@ function SettingsSection({ t }: { t: TFn }) {
       <NavLink to="/settings/channels" className={({ isActive }) => navLinkClass(isActive)}>
         <Mail size={14} className="shrink-0 text-text-muted" />
         <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.channels', { defaultValue: 'Channel settings' })}
+          {t('support.settings.channels')}
         </span>
       </NavLink>
-      <NavLink to="/settings/assistant" className={({ isActive }) => navLinkClass(isActive)}>
+      <NavLink to="/settings/communication" className={({ isActive }) => navLinkClass(isActive)}>
         <Settings size={14} className="shrink-0 text-text-muted" />
         <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.assistant', { defaultValue: 'Assistant settings' })}
+          {t('support.settings.assistant')}
+        </span>
+      </NavLink>
+      <NavLink to={ASSISTANT_DEFAULT_PATH} className={({ isActive }) => navLinkClass(isActive)}>
+        <Globe size={14} className="shrink-0 text-text-muted" />
+        <span className="min-w-0 flex-1 truncate">
+          {t('support.settings.widget')}
+        </span>
+      </NavLink>
+      <NavLink
+        to="/settings/marketplace?kind=inbox"
+        className={({ isActive }) => navLinkClass(isActive)}
+      >
+        <Puzzle size={14} className="shrink-0 text-text-muted" />
+        <span className="min-w-0 flex-1 truncate">
+          {t('support.settings.integrations')}
+        </span>
+      </NavLink>
+      <NavLink to="/settings/setup" className={({ isActive }) => navLinkClass(isActive)}>
+        <Sparkles size={14} className="shrink-0 text-text-muted" />
+        <span className="min-w-0 flex-1 truncate">
+          {t('support.settings.setupGuide')}
         </span>
       </NavLink>
     </div>
@@ -305,6 +351,17 @@ export default function MessagesHubNav() {
 
   const assistant = targets.find((target) => target.kind === 'personal') ?? null
   const companyAgents = targets.filter((target) => target.kind === 'company')
+  const activeInboxQueue = activeLeaf?.type === 'inbox' ? activeLeaf.queue : null
+  const moreQueueActive = Boolean(activeInboxQueue && MORE_INBOX_QUEUES.includes(activeInboxQueue))
+  const [moreQueuesOpen, setMoreQueuesOpen] = useState(moreQueueActive)
+
+  useEffect(() => {
+    if (moreQueueActive) setMoreQueuesOpen(true)
+  }, [moreQueueActive])
+
+  const primaryQueues = INBOX_QUEUE_ITEMS.filter((item) => PRIMARY_INBOX_QUEUES.includes(item.queue))
+  const moreQueues = INBOX_QUEUE_ITEMS.filter((item) => MORE_INBOX_QUEUES.includes(item.queue))
+  const moreQueueBadge = moreQueues.reduce((sum, item) => sum + countForInboxQueue(counts, item.queue), 0)
 
   const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
     channels: <ChannelsSection activeLeaf={activeLeaf} t={t} />,
@@ -336,20 +393,20 @@ export default function MessagesHubNav() {
             }
           >
             <Plus size={14} className="shrink-0 text-accent" />
-            <span>{t('support.newChat', { defaultValue: 'New chat' })}</span>
+            <span>{t('support.newChat')}</span>
           </NavLink>
         </section>
 
         <section className="space-y-0.5">
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t('support.section.inbox', { defaultValue: 'Inbox' })}
+            {t('support.section.inbox')}
           </p>
-          {INBOX_QUEUE_ITEMS.map((item) => (
+          {primaryQueues.map((item) => (
             <LeafLink
               key={item.queue}
               leaf={{ type: 'inbox', queue: item.queue }}
               to={inboxPath(item.queue)}
-              label={t(item.labelKey, { defaultValue: item.defaultLabel })}
+              label={t(item.labelKey)}
               icon={
                 item.queue === 'mine' ? (
                   <UserAvatar
@@ -366,13 +423,42 @@ export default function MessagesHubNav() {
               activeLeaf={activeLeaf}
             />
           ))}
+          <button
+            type="button"
+            onClick={() => setMoreQueuesOpen((open) => !open)}
+            className={navLinkClass(moreQueueActive && !moreQueuesOpen)}
+            aria-expanded={moreQueuesOpen}
+          >
+            {moreQueuesOpen ? (
+              <ChevronDown size={14} className="shrink-0 text-text-muted" />
+            ) : (
+              <ChevronRight size={14} className="shrink-0 text-text-muted" />
+            )}
+            <span className="min-w-0 flex-1 truncate text-left">
+              {t('support.moreQueues')}
+            </span>
+            {!moreQueuesOpen ? <NavCountBadge count={moreQueueBadge} placement="inline" /> : null}
+          </button>
+          {moreQueuesOpen
+            ? moreQueues.map((item) => (
+                <LeafLink
+                  key={item.queue}
+                  leaf={{ type: 'inbox', queue: item.queue }}
+                  to={inboxPath(item.queue)}
+                  label={t(item.labelKey)}
+                  icon={<Inbox size={14} className="shrink-0 text-text-muted" />}
+                  badgeCount={countForInboxQueue(counts, item.queue)}
+                  activeLeaf={activeLeaf}
+                />
+              ))
+            : null}
         </section>
 
         {visibleSections.map((section) => (
           <CollapsibleSection
             key={section}
             section={section}
-            title={t(SECTION_LABELS[section].labelKey, { defaultValue: SECTION_LABELS[section].defaultLabel })}
+            title={t(SECTION_LABELS[section].labelKey)}
           >
             {sectionContent[section as Exclude<SidebarSection, 'settings'>]}
           </CollapsibleSection>
@@ -383,7 +469,7 @@ export default function MessagesHubNav() {
         <div className="shrink-0 border-t border-border/40 pt-3 mt-2">
           <CollapsibleSection
             section="settings"
-            title={t(SECTION_LABELS.settings.labelKey, { defaultValue: SECTION_LABELS.settings.defaultLabel })}
+            title={t(SECTION_LABELS.settings.labelKey)}
           >
             <SettingsSection t={t} />
           </CollapsibleSection>

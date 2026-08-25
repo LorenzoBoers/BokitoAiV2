@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe, Paintbrush, ArrowRight } from 'lucide-react';
+import { Globe, Paintbrush, ArrowRight, Shield } from 'lucide-react';
+import { Switch } from '../components/ui/switch';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +12,7 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { PageContent } from '../components/layout/PageContent';
 import { SettingsSection } from '../components/layout/SettingsSection';
-import { APP_API_BASE } from '../lib/api.config';
+import { persistUiLanguage } from '../lib/language-preference';
 
 export default function WorkspaceSettings() {
   const { t, i18n } = useTranslation(['workspace', 'common']);
@@ -25,7 +26,9 @@ export default function WorkspaceSettings() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [supportSaving, setSupportSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const allowPlatformSupport = currentWorkspace?.allow_platform_support !== false;
 
   useEffect(() => {
     if (currentWorkspace?.name) setWorkspaceName(currentWorkspace.name);
@@ -43,7 +46,7 @@ export default function WorkspaceSettings() {
       });
       toast.success(t('saveSuccess'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Save failed');
+      toast.error(error instanceof Error ? error.message : t('saveError'));
     } finally {
       setSaving(false);
     }
@@ -51,21 +54,26 @@ export default function WorkspaceSettings() {
 
   const setLanguage = async (next: 'nl' | 'en') => {
     void i18n.changeLanguage(next);
+    document.documentElement.lang = next;
     if (!token) return;
     try {
-      const res = await fetch(`${APP_API_BASE}/me/preferences`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ ui_language: next }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await persistUiLanguage(token, next);
     } catch {
       // Applied locally for this session, but won't survive a reload.
-      toast.error('Language changed for this session, but could not be saved to your account.');
+      toast.error(t('languageSaveError'));
+    }
+  };
+
+  const handlePlatformSupport = async (next: boolean) => {
+    if (!currentWorkspace || !canManageWorkspace) return;
+    setSupportSaving(true);
+    try {
+      await updateWorkspace(currentWorkspace.id, { allow_platform_support: next });
+      toast.success(t('saveSuccess'));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('platformSupportSaveError'));
+    } finally {
+      setSupportSaving(false);
     }
   };
 
@@ -77,7 +85,7 @@ export default function WorkspaceSettings() {
       setShowDeleteDialog(false);
       window.location.assign('/');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Delete failed');
+      toast.error(error instanceof Error ? error.message : t('deleteError'));
     } finally {
       setDeleting(false);
     }
@@ -114,7 +122,7 @@ export default function WorkspaceSettings() {
 
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">
-              Branding
+              {t('brandingLabel')}
             </label>
             <Link
               to="/settings/branding"
@@ -125,8 +133,8 @@ export default function WorkspaceSettings() {
                   <Paintbrush size={15} className="text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-text-heading">Organization branding</p>
-                  <p className="text-xs text-text-muted">Manage logo, colors and branding</p>
+                  <p className="text-sm font-medium text-text-heading">{t('brandingCardTitle')}</p>
+                  <p className="text-xs text-text-muted">{t('brandingCardDescription')}</p>
                 </div>
               </div>
               <ArrowRight size={15} className="text-text-muted group-hover:text-text-secondary transition-colors" />
@@ -135,14 +143,39 @@ export default function WorkspaceSettings() {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="Your language">
+      {canManageWorkspace ? (
+        <SettingsSection title={t('platformSupportTitle')}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10">
+                <Shield size={15} className="text-accent" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-heading">{t('platformSupportTitle')}</p>
+                <p className="mt-1 text-sm text-text-secondary">{t('platformSupportBody')}</p>
+                <p className="mt-2 text-xs text-text-muted">
+                  {allowPlatformSupport ? t('platformSupportOn') : t('platformSupportOff')}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={allowPlatformSupport}
+              disabled={supportSaving || !currentWorkspace}
+              onCheckedChange={(checked) => void handlePlatformSupport(checked)}
+              aria-label={t('platformSupportTitle')}
+            />
+          </div>
+        </SettingsSection>
+      ) : null}
+
+      <SettingsSection title={t('languageSectionTitle')}>
         <div>
           <label className="block text-sm font-medium text-text-primary mb-2">
             <Globe size={16} className="inline mr-2" />
             {t('language')}
           </label>
           <p className="mb-3 text-xs text-text-muted">
-            Personal preference for your account — applied immediately.
+            {t('languageSectionHint')}
           </p>
           <div className="flex gap-2">
             <Button
@@ -206,7 +239,7 @@ export default function WorkspaceSettings() {
             />
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setShowDeleteDialog(false)}>
-                {t('common:cancel', { defaultValue: 'Cancel' })}
+                {t('common:cancel')}
               </Button>
               <Button
                 variant="destructive"

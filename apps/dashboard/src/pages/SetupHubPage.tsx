@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowRight,
   BarChart3,
@@ -13,7 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageIntro } from '../components/layout/PageIntro'
 import { KnowledgeMark } from '../components/knowledge/KnowledgeMark'
 import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../lib/integration-brand'
@@ -25,12 +26,6 @@ import { listAgents } from '../lib/agents-api'
 import { listTriggers } from '../lib/orchestration-api'
 import { listCustomMetrics } from '../lib/metrics-api'
 import type { OnboardingStatus } from '../components/onboarding/OnboardingChecklist'
-
-const ASSISTANT_SETUP_PROMPT =
-  'Help me set up this workspace. Walk me through it step by step: ' +
-  'first ask what my organization does and record it in the company knowledge, ' +
-  'then advise which channels, agents, automations and connected tools fit my ' +
-  'way of working, and help me configure them one by one.'
 
 type PillarState = {
   id: string
@@ -73,6 +68,7 @@ function ProviderLogoStrip({ providers }: { providers: string[] }) {
  * derived from live workspace data on every visit — nothing is stored.
  */
 export default function SetupHubPage() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const { currentWorkspace } = useWorkspace()
   const [loading, setLoading] = useState(true)
@@ -112,104 +108,111 @@ export default function SetupHubPage() {
 
   const brandingDone = Boolean(currentWorkspace?.logo || currentWorkspace?.brand_color)
 
+  const assistantPrompt = t('setupGuidePage.assistantPrompt')
+
   const pillars = useMemo<PillarState[]>(() => {
     const emailDone = stepDone('email')
+    const firstDecisionDone = stepDone('first_decision')
+    const teamDone = stepDone('team')
     const companyDone = stepDone('company')
     const assistantDone = stepDone('assistant')
     return [
       {
         id: 'communication',
-        title: '1. Communication',
-        description:
-          'Connect the channels where customers reach you. Every workspace starts with a built-in Bokito email address that receives mail instantly — connect Gmail or Outlook when you want your own mailbox in the loop.',
+        title: t('setupGuidePage.communication.title'),
+        description: t('setupGuidePage.communication.description'),
         icon: Mail,
-        done: emailDone,
-        detail: emailDone ? 'Email channel live' : 'No email channel yet',
+        done: emailDone && firstDecisionDone,
+        detail: [
+          emailDone ? t('setupGuidePage.communication.done') : t('setupGuidePage.communication.todo'),
+          firstDecisionDone
+            ? t('setupGuidePage.communication.decisionDone')
+            : t('setupGuidePage.communication.decisionTodo'),
+          teamDone ? t('setupGuidePage.communication.teamDone') : t('setupGuidePage.communication.teamTodo'),
+        ].join(' · '),
         logos: ['bokito', 'gmail', 'outlook'],
         actions: [
-          { label: 'View your Bokito address', to: '/settings/channels', primary: !emailDone },
-          { label: 'Connect a mailbox', to: '/settings/channels' },
-          { label: 'Browse channels', to: '/settings/marketplace?kind=inbox' },
+          { label: t('setupGuidePage.communication.viewAddress'), to: '/settings/channels', primary: !emailDone },
+          { label: t('setupGuidePage.communication.connectMailbox'), to: '/settings/channels' },
+          { label: t('setupGuidePage.communication.browseChannels'), to: '/settings/marketplace?kind=inbox' },
+          ...(!teamDone
+            ? [{ label: t('setupGuidePage.communication.inviteTeam'), to: '/settings/members' }]
+            : []),
         ],
       },
       {
         id: 'intelligence',
-        title: '2. Intelligence',
-        description:
-          'Teach the platform about your organization and build your agent team. The assistant interviews you and sets things up as you talk.',
+        title: t('setupGuidePage.intelligence.title'),
+        description: t('setupGuidePage.intelligence.description'),
         icon: MessageSquare,
         done: companyDone && assistantDone && agentCount > 0,
         detail: [
-          companyDone ? 'Company knowledge documented' : 'Company knowledge still empty',
-          agentCount > 0 ? `${agentCount} agent${agentCount === 1 ? '' : 's'}` : 'no agents yet',
+          companyDone ? t('setupGuidePage.intelligence.knowledgeDone') : t('setupGuidePage.intelligence.knowledgeTodo'),
+          agentCount > 0
+            ? t('setupGuidePage.intelligence.agentsCount', { count: agentCount })
+            : t('setupGuidePage.intelligence.noAgents'),
         ].join(' - '),
         knowledge: true,
         actions: [
           {
-            label: 'Set up with the assistant',
-            to: `/communication/new?prefill=${encodeURIComponent(ASSISTANT_SETUP_PROMPT)}`,
+            label: t('setupGuidePage.intelligence.setupAssistant'),
+            to: `/communication/new?prefill=${encodeURIComponent(assistantPrompt)}`,
             primary: !(companyDone && assistantDone),
           },
-          { label: 'Open Knowledge', to: '/knowledge' },
-          { label: 'Manage agents', to: '/agents' },
+          { label: t('setupGuidePage.intelligence.openKnowledge'), to: '/knowledge' },
+          { label: t('setupGuidePage.intelligence.manageAgents'), to: '/agents' },
         ],
       },
       {
         id: 'automations',
-        title: '3. Automations',
-        description:
-          'Schedule background work: daily digests, periodic checks, webhooks from external systems.',
+        title: t('setupGuidePage.automations.title'),
+        description: t('setupGuidePage.automations.description'),
         icon: CalendarClock,
         done: automationCount > 0,
         detail:
           automationCount > 0
-            ? `${automationCount} automation${automationCount === 1 ? '' : 's'} configured`
-            : 'No automations yet',
-        actions: [{ label: 'Open Agenda', to: '/agenda', primary: automationCount === 0 }],
+            ? t('setupGuidePage.automations.done', { count: automationCount })
+            : t('setupGuidePage.automations.todo'),
+        actions: [{ label: t('setupGuidePage.automations.openAgenda'), to: '/agenda', primary: automationCount === 0 }],
       },
       {
         id: 'branding',
-        title: '4. Branding & widget',
-        description:
-          'Give the workspace your identity and put the chat widget on your website so visitors can reach your AI.',
+        title: t('setupGuidePage.branding.title'),
+        description: t('setupGuidePage.branding.description'),
         icon: Palette,
         done: brandingDone,
-        detail: brandingDone ? 'Branding configured' : 'Branding not configured yet',
+        detail: brandingDone ? t('setupGuidePage.branding.done') : t('setupGuidePage.branding.todo'),
         actions: [
-          { label: 'Branding', to: '/settings/branding', primary: !brandingDone },
-          { label: 'Install widget', to: '/ai/assistant/external/installation' },
+          { label: t('setupGuidePage.branding.branding'), to: '/settings/branding', primary: !brandingDone },
+          { label: t('setupGuidePage.branding.installWidget'), to: '/ai/assistant/external/installation' },
         ],
       },
       {
         id: 'kpis',
-        title: '5. KPIs & metrics',
-        description:
-          'Track the numbers that matter to you on the Cockpit. Agents keep them up to date automatically.',
+        title: t('setupGuidePage.kpis.title'),
+        description: t('setupGuidePage.kpis.description'),
         icon: BarChart3,
         done: metricCount > 0,
         detail:
           metricCount > 0
-            ? `${metricCount} custom metric${metricCount === 1 ? '' : 's'}`
-            : 'No custom metrics yet',
-        actions: [{ label: 'Open Cockpit', to: '/cockpit', primary: metricCount === 0 }],
+            ? t('setupGuidePage.kpis.done', { count: metricCount })
+            : t('setupGuidePage.kpis.todo'),
+        actions: [{ label: t('setupGuidePage.kpis.openCockpit'), to: '/cockpit?addMetric=1', primary: metricCount === 0 }],
       },
     ]
-  }, [stepDone, agentCount, automationCount, brandingDone, metricCount])
+  }, [stepDone, agentCount, automationCount, brandingDone, metricCount, t, assistantPrompt])
 
   const doneCount = pillars.filter((p) => p.done).length
 
   return (
     <PageContent>
-      <ContentHeader
-        title="Setup"
-        subtitle="Set up your AI workspace in five steps - from customer channels to the KPIs on your Cockpit."
-      />
+      <PageIntro description={t('pageHeaders.setupGuide')} className="mb-4" />
 
       <div className="mx-auto max-w-3xl space-y-4">
         {loading ? (
           <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-4 py-5 text-sm text-text-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Checking workspace status...
+            {t('setupGuidePage.checking')}
           </div>
         ) : (
           <>
@@ -219,18 +222,18 @@ export default function SetupHubPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-heading">
-                  {doneCount} of {pillars.length} pillars ready
+                  {t('setupGuidePage.pillarsReady', { done: doneCount, total: pillars.length })}
                 </p>
                 <p className="text-xs text-text-secondary">
-                  Prefer talking instead of clicking? The assistant can set everything up with you.
+                  {t('setupGuidePage.preferTalking')}
                 </p>
               </div>
               <Link
-                to={`/communication/new?prefill=${encodeURIComponent(ASSISTANT_SETUP_PROMPT)}`}
+                to={`/communication/new?prefill=${encodeURIComponent(assistantPrompt)}`}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
               >
                 <Bot size={13} />
-                Start with the assistant
+                {t('setupGuidePage.startAssistant')}
               </Link>
             </div>
 
@@ -278,7 +281,7 @@ export default function SetupHubPage() {
                               to={action.to}
                               className={
                                 action.primary
-                                  ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover'
+                                  ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover'
                                   : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
                               }
                             >
@@ -295,9 +298,9 @@ export default function SetupHubPage() {
             </ol>
 
             <p className="text-xs text-text-muted">
-              Advanced integrations (connected tools, webhooks, API) live under{' '}
+              {t('setupGuidePage.advancedHint')}{' '}
               <Link to="/settings/integrations" className="text-accent hover:underline">
-                Settings - Integrations
+                {t('setupGuidePage.advancedLink')}
               </Link>
               .
             </p>

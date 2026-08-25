@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tag, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
@@ -41,6 +41,8 @@ type Props = {
   onLoadMore?: () => void
   /** When set, the header shows a compose button (new outbound email). */
   onCompose?: () => void
+  emptyLabel?: string
+  emptyHint?: ReactNode
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -78,6 +80,8 @@ export default function ThreadList({
   loadingMore = false,
   onLoadMore,
   onCompose,
+  emptyLabel,
+  emptyHint,
 }: Props) {
   const { t } = useTranslation('communication')
   const counts = buildFilterCounts(allThreads)
@@ -119,7 +123,7 @@ export default function ThreadList({
           </span>
           <button
             type="button"
-            aria-label="Clear label filter"
+            aria-label={t('threadList.clearLabelFilter')}
             onClick={() => onTagSelect(null)}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
           >
@@ -135,7 +139,10 @@ export default function ThreadList({
           ) : error ? (
             <div className="py-4 px-3 text-xs text-status-error">{error}</div>
           ) : (
-            <div className="py-8 text-center text-xs text-text-muted">{t('threadList.empty')}</div>
+            <div className="px-3 py-8 text-center text-xs text-text-muted">
+              <p>{emptyLabel ?? t('threadList.empty')}</p>
+              {emptyHint}
+            </div>
           )
         ) : (
           threads.map((thread) => (

@@ -1,4 +1,5 @@
-import { Mail, Pin, SquarePen } from 'lucide-react'
+import { Mail, Pin, Settings, SquarePen } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import { cn } from '../../lib/utils'
@@ -52,7 +53,7 @@ export default function ThreadListQuickFilters({ value, onChange, counts, onComp
             )}
           >
             {Icon ? <Icon size={11} className={active ? 'text-accent' : 'text-text-muted'} /> : null}
-            <span>{t(filter.labelKey, { defaultValue: filter.defaultLabel })}</span>
+            <span>{t(filter.labelKey)}</span>
             {count > 0 && filter.id !== 'all' ? (
               <span
                 className={cn(
@@ -66,17 +67,27 @@ export default function ThreadListQuickFilters({ value, onChange, counts, onComp
           </button>
         )
       })}
-      {onCompose ? (
-        <button
-          type="button"
-          onClick={onCompose}
-          aria-label={t('compose.title', { defaultValue: 'New email' })}
-          title={t('compose.title', { defaultValue: 'New email' })}
-          className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+      <div className="ml-auto flex items-center gap-1">
+        {onCompose ? (
+          <button
+            type="button"
+            onClick={onCompose}
+            aria-label={t('compose.title')}
+            title={t('compose.title')}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          >
+            <SquarePen size={13} />
+          </button>
+        ) : null}
+        <Link
+          to="/settings/channels"
+          aria-label={t('threadList.channelSettings')}
+          title={t('threadList.channelSettings')}
+          className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
         >
-          <SquarePen size={13} />
-        </button>
-      ) : null}
+          <Settings size={13} />
+        </Link>
+      </div>
     </div>
   )
 }

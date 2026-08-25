@@ -2,7 +2,7 @@ import type { IntegrationKind } from '../integration-kind'
 import type { OAuthProvider } from '../email-oauth'
 import { REMOTE_MCP_PROVIDERS } from '../mcp-remote-providers'
 
-export type McpSetupPreset = 'bjorn_lunden_mcp' | 'custom_mcp'
+export type McpSetupPreset = 'bjorn_lunden_mcp' | 'king_accountancy' | 'custom_mcp'
 
 /** How the dashboard starts OAuth for this provider. */
 export type IntegrationOAuthStrategy = 'github' | 'inbox' | 'platform' | 'mcp_remote'
@@ -59,6 +59,14 @@ const CORE_REGISTRY: ProviderRegistryEntry[] = [
     connectionCountSource: 'email_gmail',
   },
   {
+    staticId: 'king_accountancy',
+    platformSlug: 'king_accountancy',
+    kind: 'mcp',
+    setupMode: 'api_key',
+    mcpPreset: 'king_accountancy',
+    connectionCountSource: 'platform',
+  },
+  {
     staticId: 'bjorn_lunden_mcp',
     platformSlug: 'bjorn_lunden_mcp',
     kind: 'mcp',
@@ -106,6 +114,7 @@ const SLUG_TO_STATIC_ID_RECORD: Record<string, string> = {
   gmail: 'google-workspace',
   microsoft_mail: 'microsoft-365',
   google_mail: 'google-workspace',
+  king_accountancy: 'king_accountancy',
   bjorn_lunden_mcp: 'bjorn_lunden_mcp',
   custom_mcp: 'custom_mcp',
   shopify_mcp: 'shopify',

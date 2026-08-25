@@ -1,4 +1,5 @@
 import { Archive, ArchiveRestore, Check, Mail, MoreHorizontal, OctagonAlert, UserRound, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useMembers } from '../../hooks/useMembers'
 import type { BulkThreadAction } from '../../lib/inbox-api'
 import {
@@ -21,36 +22,39 @@ const BUTTON =
 
 /** Action bar shown above the thread list while threads are selected. */
 export default function BulkActionsBar({ count, busy, onAction, onClear }: Props) {
+  const { t } = useTranslation('communication')
   const { members } = useMembers()
   return (
     <div className="flex items-center gap-1 border-b border-border/60 bg-accent/5 px-2 py-1.5">
-      <span className="mr-1 text-[11px] font-medium text-text-heading">{count} selected</span>
+      <span className="mr-1 text-[11px] font-medium text-text-heading">
+        {t('bulkActions.selected', { count })}
+      </span>
       <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('read')}>
         <Check size={11} />
-        Read
+        {t('bulkActions.read')}
       </button>
       <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('close')}>
         <Archive size={11} />
-        Close
+        {t('bulkActions.close')}
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" disabled={busy} aria-label="More actions" className={BUTTON}>
+          <button type="button" disabled={busy} aria-label={t('bulkActions.moreActions')} className={BUTTON}>
             <MoreHorizontal size={11} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-44">
           <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('unread')}>
             <Mail size={12} />
-            Mark unread
+            {t('bulkActions.markUnread')}
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('reopen')}>
             <ArchiveRestore size={12} />
-            Reopen
+            {t('bulkActions.reopen')}
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('spam')}>
             <OctagonAlert size={12} />
-            Mark as spam
+            {t('bulkActions.markSpam')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -58,13 +62,13 @@ export default function BulkActionsBar({ count, busy, onAction, onClear }: Props
         <DropdownMenuTrigger asChild>
           <button type="button" disabled={busy} className={BUTTON}>
             <UserRound size={11} />
-            Assign
+            {t('bulkActions.assign')}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
           {members.length === 0 ? (
             <DropdownMenuItem disabled className="text-xs">
-              No members
+              {t('bulkActions.noMembers')}
             </DropdownMenuItem>
           ) : (
             members.map((m) => (
@@ -82,12 +86,12 @@ export default function BulkActionsBar({ count, busy, onAction, onClear }: Props
       </DropdownMenu>
       <button
         type="button"
-        aria-label="Clear selection"
+        aria-label={t('bulkActions.clearSelection')}
         className={`${BUTTON} ml-auto`}
         onClick={onClear}
       >
         <X size={11} />
-        Clear
+        {t('bulkActions.clear')}
       </button>
     </div>
   )

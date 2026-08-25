@@ -1,7 +1,7 @@
 import type { InboxThread } from './inbox-api'
 
 /** Outbound surface aligned with how Intercom picks reply channel per conversation. */
-export type ComposerChannel = 'email' | 'chat' | 'slack' | 'internal' | 'assistant'
+export type ComposerChannel = 'email' | 'chat' | 'slack' | 'whatsapp' | 'internal' | 'assistant'
 
 export type ComposerTab = 'reply' | 'note'
 
@@ -50,6 +50,7 @@ function mapSignalChannel(thread: InboxThread): ComposerChannel {
   if (raw === 'assistant') return 'assistant'
   if (raw === 'internal') return 'internal'
   if (raw === 'slack') return 'slack'
+  if (raw === 'whatsapp') return 'whatsapp'
   if (raw === 'widget' || raw === 'chat') return 'chat'
   if (isInternalThread(thread)) return 'internal'
   if (thread.contactEmail?.trim()) return 'email'
@@ -105,6 +106,21 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       showRecipient: Boolean(thread.contactName),
       recipientLabel: 'Channel',
       recipientValue: thread.contactName || 'Slack thread',
+    }
+  }
+
+  if (channel === 'whatsapp') {
+    const name = thread.contactName?.trim() || 'contact'
+    return {
+      channel: 'whatsapp',
+      defaultTab: 'reply',
+      tabs: ['reply', 'note'],
+      replyLabel: 'WhatsApp',
+      replyPlaceholder: `Reply on WhatsApp to ${name}...`,
+      includeSignature: false,
+      showRecipient: Boolean(thread.contactName),
+      recipientLabel: 'To',
+      recipientValue: thread.contactName || 'WhatsApp contact',
     }
   }
 

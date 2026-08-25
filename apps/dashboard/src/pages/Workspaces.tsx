@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Building2, CirclePlus, ExternalLink, Plus } from 'lucide-react'
+import { ArrowRight, Building2, CirclePlus, Plus } from 'lucide-react'
 import { getAvatarColor } from '../lib/avatar'
 import { useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useTranslation } from 'react-i18next'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
-import { buildTenantOrigin } from '../lib/host-routing'
+import { buildTenantOrigin, isLocalHostname } from '../lib/host-routing'
 import { useAuth } from '../context/AuthContext'
 import {
   Dialog,
@@ -98,7 +98,10 @@ export default function Workspaces() {
               const isCurrent = currentWorkspace?.id === workspace.id
               const hasSubdomain = Boolean(workspace.slug && workspace.slug.trim())
               const tenantOrigin = workspace.slug ? buildTenantOrigin(workspace.slug) : null
-              const tenantUrl = tenantOrigin ?? null
+              const sameOrigin =
+                typeof window !== 'undefined' &&
+                (isLocalHostname(window.location.hostname) || tenantOrigin === window.location.origin)
+              const tenantUrl = tenantOrigin && !sameOrigin ? tenantOrigin : null
               const { bg, text } = getAvatarColor(workspace.name)
               const initials = workspace.name
                 .split(/\s+/)
@@ -149,9 +152,9 @@ export default function Workspaces() {
                         </p>
                         {tenantUrl ? (
                           <p className="text-[11px] text-text-secondary truncate">{tenantUrl}</p>
-                        ) : (
-                          <p className="text-[11px] text-status-error">Subdomain required to open this workspace</p>
-                        )}
+                        ) : !hasSubdomain ? (
+                          <p className="text-[11px] text-status-error">{t('cards.workspace.subdomainRequired')}</p>
+                        ) : null}
                       </div>
                     </div>
                     {isCurrent ? (
@@ -162,8 +165,8 @@ export default function Workspaces() {
                   </div>
                   <div className="mt-5 flex items-center gap-2 text-sm text-text-secondary">
                     <Building2 size={14} className="text-text-muted" />
-                    <span>{hasSubdomain ? t('cards.workspace.openCta') : 'Set a subdomain first'}</span>
-                    <ExternalLink size={13} className="text-text-muted" />
+                    <span>{hasSubdomain ? t('cards.workspace.openCta') : t('cards.workspace.setSubdomainCta')}</span>
+                    <ArrowRight size={13} className="text-text-muted" />
                   </div>
                 </button>
               )
@@ -215,7 +218,7 @@ export default function Workspaces() {
                     setWorkspaceSubdomain(next)
                     if (subdomainError) setSubdomainError(validateSubdomain(next))
                   }}
-                  placeholder="subdomain"
+                  placeholder={t('cards.create.subdomainPlaceholder')}
                   className="rounded-r-none"
                 />
                 <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 text-[12px] text-text-muted whitespace-nowrap rounded-r-md">

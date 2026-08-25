@@ -31,14 +31,30 @@ export default {
           DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
           hover: 'rgb(var(--color-accent-hover) / <alpha-value>)',
           dark: 'rgb(var(--color-accent-dark) / <alpha-value>)',
+          fg: 'rgb(var(--color-accent-fg) / <alpha-value>)',
+          ink: 'rgb(var(--color-accent-ink) / <alpha-value>)',
           muted: 'rgb(var(--color-accent) / 0.14)',
           subtle: 'rgb(var(--color-accent) / 0.08)',
+        },
+        ai: {
+          DEFAULT: 'rgb(var(--color-ai) / <alpha-value>)',
+          ink: 'rgb(var(--color-ai-ink) / <alpha-value>)',
+          fg: 'rgb(var(--color-ai-fg) / <alpha-value>)',
         },
         status: {
           success: 'rgb(var(--color-status-success) / <alpha-value>)',
           warning: 'rgb(var(--color-status-warning) / <alpha-value>)',
           error: 'rgb(var(--color-status-error) / <alpha-value>)',
           info: 'rgb(var(--color-status-info) / <alpha-value>)',
+        },
+      },
+      textColor: {
+        accent: {
+          DEFAULT: 'rgb(var(--color-accent-ink) / <alpha-value>)',
+          hover: 'rgb(var(--color-accent-ink) / <alpha-value>)',
+          dark: 'rgb(var(--color-accent-ink) / <alpha-value>)',
+          fg: 'rgb(var(--color-accent-fg) / <alpha-value>)',
+          ink: 'rgb(var(--color-accent-ink) / <alpha-value>)',
         },
       },
       fontFamily: {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, Loader2, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -16,9 +17,12 @@ import {
   type ChatMessage,
 } from '../../lib/bokito-api'
 import { UserAvatar } from '../ui/UserAvatar'
+import { Button } from '../ui/button'
+import { AI_CARD_CLASS, AI_ICON_BOX_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
 import ChatMarkdown from './ChatMarkdown'
+import { translateMockAgentBody } from '../../lib/activity-labels'
 import ThinkingTrace from './ThinkingTrace'
 import ReasoningDisclosure from './ReasoningDisclosure'
 import { useSignalStream } from '../../hooks/useSignalStream'
@@ -81,6 +85,7 @@ function MessageBubble({
   onCopyText?: (text: string) => void
   copyLabel?: string
 }) {
+  const { t } = useTranslation('communication')
   const isUser = message.role === 'user'
 
   if (message.kind === 'system_event' || message.role === 'system') {
@@ -104,7 +109,7 @@ function MessageBubble({
 
   return (
     <div className="flex items-start gap-2.5">
-      <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
+      <span className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
         <Bot size={14} />
       </span>
       <div className="min-w-0 max-w-[82%] space-y-1">
@@ -126,7 +131,7 @@ function MessageBubble({
           />
         ) : (
           <div className="rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-            <ChatMarkdown content={message.content} />
+            <ChatMarkdown content={translateMockAgentBody(message.content, t)} />
           </div>
         )}
         {!hasDecision && onCopyText && message.content.trim() ? (
@@ -136,7 +141,7 @@ function MessageBubble({
             className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
           >
             <ClipboardCopy size={11} />
-            {copyLabel ?? 'Copy to composer'}
+            {copyLabel ?? t('directChat.copyToComposer')}
           </button>
         ) : null}
       </div>
@@ -171,6 +176,7 @@ function ChatDecisionCard({
   fallbackText: string
   onResolved: () => void
 }) {
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -179,7 +185,17 @@ function ChatDecisionCard({
   // Server-driven resolved state: survives reloads and other clients resolving.
   const resolved = decision != null && decision.status !== 'awaiting_human'
   const options =
-    decision && decision.options.length > 0 ? decision.options : FALLBACK_DECISION_OPTIONS
+    decision && decision.options.length > 0
+      ? decision.options
+      : FALLBACK_DECISION_OPTIONS.map((option) => ({
+          ...option,
+          label:
+            option.id === 'approve'
+              ? t('directChat.approve')
+              : option.id === 'later'
+                ? t('directChat.later')
+                : t('directChat.reject'),
+        }))
   const chosenLabel = decision?.chosen_option_id
     ? options.find((o) => o.id === decision.chosen_option_id)?.label ?? decision.chosen_option_id
     : null
@@ -201,7 +217,7 @@ function ChatDecisionCard({
         navigate(`/settings/marketplace?connect=${encodeURIComponent(option.provider)}`)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resolve decision.')
+      setError(err instanceof Error ? err.message : t('directChat.resolveError'))
     } finally {
       setBusy(false)
     }
@@ -210,20 +226,23 @@ function ChatDecisionCard({
   return (
     <div
       className={`rounded-xl border px-3.5 py-2.5 ${
-        resolved ? 'border-border/60 bg-bg-elevated' : 'border-accent/35 bg-accent/6'
+        resolved ? 'border-border/60 bg-bg-elevated' : AI_CARD_CLASS
       }`}
     >
       <div className="flex items-center gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-          Decision
+        {resolved ? null : <AiMark size={12} />}
+        <p className={`text-[10px] font-semibold uppercase tracking-[0.08em] ${resolved ? 'text-text-muted' : AI_TEXT_CLASS}`}>
+          {t('directChat.decision')}
         </p>
         {resolved ? (
           <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
             {decision?.status === 'approved'
-              ? `Approved${chosenLabel ? ` - ${chosenLabel}` : ''}`
+              ? chosenLabel
+                ? t('directChat.approvedWith', { label: chosenLabel })
+                : t('directChat.approved')
               : decision?.status === 'rejected'
-                ? 'Rejected'
-                : 'Deferred'}
+                ? t('directChat.rejected')
+                : t('directChat.deferred')}
           </span>
         ) : null}
       </div>
@@ -252,19 +271,16 @@ function ChatDecisionCard({
       {!resolved ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {options.map((option, idx) => (
-            <button
+            <Button
               key={option.id ?? idx}
               type="button"
+              size="sm"
+              variant={decisionActionFor(option) === 'approve' ? 'ai' : 'secondary'}
               disabled={busy}
               onClick={() => void act(option)}
-              className={
-                decisionActionFor(option) === 'approve'
-                  ? 'rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50'
-                  : 'rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50'
-              }
             >
               {option.label ?? option.id}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}
@@ -293,6 +309,7 @@ export default function DirectChatPanel({
   copyLabel,
   composerPlaceholder,
 }: DirectChatPanelProps) {
+  const { t } = useTranslation('communication')
   const location = useLocation()
   const navigate = useNavigate()
   const { token, user } = useAuth()
@@ -389,7 +406,7 @@ export default function DirectChatPanel({
         )
       } catch (err) {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          setError(err instanceof Error ? err.message : 'Message failed.')
+          setError(err instanceof Error ? err.message : t('directChat.messageFailed'))
         }
       } finally {
         streamingRef.current = false
@@ -458,7 +475,7 @@ export default function DirectChatPanel({
 
   const deleteConversation = async () => {
     if (!token || !conversationId) return
-    if (!window.confirm('Delete this conversation?')) return
+    if (!window.confirm(t('directChat.deleteConfirm'))) return
     try {
       await bokitoDeleteConversation(token, conversationId)
       void refreshSessions()
@@ -476,7 +493,7 @@ export default function DirectChatPanel({
           <button
             type="button"
             onClick={onBack}
-            aria-label="Back to conversations"
+            aria-label={t('threadChrome.backToConversations')}
             className="md:hidden -ml-1.5 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
           >
             <ArrowLeft size={16} />
@@ -494,38 +511,38 @@ export default function DirectChatPanel({
               className="w-full max-w-[420px] rounded-md border border-border/60 bg-bg-input px-2 py-1 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
               autoFocus
             />
-            <button type="button" onClick={() => void commitRename()} className="rounded-md p-1 text-text-muted hover:text-text-primary" aria-label="Save title">
+            <button type="button" onClick={() => void commitRename()} className="rounded-md p-1 text-text-muted hover:text-text-primary" aria-label={t('directChat.saveTitle')}>
               <Check size={13} />
             </button>
-            <button type="button" onClick={() => setRenaming(false)} className="rounded-md p-1 text-text-muted hover:text-text-primary" aria-label="Cancel rename">
+            <button type="button" onClick={() => setRenaming(false)} className="rounded-md p-1 text-text-muted hover:text-text-primary" aria-label={t('directChat.cancelRename')}>
               <X size={13} />
             </button>
           </span>
         ) : (
           <>
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-accent">
+            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${AI_ICON_BOX_CLASS}`}>
               <Bot size={12} />
             </span>
             <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">
-              {title ?? 'Conversation'}
+              {title ?? t('directChat.conversation')}
               {agentName ? (
                 <span className="ml-2 rounded-full border border-border/60 bg-bg-elevated px-2 py-0.5 text-[10.5px] font-normal text-text-muted">
                   {agentName}
-                  {agentKind === 'company' ? ' · Company agent' : ''}
+                  {agentKind === 'company' ? ` · ${t('directChat.companyAgent')}` : ''}
                 </span>
               ) : null}
             </p>
-            <button type="button" onClick={startRename} title="Rename conversation" className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary">
+            <button type="button" onClick={startRename} title={t('directChat.rename')} className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary">
               <Pencil size={13} />
             </button>
-            <button type="button" onClick={() => void deleteConversation()} title="Delete conversation" className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-status-error">
+            <button type="button" onClick={() => void deleteConversation()} title={t('directChat.delete')} className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-status-error">
               <Trash2 size={13} />
             </button>
             {onToggleContext ? (
               <button
                 type="button"
                 onClick={onToggleContext}
-                title={contextOpen ? 'Hide context' : 'Show context'}
+                title={contextOpen ? t('directChat.hideContext') : t('directChat.showContext')}
                 className={`rounded-md p-1.5 transition-colors hover:bg-bg-hover/60 ${
                   contextOpen ? 'text-accent' : 'text-text-muted hover:text-text-primary'
                 }`}
@@ -550,7 +567,7 @@ export default function DirectChatPanel({
                 <MessageBubble
                   key={m.id}
                   message={m}
-                  userName={user?.name ?? 'You'}
+                  userName={user?.name ?? t('directChat.you')}
                   userEmail={user?.email ?? ''}
                   userAvatarUrl={user?.avatarUrl}
                   conversationId={conversationId}
@@ -561,7 +578,7 @@ export default function DirectChatPanel({
               ))}
               {showStreamBubble ? (
                 <div className="flex items-start gap-2.5">
-                  <span className="mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-elevated text-accent">
+                  <span className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
                     <Bot size={14} />
                   </span>
                   <ThinkingTrace
@@ -587,11 +604,11 @@ export default function DirectChatPanel({
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onComposerKeyDown}
               rows={Math.min(6, Math.max(1, draft.split('\n').length))}
-              placeholder={composerPlaceholder ?? 'Message your assistant...'}
+              placeholder={composerPlaceholder ?? t('directChat.placeholder')}
               className="max-h-[180px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none"
             />
             {stream.active ? (
-              <button type="button" onClick={stopStreaming} title="Stop" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-bg-hover text-text-primary transition-colors hover:bg-bg-hover/80">
+              <button type="button" onClick={stopStreaming} title={t('directChat.stop')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-bg-hover text-text-primary transition-colors hover:bg-bg-hover/80">
                 <Square size={13} />
               </button>
             ) : (
@@ -599,14 +616,14 @@ export default function DirectChatPanel({
                 type="button"
                 onClick={() => void send()}
                 disabled={!draft.trim()}
-                title="Send"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+                title={t('directChat.send')}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
               >
                 <ArrowUp size={14} />
               </button>
             )}
           </div>
-          <p className="mt-1.5 px-1 text-[10.5px] text-text-muted">Enter to send, Shift+Enter for a new line</p>
+          <p className="mt-1.5 px-1 text-[10.5px] text-text-muted">{t('composer.hintChat')}</p>
         </div>
       </div>
     </div>
@@ -614,22 +631,23 @@ export default function DirectChatPanel({
 }
 
 export function DirectChatEmptyState({ agentLabel }: { agentLabel: string }) {
+  const { t } = useTranslation('communication')
   const navigate = useNavigate()
   return (
     <div className="hidden h-full min-h-0 flex-1 flex-col items-center justify-center px-6 text-center md:flex">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-bg-surface text-accent shadow-sm">
+      <span className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${AI_ICON_BOX_CLASS}`}>
         <Bot size={22} />
       </span>
       <h2 className="mt-5 text-[17px] font-semibold text-text-heading">{agentLabel}</h2>
       <p className="mt-1.5 max-w-[360px] text-[13px] text-text-muted">
-        Pick a conversation from the list or start a new chat.
+        {t('directChat.emptyPick')}
       </p>
       <button
         type="button"
         onClick={() => navigate('/communication/new')}
-        className="mt-5 rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover"
+        className="mt-5 rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-accent-fg transition-colors hover:bg-accent-hover"
       >
-        New chat
+        {t('directChat.newChat')}
       </button>
     </div>
   )

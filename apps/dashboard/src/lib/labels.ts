@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next'
+
 /**
  * Shared humanizer for API enum/status strings shown in the UI.
  *
@@ -39,4 +41,22 @@ export const MEMBER_ROLE_LABELS: Record<string, string> = {
 export function memberRoleLabel(role: string | null | undefined): string {
   if (!role) return ''
   return MEMBER_ROLE_LABELS[role.toLowerCase()] ?? humanizeLabel(role)
+}
+
+/** Human label for agent passport autonomy_level (manual | approval | auto). */
+export function agentAutonomyLevelLabel(level: string | null | undefined, t: TFunction): string {
+  if (!level) {
+    return t('workforce.agents.autonomyDefault', { ns: 'nav', defaultValue: 'Workspace default' })
+  }
+  const normalized = level.toLowerCase()
+  if (normalized === 'manual') {
+    return t('workforce.agents.autonomyManual', { ns: 'nav', defaultValue: 'Manual — always ask' })
+  }
+  if (normalized === 'approval') {
+    return t('workforce.agents.autonomyApproval', { ns: 'nav', defaultValue: 'Approval — gated actions' })
+  }
+  if (normalized === 'auto') {
+    return t('workforce.agents.autonomyAuto', { ns: 'nav', defaultValue: 'Auto — act independently' })
+  }
+  return humanizeLabel(level)
 }

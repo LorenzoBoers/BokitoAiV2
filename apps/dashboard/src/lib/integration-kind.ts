@@ -1,6 +1,7 @@
 export type IntegrationKind = 'inbox' | 'repository' | 'mcp'
 
 const MCP_SLUGS = new Set([
+  'king_accountancy',
   'bjorn_lunden_mcp',
   'custom_mcp',
   'notion_mcp',

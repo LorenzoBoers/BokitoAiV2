@@ -6,7 +6,7 @@
     "pillars": {
       "communication": {
         "title": "Communication",
-        "body": "Email, website chat and internal threads land in one inbox. AI triages, drafts and asks you when it matters."
+        "body": "Email, website chat and internal threads land in Communication. AI triages, drafts and asks you when it matters."
       },
       "ai": {
         "title": "AI workforce",
@@ -54,6 +54,7 @@
     "title": "Set up together with your assistant",
     "body": "The fastest way to configure Bokito is a conversation. Your assistant interviews you about your company and sets up channels, agents, knowledge and KPIs with you.",
     "cta": "Start the setup chat",
+    "setupGuide": "Open setup guide",
     "later": "I will explore on my own"
   },
   "progress": "{{current}} of {{total}}",

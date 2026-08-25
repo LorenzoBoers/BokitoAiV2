@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { UserRound } from 'lucide-react'
 import { useMembers } from '../../hooks/useMembers'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -20,6 +21,7 @@ type Props = {
 }
 
 export default function AssigneeSelector({ currentAssigneeId, onChange, disabled }: Props) {
+  const { t } = useTranslation('communication')
   const { members } = useMembers()
 
   const currentMember = useMemo(
@@ -27,7 +29,9 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
     [members, currentAssigneeId],
   )
 
-  const tooltip = currentMember ? `Assigned to ${currentMember.name}` : 'Assign'
+  const tooltip = currentMember
+    ? t('threadChrome.assignedTo', { name: currentMember.name })
+    : t('threadChrome.assign')
 
   return (
     <DropdownMenu>
@@ -55,14 +59,14 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
       </Tooltip>
       <DropdownMenuContent align="end" className="min-w-[11rem]">
         <DropdownMenuLabel className="normal-case tracking-normal font-medium text-text-secondary">
-          Assign
+          {t('threadChrome.assign')}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => onChange(null)}
           className={cn('text-xs', currentAssigneeId == null && 'bg-bg-hover/80')}
         >
-          Unassigned
+          {t('threadChrome.unassigned')}
         </DropdownMenuItem>
         {members.map((m) => (
           <DropdownMenuItem

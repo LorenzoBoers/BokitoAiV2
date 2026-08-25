@@ -41,6 +41,7 @@ class WorkspaceUpdateBody(BaseModel):
     slug: str | None = None
     brand_color: str | None = None
     require_2fa: bool | None = None
+    allow_platform_support: bool | None = None
 
 
 class WorkspaceInviteBody(BaseModel):

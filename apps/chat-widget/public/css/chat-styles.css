@@ -5,9 +5,9 @@
 
 /* ── Design Tokens ─────────────────────────────────────────── */
 :host {
-  --bk-primary:        #00D986;
-  --bk-primary-dark:   #00B16D;
-  --bk-primary-light:  rgba(0, 255, 153, 0.14);
+  --bk-primary:        #0D9488;
+  --bk-primary-dark:   #0B8076;
+  --bk-primary-light:  rgba(13, 148, 136, 0.14);
   --bk-text:           #161022;
   --bk-text-muted:     #5B5870;
   --bk-text-inverse:   #FFFFFF;
@@ -46,9 +46,9 @@
 /* ── Dark Mode ──────────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
   :host {
-    --bk-primary:        #00FF99;
-    --bk-primary-dark:   #00D986;
-    --bk-primary-light:  rgba(0, 255, 153, 0.14);
+    --bk-primary:        #14B8A6;
+    --bk-primary-dark:   #0D9488;
+    --bk-primary-light:  rgba(13, 148, 136, 0.16);
     --bk-text:           #FFFFFF;
     --bk-text-muted:     rgba(255, 255, 255, 0.68);
     --bk-bg:             #161022;
@@ -83,9 +83,9 @@
 }
 
 :host([data-theme="light"]) {
-  --bk-primary:        #00D986;
-  --bk-primary-dark:   #00B16D;
-  --bk-primary-light:  rgba(0, 255, 153, 0.14);
+  --bk-primary:        #0D9488;
+  --bk-primary-dark:   #0B8076;
+  --bk-primary-light:  rgba(13, 148, 136, 0.14);
   --bk-text:           #161022;
   --bk-text-muted:     #5B5870;
   --bk-bg:             #F7FBF9;
@@ -98,9 +98,9 @@
 }
 
 :host([data-theme="dark"]) {
-  --bk-primary:        #00FF99;
-  --bk-primary-dark:   #00D986;
-  --bk-primary-light:  rgba(0, 255, 153, 0.14);
+  --bk-primary:        #14B8A6;
+  --bk-primary-dark:   #0D9488;
+  --bk-primary-light:  rgba(13, 148, 136, 0.16);
   --bk-text:           #FFFFFF;
   --bk-text-muted:     rgba(255, 255, 255, 0.68);
   --bk-bg:             #161022;

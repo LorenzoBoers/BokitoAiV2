@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowUp, Bot, Check, ChevronDown, Loader2, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
@@ -8,8 +9,16 @@ import {
   bokitoListChatTargets,
   type ChatTarget,
 } from '../lib/bokito-api'
+import type { TFunction } from 'i18next'
 import { humanizeLabel } from '../lib/labels'
 import { agentChatPath, assistantPath } from '../lib/messages-paths'
+
+function agentRoleLabel(role: string, t: TFunction): string {
+  return t(`workforce.agents.types.${role}`, {
+    ns: 'nav',
+    defaultValue: humanizeLabel(role),
+  })
+}
 
 type PickerFilter = 'all' | 'company'
 
@@ -18,6 +27,7 @@ type PickerFilter = 'all' | 'company'
  * (personal assistant preselected), type, and Enter starts the chat.
  */
 export default function NewConversationPage() {
+  const { t } = useTranslation(['communication', 'nav'])
   const { token } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -55,7 +65,7 @@ export default function NewConversationPage() {
           data.items.find((t) => t.id === data.default_agent_id) ?? data.items[0] ?? null
         setSelected(preselect)
       } catch {
-        if (!cancelled) setError('Could not load chat targets.')
+        if (!cancelled) setError(t('newConversation.loadError'))
       } finally {
         if (!cancelled) setLoadingTargets(false)
       }
@@ -64,7 +74,7 @@ export default function NewConversationPage() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     composerRef.current?.focus()
@@ -118,10 +128,10 @@ export default function NewConversationPage() {
           : assistantPath(created.id)
       navigate(path, { state: { autoSend: content } })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the conversation.')
+      setError(err instanceof Error ? err.message : t('newConversation.startError'))
       setSending(false)
     }
-  }, [draft, token, selected, sending, navigate, refreshSessions])
+  }, [draft, token, selected, sending, navigate, refreshSessions, t])
 
   useEffect(() => {
     if (!autoSendRequested.current || loadingTargets || !selected || !draft.trim()) return
@@ -139,7 +149,7 @@ export default function NewConversationPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-11 shrink-0 items-center border-b border-border/40 px-4">
-        <p className="text-[13px] font-medium text-text-primary">New conversation</p>
+        <p className="text-[13px] font-medium text-text-primary">{t('newConversation.title')}</p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -147,7 +157,7 @@ export default function NewConversationPage() {
           {/* To: picker */}
           <div ref={pickerRef} className="relative">
             <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
-              <span className="text-[12px] font-medium text-text-muted">To:</span>
+              <span className="text-[12px] font-medium text-text-muted">{t('newConversation.to')}</span>
               {pickerOpen ? (
                 <input
                   ref={pickerInputRef}
@@ -160,7 +170,7 @@ export default function NewConversationPage() {
                     }
                     if (e.key === 'Escape') setPickerOpen(false)
                   }}
-                  placeholder="Search assistants and agents..."
+                  placeholder={t('newConversation.searchPlaceholder')}
                   className="min-w-0 flex-1 bg-transparent text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none"
                 />
               ) : (
@@ -171,26 +181,26 @@ export default function NewConversationPage() {
                 >
                   {loadingTargets ? (
                     <span className="inline-flex items-center gap-1.5 text-[13px] text-text-muted">
-                      <Loader2 size={12} className="animate-spin" /> Loading targets...
+                      <Loader2 size={12} className="animate-spin" /> {t('newConversation.loading')}
                     </span>
                   ) : selected ? (
                     <>
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-accent">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
                         <Bot size={11} />
                       </span>
                       <span className="truncate text-[13px] text-text-primary">{selected.name}</span>
                       {selected.kind === 'company' ? (
                         <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated px-1.5 py-px text-[10px] text-text-muted">
-                          Company agent
+                          {t('newConversation.companyAgent')}
                         </span>
                       ) : (
-                        <span className="shrink-0 rounded-full border border-accent/30 bg-accent/8 px-1.5 py-px text-[10px] text-accent">
-                          My assistant
+                        <span className="shrink-0 rounded-full border border-ai/25 bg-ai/10 px-1.5 py-px text-[10px] text-ai-ink">
+                          {t('newConversation.myAssistant')}
                         </span>
                       )}
                     </>
                   ) : (
-                    <span className="text-[13px] text-text-muted">Choose a recipient</span>
+                    <span className="text-[13px] text-text-muted">{t('newConversation.chooseRecipient')}</span>
                   )}
                   <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
                 </button>
@@ -201,25 +211,46 @@ export default function NewConversationPage() {
               <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
                 <div className="max-h-[300px] overflow-y-auto p-1">
                   {filteredTargets.length === 0 ? (
-                    <p className="px-3 py-2.5 text-[12px] text-text-muted">No matches.</p>
+                    <div className="px-3 py-2.5">
+                      <p className="text-[12px] text-text-muted">
+                        {targets.length === 0
+                          ? t('newConversation.noAgents')
+                          : t('newConversation.noMatches')}
+                      </p>
+                      {targets.length === 0 ? (
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                          <Link to="/agents" className="inline-block text-[11px] font-medium text-accent hover:underline">
+                            {t('newConversation.openAgents')}
+                          </Link>
+                          <Link to="/knowledge" className="inline-block text-[11px] font-medium text-accent hover:underline">
+                            {t('newConversation.openKnowledge')}
+                          </Link>
+                          <Link to="/settings/setup" className="inline-block text-[11px] font-medium text-accent hover:underline">
+                            {t('newConversation.openSetup')}
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
                   ) : (
-                    filteredTargets.map((t) => (
+                    filteredTargets.map((target) => (
                       <button
-                        key={t.id}
+                        key={target.id}
                         type="button"
-                        onClick={() => choose(t)}
+                        onClick={() => choose(target)}
                         className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
                       >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-accent">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
                           <Bot size={12} />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[12.5px] text-text-primary">{t.name}</span>
+                          <span className="block truncate text-[12.5px] text-text-primary">{target.name}</span>
                           <span className="block text-[10.5px] text-text-muted">
-                            {t.kind === 'personal' ? 'Your personal assistant' : `Company agent · ${humanizeLabel(t.role)}`}
+                            {target.kind === 'personal'
+                              ? t('newConversation.personalAssistant')
+                              : t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
                           </span>
                         </span>
-                        {selected?.id === t.id ? <Check size={13} className="shrink-0 text-accent" /> : null}
+                        {selected?.id === target.id ? <Check size={13} className="shrink-0 text-accent" /> : null}
                       </button>
                     ))
                   )}
@@ -233,10 +264,10 @@ export default function NewConversationPage() {
             <button
               type="button"
               onClick={() => openPicker('company')}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-bg-elevated px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+              className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2.5 py-1 text-[11.5px] text-ai-ink transition-colors hover:border-ai/40 hover:bg-ai/15"
             >
               <Sparkles size={11} />
-              Message an agent
+              {t('newConversation.messageAnAgent')}
             </button>
           </div>
 
@@ -252,8 +283,8 @@ export default function NewConversationPage() {
                 rows={Math.min(8, Math.max(3, draft.split('\n').length))}
                 placeholder={
                   selected
-                    ? `Message ${selected.name}...`
-                    : 'Choose a recipient and start typing...'
+                    ? t('newConversation.messageName', { name: selected.name })
+                    : t('newConversation.chooseAndType')
                 }
                 className="max-h-[220px] min-h-[64px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none"
               />
@@ -261,14 +292,14 @@ export default function NewConversationPage() {
                 type="button"
                 onClick={() => void start()}
                 disabled={!draft.trim() || !selected || sending}
-                title="Send"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+                title={t('newConversation.send')}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
               >
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
               </button>
             </div>
             <p className="mt-1.5 px-1 text-[10.5px] text-text-muted">
-              Enter to send, Shift+Enter for a new line
+              {t('composer.hintChat')}
             </p>
           </div>
         </div>

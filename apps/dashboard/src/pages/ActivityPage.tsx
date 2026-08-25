@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Pause, Play, RefreshCw, Trash2 } from 'lucide-react'
 import { inboxPath } from '../lib/messages-paths'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
@@ -11,7 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent, type GatewayEvent } from '../lib/gateway'
 import { bokitoGetCockpitActivity, type CockpitActivityEvent } from '../lib/bokito-api'
 import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
-import { humanizeLabel } from '../lib/labels'
+import { activityEventMessage, activityEventTypeLabel } from '../lib/activity-labels'
 
 type ActivityEntry = {
   id: string
@@ -78,6 +80,7 @@ function formatTime(iso: string): string {
 }
 
 export default function ActivityPage() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [planned, setPlanned] = useState<AgendaItem[]>([])
@@ -100,11 +103,11 @@ export default function ActivityPage() {
       setHasMoreHistory(rows.length >= HISTORY_PAGE)
     } catch {
       setEntries([])
-      setLoadError('Could not load activity history.')
+      setLoadError(t('activityPage.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     void load()
@@ -161,8 +164,8 @@ export default function ActivityPage() {
     const eventPoints: TimelinePoint[] = entries.map((e) => ({
       id: e.id,
       at: parseUtc(e.createdAt),
-      label: e.message || humanizeLabel(e.eventType),
-      sublabel: e.kind === 'audit' ? e.actorName || 'Team member' : humanizeLabel(e.kind),
+      label: activityEventMessage(e.message, t) || activityEventTypeLabel(e.eventType, t),
+        sublabel: e.kind === 'audit' ? e.actorName || t('activityPage.teamMember') : activityEventTypeLabel(e.kind, t),
       tone:
         e.eventType === 'failed' || e.eventType === 'error'
           ? 'error'
@@ -178,7 +181,7 @@ export default function ActivityPage() {
       tone: 'planned',
     }))
     return [...eventPoints, ...plannedPoints]
-  }, [entries, planned])
+  }, [entries, planned, t])
 
   // Live stream of run events.
   useEffect(() => {
@@ -219,9 +222,10 @@ export default function ActivityPage() {
 
   return (
     <div>
+      <PageGuideBanner page="cockpit" className="mb-4" />
       <ContentHeader
-        title="Cockpit"
-        subtitle="Live activity from agents and your team"
+        title={t('tabs.cockpit.title')}
+        subtitle={t('pageHeaders.cockpitActivity')}
         meta={
           <>
             <ConnectionStatus />
@@ -231,7 +235,7 @@ export default function ActivityPage() {
               className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-              Refresh
+              {t('activityPage.refresh')}
             </button>
           </>
         }
@@ -247,7 +251,7 @@ export default function ActivityPage() {
             onClick={() => void load()}
             className="rounded-md border border-status-error/40 px-2 py-0.5 text-[11.5px] font-medium hover:bg-status-error/15"
           >
-            Retry
+            {t('activityPage.retry')}
           </button>
         </div>
       ) : null}
@@ -266,11 +270,11 @@ export default function ActivityPage() {
         <div className="flex items-center rounded-lg border border-border/60 p-0.5">
           {(
             [
-              ['all', 'All'],
-              ['agents', 'Agents'],
-              ['people', 'People'],
+              ['all', 'activityPage.all'],
+              ['agents', 'activityPage.agents'],
+              ['people', 'activityPage.people'],
             ] as [SourceFilter, string][]
-          ).map(([value, label]) => (
+          ).map(([value, labelKey]) => (
             <button
               key={value}
               type="button"
@@ -281,14 +285,14 @@ export default function ActivityPage() {
                   : 'text-text-secondary hover:text-text-primary'
               }`}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter events..."
+          placeholder={t('activityPage.filterPlaceholder')}
           className="h-8 w-full max-w-[280px] rounded-lg border border-border/60 bg-bg-input px-3 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
         <button
@@ -301,7 +305,7 @@ export default function ActivityPage() {
           }`}
         >
           {autoFollow ? <Pause size={12} /> : <Play size={12} />}
-          Auto-follow
+          {t('activityPage.autoFollow')}
         </button>
         <button
           type="button"
@@ -309,9 +313,9 @@ export default function ActivityPage() {
           className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
         >
           <Trash2 size={12} />
-          Clear view
+          {t('activityPage.clearView')}
         </button>
-        <span className="ml-auto text-[11px] text-text-muted">{visible.length} events</span>
+        <span className="ml-auto text-[11px] text-text-muted">{t('activityPage.events', { count: visible.length })}</span>
       </div>
 
       {/* Event list */}
@@ -320,60 +324,89 @@ export default function ActivityPage() {
         className="h-[calc(100vh-300px)] min-h-[280px] overflow-y-auto rounded-xl border border-border/60 bg-bg-elevated"
       >
         {visible.length === 0 ? (
-          <p className="px-4 py-10 text-center text-[12.5px] text-text-muted">
-            No activity yet. Events stream in live as agents work.
-          </p>
+          <div className="px-4 py-10 text-center">
+            <p className="text-[12.5px] text-text-muted">
+              {t('activityPage.empty')}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <Link
+                to={inboxPath('all')}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+              >
+                {t('activityPage.openCommunication')}
+              </Link>
+              <Link
+                to="/agents"
+                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('activityPage.openAgents')}
+              </Link>
+              <Link
+                to="/agenda"
+                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('activityPage.openAgenda')}
+              </Link>
+              <Link
+                to="/settings/setup"
+                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('activityPage.openSetup')}
+              </Link>
+            </div>
+          </div>
         ) : (
           <div className="divide-y divide-border/30">
-            {visible.map((entry) => (
-              <div key={entry.id} className="flex items-start gap-3 px-4 py-2">
-                <span
-                  className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                    entry.eventType === 'failed' || entry.eventType === 'error'
-                      ? 'bg-status-error'
-                      : entry.live
-                        ? 'bg-status-success'
-                        : 'bg-text-muted/50'
-                  }`}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-[12.5px] text-text-primary">
-                    {entry.message || humanizeLabel(entry.eventType)}
-                  </p>
-                  <p className="flex flex-wrap items-center gap-x-2 text-[10.5px] text-text-muted">
-                    <span>
-                      {entry.kind === 'audit'
-                        ? `${entry.actorName || 'Team member'} - ${humanizeLabel(entry.eventType)}`
-                        : `${entry.actorName ? `${entry.actorName} - ` : ''}${humanizeLabel(entry.eventType)}`}
-                    </span>
-                    {entry.signalId ? (
-                      <Link
-                        to={inboxPath('all', entry.signalId)}
-                        className="text-accent hover:underline"
-                      >
-                        Thread
-                      </Link>
-                    ) : null}
-                    {entry.agentId && entry.runId ? (
-                      <Link
-                        to={agentWorkforceRunUrl(entry.agentId, entry.runId)}
-                        className="text-accent hover:underline"
-                      >
-                        Run
-                      </Link>
-                    ) : null}
-                    {entry.agentId ? (
-                      <Link to={`/agents/${entry.agentId}`} className="text-accent hover:underline">
-                        Agent
-                      </Link>
-                    ) : null}
-                  </p>
+            {visible.map((entry) => {
+              const href = entry.signalId
+                ? inboxPath('all', entry.signalId)
+                : entry.agentId && entry.runId
+                  ? agentWorkforceRunUrl(entry.agentId, entry.runId)
+                  : entry.agentId
+                    ? `/agents/${entry.agentId}`
+                    : null
+              const inner = (
+                <>
+                  <span
+                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                      entry.eventType === 'failed' || entry.eventType === 'error'
+                        ? 'bg-status-error'
+                        : entry.live
+                          ? 'bg-status-success'
+                          : 'bg-text-muted/50'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-[12.5px] text-text-primary">
+                      {activityEventMessage(entry.message, t) || activityEventTypeLabel(entry.eventType, t)}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-x-2 text-[10.5px] text-text-muted">
+                      <span>
+                        {entry.kind === 'audit'
+                          ? `${entry.actorName || t('activityPage.teamMember')} - ${activityEventTypeLabel(entry.eventType, t)}`
+                          : `${entry.actorName ? `${entry.actorName} - ` : ''}${activityEventTypeLabel(entry.eventType, t)}`}
+                      </span>
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-mono text-[10.5px] text-text-muted">
+                    {formatTime(entry.createdAt)}
+                  </span>
+                </>
+              )
+              return href ? (
+                <Link
+                  key={entry.id}
+                  to={href}
+                  className="flex items-start gap-3 px-4 py-2 transition-colors hover:bg-bg-hover/40"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div key={entry.id} className="flex items-start gap-3 px-4 py-2">
+                  {inner}
                 </div>
-                <span className="shrink-0 font-mono text-[10.5px] text-text-muted">
-                  {formatTime(entry.createdAt)}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

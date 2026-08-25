@@ -93,6 +93,7 @@ jobs:
             VITE_APP_VERSION=${{ needs.resolve-sha.outputs.short_sha }}
             VITE_APP_CONTROL_PLANE_HOST=staging.bokito.ai
             VITE_TENANT_ROOT_DOMAIN=.bokito.ai
+            VITE_PLATFORM_DEFAULT_LANGUAGE=nl
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -109,6 +110,7 @@ jobs:
             VITE_APP_VERSION=${{ needs.resolve-sha.outputs.short_sha }}
             VITE_APP_CONTROL_PLANE_HOST=app.bokito.ai
             VITE_TENANT_ROOT_DOMAIN=.bokito.ai
+            VITE_PLATFORM_DEFAULT_LANGUAGE=nl
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

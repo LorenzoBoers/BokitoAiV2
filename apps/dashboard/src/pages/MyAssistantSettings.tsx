@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Bot, Check, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { inboxPath } from '../lib/messages-paths'
 import { PageContent } from '../components/layout/PageContent'
 import { AgentModelCard } from '../components/workforce/AgentModelCard'
 import {
@@ -16,6 +19,7 @@ import {
  * its instructions, and pick their default chat target.
  */
 export default function MyAssistantSettings() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [assistant, setAssistant] = useState<MyAssistant | null>(null)
   const [targets, setTargets] = useState<ChatTarget[]>([])
@@ -41,11 +45,11 @@ export default function MyAssistantSettings() {
       setInstructions(me.agent.instructions)
       setDefaultTarget(me.default_chat_agent_id)
     } catch {
-      setError('Could not load assistant settings.')
+      setError(t('assistantSettings.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     void reload()
@@ -69,11 +73,11 @@ export default function MyAssistantSettings() {
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save settings.')
+      setError(err instanceof Error ? err.message : t('assistantSettings.saveError'))
     } finally {
       setSaving(false)
     }
-  }, [token, saving, name, instructions, defaultTarget])
+  }, [token, saving, name, instructions, defaultTarget, t])
 
   if (loading) {
     return (
@@ -92,10 +96,9 @@ export default function MyAssistantSettings() {
           <Bot size={18} />
         </span>
         <div>
-          <h2 className="text-[15px] font-semibold text-text-heading">My assistant</h2>
+          <h2 className="text-[15px] font-semibold text-text-heading">{t('assistantSettings.title')}</h2>
           <p className="text-[12.5px] text-text-muted">
-            Your personal assistant is private to you. Rename it, shape its tone, and choose who
-            you talk to by default when starting a new chat.
+            {t('assistantSettings.body')}
           </p>
         </div>
       </div>
@@ -105,7 +108,7 @@ export default function MyAssistantSettings() {
       <div className="space-y-4 rounded-xl border border-border/60 bg-bg-elevated p-4">
         <div>
           <label className="mb-1 block text-[12px] font-medium text-text-secondary" htmlFor="assistant-name">
-            Assistant name
+            {t('assistantSettings.name')}
           </label>
           <input
             id="assistant-name"
@@ -117,7 +120,7 @@ export default function MyAssistantSettings() {
 
         <div>
           <label className="mb-1 block text-[12px] font-medium text-text-secondary" htmlFor="assistant-instructions">
-            Instructions & tone
+            {t('assistantSettings.instructions')}
           </label>
           <textarea
             id="assistant-instructions"
@@ -125,16 +128,16 @@ export default function MyAssistantSettings() {
             onChange={(e) => setInstructions(e.target.value)}
             rows={6}
             className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] leading-relaxed text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
-            placeholder="How should your assistant behave? What should it know about you and your work?"
+            placeholder={t('assistantSettings.instructionsPlaceholder')}
           />
         </div>
 
         <div>
           <label className="mb-1 block text-[12px] font-medium text-text-secondary" htmlFor="assistant-default-target">
-            Default chat target
+            {t('assistantSettings.defaultTarget')}
           </label>
           <p className="mb-1.5 text-[11.5px] text-text-muted">
-            Who a new chat talks to unless you pick someone else.
+            {t('assistantSettings.defaultTargetHint')}
           </p>
           <select
             id="assistant-default-target"
@@ -142,10 +145,12 @@ export default function MyAssistantSettings() {
             onChange={(e) => setDefaultTarget(e.target.value)}
             className="w-full max-w-[360px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
           >
-            {targets.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-                {t.kind === 'company' ? ' (company agent)' : ' (my assistant)'}
+            {targets.map((target) => (
+              <option key={target.id} value={target.id}>
+                {target.name}
+                {target.kind === 'company'
+                  ? ` (${t('assistantSettings.companyAgent')})`
+                  : ` (${t('assistantSettings.myAssistant')})`}
               </option>
             ))}
           </select>
@@ -156,16 +161,28 @@ export default function MyAssistantSettings() {
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             {saving ? <Loader2 size={13} className="animate-spin" /> : null}
-            Save changes
+            {t('assistantSettings.save')}
           </button>
           {saved ? (
             <span className="inline-flex items-center gap-1 text-[12px] text-status-success">
-              <Check size={13} /> Saved
+              <Check size={13} /> {t('assistantSettings.saved')}
             </span>
           ) : null}
+          <Link
+            to={inboxPath('all')}
+            className="text-[12px] font-medium text-accent hover:underline"
+          >
+            {t('assistantSettings.openCommunication')}
+          </Link>
+          <Link
+            to="/settings/models"
+            className="text-[12px] font-medium text-accent hover:underline"
+          >
+            {t('assistantSettings.openModels')}
+          </Link>
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { OctagonAlert, RefreshCw } from 'lucide-react'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import ContentHeader from '../components/shell/ContentHeader'
 import CockpitTabs from '../components/shell/CockpitTabs'
 import { useAuth } from '../context/AuthContext'
@@ -38,6 +40,7 @@ function BudgetBar({
   period: SpendPeriodStatus
   format: (value: number) => string
 }) {
+  const { t } = useTranslation('nav')
   const pct = period.cap ? Math.min(100, Math.round(period.ratio * 100)) : 0
   const barColor = period.exceeded
     ? 'bg-status-error'
@@ -49,8 +52,9 @@ function BudgetBar({
       <div className="flex items-baseline justify-between text-[12px]">
         <span className="font-medium text-text-primary">{label}</span>
         <span className="text-text-muted">
-          {format(period.used)}
-          {period.cap ? ` of ${format(period.cap)}` : ' (no cap)'}
+          {period.cap
+            ? t('usagePage.usedOfCap', { used: format(period.used), cap: format(period.cap) })
+            : `${format(period.used)} ${t('usagePage.noCapParen')}`}
         </span>
       </div>
       {period.cap ? (
@@ -63,6 +67,7 @@ function BudgetBar({
 }
 
 export default function UsagePage() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [breakdown, setBreakdown] = useState<UsageBreakdown | null>(null)
@@ -87,9 +92,9 @@ export default function UsagePage() {
         setBreakdown(b)
         setBudget(bud)
       })
-      .catch((err) => setError(formatApiErrorMessage(err, 'Could not load usage.')))
+      .catch((err) => setError(formatApiErrorMessage(err, t('usagePage.couldNotLoad'))))
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     load()
@@ -113,7 +118,7 @@ export default function UsagePage() {
     const tokensCap = capDraft.tokens.trim() ? Number(capDraft.tokens) : null
     const usdCap = capDraft.usd.trim() ? Number(capDraft.usd) : null
     if ((tokensCap !== null && !Number.isFinite(tokensCap)) || (usdCap !== null && !Number.isFinite(usdCap))) {
-      setCapError('Caps must be numbers (leave empty for no cap).')
+      setCapError(t('usagePage.capsMustBeNumbers'))
       setSavingCaps(false)
       return
     }
@@ -125,19 +130,19 @@ export default function UsagePage() {
         setBudget(next)
         setCapDraft(null)
       })
-      .catch((err) => setCapError(formatApiErrorMessage(err, 'Could not save budget caps.')))
+      .catch((err) => setCapError(formatApiErrorMessage(err, t('usagePage.couldNotSave'))))
       .finally(() => setSavingCaps(false))
-  }, [token, capDraft])
+  }, [token, capDraft, t])
 
   const stats = summary
     ? [
-        { label: 'Tokens (30d)', value: formatNumber(summary.tokens_month) },
-        { label: 'Cost (30d)', value: formatCost(summary.cost_cents_month) },
-        { label: 'Conversations (7d)', value: formatNumber(summary.volume_week) },
-        { label: 'Autonomy rate', value: `${formatNumber(summary.autonomy_rate_pct)}%` },
-        { label: 'Time saved (7d, est.)', value: `${formatNumber(summary.time_saved_minutes_week)} min` },
+        { label: t('usagePage.tokens30d'), value: formatNumber(summary.tokens_month) },
+        { label: t('usagePage.cost30d'), value: formatCost(summary.cost_cents_month) },
+        { label: t('usagePage.conversations7d'), value: formatNumber(summary.volume_week) },
+        { label: t('usagePage.autonomyRate'), value: `${formatNumber(summary.autonomy_rate_pct)}%` },
+        { label: t('usagePage.timeSaved'), value: `${formatNumber(summary.time_saved_minutes_week)} min` },
         {
-          label: 'Avg feedback',
+          label: t('usagePage.avgFeedback'),
           value: summary.avg_feedback_score > 0 ? formatNumber(summary.avg_feedback_score) : '-',
         },
       ]
@@ -145,9 +150,10 @@ export default function UsagePage() {
 
   return (
     <div>
+      <PageGuideBanner page="cockpit" className="mb-4" />
       <ContentHeader
-        title="Cockpit"
-        subtitle="Model spend and run volume"
+        title={t('tabs.cockpit.title')}
+        subtitle={t('pageHeaders.cockpitUsage')}
         meta={
           <button
             type="button"
@@ -155,7 +161,7 @@ export default function UsagePage() {
             className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
           >
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            {t('usagePage.refresh')}
           </button>
         }
       />
@@ -168,8 +174,7 @@ export default function UsagePage() {
         <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-status-error/40 bg-status-error/10 px-4 py-3 text-[12.5px] text-text-primary">
           <OctagonAlert size={15} className="shrink-0 text-status-error" />
           <span>
-            The LLM budget is exhausted: AI calls on platform keys are paused until the cap is
-            raised or the period resets. Models on your own keys keep working.
+            {t('usagePage.budgetBlocked')}
           </span>
         </div>
       ) : null}
@@ -177,25 +182,25 @@ export default function UsagePage() {
       {budget ? (
         <div className="mb-5 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-[13px] font-semibold text-text-heading">Budget (platform keys)</h3>
+            <h3 className="text-[13px] font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h3>
             {capDraft ? null : (
               <button
                 type="button"
                 onClick={startEditCaps}
                 className="rounded-md border border-border/60 px-2.5 py-1 text-[11.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
               >
-                Edit caps
+                {t('usagePage.editCaps')}
               </button>
             )}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <BudgetBar
-              label="Tokens today"
+              label={t('usagePage.tokensToday')}
               period={budget.status.daily_tokens}
               format={formatNumber}
             />
             <BudgetBar
-              label="Billable spend this month"
+              label={t('usagePage.spendMonth')}
               period={budget.status.monthly_customer_micros}
               format={formatUsd}
             />
@@ -203,21 +208,21 @@ export default function UsagePage() {
           {capDraft ? (
             <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
               <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
-                Daily token cap
+                {t('usagePage.dailyCap')}
                 <input
                   value={capDraft.tokens}
                   onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
-                  placeholder="No cap"
+                  placeholder={t('usagePage.noCap')}
                   inputMode="numeric"
                   className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
                 />
               </label>
               <label className="flex flex-col gap-1 text-[11.5px] text-text-muted">
-                Monthly spend cap (USD)
+                {t('usagePage.monthlyCap')}
                 <input
                   value={capDraft.usd}
                   onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
-                  placeholder="No cap"
+                  placeholder={t('usagePage.noCap')}
                   inputMode="decimal"
                   className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
                 />
@@ -229,21 +234,21 @@ export default function UsagePage() {
                   disabled={savingCaps}
                   className="rounded-md border border-accent/40 bg-accent/10 px-3 py-1.5 text-[11.5px] font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
                 >
-                  {savingCaps ? 'Saving...' : 'Save'}
+                  {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCapDraft(null)}
                   className="rounded-md px-2.5 py-1.5 text-[11.5px] font-medium text-text-muted transition-colors hover:text-text-primary"
                 >
-                  Cancel
+                  {t('usagePage.cancel')}
                 </button>
               </div>
               {capError ? <p className="w-full text-[11.5px] text-status-error">{capError}</p> : null}
             </div>
           ) : null}
           <p className="mt-3 text-[11.5px] text-text-muted">
-            Owners and admins get an alert at 80% and 100%. Leave a cap empty to remove it.
+            {t('usagePage.capsHint')}
           </p>
         </div>
       ) : null}
@@ -256,7 +261,7 @@ export default function UsagePage() {
           </div>
         ))}
         {!summary && !error ? (
-          <p className="col-span-full px-1 py-6 text-[12.5px] text-text-muted">Loading usage...</p>
+          <p className="col-span-full px-1 py-6 text-[12.5px] text-text-muted">{t('usagePage.loading')}</p>
         ) : null}
       </div>
 
@@ -264,14 +269,30 @@ export default function UsagePage() {
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
             <div className="mb-3 flex items-baseline justify-between">
-              <h3 className="text-[13px] font-semibold text-text-heading">By model ({breakdown.days}d)</h3>
+              <h3 className="text-[13px] font-semibold text-text-heading">{t('usagePage.byModel', { days: breakdown.days })}</h3>
               <span className="text-[11px] text-text-muted">
-                Billable {formatUsd(breakdown.total_customer_cost_micros)}
+                {t('usagePage.billable', { amount: formatUsd(breakdown.total_customer_cost_micros) })}
               </span>
             </div>
             <div className="space-y-2">
               {breakdown.by_model.length === 0 ? (
-                <p className="text-[12px] text-text-muted">No model usage yet.</p>
+                <div>
+                  <p className="text-[12px] text-text-muted">{t('usagePage.noModelUsage')}</p>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    <Link to="/communication/new" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.startChat')}
+                    </Link>
+                    <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.openAgents')}
+                    </Link>
+                    <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.openSetup')}
+                    </Link>
+                    <Link to="/settings/models" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.openModels')}
+                    </Link>
+                  </div>
+                </div>
               ) : (
                 breakdown.by_model.map((row) => (
                   <div
@@ -279,13 +300,15 @@ export default function UsagePage() {
                     className="flex items-center justify-between gap-3 text-[12.5px]"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-text-primary">{row.model || 'unknown'}</p>
+                      <p className="truncate font-medium text-text-primary">{row.model || t('usagePage.unknown')}</p>
                       <p className="text-[11px] text-text-muted">
-                        {formatNumber(row.tokens)} tokens ·{' '}
+                        {t('usagePage.tokens', { count: formatNumber(row.tokens) })} ·{' '}
                         {row.billable ? (
-                          <span className="text-amber-500">billable {formatUsd(row.customer_cost_micros)}</span>
+                          <span className="text-amber-500">
+                            {t('usagePage.billableRow', { amount: formatUsd(row.customer_cost_micros) })}
+                          </span>
                         ) : (
-                          <span className="text-status-success">BYOK (no charge)</span>
+                          <span className="text-status-success">{t('usagePage.byok')}</span>
                         )}
                       </p>
                     </div>
@@ -296,40 +319,76 @@ export default function UsagePage() {
           </div>
 
           <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">By agent ({breakdown.days}d)</h3>
+            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">{t('usagePage.byAgent', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {breakdown.by_agent.length === 0 ? (
-                <p className="text-[12px] text-text-muted">No agent usage yet.</p>
-              ) : (
-                breakdown.by_agent.map((row) => (
-                  <div
-                    key={row.agent_id ?? 'system'}
-                    className="flex items-center justify-between gap-3 text-[12.5px]"
-                  >
-                    {row.agent_id ? (
-                      <Link
-                        to={`/agents/${row.agent_id}`}
-                        className="min-w-0 truncate font-medium text-text-primary hover:text-accent hover:underline"
-                      >
-                        {row.agent_name}
-                      </Link>
-                    ) : (
-                      <p className="min-w-0 truncate font-medium text-text-primary">{row.agent_name}</p>
-                    )}
-                    <p className="shrink-0 text-[11px] text-text-muted">
-                      {formatNumber(row.tokens)} tok · {formatUsd(row.customer_cost_micros)}
-                    </p>
+                <div>
+                  <p className="text-[12px] text-text-muted">{t('usagePage.noAgentUsage')}</p>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.openAgents')}
+                    </Link>
+                    <Link to="/communication/new" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.startChat')}
+                    </Link>
+                    <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.openSetup')}
+                    </Link>
+                    <Link to="/settings/models" className="text-[12px] font-medium text-accent hover:underline">
+                      {t('usagePage.openModels')}
+                    </Link>
                   </div>
-                ))
+                </div>
+              ) : (
+                breakdown.by_agent.map((row) => {
+                  const body = (
+                    <>
+                      <p className="min-w-0 truncate font-medium text-text-primary">{row.agent_name}</p>
+                      <p className="shrink-0 text-[11px] text-text-muted">
+                        {t('usagePage.tokensShort', { count: formatNumber(row.tokens) })} · {formatUsd(row.customer_cost_micros)}
+                      </p>
+                    </>
+                  )
+                  return row.agent_id ? (
+                    <Link
+                      key={row.agent_id}
+                      to={`/agents/${row.agent_id}`}
+                      className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[12.5px] hover:bg-bg-hover/50"
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div
+                      key="system"
+                      className="flex items-center justify-between gap-3 text-[12.5px]"
+                    >
+                      {body}
+                    </div>
+                  )
+                })
               )}
             </div>
           </div>
 
           <div className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">By user ({breakdown.days}d)</h3>
+            <h3 className="mb-3 text-[13px] font-semibold text-text-heading">{t('usagePage.byUser', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {(breakdown.by_user ?? []).length === 0 ? (
-                <p className="text-[12px] text-text-muted">No user-attributed usage yet.</p>
+                <div>
+                  <p className="text-[12px] text-text-muted">{t('usagePage.noUserUsage')}</p>
+                  <Link
+                    to="/communication/new"
+                    className="mt-2 inline-block text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('usagePage.startChat')}
+                  </Link>
+                  <Link
+                    to="/settings/setup"
+                    className="mt-2 ml-3 inline-block text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('usagePage.openSetup')}
+                  </Link>
+                </div>
               ) : (
                 (breakdown.by_user ?? []).map((row) => (
                   <div
@@ -338,23 +397,21 @@ export default function UsagePage() {
                   >
                     <p className="min-w-0 truncate font-medium text-text-primary">{row.user_name}</p>
                     <p className="shrink-0 text-[11px] text-text-muted">
-                      {formatNumber(row.tokens)} tok · {formatUsd(row.customer_cost_micros)}
+                      {t('usagePage.tokensShort', { count: formatNumber(row.tokens) })} · {formatUsd(row.customer_cost_micros)}
                     </p>
                   </div>
                 ))
               )}
             </div>
             <p className="mt-3 text-[11px] text-text-muted">
-              Chats started by a user are attributed to that user; autonomous runs are grouped
-              under Agents / system.
+              {t('usagePage.userHint')}
             </p>
           </div>
         </div>
       ) : null}
 
       <p className="mt-4 text-[12px] text-text-muted">
-        Models run on your own keys show no charge (BYOK); models on Bokito&apos;s keys are billed per token with
-        the platform markup applied.
+        {t('usagePage.byokFooter')}
       </p>
     </div>
   )

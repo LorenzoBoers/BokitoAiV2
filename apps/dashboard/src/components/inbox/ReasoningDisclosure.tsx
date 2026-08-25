@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AgentStep } from '../../hooks/useSignalStream'
 import {
   formatStepDetail,
@@ -43,16 +44,17 @@ function toPersisted(steps: Array<AgentStep | PersistedAgentStep>): PersistedAge
  * "Nagedacht voor 2.4s · +3.5k tokens" — expands to reasoning + tool steps.
  */
 export default function ReasoningDisclosure({ thinking, steps, usage, className }: Props) {
+  const { t } = useTranslation('communication')
   const [expanded, setExpanded] = useState(false)
   const normalized = normalizePersistedSteps(Array.isArray(steps) ? toPersisted(steps) : [])
   const reasoning = (thinking?.text ?? '').trim()
-  const { parts, tokenLabel, usedKnowledge } = summarizeAgentActivity(normalized, usage)
+  const { parts, tokenLabel, usedKnowledge } = summarizeAgentActivity(normalized, t, usage)
   const total = totalTokens(usage)
   const hasTokens = total > 0
   const hasContent = Boolean(reasoning || normalized.length > 0 || hasTokens)
   if (!hasContent) return null
 
-  const label = reasoningDisclosureLabel(thinking)
+  const label = reasoningDisclosureLabel(thinking, t)
   const fallbackSummary = !reasoning && parts.length > 0 ? parts.join(', ') : null
   const canExpand = Boolean(reasoning || normalized.length > 0)
 
@@ -86,7 +88,7 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
             <>
               <span className="text-text-muted/80"> · </span>
               <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                {tokenLabel ?? `+${formatTokenCount(total)} tokens`}
+                {tokenLabel ?? t('agentSteps.tokens', { count: formatTokenCount(total) })}
               </span>
             </>
           ) : null}
@@ -107,11 +109,11 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
                 return (
                   <li key={step.id} className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-muted">
-                      {stepLabel(step)}
+                      {stepLabel(step, t)}
                     </p>
                     <p className="flex items-center gap-1.5 text-[12px] text-text-secondary">
                       {isKnowledgeStep(step) ? <KnowledgeMark size={12} /> : null}
-                      {stepHeadline(step)}
+                      {stepHeadline(step, t)}
                     </p>
                     {detail ? (
                       <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-[11px] text-text-muted">

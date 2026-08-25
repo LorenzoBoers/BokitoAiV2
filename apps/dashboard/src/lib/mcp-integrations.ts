@@ -77,6 +77,9 @@ function endpointForRow(
       (bindingConfig?.server_url as string | undefined)
     return url ?? ''
   }
+  if (provider.slug === 'king_accountancy') {
+    return 'KING Accountancy'
+  }
   if (provider.slug === 'bjorn_lunden_mcp') {
     return 'Bjorn Lunden MCP'
   }

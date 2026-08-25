@@ -709,6 +709,7 @@ export type AiMode = 'suggest' | 'auto' | 'off'
 export type ChannelAiModes = {
   email: AiMode
   widget: AiMode
+  whatsapp: AiMode
 }
 
 /** "auto" mirrors the customer's language; otherwise a fixed ISO code. */
@@ -744,6 +745,7 @@ export async function getAiCommunicationSettings(token: string): Promise<AiCommu
     modes: {
       email: valid(modes.email, 'suggest'),
       widget: valid(modes.widget, 'auto'),
+      whatsapp: valid(modes.whatsapp, 'suggest'),
     },
     replyLanguage,
     workspaceLanguage,

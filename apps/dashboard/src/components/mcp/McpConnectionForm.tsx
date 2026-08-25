@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -12,7 +13,21 @@ import {
 } from '../ui/select'
 import { installMcpConnection, type McpAuthType } from '../../lib/mcp-integrations'
 
-export type McpConnectPreset = 'custom_mcp' | 'bjorn_lunden_mcp'
+export type McpConnectPreset = 'custom_mcp' | 'bjorn_lunden_mcp' | 'king_accountancy'
+
+type AdministratieRow = {
+  id: string
+  name: string
+  omgevingscode: string
+}
+
+function newAdministratieRow(): AdministratieRow {
+  return {
+    id: crypto.randomUUID(),
+    name: '',
+    omgevingscode: '',
+  }
+}
 
 type McpConnectionFormProps = {
   presetProvider: McpConnectPreset
@@ -31,6 +46,7 @@ export function McpConnectionForm({
   const provider = presetProvider
   const isCustom = provider === 'custom_mcp'
   const isBjorn = provider === 'bjorn_lunden_mcp'
+  const isKing = provider === 'king_accountancy'
 
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
@@ -39,25 +55,24 @@ export function McpConnectionForm({
   const [blClientId, setBlClientId] = useState('')
   const [blClientSecret, setBlClientSecret] = useState('')
   const [blCompanyKey, setBlCompanyKey] = useState('')
+  const [administraties, setAdministraties] = useState<AdministratieRow[]>([newAdministratieRow()])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setName(isBjorn ? 'Bjorn Lunden' : '')
+    setName(isKing ? 'KING Accountancy' : isBjorn ? 'Bjorn Lunden' : '')
     setUrl('')
     setAuthType('api_key')
     setSecret('')
     setBlClientId('')
     setBlClientSecret('')
     setBlCompanyKey('')
+    setAdministraties([newAdministratieRow()])
     setError(null)
     setSaving(false)
-  }, [provider, isBjorn])
+  }, [provider, isBjorn, isKing])
 
-  // Björn Lundén can be connected without credentials (the native connection
-  // stays pending until the client's API credentials are added); custom
-  // servers need name + URL + secret.
-  const canSave = isBjorn
+  const canSave = isBjorn || isKing
     ? true
     : secret.trim().length > 0 && name.trim().length > 0 && url.trim().length > 0
 
@@ -74,6 +89,17 @@ export function McpConnectionForm({
               user_key: blCompanyKey.trim() || undefined,
             }
           : undefined
+      const kingAuth = isKing
+        ? {
+            administraties: administraties
+              .map((row) => ({
+                id: row.id,
+                name: row.name.trim(),
+                omgevingscode: row.omgevingscode.trim(),
+              }))
+              .filter((row) => row.omgevingscode.length > 0),
+          }
+        : undefined
       await installMcpConnection({
         provider,
         api_key: secret.trim(),
@@ -81,6 +107,7 @@ export function McpConnectionForm({
         server_url: url.trim() || undefined,
         auth_type: authType,
         ...(blAuth ? { auth: blAuth } : {}),
+        ...(kingAuth ? { auth: kingAuth } : {}),
       })
       onSaved()
     } catch (e) {
@@ -101,7 +128,7 @@ export function McpConnectionForm({
           placeholder={t('integrations.mcp.servers.name')}
         />
       </div>
-      {isBjorn ? null : (
+      {isBjorn || isKing ? null : (
         <div className="grid gap-2">
           <Label htmlFor="mcp-connection-url">{t('integrations.mcp.servers.url')}</Label>
           <Input
@@ -126,7 +153,83 @@ export function McpConnectionForm({
           </Select>
         </div>
       ) : null}
-      {isBjorn ? (
+      {isKing ? (
+        <div className="grid gap-3">
+          <p className="text-xs text-text-secondary">{t('integrations.mcp.servers.kingPartnerKeyHint')}</p>
+          <div className="flex items-center justify-between gap-2">
+            <Label>{t('integrations.mcp.servers.kingAdministraties')}</Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => setAdministraties((rows) => [...rows, newAdministratieRow()])}
+            >
+              <Plus size={14} />
+              {t('integrations.mcp.servers.kingAddAdministratie')}
+            </Button>
+          </div>
+          {administraties.map((row, index) => (
+            <div key={row.id} className="grid gap-2 rounded-lg border border-border/60 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-text-muted">
+                  {t('integrations.mcp.servers.kingAdministratieN', { n: index + 1 })}
+                </span>
+                {administraties.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() =>
+                      setAdministraties((rows) => rows.filter((item) => item.id !== row.id))
+                    }
+                    aria-label={t('integrations.mcp.servers.kingRemoveAdministratie')}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                ) : null}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`king-adm-name-${row.id}`}>
+                  {t('integrations.mcp.servers.kingAdministratieName')}
+                </Label>
+                <Input
+                  id={`king-adm-name-${row.id}`}
+                  value={row.name}
+                  onChange={(e) =>
+                    setAdministraties((rows) =>
+                      rows.map((item) =>
+                        item.id === row.id ? { ...item, name: e.target.value } : item,
+                      ),
+                    )
+                  }
+                  placeholder={t('integrations.mcp.servers.kingAdministratieNameHint')}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`king-adm-code-${row.id}`}>
+                  {t('integrations.mcp.servers.kingOmgevingscode')}
+                </Label>
+                <Input
+                  id={`king-adm-code-${row.id}`}
+                  type="password"
+                  value={row.omgevingscode}
+                  onChange={(e) =>
+                    setAdministraties((rows) =>
+                      rows.map((item) =>
+                        item.id === row.id ? { ...item, omgevingscode: e.target.value } : item,
+                      ),
+                    )
+                  }
+                  placeholder={t('integrations.mcp.servers.kingOmgevingscodeHint')}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : isBjorn ? (
         <>
           <div className="grid gap-2">
             <Label htmlFor="mcp-bl-client-id">{t('integrations.mcp.servers.bjornClientId')}</Label>

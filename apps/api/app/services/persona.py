@@ -65,7 +65,7 @@ def parse_persona_doc(content: str) -> dict[str, str]:
 def render_persona_doc(
     tone: str, do_text: str, dont_text: str, extra_sections: list[tuple[str, str]] | None = None
 ) -> str:
-    parts = ["# Persona"]
+    parts = ["# How we sound"]
     if tone.strip():
         parts.append(f"## Tone\n{tone.strip()}")
     if do_text.strip():
@@ -140,7 +140,7 @@ async def append_persona_section(
 
     doc = await get_doc_by_path(session, tenant_id, PERSONA_DOC_PATH)
     existing = (doc.content if doc else "").rstrip()
-    base = existing or "# Persona"
+    base = existing or "# How we sound"
     content = f"{base}\n\n## {heading}\n{body.strip()}\n"
     await upsert_doc(
         session,

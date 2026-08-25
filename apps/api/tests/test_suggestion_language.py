@@ -9,6 +9,8 @@ from httpx import AsyncClient
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
 from app.services.language import (
+    normalize_platform_language,
+    platform_default_ui_language,
     reply_language_instruction,
     resolve_reply_language,
     resolve_workspace_language,
@@ -66,9 +68,19 @@ def test_reply_language_ignores_invalid_values():
     assert resolve_reply_language(tenant, account) == "auto"
 
 
-def test_workspace_language_defaults_to_english():
-    assert resolve_workspace_language(_tenant()) == "en"
-    assert resolve_workspace_language(None) == "en"
+def test_platform_language_normalizes_to_nl_or_en():
+    assert normalize_platform_language("en") == "en"
+    assert normalize_platform_language("NL") == "nl"
+    assert normalize_platform_language("") == "nl"
+    assert normalize_platform_language("fr") == "nl"
+    assert normalize_platform_language(None) == "nl"
+    assert platform_default_ui_language() in ("en", "nl")
+
+
+def test_workspace_language_defaults_to_platform():
+    expected = platform_default_ui_language()
+    assert resolve_workspace_language(_tenant()) == expected
+    assert resolve_workspace_language(None) == expected
 
 
 def test_workspace_language_tenant_setting():
@@ -109,7 +121,7 @@ async def test_ai_modes_roundtrip_with_languages(client: AsyncClient):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["reply_language"] == "auto"
-    assert body["workspace_language"] == "en"
+    assert body["workspace_language"] == platform_default_ui_language()
 
     r = await client.put(
         "/api/settings/ai-modes",

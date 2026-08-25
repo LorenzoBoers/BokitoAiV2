@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -15,7 +16,7 @@ import {
   type KbCollection,
   type KbDocument,
 } from '../lib/email-api'
-import { humanizeLabel } from '../lib/labels'
+import { indexStatusLabel } from '../lib/status-labels'
 
 function RowSkeleton() {
   return (
@@ -27,6 +28,7 @@ function RowSkeleton() {
 }
 
 export default function HelpCentersSettings() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [kbCollections, setKbCollections] = useState<KbCollection[]>([])
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null)
@@ -52,11 +54,11 @@ export default function HelpCentersSettings() {
         return rows[0]?.id ?? null
       })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not load collections')
+      toast.error(error instanceof Error ? error.message : t('helpCentersPage.loadCollectionsError'))
     } finally {
       setCollectionsLoading(false)
     }
-  }, [token])
+  }, [token, t])
 
   const refreshKbDocuments = useCallback(async () => {
     if (!token || !selectedCollectionId) return
@@ -65,11 +67,11 @@ export default function HelpCentersSettings() {
       const rows = await listKbDocuments(token, selectedCollectionId)
       setKbDocuments(rows)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not load documents')
+      toast.error(error instanceof Error ? error.message : t('helpCentersPage.loadDocumentsError'))
     } finally {
       setDocumentsLoading(false)
     }
-  }, [token, selectedCollectionId])
+  }, [token, selectedCollectionId, t])
 
   useEffect(() => {
     void refreshKbCollections()
@@ -82,10 +84,9 @@ export default function HelpCentersSettings() {
   return (
     <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-4 py-1">
       <p className="text-sm text-text-secondary">
-        Manage collection sources for AI context and document indexing. Company knowledge the
-        agents learn on their own lives in{' '}
+        {t('helpCentersPage.intro')}{' '}
         <Link to="/knowledge" className="font-medium text-accent hover:underline">
-          Knowledge
+          {t('helpCentersPage.openKnowledge')}
         </Link>
         .
       </p>
@@ -94,14 +95,14 @@ export default function HelpCentersSettings() {
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
             <input
               className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
-              placeholder="New collection name"
+              placeholder={t('helpCentersPage.collectionName')}
               value={newCollectionName}
               disabled={creatingCollection}
               onChange={(event) => setNewCollectionName(event.target.value)}
             />
             <input
               className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
-              placeholder="Description (optional)"
+              placeholder={t('helpCentersPage.descriptionOptional')}
               value={newCollectionDescription}
               disabled={creatingCollection}
               onChange={(event) => setNewCollectionDescription(event.target.value)}
@@ -117,23 +118,23 @@ export default function HelpCentersSettings() {
                     setNewCollectionName('')
                     setNewCollectionDescription('')
                     await refreshKbCollections()
-                    toast.success('Collection created')
+                    toast.success(t('helpCentersPage.created'))
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : 'Could not create collection')
+                    toast.error(error instanceof Error ? error.message : t('helpCentersPage.createError'))
                   } finally {
                     setCreatingCollection(false)
                   }
                 })()
               }
             >
-              {creatingCollection ? 'Adding...' : 'Add'}
+              {creatingCollection ? t('helpCentersPage.adding') : t('helpCentersPage.add')}
             </Button>
           </div>
         </Card>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-[280px_1fr]">
           <Card className="overflow-y-auto p-3">
-            <div className="mb-2 text-xs text-text-muted">Collections</div>
+            <div className="mb-2 text-xs text-text-muted">{t('helpCentersPage.collections')}</div>
             <div className="space-y-1">
               {collectionsLoading ? (
                 <>
@@ -142,9 +143,14 @@ export default function HelpCentersSettings() {
                   <RowSkeleton />
                 </>
               ) : kbCollections.length === 0 ? (
-                <p className="px-2 py-3 text-sm text-text-muted">
-                  No collections yet. Create one above to start indexing documents.
-                </p>
+                <div className="px-2 py-3">
+                  <p className="text-sm text-text-muted">
+                    {t('helpCentersPage.emptyCollections')}
+                  </p>
+                  <Link to="/knowledge" className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline">
+                    {t('helpCentersPage.openKnowledge')}
+                  </Link>
+                </div>
               ) : (
                 kbCollections.map((collection) => (
                 <button
@@ -158,7 +164,7 @@ export default function HelpCentersSettings() {
                   }`}
                 >
                   <div>{collection.name}</div>
-                  <div className="text-2xs opacity-80">{collection.document_count} documents</div>
+                  <div className="text-2xs opacity-80">{t('helpCentersPage.documentsCount', { count: collection.document_count })}</div>
                 </button>
               ))
               )}
@@ -166,20 +172,20 @@ export default function HelpCentersSettings() {
           </Card>
 
           <Card className="overflow-y-auto p-3">
-            <div className="mb-2 text-xs text-text-muted">Documents</div>
+            <div className="mb-2 text-xs text-text-muted">{t('helpCentersPage.documents')}</div>
             {selectedCollectionId ? (
               <>
                 <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_120px_auto]">
                   <input
                     className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
-                    placeholder="File name"
+                    placeholder={t('helpCentersPage.fileName')}
                     value={newDocName}
                     disabled={uploadingDoc}
                     onChange={(event) => setNewDocName(event.target.value)}
                   />
                   <input
                     className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
-                    placeholder="File URL"
+                    placeholder={t('helpCentersPage.fileUrl')}
                     value={newDocUrl}
                     disabled={uploadingDoc}
                     onChange={(event) => setNewDocUrl(event.target.value)}
@@ -212,16 +218,16 @@ export default function HelpCentersSettings() {
                           setNewDocUrl('')
                           await refreshKbDocuments()
                           await refreshKbCollections()
-                          toast.success('Document added')
+                          toast.success(t('helpCentersPage.added'))
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : 'Could not add document')
+                          toast.error(error instanceof Error ? error.message : t('helpCentersPage.addError'))
                         } finally {
                           setUploadingDoc(false)
                         }
                       })()
                     }
                   >
-                    {uploadingDoc ? 'Uploading...' : 'Upload'}
+                    {uploadingDoc ? t('helpCentersPage.uploading') : t('helpCentersPage.upload')}
                   </Button>
                 </div>
 
@@ -232,9 +238,15 @@ export default function HelpCentersSettings() {
                       <RowSkeleton />
                     </>
                   ) : kbDocuments.length === 0 ? (
-                    <p className="px-1 py-2 text-sm text-text-muted">
-                      No documents in this collection yet. Add one above.
-                    </p>
+                    <div className="px-1 py-2 text-sm text-text-muted">
+                      <p>{t('helpCentersPage.emptyDocuments')}</p>
+                      <Link
+                        to="/knowledge"
+                        className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
+                      >
+                        {t('helpCentersPage.openKnowledge')}
+                      </Link>
+                    </div>
                   ) : (
                     kbDocuments.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-input/45 px-3 py-2">
@@ -248,7 +260,7 @@ export default function HelpCentersSettings() {
                           }
                           title={doc.index_error ?? undefined}
                         >
-                          {doc.file_type.toUpperCase()} - {humanizeLabel(doc.index_status)}
+                          {doc.file_type.toUpperCase()} - {indexStatusLabel(doc.index_status, t)}
                           {doc.index_error ? ` (${doc.index_error})` : ''}
                         </div>
                       </div>
@@ -264,9 +276,9 @@ export default function HelpCentersSettings() {
                               await deleteKbDocument(token, doc.id)
                               await refreshKbDocuments()
                               await refreshKbCollections()
-                              toast.success('Document removed')
+                              toast.success(t('helpCentersPage.removed'))
                             } catch (error) {
-                              toast.error(error instanceof Error ? error.message : 'Could not remove document')
+                              toast.error(error instanceof Error ? error.message : t('helpCentersPage.removeError'))
                             } finally {
                               setDeletingDocId(null)
                             }
@@ -281,7 +293,7 @@ export default function HelpCentersSettings() {
                 </div>
               </>
             ) : (
-              <div className="text-sm text-text-muted">Select a collection first.</div>
+              <div className="text-sm text-text-muted">{t('helpCentersPage.selectCollection')}</div>
             )}
         </Card>
       </div>

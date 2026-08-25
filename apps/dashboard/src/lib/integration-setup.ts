@@ -62,7 +62,11 @@ function defaultAuthType(integrationId: string): IntegrationAuthType {
   if (integrationId === 'github' || integrationId === 'microsoft-365' || integrationId === 'google-workspace') {
     return 'oauth2'
   }
-  if (integrationId === 'bjorn_lunden_mcp' || integrationId === 'custom_mcp') {
+  if (
+    integrationId === 'king_accountancy' ||
+    integrationId === 'bjorn_lunden_mcp' ||
+    integrationId === 'custom_mcp'
+  ) {
     return 'api_key'
   }
   return 'oauth2'

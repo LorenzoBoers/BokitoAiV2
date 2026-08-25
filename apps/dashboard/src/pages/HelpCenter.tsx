@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, FileText, Search } from 'lucide-react'
 import MarkdownView from '../components/docs/MarkdownView'
@@ -23,6 +24,7 @@ function formatDate(iso: string): string {
 
 /** Public help center: published knowledge-base articles, no login required. */
 export default function HelpCenter() {
+  const { t } = useTranslation('nav')
   const { tenantSlug = '', articleSlug } = useParams<{
     tenantSlug: string
     articleSlug?: string
@@ -58,7 +60,14 @@ export default function HelpCenter() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Could not load this help center.')
+          const raw = err instanceof Error ? err.message : ''
+          setError(
+            raw === 'NOT_FOUND'
+              ? t('helpPublic.notFound')
+              : raw && raw !== 'LOAD_FAILED'
+                ? raw
+                : t('helpPublic.loadError'),
+          )
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -67,7 +76,7 @@ export default function HelpCenter() {
     return () => {
       cancelled = true
     }
-  }, [tenantSlug, articleSlug])
+  }, [tenantSlug, articleSlug, t])
 
   const filtered = (index?.articles ?? []).filter((item) => {
     const q = query.trim().toLowerCase()
@@ -86,7 +95,7 @@ export default function HelpCenter() {
             className="flex items-center gap-2 text-lg font-semibold tracking-tight"
           >
             <BookOpen className="h-5 w-5" />
-            {index ? `${index.tenant.name} Help Center` : 'Help Center'}
+            {index ? t('helpPublic.titleNamed', { name: index.tenant.name }) : t('helpPublic.title')}
           </Link>
           {!articleSlug ? (
             <div className="relative mt-4">
@@ -94,7 +103,7 @@ export default function HelpCenter() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search articles"
+                placeholder={t('helpPublic.search')}
                 className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
               />
             </div>
@@ -104,7 +113,7 @@ export default function HelpCenter() {
 
       <main className="mx-auto max-w-3xl px-6 py-8">
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-muted-foreground">{t('helpPublic.loading')}</p>
         ) : error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : articleSlug && article ? (
@@ -114,17 +123,17 @@ export default function HelpCenter() {
               className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              All articles
+              {t('helpPublic.allArticles')}
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">{article.title}</h1>
             <p className="mt-1 mb-6 text-xs text-muted-foreground">
-              Updated {formatDate(article.updated_at)}
+              {t('helpPublic.updated', { date: formatDate(article.updated_at) })}
             </p>
             <MarkdownView content={article.content} />
           </article>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {query.trim() ? 'No articles match your search.' : 'No articles published yet.'}
+            {query.trim() ? t('helpPublic.emptySearch') : t('helpPublic.empty')}
           </p>
         ) : (
           <div className="space-y-2">

@@ -1,4 +1,4 @@
-import { Mail } from 'lucide-react'
+import { Bot, Mail, MessageSquare } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -66,11 +66,11 @@ const RUNS_QUEUE_TO_VIEW: Record<string, View> = {
   'awaiting-decision': 'awaiting_decision',
 }
 
-const ACTIVITY_CHIPS: ReadonlyArray<{ queue: RunsQueue; label: string }> = [
-  { queue: 'all', label: 'All' },
-  { queue: 'updates', label: 'Updates' },
-  { queue: 'results', label: 'Results' },
-  { queue: 'awaiting-decision', label: 'Decisions' },
+const ACTIVITY_CHIPS: ReadonlyArray<{ queue: RunsQueue; labelKey: string }> = [
+  { queue: 'all', labelKey: 'runsChips.all' },
+  { queue: 'updates', labelKey: 'runsChips.updates' },
+  { queue: 'results', labelKey: 'runsChips.results' },
+  { queue: 'awaiting-decision', labelKey: 'runsChips.decisions' },
 ]
 
 type LeafConfig = {
@@ -185,16 +185,25 @@ export default function Communication() {
     () => leafFromPath(location.pathname) ?? { type: 'inbox', queue: 'all' },
     [location.pathname],
   )
+
+  useEffect(() => {
+    if (leaf.type === 'inbox' && leaf.queue === 'snoozed') {
+      navigate(inboxPath('all', threadIdParam) + location.search, { replace: true })
+    }
+  }, [leaf, navigate, threadIdParam, location.search])
+
   const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(leaf), [leaf])
 
   const projectId = searchParams.get('project_id')?.trim() || undefined
+  const agentIdFilter = searchParams.get('agent')?.trim() || undefined
 
   const inboxQuery = useMemo(() => {
     const params = new URLSearchParams()
     if (projectId) params.set('project_id', projectId)
+    if (agentIdFilter) params.set('agent', agentIdFilter)
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [projectId])
+  }, [projectId, agentIdFilter])
 
   useEffect(() => {
     void refreshNavBadges()
@@ -259,9 +268,12 @@ export default function Communication() {
     refresh: refreshThreads,
     setThreadReadState,
     removeThread,
-  } = useThreads({ ...leafFilters, search, projectId, tag: tagFilter ?? undefined }, pinnedIds)
+  } = useThreads(
+    { ...leafFilters, search, projectId, agentId: agentIdFilter, tag: tagFilter ?? undefined },
+    pinnedIds,
+  )
 
-  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}`
+  const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}`
 
   useEffect(() => {
     setSearch('')
@@ -403,26 +415,41 @@ export default function Communication() {
     else removePin(selectedThreadId)
     try {
       await togglePin(current)
-    } catch {
+    } catch (err) {
       if (next) removePin(selectedThreadId)
       else addPin(selectedThreadId)
+      const raw = err instanceof Error ? err.message : ''
+      toast.error(
+        raw === 'UNPIN_FAILED'
+          ? t('actions.unpinError')
+          : raw && raw !== 'PIN_FAILED'
+            ? raw
+            : t('actions.pinError'),
+      )
     }
-  }, [selectedThreadId, detail, togglePin, addPin, removePin])
+  }, [selectedThreadId, detail, togglePin, addPin, removePin, t])
 
   const handleToggleTakeover = useCallback(async () => {
     if (selectedThreadId == null || !detail) return
     try {
       await toggleTakeover(Boolean(detail.thread.aiPaused))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not change AI takeover.')
+      const raw = err instanceof Error ? err.message : ''
+      toast.error(
+        raw === 'RESUME_FAILED'
+          ? t('actions.resumeError')
+          : raw && raw !== 'TAKEOVER_FAILED'
+            ? raw
+            : t('actions.takeoverError'),
+      )
     }
-  }, [selectedThreadId, detail, toggleTakeover])
+  }, [selectedThreadId, detail, toggleTakeover, t])
 
   const handleDeleteThread = useCallback(
     async (id: ThreadId, subject?: string) => {
       if (!token) return
-      const label = subject?.trim() || `thread #${id}`
-      if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) {
+      const label = subject?.trim() || t('actions.deleteFallback', { id })
+      if (!window.confirm(t('actions.deleteConfirm', { label }))) {
         return
       }
 
@@ -436,12 +463,12 @@ export default function Communication() {
         }
         void refreshNavBadges()
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Delete failed.')
+        toast.error(err instanceof Error ? err.message : t('actions.deleteFailed'))
       } finally {
         setDeletingThreadId(null)
       }
     },
-    [token, removeThread, pinnedIds, removePin, selectedThreadId, leaf, navigate, refreshNavBadges, inboxQuery],
+    [token, removeThread, pinnedIds, removePin, selectedThreadId, leaf, navigate, refreshNavBadges, inboxQuery, t],
   )
 
   const handleDetailDelete = useCallback(async () => {
@@ -535,17 +562,17 @@ export default function Communication() {
           action,
           assigneeId,
         )
-        toast.success(`${updated} thread${updated === 1 ? '' : 's'} updated`)
+        toast.success(t('actions.bulkUpdated', { count: updated }))
         setBulkSelectedIds(new Set())
         void refreshThreads()
         void refreshNavBadges()
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Bulk action failed.')
+        toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
       } finally {
         setBulkBusy(false)
       }
     },
-    [token, bulkSelectedIds, refreshThreads, refreshNavBadges],
+    [token, bulkSelectedIds, refreshThreads, refreshNavBadges, t],
   )
 
   const handleReply = useCallback(
@@ -574,22 +601,22 @@ export default function Communication() {
       void refreshThreads()
       if (undoable && msg?.id && token) {
         const messageId = String(msg.id)
-        toast(t('undoSend.scheduled', { defaultValue: 'Sending email...' }), {
+        toast(t('undoSend.scheduled'), {
           duration: UNDO_SEND_SECONDS * 1000,
           action: {
-            label: t('undoSend.undo', { defaultValue: 'Undo' }),
+            label: t('undoSend.undo'),
             onClick: () => {
               void cancelScheduledMessage(token, messageId)
                 .then(() => {
                   void refreshDetail()
                   void refreshThreads()
                   toast.success(
-                    t('undoSend.cancelled', { defaultValue: 'Sending cancelled' }),
+                    t('undoSend.cancelled'),
                   )
                 })
                 .catch(() =>
                   toast.error(
-                    t('undoSend.tooLate', { defaultValue: 'Too late — already sent' }),
+                    t('undoSend.tooLate'),
                   ),
                 )
             },
@@ -649,11 +676,12 @@ export default function Communication() {
       await markUnread()
       setThreadReadState(selectedThreadId, true)
       void refreshNavBadges()
-      toast.success('Marked as unread')
+      toast.success(t('actions.markedUnread'))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not mark thread as unread.')
+      const raw = err instanceof Error ? err.message : ''
+      toast.error(raw && raw !== 'MARK_UNREAD_FAILED' ? raw : t('actions.markUnreadError'))
     }
-  }, [selectedThreadId, markUnread, setThreadReadState, refreshNavBadges])
+  }, [selectedThreadId, markUnread, setThreadReadState, refreshNavBadges, t])
 
   const handleDecisionResolved = useCallback(() => {
     void refreshDetail()
@@ -688,17 +716,14 @@ export default function Communication() {
     )
   }
 
-  const showEmptyMailboxState =
+  const isInboxEmpty =
     (leaf.type === 'inbox' || (leaf.type === 'channel' && leaf.channelKey === 'email')) &&
-    enabledConnections.length === 0 &&
     threadsReady &&
     threads.length === 0 &&
-    // An active search with zero hits is "no results", not "no mailbox".
+    // An active search with zero hits is "no results", not a first-run empty.
     search.trim().length === 0
 
-  if (showEmptyMailboxState) {
-    // Fresh workspaces land here: show the onboarding checklist until the
-    // basics (company, assistant, channel, team) are in place.
+  if (isInboxEmpty) {
     if (onboardingStatus && !onboardingStatus.completed && !onboardingDismissed) {
       return (
         <div className="h-full min-h-0 overflow-y-auto">
@@ -709,32 +734,74 @@ export default function Communication() {
     if (onboardingError && !onboardingDismissed) {
       return (
         <div className="h-full min-h-0 flex flex-col items-center justify-center gap-3 py-8 px-4 text-center">
-          <p className="text-sm text-status-error">{onboardingError}</p>
+          <p className="text-sm text-status-error">
+            {onboardingError === 'LOAD_FAILED' ? t('onboarding.loadError') : onboardingError}
+          </p>
           <button
             type="button"
             onClick={retryOnboarding}
             className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
           >
-            Retry
+            {t('onboarding.retry')}
           </button>
+        </div>
+      )
+    }
+    if (enabledConnections.length === 0) {
+      return (
+        <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
+            <Mail size={28} className="text-accent" />
+          </div>
+          <h2 className="text-lg font-semibold text-text-heading">{t('noActiveMailboxTitle')}</h2>
+          <p className="text-sm text-text-secondary mt-2 max-w-sm">
+            {t('noActiveMailboxDescription')}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              to="/settings/channels"
+              className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+            >
+              {t('openEmailSettings')}
+            </Link>
+            <Link
+              to="/settings/setup"
+              className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              {t('onboarding.openGuide')}
+            </Link>
+          </div>
         </div>
       )
     }
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
-          <Mail size={28} className="text-accent" />
+          <MessageSquare size={28} className="text-accent" />
         </div>
-        <h2 className="text-lg font-semibold text-text-heading">{t('noActiveMailboxTitle')}</h2>
-        <p className="text-sm text-text-secondary mt-2 max-w-sm">
-          {t('noActiveMailboxDescription')}
-        </p>
-        <Link
-          to="/settings/channels"
-          className="mt-5 text-sm font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 rounded-sm"
-        >
-          {t('openEmailSettings')}
-        </Link>
+        <h2 className="text-lg font-semibold text-text-heading">{t('onboarding.emptyInboxTitle')}</h2>
+        <p className="text-sm text-text-secondary mt-2 max-w-sm">{t('onboarding.emptyInboxBody')}</p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <Link
+            to="/communication/new"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
+          >
+            <Bot size={14} />
+            {t('onboarding.startChat')}
+          </Link>
+          <Link
+            to="/settings/setup"
+            className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+          >
+            {t('onboarding.openGuide')}
+          </Link>
+          <Link
+            to="/ai/assistant/external/installation"
+            className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+          >
+            {t('onboarding.installWidget')}
+          </Link>
+        </div>
       </div>
     )
   }
@@ -747,7 +814,7 @@ export default function Communication() {
       {showActivityChips ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-2">
           <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
-            Activity
+            {t('runsChips.heading')}
           </span>
           {ACTIVITY_CHIPS.map((chip) => {
             const active = runsQueue === chip.queue
@@ -761,7 +828,7 @@ export default function Communication() {
                     : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-[12px] text-text-secondary hover:text-text-primary'
                 }
               >
-                {chip.label}
+                {t(chip.labelKey)}
               </Link>
             )
           })}
@@ -795,6 +862,46 @@ export default function Communication() {
           loadingMore={threadsLoadingMore}
           onLoadMore={() => void loadMoreThreads()}
           onCompose={mode === 'customer' && enabledConnections.length > 0 ? openCompose : undefined}
+          emptyLabel={leaf.type === 'runs' ? t('threadList.emptyRuns') : undefined}
+          emptyHint={
+            leaf.type === 'runs' ? (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                <Link
+                  to="/agents"
+                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('threadList.openAgents')}
+                </Link>
+                <Link
+                  to="/communication/new"
+                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('onboarding.startChat')}
+                </Link>
+              </div>
+            ) : mode === 'customer' && threads.length === 0 && !threadsLoading ? (
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                <Link
+                  to="/settings/setup"
+                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('onboarding.openGuide')}
+                </Link>
+                <Link
+                  to="/settings/channels"
+                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('threadChrome.openEmailSettings')}
+                </Link>
+                <Link
+                  to="/communication/new"
+                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('onboarding.startChat')}
+                </Link>
+              </div>
+            ) : undefined
+          }
         />
         <ThreadDetail
           detail={detail}

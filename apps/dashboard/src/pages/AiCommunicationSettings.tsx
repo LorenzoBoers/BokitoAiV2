@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Gauge, Globe, Languages, Mail, MessageSquareText } from 'lucide-react'
+import { Gauge, Globe, Languages, Mail, MessageCircle, MessageSquareText } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { Label } from '../components/ui/label'
 import PageContent from '../components/layout/PageContent'
+import { PageIntro } from '../components/layout/PageIntro'
 import {
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ import {
   type ReplyLanguage,
   type WorkspaceLanguage,
 } from '../lib/inbox-api'
+import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
 
 const MODES: AiMode[] = ['suggest', 'auto', 'off']
 const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
@@ -237,7 +239,22 @@ export default function AiCommunicationSettings() {
 
   return (
     <PageContent width="md" className="space-y-6">
-      <p className="text-sm text-text-secondary">{t('ai.pageMeta.communication.description')}</p>
+      <PageIntro description={t('ai.pageMeta.communication.description')} />
+
+      <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
+        <p>{t('ai.communication.crossLinks.body')}</p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <Link to="/settings/channels" className="font-medium text-accent hover:underline">
+            {t('ai.communication.crossLinks.channels')}
+          </Link>
+          <Link to={ASSISTANT_DEFAULT_PATH} className="font-medium text-accent hover:underline">
+            {t('ai.communication.crossLinks.widget')}
+          </Link>
+          <Link to="/ai/assistant/external/installation" className="font-medium text-accent hover:underline">
+            {t('ai.communication.crossLinks.installWidget')}
+          </Link>
+        </div>
+      </div>
 
       <Card className="p-5 space-y-5">
         <div>
@@ -294,6 +311,29 @@ export default function AiCommunicationSettings() {
                 onChange={(v) => {
                   setAiSettings((prev) =>
                     prev ? { ...prev, modes: { ...prev.modes, widget: v as AiMode } } : prev,
+                  )
+                  setSaveMessage(null)
+                }}
+              />
+            </div>
+            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
+              <div className="flex items-start gap-3">
+                <MessageCircle size={16} className="mt-0.5 text-accent" />
+                <div>
+                  <Label htmlFor="ai-mode-whatsapp" className="text-sm font-medium">
+                    {t('ai.communication.channelWhatsapp')}
+                  </Label>
+                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                    {t(`ai.communication.modeHints.${modes.whatsapp}`)}
+                  </p>
+                </div>
+              </div>
+              <ModeSelect
+                id="ai-mode-whatsapp"
+                value={modes.whatsapp}
+                onChange={(v) => {
+                  setAiSettings((prev) =>
+                    prev ? { ...prev, modes: { ...prev.modes, whatsapp: v as AiMode } } : prev,
                   )
                   setSaveMessage(null)
                 }}
@@ -435,9 +475,14 @@ export default function AiCommunicationSettings() {
             title={t('ai.communication.noMailboxTitle')}
             description={t('ai.communication.noMailboxDescription')}
             action={
-              <Button size="sm" variant="secondary" asChild>
-                <Link to="/settings/channels">{t('ai.communication.goToMailboxes')}</Link>
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="sm" variant="secondary" asChild>
+                  <Link to="/settings/channels">{t('ai.communication.goToMailboxes')}</Link>
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/settings/setup">{t('ai.communication.openSetup')}</Link>
+                </Button>
+              </div>
             }
           />
         ) : (

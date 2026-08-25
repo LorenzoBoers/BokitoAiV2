@@ -47,6 +47,9 @@ async def seed() -> None:
                 email_verified=True,
             )
             session.add(staff)
+        else:
+            staff.email_verified = True
+            staff.is_staff = True
 
         # Bokito tenant
         tenant_result = await session.execute(select(Tenant).where(Tenant.slug == "bokito"))
@@ -72,6 +75,8 @@ async def seed() -> None:
             )
             session.add(user)
             await session.flush()
+        else:
+            user.email_verified = True
 
         membership_result = await session.execute(
             select(Membership).where(Membership.user_id == user.id, Membership.tenant_id == tenant.id)
@@ -327,7 +332,7 @@ async def _seed_tenant_data(session, tenant):
             session,
             tenant.id,
             path="company.md",
-            content="# Company\n\nBokito AI OS platform overview.\n",
+            content="# About the company\n\nBokito AI OS platform overview.\n",
             kind="doc",
             created_by_type="system",
             commit=False,

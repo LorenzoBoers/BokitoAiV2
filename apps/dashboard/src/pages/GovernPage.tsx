@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { PageContent } from '../components/layout/PageContent'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
+import { EmptyState } from '../components/ui/empty-state'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -29,15 +31,18 @@ import {
   type AutonomyPostureId,
   type GovernToolRow,
   type PlatformChangeRow,
-  type PosturePreset,
 } from '../lib/govern-api'
 import {
-  ALLOWANCE_MODE_LABELS,
-  TOOL_CATEGORY_LABELS,
+  allowanceModeHint,
+  allowanceModeLabel,
+  governChangeStatusLabel,
+  toolCategoryHint,
+  toolCategoryLabel,
   formatChangeMeta,
   formatGovernTimestamp,
   summarizeDiff,
 } from '../lib/govern-labels'
+import { agentAutonomyLevelLabel } from '../lib/labels'
 import { cn } from '../lib/utils'
 import {
   Dialog,
@@ -60,7 +65,8 @@ const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'ou
 }
 
 function DiffPreview({ change }: { change: PlatformChangeRow }) {
-  const lines = summarizeDiff(change.before ?? {}, change.after ?? {})
+  const { t } = useTranslation('govern')
+  const lines = summarizeDiff(change.before ?? {}, change.after ?? {}, t)
   return (
     <ul className="mt-2 max-h-48 space-y-1 overflow-auto rounded-lg border border-border/60 bg-bg-muted/40 p-3 text-xs text-text-secondary">
       {lines.map((line) => (
@@ -72,9 +78,20 @@ function DiffPreview({ change }: { change: PlatformChangeRow }) {
   )
 }
 
+const GOVERN_TABS = new Set(['drafts', 'policy', 'history', 'passports', 'audit'])
+
 export default function GovernPage() {
   const { t } = useTranslation('govern')
-  const [tab, setTab] = useState('drafts')
+  const { t: tNav } = useTranslation('nav')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab') ?? ''
+  const tab = GOVERN_TABS.has(tabParam) ? tabParam : 'drafts'
+  const setTab = (next: string) => {
+    const params = new URLSearchParams(searchParams)
+    if (next === 'drafts') params.delete('tab')
+    else params.set('tab', next)
+    setSearchParams(params, { replace: true })
+  }
   const [changes, setChanges] = useState<PlatformChangeRow[]>([])
   const [history, setHistory] = useState<PlatformChangeRow[]>([])
   const [audit, setAudit] = useState<AuditEventRow[]>([])
@@ -83,7 +100,6 @@ export default function GovernPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [tools, setTools] = useState<GovernToolRow[]>([])
   const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
-  const [posturePresets, setPosturePresets] = useState<PosturePreset[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -113,11 +129,10 @@ export default function GovernPage() {
         setCategories(allowanceResp.categories)
         setTools(allowanceResp.tools)
         setPostureState(allowanceResp.posture)
-        setPosturePresets(allowanceResp.presets)
       })
-      .catch((err) => setError(formatApiErrorMessage(err, 'Could not load govern data.')))
+      .catch((err) => setError(formatApiErrorMessage(err, t('loadError'))))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load()
@@ -175,10 +190,9 @@ export default function GovernPage() {
       const resp = await setPosture(next)
       setPostureState(resp.posture)
       setAllowances(resp.allowances)
-      setPosturePresets(resp.presets)
       toast.success(t('posture.saved'))
     } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not update autonomy posture.'))
+      setError(formatApiErrorMessage(err, t('postureError')))
       load()
     } finally {
       setSavingPosture(false)
@@ -191,9 +205,9 @@ export default function GovernPage() {
     setSavingModes(true)
     try {
       await updateAllowances({ [category]: mode })
-      toast.success(t('allowances.saved', { defaultValue: 'Allowance saved.' }))
+      toast.success(t('allowances.saved'))
     } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not save allowances.'))
+      setError(formatApiErrorMessage(err, t('allowancesError')))
       load()
     } finally {
       setSavingModes(false)
@@ -209,11 +223,11 @@ export default function GovernPage() {
       await setToolOverride(toolName, mode)
       toast.success(
         mode
-          ? t('allowances.toolOverrideSaved', { defaultValue: `${toolName}: ${mode}` })
-          : t('allowances.toolOverrideCleared', { defaultValue: `${toolName}: category default` }),
+          ? t('allowances.toolOverrideSaved', { toolName, mode })
+          : t('allowances.toolOverrideCleared', { toolName }),
       )
     } catch (err) {
-      setError(formatApiErrorMessage(err, 'Could not save tool override.'))
+      setError(formatApiErrorMessage(err, t('toolOverrideError')))
       load()
     } finally {
       setSavingModes(false)
@@ -222,11 +236,12 @@ export default function GovernPage() {
 
   return (
     <PageContent width="xl" className="space-y-6">
+      <PageGuideBanner page="govern" />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-text-heading flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" aria-hidden />
-            {t('autonomyTitle', { defaultValue: 'Autonomy & approvals' })}
+            {t('title')}
           </h1>
           <p className="text-sm text-text-muted mt-1">{t('subtitle')}</p>
         </div>
@@ -261,7 +276,20 @@ export default function GovernPage() {
             <Card>
               <CardContent className="space-y-3 pt-6">
                 {changes.length === 0 ? (
-                  <p className="text-sm text-text-muted">{t('drafts.empty')}</p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-text-muted">{t('drafts.empty')}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" asChild>
+                        <Link to="/communication/inbox/all">{t('drafts.openCommunication')}</Link>
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/agents">{t('drafts.openAgents')}</Link>
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to="/settings/communication">{t('drafts.openInboxAi')}</Link>
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
                   changes.map((change) => (
                     <div key={change.id} className="rounded-lg border border-border p-3">
@@ -270,11 +298,11 @@ export default function GovernPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium text-text-heading">{change.summary}</p>
                             <Badge variant={STATUS_BADGE[change.status] ?? 'outline'} className="text-[10px]">
-                              {change.status.replace(/_/g, ' ')}
+                              {governChangeStatusLabel(change.status, t)}
                             </Badge>
                           </div>
                           <p className="text-xs text-text-muted mt-1">
-                            {formatChangeMeta(change.resource_type, change.change_kind, change.status)}
+                            {formatChangeMeta(change.resource_type, change.change_kind, change.status, t)}
                           </p>
                           <button
                             type="button"
@@ -295,7 +323,7 @@ export default function GovernPage() {
                             <Button size="sm" variant="ghost" asChild>
                               <Link to={agentRunsPath('awaiting-decision', change.signal_id)}>
                                 <ExternalLink className="h-4 w-4 mr-1" aria-hidden />
-                                Open in Messages
+                                {t('drafts.openInCommunication')}
                               </Link>
                             </Button>
                           ) : null}
@@ -334,7 +362,6 @@ export default function GovernPage() {
                 <p className="text-xs text-text-muted">{t('posture.intro')}</p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {POSTURE_ORDER.map((id) => {
-                    const preset = posturePresets.find((p) => p.id === id)
                     const active = posture === id
                     return (
                       <button
@@ -350,10 +377,10 @@ export default function GovernPage() {
                         )}
                       >
                         <p className="text-sm font-medium text-text-heading">
-                          {preset?.label ?? t(`posture.${id}.label`)}
+                          {t(`posture.${id}.label`)}
                         </p>
                         <p className="mt-1 text-xs text-text-muted leading-relaxed">
-                          {preset?.summary ?? t(`posture.${id}.summary`)}
+                          {t(`posture.${id}.summary`)}
                         </p>
                         {active ? (
                           <Badge variant="default" className="mt-2 text-[10px]">
@@ -369,14 +396,11 @@ export default function GovernPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('allowances.title', { defaultValue: 'Allowance sliders' })}</CardTitle>
+                <CardTitle>{t('allowances.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-xs text-text-muted">
-                  {t('allowances.intro', {
-                    defaultValue:
-                      'Per tool category: deny blocks the action, ask creates an inline decision, allow runs it automatically with an audit record.',
-                  })}
+                  {t('allowances.intro')}
                 </p>
                 {categories.map((category) => {
                   const current = allowances[category] ?? 'ask'
@@ -386,16 +410,18 @@ export default function GovernPage() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <span className="text-sm font-medium text-text-heading">
-                            {TOOL_CATEGORY_LABELS[category]?.label ?? category}
+                            {toolCategoryLabel(category, t)}
                           </span>
                           <p className="text-xs text-text-muted mt-0.5">
-                            {TOOL_CATEGORY_LABELS[category]?.hint ?? ''}
+                            {toolCategoryHint(category, t)}
                           </p>
                         </div>
                         <div
                           className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5"
                           role="radiogroup"
-                          aria-label={`${category} allowance`}
+                          aria-label={t('toolOverride.categoryAria', {
+                            category: toolCategoryLabel(category, t),
+                          })}
                         >
                           {ALLOWANCE_OPTIONS.map((mode) => (
                             <button
@@ -416,13 +442,13 @@ export default function GovernPage() {
                                   : 'text-text-muted hover:text-text-heading',
                               )}
                             >
-                              {ALLOWANCE_MODE_LABELS[mode]?.label ?? mode}
+                              {allowanceModeLabel(mode, t)}
                             </button>
                           ))}
                         </div>
                       </div>
                       <p className="mt-1.5 text-[11px] text-text-muted">
-                        {ALLOWANCE_MODE_LABELS[current]?.hint}
+                        {allowanceModeHint(current, t)}
                       </p>
                       {categoryTools.length > 0 ? (
                         <div className="mt-2 space-y-1 border-t border-border/40 pt-2">
@@ -439,7 +465,9 @@ export default function GovernPage() {
                                 >
                                   {tool.name}
                                   {tool.override ? (
-                                    <span className="ml-1.5 text-[10px] text-accent">override</span>
+                                    <span className="ml-1.5 text-[10px] text-accent">
+                                      {t('toolOverride.override')}
+                                    </span>
                                   ) : null}
                                 </span>
                                 <div className="inline-flex shrink-0 rounded-md border border-border/60 p-0.5">
@@ -469,13 +497,17 @@ export default function GovernPage() {
                                         )}
                                         title={
                                           isInherit
-                                            ? `Use category default (${current})`
-                                            : `Effective now: ${effective}`
+                                            ? t('toolOverride.useCategoryDefault', {
+                                                mode: allowanceModeLabel(current, t),
+                                              })
+                                            : t('toolOverride.effectiveNow', {
+                                                mode: allowanceModeLabel(effective, t),
+                                              })
                                         }
                                       >
                                         {isInherit
-                                          ? 'Default'
-                                          : ALLOWANCE_MODE_LABELS[mode]?.label ?? mode}
+                                          ? t('toolOverride.default')
+                                          : allowanceModeLabel(mode, t)}
                                       </button>
                                     )
                                   })}
@@ -495,19 +527,16 @@ export default function GovernPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <KeyRound className="h-4 w-4" aria-hidden />
-                  {t('tokens.title', { defaultValue: 'API tokens' })}
+                  {t('tokens.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-text-muted">
-                  {t('tokens.movedIntro', {
-                    defaultValue:
-                      'Tokens for the public REST API and MCP clients are managed on the Developers page, including per-token scopes.',
-                  })}
+                  {t('tokens.movedIntro')}
                 </p>
                 <Button size="sm" variant="outline" className="mt-3" asChild>
                   <Link to="/settings/developers">
-                    {t('tokens.manageLink', { defaultValue: 'Manage API tokens' })}
+                    {t('tokens.manageLink')}
                   </Link>
                 </Button>
               </CardContent>
@@ -518,7 +547,22 @@ export default function GovernPage() {
             <Card>
               <CardContent className="space-y-2 pt-6">
                 {history.length === 0 ? (
-                  <p className="text-sm text-text-muted">{t('history.empty')}</p>
+                  <EmptyState
+                    size="sm"
+                    icon={ShieldCheck}
+                    title={t('history.empty')}
+                    action={
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to="/settings/govern?tab=drafts">{t('history.openDrafts')}</Link>
+                        </Button>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to="/communication/inbox/all">{t('drafts.openCommunication')}</Link>
+                        </Button>
+                      </div>
+                    }
+                    className="border-0 shadow-none"
+                  />
                 ) : (
                   history.slice(0, 20).map((row) => (
                     <div
@@ -528,7 +572,7 @@ export default function GovernPage() {
                       <div className="min-w-0">
                         <p className="font-medium text-text-heading">{row.summary}</p>
                         <p className="text-xs text-text-muted mt-0.5">
-                          {formatChangeMeta(row.resource_type, row.change_kind, row.status)} · v{row.version} ·{' '}
+                          {formatChangeMeta(row.resource_type, row.change_kind, row.status, t)} · v{row.version} ·{' '}
                           {formatGovernTimestamp(row.resolved_at ?? row.created_at)}
                         </p>
                       </div>
@@ -541,16 +585,16 @@ export default function GovernPage() {
                           setBusyId(row.id)
                           void rollbackGovernChange(row.id)
                             .then(() => {
-                              toast.success('Change rolled back')
+                              toast.success(t('history.rolledBack'))
                               load()
                             })
                             .catch((err) => {
-                              toast.error(formatApiErrorMessage(err, 'Could not roll back.'))
+                              toast.error(formatApiErrorMessage(err, t('history.rollbackError')))
                             })
                             .finally(() => setBusyId(null))
                         }}
                       >
-                        Rollback
+                        {t('history.rollback')}
                       </Button>
                     </div>
                   ))
@@ -563,14 +607,22 @@ export default function GovernPage() {
             <Card>
               <CardContent className="space-y-2 pt-6">
                 {passports.length === 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-text-muted">
-                      No agent passports yet. Create an agent first, then edit autonomy on the agent detail page.
-                    </p>
-                    <Button type="button" size="sm" variant="secondary" asChild>
-                      <Link to="/agents">Open agents</Link>
-                    </Button>
-                  </div>
+                  <EmptyState
+                    size="sm"
+                    icon={ShieldCheck}
+                    title={t('passports.empty')}
+                    action={
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button type="button" size="sm" variant="secondary" asChild>
+                          <Link to="/agents">{t('passports.openAgents')}</Link>
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" asChild>
+                          <Link to="/settings/communication">{t('drafts.openInboxAi')}</Link>
+                        </Button>
+                      </div>
+                    }
+                    className="border-0 shadow-none"
+                  />
                 ) : (
                   passports.map((row) => (
                     <div key={String(row.id)} className="rounded-lg border border-border p-3">
@@ -579,19 +631,25 @@ export default function GovernPage() {
                         <span className="text-text-muted font-normal">({String(row.role)})</span>
                       </p>
                       <p className="text-xs text-text-muted mt-1">
-                        Autonomy: {String(row.autonomy_level)}
+                        {t('passports.autonomy', {
+                          level: agentAutonomyLevelLabel(
+                            row.autonomy_level ? String(row.autonomy_level) : null,
+                            tNav,
+                          ),
+                        })}
                       </p>
                       <p className="text-xs text-text-muted mt-1 break-words">
-                        Scopes:{' '}
-                        {Array.isArray(row.permission_scopes)
-                          ? (row.permission_scopes as string[]).join(', ') || 'role defaults'
-                          : 'role defaults'}
+                        {t('passports.scopes', {
+                          scopes: Array.isArray(row.permission_scopes)
+                            ? (row.permission_scopes as string[]).join(', ') || t('passports.roleDefaults')
+                            : t('passports.roleDefaults'),
+                        })}
                       </p>
                       <Link
                         to={`/agents/${String(row.id)}`}
                         className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
                       >
-                        Edit on agent detail
+                        {t('passports.openAgent')}
                       </Link>
                     </div>
                   ))
@@ -604,7 +662,25 @@ export default function GovernPage() {
             <Card>
               <CardContent className="space-y-2 pt-6">
                 {audit.length === 0 ? (
-                  <p className="text-sm text-text-muted">{t('audit.empty')}</p>
+                  <EmptyState
+                    size="sm"
+                    icon={ShieldCheck}
+                    title={t('audit.empty')}
+                    action={
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button size="sm" asChild>
+                          <Link to={inboxPath('all')}>{t('audit.openCommunication')}</Link>
+                        </Button>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to="/agents">{t('audit.openAgent')}</Link>
+                        </Button>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to="/settings/govern?tab=drafts">{t('history.openDrafts')}</Link>
+                        </Button>
+                      </div>
+                    }
+                    className="border-0 shadow-none"
+                  />
                 ) : (
                   audit.slice(0, 30).map((event) => {
                     // Deep-link the audited resource where a surface exists.
@@ -629,10 +705,10 @@ export default function GovernPage() {
                               {' · '}
                               <Link to={target} className="text-accent hover:underline">
                                 {event.resource_type === 'signal'
-                                  ? t('audit.openThread', { defaultValue: 'Open thread' })
+                                  ? t('audit.openThread')
                                   : event.run_id
-                                    ? t('audit.openRun', { defaultValue: 'Open run' })
-                                    : t('audit.openAgent', { defaultValue: 'Open agent' })}
+                                    ? t('audit.openRun')
+                                    : t('audit.openAgent')}
                               </Link>
                             </>
                           ) : null}
@@ -651,12 +727,12 @@ export default function GovernPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingConfirm?.type === 'accept' ? t('drafts.acceptTitle', { defaultValue: 'Accept change' }) : t('drafts.rejectTitle', { defaultValue: 'Reject change' })}
+              {pendingConfirm?.type === 'accept' ? t('drafts.acceptTitle') : t('drafts.rejectTitle')}
             </DialogTitle>
             <DialogDescription>
               {pendingConfirm?.type === 'accept'
                 ? t('drafts.acceptConfirm')
-                : t('drafts.rejectConfirm', { defaultValue: 'Reject this change? It will not be applied.' })}
+                : t('drafts.rejectConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -669,7 +745,7 @@ export default function GovernPage() {
               disabled={busyId !== null}
               onClick={confirmPendingAction}
             >
-              {pendingConfirm?.type === 'accept' ? t('drafts.acceptAction', { defaultValue: 'Accept' }) : t('drafts.rejectAction', { defaultValue: 'Reject' })}
+              {pendingConfirm?.type === 'accept' ? t('drafts.acceptAction') : t('drafts.rejectAction')}
             </Button>
           </DialogFooter>
         </DialogContent>

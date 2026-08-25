@@ -1,4 +1,5 @@
 import { useState, FormEvent, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { TwoFactorRequiredError, WorkspaceRequiredError, useAuth } from '../context/AuthContext';
 import { Building2, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
@@ -19,6 +20,7 @@ function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
 }
 
 export default function Login() {
+  const { t } = useTranslation('nav');
   const { login, verifyTotp, setupAcceptInvite, setupCreateWorkspace, user, token, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -41,8 +43,10 @@ export default function Login() {
   const ssoError = searchParams.get('sso_error');
 
   useEffect(() => {
-    if (ssoError) setError(describeSsoError(ssoError));
-  }, [ssoError]);
+    if (ssoError) {
+      setError(t(`loginPage.sso.${ssoError}`, { defaultValue: describeSsoError(ssoError) }));
+    }
+  }, [ssoError, t]);
 
   function resolvePostLoginTarget(): string {
     if (absoluteReturnTo) return absoluteReturnTo;
@@ -81,8 +85,8 @@ export default function Login() {
       const message = err instanceof Error ? err.message : '';
       setError(
         message.includes('503') || message.toLowerCase().includes('not configured')
-          ? 'Microsoft sign-in is not configured on this server.'
-          : 'Could not start Microsoft sign-in. Please try again.'
+          ? t('loginPage.microsoftNotConfigured')
+          : t('loginPage.microsoftStartFailed')
       );
       setIsSsoLoading(false);
     }
@@ -106,13 +110,13 @@ export default function Login() {
         setWorkspaceSetup(err);
         return;
       }
-      const message = err instanceof Error ? err.message : 'Sign in failed';
+      const message = err instanceof Error ? err.message : t('loginPage.failed');
       setError(
         message.includes('Invalid') ||
         message.includes('401') ||
         message.includes('password') ||
         message.toLowerCase().includes('valid integer')
-        ? 'Incorrect email or password.'
+        ? t('loginPage.incorrect')
         : message
       );
     } finally {
@@ -137,8 +141,8 @@ export default function Login() {
       const message = err instanceof Error ? err.message : '';
       setError(
         message.includes('challenge')
-          ? 'This sign-in attempt expired. Start over.'
-          : 'Incorrect verification code. Try again.'
+          ? t('loginPage.totpExpired')
+          : t('loginPage.totpIncorrect')
       );
     } finally {
       setIsLoading(false);
@@ -156,8 +160,8 @@ export default function Login() {
       const message = err instanceof Error ? err.message : '';
       setError(
         message.includes('setup token')
-          ? 'This session expired. Sign in again.'
-          : 'Could not accept the invite. It may have been revoked or expired.'
+          ? t('loginPage.sessionExpired')
+          : t('loginPage.inviteFailed')
       );
     } finally {
       setIsLoading(false);
@@ -176,8 +180,8 @@ export default function Login() {
       const message = err instanceof Error ? err.message : '';
       setError(
         message.includes('setup token')
-          ? 'This session expired. Sign in again.'
-          : 'Could not create the workspace. Try again.'
+          ? t('loginPage.sessionExpired')
+          : t('loginPage.createWorkspaceFailed')
       );
     } finally {
       setIsLoading(false);
@@ -201,7 +205,7 @@ export default function Login() {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">Sign in to your dashboard</span>
+          <span className="text-sm text-text-secondary mt-1">{t('loginPage.subtitle')}</span>
         </div>
 
         {/* Card */}
@@ -210,18 +214,16 @@ export default function Login() {
             <div className="space-y-5">
               <div className="flex flex-col items-center text-center">
                 <Building2 size={28} className="mb-2 text-accent" />
-                <h2 className="text-sm font-semibold text-text-heading">No workspace access</h2>
+                <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.noWorkspaceTitle')}</h2>
                 <p className="mt-1 text-[12.5px] text-text-secondary">
-                  Your account ({workspaceSetup.email}) exists, but it is not a member of any
-                  workspace. Accept an invite below, create a new workspace, or ask an admin to
-                  invite you.
+                  {t('loginPage.noWorkspaceBody', { email: workspaceSetup.email })}
                 </p>
               </div>
 
               {workspaceSetup.pendingInvites.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-[0.06em] text-text-muted">
-                    Pending invites
+                    {t('loginPage.pendingInvites')}
                   </p>
                   {workspaceSetup.pendingInvites.map((invite) => (
                     <div
@@ -234,17 +236,17 @@ export default function Login() {
                         </p>
                         <p className="text-xs text-text-muted">
                           {invite.invited_by_name
-                            ? `Invited by ${invite.invited_by_name} as ${invite.role}`
-                            : `Role: ${invite.role}`}
+                            ? t('loginPage.invitedBy', { name: invite.invited_by_name, role: invite.role })
+                            : t('loginPage.roleLabel', { role: invite.role })}
                         </p>
                       </div>
                       <button
                         type="button"
                         disabled={isLoading}
                         onClick={() => void handleAcceptPendingInvite(invite.id)}
-                        className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover disabled:opacity-60 transition"
+                        className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60 transition"
                       >
-                        Join
+                        {t('loginPage.join')}
                       </button>
                     </div>
                   ))}
@@ -253,21 +255,21 @@ export default function Login() {
 
               <form onSubmit={handleCreateWorkspace} className="space-y-2.5">
                 <p className="text-xs font-medium uppercase tracking-[0.06em] text-text-muted">
-                  {workspaceSetup.pendingInvites.length > 0 ? 'Or start fresh' : 'Start fresh'}
+                  {workspaceSetup.pendingInvites.length > 0 ? t('loginPage.orStartFresh') : t('loginPage.startFresh')}
                 </p>
                 <input
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
-                  placeholder="New workspace name"
+                  placeholder={t('loginPage.workspaceNamePlaceholder')}
                   className="w-full rounded-md border border-border bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-border-focus transition"
                 />
                 <button
                   type="submit"
                   disabled={isLoading || !newWorkspaceName.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
                 >
                   {isLoading ? <Loader2 size={16} className="animate-spin" /> : null}
-                  Create workspace
+                  {t('loginPage.createWorkspace')}
                 </button>
               </form>
 
@@ -286,16 +288,16 @@ export default function Login() {
                 }}
                 className="w-full text-center text-sm text-accent hover:text-accent-hover transition-colors"
               >
-                Back to sign in
+                {t('loginPage.backToSignIn')}
               </button>
             </div>
           ) : twoFactorChallenge ? (
             <form onSubmit={handleTotpSubmit} className="space-y-5">
               <div className="flex flex-col items-center text-center">
                 <ShieldCheck size={28} className="mb-2 text-accent" />
-                <h2 className="text-sm font-semibold text-text-heading">Two-factor authentication</h2>
+                <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.totpTitle')}</h2>
                 <p className="mt-1 text-[12.5px] text-text-secondary">
-                  Enter the 6-digit code from your authenticator app.
+                  {t('loginPage.totpBody')}
                 </p>
               </div>
               <input
@@ -308,7 +310,7 @@ export default function Login() {
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
                 className="w-full rounded-md border border-border bg-bg-input px-4 py-2.5 text-center font-mono text-lg tracking-[0.4em] text-text-primary placeholder-text-muted focus:outline-none focus:border-border-focus transition"
-                placeholder="000000"
+                placeholder={t('loginPage.totpPlaceholder')}
               />
               {error && (
                 <div className="px-4 py-3 rounded-md bg-status-error/10 border border-status-error/30 text-status-error text-sm">
@@ -318,15 +320,15 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading || totpCode.length !== 6}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
               >
                 {isLoading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Verifying...
+                    {t('loginPage.verifying')}
                   </>
                 ) : (
-                  'Verify'
+                  t('loginPage.verify')
                 )}
               </button>
               <button
@@ -338,7 +340,7 @@ export default function Login() {
                 }}
                 className="w-full text-center text-sm text-accent hover:text-accent-hover transition-colors"
               >
-                Back to sign in
+                {t('loginPage.backToSignIn')}
               </button>
             </form>
           ) : (
@@ -347,7 +349,7 @@ export default function Login() {
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Email
+                {t('loginPage.email')}
               </label>
               <input
                 id="email"
@@ -357,14 +359,14 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
-                placeholder="you@company.com"
+                placeholder={t('loginPage.emailPlaceholder')}
               />
             </div>
 
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Password
+                {t('loginPage.password')}
               </label>
               <div className="relative">
                 <input
@@ -375,7 +377,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
-                  placeholder="••••••••"
+                  placeholder={t('loginPage.passwordPlaceholder')}
                 />
                 <button
                   type="button"
@@ -399,15 +401,15 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
               {isLoading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Signing in...
+                  {t('loginPage.signingIn')}
                 </>
               ) : (
-                'Sign in'
+                t('loginPage.signIn')
               )}
             </button>
           </form>
@@ -416,10 +418,10 @@ export default function Login() {
           <div className="mt-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-text-muted">or</span>
+              <span className="text-xs text-text-muted">{t('loginPage.or')}</span>
               <div className="flex-1 h-px bg-border" />
             </div>
-            <MicrosoftSignInButton onClick={() => void handleMicrosoftSignIn()} isLoading={isSsoLoading} />
+            <MicrosoftSignInButton onClick={() => void handleMicrosoftSignIn()} isLoading={isSsoLoading} label={t('loginPage.microsoft')} />
           </div>
 
           {/* Forgot Password / Signup */}
@@ -428,13 +430,13 @@ export default function Login() {
               to="/forgot-password"
               className="text-accent hover:text-accent-hover transition-colors"
             >
-              Forgot password?
+              {t('loginPage.forgot')}
             </Link>
             <Link
               to="/signup"
               className="text-accent hover:text-accent-hover transition-colors"
             >
-              Create account
+              {t('loginPage.createAccount')}
             </Link>
           </div>
           </>
@@ -442,15 +444,14 @@ export default function Login() {
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · All rights reserved
+          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
         <p className="text-center text-[10px] text-text-muted/80 mt-1">
           build: {APP_VERSION}
         </p>
         {import.meta.env.DEV ? (
           <p className="text-center text-[11px] text-text-muted mt-3 max-w-sm mx-auto leading-relaxed">
-            Local dev: sign in with <span className="font-mono">admin@bokito.ai</span> /{' '}
-            <span className="font-mono">bokito-test-password</span>. Requires the FastAPI API on port 8000.
+            {t('loginPage.localDevHint', { email: 'admin@bokito.ai', password: 'bokito-test-password' })}
           </p>
         ) : null}
       </div>

@@ -111,6 +111,7 @@ services:
         VITE_APP_CONTROL_PLANE_HOST: ${VITE_APP_CONTROL_PLANE_HOST:-app.bokito.ai}
         VITE_TENANT_ROOT_DOMAIN: ${VITE_TENANT_ROOT_DOMAIN:-.bokito.ai}
         VITE_APP_CONTROL_PLANE_URL: ${VITE_APP_CONTROL_PLANE_URL:-}
+        VITE_PLATFORM_DEFAULT_LANGUAGE: ${VITE_PLATFORM_DEFAULT_LANGUAGE:-nl}
     restart: unless-stopped
     env_file: .env.prod
     ports:

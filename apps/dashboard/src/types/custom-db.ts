@@ -270,6 +270,8 @@ export interface Workspace {
   messengerAppearance?: MessengerAppearance;
   /** Tenant security: enforce 2FA for all members. */
   require_2fa?: boolean;
+  /** Tenant security: Bokito operators may enter this workspace. Default true. */
+  allow_platform_support?: boolean;
   owner_user_id?: number | string | null;
   role?: UserRole | 'member';
   created_at?: string;

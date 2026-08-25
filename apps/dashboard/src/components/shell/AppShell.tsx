@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { NavBadgeProvider } from '../../context/NavBadgeContext'
 import { InboxCommunicationProvider } from '../../context/InboxCommunicationContext'
 import { ChatSessionsProvider } from '../../context/ChatSessionsContext'
@@ -31,6 +32,7 @@ function isFullBleed(pathname: string): boolean {
 }
 
 export default function AppShell() {
+  const { t } = useTranslation('nav')
   const { pathname } = useLocation()
   const [navCollapsed, setNavCollapsed] = useState(loadNavCollapsed)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -72,7 +74,7 @@ export default function AppShell() {
       <InboxCommunicationProvider>
         <ChatSessionsProvider>
           <TourProvider>
-          <div className="flex h-screen overflow-hidden bg-bg">
+          <div className="app-atmosphere flex h-screen overflow-hidden">
             {/* Desktop sidebar */}
             <aside
               className={`hidden shrink-0 border-r border-border/40 transition-[width] duration-150 lg:block ${
@@ -87,7 +89,7 @@ export default function AppShell() {
               <div className="fixed inset-0 z-50 lg:hidden">
                 <button
                   type="button"
-                  aria-label="Close navigation"
+                  aria-label={t('topbar.closeNavigation')}
                   className="absolute inset-0 bg-black/50"
                   onClick={() => setDrawerOpen(false)}
                 />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -28,12 +29,7 @@ type Props = {
   onCreated: (agentId: string) => void
 }
 
-const ROLE_OPTIONS = [
-  { value: 'assistant', label: 'Assistant' },
-  { value: 'communication', label: 'Communication' },
-  { value: 'builder', label: 'Builder' },
-  { value: 'orchestra', label: 'Orchestra' },
-]
+const ROLE_OPTIONS = ['assistant', 'communication', 'builder', 'orchestra'] as const
 
 const SELECT_CLASS =
   'w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50'
@@ -41,6 +37,7 @@ const SELECT_CLASS =
 type ModelOption = TenantModelRow | CatalogModel
 
 export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [name, setName] = useState('')
   const [role, setRole] = useState('assistant')
@@ -73,7 +70,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
   const submit = async () => {
     if (!token || busy) return
     if (!name.trim()) {
-      setError('Name is required.')
+      setError(t('workforce.agents.create.nameRequired'))
       return
     }
     setBusy(true)
@@ -88,7 +85,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
       onOpenChange(false)
       onCreated(res.agent.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create agent.')
+      setError(err instanceof Error ? err.message : t('workforce.agents.create.createError'))
     } finally {
       setBusy(false)
     }
@@ -98,27 +95,25 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>New agent</DialogTitle>
-          <DialogDescription>
-            Create a company agent your team can chat with and assign work to.
-          </DialogDescription>
+          <DialogTitle>{t('workforce.agents.create.title')}</DialogTitle>
+          <DialogDescription>{t('workforce.agents.create.body')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="agent-name">Name</Label>
+            <Label htmlFor="agent-name">{t('workforce.agents.create.name')}</Label>
             <Input
               id="agent-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Support Specialist"
+              placeholder={t('workforce.agents.create.namePlaceholder')}
               autoFocus
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="agent-role">Role</Label>
+              <Label htmlFor="agent-role">{t('workforce.agents.create.role')}</Label>
               <select
                 id="agent-role"
                 value={role}
@@ -126,21 +121,21 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
                 className={SELECT_CLASS}
               >
                 {ROLE_OPTIONS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
+                  <option key={r} value={r}>
+                    {t(`workforce.agents.create.roles.${r}`)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="agent-model">Model</Label>
+              <Label htmlFor="agent-model">{t('workforce.agents.create.model')}</Label>
               <select
                 id="agent-model"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 className={SELECT_CLASS}
               >
-                <option value="">Workspace default</option>
+                <option value="">{t('workforce.agents.create.workspaceDefault')}</option>
                 {models.map((m) => (
                   <option key={m.slug} value={m.slug}>
                     {m.display_name}
@@ -151,12 +146,12 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="agent-prompt">System prompt (optional)</Label>
+            <Label htmlFor="agent-prompt">{t('workforce.agents.create.prompt')}</Label>
             <Textarea
               id="agent-prompt"
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Describe how this agent should behave and what it is responsible for."
+              placeholder={t('workforce.agents.create.promptPlaceholder')}
               rows={5}
             />
           </div>
@@ -166,11 +161,11 @@ export function NewAgentDialog({ open, onOpenChange, onCreated }: Props) {
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
-            Cancel
+            {t('workforce.agents.create.cancel')}
           </Button>
           <Button type="button" onClick={() => void submit()} disabled={busy || !name.trim()}>
             {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
-            Create agent
+            {t('workforce.agents.create.submit')}
           </Button>
         </DialogFooter>
       </DialogContent>

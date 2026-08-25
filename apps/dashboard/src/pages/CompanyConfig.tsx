@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowRight, CheckCircle2, Image, Loader2, MessageSquare, Upload } from 'lucide-react'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
 import { AUTH_API_BASE } from '../lib/api'
 import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
+import { DEFAULT_BRAND_COLOR, resolveBrandSeed } from '../lib/tenant-branding'
 
 const SUPPORTED_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] as const
 const SUBDOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
@@ -15,11 +17,11 @@ function isSupportedImageFile(file: File): boolean {
   return SUPPORTED_IMAGE_EXTENSIONS.includes(ext as (typeof SUPPORTED_IMAGE_EXTENSIONS)[number])
 }
 
-function validateSubdomain(value: string): string | null {
+function validateSubdomain(value: string, t: (key: string) => string): string | null {
   const v = value.trim().toLowerCase()
-  if (!v) return 'Subdomain is required.'
+  if (!v) return t('brandingPage.subdomainRequired')
   if (!SUBDOMAIN_REGEX.test(v)) {
-    return 'Use 3-63 characters: a-z, 0-9 and "-" (cannot start or end with "-").'
+    return t('brandingPage.subdomainInvalid')
   }
   return null
 }
@@ -126,13 +128,14 @@ function ColorField({
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function CompanyConfig() {
+  const { t } = useTranslation('workspace')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const faviconInputRef = useRef<HTMLInputElement>(null)
   const { currentWorkspace, refreshWorkspaces } = useWorkspace()
   const { user, token, refreshUser } = useAuth()
   const [name, setName] = useState('Bokito AI')
   const [subdomain, setSubdomain] = useState('bokito')
-  const [brandColor, setBrandColor] = useState('#4652f2')
+  const [brandColor, setBrandColor] = useState(DEFAULT_BRAND_COLOR)
   const [logoSrc, setLogoSrc] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [clearLogo, setClearLogo] = useState(false)
@@ -149,7 +152,7 @@ export default function CompanyConfig() {
     if (!currentWorkspace) return
     setName(currentWorkspace.name || 'Bokito AI')
     setSubdomain(currentWorkspace.slug || user?.tenant?.slug || '')
-    setBrandColor(currentWorkspace.brand_color || '#4652f2')
+    setBrandColor(resolveBrandSeed(currentWorkspace.brand_color))
     if (currentWorkspace.logo) {
       setLogoSrc(currentWorkspace.logo)
     } else if (user?.tenant?.logo) {
@@ -166,7 +169,7 @@ export default function CompanyConfig() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!isSupportedImageFile(file)) {
-      setSaveError('Invalid file type. Use PNG, JPG, JPEG, GIF, WebP or SVG.')
+      setSaveError(t('brandingPage.invalidFileType'))
       return
     }
     try {
@@ -178,7 +181,7 @@ export default function CompanyConfig() {
       reader.onload = (ev) => setLogoSrc(ev.target?.result as string)
       reader.readAsDataURL(uploadFile)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'SVG upload failed')
+      setSaveError(error instanceof Error ? error.message : t('brandingPage.svgUploadFailed'))
     }
   }
 
@@ -186,7 +189,7 @@ export default function CompanyConfig() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!isSupportedImageFile(file)) {
-      setSaveError('Invalid file type. Use PNG, JPG, JPEG, GIF, WebP or SVG.')
+      setSaveError(t('brandingPage.invalidFileType'))
       return
     }
     try {
@@ -198,17 +201,17 @@ export default function CompanyConfig() {
       reader.onload = (ev) => setFaviconSrc(ev.target?.result as string)
       reader.readAsDataURL(uploadFile)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'SVG upload failed')
+      setSaveError(error instanceof Error ? error.message : t('brandingPage.svgUploadFailed'))
     }
   }
 
   const handleSave = async () => {
     if (!token || !currentWorkspace?.id) {
-      setSaveError('No active workspace or session found.')
+      setSaveError(t('brandingPage.noWorkspace'))
       return
     }
     const normalizedSubdomain = subdomain.trim().toLowerCase()
-    const localSubdomainError = validateSubdomain(normalizedSubdomain)
+    const localSubdomainError = validateSubdomain(normalizedSubdomain, t)
     if (localSubdomainError) {
       setSubdomainError(localSubdomainError)
       return
@@ -257,7 +260,7 @@ export default function CompanyConfig() {
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2500)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Save failed')
+      setSaveError(error instanceof Error ? error.message : t('brandingPage.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -270,11 +273,11 @@ export default function CompanyConfig() {
 
           {/* ── Branding ─────────────────────────────────────────────────── */}
           <div>
-            <h2 className="text-[15px] font-semibold text-text-heading mb-1">Branding</h2>
-            <p className="text-[13px] text-text-secondary mb-4">Manage your workspace branding, including name, logo and brand color.</p>
+            <h2 className="text-[15px] font-semibold text-text-heading mb-1">{t('brandingPage.title')}</h2>
+            <p className="text-[13px] text-text-secondary mb-4">{t('brandingPage.subtitle')}</p>
 
             <div className="rounded-xl border border-border/60 bg-bg-elevated/30 px-5">
-              <SettingRow label="Name">
+              <SettingRow label={t('brandingPage.name')}>
                 <input
                   type="text"
                   value={name}
@@ -283,7 +286,7 @@ export default function CompanyConfig() {
                 />
               </SettingRow>
 
-              <SettingRow label="Logo" description="Shown in the portal and widgets. PNG, JPG, JPEG, GIF, WebP or SVG (SVG is automatically optimized for upload).">
+              <SettingRow label={t('brandingPage.logo')} description={t('brandingPage.logoHint')}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
                     {logoSrc
@@ -301,7 +304,7 @@ export default function CompanyConfig() {
                       }}
                       className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
-                      Delete
+                      {t('brandingPage.delete')}
                     </button>
                   ) : (
                     <button
@@ -310,14 +313,14 @@ export default function CompanyConfig() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       <Upload size={12} />
-                      Upload
+                      {t('brandingPage.upload')}
                     </button>
                   )}
                   <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleLogoUpload(e) }} />
                 </div>
               </SettingRow>
 
-              <SettingRow label="Favicon" description="Browser tab icon for the tenant. Use PNG, JPG, JPEG, GIF, WebP or SVG (SVG is automatically optimized for upload).">
+              <SettingRow label={t('brandingPage.favicon')} description={t('brandingPage.faviconHint')}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
                     {faviconSrc
@@ -335,7 +338,7 @@ export default function CompanyConfig() {
                       }}
                       className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
-                      Delete
+                      {t('brandingPage.delete')}
                     </button>
                   ) : (
                     <button
@@ -344,18 +347,18 @@ export default function CompanyConfig() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-secondary hover:bg-bg-hover transition-colors"
                     >
                       <Upload size={12} />
-                      Upload
+                      {t('brandingPage.upload')}
                     </button>
                   )}
                   <input ref={faviconInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleFaviconUpload(e) }} />
                 </div>
               </SettingRow>
 
-              <SettingRow label="Brand color" description="Primary accent color used in the portal and widgets.">
+              <SettingRow label={t('brandingPage.brandColor')} description={t('brandingPage.brandColorHint')}>
                 <ColorField value={brandColor} onChange={setBrandColor} />
               </SettingRow>
 
-              <SettingRow label="Workspace subdomain" description="Where people can reach your workspace.">
+              <SettingRow label={t('brandingPage.subdomain')} description={t('brandingPage.subdomainHint')}>
                 <div className="flex items-center">
                   <input
                     type="text"
@@ -363,7 +366,7 @@ export default function CompanyConfig() {
                     onChange={(e) => {
                       const next = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
                       setSubdomain(next)
-                      if (subdomainError) setSubdomainError(validateSubdomain(next))
+                      if (subdomainError) setSubdomainError(validateSubdomain(next, t))
                     }}
                     className="flex-1 bg-bg-input border border-border/60 rounded-l-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                   />
@@ -386,11 +389,22 @@ export default function CompanyConfig() {
               <MessageSquare size={16} className="text-accent" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-text-primary">Chat assistant style</p>
-              <p className="text-[12px] text-text-muted mt-0.5">Customize colors, typography and behavior of the chat widget.</p>
+              <p className="text-[13px] font-medium text-text-primary">{t('brandingPage.chatWidgetTitle')}</p>
+              <p className="text-[12px] text-text-muted mt-0.5">{t('brandingPage.chatWidgetDescription')}</p>
             </div>
             <ArrowRight size={15} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
           </button>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
+            <Link to="/communication/inbox/all" className="text-[12px] font-medium text-accent hover:underline">
+              {t('brandingPage.openCommunication')}
+            </Link>
+            <Link to="/settings/help-centers" className="text-[12px] font-medium text-accent hover:underline">
+              {t('brandingPage.openHelpCenters')}
+            </Link>
+            <Link to="/ai/assistant/external/installation" className="text-[12px] font-medium text-accent hover:underline">
+              {t('brandingPage.openInstall')}
+            </Link>
+          </div>
 
           {/* ── Save ──────────────────────────────────────────────────────── */}
           <div className="flex justify-end pb-6">
@@ -404,10 +418,10 @@ export default function CompanyConfig() {
               className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-semibold transition-all ${
                 saved
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-accent text-white hover:bg-accent-hover shadow-[0_4px_14px_rgba(70,82,242,0.3)]'
+                  : 'bg-accent text-accent-fg hover:bg-accent-hover shadow-[0_4px_14px_rgba(70,82,242,0.3)]'
               }`}
             >
-              {saving ? <><Loader2 size={14} className="animate-spin" />Saving...</> : saved ? <><CheckCircle2 size={14} />Saved</> : 'Save'}
+              {saving ? <><Loader2 size={14} className="animate-spin" />{t('brandingPage.saving')}</> : saved ? <><CheckCircle2 size={14} />{t('brandingPage.saved')}</> : t('brandingPage.save')}
             </button>
           </div>
 

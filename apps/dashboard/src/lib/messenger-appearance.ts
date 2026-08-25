@@ -4,6 +4,8 @@
  * Widget preview uses the same keys in data-preview-overrides JSON.
  */
 
+import { DEFAULT_BRAND_COLOR } from './tenant-branding'
+
 // Mirrors the widget's real tabs (Home / Messages / Help / Tools). The Help
 // tab additionally requires published help-center articles to appear.
 export type MessengerModuleKey = 'home' | 'messages' | 'help' | 'tools'
@@ -36,7 +38,7 @@ export interface MessengerAppearance {
 }
 
 export const DEFAULT_MESSENGER_APPEARANCE: MessengerAppearance = {
-  main_color: '#00FF99',
+  main_color: DEFAULT_BRAND_COLOR,
   welcome_title: '',
   welcome_subtitle: '',
   chatbot_name: '',

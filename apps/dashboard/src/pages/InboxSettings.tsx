@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   Check,
@@ -40,8 +41,9 @@ import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import SyncStatusPanel from '../components/inbox/SyncStatusPanel'
 import SlackConnectCard from '../components/inbox/SlackConnectCard'
+import WhatsAppConnectCard from '../components/inbox/WhatsAppConnectCard'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
-import { MAILBOX_STATUS_LABELS, MAILBOX_STATUS_VARIANTS } from '../types/inbox'
+import { MAILBOX_STATUS_VARIANTS } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { describeOAuthCallbackSummary, logOAuthRedirectDebugInDev, parseOAuthCallback, providerFriendlyName } from '../lib/email-oauth'
@@ -60,6 +62,7 @@ import {
   type RoutingRuleApi,
 } from '../lib/email-api'
 import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
+import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
 
 function toMailboxStatus(
   value: 'active' | 'error' | 'revoked' | 'connected' | 'needs_auth' | 'paused',
@@ -129,10 +132,10 @@ function mapRuleToApi(rule: RoutingRule): Omit<RoutingRuleApi, 'id' | 'created_a
   }
 }
 
-function formatLastSync(lastSyncAt: string | null): string {
-  if (!lastSyncAt) return 'Never synced'
+function formatLastSync(lastSyncAt: string | null, neverLabel: string): string {
+  if (!lastSyncAt) return neverLabel
   const date = new Date(lastSyncAt)
-  if (Number.isNaN(date.getTime())) return 'Never synced'
+  if (Number.isNaN(date.getTime())) return neverLabel
   return date.toLocaleString(undefined, {
     day: 'numeric',
     month: 'short',
@@ -184,6 +187,7 @@ function MailboxRowActions({
   onMakePrimary,
   onRemove,
 }: MailboxRowActionsProps) {
+  const { t } = useTranslation('nav')
   return (
     <div className="inline-flex items-stretch overflow-hidden rounded-lg border border-border/60 bg-bg-surface">
       {needsReconnect ? (
@@ -193,14 +197,14 @@ function MailboxRowActions({
           className="inline-flex items-center gap-1.5 border-r border-border/60 px-2.5 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover/70"
         >
           <Wifi size={13} />
-          Reconnect
+          {t('channelsPage.reconnect')}
         </button>
       ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label={`Actions for ${mailbox.email_address}`}
+            aria-label={t('channelsPage.actionsFor', { email: mailbox.email_address })}
             className="inline-flex h-8 w-8 items-center justify-center text-text-secondary hover:bg-bg-hover/70 hover:text-text-primary"
           >
             <MoreHorizontal size={15} />
@@ -210,22 +214,22 @@ function MailboxRowActions({
           {!needsReconnect && !builtin ? (
             <DropdownMenuItem className="gap-2 text-xs" disabled={syncing} onSelect={onSync}>
               <RefreshCw size={13} />
-              Sync now
+              {t('channelsPage.syncNow')}
             </DropdownMenuItem>
           ) : null}
           {mailbox.provider === 'outlook' ? (
             <DropdownMenuItem className="gap-2 text-xs" onSelect={onFolders}>
               <Folder size={13} />
-              Folders
+              {t('channelsPage.folders')}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem className="gap-2 text-xs" onSelect={onSignature}>
             <PenLine size={13} />
-            Signature
+            {t('channelsPage.signature')}
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 text-xs" onSelect={onRouting}>
             <SettingsIcon size={13} />
-            Routing
+            {t('channelsPage.routing')}
           </DropdownMenuItem>
           {!mailbox.is_primary ? (
             <DropdownMenuItem
@@ -234,7 +238,7 @@ function MailboxRowActions({
               onSelect={onMakePrimary}
             >
               <Star size={13} />
-              Make primary
+              {t('channelsPage.makePrimary')}
             </DropdownMenuItem>
           ) : null}
           {!builtin ? (
@@ -246,7 +250,7 @@ function MailboxRowActions({
                 onSelect={onRemove}
               >
                 <Trash2 size={13} />
-                Remove
+                {t('channelsPage.remove')}
               </DropdownMenuItem>
             </>
           ) : null}
@@ -257,7 +261,9 @@ function MailboxRowActions({
 }
 
 export default function InboxSettings() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const { connections, loading, error, refresh, removeConnection } = useMailboxConnections()
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
@@ -310,9 +316,9 @@ export default function InboxSettings() {
       setAddressCopied(true)
       window.setTimeout(() => setAddressCopied(false), 2000)
     } catch {
-      toast.error('Could not copy the address.')
+      toast.error(t('channelsPage.copyAddressError'))
     }
-  }, [bokitoAddress])
+  }, [bokitoAddress, t])
 
   const handleSyncNow = useCallback(async () => {
     if (!token || syncing) return
@@ -321,16 +327,16 @@ export default function InboxSettings() {
       const result = await syncMailboxes(token)
       toast.success(
         result.synced > 0
-          ? `Synced ${result.synced} new message${result.synced === 1 ? '' : 's'}`
-          : 'Mailboxes synced — no new messages',
+          ? t('syncStatus.synced', { count: result.synced })
+          : t('syncStatus.syncedNone'),
       )
       await refresh()
     } catch (err) {
-      toast.error(formatApiErrorMessage(err, 'Could not sync mailboxes.'))
+      toast.error(formatApiErrorMessage(err, t('syncStatus.couldNotSync')))
     } finally {
       setSyncing(false)
     }
-  }, [token, syncing, refresh])
+  }, [token, syncing, refresh, t])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteMailbox) return
@@ -340,11 +346,20 @@ export default function InboxSettings() {
       await removeConnection(deleteMailbox.id)
       setDeleteMailbox(null)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Mailbox could not be removed.')
+      setDeleteError(err instanceof Error ? err.message : t('channelsPage.removeError'))
     } finally {
       setDeletingId(null)
     }
-  }, [deleteMailbox, removeConnection])
+  }, [deleteMailbox, removeConnection, t])
+
+  useEffect(() => {
+    if (!location.hash) return
+    const id = location.hash.slice(1)
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.hash, loading])
 
   useEffect(() => {
     const callback = parseOAuthCallback(searchParams)
@@ -355,13 +370,17 @@ export default function InboxSettings() {
     if (callback.status === 'connected' && callback.provider) {
       setPageAlert({
         kind: 'oauth_success',
-        message: `${providerFriendlyName(callback.provider)} connected successfully.`,
+        message: t('channelsPage.oauthConnected', {
+          provider: providerFriendlyName(callback.provider),
+        }),
       })
       void refresh()
     } else if (callback.error) {
       setPageAlert({
         kind: 'oauth_error',
-        title: `Failed to connect ${providerFriendlyName(callback.provider ?? 'outlook')}`,
+        title: t('channelsPage.oauthFailedTitle', {
+          provider: providerFriendlyName(callback.provider ?? 'outlook'),
+        }),
         summary: describeOAuthCallbackSummary(callback),
         code: callback.error,
         detail: callback.detail,
@@ -376,7 +395,7 @@ export default function InboxSettings() {
     next.delete('aad_detail')
     next.delete('oauth_detail')
     setSearchParams(next, { replace: true })
-  }, [searchParams, setSearchParams, refresh])
+  }, [searchParams, setSearchParams, refresh, t])
 
   const persistMailboxFlags = useCallback(
     async (
@@ -391,13 +410,13 @@ export default function InboxSettings() {
       } catch (err) {
         setPageAlert({
           kind: 'simple_error',
-          message: err instanceof Error ? err.message : 'Failed to save mailbox settings.',
+          message: err instanceof Error ? err.message : t('channelsPage.mailboxSaveError'),
         })
       } finally {
         setMailboxSavingId(null)
       }
     },
-    [token, refresh],
+    [token, refresh, t],
   )
 
   const handleToggleSyncEnabled = useCallback(
@@ -429,14 +448,14 @@ export default function InboxSettings() {
     try {
       const url = await startOAuthConnection(token, connectProvider)
       if (!url.trim()) {
-        setConnectError('No authorize URL received from the server.')
+        setConnectError(t('channelsPage.noAuthorizeUrl'))
         return
       }
       window.location.assign(url)
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : 'Failed to connect mailbox.')
+      setConnectError(err instanceof Error ? err.message : t('channelsPage.connectError'))
     }
-  }, [token, connectProvider])
+  }, [token, connectProvider, t])
 
   const handleEditSignature = useCallback(
     async (mailbox: MailboxConnection) => {
@@ -446,10 +465,10 @@ export default function InboxSettings() {
         setSelectedMailbox({ ...mailbox, signature_html: signature })
         setSignatureEditorOpen(true)
       } catch (err) {
-        toast.error(formatApiErrorMessage(err, 'Could not load signature.'))
+        toast.error(formatApiErrorMessage(err, t('channelsPage.signatureLoadError')))
       }
     },
-    [token],
+    [token, t],
   )
 
   const handleSaveSignature = useCallback(
@@ -458,13 +477,13 @@ export default function InboxSettings() {
       try {
         await saveConnectionSignature(token, selectedMailbox.id, signature)
         setSignatureEditorOpen(false)
-        toast.success('Signature saved')
+        toast.success(t('channelsPage.signatureSaved'))
         await refresh()
       } catch (err) {
-        toast.error(formatApiErrorMessage(err, 'Could not save signature.'))
+        toast.error(formatApiErrorMessage(err, t('channelsPage.signatureSaveError')))
       }
     },
-    [token, selectedMailbox, refresh],
+    [token, selectedMailbox, refresh, t],
   )
 
   const handleEditRouting = useCallback(
@@ -476,10 +495,10 @@ export default function InboxSettings() {
         setSelectedMailbox(mailbox)
         setRoutingRulesOpen(true)
       } catch (err) {
-        toast.error(formatApiErrorMessage(err, 'Could not load routing rules.'))
+        toast.error(formatApiErrorMessage(err, t('channelsPage.routingLoadError')))
       }
     },
-    [token],
+    [token, t],
   )
 
   const handleSaveRoutingRules = useCallback(
@@ -511,12 +530,12 @@ export default function InboxSettings() {
           }
         }
         setRoutingRulesOpen(false)
-        toast.success('Routing rules saved')
+        toast.success(t('channelsPage.routingSaved'))
       } catch (err) {
-        toast.error(formatApiErrorMessage(err, 'Could not save routing rules.'))
+        toast.error(formatApiErrorMessage(err, t('channelsPage.routingSaveError')))
       }
     },
-    [token, selectedMailbox],
+    [token, selectedMailbox, t],
   )
 
   const handleEditFolders = useCallback(
@@ -531,12 +550,12 @@ export default function InboxSettings() {
         const result = await listMailboxFolders(token, mailbox.id)
         setFolders(result)
       } catch (err) {
-        setFoldersError(err instanceof Error ? err.message : 'Failed to load folders.')
+        setFoldersError(err instanceof Error ? err.message : t('channelsPage.foldersLoadError'))
       } finally {
         setFoldersLoading(false)
       }
     },
-    [token],
+    [token, t],
   )
 
   const handleToggleFolder = useCallback((folderId: string) => {
@@ -555,15 +574,30 @@ export default function InboxSettings() {
       )
       setFolderDialogOpen(false)
     } catch (err) {
-      setFoldersError(err instanceof Error ? err.message : 'Failed to save folders.')
+      setFoldersError(err instanceof Error ? err.message : t('channelsPage.foldersSaveError'))
     } finally {
       setFoldersSaving(false)
     }
-  }, [token, folderMailbox, folders])
+  }, [token, folderMailbox, folders, t])
 
   return (
     <PageContent width="full" className="flex min-h-0 flex-col gap-5">
-      <PageIntro description="Manage connected mailboxes, signatures, routing and email handling." />
+      <PageIntro description={t('pageHeaders.emailMessages')} />
+
+      <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
+        <p>{t('channelsPage.crossLinks.body')}</p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <Link to="/settings/communication" className="font-medium text-accent hover:underline">
+            {t('channelsPage.crossLinks.inboxAi')}
+          </Link>
+          <Link to={ASSISTANT_DEFAULT_PATH} className="font-medium text-accent hover:underline">
+            {t('channelsPage.crossLinks.widget')}
+          </Link>
+          <Link to="/settings/marketplace?kind=inbox" className="font-medium text-accent hover:underline">
+            {t('channelsPage.crossLinks.integrations')}
+          </Link>
+        </div>
+      </div>
 
       {pageAlert?.kind === 'oauth_success' ? (
         <OauthRedirectAlert variant="success" onDismiss={() => setPageAlert(null)}>
@@ -590,13 +624,13 @@ export default function InboxSettings() {
               className="shrink-0 underline opacity-90 hover:opacity-100"
               onClick={() => setPageAlert(null)}
             >
-              Close
+              {t('channelsPage.close')}
             </button>
           </div>
         </div>
       ) : null}
 
-      {loading ? <LoadingBlock variant="inline" label="Loading mailboxes…" /> : null}
+      {loading ? <LoadingBlock variant="inline" label={t('channelsPage.loadingMailboxes')} /> : null}
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
         {bokitoAddress?.address ? (
@@ -607,15 +641,13 @@ export default function InboxSettings() {
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-semibold text-text-heading">Your Bokito address</h3>
+                  <h3 className="text-sm font-semibold text-text-heading">{t('channelsPage.bokitoTitle')}</h3>
                   <Badge variant="success" className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide">
-                    Ready
+                    {t('channelsPage.ready')}
                   </Badge>
                 </div>
                 <p className="mt-0.5 text-xs text-text-secondary">
-                  Built in and ready to receive. Share it directly or set up forwarding from your
-                  existing mailbox — incoming mail lands in your inbox and replies are sent from
-                  this address.
+                  {t('channelsPage.bokitoBody')}
                 </p>
               </div>
             </div>
@@ -625,15 +657,15 @@ export default function InboxSettings() {
               </code>
               <Button variant="secondary" size="sm" onClick={() => void handleCopyBokitoAddress()}>
                 {addressCopied ? <Check size={14} /> : <Copy size={14} />}
-                {addressCopied ? 'Copied' : 'Copy'}
+                {addressCopied ? t('channelsPage.copied') : t('channelsPage.copy')}
               </Button>
             </div>
           </section>
         ) : null}
 
         <SettingsSection
-          title="Connected inboxes"
-          description="Manage mailbox connections, signatures and routing per inbox."
+          title={t('channelsPage.mailboxesTitle')}
+          description={t('channelsPage.mailboxesDescription')}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -643,11 +675,11 @@ export default function InboxSettings() {
                 onClick={() => void handleSyncNow()}
               >
                 <RefreshCw size={14} className={syncing ? 'animate-spin' : undefined} />
-                {syncing ? 'Syncing...' : 'Sync now'}
+                {syncing ? t('channelsPage.syncing') : t('channelsPage.syncNow')}
               </Button>
               <Button size="sm" onClick={() => setConnectDialogOpen(true)}>
                 <Plus size={14} />
-                Connect mailbox
+                {t('channelsPage.connectMailbox')}
               </Button>
             </div>
           }
@@ -657,18 +689,25 @@ export default function InboxSettings() {
           <Table embedded>
             <TableHeader>
               <TableRow>
-                <TableHead>Inbox</TableHead>
-                <TableHead>Sync</TableHead>
-                <TableHead>History</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('channelsPage.colMailbox')}</TableHead>
+                <TableHead>{t('channelsPage.colSync')}</TableHead>
+                <TableHead>{t('channelsPage.colHistory')}</TableHead>
+                <TableHead>{t('channelsPage.colStatus')}</TableHead>
+                <TableHead className="text-right">{t('channelsPage.colActions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {!loading && mailboxes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-10 text-center text-sm text-text-muted">
-                    No inbox connected yet
+                    <p>{t('channelsPage.noMailbox')}</p>
+                    <button
+                      type="button"
+                      onClick={() => setConnectDialogOpen(true)}
+                      className="mt-2 text-sm font-medium text-accent hover:underline"
+                    >
+                      {t('channelsPage.connectMailbox')}
+                    </button>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -694,7 +733,7 @@ export default function InboxSettings() {
                               <span className="font-medium text-text-heading">{mailbox.display_name}</span>
                               {mailbox.is_primary ? (
                                 <Badge variant="success" className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide">
-                                  Primary
+                                  {t('channelsPage.primary')}
                                 </Badge>
                               ) : null}
                             </div>
@@ -707,41 +746,41 @@ export default function InboxSettings() {
                           checked={mailbox.sync_enabled}
                           disabled={mailboxSavingId === mailbox.id}
                           onCheckedChange={(checked) => handleToggleSyncEnabled(mailbox, checked)}
-                          aria-label="Toggle inbox sync"
+                          aria-label={t('channelsPage.toggleSyncAria')}
                         />
                       </TableCell>
                       <TableCell>
                         {builtin ? (
-                          <span className="text-xs text-text-muted" title="Mail is delivered instantly; no backfill applies">
-                            Instant
+                          <span className="text-xs text-text-muted" title={t('channelsPage.instantTitle')}>
+                            {t('channelsPage.instant')}
                           </span>
                         ) : (
                           <select
                             value={String(mailbox.sync_window_days)}
                             disabled={mailboxSavingId === mailbox.id}
                             onChange={(e) => handleChangeSyncWindow(mailbox, Number(e.target.value))}
-                            aria-label="How far back to sync mail history"
-                            title="How far back mail is backfilled when this mailbox (re)connects"
+                            aria-label={t('channelsPage.historyAria')}
+                            title={t('channelsPage.historyTitle')}
                             className="h-8 rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
                           >
                             {![7, 30, 90, 365, 0].includes(mailbox.sync_window_days) ? (
                               <option value={String(mailbox.sync_window_days)}>
-                                {mailbox.sync_window_days} days
+                                {t('channelsPage.days', { count: mailbox.sync_window_days })}
                               </option>
                             ) : null}
-                            <option value="7">7 days</option>
-                            <option value="30">30 days</option>
-                            <option value="90">90 days</option>
-                            <option value="365">1 year</option>
-                            <option value="0">Everything</option>
+                            <option value="7">{t('channelsPage.days', { count: 7 })}</option>
+                            <option value="30">{t('channelsPage.days', { count: 30 })}</option>
+                            <option value="90">{t('channelsPage.days', { count: 90 })}</option>
+                            <option value="365">{t('channelsPage.oneYear')}</option>
+                            <option value="0">{t('channelsPage.everything')}</option>
                           </select>
                         )}
                       </TableCell>
                       <TableCell>
                         <div>
-                          <Badge variant={statusVariant}>{MAILBOX_STATUS_LABELS[mailbox.status]}</Badge>
+                          <Badge variant={statusVariant}>{t(`channelsPage.status.${mailbox.status}`)}</Badge>
                           <div className="mt-1 text-xs text-text-muted">
-                            {builtin ? 'Delivered in real time' : formatLastSync(mailbox.last_sync_at)}
+                            {builtin ? t('channelsPage.deliveredRealtime') : formatLastSync(mailbox.last_sync_at, t('channelsPage.neverSynced'))}
                           </div>
                         </div>
                       </TableCell>
@@ -775,6 +814,8 @@ export default function InboxSettings() {
 
         {mailboxes.length > 0 ? <SyncStatusPanel className="panel p-4" /> : null}
 
+        <WhatsAppConnectCard />
+
         <SlackConnectCard />
 
         <AutomationRulesManager />
@@ -785,7 +826,7 @@ export default function InboxSettings() {
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
             <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[420px] max-w-[92vw] bg-bg-surface border border-border rounded-lg p-5 shadow-xl">
-              <Dialog.Title className="text-lg font-semibold text-text-heading mb-3">Connect mailbox</Dialog.Title>
+              <Dialog.Title className="text-lg font-semibold text-text-heading mb-3">{t('channelsPage.connectMailbox')}</Dialog.Title>
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   {(['outlook', 'gmail'] as const).map((provider) => (
@@ -805,24 +846,10 @@ export default function InboxSettings() {
                       </span>
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    disabled
-                    className="col-span-2 cursor-not-allowed rounded-md border border-border/60 px-3 py-2 text-sm text-text-muted opacity-70"
-                    title="Connect any mailbox over SMTP/IMAP — coming soon"
-                  >
-                    <span className="inline-flex w-full items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-2">
-                        <ProviderLogo provider="smtp_imap" className="h-4 w-4 object-contain" />
-                        <span>SMTP / IMAP</span>
-                      </span>
-                      <Badge variant="neutral" className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide">
-                        Coming soon
-                      </Badge>
-                    </span>
-                  </button>
                 </div>
-                <p className="text-xs text-text-muted">After connecting you will be redirected to the provider's OAuth page.</p>
+                <p className="text-xs text-text-muted">
+                  {t('channelsPage.connectHint')}
+                </p>
                 {connectError ? <p className="text-xs text-status-error">{connectError}</p> : null}
                 <div className="flex justify-end gap-2">
                   <Button
@@ -832,9 +859,9 @@ export default function InboxSettings() {
                       setConnectDialogOpen(false)
                     }}
                   >
-                    Cancel
+                    {t('channelsPage.cancel')}
                   </Button>
-                  <Button onClick={() => void handleConnect()}>Connect</Button>
+                  <Button onClick={() => void handleConnect()}>{t('channelsPage.connect')}</Button>
                 </div>
               </div>
             </Dialog.Content>
@@ -854,14 +881,12 @@ export default function InboxSettings() {
             <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
             <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[420px] max-w-[92vw] bg-bg-surface border border-border rounded-lg p-5 shadow-xl">
               <Dialog.Title className="text-lg font-semibold text-text-heading mb-2">
-                Remove mailbox?
+                {t('channelsPage.removeTitle')}
               </Dialog.Title>
               <p className="text-sm text-text-secondary mb-4">
-                Are you sure you want to disconnect{' '}
-                <span className="font-medium text-text-heading">
-                  {deleteMailbox?.email_address ?? 'this mailbox'}
-                </span>
-                ? This cannot be undone.
+                {t('channelsPage.removeBody', {
+                  email: deleteMailbox?.email_address ?? t('channelsPage.thisMailbox'),
+                })}
               </p>
               {deleteError ? <p className="text-xs text-status-error mb-3">{deleteError}</p> : null}
               <div className="flex justify-end gap-2">
@@ -873,14 +898,14 @@ export default function InboxSettings() {
                     setDeleteError(null)
                   }}
                 >
-                  Cancel
+                  {t('channelsPage.cancel')}
                 </Button>
                 <Button
                   variant="destructive"
                   disabled={deletingId != null}
                   onClick={() => void handleConfirmDelete()}
                 >
-                  {deletingId != null ? 'Removing…' : 'Remove'}
+                  {deletingId != null ? t('channelsPage.removing') : t('channelsPage.remove')}
                 </Button>
               </div>
             </Dialog.Content>
@@ -892,10 +917,12 @@ export default function InboxSettings() {
             <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
             <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[480px] max-w-[92vw] bg-bg-surface border border-border rounded-lg p-5 shadow-xl flex flex-col max-h-[80vh]">
               <Dialog.Title className="text-base font-semibold text-text-heading mb-1">
-                Select folders to sync
+                {t('channelsPage.foldersTitle')}
               </Dialog.Title>
               <p className="text-xs text-text-secondary mb-4">
-                Choose which folders of {folderMailbox?.email_address ?? 'this mailbox'} are synced to the inbox.
+                {t('channelsPage.foldersBody', {
+                  email: folderMailbox?.email_address ?? t('channelsPage.thisMailbox'),
+                })}
               </p>
 
               {foldersError ? (
@@ -905,12 +932,12 @@ export default function InboxSettings() {
               {foldersLoading ? (
                 <div className="flex items-center gap-2 text-sm text-text-muted py-4">
                   <RefreshCw size={14} className="animate-spin" />
-                  Loading folders...
+                  {t('channelsPage.loadingFolders')}
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-1 min-h-0 mb-4">
                   {folders.length === 0 ? (
-                    <p className="text-xs text-text-muted py-4 text-center">No folders found.</p>
+                    <p className="text-xs text-text-muted py-4 text-center">{t('channelsPage.noFolders')}</p>
                   ) : (
                     folders.map((folder) => (
                       <label
@@ -946,10 +973,10 @@ export default function InboxSettings() {
                   onClick={() => setFolderDialogOpen(false)}
                   disabled={foldersSaving}
                 >
-                  Cancel
+                  {t('channelsPage.cancel')}
                 </Button>
                 <Button onClick={() => void handleSaveFolders()} disabled={foldersLoading || foldersSaving}>
-                  {foldersSaving ? 'Saving...' : 'Save'}
+                  {foldersSaving ? t('channelsPage.saving') : t('channelsPage.save')}
                 </Button>
               </div>
             </Dialog.Content>

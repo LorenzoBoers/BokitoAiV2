@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { listInboxMembers, type InboxMember } from '../../lib/inbox-api';
 import { 
@@ -65,6 +67,7 @@ export default function RoutingRulesManager({
   rules, 
   onSaveRules 
 }: RoutingRulesManagerProps) {
+  const { t } = useTranslation('nav');
   const { token } = useAuth();
   const [assignableUsers, setAssignableUsers] = useState<InboxMember[]>([]);
   const [localRules, setLocalRules] = useState<RoutingRule[]>(rules);
@@ -210,7 +213,7 @@ export default function RoutingRulesManager({
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[900px] max-w-[95vw] max-h-[90vh] bg-bg-surface border border-border rounded-lg shadow-xl overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <Dialog.Title className="text-lg font-semibold text-text-heading">
-                Routing rules - {mailboxEmail}
+                {t('routingRules.titleWithEmail', { email: mailboxEmail })}
               </Dialog.Title>
               <Dialog.Close asChild>
                 <Button variant="ghost" size="icon">
@@ -222,45 +225,62 @@ export default function RoutingRulesManager({
             <div className="p-4 space-y-4 max-h-[calc(90vh-160px)] overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium text-text-heading">Routing rules</h3>
+                  <h3 className="font-medium text-text-heading">{t('routingRules.title')}</h3>
                   <p className="text-sm text-text-secondary">
-                    Define how incoming emails are assigned and labeled
+                    {t('routingRules.description')}
                   </p>
                 </div>
                 <Button onClick={handleAddRule}>
                   <Plus size={16} />
-                  Add rule
+                  {t('routingRules.addRule')}
                 </Button>
               </div>
 
               <div className="bg-bg-elevated p-3 rounded-md flex items-start gap-2">
                 <Info size={16} className="text-accent mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
-                  <p className="font-medium text-text-heading mb-1">How do routing rules work?</p>
+                  <p className="font-medium text-text-heading mb-1">{t('routingRules.howTitle')}</p>
                   <p className="text-text-secondary">
-                    Rules run top to bottom. The <strong>first match wins</strong>.
-                    Drag rules to change their order.
+                    {t('routingRules.howBody')}
                   </p>
                 </div>
               </div>
 
               {sortedRules.length === 0 ? (
-                <div className="text-center py-8 text-text-muted">
+                <div className="py-8 text-center text-text-muted">
                   <Tag size={32} className="mx-auto mb-2 opacity-50" />
-                  <p>No routing rules configured yet</p>
-                  <p className="text-sm">Add your first rule to route emails automatically</p>
+                  <p>{t('routingRules.empty')}</p>
+                  <p className="text-sm">{t('routingRules.emptyHint')}</p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    <Button onClick={handleAddRule}>
+                      <Plus size={16} />
+                      {t('routingRules.addRule')}
+                    </Button>
+                    <Link
+                      to="/communication/inbox/all"
+                      className="text-sm font-medium text-accent hover:underline"
+                    >
+                      {t('routingRules.openCommunication')}
+                    </Link>
+                    <Link
+                      to="/settings/members"
+                      className="text-sm font-medium text-accent hover:underline"
+                    >
+                      {t('routingRules.openMembers')}
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
-                      <TableHead>Condition</TableHead>
-                      <TableHead>Value</TableHead>
-                      <TableHead>Assigned to</TableHead>
-                      <TableHead>Labels</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-24">Actions</TableHead>
+                      <TableHead>{t('routingRules.colCondition')}</TableHead>
+                      <TableHead>{t('routingRules.colValue')}</TableHead>
+                      <TableHead>{t('routingRules.colAssigned')}</TableHead>
+                      <TableHead>{t('routingRules.colLabels')}</TableHead>
+                      <TableHead>{t('routingRules.colStatus')}</TableHead>
+                      <TableHead className="w-24">{t('routingRules.colActions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -290,7 +310,9 @@ export default function RoutingRulesManager({
                         </TableCell>
                         <TableCell>
                           <Badge variant="neutral">
-                            {ROUTING_CONDITION_LABELS[rule.condition_type]}
+                            {t(`routingRules.condition.${rule.condition_type}`, {
+                              defaultValue: ROUTING_CONDITION_LABELS[rule.condition_type],
+                            })}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm">
@@ -300,10 +322,10 @@ export default function RoutingRulesManager({
                           {rule.assign_to_user_id ? (
                             <div className="flex items-center gap-1">
                               <User size={12} />
-                              {assignableUsers.find(u => u.id === rule.assign_to_user_id)?.name || 'Unknown'}
+                              {assignableUsers.find(u => u.id === rule.assign_to_user_id)?.name || t('routingRules.unknown')}
                             </div>
                           ) : (
-                            <span className="text-text-muted">Unassigned</span>
+                            <span className="text-text-muted">{t('routingRules.unassigned')}</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -321,7 +343,7 @@ export default function RoutingRulesManager({
                             className="text-left"
                           >
                             <Badge variant={rule.active ? 'success' : 'neutral'}>
-                              {rule.active ? 'Active' : 'Inactive'}
+                              {rule.active ? t('routingRules.active') : t('routingRules.inactive')}
                             </Badge>
                           </button>
                         </TableCell>
@@ -354,11 +376,11 @@ export default function RoutingRulesManager({
 
             <div className="flex items-center justify-end gap-2 p-4 border-t border-border bg-bg-elevated">
               <Button variant="secondary" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t('routingRules.cancel')}
               </Button>
               <Button onClick={handleSaveAll}>
                 <Save size={14} />
-                Save
+                {t('routingRules.save')}
               </Button>
             </div>
           </Dialog.Content>
@@ -371,14 +393,14 @@ export default function RoutingRulesManager({
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-[600px] max-w-[90vw] bg-bg-surface border border-border rounded-lg shadow-xl p-6">
             <Dialog.Title className="text-lg font-semibold text-text-heading mb-4">
-              {editingRule ? 'Edit rule' : 'Add new rule'}
+              {editingRule ? t('routingRules.editTitle') : t('routingRules.addTitle')}
             </Dialog.Title>
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
-                    Condition type
+                    {t('routingRules.conditionType')}
                   </label>
                   <Select 
                     value={ruleForm.condition_type} 
@@ -392,7 +414,7 @@ export default function RoutingRulesManager({
                     <SelectContent>
                       {Object.entries(ROUTING_CONDITION_LABELS).map(([value, label]) => (
                         <SelectItem key={value} value={value}>
-                          {label}
+                          {t(`routingRules.condition.${value}`, { defaultValue: label })}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -401,7 +423,7 @@ export default function RoutingRulesManager({
 
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
-                    Value
+                    {t('routingRules.value')}
                   </label>
                   <Input
                     value={ruleForm.condition_value}
@@ -417,7 +439,7 @@ export default function RoutingRulesManager({
 
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-2">
-                  Assign to
+                  {t('routingRules.assignTo')}
                 </label>
                 <Select 
                   value={ruleForm.assign_to_user_id?.toString() || ''} 
@@ -429,10 +451,10 @@ export default function RoutingRulesManager({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select user (optional)" />
+                    <SelectValue placeholder={t('routingRules.selectUser')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Do not assign</SelectItem>
+                    <SelectItem value="">{t('routingRules.doNotAssign')}</SelectItem>
                     {assignableUsers.map(user => (
                       <SelectItem key={user.id} value={user.id.toString()}>
                         {user.name} ({user.email})
@@ -444,7 +466,7 @@ export default function RoutingRulesManager({
 
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-2">
-                  Labels
+                  {t('routingRules.labels')}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {availableLabels.map(label => (
@@ -472,7 +494,7 @@ export default function RoutingRulesManager({
                         handleAddCustomLabel();
                       }
                     }}
-                    placeholder="Add custom label"
+                    placeholder={t('routingRules.customLabel')}
                     className="h-8 max-w-[200px] text-xs"
                   />
                   <Button
@@ -482,7 +504,7 @@ export default function RoutingRulesManager({
                     disabled={!customLabel.trim()}
                     onClick={handleAddCustomLabel}
                   >
-                    Add
+                    {t('routingRules.add')}
                   </Button>
                 </div>
               </div>
@@ -496,18 +518,18 @@ export default function RoutingRulesManager({
                   className="rounded border-border"
                 />
                 <label htmlFor="active" className="text-sm text-text-primary">
-                  Rule is active
+                  {t('routingRules.ruleActive')}
                 </label>
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 mt-6">
               <Button variant="secondary" onClick={() => setRuleFormOpen(false)}>
-                Cancel
+                {t('routingRules.cancel')}
               </Button>
               <Button onClick={handleSaveRule} disabled={!ruleForm.condition_value.trim()}>
                 <Save size={14} />
-                {editingRule ? 'Update' : 'Add'}
+                {editingRule ? t('routingRules.update') : t('routingRules.add')}
               </Button>
             </div>
           </Dialog.Content>

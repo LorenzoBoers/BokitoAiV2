@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ProjectBudgetResponse } from '../../lib/projects-api'
 import { cn } from '../../lib/utils'
 
@@ -13,6 +14,7 @@ export function ProjectBudgetBar({
   budget: ProjectBudgetResponse
   className?: string
 }) {
+  const { t } = useTranslation('nav')
   const limit = Math.max(budget.token_budget_daily, 0)
   const used = Math.max(budget.token_used_today, 0)
   const ratio = limit > 0 ? Math.min(used / limit, 1) : 0
@@ -25,12 +27,16 @@ export function ProjectBudgetBar({
   return (
     <div className={cn('space-y-1', className)}>
       <div className="flex items-center justify-between text-xs text-text-muted">
-        <span title="Project tokens used today, measured against the workspace daily cap">
-          Tokens today (workspace cap)
+        <span title={t('projects.detail.budgetBar.tokensToday')}>
+          {t('projects.detail.budgetBar.tokensToday')}
         </span>
         <span>
           {used.toLocaleString()} / {limit.toLocaleString()}
-          {budget.blocked ? <span className="ml-1.5 font-medium text-status-error">Workspace cap reached</span> : null}
+          {budget.blocked ? (
+            <span className="ml-1.5 font-medium text-status-error">
+              {t('projects.detail.budgetBar.capReached')}
+            </span>
+          ) : null}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">

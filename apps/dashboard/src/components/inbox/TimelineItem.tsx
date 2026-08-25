@@ -1,6 +1,7 @@
-import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Sparkles, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
+import { translateMockAgentBody } from '../../lib/activity-labels'
 import { cn } from '../../lib/utils'
 import { submitMessageFeedback } from '../../lib/signals-api'
 import { useCorrectionChat } from '../../lib/correction-chat'
@@ -8,10 +9,13 @@ import { getDomainFaviconUrl } from '../../lib/domain-favicon'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment } from '../../lib/inbox-api'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
+import { AI_CARD_CLASS, AI_PILL_CLASS, AiIconBox, AiMark } from '../ai/AiMark'
 import MessageAttachments from './MessageAttachments'
 import MessageMarkdown from './MessageMarkdown'
 import ReasoningDisclosure from './ReasoningDisclosure'
@@ -283,6 +287,7 @@ const cssRgb = ({ r, g, b }: Rgb) => `rgb(${r} ${g} ${b})`
 // subpixel text antialiasing and make text fuzzy. Emails that are already
 // dark-designed render untouched on the dark surface.
 function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
+  const { t } = useTranslation('communication')
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = useState(80)
 
@@ -437,7 +442,7 @@ a { color: #2563eb; }
       sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
       srcDoc={wrappedHtml}
       onLoad={handleLoad}
-      title="Email content"
+      title={t('timeline.events.emailContent')}
       className="block w-full bg-transparent"
       style={{
         height: `${height}px`,
@@ -457,57 +462,70 @@ function MessageHtmlBody({ html }: { html: string }) {
   return <EmailHtmlFrame html={html} isDark={isDark} />
 }
 
-const EVENT_LABELS: Record<string, (payload: Record<string, unknown>, memberName?: string) => string> = {
-  thread_created: () => 'Thread created',
-  signal_created: () => 'Conversation started',
-  assigned: (p, name) => `Assigned to ${name ?? `user ${p.assignee_id}`}`,
-  unassigned: () => 'Assignment removed',
-  status_changed: (p) => `Status changed to ${p.to_status ?? ''}`,
-  tag_added: (p) => `Label added: ${Array.isArray(p.tags) ? p.tags.join(', ') : ''}`,
-  tag_removed: () => 'Label removed',
-  priority_changed: (p) => `Priority: ${p.priority ?? ''}`,
-  replied: () => 'Reply sent',
-  reply_sent: () => 'Reply sent',
-  note_added: () => 'Note added',
-  reopened: () => 'Reopened',
-  // Generic patch event: derive the specific change from the payload so the
-  // timeline says what actually happened (closed/reopened/snoozed/...).
-  thread_updated: (p) => {
+type EventLabelFn = (t: TFunction, payload: Record<string, unknown>, memberName?: string) => string
+
+function ruleTargetSuffix(payload: Record<string, unknown>): string {
+  return typeof payload.match_value === 'string' && payload.match_value ? ` (${payload.match_value})` : ''
+}
+
+const EVENT_LABELS: Record<string, EventLabelFn> = {
+  thread_created: (t) => t('timeline.events.threadCreated'),
+  signal_created: (t) => t('timeline.events.conversationStarted'),
+  assigned: (t, p, name) =>
+    t('timeline.events.assigned', {
+      name: name ?? t('timeline.events.userFallback', { id: String(p.assignee_id ?? '') }),
+    }),
+  unassigned: (t) => t('timeline.events.unassigned'),
+  status_changed: (t, p) => t('timeline.events.statusChanged', { status: String(p.to_status ?? '') }),
+  tag_added: (t, p) =>
+    t('timeline.events.labelAdded', {
+      tags: Array.isArray(p.tags) ? p.tags.join(', ') : '',
+    }),
+  tag_removed: (t) => t('timeline.events.labelRemoved'),
+  priority_changed: (t, p) => t('timeline.events.priority', { priority: String(p.priority ?? '') }),
+  replied: (t) => t('timeline.events.replySent'),
+  reply_sent: (t) => t('timeline.events.replySent'),
+  note_added: (t) => t('timeline.events.noteAdded'),
+  reopened: (t) => t('timeline.events.reopened'),
+  thread_updated: (t, p) => {
     const status = typeof p.status === 'string' ? p.status : null
     const bulk = typeof p.bulk === 'string' ? p.bulk : null
-    if (status === 'closed' || bulk === 'close') return 'Thread closed'
-    if (status === 'spam' || bulk === 'spam') return 'Marked as spam'
-    if (status === 'pending') return 'Thread snoozed'
-    if (status === 'open' || bulk === 'reopen') return 'Thread reopened'
-    if (p.assigned_to === 0) return 'Assignment removed'
-    if (bulk === 'assign' || p.assigned_to != null) return 'Thread assigned'
-    if (typeof p.priority === 'string' && p.priority) return `Priority: ${p.priority}`
+    if (status === 'closed' || bulk === 'close') return t('timeline.events.threadClosed')
+    if (status === 'spam' || bulk === 'spam') return t('timeline.events.markedSpam')
+    if (status === 'pending') return t('timeline.events.threadSnoozed')
+    if (status === 'open' || bulk === 'reopen') return t('timeline.events.threadReopened')
+    if (p.assigned_to === 0) return t('timeline.events.unassigned')
+    if (bulk === 'assign' || p.assigned_to != null) return t('timeline.events.threadAssigned')
+    if (typeof p.priority === 'string' && p.priority) return t('timeline.events.priority', { priority: p.priority })
     if (Array.isArray(p.tags)) {
-      return p.tags.length > 0 ? `Labels: ${p.tags.join(', ')}` : 'Labels cleared'
+      return p.tags.length > 0
+        ? t('timeline.events.labels', { tags: p.tags.join(', ') })
+        : t('timeline.events.labelsCleared')
     }
-    return 'Thread updated'
+    return t('timeline.events.threadUpdated')
   },
-  snooze_expired: () => 'Snooze expired',
-  // AI flow
-  agent_processed: () => 'AI reviewed this message',
-  agent_invoked: () => 'Agent invoked',
-  agent_replied: () => 'AI replied',
-  suggestion_created: () => 'AI drafted a suggestion',
-  decision_created: () => 'AI asked for a decision',
-  triaged: () => 'AI triaged this conversation',
-  escalated: () => 'Escalated to the team',
-  ai_paused: () => 'AI paused on this thread',
-  ai_resumed: () => 'AI resumed on this thread',
-  decision_approved: (_, name) => (name ? `Approved by ${name}` : 'Suggestion approved'),
-  decision_dismissed: (_, name) => (name ? `Dismissed by ${name}` : 'Suggestion dismissed'),
-  decision_edited: (_, name) => (name ? `Edited by ${name}` : 'Suggestion edited'),
-  // Learned inbox rule handled the thread automatically.
-  rule_applied: (p) => {
-    const target = typeof p.match_value === 'string' && p.match_value ? ` (${p.match_value})` : ''
-    if (p.action === 'auto_close') return `Auto-closed by rule${target}`
-    if (p.action === 'auto_task') return `Task created by rule${target}`
-    if (p.action === 'mute_ai') return `AI skipped by rule${target}`
-    return `Handled by rule${target}`
+  snooze_expired: (t) => t('timeline.events.snoozeExpired'),
+  agent_processed: (t) => t('timeline.events.agentReviewed'),
+  agent_invoked: (t) => t('timeline.events.agentInvoked'),
+  agent_replied: (t) => t('timeline.events.agentReplied'),
+  suggestion_created: (t) => t('timeline.events.suggestionCreated'),
+  decision_created: (t) => t('timeline.events.decisionCreated'),
+  triaged: (t) => t('timeline.events.triaged'),
+  escalated: (t) => t('timeline.events.escalated'),
+  ai_paused: (t) => t('timeline.events.aiPaused'),
+  ai_resumed: (t) => t('timeline.events.aiResumed'),
+  decision_approved: (t, _, name) =>
+    name ? t('timeline.events.approvedBy', { name }) : t('timeline.events.suggestionApproved'),
+  decision_dismissed: (t, _, name) =>
+    name ? t('timeline.events.dismissedBy', { name }) : t('timeline.events.suggestionDismissed'),
+  decision_edited: (t, _, name) =>
+    name ? t('timeline.events.editedBy', { name }) : t('timeline.events.suggestionEdited'),
+  rule_applied: (t, p) => {
+    const target = ruleTargetSuffix(p)
+    if (p.action === 'auto_close') return t('timeline.events.autoClosedByRule', { target })
+    if (p.action === 'auto_task') return t('timeline.events.taskCreatedByRule', { target })
+    if (p.action === 'mute_ai') return t('timeline.events.aiSkippedByRule', { target })
+    return t('timeline.events.handledByRule', { target })
   },
 }
 
@@ -530,7 +548,7 @@ function eventPresentation(eventType: string): { ai: boolean; icon: ReactNode } 
   if (eventType === 'decision_approved') return { ai: true, icon: <Check size={10} /> }
   if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={10} /> }
   if (AI_EVENT_TYPES.has(eventType) || (eventType && eventType.startsWith('decision_'))) {
-    return { ai: true, icon: <Sparkles size={10} /> }
+    return { ai: true, icon: <AiMark size={10} /> }
   }
   return { ai: false, icon: null }
 }
@@ -540,26 +558,27 @@ function humanizeEventType(eventType: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-function eventLabel(event: InboxEvent, memberName?: string): string {
+function eventLabel(event: InboxEvent, t: TFunction, memberName?: string): string {
   const labelFn = EVENT_LABELS[event.eventType]
-  return labelFn ? labelFn(event.payload, memberName) : humanizeEventType(event.eventType)
+  return labelFn ? labelFn(t, event.payload, memberName) : humanizeEventType(event.eventType)
 }
 
 // Compact centered pill for a single timeline event. AI-flow events share one
 // accent-tinted style (purple + sparkles); plain system events stay muted.
 function EventPill({ event, memberName }: { event: InboxEvent; memberName?: string }) {
+  const { t } = useTranslation('communication')
   const { ai, icon } = eventPresentation(event.eventType)
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] leading-4 whitespace-nowrap',
         ai
-          ? 'border-accent/25 bg-accent/10 text-accent'
+          ? cn(AI_PILL_CLASS, 'ai-glow')
           : 'border-border/40 bg-bg-surface text-text-muted',
       )}
     >
       {icon}
-      {eventLabel(event, memberName)}
+      {eventLabel(event, t, memberName)}
     </span>
   )
 }
@@ -572,7 +591,7 @@ type BubbleVariant = 'external' | 'team' | 'agent' | 'self' | 'note'
 const BUBBLE_VARIANT_CLASSES: Record<BubbleVariant, string> = {
   external: 'bg-bg-surface border-border/60',
   team: 'bg-bg-elevated/80 border-border/60',
-  agent: 'bg-accent/[0.07] border-accent/25',
+  agent: AI_CARD_CLASS,
   self: 'bg-accent/15 border-accent/30',
   note: 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30',
 }
@@ -584,7 +603,7 @@ function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
       className={cn(
         'shrink-0 rounded border px-1 py-px text-[9px] font-medium uppercase tracking-wide leading-3',
         kind === 'ai'
-          ? 'border-accent/25 bg-accent/10 text-accent'
+          ? AI_PILL_CLASS
           : 'border-border/60 bg-bg-elevated text-text-muted',
       )}
     >
@@ -669,6 +688,7 @@ function MessageFeedbackControls({
   agentName?: string | null
   summary?: string
 }) {
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [sentiment, setSentiment] = useState<'up' | 'down' | null>(initial?.sentiment ?? null)
   const [busy, setBusy] = useState(false)
@@ -684,12 +704,12 @@ function MessageFeedbackControls({
         await submitMessageFeedback(token, messageId, value)
       } catch {
         setSentiment(previous)
-        toast.error('Could not save feedback.')
+        toast.error(t('decisionCard.feedbackError'))
       } finally {
         setBusy(false)
       }
     },
-    [token, busy, sentiment, messageId],
+    [token, busy, sentiment, messageId, t],
   )
 
   const buttonClass = (active: boolean) =>
@@ -698,7 +718,7 @@ function MessageFeedbackControls({
       active ? 'text-accent bg-accent/10' : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
     )
 
-  const correctLabel = `Correct ${agentName || 'the agent'}'s interpretation`
+  const correctLabel = t('decisionCard.correctInterpretation')
 
   return (
     <div className="flex items-center gap-0.5">
@@ -706,27 +726,27 @@ function MessageFeedbackControls({
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label="Good response"
+            aria-label={t('decisionCard.feedbackGood')}
             className={buttonClass(sentiment === 'up')}
             onClick={() => vote('up')}
           >
             <ThumbsUp size={11} />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">Good response</TooltipContent>
+        <TooltipContent side="bottom">{t('decisionCard.feedbackGood')}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label="Poor response"
+            aria-label={t('decisionCard.feedbackPoor')}
             className={buttonClass(sentiment === 'down')}
             onClick={() => vote('down')}
           >
             <ThumbsDown size={11} />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">Poor response</TooltipContent>
+        <TooltipContent side="bottom">{t('decisionCard.feedbackPoor')}</TooltipContent>
       </Tooltip>
       {threadId ? (
         <Tooltip>
@@ -748,7 +768,7 @@ function MessageFeedbackControls({
               }
             >
               {starting ? <Loader2 size={11} className="animate-spin" /> : <MessageSquareWarning size={11} />}
-              Correct
+              {correctLabel}
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">{correctLabel}</TooltipContent>
@@ -759,6 +779,7 @@ function MessageFeedbackControls({
 }
 
 export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById, noteActions, agentName }: MessageItemProps) {
+  const { t } = useTranslation('communication')
   const { user } = useAuth()
   const currentUserId = user?.id ?? null
   const isInternal = message.direction === 'internal'
@@ -786,33 +807,33 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       await noteActions.onEdit(String(message.id), text)
       setEditingNote(false)
     } catch {
-      toast.error('Could not update the note.')
+      toast.error(t('composer.noteUpdateError'))
     } finally {
       setNoteBusy(false)
     }
-  }, [noteActions, noteBusy, noteDraft, message.id])
+  }, [noteActions, noteBusy, noteDraft, message.id, t])
 
   const removeNote = useCallback(async () => {
     if (!noteActions || noteBusy) return
-    if (!window.confirm('Delete this note?')) return
+    if (!window.confirm(t('composer.deleteNoteConfirm'))) return
     setNoteBusy(true)
     try {
       await noteActions.onDelete(String(message.id))
     } catch {
-      toast.error('Could not delete the note.')
+      toast.error(t('composer.noteDeleteError'))
       setNoteBusy(false)
     }
-  }, [noteActions, noteBusy, message.id])
+  }, [noteActions, noteBusy, message.id, t])
 
   // Resolve author info for outbound / internal bubbles
   const author = message.authorUserId != null ? membersById?.[message.authorUserId] : undefined
-  const authorName = author?.name ?? (isOutbound ? 'You' : 'Team member')
+  const authorName = author?.name ?? (isOutbound ? t('timeline.events.you') : t('timeline.events.teamMember'))
   const authorEmail = author?.email ?? ''
   const authorAvatarUrl = author?.avatarUrl ?? null
 
   // Inbound contact info: prefer thread contact, fallback to message fromAddress
   const inboundEmail = message.fromAddress || contactEmail || ''
-  const inboundName = contactName || inboundEmail || 'Sender'
+  const inboundName = contactName || inboundEmail || t('timeline.events.sender')
 
   const attachmentItems: MessageAttachment[] = Array.isArray(message.attachments)
     ? message.attachments.filter(
@@ -823,6 +844,24 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
           typeof (a as MessageAttachment).url === 'string',
       )
     : []
+
+  const isAgentMessage =
+    message.kind === 'agent_message' ||
+    Boolean(message.payload?.agent_id) ||
+    Boolean(message.agentTrace)
+
+  const plainBody =
+    message.bodyPreview ||
+    message.bodyText ||
+    (message.bodyHtml
+      ? message.bodyHtml
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : '')
+  const displayBody = translateMockAgentBody(plainBody, t)
+  const usePlainBody = displayBody !== plainBody || !message.bodyHtml
 
   const bubbleBody = editingNote ? (
     <div className="space-y-1.5">
@@ -839,9 +878,9 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
           type="button"
           disabled={noteBusy || !noteDraft.trim()}
           onClick={() => void saveNote()}
-          className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-white hover:bg-accent/90 disabled:opacity-40"
+          className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent/90 disabled:opacity-40"
         >
-          Save
+          {t('timeline.events.save')}
         </button>
         <button
           type="button"
@@ -849,17 +888,17 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
           onClick={() => setEditingNote(false)}
           className="rounded-md px-2 py-1 text-[11px] text-text-muted hover:text-text-primary disabled:opacity-40"
         >
-          Cancel
+          {t('composer.cancel')}
         </button>
       </div>
     </div>
-  ) : message.bodyHtml ? (
-    <MessageHtmlBody html={message.bodyHtml} />
-  ) : (
+  ) : usePlainBody ? (
     <div className="space-y-1">
-      <MessageMarkdown text={message.bodyPreview || message.bodyText || ''} />
+      <MessageMarkdown text={displayBody} />
       <MessageAttachments attachments={attachmentItems} />
     </div>
+  ) : (
+    <MessageHtmlBody html={message.bodyHtml ?? ''} />
   )
 
   const contactAvatar = (
@@ -869,15 +908,8 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     <UserAvatar name={authorName} email={authorEmail || authorName} avatarUrl={authorAvatarUrl} size={28} />
   )
   const agentAvatar = (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-accent/10 text-accent">
-      <Sparkles size={13} />
-    </span>
+    <AiIconBox />
   )
-
-  const isAgentMessage =
-    message.kind === 'agent_message' ||
-    Boolean(message.payload?.agent_id) ||
-    Boolean(message.agentTrace)
 
   // Group-chat author model: customer (external), teammate, AI agent, or the
   // signed-in user. Only "self" renders on the right — the pattern everyone
@@ -904,7 +936,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       <span className="ml-auto flex items-center gap-0.5 shrink-0">
         <button
           type="button"
-          aria-label="Edit note"
+          aria-label={t('timeline.events.editNote')}
           disabled={noteBusy}
           onClick={startNoteEdit}
           className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-bg-hover/60 hover:text-text-primary transition-colors disabled:opacity-40"
@@ -913,7 +945,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
         </button>
         <button
           type="button"
-          aria-label="Delete note"
+          aria-label={t('timeline.events.deleteNote')}
           disabled={noteBusy}
           onClick={() => void removeNote()}
           className="flex h-5 w-5 items-center justify-center rounded text-text-muted/50 hover:bg-status-error/10 hover:text-status-error transition-colors disabled:opacity-40"

@@ -144,7 +144,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const finishExplore = useCallback(() => {
     persist({ completed: true })
     setPhase('idle')
-  }, [persist])
+    navigate('/settings/setup')
+  }, [persist, navigate])
 
   const finishWithAssistant = useCallback(() => {
     persist({ completed: true })
@@ -152,6 +153,12 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const prompt = t('setupPrompt', { lng: i18n.resolvedLanguage })
     navigate(`/communication/new?prefill=${encodeURIComponent(prompt)}&autosend=1`)
   }, [persist, navigate, t, i18n.resolvedLanguage])
+
+  const finishWithSetupGuide = useCallback(() => {
+    persist({ completed: true })
+    setPhase('idle')
+    navigate('/settings/setup')
+  }, [persist, navigate])
 
   const value = useMemo<TourContextValue>(
     () => ({ start, active: phase !== 'idle' }),
@@ -173,7 +180,11 @@ export function TourProvider({ children }: { children: ReactNode }) {
         />
       ) : null}
       {phase === 'finish' ? (
-        <FinishScreen onAssistant={finishWithAssistant} onExplore={finishExplore} />
+        <FinishScreen
+          onAssistant={finishWithAssistant}
+          onSetupGuide={finishWithSetupGuide}
+          onExplore={finishExplore}
+        />
       ) : null}
     </TourContext.Provider>
   )
@@ -287,7 +298,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
             <button
               type="button"
               onClick={onStart}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-white shadow-card transition-colors hover:bg-accent-hover"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-fg shadow-card transition-colors hover:bg-accent-hover"
             >
               {t('welcome.start')}
               <ArrowRight size={13} />
@@ -478,7 +489,7 @@ function StepOverlay({
             <button
               type="button"
               onClick={onNext}
-              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-accent-hover"
+              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               {t('next')}
               <ArrowRight size={12} />
@@ -493,9 +504,11 @@ function StepOverlay({
 
 function FinishScreen({
   onAssistant,
+  onSetupGuide,
   onExplore,
 }: {
   onAssistant: () => void
+  onSetupGuide: () => void
   onExplore: () => void
 }) {
   const { t } = useTranslation('tour')
@@ -530,10 +543,17 @@ function FinishScreen({
             <button
               type="button"
               onClick={onAssistant}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-white shadow-card transition-colors hover:bg-accent-hover"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-fg shadow-card transition-colors hover:bg-accent-hover"
             >
               <Sparkles size={13} />
               {t('finish.cta')}
+            </button>
+            <button
+              type="button"
+              onClick={onSetupGuide}
+              className="rounded-lg border border-border/60 px-3.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              {t('finish.setupGuide')}
             </button>
             <button
               type="button"

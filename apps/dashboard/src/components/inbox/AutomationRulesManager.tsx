@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Pause, Play, Plus, Trash2, Zap } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -14,24 +16,27 @@ import { Card } from '../ui/card'
 import { Input } from '../ui/input'
 import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
 
-const ACTION_LABELS: Record<InboxRule['action'], string> = {
-  auto_close: 'Auto-close',
-  auto_task: 'Create task',
-  mute_ai: 'Skip AI',
+const ACTION_KEYS: Record<InboxRule['action'], string> = {
+  auto_close: 'automationRules.actionClose',
+  auto_task: 'automationRules.actionTask',
+  mute_ai: 'automationRules.actionSkip',
 }
 
-const MATCH_LABELS: Record<InboxRule['matchType'], string> = {
-  sender: 'Sender',
-  domain: 'Domain',
-  list_id: 'Mailing list',
+const MATCH_KEYS: Record<InboxRule['matchType'], string> = {
+  sender: 'automationRules.matchSender',
+  domain: 'automationRules.matchDomain',
+  list_id: 'automationRules.matchListId',
 }
 
-function statusBadge(rule: InboxRule) {
-  if (rule.status === 'active') return <Badge variant="success">Active</Badge>
-  if (rule.status === 'paused') return <Badge variant="secondary">Paused</Badge>
+function statusBadge(rule: InboxRule, t: (key: string, opts?: Record<string, number>) => string) {
+  if (rule.status === 'active') return <Badge variant="success">{t('automationRules.active')}</Badge>
+  if (rule.status === 'paused') return <Badge variant="secondary">{t('automationRules.paused')}</Badge>
   return (
     <Badge variant="secondary">
-      Learning {Math.min(rule.observations, rule.promotionThreshold)}/{rule.promotionThreshold}
+      {t('automationRules.learning', {
+        current: Math.min(rule.observations, rule.promotionThreshold),
+        threshold: rule.promotionThreshold,
+      })}
     </Badge>
   )
 }
@@ -41,6 +46,7 @@ function statusBadge(rule: InboxRule) {
  * operator choices on "No reply needed" cards or created manually here.
  */
 export default function AutomationRulesManager() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [rules, setRules] = useState<InboxRule[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,7 +66,7 @@ export default function AutomationRulesManager() {
         if (!cancelled) setRules(data)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load rules.')
+        if (!cancelled) setError(err instanceof Error ? err.message : t('automationRules.loadFailed'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -68,7 +74,7 @@ export default function AutomationRulesManager() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, t])
 
   const handleCreate = useCallback(async () => {
     if (!token || !matchValue.trim()) return
@@ -86,11 +92,11 @@ export default function AutomationRulesManager() {
       setCreating(false)
       setMatchValue('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create rule.')
+      setError(err instanceof Error ? err.message : t('automationRules.createFailed'))
     } finally {
       setSaving(false)
     }
-  }, [token, matchType, matchValue, action])
+  }, [token, matchType, matchValue, action, t])
 
   const handleToggle = useCallback(
     async (rule: InboxRule) => {
@@ -102,25 +108,25 @@ export default function AutomationRulesManager() {
         const updated = await updateInboxRule(token, rule.id, { status: next })
         if (updated) setRules((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update rule.')
+        setError(err instanceof Error ? err.message : t('automationRules.updateFailed'))
       } finally {
         setBusyId(null)
       }
     },
-    [token],
+    [token, t],
   )
 
   const handleDelete = useCallback(
     async (rule: InboxRule) => {
       if (!token) return
-      if (!window.confirm(`Delete rule for ${rule.matchValue}?`)) return
+      if (!window.confirm(t('automationRules.deleteConfirm', { value: rule.matchValue }))) return
       setBusyId(rule.id)
       setError(null)
       try {
         await deleteInboxRule(token, rule.id)
         setRules((prev) => prev.filter((r) => r.id !== rule.id))
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to delete rule.')
+        setError(err instanceof Error ? err.message : t('automationRules.deleteFailed'))
       } finally {
         setBusyId(null)
       }
@@ -135,31 +141,43 @@ export default function AutomationRulesManager() {
           <KnowledgeTile className="mt-0.5" />
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
-              Automation rules
-              <LearnedChip label="Self-learning" />
+              {t('automationRules.title')}
+              <LearnedChip label={t('automationRules.selfLearning')} />
             </p>
             <p className="text-xs text-text-secondary">
-              Learned from your choices on automated mail: matching threads are closed, turned into a
-              task, or left for the team without AI drafting.
+              {t('automationRules.description')}
             </p>
           </div>
         </div>
         {!creating ? (
           <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
             <Plus size={13} />
-            New rule
+            {t('automationRules.newRule')}
           </Button>
         ) : null}
       </div>
       <div className="divide-y divide-border/40">
         {error ? <p className="px-4 py-2 text-xs text-status-error">{error}</p> : null}
         {loading ? (
-          <p className="px-4 py-4 text-xs text-text-muted">Loading...</p>
+          <p className="px-4 py-4 text-xs text-text-muted">{t('automationRules.loading')}</p>
         ) : rules.length === 0 && !creating ? (
-          <p className="px-4 py-4 text-xs text-text-muted">
-            No rules yet. Rules appear automatically when you make the same choice on a "No reply
-            needed" card a few times, or create one manually.
-          </p>
+          <div className="px-4 py-4">
+            <p className="text-xs text-text-muted">
+              {t('automationRules.empty')}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
+                <Plus size={13} />
+                {t('automationRules.newRule')}
+              </Button>
+              <Link
+                to="/communication/inbox/all"
+                className="text-[12px] font-medium text-accent hover:underline"
+              >
+                {t('automationRules.openCommunication')}
+              </Link>
+            </div>
+          </div>
         ) : null}
         {rules.map((rule) => (
           <div key={rule.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -172,19 +190,19 @@ export default function AutomationRulesManager() {
                 {rule.matchValue}
               </p>
               <p className="text-xs text-text-secondary">
-                {MATCH_LABELS[rule.matchType]} &middot; {ACTION_LABELS[rule.action]}
+                {t(MATCH_KEYS[rule.matchType])} &middot; {t(ACTION_KEYS[rule.action])}
                 {rule.hitCount > 0
-                  ? ` \u00b7 applied ${rule.hitCount} time${rule.hitCount === 1 ? '' : 's'}`
+                  ? ` \u00b7 ${t('automationRules.applied', { count: rule.hitCount })}`
                   : ''}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {statusBadge(rule)}
+              {statusBadge(rule, t)}
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label={rule.status === 'active' ? 'Pause rule' : 'Activate rule'}
-                title={rule.status === 'active' ? 'Pause' : 'Activate'}
+                aria-label={rule.status === 'active' ? t('automationRules.pauseRule') : t('automationRules.activateRule')}
+                title={rule.status === 'active' ? t('automationRules.pause') : t('automationRules.activate')}
                 disabled={busyId === rule.id}
                 onClick={() => void handleToggle(rule)}
               >
@@ -193,7 +211,7 @@ export default function AutomationRulesManager() {
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label="Delete rule"
+                aria-label={t('automationRules.deleteRule')}
                 disabled={busyId === rule.id}
                 onClick={() => void handleDelete(rule)}
               >
@@ -208,12 +226,12 @@ export default function AutomationRulesManager() {
               <select
                 value={matchType}
                 onChange={(e) => setMatchType(e.target.value as InboxRule['matchType'])}
-                aria-label="Match type"
+                aria-label={t('automationRules.matchSender')}
                 className="h-8 rounded-md border border-border bg-bg-surface px-2 text-sm text-text-primary focus:border-accent/50 focus:outline-none"
               >
-                <option value="sender">Sender address</option>
-                <option value="domain">Domain</option>
-                <option value="list_id">Mailing list id</option>
+                <option value="sender">{t('automationRules.matchSenderAddr')}</option>
+                <option value="domain">{t('automationRules.matchDomainOpt')}</option>
+                <option value="list_id">{t('automationRules.matchListIdOpt')}</option>
               </select>
               <Input
                 value={matchValue}
@@ -230,20 +248,20 @@ export default function AutomationRulesManager() {
               <select
                 value={action}
                 onChange={(e) => setAction(e.target.value as InboxRule['action'])}
-                aria-label="Rule action"
+                aria-label={t('automationRules.actionClose')}
                 className="h-8 rounded-md border border-border bg-bg-surface px-2 text-sm text-text-primary focus:border-accent/50 focus:outline-none"
               >
-                <option value="auto_close">Auto-close thread</option>
-                <option value="auto_task">Create task</option>
-                <option value="mute_ai">Skip AI (leave for team)</option>
+                <option value="auto_close">{t('automationRules.actionCloseThread')}</option>
+                <option value="auto_task">{t('automationRules.actionCreateTask')}</option>
+                <option value="mute_ai">{t('automationRules.actionSkipAi')}</option>
               </select>
             </div>
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="secondary" disabled={saving} onClick={() => setCreating(false)}>
-                Cancel
+                {t('automationRules.cancel')}
               </Button>
               <Button size="sm" disabled={saving || !matchValue.trim()} onClick={() => void handleCreate()}>
-                {saving ? 'Saving...' : 'Create rule'}
+                {saving ? t('automationRules.saving') : t('automationRules.create')}
               </Button>
             </div>
           </div>

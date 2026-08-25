@@ -70,6 +70,13 @@ def _mock_trading_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, A
 def _mock_accounting_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Mock Björn Lundén / King responses so the accountancy flow works end to end
     before real client credentials exist."""
+    if tool_name == "list_companies":
+        return {
+            "companies": [
+                {"id": "adm-demo-1", "name": "Andersson Bygg AB", "adm_nr": "1001"},
+                {"id": "adm-demo-2", "name": "Bakker BV", "adm_nr": "1002"},
+            ]
+        }
     if tool_name == "search_customers":
         query = str(arguments.get("query") or arguments.get("name") or "")
         return {
@@ -195,6 +202,26 @@ async def call_mcp_tool(
     server = result.scalar_one_or_none()
     if not server:
         return {"error": f"MCP server {server_name} not found"}
+
+    if server.server_url.startswith("native://king-accountancy"):
+        from app.services.king_finance import call_king_tool, has_king_credentials
+
+        try:
+            auth_data = json.loads(server.auth_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            auth_data = {}
+        if not isinstance(auth_data, dict):
+            auth_data = {}
+        if (
+            tool_name != "list_companies"
+            and not has_king_credentials(auth_data)
+            and not get_settings().is_production
+        ):
+            return _mock_mcp_response(server_name, tool_name, arguments)
+        outcome = await call_king_tool(auth_data, tool_name, arguments or {})
+        response: dict[str, Any] = {"server": server_name, "tool": tool_name}
+        response.update(outcome)
+        return response
 
     if server.server_url.startswith("native://"):
         from app.services.bjorn_lunden import call_bl_tool, has_bl_credentials

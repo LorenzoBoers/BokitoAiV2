@@ -1,40 +1,65 @@
 {
   "title": "Govern",
-  "subtitle": "Beoordeel platform-drafts, stel de autonomiehouding in en beheer hoe agent-wijzigingen worden toegepast.",
-  "openCanvas": "Open AI OS-canvas",
+  "subtitle": "Beoordeel concepten, kies hoeveel agents zelf mogen doen, en zie wat er veranderde.",
+  "openCanvas": "Open Agents",
   "loading": "Govern-gegevens laden...",
+  "loadError": "Kon govern-gegevens niet laden.",
+  "postureError": "Kon niet bijwerken hoeveel agents mogen doen.",
+  "allowancesError": "Kon toestemmingen niet opslaan.",
+  "toolOverrideError": "Kon deze tool-override niet opslaan.",
   "refresh": "Vernieuwen",
   "tabs": {
     "drafts": "Openstaande drafts",
     "policy": "Beleid",
     "history": "Versiegeschiedenis",
-    "passports": "Agent-paspoorten",
+    "passports": "Agenttoegang",
     "audit": "Recente audit"
   },
   "drafts": {
-    "empty": "Geen openstaande platformwijzigingen. Agents kunnen bewerkingen voorstellen via het AI OS-canvas of workforce-tools.",
+    "empty": "Niets wacht op review. Klantbeslissingen blijven in Communicatie. Workspace-wijzigingen verschijnen hier als je agents laat wachten.",
+    "openCommunication": "Communicatie openen",
+    "openAgents": "Agents openen",
+    "openInboxAi": "Inbox AI openen",
+    "openInCommunication": "Open in Communicatie",
     "viewDiff": "Bekijk wijzigingen",
     "accept": "Accepteren",
     "reject": "Afwijzen",
     "acceptConfirm": "Deze wijziging toepassen op je workspace?",
     "rejectConfirm": "Deze wijziging afwijzen? Hij wordt niet toegepast.",
     "accepted": "Wijziging geaccepteerd en toegepast",
-    "rejected": "Wijziging afgewezen"
+    "rejected": "Wijziging afgewezen",
+    "acceptTitle": "Wijziging accepteren",
+    "rejectTitle": "Wijziging afwijzen",
+    "acceptAction": "Accepteren",
+    "rejectAction": "Afwijzen"
   },
   "history": {
-    "empty": "Nog geen geaccepteerde wijzigingen."
+    "empty": "Nog geen geaccepteerde wijzigingen.",
+    "openDrafts": "Openstaande drafts openen",
+    "rollback": "Ongedaan maken",
+    "rolledBack": "Wijziging ongedaan gemaakt",
+    "rollbackError": "Kon deze wijziging niet ongedaan maken."
+  },
+  "passports": {
+    "empty": "Nog geen agenttoegang. Maak eerst een agent, en stel daarna op de agentpagina in wat die mag doen.",
+    "openAgents": "Agents openen",
+    "autonomy": "Hoeveel die mag doen: {{level}}",
+    "scopes": "Wat die mag gebruiken: {{scopes}}",
+    "roleDefaults": "rolstandaard",
+    "openAgent": "Agent openen"
   },
   "audit": {
-    "empty": "Nog geen auditgebeurtenissen.",
+    "empty": "Nog geen auditgebeurtenissen. Agentwerk en goedkeuringen verschijnen hier.",
+    "openCommunication": "Communicatie openen",
     "openThread": "Open thread",
     "openRun": "Open run",
     "openAgent": "Open agent"
   },
   "posture": {
-    "title": "Autonomiehouding",
-    "intro": "Kies hoeveel AI mag draaien zonder menselijke beoordeling. Je kunt individuele toolcategorieën hieronder fijn afstellen.",
-    "saved": "Autonomiehouding bijgewerkt",
-    "current": "Huidige houding",
+    "title": "Hoeveel agents mogen doen",
+    "intro": "Kies hoeveel agents mogen doen zonder op jou te wachten. Je kunt individuele toolcategorieën hieronder fijn afstellen.",
+    "saved": "Autonomie-instelling bijgewerkt",
+    "current": "Huidige instelling",
     "manual": {
       "label": "Handmatig",
       "summary": "Mensen keuren elke muterende agent-actie goed voordat die wordt toegepast."
@@ -51,18 +76,107 @@
   "allowances": {
     "title": "Toestemmingsniveaus",
     "intro": "Per toolcategorie: weigeren blokkeert de actie, vragen maakt een inline beslissing aan, toestaan voert de actie automatisch uit met een auditrecord.",
-    "saved": "Toestemming opgeslagen."
+    "saved": "Toestemming opgeslagen.",
+    "toolOverrideSaved": "{{toolName}}: {{mode}}",
+    "toolOverrideCleared": "{{toolName}}: categorie-standaard"
+  },
+  "toolCategories": {
+    "messaging": { "label": "Berichten", "hint": "Antwoorden, beslissingen en threadacties." },
+    "workspace": { "label": "Workspace", "hint": "Geheugen, documenten, skill-wijzigingen en canvas-nodes." },
+    "agents": { "label": "Agents", "hint": "Agents, flows en taken aanmaken of bijwerken." },
+    "channels": { "label": "Kanalen", "hint": "Kanaalaccounts en routing." },
+    "triggers": { "label": "Triggers", "hint": "Planningen, check-ins en inkomende triggers." },
+    "integrations": { "label": "Integraties", "hint": "Externe koppelingen en verbonden tools." },
+    "govern": { "label": "Govern", "hint": "Beleid en governance-wijzigingen." },
+    "handoff": { "label": "Overdracht", "hint": "Werk doorsturen naar teamleden of andere agents." }
   },
   "tokens": {
-    "title": "API-tokens (MCP-toegang)",
-    "intro": "Verbind Cursor of andere MCP-clients met deze workspace via /api/mcp. Tokens gebruiken dezelfde gegoverneerde tools en toestemmingsniveaus als interne agents.",
+    "title": "App-tokens",
+    "intro": "Verbind Cursor of andere apps met deze workspace. Tokens volgen dezelfde Govern-regels als agents.",
     "namePlaceholder": "Tokennaam (bijv. Cursor)",
     "create": "Token aanmaken",
     "copied": "Gekopieerd.",
-    "empty": "Nog geen API-tokens.",
+    "empty": "Nog geen app-tokens.",
     "revoked": "Token ingetrokken.",
     "revokedBadge": "Ingetrokken",
     "allScopes": "Alle categorieën",
-    "lastUsed": "laatst gebruikt"
+    "lastUsed": "laatst gebruikt",
+    "movedIntro": "Tokens voor Cursor en andere apps staan onder Developers. Ze volgen dezelfde Govern-regels als agents.",
+    "manageLink": "Developers openen"
+  },
+  "allowanceModes": {
+    "deny": {
+      "label": "Weigeren",
+      "hint": "Agents kunnen deze tools helemaal niet gebruiken."
+    },
+    "ask": {
+      "label": "Eerst vragen",
+      "hint": "Elke actie opent een inline beslissing om goed te keuren of af te wijzen."
+    },
+    "allow": {
+      "label": "Toestaan",
+      "hint": "Acties worden automatisch uitgevoerd en vastgelegd in het auditlogboek."
+    }
+  },
+  "toolOverride": {
+    "default": "Standaard",
+    "override": "override",
+    "useCategoryDefault": "Gebruik categoriestandaard ({{mode}})",
+    "effectiveNow": "Nu actief: {{mode}}",
+    "categoryAria": "{{category}} toestemming"
+  },
+  "changeMeta": {
+    "resourceType": {
+      "agent": "Agent",
+      "workstream": "Flow",
+      "workspace_doc": "Kennisdocument",
+      "integration": "Integratie",
+      "mcp_server": "Verbonden tools",
+      "canvas_node": "Canvas-node",
+      "canvas_edge": "Canvas-verbinding",
+      "autonomy_posture": "Hoeveel agents mogen doen",
+      "persona_review": "Stemreview"
+    },
+    "changeKind": {
+      "create": "Aanmaken",
+      "update": "Bijwerken",
+      "delete": "Verwijderen",
+      "connect": "Koppelen",
+      "review": "Review"
+    },
+    "status": {
+      "pending_review": "Wacht op review",
+      "draft": "Concept",
+      "accepted": "Geaccepteerd",
+      "applied_yolo": "Automatisch toegepast",
+      "rejected": "Afgewezen",
+      "superseded": "Vervangen"
+    }
+  },
+  "diff": {
+    "add": "{{label}} toevoegen: {{value}}",
+    "remove": "{{label}} verwijderen",
+    "change": "{{label}} wijzigen: {{before}} → {{after}}",
+    "empty": "Geen veldwijzigingen vastgelegd.",
+    "emptyValue": "(leeg)",
+    "yes": "ja",
+    "no": "nee"
+  },
+  "diffFields": {
+    "name": "Naam",
+    "role": "Rol",
+    "system_prompt": "Instructies",
+    "description": "Beschrijving",
+    "enabled": "Ingeschakeld",
+    "provider": "Provider",
+    "display_name": "Weergavenaam",
+    "server_url": "Server-URL",
+    "path": "Documentpad",
+    "content": "Inhoud",
+    "kind": "Documenttype",
+    "agent_id": "Agent",
+    "workstream_id": "Flow",
+    "node_type": "Nodetype",
+    "ref_id": "Referentie"
   }
 }

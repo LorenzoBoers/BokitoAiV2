@@ -1,6 +1,8 @@
 import { useState, FormEvent, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { persistUiLanguage } from '../lib/language-preference';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { APP_VERSION } from '../lib/app-version';
 import { startMicrosoftSso } from '../lib/api';
@@ -17,6 +19,7 @@ function slugify(value: string): string {
 }
 
 export default function Signup() {
+  const { t, i18n } = useTranslation('nav');
   const { signup, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -42,8 +45,8 @@ export default function Signup() {
       const message = err instanceof Error ? err.message : '';
       setError(
         message.includes('503') || message.toLowerCase().includes('not configured')
-          ? 'Microsoft sign-in is not configured on this server.'
-          : 'Could not start Microsoft sign-in. Please try again.'
+          ? t('loginPage.microsoftNotConfigured')
+          : t('loginPage.microsoftStartFailed')
       );
       setIsSsoLoading(false);
     }
@@ -61,29 +64,34 @@ export default function Signup() {
     e.preventDefault();
     setError('');
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('signupPage.passwordMin'));
       return;
     }
     if (!effectiveSlug) {
-      setError('Choose a workspace URL.');
+      setError(t('signupPage.needSlug'));
       return;
     }
     setIsLoading(true);
     try {
-      await signup({
+      const accessToken = await signup({
         email,
         password,
         tenantSlug: effectiveSlug,
         tenantName: companyName.trim() || effectiveSlug,
         displayName: name.trim(),
       });
+      try {
+        await persistUiLanguage(accessToken, i18n.resolvedLanguage ?? i18n.language);
+      } catch {
+        // Language is already in localStorage; preference can be set later.
+      }
       window.location.assign('/');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Sign up failed';
+      const message = err instanceof Error ? err.message : t('signupPage.failed');
       if (message.toLowerCase().includes('slug taken')) {
-        setError('That workspace URL is already taken. Pick another one.');
+        setError(t('signupPage.slugTaken'));
       } else if (message.toLowerCase().includes('already') || message.includes('409')) {
-        setError('An account with this email already exists. Sign in instead.');
+        setError(t('signupPage.emailTaken'));
       } else {
         setError(message);
       }
@@ -109,14 +117,14 @@ export default function Signup() {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">Create your workspace</span>
+          <span className="text-sm text-text-secondary mt-1">{t('signupPage.subtitle')}</span>
         </div>
 
         <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Your name
+                {t('signupPage.yourName')}
               </label>
               <input
                 id="name"
@@ -126,13 +134,13 @@ export default function Signup() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={inputClass}
-                placeholder="Jane Doe"
+                placeholder={t('signupPage.namePlaceholder')}
               />
             </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Work email
+                {t('signupPage.workEmail')}
               </label>
               <input
                 id="email"
@@ -142,13 +150,13 @@ export default function Signup() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
-                placeholder="you@company.com"
+                placeholder={t('signupPage.emailPlaceholder')}
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Password
+                {t('loginPage.password')}
               </label>
               <div className="relative">
                 <input
@@ -160,7 +168,7 @@ export default function Signup() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={`${inputClass} pr-10`}
-                  placeholder="At least 8 characters"
+                  placeholder={t('signupPage.passwordPlaceholder')}
                 />
                 <button
                   type="button"
@@ -175,7 +183,7 @@ export default function Signup() {
 
             <div>
               <label htmlFor="company" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Company name
+                {t('signupPage.companyName')}
               </label>
               <input
                 id="company"
@@ -185,13 +193,13 @@ export default function Signup() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 className={inputClass}
-                placeholder="Acme Inc."
+                placeholder={t('signupPage.companyPlaceholder')}
               />
             </div>
 
             <div>
               <label htmlFor="slug" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Workspace URL
+                {t('signupPage.workspaceUrl')}
               </label>
               <input
                 id="slug"
@@ -203,10 +211,10 @@ export default function Signup() {
                   setSlug(slugify(e.target.value));
                 }}
                 className={`${inputClass} font-mono`}
-                placeholder="acme"
+                placeholder={t('signupPage.slugPlaceholder')}
               />
               <p className="mt-1 text-[11px] text-text-muted">
-                Lowercase letters, numbers and dashes. This identifies your workspace.
+                {t('signupPage.slugHint')}
               </p>
             </div>
 
@@ -219,15 +227,15 @@ export default function Signup() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
               {isLoading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Creating workspace...
+                  {t('signupPage.creating')}
                 </>
               ) : (
-                'Create workspace'
+                t('signupPage.createWorkspace')
               )}
             </button>
           </form>
@@ -235,26 +243,26 @@ export default function Signup() {
           <div className="mt-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-text-muted">or</span>
+              <span className="text-xs text-text-muted">{t('loginPage.or')}</span>
               <div className="flex-1 h-px bg-border" />
             </div>
             <MicrosoftSignInButton
               onClick={() => void handleMicrosoftSignIn()}
               isLoading={isSsoLoading}
-              label="Continue with Microsoft"
+              label={t('signupPage.microsoft')}
             />
           </div>
 
           <div className="mt-4 text-center">
-            <span className="text-sm text-text-muted">Already have an account? </span>
+            <span className="text-sm text-text-muted">{t('signupPage.alreadyAccount')} </span>
             <Link to="/login" className="text-sm text-accent hover:text-accent-hover transition-colors">
-              Sign in
+              {t('loginPage.signIn')}
             </Link>
           </div>
         </div>
 
         <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · All rights reserved
+          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
         <p className="text-center text-[10px] text-text-muted/80 mt-1">
           build: {APP_VERSION}

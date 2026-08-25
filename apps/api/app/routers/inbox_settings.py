@@ -91,7 +91,7 @@ async def get_ai_modes(
     return {
         "channel_ai_modes": {
             channel: modes.get(channel) or default_ai_mode(channel)
-            for channel in ("email", "widget")
+            for channel in ("email", "widget", "whatsapp")
         },
         "reply_language": resolve_reply_language(auth.tenant, None),
         "workspace_language": resolve_workspace_language(auth.tenant),
@@ -104,7 +104,12 @@ async def update_ai_modes(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from app.services.language import REPLY_LANGUAGE_CHOICES, WORKSPACE_LANGUAGE_CHOICES
+    from app.services.language import (
+        REPLY_LANGUAGE_CHOICES,
+        WORKSPACE_LANGUAGE_CHOICES,
+        resolve_reply_language,
+        resolve_workspace_language,
+    )
 
     auth.require_role("owner", "admin")
     for channel, mode in (body.channel_ai_modes or {}).items():
@@ -137,8 +142,8 @@ async def update_ai_modes(
     await session.commit()
     return {
         "channel_ai_modes": modes,
-        "reply_language": settings.get("ai_reply_language", "auto"),
-        "workspace_language": settings.get("ai_workspace_language", "en"),
+        "reply_language": resolve_reply_language(tenant, None),
+        "workspace_language": resolve_workspace_language(tenant),
     }
 
 

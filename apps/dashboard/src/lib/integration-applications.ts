@@ -32,11 +32,11 @@ export type IntegrationApplication = {
 const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
   github: {
     name: 'GitHub',
-    description: 'Repositories for code indexing and optional GitHub MCP tools for agents.',
+    description: 'Repositories for code indexing and optional GitHub tools for agents.',
   },
   microsoft: {
     name: 'Microsoft',
-    description: 'Outlook mailboxes and optional Microsoft Graph MCP (Entra directory, preview).',
+    description: 'Outlook mailboxes and optional Microsoft Graph tools (Entra directory, preview).',
   },
   google: {
     name: 'Google',
@@ -44,39 +44,43 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
   },
   notion: {
     name: 'Notion',
-    description: 'Workspace pages and knowledge via remote MCP.',
+    description: 'Workspace pages and knowledge via sign-in.',
   },
   linear: {
     name: 'Linear',
-    description: 'Issues, projects, and comments via remote MCP.',
+    description: 'Issues, projects, and comments via sign-in.',
   },
   atlassian: {
     name: 'Atlassian',
-    description: 'Jira, Confluence, and Compass via Atlassian Rovo MCP.',
+    description: 'Jira, Confluence, and Compass via Atlassian.',
   },
   slack: {
     name: 'Slack',
-    description: 'Channels and messages via the official Slack MCP server.',
+    description: 'Channels and messages via Slack.',
   },
-  asana: { name: 'Asana', description: 'Tasks and projects via Asana MCP v2.' },
-  clickup: { name: 'ClickUp', description: 'ClickUp workspaces and tasks via remote MCP.' },
-  sentry: { name: 'Sentry', description: 'Issues and debugging context via Sentry MCP.' },
-  stripe: { name: 'Stripe', description: 'Billing data and actions via Stripe MCP.' },
+  asana: { name: 'Asana', description: 'Tasks and projects in Asana.' },
+  clickup: { name: 'ClickUp', description: 'ClickUp workspaces and tasks.' },
+  sentry: { name: 'Sentry', description: 'Issues and debugging context from Sentry.' },
+  stripe: { name: 'Stripe', description: 'Billing data and actions from Stripe.' },
   shopify: {
     name: 'Shopify',
     description: 'Storefront and admin data for e-commerce agents (per-store OAuth).',
   },
+  king: {
+    name: 'KING Accountancy',
+    description: 'Read-only Cloudswitch access to KING Accountancy client administraties.',
+  },
   bjorn_lunden: {
     name: 'Bjorn Lunden',
-    description: 'Accounting and ERP tools via Bjorn Lunden MCP.',
+    description: 'Accounting and ERP tools via the Swedish Bjorn Lunden BLA API.',
   },
   custom: {
-    name: 'Custom MCP',
-    description: 'Any external MCP server by URL with API key or bearer token.',
+    name: 'Custom tool',
+    description: 'Any external tool by URL with API key or bearer token.',
   },
   higgsfield: {
     name: 'Higgsfield',
-    description: 'AI image and video generation via the hosted Higgsfield MCP server.',
+    description: 'AI image and video generation via Higgsfield.',
   },
 }
 

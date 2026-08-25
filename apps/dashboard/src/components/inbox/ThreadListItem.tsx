@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Bot, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { isInternalThread, threadCounterpartyName, threadSecondaryLine } from '../../lib/message-composer'
@@ -25,20 +26,20 @@ type Props = {
   assigneeName?: string | null
 }
 
-function formatRelativeTime(iso: string | null): string {
+function formatRelativeTime(iso: string | null, t: (key: string) => string): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
   const now = Date.now()
   const diff = now - date.getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'Now'
+  if (minutes < 1) return t('listItem.now')
   if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}u`
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d`
-  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -63,16 +64,17 @@ export default function ThreadListItem({
   onTagClick,
   assigneeName = null,
 }: Props) {
+  const { t } = useTranslation('communication')
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
   const isAgentThread = isInternalThread(thread)
   const primaryLabel = isDirect
-    ? thread.emailSubject || 'Untitled chat'
+    ? thread.emailSubject || t('listItem.untitled')
     : isAgentThread
       ? threadCounterpartyName(thread)
-      : thread.contactName || thread.contactEmail || 'Unknown sender'
+      : thread.contactName || thread.contactEmail || t('listItem.unknownSender')
   const secondaryLabel = isDirect
-    ? thread.agentName ?? (thread.agentKind === 'company' ? 'Company agent' : 'Assistant')
+    ? thread.agentName ?? (thread.agentKind === 'company' ? t('listItem.companyAgent') : t('listItem.assistant'))
     : isAgentThread
       ? threadSecondaryLine(thread)
       : thread.emailSubject
@@ -98,7 +100,7 @@ export default function ThreadListItem({
           <input
             type="checkbox"
             checked={Boolean(checked)}
-            aria-label="Select thread"
+            aria-label={t('threadList.selectThread')}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
             onChange={() => onToggleChecked(thread.id)}
@@ -138,8 +140,8 @@ export default function ThreadListItem({
                   onDelete(thread.id)
                 }}
                 onKeyDown={(e) => e.stopPropagation()}
-                title="Delete"
-                aria-label="Delete thread"
+                title={t('threadList.deleteThread')}
+                aria-label={t('threadList.deleteThread')}
                 className={cn(
                   'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted',
                   'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
@@ -149,7 +151,7 @@ export default function ThreadListItem({
               >
                 <Trash2 size={13} />
               </button>
-              <span className="text-xs text-text-muted">{formatRelativeTime(thread.lastMessageAt)}</span>
+              <span className="text-xs text-text-muted">{formatRelativeTime(thread.lastMessageAt, t)}</span>
             </div>
           </div>
           <div className="flex items-center gap-1 mb-1">
@@ -161,7 +163,7 @@ export default function ThreadListItem({
               <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent/15 text-[8px] font-semibold uppercase text-accent">
                 {(assigneeName ?? '?').slice(0, 1)}
               </span>
-              <span className="truncate text-xs text-text-muted">{assigneeName ?? 'Assigned'}</span>
+              <span className="truncate text-xs text-text-muted">{assigneeName ?? t('listItem.assigned')}</span>
             </div>
           ) : null}
           {thread.tags.length > 0 ? (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Bell, BellRing, Monitor } from 'lucide-react'
 import { listChannelAccounts } from '../lib/channel-accounts-api'
@@ -70,10 +71,22 @@ const DEFAULT_ROWS: NotificationRow[] = [
 ]
 
 const KNOWN_ROW_IDS = new Set(DEFAULT_ROWS.map((row) => row.id))
+const DEFAULT_BY_ID = new Map(DEFAULT_ROWS.map((row) => [row.id, row]))
+
+/** Keep persisted labels in English; the UI translates by row id. */
+function canonicalizeRows(incoming: NotificationRow[]): NotificationRow[] {
+  return incoming
+    .filter((row) => KNOWN_ROW_IDS.has(row.id))
+    .map((row) => {
+      const fallback = DEFAULT_BY_ID.get(row.id)!
+      return { ...fallback, channels: { ...fallback.channels, ...row.channels } }
+    })
+}
 
 const STORAGE_KEY = 'bokito_notification_settings_v1'
 
 export default function NotificationSettings() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [rows, setRows] = useState<NotificationRow[]>(DEFAULT_ROWS)
   const [loading, setLoading] = useState(true)
@@ -102,7 +115,10 @@ export default function NotificationSettings() {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) return
         const parsed = JSON.parse(raw) as NotificationRow[]
-        if (Array.isArray(parsed) && parsed.length > 0) setRows(parsed)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const next = canonicalizeRows(parsed)
+          setRows(next.length > 0 ? next : DEFAULT_ROWS)
+        }
       } catch {
         // ignore
       }
@@ -114,16 +130,16 @@ export default function NotificationSettings() {
       headers: { Authorization: `Bearer ${token}` },
       credentials: 'include',
     })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Load failed'))))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(t('notificationsPage.loadFailed')))))
       .then((data: { rows?: NotificationRow[] }) => {
         if (Array.isArray(data.rows) && data.rows.length > 0) {
-          const filtered = data.rows.filter((row) => KNOWN_ROW_IDS.has(row.id))
-          setRows(filtered.length > 0 ? filtered : DEFAULT_ROWS)
+          const next = canonicalizeRows(data.rows)
+          setRows(next.length > 0 ? next : DEFAULT_ROWS)
         }
       })
       .catch(() => setRows(DEFAULT_ROWS))
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, t])
 
   const desktopEnabled = useMemo(
     () => rows.reduce((acc, row) => acc + (row.channels.desktop ? 1 : 0), 0),
@@ -156,13 +172,13 @@ export default function NotificationSettings() {
           setPushEnabled(false)
         }
       } catch (err) {
-        setPushError(err instanceof Error ? err.message : 'Could not update push notifications.')
+        setPushError(err instanceof Error ? err.message : t('notificationsPage.pushFailed'))
         setPushEnabled((await getCurrentPushSubscription()) != null)
       } finally {
         setPushBusy(false)
       }
     },
-    [token, pushBusy],
+    [token, pushBusy, t],
   )
 
   const persistRows = useCallback(
@@ -179,7 +195,7 @@ export default function NotificationSettings() {
           body: JSON.stringify({ rows: next }),
         })
         if (!res.ok) {
-          setSaveError('Could not save notification preferences.')
+          setSaveError(t('notificationsPage.saveFailed'))
         } else {
           setSavedAt(Date.now())
         }
@@ -192,7 +208,7 @@ export default function NotificationSettings() {
         // ignore
       }
     },
-    [token],
+    [token, t],
   )
 
   function updateChannel(rowId: string, channel: ChannelKey, checked: boolean) {
@@ -222,8 +238,8 @@ export default function NotificationSettings() {
           checked={gatedOnSlack ? false : Boolean(row.channels[channel])}
           disabled={gatedOnSlack}
           onCheckedChange={(checked) => updateChannel(row.id, channel, checked)}
-          aria-label={`${row.label} ${label}`}
-          title={gatedOnSlack ? 'Connect a Slack workspace first (Settings > Email & messages)' : undefined}
+          aria-label={`${t(`notificationsPage.rows.${row.id}`)} ${label}`}
+          title={gatedOnSlack ? t('notificationsPage.slackFirst') : undefined}
         />
       </div>
     )
@@ -232,15 +248,15 @@ export default function NotificationSettings() {
   return (
     <PageContent width="lg" className="space-y-5 py-1">
       <p className="text-sm text-text-secondary">
-        Choose which in-app notifications you receive in Bokito.
+        {t('notificationsPage.intro')}
       </p>
 
       <Card className="overflow-hidden">
         <div className="grid grid-cols-[1fr_84px_84px_84px] border-b border-border/60 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
-          <span>Notify me about</span>
-          <span className="text-center">In-app</span>
-          <span className="text-center">Email</span>
-          <span className="text-center">Slack</span>
+          <span>{t('notificationsPage.notifyMe')}</span>
+          <span className="text-center">{t('notificationsPage.inApp')}</span>
+          <span className="text-center">{t('notificationsPage.email')}</span>
+          <span className="text-center">{t('notificationsPage.slack')}</span>
         </div>
 
         {rows.map((row) => (
@@ -248,10 +264,12 @@ export default function NotificationSettings() {
             key={row.id}
             className="grid grid-cols-[1fr_84px_84px_84px] items-center border-b border-border/60 px-5 py-3 last:border-b-0"
           >
-            <p className="pr-3 text-sm text-text-primary">{row.label}</p>
-            {channelCell(row, 'desktop', 'in-app')}
-            {channelCell(row, 'email', 'email')}
-            {channelCell(row, 'slack', 'Slack')}
+            <p className="pr-3 text-sm text-text-primary">
+              {t(`notificationsPage.rows.${row.id}`)}
+            </p>
+            {channelCell(row, 'desktop', t('notificationsPage.inApp'))}
+            {channelCell(row, 'email', t('notificationsPage.email'))}
+            {channelCell(row, 'slack', t('notificationsPage.slack'))}
           </div>
         ))}
       </Card>
@@ -261,12 +279,10 @@ export default function NotificationSettings() {
           <div className="space-y-1">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
               <BellRing size={14} className="text-text-muted" />
-              Push notifications on this device
+              {t('notificationsPage.pushTitle')}
             </p>
             <p className="text-xs text-text-secondary">
-              {pushSupported
-                ? 'Get a system notification for new messages and pending decisions, even when Bokito is closed. Applies to this browser only; decision pushes follow your in-app preference above.'
-                : 'This browser does not support push notifications.'}
+              {pushSupported ? t('notificationsPage.pushBody') : t('notificationsPage.pushUnsupported')}
             </p>
             {pushError ? <p className="text-xs text-status-error">{pushError}</p> : null}
           </div>
@@ -274,7 +290,7 @@ export default function NotificationSettings() {
             checked={pushEnabled}
             disabled={!pushSupported || pushBusy || !token}
             onCheckedChange={(checked) => void togglePush(checked)}
-            aria-label="Push notifications on this device"
+            aria-label={t('notificationsPage.pushAria')}
           />
         </div>
       </Card>
@@ -283,31 +299,38 @@ export default function NotificationSettings() {
         <div className="space-y-1">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
             <Monitor size={14} className="text-text-muted" />
-            Channels
+            {t('notificationsPage.channelsTitle')}
           </p>
           <p className="text-xs text-text-secondary">
-            In-app notifications appear in the bell menu in the top bar. Email notifications are
-            sent to your account address. Slack sends a direct message with Approve/Deny buttons
-            and requires a connected Slack workspace.
+            {t('notificationsPage.channelsBody')}
             {!slackConnected ? (
               <>
                 {' '}
                 <Link to="/settings/channels" className="text-accent hover:underline">
-                  Connect Slack
+                  {t('notificationsPage.connectSlack')}
                 </Link>{' '}
-                to enable the Slack toggles.
+                {t('notificationsPage.enableSlack')}
               </>
             ) : null}
           </p>
-          <p className="text-xs font-medium text-text-muted">{desktopEnabled} in-app enabled</p>
+          <p className="text-xs text-text-secondary">
+            {t('notificationsPage.budgetHint')}{' '}
+            <Link to="/cockpit/usage" className="text-accent hover:underline">
+              {t('notificationsPage.openUsage')}
+            </Link>
+            .
+          </p>
+          <p className="text-xs font-medium text-text-muted">
+            {t('notificationsPage.inAppEnabled', { count: desktopEnabled })}
+          </p>
         </div>
       </Card>
 
-      {loading ? <p className="text-sm text-text-muted">Loading preferences...</p> : null}
+      {loading ? <p className="text-sm text-text-muted">{t('notificationsPage.loading')}</p> : null}
       {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
       <div className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
         <Bell size={13} className="text-text-muted" />
-        {savedAt ? 'Saved.' : 'Preferences are saved to your account.'}
+        {savedAt ? t('notificationsPage.saved') : t('notificationsPage.savedHint')}
       </div>
     </PageContent>
   )

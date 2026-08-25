@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Copy, Slack, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
@@ -19,6 +20,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
  * this card is the missing management surface.
  */
 export default function SlackConnectCard() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [accounts, setAccounts] = useState<ChannelAccountRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,14 +54,14 @@ export default function SlackConnectCard() {
   const connect = useCallback(async () => {
     if (!token || busy) return
     if (!botToken.trim() || !signingSecret.trim()) {
-      setError('Bot token and signing secret are required.')
+      setError(t('slackCard.required'))
       return
     }
     setBusy(true)
     setError(null)
     try {
       const account = await createSlackAccount(token, {
-        workspaceName: workspaceName.trim() || 'Slack workspace',
+        workspaceName: workspaceName.trim() || t('slackCard.workspace'),
         botToken: botToken.trim(),
         signingSecret: signingSecret.trim(),
         notifyChannelId: notifyChannelId.trim(),
@@ -70,28 +72,28 @@ export default function SlackConnectCard() {
       setBotToken('')
       setSigningSecret('')
       setNotifyChannelId('')
-      toast.success('Slack workspace connected')
+      toast.success(t('slackCard.connectedToast'))
       await load()
     } catch (e) {
-      setError(formatApiErrorMessage(e, 'Could not connect Slack.'))
+      setError(formatApiErrorMessage(e, t('slackCard.couldNotConnect')))
     } finally {
       setBusy(false)
     }
-  }, [token, busy, botToken, signingSecret, workspaceName, notifyChannelId, load])
+  }, [token, busy, botToken, signingSecret, workspaceName, notifyChannelId, load, t])
 
   const remove = useCallback(
     async (accountId: string) => {
       if (!token) return
-      if (!window.confirm('Disconnect this Slack workspace? Decision DMs will stop.')) return
+      if (!window.confirm(t('slackCard.disconnectConfirm'))) return
       try {
         await deleteChannelAccount(token, accountId)
-        toast.success('Slack workspace disconnected')
+        toast.success(t('slackCard.disconnectedToast'))
         await load()
       } catch (e) {
-        toast.error(formatApiErrorMessage(e, 'Could not disconnect Slack.'))
+        toast.error(formatApiErrorMessage(e, t('slackCard.couldNotDisconnect')))
       }
     },
-    [token, load],
+    [token, load, t],
   )
 
   const eventsUrlFor = (accountId: string) =>
@@ -104,32 +106,28 @@ export default function SlackConnectCard() {
       setEventsUrlCopied(true)
       window.setTimeout(() => setEventsUrlCopied(false), 2000)
     } catch {
-      toast.error('Could not copy. Copy the URL manually.')
+      toast.error(t('slackCard.couldNotCopy'))
     }
-  }, [])
+  }, [t])
 
   return (
     <SettingsSection
-      title="Slack"
-      description="Deliver decision cards as Slack messages with Approve and Deny buttons."
+      title={t('slackCard.title')}
+      description={t('slackCard.description')}
       actions={
         accounts.length === 0 && !formOpen ? (
           <Button variant="secondary" size="sm" onClick={() => setFormOpen(true)}>
             <Slack size={14} className="mr-1.5" aria-hidden />
-            Connect Slack
+            {t('slackCard.connect')}
           </Button>
         ) : null
       }
     >
       {loading ? (
-        <p className="text-sm text-text-muted">Loading…</p>
+        <p className="text-sm text-text-muted">{t('slackCard.loading')}</p>
       ) : accounts.length === 0 && !formOpen ? (
         <p className="text-sm text-text-muted">
-          No Slack workspace connected. Create a Slack app with the scopes{' '}
-          <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">chat:write</code>,{' '}
-          <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">users:read</code> and{' '}
-          <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">users:read.email</code>,
-          then connect it here with the bot token and signing secret.
+          {t('slackCard.empty')}
         </p>
       ) : null}
 
@@ -142,19 +140,19 @@ export default function SlackConnectCard() {
             <div className="flex items-center gap-2">
               <Slack size={14} className="shrink-0 text-text-muted" aria-hidden />
               <span className="truncate text-sm font-medium text-text-primary">
-                {account.displayName || 'Slack workspace'}
+                {account.displayName || t('slackCard.workspace')}
               </span>
               <Badge variant={account.isEnabled ? 'success' : 'neutral'}>
-                {account.isEnabled ? 'Connected' : 'Disabled'}
+                {account.isEnabled ? t('slackCard.connected') : t('slackCard.disabled')}
               </Badge>
             </div>
             {connectedAccountId === account.id ? (
               <div className="mt-2 space-y-1 text-xs text-text-muted">
                 <p>
-                  Finish setup in your Slack app config (both URLs, shown once here but stable):
+                  {t('slackCard.finishSetup')}
                 </p>
                 <p className="flex items-center gap-1.5">
-                  <span className="font-medium text-text-secondary">Events URL:</span>
+                  <span className="font-medium text-text-secondary">{t('slackCard.eventsUrl')}</span>
                   <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">
                     {eventsUrlFor(account.id)}
                   </code>
@@ -167,7 +165,7 @@ export default function SlackConnectCard() {
                   </button>
                 </p>
                 <p>
-                  <span className="font-medium text-text-secondary">Interactivity URL:</span>{' '}
+                  <span className="font-medium text-text-secondary">{t('slackCard.interactivityUrl')}</span>{' '}
                   <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">{interactionsUrl}</code>
                 </p>
               </div>
@@ -188,40 +186,40 @@ export default function SlackConnectCard() {
         <div className="space-y-3 rounded-lg border border-border/60 bg-bg-input/45 p-3.5">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs text-text-muted">
-              Workspace name
+              {t('slackCard.workspaceName')}
               <input
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                placeholder="Acme Inc"
+                placeholder={t('slackCard.workspaceNamePlaceholder')}
                 className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-text-muted">
-              Fallback notify channel ID (optional)
+              {t('slackCard.notifyChannel')}
               <input
                 value={notifyChannelId}
                 onChange={(e) => setNotifyChannelId(e.target.value)}
-                placeholder="C0123456789"
+                placeholder={t('slackCard.notifyChannelPlaceholder')}
                 className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-text-muted">
-              Bot token
+              {t('slackCard.botToken')}
               <input
                 value={botToken}
                 onChange={(e) => setBotToken(e.target.value)}
-                placeholder="xoxb-..."
+                placeholder={t('slackCard.botTokenPlaceholder')}
                 type="password"
                 autoComplete="off"
                 className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-[12.5px] text-text-primary outline-none focus:border-accent/60"
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-text-muted">
-              Signing secret
+              {t('slackCard.signingSecret')}
               <input
                 value={signingSecret}
                 onChange={(e) => setSigningSecret(e.target.value)}
-                placeholder="Signing secret from Basic Information"
+                placeholder={t('slackCard.signingPlaceholder')}
                 type="password"
                 autoComplete="off"
                 className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-[12.5px] text-text-primary outline-none focus:border-accent/60"
@@ -239,10 +237,10 @@ export default function SlackConnectCard() {
                 setError(null)
               }}
             >
-              Cancel
+              {t('slackCard.cancel')}
             </Button>
             <Button size="sm" disabled={busy} onClick={() => void connect()}>
-              {busy ? 'Connecting…' : 'Connect workspace'}
+              {busy ? t('slackCard.connecting') : t('slackCard.connectWorkspace')}
             </Button>
           </div>
         </div>

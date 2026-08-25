@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   ArrowRight,
@@ -20,6 +21,7 @@ import CockpitTabs from '../components/shell/CockpitTabs'
 import CustomMetricsSection from '../components/cockpit/CustomMetricsSection'
 import { OnboardingCompactCard } from '../components/onboarding/OnboardingChecklist'
 import { PageContent } from '../components/layout/PageContent'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
 import {
@@ -33,15 +35,9 @@ import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { agentRunsPath, channelPath, inboxPath } from '../lib/messages-paths'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
-import { humanizeLabel } from '../lib/labels'
+import { activityEventMessage, activityEventTypeLabel } from '../lib/activity-labels'
 import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-
-const POSTURE_LABELS: Record<AutonomyPostureId, string> = {
-  manual: 'Manual',
-  assisted: 'Assisted',
-  autonomous: 'Autonomous',
-}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
@@ -52,15 +48,15 @@ function formatCost(cents: number) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: (key: string, opts?: { count: number }) => string): string {
   const date = new Date(iso)
   const diffMs = Date.now() - date.getTime()
   const mins = Math.floor(diffMs / 60_000)
-  if (mins < 1) return 'now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return t('cockpitPage.now')
+  if (mins < 60) return t('cockpitPage.minutesAgo', { count: mins })
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
+  if (hours < 24) return t('cockpitPage.hoursAgo', { count: hours })
+  return t('cockpitPage.daysAgo', { count: Math.floor(hours / 24) })
 }
 
 function StatCard({
@@ -96,6 +92,7 @@ function StatCard({
 }
 
 export default function CockpitPage() {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [posture, setPosture] = useState<AutonomyPostureId | null>(null)
@@ -169,9 +166,9 @@ export default function CockpitPage() {
         )
       })
       .then(() => setPartialFailures(failures))
-      .catch((err) => setError(formatApiErrorMessage(err, 'Could not load overview.')))
+      .catch((err) => setError(formatApiErrorMessage(err, t('cockpitPage.loadError'))))
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, t])
 
   useEffect(() => {
     load()
@@ -199,9 +196,10 @@ export default function CockpitPage() {
 
   return (
     <PageContent width="xl">
+      <PageGuideBanner page="cockpit" className="mb-4" />
       <ContentHeader
-        title="Cockpit"
-        subtitle="Workspace health at a glance"
+        title={t('tabs.cockpit.title')}
+        subtitle={t('pageHeaders.cockpitOverview')}
         meta={
           <>
             <ConnectionStatus />
@@ -211,7 +209,7 @@ export default function CockpitPage() {
               className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-              Refresh
+              {t('cockpitPage.refresh')}
             </button>
           </>
         }
@@ -224,7 +222,7 @@ export default function CockpitPage() {
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
       {!error && partialFailures.length > 0 ? (
         <ApiErrorBanner
-          message={`Some overview data failed to load: ${partialFailures.join(', ')}.`}
+          message={t('cockpitPage.partialLoadError', { items: partialFailures.join(', ') })}
           onRetry={load}
         />
       ) : null}
@@ -232,42 +230,50 @@ export default function CockpitPage() {
       {/* Snapshot */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard
-          label="Conversations 7d"
+          label={t('cockpitPage.conversations')}
           value={summary ? formatNumber(summary.volume_week) : '-'}
           icon={MessageSquare}
-          to="/communication/inbox/mine"
+          to="/communication/inbox/all"
         />
         <StatCard
-          label="Awaiting decision"
+          label={t('cockpitPage.awaitingDecision')}
           value={summary ? formatNumber(summary.open_decisions) : '-'}
           icon={Inbox}
           to="/communication/runs/awaiting-decision"
         />
         <StatCard
-          label="Autonomy rate"
+          label={t('cockpitPage.autonomyRate')}
           value={summary ? `${formatNumber(summary.autonomy_rate_pct)}%` : '-'}
           icon={Gauge}
-          to="/settings/autonomy"
+          to="/settings/govern?tab=policy"
         />
         <StatCard
-          label="Posture"
-          value={posture ? POSTURE_LABELS[posture] : '-'}
+          label={t('cockpitPage.posture')}
+          value={
+            posture === 'manual'
+              ? t('cockpitPage.postureManual')
+              : posture === 'assisted'
+                ? t('cockpitPage.postureAssisted')
+                : posture === 'autonomous'
+                  ? t('cockpitPage.postureAutonomous')
+                  : '-'
+          }
           icon={ShieldCheck}
-          to="/settings/autonomy"
+          to="/settings/govern?tab=policy"
         />
         <StatCard
-          label="Time saved 7d (est.)"
+          label={t('cockpitPage.timeSaved')}
           value={summary ? `${formatNumber(summary.time_saved_minutes_week)}m` : '-'}
           icon={Timer}
           to="/cockpit/usage"
         />
         <StatCard
-          label="CSAT 30d"
+          label={t('cockpitPage.csat')}
           value={summary && summary.csat_score != null ? `${formatNumber(summary.csat_score)}/5` : '-'}
           sub={
             summary && summary.csat_responses > 0
-              ? `${formatNumber(summary.csat_responses)} response${summary.csat_responses === 1 ? '' : 's'}`
-              : 'No ratings yet - install the widget'
+              ? t('cockpitPage.csatResponses', { count: summary.csat_responses })
+              : t('cockpitPage.noRatings')
           }
           icon={Star}
           to={
@@ -277,7 +283,7 @@ export default function CockpitPage() {
           }
         />
         <StatCard
-          label="Usage 30d"
+          label={t('cockpitPage.usage')}
           value={summary ? formatNumber(summary.tokens_month) : '-'}
           sub={summary ? formatCost(summary.cost_cents_month) : undefined}
           icon={Sparkles}
@@ -293,8 +299,8 @@ export default function CockpitPage() {
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">Needs attention</h2>
-              <p className="text-[12px] text-text-muted">Decisions and drafts waiting on a human</p>
+              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.needsAttention')}</h2>
+              <p className="text-[12px] text-text-muted">{t('cockpitPage.needsAttentionHint')}</p>
             </div>
             {attentionCount > 0 ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-status-warning/15 px-2 py-0.5 text-[11px] font-semibold text-status-warning">
@@ -305,9 +311,15 @@ export default function CockpitPage() {
           </div>
           <div className="mt-3 space-y-1.5">
             {attentionThreads.length === 0 && pendingChanges === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
-                Nothing needs your attention right now.
-              </p>
+              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+                <p className="text-[12px] text-text-muted">{t('cockpitPage.nothingAttention')}</p>
+                <Link
+                  to={inboxPath('all')}
+                  className="mt-2 inline-block text-[12px] font-medium text-accent hover:underline"
+                >
+                  {t('cockpitPage.openCommunication')}
+                </Link>
+              </div>
             ) : (
               <>
                 {attentionThreads.map((thread) => (
@@ -323,11 +335,11 @@ export default function CockpitPage() {
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12.5px] font-medium text-text-primary">
-                        {thread.emailSubject || thread.contactName || 'Decision needed'}
+                        {thread.emailSubject || thread.contactName || t('cockpitPage.decisionNeeded')}
                       </span>
                       <span className="block truncate text-[11px] text-text-muted">
-                        {thread.contactName || thread.channel || 'thread'}
-                        {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt)}` : ''}
+                        {thread.contactName || thread.channel || t('cockpitPage.threadFallback')}
+                        {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
                       </span>
                     </span>
                     <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
@@ -335,15 +347,15 @@ export default function CockpitPage() {
                 ))}
                 {pendingChanges > 0 ? (
                   <Link
-                    to="/settings/autonomy"
+                    to="/settings/govern?tab=drafts"
                     className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[12.5px] font-medium text-text-primary">
-                        {pendingChanges} platform change{pendingChanges === 1 ? '' : 's'} awaiting review
+                        {t('cockpitPage.changesAwaiting', { count: pendingChanges })}
                       </span>
-                      <span className="block text-[11px] text-text-muted">Review drafts in Autonomy settings</span>
+                      <span className="block text-[11px] text-text-muted">{t('cockpitPage.reviewGovern')}</span>
                     </span>
                     <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
                   </Link>
@@ -356,18 +368,38 @@ export default function CockpitPage() {
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">Recent events</h2>
-              <p className="text-[12px] text-text-muted">Latest agent runs and workstream steps</p>
+              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.recentEvents')}</h2>
+              <p className="text-[12px] text-text-muted">{t('cockpitPage.recentEventsHint')}</p>
             </div>
             <Link to="/cockpit/activity" className="text-[12px] font-medium text-accent hover:underline">
-              Open Activity
+              {t('cockpitPage.openActivity')}
             </Link>
           </div>
           <div className="mt-3 max-h-[340px] space-y-px overflow-y-auto">
             {events.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
-                No recent events. Agent runs will show up here.
-              </p>
+              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+                <p className="text-[12px] text-text-muted">{t('cockpitPage.noEvents')}</p>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    to={inboxPath('all')}
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.openCommunication')}
+                  </Link>
+                  <Link
+                    to="/agents"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.openAgents')}
+                  </Link>
+                  <Link
+                    to="/settings/setup"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.openSetup')}
+                  </Link>
+                </div>
+              </div>
             ) : (
               events.map((ev, idx) => {
                 // Deep-link an event to its thread, or to the run detail.
@@ -377,7 +409,7 @@ export default function CockpitPage() {
                     ? agentWorkforceRunUrl(ev.agent_id, ev.run_id)
                     : ev.agent_id
                       ? `/agents/${ev.agent_id}`
-                      : null
+                      : '/cockpit/activity'
                 const body = (
                   <>
                     <span
@@ -391,11 +423,11 @@ export default function CockpitPage() {
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12px] text-text-primary">
-                        {ev.message || humanizeLabel(ev.event_type)}
+                        {activityEventMessage(ev.message, t) || activityEventTypeLabel(ev.event_type, t)}
                       </span>
                       <span className="block text-[10px] text-text-muted">
                         {ev.actor_name ? `${ev.actor_name} - ` : ''}
-                        {humanizeLabel(ev.event_type)} - {timeAgo(ev.created_at)}
+                        {activityEventTypeLabel(ev.event_type, t)} - {timeAgo(ev.created_at, t)}
                       </span>
                     </span>
                   </>
@@ -424,23 +456,31 @@ export default function CockpitPage() {
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">Today on the agenda</h2>
-              <p className="text-[12px] text-text-muted">Upcoming agent wakes, tasks and events</p>
+              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.todayAgenda')}</h2>
+              <p className="text-[12px] text-text-muted">{t('cockpitPage.todayAgendaHint')}</p>
             </div>
             <Link to="/agenda" className="text-[12px] font-medium text-accent hover:underline">
-              Open Agenda
+              {t('cockpitPage.openAgenda')}
             </Link>
           </div>
           <div className="mt-3 space-y-1.5">
             {agendaItems.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
-                Nothing scheduled for the next 24 hours.
-              </p>
+              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+                <p className="text-[12px] text-text-muted">{t('cockpitPage.nothingScheduled')}</p>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+                  <Link to="/agenda" className="text-[12px] font-medium text-accent hover:underline">
+                    {t('cockpitPage.openAgenda')}
+                  </Link>
+                  <Link to="/agenda?view=list" className="text-[12px] font-medium text-accent hover:underline">
+                    {t('cockpitPage.planAutomation')}
+                  </Link>
+                </div>
+              </div>
             ) : (
               agendaItems.map((item) => (
                 <Link
                   key={item.id}
-                  to="/agenda"
+                  to={item.trigger_id ? `/agenda?trigger=${item.trigger_id}` : '/agenda'}
                   className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <CalendarDays size={13} className="shrink-0 text-text-muted" />
@@ -451,7 +491,7 @@ export default function CockpitPage() {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
-                      {item.agent_name ? ` - ${item.agent_name}` : ''} - {humanizeLabel(item.kind)}
+                      {item.agent_name ? ` - ${item.agent_name}` : ''} - {activityEventTypeLabel(item.kind, t)}
                     </span>
                   </span>
                   <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
@@ -464,18 +504,37 @@ export default function CockpitPage() {
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[14px] font-semibold text-text-heading">Recent contacts</h2>
-              <p className="text-[12px] text-text-muted">People recently active across your channels</p>
+              <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.recentContacts')}</h2>
+              <p className="text-[12px] text-text-muted">{t('cockpitPage.recentContactsHint')}</p>
             </div>
             <Link to="/contacts" className="text-[12px] font-medium text-accent hover:underline">
-              Open Contacts
+              {t('cockpitPage.openContacts')}
             </Link>
           </div>
           <div className="mt-3 space-y-1.5">
             {recentContacts.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-[12px] text-text-muted">
-                No contacts yet. They appear when customers message you.
-              </p>
+              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+                <p className="text-[12px] text-text-muted">
+                  {t('cockpitPage.noContacts')}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    to="/settings/channels"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.connectEmail')}
+                  </Link>
+                  <Link
+                    to="/ai/assistant/external/installation"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.installWidget')}
+                  </Link>
+                  <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                    {t('cockpitPage.openSetup')}
+                  </Link>
+                </div>
+              </div>
             ) : (
               recentContacts.map((contact) => (
                 <Link
@@ -490,7 +549,7 @@ export default function CockpitPage() {
                     </span>
                     <span className="block truncate text-[11px] text-text-muted">
                       {contact.company || contact.channel}
-                      {contact.lastSeenAt ? ` - ${timeAgo(contact.lastSeenAt)}` : ''}
+                      {contact.lastSeenAt ? ` - ${timeAgo(contact.lastSeenAt, t)}` : ''}
                     </span>
                   </span>
                   <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />

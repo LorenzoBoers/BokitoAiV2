@@ -6,7 +6,7 @@
     "pillars": {
       "communication": {
         "title": "Communicatie",
-        "body": "E-mail, websitechat en interne threads komen samen in een inbox. AI triageert, stelt antwoorden op en vraagt jou wanneer het ertoe doet."
+        "body": "E-mail, websitechat en interne threads komen samen in Communicatie. AI triageert, stelt antwoorden op en vraagt jou wanneer het ertoe doet."
       },
       "ai": {
         "title": "AI-workforce",
@@ -54,6 +54,7 @@
     "title": "Samen inrichten met je assistent",
     "body": "De snelste manier om Bokito in te richten is een gesprek. Je assistent interviewt je over je bedrijf en zet samen met jou kanalen, agents, kennis en KPI's op.",
     "cta": "Start de setupchat",
+    "setupGuide": "Open setupgids",
     "later": "Ik verken het zelf"
   },
   "progress": "{{current}} van {{total}}",

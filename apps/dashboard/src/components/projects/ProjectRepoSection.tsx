@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GitBranch, Loader2, RefreshCw, Unplug } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
@@ -12,7 +13,7 @@ import {
   reindexProjectRepo,
   type ProjectRow,
 } from '../../lib/projects-api'
-import { humanizeLabel } from '../../lib/labels'
+import { indexStatusLabel } from '../../lib/status-labels'
 
 /**
  * GitHub repository connect / status / reindex / disconnect controls for one
@@ -25,6 +26,7 @@ export function ProjectRepoSection({
   project: ProjectRow
   onChanged: () => Promise<void>
 }) {
+  const { t } = useTranslation('nav')
   const [repoName, setRepoName] = useState('')
   const [branch, setBranch] = useState('main')
   const [busy, setBusy] = useState(false)
@@ -45,19 +47,19 @@ export function ProjectRepoSection({
   if (!project.github_repo_full_name) {
     return (
       <div className="space-y-1.5">
-        <Label className="text-xs text-text-muted">Repository</Label>
+        <Label className="text-xs text-text-muted">{t('project.settings.repo.label')}</Label>
         <div className="flex flex-wrap gap-2">
           <Input
             className="flex-1 min-w-[180px]"
             value={repoName}
             onChange={(e) => setRepoName(e.target.value)}
-            placeholder="owner/repo"
+            placeholder={t('project.settings.repo.placeholder')}
           />
           <Input
             className="w-28"
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
-            placeholder="main"
+            placeholder={t('project.settings.repo.branchPlaceholder')}
           />
           <Button
             type="button"
@@ -71,17 +73,17 @@ export function ProjectRepoSection({
                     github_repo_full_name: repoName.trim(),
                     github_default_branch: branch.trim() || 'main',
                   }),
-                'Repository connected',
-                'Could not connect repository.',
+                t('project.settings.repo.connected'),
+                t('project.settings.repo.linkError'),
               )
             }
           >
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch size={14} className="mr-1" />}
-            Connect
+            {t('project.settings.repo.connect')}
           </Button>
         </div>
         <p className="text-xs text-text-muted">
-          Link a GitHub repository so agents can read this project's codebase.
+          {t('project.settings.repo.hint')}
         </p>
       </div>
     )
@@ -89,7 +91,7 @@ export function ProjectRepoSection({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-text-muted">Repository</Label>
+      <Label className="text-xs text-text-muted">{t('project.settings.repo.label')}</Label>
       <div className="flex flex-wrap items-center gap-2">
         <code className="rounded border border-border/60 bg-bg-base px-2 py-1 text-xs">
           {project.github_repo_full_name}
@@ -97,7 +99,7 @@ export function ProjectRepoSection({
         <Badge variant="outline">{project.github_default_branch || 'main'}</Badge>
         {project.repo_index_status ? (
           <Badge variant={project.repo_index_status === 'error' ? 'destructive' : 'secondary'}>
-            {humanizeLabel(project.repo_index_status)}
+            {indexStatusLabel(project.repo_index_status, t)}
           </Badge>
         ) : null}
         <Button
@@ -106,11 +108,15 @@ export function ProjectRepoSection({
           variant="ghost"
           disabled={busy}
           onClick={() =>
-            void run(() => reindexProjectRepo(project.id), 'Reindex queued', 'Could not queue reindex.')
+            void run(
+              () => reindexProjectRepo(project.id),
+              t('project.settings.repo.reindexQueued'),
+              t('project.settings.repo.reindexError'),
+            )
           }
         >
           <RefreshCw size={13} className="mr-1" />
-          Reindex
+          {t('project.settings.repo.reindex')}
         </Button>
         <Button
           type="button"
@@ -118,11 +124,15 @@ export function ProjectRepoSection({
           variant="ghost"
           disabled={busy}
           onClick={() =>
-            void run(() => disconnectProjectRepo(project.id), 'Repository disconnected', 'Could not disconnect repository.')
+            void run(
+              () => disconnectProjectRepo(project.id),
+              t('project.settings.repo.disconnected'),
+              t('project.settings.repo.disconnectError'),
+            )
           }
         >
           <Unplug size={13} className="mr-1" />
-          Disconnect
+          {t('project.settings.repo.disconnect')}
         </Button>
       </div>
       {project.repo_index_error ? (

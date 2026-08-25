@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { AgentStep } from '../../hooks/useSignalStream'
 import {
   currentActivityHeadline,
@@ -10,6 +11,7 @@ import {
 } from '../../lib/agentSteps'
 import { cn } from '../../lib/utils'
 import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
+import { AiMark } from '../ai/AiMark'
 import { KnowledgeMark } from '../knowledge/KnowledgeMark'
 import ChatMarkdown from './ChatMarkdown'
 
@@ -35,12 +37,13 @@ export default function ThinkingTrace({
   streamText = '',
   thinkingText = '',
 }: Props) {
+  const { t } = useTranslation('communication')
   const [expanded, setExpanded] = useState(false)
   const smoothStream = useSmoothStreamText(streamText, active)
 
   if (steps.length === 0 && !active && !streamText && !thinkingText) return null
 
-  const headline = currentActivityHeadline(steps, active, { thinkingText, streamText })
+  const headline = currentActivityHeadline(steps, active, t, { thinkingText, streamText })
   const canExpand = steps.length > 0 || Boolean(thinkingText.trim())
   const trimmedStream = smoothStream.trim()
   const trimmedThinking = thinkingText.trim()
@@ -50,12 +53,12 @@ export default function ThinkingTrace({
     <div
       className={cn(
         'relative min-w-0 max-w-[82%] overflow-hidden rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface',
-        active && 'ring-1 ring-accent/20',
+        active && 'ring-1 ring-ai/25',
       )}
     >
       {active ? (
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden">
-          <div className="thinking-wave-bar h-full w-[42%] rounded-full bg-accent/75" />
+          <div className="thinking-wave-bar h-full w-[42%] rounded-full bg-ai/75" />
         </div>
       ) : null}
 
@@ -71,9 +74,9 @@ export default function ThinkingTrace({
       >
         <span className="inline-flex min-w-0 items-center gap-2">
           {active ? (
-            <Loader2 size={13} className="shrink-0 animate-spin text-accent" />
+            <Loader2 size={13} className="shrink-0 animate-spin text-ai-ink" />
           ) : (
-            <Sparkles size={13} className="shrink-0 text-text-muted" />
+            <AiMark size={13} />
           )}
           <ShimmerHeadline text={headline} active={active} />
         </span>
@@ -100,11 +103,11 @@ export default function ThinkingTrace({
                 return (
                   <li key={step.id} className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-muted">
-                      {stepLabel(step)}
+                      {stepLabel(step, t)}
                     </p>
                     <p className="flex items-center gap-1.5 text-[12px] text-text-secondary">
                       {isKnowledgeStep(step) ? <KnowledgeMark size={12} /> : null}
-                      {stepHeadline(step)}
+                      {stepHeadline(step, t)}
                     </p>
                     {detail ? (
                       <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-[11px] text-text-muted">

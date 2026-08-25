@@ -154,7 +154,7 @@ async def _flush_facts_to_memory(session: AsyncSession, tenant_id: UUID, facts: 
     if not facts:
         return
     doc = await get_doc_by_path(session, tenant_id, "memory.md")
-    existing = doc.content if doc else "# Long-term memory\n"
+    existing = doc.content if doc else "# What we remember\n"
     new_lines = [f"- {fact}" for fact in facts if fact not in existing]
     if not new_lines:
         return

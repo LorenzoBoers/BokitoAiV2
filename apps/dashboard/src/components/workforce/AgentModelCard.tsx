@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card } from '../ui/card'
@@ -22,6 +23,7 @@ type ModelOption = TenantModelRow | CatalogModel
 
 /** Model and runtime card on the agent detail page. */
 export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Props) {
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [models, setModels] = useState<ModelOption[]>([])
   const [busy, setBusy] = useState(false)
@@ -39,12 +41,12 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
         setModels(selectableChatModels(data))
       })
       .catch(() => {
-        if (!cancelled) setLoadError('Could not load the model list.')
+        if (!cancelled) setLoadError(t('workforce.agents.modelLoadError'))
       })
     return () => {
       cancelled = true
     }
-  }, [token, reloadKey])
+  }, [token, reloadKey, t])
 
   const current = models.find((m) => m.slug === currentModel || m.model_id === currentModel)
 
@@ -57,22 +59,22 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
         await setAgentModel(token, agentId, slug)
         onChanged?.()
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not update model.')
+        setError(err instanceof Error ? err.message : t('workforce.agents.modelUpdateError'))
       } finally {
         setBusy(false)
       }
     },
-    [token, busy, agentId, onChanged],
+    [token, busy, agentId, onChanged, t],
   )
 
   return (
     <Card className="px-4 py-3">
       <div className="flex items-center gap-2">
         <Cpu size={15} className="text-accent" aria-hidden />
-        <h3 className="text-base font-semibold text-text-heading">Model and runtime</h3>
+        <h3 className="text-base font-semibold text-text-heading">{t('workforce.agents.modelTitle')}</h3>
       </div>
       <p className="mt-1 text-sm text-text-muted">
-        The model this agent uses for reasoning and chat.
+        {t('workforce.agents.modelBody')}
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -83,7 +85,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             disabled={busy}
             className="min-w-[220px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50"
           >
-            {!current ? <option value="">{currentModel || 'Select a model'}</option> : null}
+            {!current ? <option value="">{currentModel || t('workforce.agents.selectModel')}</option> : null}
             {models.map((m) => (
               <option key={m.slug} value={m.slug}>
                 {m.display_name}
@@ -92,7 +94,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
           </select>
         ) : (
           <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2.5 py-1 text-[12px] text-text-secondary">
-            {current?.display_name ?? currentModel ?? 'Default'}
+            {current?.display_name ?? currentModel ?? t('workforce.agents.defaultModel')}
           </span>
         )}
         {current ? (
@@ -116,7 +118,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             onClick={() => setReloadKey((k) => k + 1)}
             className="underline hover:text-text-primary"
           >
-            Retry
+            {t('actions.retry', { ns: 'common' })}
           </button>
         </p>
       ) : null}
@@ -124,11 +126,9 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
 
       {canEdit ? (
         <p className="mt-2 text-[11px] text-text-muted">
-          Manage providers and models in{' '}
           <Link to="/settings/models" className="text-accent hover:underline">
-            workspace model settings
+            {t('workforce.agents.openModels')}
           </Link>
-          .
         </p>
       ) : null}
     </Card>

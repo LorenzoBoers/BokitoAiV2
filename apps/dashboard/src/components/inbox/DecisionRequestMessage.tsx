@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { BellOff, Loader2, MessageSquareWarning, Sparkles, ThumbsDown, ThumbsUp, Zap } from 'lucide-react'
+import { BellOff, Loader2, MessageSquareWarning, ThumbsDown, ThumbsUp, Zap } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
@@ -19,7 +19,9 @@ import {
   type ThreadId,
 } from '../../lib/inbox-api'
 import { useAuth } from '../../context/AuthContext'
+import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
+import { AI_CARD_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 
 type DecisionOption = {
   id: string
@@ -171,7 +173,7 @@ export default function DecisionRequestMessage({
       })
     } catch {
       setSentiment(previous)
-      toast.error(t('decisionCard.feedbackError', 'Could not save feedback.'))
+      toast.error(t('decisionCard.feedbackError'))
     }
   }
   const [error, setError] = useState<string | null>(null)
@@ -186,12 +188,21 @@ export default function DecisionRequestMessage({
     () => (integrationProvider ? resolveProviderBrand(integrationProvider) : null),
     [integrationProvider],
   )
-  const summary =
+  const summary = translateDecisionText(
     message.bodyText?.trim() ||
-    message.bodyPreview ||
-    message.subject ||
-    t('decisionCard.decisionNeeded')
-  const draftBody = useMemo(() => draftBodyFromOptions(options, summary), [options, summary])
+      message.bodyPreview ||
+      message.subject ||
+      t('decisionCard.decisionNeeded'),
+    t,
+  )
+  const draftBody = useMemo(
+    () =>
+      translateMockAgentBody(
+        translateDecisionText(draftBodyFromOptions(options, summary), t),
+        t,
+      ),
+    [options, summary, t],
+  )
   const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
   // Automated/no-reply mail: the agent proposes an action instead of a reply.
   const isActionSuggestion = !isSuggestion && options.some((o) => o.action_type === 'close_thread')
@@ -323,21 +334,19 @@ export default function DecisionRequestMessage({
           'w-full max-w-3xl min-w-0 rounded-2xl border px-4 py-3',
           resolved
             ? 'border-border/60 bg-bg-surface'
-            : isActionSuggestion
-              ? 'border-accent/20 bg-accent/5'
-              : 'border-accent/30 bg-accent/5',
+            : AI_CARD_CLASS,
         )}
       >
         <div className="mb-1 flex items-center gap-2">
           {isActionSuggestion ? (
-            <BellOff className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : 'text-accent/80')} aria-hidden />
+            <BellOff className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : AI_TEXT_CLASS)} aria-hidden />
           ) : (
-            <Sparkles className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : 'text-accent')} aria-hidden />
+            <AiMark size={14} className={resolved ? 'text-text-muted' : undefined} />
           )}
           <span
             className={cn(
               'text-xs font-semibold uppercase tracking-wide',
-              resolved ? 'text-text-muted' : 'text-accent/90',
+              resolved ? 'text-text-muted' : AI_TEXT_CLASS,
             )}
           >
             {isActionSuggestion
@@ -375,7 +384,7 @@ export default function DecisionRequestMessage({
                     className="rounded-md"
                   />
                 ) : null}
-                {message.subject}
+                {translateDecisionText(message.subject, t)}
               </h3>
             ) : null}
             <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
@@ -390,9 +399,11 @@ export default function DecisionRequestMessage({
                 {options.map((option) => {
                   const primary =
                     option.id === 'send' ||
+                    option.id === 'approve' ||
                     option.action_type === 'send_reply' ||
                     option.action_type === 'send_email' ||
-                    option.action_type === 'close_thread'
+                    option.action_type === 'close_thread' ||
+                    option.action_type === 'approve'
                   const quiet = option.action_type === 'defer' && isActionSuggestion
                   const activeText = option.input_type === 'text' && textOptionId === option.id
                   const labelKey = optionLabelKey(option)
@@ -401,7 +412,7 @@ export default function DecisionRequestMessage({
                       key={option.id}
                       type="button"
                       size="sm"
-                      variant={primary ? 'default' : quiet ? 'ghost' : activeText ? 'outline' : 'secondary'}
+                      variant={primary ? 'ai' : quiet ? 'ghost' : activeText ? 'outline' : 'secondary'}
                       disabled={busy}
                       onClick={() => void onOptionClick(option)}
                     >
@@ -424,7 +435,7 @@ export default function DecisionRequestMessage({
               </>
             ) : (
               <>
-                <Button type="button" size="sm" disabled={busy} onClick={() => void resolve('approve')}>
+                <Button type="button" size="sm" variant="ai" disabled={busy} onClick={() => void resolve('approve')}>
                   {t('decisionCard.options.approve')}
                 </Button>
                 <Button
@@ -495,9 +506,9 @@ export default function DecisionRequestMessage({
           </div>
         ) : null}
         {ruleSuggestion ? (
-          <div className="mt-3 rounded-lg border border-accent/25 bg-accent/5 px-3 py-2.5">
+          <div className="mt-3 rounded-lg border border-ai/25 bg-ai/5 px-3 py-2.5">
             <div className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-accent" aria-hidden />
+              <Zap className={cn('h-3.5 w-3.5', AI_TEXT_CLASS)} aria-hidden />
               <p className="text-sm font-medium text-text-primary">
                 {t(
                   ruleSuggestion.action === 'auto_task'
@@ -533,11 +544,11 @@ export default function DecisionRequestMessage({
         <div className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2">
           <button
             type="button"
-            aria-label={t('decisionCard.feedbackGood', 'Good interpretation')}
+            aria-label={t('decisionCard.feedbackGood')}
             className={cn(
               'flex h-5 w-5 items-center justify-center rounded transition-colors',
               sentiment === 'up'
-                ? 'text-accent bg-accent/10'
+                ? 'text-ai-ink bg-ai/10'
                 : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
             )}
             onClick={() => void voteOnDecision('up')}
@@ -546,11 +557,11 @@ export default function DecisionRequestMessage({
           </button>
           <button
             type="button"
-            aria-label={t('decisionCard.feedbackPoor', 'Poor interpretation')}
+            aria-label={t('decisionCard.feedbackPoor')}
             className={cn(
               'flex h-5 w-5 items-center justify-center rounded transition-colors',
               sentiment === 'down'
-                ? 'text-accent bg-accent/10'
+                ? 'text-ai-ink bg-ai/10'
                 : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
             )}
             onClick={() => void voteOnDecision('down')}
@@ -578,10 +589,7 @@ export default function DecisionRequestMessage({
             ) : (
               <MessageSquareWarning size={11} />
             )}
-            {t('decisionCard.correctInterpretation', {
-              agent: agentName || 'AI',
-              defaultValue: `Correct ${agentName || 'AI'}'s interpretation`,
-            })}
+            {t('decisionCard.correctInterpretation')}
           </button>
         </div>
       </div>

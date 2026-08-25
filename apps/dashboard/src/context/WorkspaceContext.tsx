@@ -6,6 +6,7 @@ import { appScopedDelete, appScopedGet, appScopedPost } from '../lib/api';
 import { resolveTenantSubdomainFromHost } from '../lib/host-routing';
 import { normalizeMessengerAppearance } from '../lib/messenger-appearance';
 import { applyBrandColor, applyFavicon } from '../lib/tenant-branding';
+import { useTheme } from './ThemeContext';
 
 const LAST_WORKSPACE_STORAGE_KEY = 'bokito_current_workspace';
 
@@ -49,6 +50,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { user, token, switchWorkspaceTenant, adoptWorkspaceSession } = useAuth();
+  const { resolvedTheme } = useTheme();
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
@@ -57,9 +59,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Tenant branding follows the active workspace: favicon + accent CSS vars.
   useEffect(() => {
-    applyBrandColor(currentWorkspace?.brand_color);
+    applyBrandColor(currentWorkspace?.brand_color, resolvedTheme);
     applyFavicon(currentWorkspace?.favicon);
-  }, [currentWorkspace?.brand_color, currentWorkspace?.favicon]);
+  }, [currentWorkspace?.brand_color, currentWorkspace?.favicon, resolvedTheme]);
 
   const normalizeWorkspaceList = useCallback((raw: unknown): Workspace[] => {
     if (!Array.isArray(raw)) return [];
@@ -133,6 +135,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           favicon: resolvedFavicon ?? undefined,
           brand_color: resolvedBrandColor,
           require_2fa: typeof row.require_2fa === 'boolean' ? row.require_2fa : undefined,
+          allow_platform_support:
+            typeof row.allow_platform_support === 'boolean' ? row.allow_platform_support : true,
           messengerAppearance,
         } as Workspace;
       })

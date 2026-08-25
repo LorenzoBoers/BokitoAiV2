@@ -36,21 +36,27 @@
     --color-bg-input: 36 40 53;
     --color-border: 50 56 71;
     --color-border-light: 70 76 92;
-    --color-border-focus: 99 91 255;
+    --color-border-focus: 13 148 136;
     --color-text-primary: 224 228 235;
     --color-text-secondary: 175 181 198;
     --color-text-muted: 130 135 150;
     --color-text-heading: 244 247 251;
-    --color-accent: 110 102 255;
-    --color-accent-hover: 98 90 243;
-    --color-accent-dark: 83 75 214;
+    --color-accent: 13 148 136;
+    --color-accent-hover: 16 168 155;
+    --color-accent-dark: 11 127 117;
+    --color-accent-fg: 255 255 255;
+    --color-accent-ink: 94 214 201;
+    --color-ai: 139 92 246;
+    --color-ai-ink: 196 181 253;
+    --color-ai-fg: 255 255 255;
+    --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 1px 2px rgba(0, 0, 0, 0.28);
     --color-status-success: 47 190 135;
     --color-status-warning: 232 158 39;
     --color-status-error: 226 88 92;
     --color-status-info: 88 142 255;
     --body-bg: #101319;
-    --body-glow-top: rgba(110, 102, 255, 0.025);
-    --body-glow-bottom: rgba(110, 102, 255, 0.01);
+    --body-glow-top: rgba(13, 148, 136, 0.06);
+    --body-glow-bottom: rgba(13, 148, 136, 0.025);
     /*
      * Elevation tokens (exposed as shadow-card / shadow-card-hover / shadow-overlay).
      * Cards get one soft diffuse shadow + hairline inset highlight; overlays go deeper.
@@ -81,21 +87,30 @@
     --color-bg-input: 255 255 255;
     --color-border: 228 233 242;
     --color-border-light: 208 216 230;
-    --color-border-focus: 99 91 255;
+    --color-border-focus: 13 148 136;
     --color-text-primary: 35 47 74;
     --color-text-secondary: 95 108 138;
     --color-text-muted: 122 136 165;
     --color-text-heading: 17 24 39;
-    --color-accent: 99 91 255;
-    --color-accent-hover: 85 77 239;
-    --color-accent-dark: 71 66 208;
+    --color-accent: 13 148 136;
+    --color-accent-hover: 11 127 117;
+    --color-accent-dark: 9 107 99;
+    --color-accent-fg: 255 255 255;
+    --color-accent-ink: 11 128 118;
+    --color-ai: 124 58 237;
+    --color-ai-ink: 91 33 182;
+    --color-ai-fg: 255 255 255;
+    --shadow-btn:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 1px 2px rgba(16, 24, 40, 0.08),
+      0 6px 14px -4px rgba(16, 24, 40, 0.18);
     --color-status-success: 22 163 113;
     --color-status-warning: 217 119 6;
     --color-status-error: 220 38 38;
     --color-status-info: 37 99 235;
     --body-bg: #f7f9fc;
-    --body-glow-top: rgba(99, 91, 255, 0.05);
-    --body-glow-bottom: rgba(99, 91, 255, 0.02);
+    --body-glow-top: rgba(13, 148, 136, 0.07);
+    --body-glow-bottom: rgba(13, 148, 136, 0.03);
     --shadow-card:
       0 1px 2px rgba(16, 24, 40, 0.04),
       0 4px 12px -4px rgba(16, 24, 40, 0.06);
@@ -124,6 +139,14 @@
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 160ms ease, color 160ms ease;
     line-height: 1.4;
+  }
+
+  /* Soft brand atmosphere on the shell (hue from --body-glow-*). */
+  .app-atmosphere {
+    background-color: rgb(var(--color-bg));
+    background-image:
+      radial-gradient(1100px 520px at 10% -12%, var(--body-glow-top), transparent 58%),
+      radial-gradient(880px 460px at 100% 112%, var(--body-glow-bottom), transparent 52%);
   }
 
   ::-webkit-scrollbar {
@@ -163,7 +186,7 @@
     height: 1em;
     margin-left: 2px;
     vertical-align: text-bottom;
-    background: rgb(var(--color-accent));
+    background: rgb(var(--color-ai));
     border-radius: 1px;
     animation: stream-caret-blink 1s steps(2, start) infinite;
   }
@@ -185,17 +208,30 @@
     box-shadow: var(--shadow-card-hover);
   }
 
-  /* Soft violet pulse on knowledge/learning chips (see KnowledgeMark). */
+  /* Soft violet pulse on AI / knowledge chips. */
+  .ai-glow,
   .knowledge-glow {
-    animation: knowledge-glow 2.6s ease-in-out infinite;
+    animation: ai-glow 2.6s ease-in-out infinite;
   }
-  @keyframes knowledge-glow {
+
+  /* Static violet lift for decision cards and other AI surfaces. */
+  .ai-surface {
+    box-shadow:
+      0 0 0 1px rgb(var(--color-ai) / 0.12),
+      0 10px 28px -14px rgb(var(--color-ai) / 0.38);
+  }
+
+  /* Direct box-shadow — Tailwind shadow-* composes --tw-shadow and drops multi-layer tokens. */
+  .btn-elevated {
+    box-shadow: var(--shadow-btn);
+  }
+  @keyframes ai-glow {
     0%,
     100% {
-      box-shadow: 0 0 0 0 rgb(139 92 246 / 0);
+      box-shadow: 0 0 0 0 rgb(var(--color-ai) / 0);
     }
     50% {
-      box-shadow: 0 0 10px 1px rgb(139 92 246 / 0.28);
+      box-shadow: 0 0 12px 1px rgb(var(--color-ai) / 0.32);
     }
   }
 
@@ -204,7 +240,7 @@
     @apply inline rounded-md bg-accent/10 px-1 py-[1px] text-[0.94em] font-medium text-accent;
   }
   .mention-chip[data-mention-type='agent'] {
-    @apply bg-violet-500/10 text-violet-500 dark:text-violet-300;
+    @apply bg-ai/10 text-ai-ink;
   }
 
   .panel-header {
@@ -390,6 +426,7 @@
     .animate-pop-in,
     .animate-fade-in,
     .stream-caret,
+    .ai-glow,
     .knowledge-glow {
       animation: none;
     }
@@ -465,7 +502,7 @@
     110deg,
     rgb(var(--color-text-secondary)) 0%,
     rgb(var(--color-text-secondary)) 38%,
-    rgb(var(--color-accent)) 50%,
+    rgb(var(--color-ai-ink)) 50%,
     rgb(var(--color-text-secondary)) 62%,
     rgb(var(--color-text-secondary)) 100%
   );

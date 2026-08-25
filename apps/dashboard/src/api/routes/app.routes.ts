@@ -133,6 +133,7 @@ export const appRoutes = {
   channelAccounts: {
     list: '/channels/accounts',
     byId: (id: string) => `/channels/accounts/${id}`,
+    whatsappSetup: '/channels/whatsapp/setup',
   },
   contacts: {
     list: '/channels/contacts',

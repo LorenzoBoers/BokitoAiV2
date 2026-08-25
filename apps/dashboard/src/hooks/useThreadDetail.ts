@@ -325,7 +325,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
       await markThreadUnread(token, threadId)
     } catch {
       setRawDetail((prev) => (prev ? { ...prev, thread: { ...prev.thread, hasUnread: false } } : prev))
-      throw new Error('Could not mark thread as unread.')
+      throw new Error('MARK_UNREAD_FAILED')
     }
   }, [token, threadId])
 
@@ -345,7 +345,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         }
         return next
       } catch {
-        throw new Error(next ? 'Could not pin thread.' : 'Could not unpin thread.')
+        throw new Error(next ? 'PIN_FAILED' : 'UNPIN_FAILED')
       }
     },
     [token, threadId],
@@ -373,7 +373,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         setRawDetail((prev) =>
           prev ? { ...prev, thread: { ...prev.thread, aiPaused: currentPaused } } : prev,
         )
-        throw new Error(next ? 'Could not take over thread.' : 'Could not resume AI.')
+        throw new Error(next ? 'TAKEOVER_FAILED' : 'RESUME_FAILED')
       }
     },
     [token, threadId],
