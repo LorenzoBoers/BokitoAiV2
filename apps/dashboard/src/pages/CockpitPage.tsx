@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   ArrowRight,
+  Bot,
   CalendarDays,
   Gauge,
   Inbox,
+  Mail,
   MessageSquare,
   RefreshCw,
   ShieldCheck,
   Sparkles,
   Star,
   Timer,
-  UserRound,
+  X,
 } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
@@ -32,12 +34,26 @@ import {
 } from '../lib/bokito-api'
 import { getPosture, listGovernChanges, type AutonomyPostureId } from '../lib/govern-api'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
-import { agentRunsPath, channelPath, inboxPath } from '../lib/messages-paths'
+import { translateDecisionText } from '../lib/activity-labels'
+import { agentRunsPath, attentionThreadPath, channelPath, inboxPath } from '../lib/messages-paths'
+import { isPageGuideDismissed } from '../lib/page-guides'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
-import { listContacts, type ContactRow } from '../lib/contacts-api'
-import { activityEventMessage, activityEventTypeLabel } from '../lib/activity-labels'
+import { enrichContactsFromThreads, listContacts, type ContactRow } from '../lib/contacts-api'
+import {
+  activityEventMessage,
+  activityEventTypeLabel,
+  collapseCockpitEvents,
+  isCockpitHeadlineEvent,
+} from '../lib/activity-labels'
 import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { DomainFavicon } from '../components/ui/DomainFavicon'
+import { channelKind } from '../components/ui/ChannelGlyph'
+import { formatAppTime } from '../lib/app-locale'
+import { humanizeContactName } from '../lib/contact-label'
+import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { humanizeLabel } from '../lib/labels'
+import { agendaKindLabel } from '../lib/status-labels'
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
@@ -57,6 +73,84 @@ function timeAgo(iso: string, t: (key: string, opts?: { count: number }) => stri
   const hours = Math.floor(mins / 60)
   if (hours < 24) return t('cockpitPage.hoursAgo', { count: hours })
   return t('cockpitPage.daysAgo', { count: Math.floor(hours / 24) })
+}
+
+const LOOP_HINT_KEY = 'bokito.ui.hideLoopHint'
+
+function HowItFitsCard() {
+  const { t } = useTranslation('nav')
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(LOOP_HINT_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  if (hidden || !isPageGuideDismissed('cockpit')) return null
+  const steps = [
+    {
+      to: inboxPath('open'),
+      icon: MessageSquare,
+      title: t('cockpitPage.loopMessages'),
+      hint: t('cockpitPage.loopMessagesHint'),
+    },
+    {
+      to: '/agents',
+      icon: Bot,
+      title: t('cockpitPage.loopAgents'),
+      hint: t('cockpitPage.loopAgentsHint'),
+    },
+    {
+      to: '/settings/govern',
+      icon: ShieldCheck,
+      title: t('cockpitPage.loopGovern'),
+      hint: t('cockpitPage.loopGovernHint'),
+    },
+  ]
+  return (
+    <section className="mb-4 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.loopTitle')}</h2>
+          <p className="mt-0.5 text-[12px] text-text-muted">{t('cockpitPage.loopHint')}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              localStorage.setItem(LOOP_HINT_KEY, '1')
+            } catch {
+              // ignore
+            }
+            setHidden(true)
+          }}
+          className="rounded-md p-1 text-text-muted hover:bg-bg-hover/60 hover:text-text-primary"
+          title={t('cockpitPage.loopDismiss')}
+          aria-label={t('cockpitPage.loopDismiss')}
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {steps.map((step) => {
+          const Icon = step.icon
+          return (
+            <Link
+              key={step.to}
+              to={step.to}
+              className="group rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2.5 transition-colors hover:border-accent/40"
+            >
+              <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-text-primary">
+                <Icon size={13} className="text-text-muted group-hover:text-accent" />
+                {step.title}
+              </span>
+              <span className="mt-1 block text-[11px] leading-snug text-text-muted">{step.hint}</span>
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
 }
 
 function StatCard({
@@ -101,13 +195,17 @@ function StatCard({
 }
 
 export default function CockpitPage() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation(['nav', 'communication'])
   const { token } = useAuth()
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [posture, setPosture] = useState<AutonomyPostureId | null>(null)
   const [pendingChanges, setPendingChanges] = useState(0)
   const [attentionThreads, setAttentionThreads] = useState<InboxThread[]>([])
   const [events, setEvents] = useState<CockpitActivityEvent[]>([])
+  const headlineEvents = useMemo(
+    () => collapseCockpitEvents(events.filter(isCockpitHeadlineEvent)).slice(0, 16),
+    [events],
+  )
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
   const [recentContacts, setRecentContacts] = useState<ContactRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -151,8 +249,9 @@ export default function CockpitPage() {
         'agenda',
       ),
       slice(listContacts(token), [] as ContactRow[], 'contacts'),
+      slice(listThreads(token, { perPage: 80 }).then((r) => r.items), [] as InboxThread[], 'inbox threads'),
     ])
-      .then(([summaryResp, postureResp, changes, threads, activity, agenda, contacts]) => {
+      .then(([summaryResp, postureResp, changes, threads, activity, agenda, contacts, inboxThreads]) => {
         setSummary(summaryResp)
         setPosture(postureResp)
         setPendingChanges(changes)
@@ -165,7 +264,7 @@ export default function CockpitPage() {
             .slice(0, 5),
         )
         setRecentContacts(
-          [...contacts]
+          [...enrichContactsFromThreads(contacts, inboxThreads)]
             .sort(
               (a, b) =>
                 new Date(b.lastSeenAt ?? b.createdAt).getTime() -
@@ -202,6 +301,22 @@ export default function CockpitPage() {
   }, [token, load])
 
   const attentionCount = attentionThreads.length + pendingChanges
+  const firstAttention = attentionThreads[0]
+  const decisionHref = firstAttention
+    ? attentionThreadPath(firstAttention)
+    : agentRunsPath('awaiting-decision')
+  const freshAttention = attentionThreads.filter((thread) => {
+    const days = thread.lastMessageAt
+      ? Math.floor((Date.now() - new Date(thread.lastMessageAt).getTime()) / 86_400_000)
+      : 0
+    return days < 14
+  })
+  const staleAttention = attentionThreads.filter((thread) => {
+    const days = thread.lastMessageAt
+      ? Math.floor((Date.now() - new Date(thread.lastMessageAt).getTime()) / 86_400_000)
+      : 0
+    return days >= 14
+  })
 
   return (
     <PageContent width="xl">
@@ -227,6 +342,7 @@ export default function CockpitPage() {
       <CockpitTabs />
 
       <OnboardingCompactCard />
+      <HowItFitsCard />
 
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
       {!error && partialFailures.length > 0 ? (
@@ -242,15 +358,22 @@ export default function CockpitPage() {
           index={0}
           label={t('cockpitPage.conversations')}
           value={summary ? formatNumber(summary.volume_week) : '-'}
+          sub={
+            summary
+              ? summary.volume_week === 0
+                ? t('cockpitPage.conversationsEmptyHint')
+                : t('cockpitPage.conversationsHint')
+              : undefined
+          }
           icon={MessageSquare}
-          to="/communication/inbox/all"
+          to="/communication/inbox/open"
         />
         <StatCard
           index={1}
           label={t('cockpitPage.awaitingDecision')}
           value={summary ? formatNumber(summary.open_decisions) : '-'}
           icon={Inbox}
-          to="/communication/runs/awaiting-decision"
+          to={decisionHref}
         />
         <StatCard
           index={2}
@@ -330,7 +453,7 @@ export default function CockpitPage() {
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
                 <p className="text-[12px] text-text-muted">{t('cockpitPage.nothingAttention')}</p>
                 <Link
-                  to={inboxPath('all')}
+                  to={inboxPath('open')}
                   className="mt-2 inline-block text-[12px] font-medium text-accent hover:underline"
                 >
                   {t('cockpitPage.openCommunication')}
@@ -338,29 +461,48 @@ export default function CockpitPage() {
               </div>
             ) : (
               <>
-                {attentionThreads.map((thread) => (
+                {[...freshAttention, ...staleAttention].map((thread, index) => {
+                  const waitingDays = thread.lastMessageAt
+                    ? Math.floor((Date.now() - new Date(thread.lastMessageAt).getTime()) / 86_400_000)
+                    : 0
+                  const showStaleHeading = staleAttention.length > 0 && index === freshAttention.length
+                  return (
+                  <div key={String(thread.id)}>
+                    {showStaleHeading ? (
+                      <p className="mb-1.5 mt-2 text-[11px] font-medium text-text-muted">
+                        {t('cockpitPage.staleAttention')}
+                      </p>
+                    ) : null}
                   <Link
-                    key={String(thread.id)}
-                    to={
-                      thread.folder === 'internal'
-                        ? agentRunsPath('awaiting-decision', String(thread.id))
-                        : inboxPath('all', String(thread.id))
-                    }
+                    to={attentionThreadPath(thread)}
                     className="row-interactive group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 hover:border-accent/40"
                   >
                     <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12.5px] font-medium text-text-primary">
-                        {thread.emailSubject || thread.contactName || t('cockpitPage.decisionNeeded')}
+                        {translateDecisionText(
+                          thread.emailSubject || thread.contactName,
+                          t,
+                        ) || t('cockpitPage.decisionNeeded')}
                       </span>
                       <span className="block truncate text-[11px] text-text-muted">
-                        {thread.contactName || thread.channel || t('cockpitPage.threadFallback')}
-                        {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
+                        {waitingDays >= 7
+                          ? t('cockpitPage.waitingDays', { count: waitingDays })
+                          : `${thread.contactName ||
+                              (thread.channel
+                                ? t(`contactsPage.channels.${channelKind(thread.channel)}`, {
+                                    defaultValue: humanizeLabel(thread.channel),
+                                  })
+                                : t('cockpitPage.threadFallback'))}${
+                              thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''
+                            }`}
                       </span>
                     </span>
                     <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
                   </Link>
-                ))}
+                  </div>
+                  )
+                })}
                 {pendingChanges > 0 ? (
                   <Link
                     to="/settings/govern?tab=drafts"
@@ -392,12 +534,12 @@ export default function CockpitPage() {
             </Link>
           </div>
           <div className="mt-3 max-h-[340px] space-y-px overflow-y-auto">
-            {events.length === 0 ? (
+            {headlineEvents.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
                 <p className="text-[12px] text-text-muted">{t('cockpitPage.noEvents')}</p>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
-                    to={inboxPath('all')}
+                    to={inboxPath('open')}
                     className="text-[12px] font-medium text-accent hover:underline"
                   >
                     {t('cockpitPage.openCommunication')}
@@ -417,10 +559,12 @@ export default function CockpitPage() {
                 </div>
               </div>
             ) : (
-              events.map((ev, idx) => {
+              headlineEvents.map((ev, idx) => {
                 // Deep-link an event to its thread, or to the run detail.
                 const target = ev.signal_id
-                  ? inboxPath('all', ev.signal_id)
+                  ? ev.kind === 'agent_run'
+                    ? agentRunsPath('all', ev.signal_id)
+                    : inboxPath('open', ev.signal_id)
                   : ev.agent_id && ev.run_id
                     ? agentWorkforceRunUrl(ev.agent_id, ev.run_id)
                     : ev.agent_id
@@ -444,6 +588,7 @@ export default function CockpitPage() {
                       <span className="block text-[10px] text-text-muted">
                         {ev.actor_name ? `${ev.actor_name} - ` : ''}
                         {activityEventTypeLabel(ev.event_type, t)} - {timeAgo(ev.created_at, t)}
+                        {ev.repeatCount > 1 ? ` · ${t('cockpitPage.eventRepeats', { count: ev.repeatCount })}` : ''}
                       </span>
                     </span>
                   </>
@@ -501,13 +646,15 @@ export default function CockpitPage() {
                 >
                   <CalendarDays size={13} className="shrink-0 text-text-muted" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-text-primary">{item.name}</span>
+                    <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                      {translateDecisionText(item.name, t) || item.name}
+                    </span>
                     <span className="block truncate text-[11px] text-text-muted">
-                      {new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`).toLocaleTimeString(undefined, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {item.agent_name ? ` - ${item.agent_name}` : ''} - {activityEventTypeLabel(item.kind, t)}
+                      {formatAppTime(
+                        new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`),
+                        i18n.language,
+                      )}
+                      {item.agent_name ? ` - ${item.agent_name}` : ''} - {agendaKindLabel(item.kind, t)}
                     </span>
                   </span>
                   <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
@@ -553,23 +700,48 @@ export default function CockpitPage() {
               </div>
             ) : (
               recentContacts.map((contact) => (
-                <Link
+                <div
                   key={contact.id}
-                  to={`/contacts/${contact.id}`}
                   className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
-                  <UserRound size={13} className="shrink-0 text-text-muted" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-text-primary">
-                      {contact.displayName || contact.address}
+                  <Link to={`/contacts/${contact.id}`} className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <DomainFavicon
+                      email={contact.address}
+                      name={contact.displayName || contact.address}
+                      size={28}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12.5px] font-medium text-text-primary">
+                        {humanizeContactName(
+                          contact.displayName,
+                          contact.address,
+                          t('contactsPage.widgetVisitor'),
+                        ) || contact.address}
+                      </span>
+                      <span className="block truncate text-[11px] text-text-muted">
+                        {contact.company ||
+                          (contact.channel
+                            ? t(`contactsPage.channels.${channelKind(contact.channel)}`, {
+                                defaultValue: humanizeLabel(contact.channel),
+                              })
+                            : '')}
+                        {contact.lastSeenAt ? ` - ${timeAgo(contact.lastSeenAt, t)}` : ''}
+                      </span>
                     </span>
-                    <span className="block truncate text-[11px] text-text-muted">
-                      {contact.company || contact.channel}
-                      {contact.lastSeenAt ? ` - ${timeAgo(contact.lastSeenAt, t)}` : ''}
-                    </span>
-                  </span>
-                  <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
-                </Link>
+                  </Link>
+                  {canComposeToAddress(contact.channel, contact.address) ? (
+                    <Link
+                      to={composeEmailPath({ to: contact.address })}
+                      title={t('cockpitPage.writeEmail')}
+                      aria-label={t('cockpitPage.writeEmail')}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-accent/10 hover:text-accent"
+                    >
+                      <Mail size={13} />
+                    </Link>
+                  ) : (
+                    <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
+                  )}
+                </div>
               ))
             )}
           </div>

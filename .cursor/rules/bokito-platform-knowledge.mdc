@@ -23,6 +23,8 @@ Whenever new information is learned about the Bokito platform — including feat
 3. Be concise and factual — write like internal product documentation
 4. Never duplicate existing entries; update them instead
 5. Always use present tense ("Users can...", "The system...")
+6. User-facing how-to (steps, UI labels, screenshots) belongs in
+   `docs/product-help/`, not only here. See `.cursor/rules/product-help-docs.mdc`.
 
 ## File location
 

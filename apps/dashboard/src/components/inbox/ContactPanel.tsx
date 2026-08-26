@@ -4,16 +4,20 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Building2, Check, Loader2, Mail, MessageSquare, Phone, ShieldBan, UserRound } from 'lucide-react'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { DomainFavicon } from '../ui/DomainFavicon'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getContact,
-  getContactThreads,
+  findThreadsForContact,
+  latestThreadActivityAt,
+  resolveContact,
   updateContact,
   type ContactRow,
   type ContactStatus,
 } from '../../lib/contacts-api'
+import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
+import { canComposeToAddress, composeEmailPath } from '../../lib/compose-intent'
 import { threadStatusLabel } from '../../lib/status-labels'
 
 type Props = {
@@ -56,7 +60,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
-    if (!token || !contactId) {
+    if (!token) {
       setContact(null)
       setThreads([])
       setLoading(false)
@@ -64,13 +68,23 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
     }
     setLoading(true)
     try {
-      const [row, history] = await Promise.all([
-        getContact(token, contactId),
-        getContactThreads(token, contactId),
-      ])
+      const row = await resolveContact(token, {
+        id: contactId,
+        email: fallbackEmail,
+        name: fallbackName,
+      })
       setContact(row)
-      setThreads(history)
-      setNotesDraft(row?.notes ?? '')
+      if (row) {
+        try {
+          setThreads(await findThreadsForContact(token, row))
+        } catch {
+          setThreads([])
+        }
+        setNotesDraft(row.notes ?? '')
+      } else {
+        setThreads([])
+        setNotesDraft('')
+      }
       setNotesDirty(false)
     } catch (err) {
       setContact(null)
@@ -79,7 +93,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
     } finally {
       setLoading(false)
     }
-  }, [token, contactId, t])
+  }, [token, contactId, fallbackEmail, fallbackName, t])
 
   useEffect(() => {
     void load()
@@ -123,17 +137,36 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
   }
 
   if (!contact) {
+    const readableEmail =
+      fallbackEmail && !isPlaceholderContactAddress(fallbackEmail) ? fallbackEmail : ''
     return (
       <div className="px-4 py-4">
         <div className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center">
           <UserRound size={18} className="mx-auto text-text-muted" />
           <p className="mt-2 text-[12.5px] font-medium text-text-primary">
-            {fallbackName || t('contactPanel.noContact')}
+            {humanizeContactName(fallbackName, fallbackEmail, t('contactPanel.widgetVisitor')) ||
+              t('contactPanel.noContact')}
           </p>
-          {fallbackEmail ? <p className="text-[11.5px] text-text-muted">{fallbackEmail}</p> : null}
+          {readableEmail ? <p className="text-[11.5px] text-text-muted">{readableEmail}</p> : null}
           <p className="mt-2 text-[11px] text-text-muted">
             {t('contactPanel.noContactHint')}
           </p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {readableEmail && canComposeToAddress('email', readableEmail) ? (
+              <Link
+                to={composeEmailPath({ to: readableEmail })}
+                className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
+              >
+                {t('contactPanel.writeEmail')}
+              </Link>
+            ) : null}
+            <Link
+              to="/contacts"
+              className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
+            >
+              {t('contactPanel.openContacts')}
+            </Link>
+          </div>
         </div>
       </div>
     )
@@ -148,12 +181,15 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
       {/* Identity card */}
       <div className="border-b border-border/40 px-4 pb-3 pt-4">
         <div className="flex items-start gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/12 text-[13px] font-semibold text-accent">
-            {(contact.displayName || contact.address || '?').slice(0, 1).toUpperCase()}
-          </span>
+          <DomainFavicon
+            email={contact.address}
+            name={contact.displayName || contact.address}
+            size={36}
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13.5px] font-semibold text-text-heading">
-              {contact.displayName || contact.address || t('contactPanel.unknown')}
+              {humanizeContactName(contact.displayName, contact.address, t('contactPanel.widgetVisitor')) ||
+                t('contactPanel.unknown')}
             </p>
             {contact.title || contact.company ? (
               <p className="truncate text-[11.5px] text-text-muted">
@@ -163,12 +199,23 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
           </div>
         </div>
         <div className="mt-3 space-y-1.5">
-          <FieldRow icon={Mail} value={contact.address} />
+          <FieldRow
+            icon={Mail}
+            value={
+              isPlaceholderContactAddress(contact.address)
+                ? t('contactPanel.widgetVisitor')
+                : contact.address
+            }
+          />
           <FieldRow icon={Phone} value={contact.phone} />
           <FieldRow icon={Building2} value={contact.company} />
         </div>
-        {contact.lastSeenAt ? (
-          <p className="mt-2 text-[11px] text-text-muted">{t('contactPanel.lastSeen', { time: timeAgo(contact.lastSeenAt, t) })}</p>
+        {contact.lastSeenAt || latestThreadActivityAt(threads) ? (
+          <p className="mt-2 text-[11px] text-text-muted">
+            {t('contactPanel.lastSeen', {
+              time: timeAgo(contact.lastSeenAt || latestThreadActivityAt(threads), t),
+            })}
+          </p>
         ) : null}
         <div className="mt-3 flex gap-1.5">
           {contact.status !== 'blocked' ? (
@@ -186,6 +233,15 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
               <ShieldBan size={11} />
               {t('contactPanel.block')}
             </button>
+          ) : null}
+          {canComposeToAddress(contact.channel, contact.address) ? (
+            <Link
+              to={composeEmailPath({ to: contact.address })}
+              className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              <Mail size={11} />
+              {t('contactPanel.writeEmail')}
+            </Link>
           ) : null}
           <Link
             to={`/contacts/${contact.id}`}
@@ -251,7 +307,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
             {previousThreads.slice(0, 8).map((thread) => (
               <Link
                 key={String(thread.id)}
-                to={inboxPath('all', String(thread.id))}
+                to={inboxPath('open', String(thread.id))}
                 className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
                 <MessageSquare size={12} className="shrink-0 text-text-muted" />

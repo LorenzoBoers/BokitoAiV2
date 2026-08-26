@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { useTranslation } from 'react-i18next'
 import { Bot } from 'lucide-react'
 import { toast } from 'sonner'
+import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
 import DirectChatPanel, { DirectChatEmptyState } from '../components/inbox/DirectChatPanel'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
@@ -263,50 +264,76 @@ export default function DirectCommunication() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ThreadList
-          threads={filteredThreads}
-          allThreads={threads}
-          loading={threadsLoading || targetsLoading}
-          error={threadsError}
-          selectedId={selectedThreadId}
-          quickFilter={quickFilter}
-          onQuickFilterChange={setQuickFilter}
-          onSelectThread={handleSelectThread}
-          onMarkRead={handleListMarkRead}
-          onMarkUnread={handleListMarkUnread}
-          onTogglePin={handleListTogglePin}
-          onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
-          deletingThreadId={deletingThreadId}
-          variant="direct"
-          total={threadsTotal}
-          hasMore={threadsHaveMore}
-          loadingMore={threadsLoadingMore}
-          onLoadMore={() => void loadMoreThreads()}
-        />
-        {selectedThreadId ? (
-          <DirectChatPanel
-            conversationId={String(selectedThreadId)}
-            title={selectedThread?.emailSubject}
-            agentName={selectedThread?.agentName ?? activeAgent?.name}
-            agentKind={selectedThread?.agentKind ?? activeAgent?.kind}
-            onDeleted={() => navigate(`${basePath}${inboxQuery}`)}
-            onBack={() => navigate(`${basePath}${inboxQuery}`)}
-            onRefreshThreads={() => void refreshThreads()}
-            onToggleContext={toggleContextPanel}
-            contextOpen={showContextPanel}
+      <SplitRow
+        storageKey="bokito.split.inbox"
+        minFlex={360}
+        resetHint={t('split.resetHint')}
+        className="min-h-0 flex-1"
+      >
+        <SplitPane
+          id="list"
+          defaultWidth={288}
+          minWidth={220}
+          maxWidth={520}
+          label={t('split.list')}
+          className={selectedThreadId != null ? 'hidden md:flex' : 'flex'}
+        >
+          <ThreadList
+            threads={filteredThreads}
+            allThreads={threads}
+            loading={threadsLoading || targetsLoading}
+            error={threadsError}
+            selectedId={selectedThreadId}
+            quickFilter={quickFilter}
+            onQuickFilterChange={setQuickFilter}
+            onSelectThread={handleSelectThread}
+            onMarkRead={handleListMarkRead}
+            onMarkUnread={handleListMarkUnread}
+            onTogglePin={handleListTogglePin}
+            onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
+            deletingThreadId={deletingThreadId}
+            variant="direct"
+            total={threadsTotal}
+            hasMore={threadsHaveMore}
+            loadingMore={threadsLoadingMore}
+            onLoadMore={() => void loadMoreThreads()}
           />
-        ) : (
-          <DirectChatEmptyState agentLabel={agentLabel} />
-        )}
+        </SplitPane>
+        <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
+          {selectedThreadId ? (
+            <DirectChatPanel
+              conversationId={String(selectedThreadId)}
+              title={selectedThread?.emailSubject}
+              agentName={selectedThread?.agentName ?? activeAgent?.name}
+              agentKind={selectedThread?.agentKind ?? activeAgent?.kind}
+              onDeleted={() => navigate(`${basePath}${inboxQuery}`)}
+              onBack={() => navigate(`${basePath}${inboxQuery}`)}
+              onRefreshThreads={() => void refreshThreads()}
+              onToggleContext={toggleContextPanel}
+              contextOpen={showContextPanel}
+            />
+          ) : (
+            <DirectChatEmptyState agentLabel={agentLabel} />
+          )}
+        </SplitPane>
         {selectedThread && showContextPanel ? (
-          <AgentThreadPanel
-            thread={selectedThread}
-            onClose={toggleContextPanel}
-            onThreadUpdated={() => void refreshThreads()}
-          />
+          <SplitPane
+            id="context"
+            defaultWidth={288}
+            minWidth={240}
+            maxWidth={420}
+            label={t('split.context')}
+            className="hidden lg:flex"
+            handleClassName="hidden lg:block"
+          >
+            <AgentThreadPanel
+              thread={selectedThread}
+              onClose={toggleContextPanel}
+              onThreadUpdated={() => void refreshThreads()}
+            />
+          </SplitPane>
         ) : null}
-      </div>
+      </SplitRow>
     </div>
   )
 }

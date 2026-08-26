@@ -83,12 +83,14 @@ async def init_db() -> None:
             await conn.run_sync(apply_column_patches)
             await conn.run_sync(apply_data_repairs)
 
+    from app.services.lead_agent import ensure_lead_agents
     from app.services.model_catalog import seed_model_catalog
     from app.services.personal_agents import provision_missing_personal_agents
 
     async with async_session_factory() as session:
         await seed_model_catalog(session)
         await provision_missing_personal_agents(session)
+        await ensure_lead_agents(session)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

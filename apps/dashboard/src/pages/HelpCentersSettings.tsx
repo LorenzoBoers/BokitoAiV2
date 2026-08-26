@@ -16,6 +16,7 @@ import {
   type KbCollection,
   type KbDocument,
 } from '../lib/email-api'
+import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { indexStatusLabel } from '../lib/status-labels'
 
 function RowSkeleton() {
@@ -87,6 +88,10 @@ export default function HelpCentersSettings() {
         {t('helpCentersPage.intro')}{' '}
         <Link to="/knowledge" className="font-medium text-accent hover:underline">
           {t('helpCentersPage.openKnowledge')}
+        </Link>
+        {' · '}
+        <Link to={WEBSITE_WIDGET_PATH} className="font-medium text-accent hover:underline">
+          {t('helpCentersPage.openWidget')}
         </Link>
         .
       </p>
@@ -292,6 +297,13 @@ export default function HelpCentersSettings() {
                   )}
                 </div>
               </>
+            ) : kbCollections.length === 0 ? (
+              <div className="px-1 py-2 text-sm text-text-muted">
+                <p>{t('helpCentersPage.emptyDocumentsNoCollection')}</p>
+                <Link to="/knowledge" className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline">
+                  {t('helpCentersPage.openKnowledge')}
+                </Link>
+              </div>
             ) : (
               <div className="text-sm text-text-muted">{t('helpCentersPage.selectCollection')}</div>
             )}

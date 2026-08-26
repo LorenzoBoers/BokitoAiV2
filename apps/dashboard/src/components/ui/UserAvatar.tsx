@@ -12,7 +12,7 @@ export function UserAvatar({ name, email, avatarUrl, size = 32, className = '' }
   const initials = getInitials(name)
   const { bg, text } = getAvatarColor(email)
   const fontSize = Math.round(size * 0.36)
-  const borderRadius = Math.round(size * 0.3)
+  const borderRadius = Math.round(size / 2)
 
   if (avatarUrl) {
     return (
@@ -28,7 +28,7 @@ export function UserAvatar({ name, email, avatarUrl, size = 32, className = '' }
   return (
     <span
       style={{ width: size, height: size, borderRadius, background: bg, color: text, fontSize }}
-      className={`inline-flex items-center justify-center font-semibold shrink-0 select-none ${className}`}
+      className={`inline-flex items-center justify-center font-semibold leading-none shrink-0 select-none ${className}`}
     >
       {initials}
     </span>

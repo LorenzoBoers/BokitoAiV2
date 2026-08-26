@@ -17,7 +17,10 @@ class Agent(SQLModel, table=True):
     owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     # Who may open a direct chat with this company agent (personal agents: owner only).
     chat_access: str = Field(default="nobody")  # everyone | selected | nobody
-    model: str = "claude-sonnet-4-20250514"
+    # Exactly one active company agent per tenant carries the lead flag; it is
+    # the default fallback whenever nothing more specific is bound to an item.
+    is_lead: bool = Field(default=False, index=True)
+    model: str = "bokito-ai-3-1"
     provider: str = Field(default="platform")
     system_prompt: str = ""
     thinking_budget: int = 0

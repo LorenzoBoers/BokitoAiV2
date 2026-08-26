@@ -23,6 +23,7 @@ settings = get_settings()
 SUGGEST_MODE_TOOLS = frozenset(
     {
         "search_index",
+        "search_product_help",
         "list_docs",
         "read_doc",
         "get_tenant_overview",
@@ -105,20 +106,20 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         # Automated / no-reply mail (system notifications, newsletters, bounces):
         # never draft a reply. Surface a compact action suggestion instead —
         # close the thread, create a task, or keep it open.
-        from app.services.automated_mail import classify_automated_email
+        from app.services.automated_mail import classify_automated_email, clip_with_ellipsis
 
         classification = classify_automated_email(sender_address, headers=auto_headers)
         if classification["automated"]:
             from app.services.inbound_agent import create_action_suggestion
 
             agent = await resolve_agent_for_signal(session, signal)
-            preview = (msg.body_preview or msg.body_text or "").strip()[:280]
+            preview = clip_with_ellipsis(msg.body_preview or msg.body_text or "")
             delivery = await create_action_suggestion(
                 session,
                 UUID(tenant_id),
                 signal,
                 agent,
-                summary=preview or "Automated notification; no reply needed.",
+                summary=preview or signal.subject or "Automated notification; no reply needed.",
                 reason=classification["reason"],
             )
             session.add(
@@ -188,6 +189,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "You are preparing a response for a human teammate to review; "
                 "nothing you produce is sent automatically.\n"
                 "1. Research first: use search_index / read_doc for workspace knowledge, "
+                "search_product_help for how Bokito itself works, "
                 "and call_mcp_tool to query connected business systems (accounting, CRM) "
                 "when the question concerns records that live there.\n"
                 "2. Then do exactly one of the following:\n"

@@ -8,7 +8,7 @@ function labelFromMap(
   ns: string = 'communication',
 ): string {
   if (!value) return ''
-  const key = `${prefix}.${String(value).trim().toLowerCase()}`
+  const key = `${prefix}.${String(value).trim().toLowerCase().replace(/-/g, '_')}`
   const translated = t(key, { ns, defaultValue: '' })
   if (translated) return translated
   return humanizeLabel(value)

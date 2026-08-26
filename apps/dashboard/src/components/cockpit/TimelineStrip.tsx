@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { cn } from '../../lib/utils'
 
 /** One dot on the horizontal platform timeline. */
@@ -69,12 +70,12 @@ function clusterPoints(points: TimelinePoint[]): Cluster[] {
   return [...byMinute.values()].sort((a, b) => a.at.getTime() - b.at.getTime())
 }
 
-function formatTick(d: Date): string {
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+function formatTick(d: Date, language?: string | null): string {
+  return formatAppTime(d, language)
 }
 
-function formatDayLabel(d: Date): string {
-  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
+function formatDayLabel(d: Date, language?: string | null): string {
+  return formatAppDate(d, language, { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
 /**
@@ -84,7 +85,7 @@ function formatDayLabel(d: Date): string {
  * loads older history.
  */
 export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOlder }: Props) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const scrollRef = useRef<HTMLDivElement>(null)
   const didInitialScroll = useRef(false)
   const prevStartMs = useRef<number | null>(null)
@@ -185,12 +186,12 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
               />
               {major ? (
                 <span className="absolute -translate-x-1/2 whitespace-nowrap text-[9.5px] tabular-nums text-text-muted" style={{ top: LINE_Y + 12 }}>
-                  {formatTick(at)}
+                  {formatTick(at, i18n.language)}
                 </span>
               ) : null}
               {dayStart ? (
                 <span className="absolute -translate-x-1/2 whitespace-nowrap text-[9.5px] font-medium text-text-secondary" style={{ top: 6 }}>
-                  {formatDayLabel(at)}
+                  {formatDayLabel(at, i18n.language)}
                 </span>
               ) : null}
             </div>
@@ -209,7 +210,7 @@ export default function TimelineStrip({ points, onLoadOlder, hasMore, loadingOld
             const size = Math.min(14, 8 + (cluster.points.length - 1) * 2)
             const titleLines = cluster.points
               .slice(0, 6)
-              .map((p) => `${formatTick(p.at)}  ${p.label}${p.sublabel ? ` — ${p.sublabel}` : ''}`)
+              .map((p) => `${formatTick(p.at, i18n.language)}  ${p.label}${p.sublabel ? ` — ${p.sublabel}` : ''}`)
             if (cluster.points.length > 6) titleLines.push(`+${cluster.points.length - 6} more`)
             return (
               <div

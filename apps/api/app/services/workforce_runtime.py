@@ -95,6 +95,7 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
         "system_prompt": agent.system_prompt or "",
         "chat_access": agent.chat_access,
         "kind": agent.kind,
+        "is_lead": bool(agent.is_lead),
         "email_signature_html": str(
             _parse_json(agent.settings_json).get("email_signature_html") or ""
         ),
@@ -161,7 +162,7 @@ async def update_agent_runtime_status(
 async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> dict[str, Any]:
     """Archive a company agent: hidden from the workforce list, history preserved.
 
-    The default workspace assistant (slug 'assistant') cannot be archived.
+    The lead agent cannot be archived until the lead is transferred.
     """
     result = await session.execute(
         select(Agent).where(
@@ -171,21 +172,11 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    if (agent.slug or "") == "assistant":
-        raise HTTPException(status_code=409, detail="The default assistant cannot be archived")
-    if agent.role == "assistant":
-        other = await session.execute(
-            select(Agent).where(
-                Agent.tenant_id == tenant_id,
-                Agent.kind == "company",
-                Agent.role == "assistant",
-                Agent.id != agent_id,
-            )
+    if agent.is_lead:
+        raise HTTPException(
+            status_code=409,
+            detail="This is the lead agent. Make another agent the lead first, then archive.",
         )
-        if not other.scalars().first():
-            raise HTTPException(
-                status_code=409, detail="The last assistant cannot be archived"
-            )
     agent.kind = "archived"
     agent.is_active = False
     agent.runtime_status = "standby"

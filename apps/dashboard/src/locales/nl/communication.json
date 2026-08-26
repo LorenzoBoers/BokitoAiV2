@@ -4,7 +4,7 @@
   "noActiveMailboxTitle": "Koppel een kanaal",
   "noActiveMailboxDescription": "Elke workspace heeft een Bokito-adres onder Kanalen. Koppel dat, of voeg Gmail of Outlook toe, zodat klantmail hier landt.",
   "openEmailSettings": "Open kanalen",
-  "inboxSearchPlaceholder": "Zoek in deze map...",
+  "inboxSearchPlaceholder": "Zoek gesprekken...",
   "inboxSearchClear": "Zoekopdracht wissen",
   "listFilters": {
     "all": "Alles",
@@ -14,6 +14,10 @@
   "composer": {
     "hintEmail": "Ctrl+Enter om te versturen, Enter voor een nieuwe regel — concepten blijven per gesprek bewaard",
     "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel",
+    "resize": "Composer groter of kleiner maken",
+    "resizeHint": "Sleep voor meer ruimte. Dubbelklik zet terug.",
+    "expand": "Composer uitklappen",
+    "collapse": "Composer inklappen",
     "mailboxDisconnected": "De mailbox van dit gesprek is losgekoppeld; antwoorden kunnen niet worden verstuurd. Interne notities werken nog wel.",
     "reconnectMailbox": "Mailbox opnieuw koppelen",
     "noSavedReplies": "Nog geen opgeslagen antwoorden",
@@ -26,6 +30,14 @@
     "uploadError": "Kon bijlage niet uploaden.",
     "tabNote": "Notitie",
     "notePlaceholder": "Interne notitie (niet zichtbaar voor de klant)...",
+    "placeholders": {
+      "messageAgent": "Bericht aan {{name}}...",
+      "typeEmail": "Typ een e-mail...",
+      "replyEmail": "Antwoord aan {{email}}...",
+      "slack": "Typ een Slack-bericht...",
+      "whatsapp": "Antwoord via WhatsApp aan {{name}}...",
+      "chat": "Antwoord in de chat aan {{name}}..."
+    },
     "addNoteTitle": "Notitie toevoegen",
     "sendTitle": "Versturen",
     "draftWithAi": "Concept met AI",
@@ -35,6 +47,9 @@
     "cancel": "Annuleren",
     "draftReply": "Concept maken",
     "savedReplies": "Opgeslagen antwoorden",
+    "saveAsTemplate": "Huidige tekst als sjabloon opslaan",
+    "sendAndClose": "Versturen en sluiten",
+    "sendAndWait": "Versturen en wachten",
     "loadingSavedReplies": "Laden...",
     "attachFile": "Bestand toevoegen",
     "withSignature": "Je handtekening wordt toegevoegd",
@@ -73,6 +88,14 @@
     "sending": "Versturen...",
     "sent": "E-mail verstuurd",
     "cancel": "Annuleren",
+    "from": "Van",
+    "to": "Aan",
+    "toPlaceholder": "naam@voorbeeld.nl, ander@voorbeeld.nl",
+    "cc": "CC",
+    "bcc": "BCC",
+    "subject": "Onderwerp",
+    "attach": "Bijlage",
+    "uploading": "Uploaden...",
     "uploadError": "Kon bijlage niet uploaden.",
     "sendError": "Kon e-mail niet versturen.",
     "noSubject": "(Geen onderwerp)"
@@ -80,7 +103,7 @@
   "threadResolved": {
     "closed": "Gesprek gesloten",
     "spam": "Gemarkeerd als spam",
-    "snoozed": "Gesprek gesnoozed"
+    "snoozed": "Gesprek uitgesteld"
   },
   "runsChips": {
     "heading": "Agent-runs",
@@ -92,9 +115,21 @@
   "threadList": {
     "loading": "Laden...",
     "empty": "Geen gesprekken gevonden.",
+    "emptyUnread": "Geen ongelezen gesprekken in deze lijst.",
+    "emptyPinned": "Nog geen vastgezette gesprekken. Zet er een vast om hem bovenaan te houden.",
+    "showAllConversations": "Alle gesprekken tonen",
     "emptyRuns": "Nog geen agent-runs.",
+    "emptySnoozed": "Niets uitgesteld tot later.",
+    "emptySnoozedHint": "Stel een gesprek uit als je al hebt geantwoord, of als het kan wachten.",
+    "openInbox": "Terug naar Open",
     "openAgents": "Agents openen",
     "clearLabelFilter": "Labelfilter wissen",
+    "scopeAgent": "Gesprekken van {{name}}",
+    "scopeProject": "Gesprekken in {{name}}",
+    "scopeAgentFallback": "deze agent",
+    "scopeProjectFallback": "dit project",
+    "clearScope": "Alle gesprekken tonen",
+    "emptyScoped": "Geen gesprekken in dit filter.",
     "selectThread": "Gesprek selecteren",
     "deleteThread": "Gesprek verwijderen",
     "channelSettings": "Kanaalinstellingen",
@@ -156,20 +191,26 @@
       "approve": "Goedkeuren",
       "defer": "Uitstellen"
     },
-    "correctInterpretation": "Dat klopt niet",
-    "feedbackGood": "Klopt",
-    "feedbackPoor": "Klopt niet",
+    "correctInterpretation": "Corrigeer",
+    "feedbackGood": "Goed",
+    "feedbackPoor": "Niet behulpzaam",
     "feedbackError": "Kon feedback niet opslaan.",
     "knownSubjects": {
-      "replyToCustomer": "Antwoord op klantbericht"
+      "replyToCustomer": "Antwoord op klantbericht",
+      "dailyPlatformScan": "Dagelijkse platformscan",
+      "agentPassportUpdate": "Agenttoegang bijgewerkt",
+      "poWakeBacklog": "Lead: platformbacklog bekijken",
+      "leadHeartbeat": "Lead-hartslag",
+      "heartbeat": "Check-in",
+      "assistPrefix": "Hulp: {{subject}}"
     },
     "knownSummaries": {
       "draftForReview": "Conceptantwoord klaar ter beoordeling."
     }
   },
   "agentSteps": {
-    "toolCall": "Tool-aanroep",
-    "toolResult": "Tool-resultaat",
+    "toolCall": "Aan het opzoeken",
+    "toolResult": "Opzoeken klaar",
     "thinking": "Nadenken",
     "thinkingActive": "Aan het nadenken...",
     "writing": "Aan het schrijven...",
@@ -223,11 +264,15 @@
       "wake": "Agent-wake",
       "task": "Taak",
       "event": "Event",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "once": "Taak",
+      "cron": "Terugkerend",
+      "interval": "Herhalend",
+      "heartbeat": "Check-in"
     },
     "agentRuntime": {
       "active": "Actief",
-      "standby": "Stand-by",
+      "standby": "Pauze",
       "sleeping": "Slapend",
       "inactive": "Inactief"
     },
@@ -241,7 +286,9 @@
       "needs_review": "Review nodig",
       "indexing": "Indexeren",
       "failed": "Mislukt",
-      "unsupported": "Niet ondersteund"
+      "unsupported": "Niet ondersteund",
+      "ready": "Klaar",
+      "error": "Fout"
     },
     "workLog": {
       "running": "Bezig",
@@ -253,7 +300,7 @@
     }
   },
   "agentSession": {
-    "launcher": "Vraag agent",
+    "launcher": "Vraag assistent",
     "pickAgent": "Haal een agent bij dit gesprek",
     "title": "Agent-sessie",
     "internalHint": "Intern - niet zichtbaar voor de klant",
@@ -313,7 +360,7 @@
       },
       "team": {
         "title": "Nodig je team uit",
-        "description": "Voeg teamleden toe zodat beslissingen en threads de juiste mensen bereiken.",
+        "description": "Voeg teamleden toe zodat beslissingen en gesprekken de juiste mensen bereiken.",
         "cta": "Leden uitnodigen"
       }
     }
@@ -321,7 +368,7 @@
   "newConversation": {
     "title": "Nieuw gesprek",
     "to": "Aan:",
-    "searchPlaceholder": "Zoek assistenten en agents...",
+    "searchPlaceholder": "Zoek assistenten, agents en mensen...",
     "loading": "Laden...",
     "companyAgent": "Bedrijfsagent",
     "myAssistant": "Mijn assistent",
@@ -334,6 +381,10 @@
     "personalAssistant": "Je persoonlijke assistent",
     "companyAgentRole": "Bedrijfsagent · {{role}}",
     "messageAnAgent": "Bericht naar een agent",
+    "writeToPerson": "Schrijf naar een persoon",
+    "people": "Mensen",
+    "emailContact": "E-mail",
+    "writeEmail": "Liever een e-mail schrijven",
     "messageName": "Bericht naar {{name}}...",
     "chooseAndType": "Kies een ontvanger en begin te typen...",
     "send": "Versturen",
@@ -343,6 +394,7 @@
   "threadChrome": {
     "hideDetails": "Details verbergen",
     "showDetails": "Details tonen",
+    "askAssistant": "Vraag assistent",
     "next": "Volgende",
     "closeThread": "Gesprek sluiten",
     "assignToMe": "Aan mij toewijzen",
@@ -368,6 +420,8 @@
     "pin": "Pinnen",
     "unpin": "Losmaken",
     "close": "Sluiten",
+    "snooze": "Uitstellen",
+    "resumeNow": "Nu hervatten",
     "reopen": "Heropenen",
     "markSpam": "Markeer als spam",
     "notSpam": "Geen spam",
@@ -405,12 +459,14 @@
     "noProject": "Geen project",
     "lead": "Lead: {{name}}",
     "noLead": "Geen lead-agent op dit project.",
-    "openProject": "Project openen"
+    "openProject": "Project openen",
+    "moreActions": "Meer acties"
   },
   "contactPanel": {
     "loading": "Contact laden...",
     "noContact": "Geen contact gekoppeld",
-    "noContactHint": "Dit gesprek heeft nog geen contact. Dat wordt automatisch aangemaakt bij het volgende inkomende bericht.",
+    "noContactHint": "We konden dit gesprek nog niet koppelen aan een opgeslagen persoon. Open Contacten om ze toe te voegen, of stuur een e-mail.",
+    "widgetVisitor": "Websitebezoeker",
     "unknown": "Onbekend contact",
     "lastSeen": "Laatst gezien {{time}}",
     "now": "nu",
@@ -421,6 +477,7 @@
     "blockConfirm": "{{name}} blokkeren? Nieuwe berichten van hen worden gedropt en bereiken Communicatie niet.",
     "thisContact": "dit contact",
     "fullProfile": "Volledig profiel",
+    "writeEmail": "E-mail schrijven",
     "notes": "Notities",
     "notesPlaceholder": "Interne notities over dit contact...",
     "notesSaved": "Notities opgeslagen",
@@ -457,7 +514,8 @@
     "integrations": "Integraties",
     "tools": "Tools",
     "unrestricted": "onbeperkt",
-    "openIntegrations": "Integraties openen"
+    "openIntegrations": "Integraties openen",
+    "modelManaged": "{{model}} (Bokito)"
   },
   "directChat": {
     "conversation": "Gesprek",
@@ -500,7 +558,20 @@
     "assigned": "Toegewezen",
     "now": "Nu",
     "contact": "Contact",
-    "agent": "Agent"
+    "agent": "Agent",
+    "internal": "Intern",
+    "snoozed": "Later",
+    "filterBy": "Filter op {{tag}}"
+  },
+  "snooze": {
+    "1h": "1 uur",
+    "4h": "4 uur",
+    "tomorrow": "Morgen 9:00",
+    "nextWeek": "Volgende maandag 9:00",
+    "untilReply": "Tot de klant antwoordt",
+    "wakesToday": "Terug vandaag {{time}}",
+    "wakesTomorrow": "Terug morgen {{time}}",
+    "wakesOn": "Terug {{date}} {{time}}"
   },
   "bulkActions": {
     "selected": "{{count}} geselecteerd",
@@ -524,7 +595,7 @@
     "today": "Vandaag",
     "yesterday": "Gisteren",
     "events": {
-      "threadCreated": "Thread aangemaakt",
+      "threadCreated": "Gesprek aangemaakt",
       "conversationStarted": "Gesprek gestart",
       "assigned": "Toegewezen aan {{name}}",
       "userFallback": "gebruiker {{id}}",
@@ -536,14 +607,14 @@
       "replySent": "Antwoord verzonden",
       "noteAdded": "Notitie toegevoegd",
       "reopened": "Heropend",
-      "threadClosed": "Thread gesloten",
+      "threadClosed": "Gesprek gesloten",
       "markedSpam": "Gemarkeerd als spam",
-      "threadSnoozed": "Thread gesnoozed",
-      "threadReopened": "Thread heropend",
-      "threadAssigned": "Thread toegewezen",
+      "threadSnoozed": "Gesprek uitgesteld",
+      "threadReopened": "Gesprek heropend",
+      "threadAssigned": "Gesprek toegewezen",
       "labels": "Labels: {{tags}}",
       "labelsCleared": "Labels gewist",
-      "threadUpdated": "Thread bijgewerkt",
+      "threadUpdated": "Gesprek bijgewerkt",
       "snoozeExpired": "Snooze verlopen",
       "agentReviewed": "AI heeft dit bericht beoordeeld",
       "agentInvoked": "Agent aangeroepen",
@@ -552,8 +623,8 @@
       "decisionCreated": "AI vroeg om een beslissing",
       "triaged": "AI heeft dit gesprek getriageerd",
       "escalated": "Doorgestuurd naar het team",
-      "aiPaused": "AI gepauzeerd op deze thread",
-      "aiResumed": "AI hervat op deze thread",
+      "aiPaused": "AI gepauzeerd op dit gesprek",
+      "aiResumed": "AI hervat op dit gesprek",
       "approvedBy": "Goedgekeurd door {{name}}",
       "suggestionApproved": "Suggestie goedgekeurd",
       "dismissedBy": "Afgewezen door {{name}}",
@@ -574,7 +645,7 @@
     }
   },
   "tags": {
-    "addLabel": "Label",
+    "addLabel": "Label toevoegen",
     "placeholder": "Label…",
     "removeLabel": "Label {{tag}} verwijderen"
   },
@@ -630,5 +701,11 @@
     "previewHint": "Zo ziet je handtekening eruit met voorbeeldgegevens.",
     "cancel": "Annuleren",
     "save": "Opslaan"
+  },
+  "split": {
+    "list": "Gesprekkenlijst verslepen",
+    "context": "Zijpaneel verslepen",
+    "nav": "Communicatiebalk verslepen",
+    "resetHint": "Sleep om te verdelen. Dubbelklik of Enter zet terug."
   }
 }

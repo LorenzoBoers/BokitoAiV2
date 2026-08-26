@@ -519,14 +519,16 @@ const WIDGET_CSS = `
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking{animation:none!important;}}
-.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
+.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);will-change:transform;outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
 .bk-launcher:hover{transform:scale(1.06);box-shadow:var(--bk-launcher-shadow-hover);}
 .bk-launcher:active{transform:scale(1.01);cursor:grabbing;}
 .bk-launcher.is-dragging{transition:none;cursor:grabbing;transform:scale(1.04);}
 .bk-launcher.is-dragging:hover{transform:scale(1.04);}
 .bk-launcher-icon{width:30px;height:30px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);}
 .bk-launcher-icon--monkey{width:34px;height:34px;transform:translateY(0.5px);}
-.bk-launcher-icon--close{color:var(--bk-launcher-close-color,#fff);position:absolute;transform:scale(0) rotate(-90deg);opacity:0;}
+.bk-launcher-icon--custom{width:34px;height:34px;object-fit:contain;border-radius:8px;position:relative;z-index:1;}
+.bk-launcher.has-brand-icon .bk-launcher-icon--monkey{display:none!important;}
+.bk-launcher-icon--close{color:var(--bk-launcher-close-color,#fff);position:absolute;z-index:2;transform:scale(0) rotate(-90deg);opacity:0;}
 .bk-launcher.is-open .bk-launcher-icon--chat{transform:scale(0) rotate(90deg);opacity:0;}
 .bk-launcher.is-open .bk-launcher-icon--close{transform:scale(1) rotate(0);opacity:1;}
 .bk-proactive-bubbles{position:fixed;bottom:14px;right:calc(20px + var(--bk-bubble-size) + 10px);display:flex;flex-direction:column;align-items:flex-end;gap:8px;z-index:var(--bk-z-widget);pointer-events:none;}
@@ -555,12 +557,13 @@ const WIDGET_CSS = `
 .bk-launcher.is-open~.bk-window .bk-header>.bk-header-info{animation-delay:.14s;}
 .bk-launcher.is-open~.bk-window .bk-header>.bk-header-actions{animation-delay:.19s;}
 .bk-header>.bk-btn-back{flex-shrink:0;}
-.bk-header-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
+.bk-header-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;position:relative;overflow:hidden;}
 @media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}}
 :host([data-theme="dark"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}
 :host([data-theme="light"]) .bk-header-avatar{background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);}
 .bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-primary);}
-.bk-header-avatar-img{width:22px;height:22px;object-fit:contain;display:block;border-radius:4px;}
+.bk-header-avatar.has-brand-icon .bk-avatar-logo{display:none!important;}
+.bk-header-avatar-img{width:100%;height:100%;padding:5px;object-fit:contain;display:block;border-radius:inherit;box-sizing:border-box;}
 :host([data-preview-mode="true"]){position:relative;display:block;width:100%;height:100%;min-height:0;min-width:0;max-width:none;margin:0;--bk-z-widget:50;--bk-window-w:100%;--bk-window-h:100%;}
 :host([data-preview-mode="true"]) .bk-launcher{display:none!important;}
 :host([data-preview-mode="true"]) .bk-proactive-bubbles{display:none!important;}
@@ -865,6 +868,139 @@ const WIDGET_CSS = `
 @media (max-width:480px){:host{--bk-window-w:100vw;--bk-window-h:100dvh;}.bk-window{bottom:0!important;right:0!important;left:0!important;top:0!important;border-radius:0;border:none;transform-origin:bottom center!important;}.bk-launcher.is-open{display:none;}}
 `;
 
+const WIDGET_CHROME = {
+  en: {
+    openChat: 'Open chat',
+    startNew: 'Start new conversation',
+    home: 'Home',
+    messages: 'Messages',
+    help: 'Help',
+    tools: 'Tools',
+    settings: 'Settings',
+    appearance: 'Appearance',
+    theme: 'Theme',
+    light: 'Light',
+    dark: 'Dark',
+    system: 'System',
+    sound: 'Sound',
+    soundEffects: 'Sound effects',
+    soundNotifications: 'Notification sounds',
+    notSignedIn: 'Not signed in',
+    signedIn: 'Signed in',
+    signedInAs: 'Signed in as',
+    signOut: 'Sign out',
+    lightMode: 'Light mode',
+    darkMode: 'Dark mode',
+    switchLight: 'Switch to light theme',
+    switchDark: 'Switch to dark theme',
+    back: 'Back to menu',
+    welcomeTitle: 'Welcome',
+    welcomeSubtitle: 'How can we help?',
+    composerPlaceholder: 'Ask a question...',
+    working: 'Working...',
+    queuedSuffix: 'queued',
+    you: 'You',
+    agentBanner: 'A team member is helping you',
+    offlineDefault: 'We are currently offline. Leave a message and we will get back to you.',
+    toolsIntro: 'Available tools for this assistant',
+    toolsEmpty: 'No tools available yet.',
+    helpSearch: 'Search articles',
+    helpAllArticles: 'All articles',
+    signInRequired: 'Sign in required',
+    signInSub: 'Sign in on this website to chat with the assistant.',
+    signIn: 'Sign in',
+    accountSignIn: 'Sign in to see your account.',
+    stopGenerating: 'Stop generating',
+    archive: 'Archive',
+    delete: 'Delete',
+    export: 'Export',
+    loading: 'Loading...',
+    noConversations: 'No conversations yet',
+    loadConversationsError: 'Could not load conversations',
+    prechatTitle: 'Before we start',
+    prechatSub: 'Leave your name and email so we can follow up if needed.',
+    prechatName: 'Your name',
+    prechatStart: 'Start chatting',
+    prechatSkip: 'Skip',
+    prechatErrorEmpty: 'Enter a name or email address.',
+    prechatErrorEmail: 'That email address does not look right.',
+    prechatErrorSave: 'Could not save your details. Try again.',
+    csatTitle: 'How was this conversation?',
+    csatAria: 'Rate this conversation',
+    csatThanks: 'Thanks for your feedback',
+    csatComment: 'Anything we could do better? (optional)',
+    csatSend: 'Send',
+    poweredBy: 'Powered by',
+    aiError: 'The AI could not generate a reply. Try again.',
+    transcribing: 'Transcribing…',
+  },
+  nl: {
+    openChat: 'Chat openen',
+    startNew: 'Nieuw gesprek starten',
+    home: 'Home',
+    messages: 'Berichten',
+    help: 'Help',
+    tools: 'Tools',
+    settings: 'Instellingen',
+    appearance: 'Uiterlijk',
+    theme: 'Thema',
+    light: 'Licht',
+    dark: 'Donker',
+    system: 'Systeem',
+    sound: 'Geluid',
+    soundEffects: 'Geluidseffecten',
+    soundNotifications: 'Meldingsgeluiden',
+    notSignedIn: 'Niet ingelogd',
+    signedIn: 'Ingelogd',
+    signedInAs: 'Ingelogd als',
+    signOut: 'Uitloggen',
+    lightMode: 'Lichte modus',
+    darkMode: 'Donkere modus',
+    switchLight: 'Schakel naar licht thema',
+    switchDark: 'Schakel naar donker thema',
+    back: 'Terug naar menu',
+    welcomeTitle: 'Welkom',
+    welcomeSubtitle: 'Hoe kunnen we je helpen?',
+    composerPlaceholder: 'Stel een vraag...',
+    working: 'Bezig...',
+    queuedSuffix: 'in wachtrij',
+    you: 'Jij',
+    agentBanner: 'Een medewerker helpt je verder',
+    offlineDefault: 'We zijn momenteel offline. Laat een bericht achter, dan komen we erop terug.',
+    toolsIntro: 'Beschikbare tools voor deze assistent',
+    toolsEmpty: 'Nog geen tools beschikbaar.',
+    helpSearch: 'Zoek artikelen',
+    helpAllArticles: 'Alle artikelen',
+    signInRequired: 'Inloggen vereist',
+    signInSub: 'Log in op deze website om met de assistent te chatten.',
+    signIn: 'Inloggen',
+    accountSignIn: 'Log in om je account te zien.',
+    stopGenerating: 'Stop genereren',
+    archive: 'Archiveren',
+    delete: 'Verwijderen',
+    export: 'Exporteren',
+    loading: 'Laden...',
+    noConversations: 'Nog geen gesprekken',
+    loadConversationsError: 'Kon gesprekken niet laden',
+    prechatTitle: 'Voordat we beginnen',
+    prechatSub: 'Laat je naam en e-mailadres achter zodat we je kunnen bereiken als dat nodig is.',
+    prechatName: 'Je naam',
+    prechatStart: 'Start met chatten',
+    prechatSkip: 'Overslaan',
+    prechatErrorEmpty: 'Vul een naam of e-mailadres in.',
+    prechatErrorEmail: 'Dat e-mailadres lijkt niet te kloppen.',
+    prechatErrorSave: 'Kon je gegevens niet opslaan. Probeer het opnieuw.',
+    csatTitle: 'Hoe was dit gesprek?',
+    csatAria: 'Beoordeel dit gesprek',
+    csatThanks: 'Bedankt voor je feedback',
+    csatComment: 'Wat kunnen we beter doen? (optioneel)',
+    csatSend: 'Versturen',
+    poweredBy: 'Mogelijk gemaakt door',
+    aiError: 'De AI kon geen antwoord genereren. Probeer het opnieuw.',
+    transcribing: 'Transcriberen…',
+  },
+}
+
 /* ── Widget component ───────────────────────────────────────── */
 class BokitoChatWidget extends HTMLElement {
   #agentSlug; #apiUrl; #agentConfig = null; #sessionToken = null;
@@ -885,6 +1021,7 @@ class BokitoChatWidget extends HTMLElement {
   #chatActionsWrap; #chatActionsBtn; #chatActionsMenu; #settingsBtn;
   #backBtn; #settingsView; #headerUser; #userPopover; #preSettingsView = null; #activeHomeTab = 'home';
   #helpArticles = null; // null = not fetched yet, [] = none published (tab stays hidden)
+  #toolsAvailable = false; // Tools tab stays hidden until the session exposes tools
   #soundEffectsEnabled = true; #soundNotificationsEnabled = true;
   #themeSchemeMedia = null; #themeSchemeListenerBound = false;
   #helpModuleEnabled = true;
@@ -937,6 +1074,7 @@ class BokitoChatWidget extends HTMLElement {
   /** Non-empty when data-preview-mode: isolate localStorage from other widget instances */
   #storNs = '';
   #headerAvatarImg = null;
+  #launcherIconImg = null;
   /** Parsed JSON from data-preview-overrides (dashboard draft). */
   #previewParsedOverrides = null;
 
@@ -1008,7 +1146,12 @@ class BokitoChatWidget extends HTMLElement {
     this.#applyUserThemeOverride();
     this.#applyAgentTheme(eff);
     this.#syncAgentWindowAtmosphere();
-    const name = typeof eff.chatbot_name === 'string' && eff.chatbot_name.trim() ? eff.chatbot_name.trim() : 'Bokito AI';
+    // Fallback chain ends at the tenant name; the header stays empty until
+    // the session payload arrives so no platform name ever flashes.
+    const name =
+      typeof eff.chatbot_name === 'string' && eff.chatbot_name.trim()
+        ? eff.chatbot_name.trim()
+        : (this.#sessionTenant?.name || '').trim();
     if (this.#headerName) this.#headerName.textContent = name;
     this.#syncHomeHeroFromTheme(eff);
     this.#syncHeaderAvatarFromTheme(eff);
@@ -1024,7 +1167,8 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   /** Hide widget tabs the tenant disabled in Messenger settings. The Help
-   * tab additionally requires published articles (see #maybeLoadHelpArticles). */
+   * tab additionally requires published articles (see #maybeLoadHelpArticles);
+   * the Tools tab requires the session to actually expose tools. */
   #applyModuleVisibility(theme) {
     const tabs = ['home', 'messages', 'help', 'tools'];
     for (const tab of tabs) {
@@ -1034,31 +1178,39 @@ class BokitoChatWidget extends HTMLElement {
       if (tab === 'help') {
         this.#helpModuleEnabled = enabled;
         btn.hidden = !enabled || !(Array.isArray(this.#helpArticles) && this.#helpArticles.length > 0);
+      } else if (tab === 'tools') {
+        btn.hidden = !enabled || !this.#toolsAvailable;
       } else {
         btn.hidden = !enabled;
       }
     }
-    const active = this.#activeHomeTab;
-    if (active && !this.#moduleEnabled(theme, active)) {
-      const fallback = tabs.find((t) => this.#moduleEnabled(theme, t)) || 'messages';
-      this.#switchHomeTab(fallback);
+    const activeBtn = this.#root?.querySelector(`.bk-tab-btn[data-tab="${this.#activeHomeTab}"]`);
+    if (activeBtn?.hidden) {
+      const fallbackBtn = tabs
+        .map((t) => this.#root?.querySelector(`.bk-tab-btn[data-tab="${t}"]`))
+        .find((b) => b && !b.hidden);
+      this.#switchHomeTab(fallbackBtn?.getAttribute('data-tab') || 'messages');
     }
   }
 
   #syncHomeHeroFromTheme(theme) {
     const t = theme && typeof theme === 'object' ? theme : {};
-    const name = typeof t.chatbot_name === 'string' && t.chatbot_name.trim() ? t.chatbot_name.trim() : 'Bokito AI';
+    // Static HTML ships empty; the hero stays blank until the theme (or a
+    // preview override) arrives so no wrong-language copy flashes.
+    if (!this.#agentConfig?.theme && Object.keys(t).length === 0) return;
     const titleEl = this.#root?.querySelector('.bk-home-hero-title');
     const subEl = this.#root?.querySelector('.bk-home-hero-sub');
     if (titleEl) {
       titleEl.textContent =
-        typeof t.welcome_title === 'string' && t.welcome_title.trim() ? t.welcome_title.trim() : 'Hi!';
+        typeof t.welcome_title === 'string' && t.welcome_title.trim()
+          ? t.welcome_title.trim()
+          : this.#chrome('welcomeTitle');
     }
     if (subEl) {
       subEl.textContent =
         typeof t.welcome_subtitle === 'string' && t.welcome_subtitle.trim()
           ? t.welcome_subtitle.trim()
-          : `Ask ${name} a question`;
+          : this.#chrome('welcomeSubtitle');
     }
   }
 
@@ -1068,18 +1220,31 @@ class BokitoChatWidget extends HTMLElement {
       typeof t.widget_favicon_url === 'string' && t.widget_favicon_url.trim()
         ? t.widget_favicon_url.trim()
         : null;
-    const img = this.#headerAvatarImg || this.#root?.querySelector('.bk-header-avatar-img');
-    const svg = this.#root?.querySelector('.bk-avatar-logo');
-    if (!img) return;
-    if (url) {
-      img.src = url;
-      img.hidden = false;
-      if (svg) svg.hidden = true;
-    } else {
-      img.removeAttribute('src');
-      img.hidden = true;
-      if (svg) svg.hidden = false;
+    const headerImg = this.#headerAvatarImg || this.#root?.querySelector('.bk-header-avatar-img');
+    const launcherImg = this.#launcherIconImg || this.#root?.querySelector('.bk-launcher-icon--custom');
+    const headerWrap = headerImg?.closest?.('.bk-header-avatar') || this.#root?.querySelector('.bk-header-avatar');
+    const monkey = this.#root?.querySelector('.bk-avatar-logo');
+    if (headerImg) {
+      if (url) {
+        headerImg.src = url;
+        headerImg.hidden = false;
+      } else {
+        headerImg.removeAttribute('src');
+        headerImg.hidden = true;
+      }
     }
+    if (launcherImg) {
+      if (url) {
+        launcherImg.src = url;
+        launcherImg.hidden = false;
+      } else {
+        launcherImg.removeAttribute('src');
+        launcherImg.hidden = true;
+      }
+    }
+    if (monkey) monkey.hidden = Boolean(url);
+    headerWrap?.classList.toggle('has-brand-icon', Boolean(url));
+    this.#launcher?.classList.toggle('has-brand-icon', Boolean(url));
   }
 
   setIdentityToken(token) { this.#identityToken = token; }
@@ -1265,6 +1430,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#root.appendChild(style);
 
     this.#render();
+    this.#localizeChrome();
     this.#bindEvents();
     this.#setupStateMachine();
     this.#pageCtx = new PageContextManager(this.#api);
@@ -1290,10 +1456,102 @@ class BokitoChatWidget extends HTMLElement {
     }
   }
 
+  #chromeLocale() {
+    // Workspace language from the theme wins; embed attribute and page
+    // language are fallbacks until the session payload arrives.
+    const themeLocale =
+      typeof this.#agentConfig?.theme?.locale === 'string' ? this.#agentConfig.theme.locale : '';
+    const raw = (themeLocale || this.dataset.locale || document.documentElement.lang || 'en')
+      .slice(0, 2)
+      .toLowerCase();
+    return raw === 'nl' ? 'nl' : 'en';
+  }
+
+  #chrome(key) {
+    const pack = WIDGET_CHROME[this.#chromeLocale()] || WIDGET_CHROME.en;
+    return pack[key] || WIDGET_CHROME.en[key] || key;
+  }
+
+  #localizeChrome() {
+    const root = this.#root;
+    if (!root) return;
+    const launcher = root.querySelector('.bk-launcher');
+    if (launcher) launcher.setAttribute('aria-label', this.#chrome('openChat'));
+    const start = root.querySelector('.bk-home-new-btn span');
+    if (start) start.textContent = this.#chrome('startNew');
+    const back = root.querySelector('.bk-btn-back');
+    if (back) {
+      const backLabel = this.#chrome('back');
+      back.setAttribute('title', backLabel);
+      back.setAttribute('aria-label', backLabel);
+    }
+    const tabKeys = { home: 'home', messages: 'messages', help: 'help', tools: 'tools' };
+    root.querySelectorAll('.bk-tab-btn').forEach((btn) => {
+      const key = tabKeys[btn.getAttribute('data-tab')];
+      if (!key) return;
+      const label = this.#chrome(key);
+      btn.setAttribute('aria-label', label);
+      const span = btn.querySelector('.bk-tab-label');
+      if (span) span.textContent = label;
+    });
+    const title = root.querySelector('.bk-settings-title');
+    if (title) title.textContent = this.#chrome('settings');
+    const sections = root.querySelectorAll('.bk-settings-section-title');
+    if (sections[0]) sections[0].textContent = this.#chrome('appearance');
+    if (sections[1]) sections[1].textContent = this.#chrome('sound');
+    const labels = root.querySelectorAll('.bk-settings-label');
+    if (labels[0]) labels[0].textContent = this.#chrome('theme');
+    if (labels[1]) labels[1].textContent = this.#chrome('soundEffects');
+    if (labels[2]) labels[2].textContent = this.#chrome('soundNotifications');
+    const radioKeys = ['light', 'dark', 'system'];
+    root.querySelectorAll('.bk-settings-radio').forEach((label, i) => {
+      const input = label.querySelector('input');
+      if (!input || !radioKeys[i]) return;
+      label.replaceChildren(input, document.createTextNode(` ${this.#chrome(radioKeys[i])}`));
+    });
+    const themeGroup = root.querySelector('[role="radiogroup"]');
+    if (themeGroup) themeGroup.setAttribute('aria-label', this.#chrome('theme'));
+
+    if (this.#textarea) this.#textarea.placeholder = this.#chrome('composerPlaceholder');
+    const agentBanner = root.querySelector('.bk-agent-banner span');
+    if (agentBanner) agentBanner.textContent = this.#chrome('agentBanner');
+    const toolsIntro = root.querySelector('.bk-tools-intro');
+    if (toolsIntro) toolsIntro.textContent = this.#chrome('toolsIntro');
+    const toolsEmpty = root.querySelector('.bk-tools-empty');
+    if (toolsEmpty) toolsEmpty.textContent = this.#chrome('toolsEmpty');
+    const helpSearch = root.querySelector('.bk-help-search');
+    if (helpSearch) helpSearch.setAttribute('placeholder', this.#chrome('helpSearch'));
+    const helpBack = root.querySelector('.bk-help-back');
+    if (helpBack) {
+      const svg = helpBack.querySelector('svg');
+      helpBack.replaceChildren(
+        ...(svg ? [svg] : []),
+        document.createTextNode(` ${this.#chrome('helpAllArticles')}`),
+      );
+    }
+    const loginTitle = root.querySelector('.bk-login-title');
+    if (loginTitle) loginTitle.textContent = this.#chrome('signInRequired');
+    const loginSub = root.querySelector('.bk-login-sub');
+    if (loginSub) loginSub.textContent = this.#chrome('signInSub');
+    const loginLink = root.querySelector('.bk-login-signin');
+    if (loginLink) loginLink.textContent = this.#chrome('signIn');
+    const actionKeys = { stop: 'stopGenerating', archive: 'archive', delete: 'delete', export: 'export' };
+    root.querySelectorAll('.bk-chat-actions-item').forEach((btn) => {
+      const key = actionKeys[btn.getAttribute('data-action')];
+      if (key) btn.textContent = this.#chrome(key);
+    });
+    const poweredLabel = root.querySelector('.bk-window-powered span');
+    if (poweredLabel) poweredLabel.textContent = this.#chrome('poweredBy');
+    if (this.#thinkingLabel && this.#thinkingEl?.style.display === 'none') {
+      this.#thinkingLabel.textContent = this.#chrome('working');
+    }
+  }
+
   #render() {
     const div = document.createElement('div');
     div.innerHTML = `
       <button class="bk-launcher" aria-label="Open chat">
+        <img class="bk-launcher-icon bk-launcher-icon--chat bk-launcher-icon--custom" alt="" hidden />
         <svg class="bk-launcher-icon bk-launcher-icon--chat bk-launcher-icon--monkey" viewBox="-22 -24 361 403" fill="none" xmlns="http://www.w3.org/2000/svg">
           <style>
             .bk-bokito-wink-g{transform-origin:158.5px 177.5px;animation:bkHeadWink 45s ease-in-out infinite}
@@ -1323,7 +1581,7 @@ class BokitoChatWidget extends HTMLElement {
             ${MONKEY_MARK}
           </div>
           <div class="bk-header-info">
-            <div class="bk-header-name">Bokito AI</div>
+            <div class="bk-header-name"></div>
             <div class="bk-header-status">Online</div>
           </div>
           <div class="bk-header-actions">
@@ -1360,8 +1618,8 @@ class BokitoChatWidget extends HTMLElement {
           <div class="bk-home-content">
             <div class="bk-home-tab" data-tab="home">
               <div class="bk-home-hero">
-                <div class="bk-home-hero-title">Hi!</div>
-                <div class="bk-home-hero-sub">Hoe kunnen we je helpen?</div>
+                <div class="bk-home-hero-title"></div>
+                <div class="bk-home-hero-sub"></div>
               </div>
               <button class="bk-home-new-btn">
                 <div class="bk-home-new-btn-icon">
@@ -1414,7 +1672,7 @@ class BokitoChatWidget extends HTMLElement {
                 ${ICONS.help}
                 <span class="bk-tab-label">Help</span>
               </button>
-              <button type="button" class="bk-tab-btn" data-tab="tools" role="tab" aria-selected="false" aria-label="Tools">
+              <button type="button" class="bk-tab-btn" data-tab="tools" role="tab" aria-selected="false" aria-label="Tools" hidden>
                 ${ICONS.tools}
                 <span class="bk-tab-label">Tools</span>
               </button>
@@ -1540,6 +1798,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#suggChips         = this.#root.querySelector('.bk-suggestions');
     this.#headerName        = this.#root.querySelector('.bk-header-name');
     this.#headerAvatarImg   = this.#root.querySelector('.bk-header-avatar-img');
+    this.#launcherIconImg   = this.#root.querySelector('.bk-launcher-icon--custom');
     this.#toolboxWrap       = null;
     this.#toolboxToggle     = null;
     this.#toolboxMenu       = null;
@@ -1903,8 +2162,8 @@ class BokitoChatWidget extends HTMLElement {
     el.innerHTML = '';
 
     if (!isLoggedIn) {
-      el.title = 'Not signed in';
-      el.setAttribute('aria-label', 'Not signed in');
+      el.title = this.#chrome('notSignedIn');
+      el.setAttribute('aria-label', this.#chrome('notSignedIn'));
       el.innerHTML = ICONS.user;
       this.#refreshUserPopoverIfOpen();
       return;
@@ -1991,14 +2250,14 @@ class BokitoChatWidget extends HTMLElement {
     if (isLoggedIn) {
       const labelEl = document.createElement('div');
       labelEl.className = 'bk-user-popover-label';
-      labelEl.textContent = 'Ingelogd als';
+      labelEl.textContent = this.#chrome('signedInAs');
       info.appendChild(labelEl);
     }
     const nameEl = document.createElement('div');
     nameEl.className = 'bk-user-popover-name';
     nameEl.textContent = isLoggedIn
       ? String(user.name || user.email || 'Ingelogd')
-      : 'Not signed in';
+      : this.#chrome('notSignedIn');
     info.appendChild(nameEl);
     if (isLoggedIn && user.email && user.email !== user.name) {
       const emailEl = document.createElement('div');
@@ -2037,14 +2296,14 @@ class BokitoChatWidget extends HTMLElement {
     if (!isLoggedIn) {
       const empty = document.createElement('div');
       empty.className = 'bk-user-popover-empty';
-      empty.textContent = 'Log in om je account te zien.';
+      empty.textContent = this.#chrome('accountSignIn');
       actions.appendChild(empty);
     }
 
     const settingsBtn = document.createElement('button');
     settingsBtn.type = 'button';
     settingsBtn.className = 'bk-user-popover-btn';
-    settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-.4-1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6c.38 0 .74-.14 1-.4.26-.26.4-.62.4-1V3a2 2 0 1 1 4 0v.1c0 .38.14.74.4 1 .26.26.62.4 1 .4.7 0 1.37-.28 1.87-.78l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1 .26.26.62.4 1 .4h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1 .4c-.26.26-.4.62-.4 1z"/></svg><span>Settings</span>';
+    settingsBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-.4-1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6c.38 0 .74-.14 1-.4.26-.26.4-.62.4-1V3a2 2 0 1 1 4 0v.1c0 .38.14.74.4 1 .26.26.62.4 1 .4.7 0 1.37-.28 1.87-.78l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.14.74.4 1 .26.26.62.4 1 .4h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1 .4c-.26.26-.4.62-.4 1z"/></svg><span>${this.#chrome('settings')}</span>`;
     settingsBtn.addEventListener('click', () => {
       this.#closeUserPopover();
       this.#showSettings();
@@ -2055,7 +2314,7 @@ class BokitoChatWidget extends HTMLElement {
       const logoutBtn = document.createElement('button');
       logoutBtn.type = 'button';
       logoutBtn.className = 'bk-user-popover-btn bk-user-popover-btn--danger';
-      logoutBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sign out</span>';
+      logoutBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>${this.#chrome('signOut')}</span>`;
       logoutBtn.addEventListener('click', async () => {
         this.#closeUserPopover();
         try { await this.logout(); } catch {}
@@ -2370,6 +2629,7 @@ class BokitoChatWidget extends HTMLElement {
     if (!pills) return;
     const emptyEl = this.#root.querySelector('.bk-tools-empty');
     const labels = Object.values(this._toolDisplayNames || {}).filter(Boolean);
+    this.#toolsAvailable = labels.length > 0;
     pills.innerHTML = '';
     if (!labels.length) {
       if (emptyEl) emptyEl.hidden = false;
@@ -2405,6 +2665,8 @@ class BokitoChatWidget extends HTMLElement {
 
     this._toolDisplayNames = this.#agentConfig?.tool_display_names || this._toolDisplayNames || {};
     this.#renderToolbox();
+    // Theme may carry a workspace locale; re-localize chrome before painting.
+    this.#localizeChrome();
     this.#refreshChromeFromThemeAndPreview();
     this.#syncOfflineBanner();
     this.#syncLoginLinks();
@@ -2426,7 +2688,7 @@ class BokitoChatWidget extends HTMLElement {
     }
     const textEl = banner.querySelector('.bk-offline-text');
     const custom = String(this.#agentConfig?.offline_message || '').trim();
-    if (textEl && custom) textEl.textContent = custom;
+    if (textEl) textEl.textContent = custom || this.#chrome('offlineDefault');
     banner.style.display = 'flex';
   }
 
@@ -2448,14 +2710,14 @@ class BokitoChatWidget extends HTMLElement {
     const card = document.createElement('div');
     card.className = 'bk-prechat';
     card.innerHTML = `
-      <div class="bk-prechat-title">Before we start</div>
-      <div class="bk-prechat-sub">Leave your name and email so we can follow up if needed.</div>
-      <input type="text" class="bk-prechat-name" placeholder="Your name" maxlength="120" autocomplete="name">
+      <div class="bk-prechat-title">${this.#chrome('prechatTitle')}</div>
+      <div class="bk-prechat-sub">${this.#chrome('prechatSub')}</div>
+      <input type="text" class="bk-prechat-name" placeholder="${this.#chrome('prechatName')}" maxlength="120" autocomplete="name">
       <input type="email" class="bk-prechat-email" placeholder="you@example.com" maxlength="254" autocomplete="email">
       <div class="bk-prechat-error" hidden></div>
       <div class="bk-prechat-actions">
-        <button type="button" class="bk-prechat-submit">Start chatting</button>
-        <button type="button" class="bk-prechat-skip">Skip</button>
+        <button type="button" class="bk-prechat-submit">${this.#chrome('prechatStart')}</button>
+        <button type="button" class="bk-prechat-skip">${this.#chrome('prechatSkip')}</button>
       </div>
     `;
     const nameInput = card.querySelector('.bk-prechat-name');
@@ -2468,12 +2730,12 @@ class BokitoChatWidget extends HTMLElement {
       const name = nameInput.value.trim();
       const email = emailInput.value.trim();
       if (!name && !email) {
-        errorEl.textContent = 'Enter a name or email address.';
+        errorEl.textContent = this.#chrome('prechatErrorEmpty');
         errorEl.hidden = false;
         return;
       }
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        errorEl.textContent = 'That email address does not look right.';
+        errorEl.textContent = this.#chrome('prechatErrorEmail');
         errorEl.hidden = false;
         return;
       }
@@ -2490,7 +2752,7 @@ class BokitoChatWidget extends HTMLElement {
         this.#textarea?.focus();
       } catch (e) {
         submitBtn.disabled = false;
-        errorEl.textContent = 'Could not save your details. Try again.';
+        errorEl.textContent = this.#chrome('prechatErrorSave');
         errorEl.hidden = false;
       }
     });
@@ -2769,7 +3031,7 @@ class BokitoChatWidget extends HTMLElement {
   async #loadConversationHistory() {
     const list = this.#root.querySelector('.bk-conv-list');
     if (!list) return;
-    list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">Loading...</div>';
+    list.innerHTML = `<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">${this.#chrome('loading')}</div>`;
     try {
       const endpoint = this.#sessionUser?.id ? 'user/conversations?per_page=10' : 'customer/conversations?per_page=10';
       let data = await this.#api.get(endpoint);
@@ -2779,7 +3041,7 @@ class BokitoChatWidget extends HTMLElement {
       const hiddenIds = this.#getHiddenConversationIds();
       const items = (data?.items || []).filter((item) => !hiddenIds.includes(item.id));
       if (!items.length) {
-        list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">No conversations yet</div>';
+        list.innerHTML = `<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">${this.#chrome('noConversations')}</div>`;
         this.#updateUnreadBadge(0);
         return;
       }
@@ -2805,7 +3067,7 @@ class BokitoChatWidget extends HTMLElement {
         list.appendChild(el);
       });
     } catch {
-      list.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">Could not load conversations</div>';
+      list.innerHTML = `<div style="padding:12px 16px;font-size:13px;color:var(--bk-text-muted)">${this.#chrome('loadConversationsError')}</div>`;
     }
   }
 
@@ -2980,7 +3242,9 @@ class BokitoChatWidget extends HTMLElement {
       return;
     }
     const lines = messages.map((msg) => {
-      const role = msg.classList.contains('bk-msg--user') ? 'Jij' : (this.#headerName?.textContent || 'Bokito AI');
+      const role = msg.classList.contains('bk-msg--user')
+        ? this.#chrome('you')
+        : (this.#headerName?.textContent || this.#sessionTenant?.name || 'AI');
       const text = (msg.querySelector('.bk-msg-bubble')?.innerText || '').trim();
       const time = (msg.querySelector('.bk-msg-time')?.textContent || '').trim();
       return `[${time || '--:--'}] ${role}: ${text}`;
@@ -3241,15 +3505,12 @@ class BokitoChatWidget extends HTMLElement {
 
   #updateThinkingLabel() {
     if (!this.#thinkingLabel) return;
-    if (!this.#isResponding) {
-      this.#thinkingLabel.textContent = 'Working...';
+    const working = this.#chrome('working');
+    if (this.#isResponding && this.#sendQueue.length > 0) {
+      this.#thinkingLabel.textContent = `${working} (+${this.#sendQueue.length} ${this.#chrome('queuedSuffix')})`;
       return;
     }
-    if (this.#sendQueue.length > 0) {
-      this.#thinkingLabel.textContent = `Working... (+${this.#sendQueue.length} queued)`;
-      return;
-    }
-    this.#thinkingLabel.textContent = 'Working...';
+    this.#thinkingLabel.textContent = working;
   }
 
   async #drainSendQueue() {
@@ -3800,7 +4061,7 @@ class BokitoChatWidget extends HTMLElement {
       // Read error — use whatever we accumulated
     }
 
-    if (this.#thinkingLabel) this.#thinkingLabel.textContent = 'Working...';
+    if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('working');
     await this.#sseMaybeSimulateClientChunks(state, sendMeta);
     if (this.#sseFinalizeAssistantMessage(state, sendMeta)) {
       if (sendMeta) this.#finishAssistantTurn('stream_continue_done');
@@ -3870,9 +4131,9 @@ class BokitoChatWidget extends HTMLElement {
         if (errMsg && this.#sm.state === 'processing') {
           this.#stopPolling();
           this.#thinkingEl.style.display = 'none';
-          if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError('The AI could not generate a reply. Try again.');
+          if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError(this.#chrome('aiError'));
           else {
-            this.#showError('The AI could not generate a reply. Try again.');
+            this.#showError(this.#chrome('aiError'));
             this.#sm.transition('active');
           }
         }
@@ -4041,9 +4302,9 @@ class BokitoChatWidget extends HTMLElement {
       case 'agent_error':
         this.#stopPolling();
         this.#thinkingEl.style.display = 'none';
-        if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError('The AI could not generate a reply. Try again.');
+        if (this.#nonBlockingSend && this.#activeSend) this.#handleSendError(this.#chrome('aiError'));
         else {
-          this.#showError('The AI could not generate a reply. Try again.');
+          this.#showError(this.#chrome('aiError'));
           if (this.#sm.state === 'processing') this.#sm.transition('active');
         }
         break;
@@ -4241,9 +4502,9 @@ class BokitoChatWidget extends HTMLElement {
     const card = document.createElement('div');
     card.className = 'bk-csat';
     card.innerHTML = `
-      <div class="bk-csat-title">How was this conversation?</div>
-      <div class="bk-csat-stars" role="radiogroup" aria-label="Rate this conversation">
-        ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="bk-csat-star" data-score="${v}" aria-label="${v} of 5">${starSvg}</button>`).join('')}
+      <div class="bk-csat-title">${this.#chrome('csatTitle')}</div>
+      <div class="bk-csat-stars" role="radiogroup" aria-label="${this.#chrome('csatAria')}">
+        ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="bk-csat-star" data-score="${v}" aria-label="${v}/5">${starSvg}</button>`).join('')}
       </div>
     `;
     const stars = [...card.querySelectorAll('.bk-csat-star')];
@@ -4256,9 +4517,9 @@ class BokitoChatWidget extends HTMLElement {
         await this.#api.post(`conversation/${convId}/csat`, { score, comment: '' });
         this.#markCsatRated(convId);
         card.innerHTML = `
-          <div class="bk-csat-title">Thanks for your feedback</div>
-          <textarea class="bk-csat-comment" placeholder="Anything we could do better? (optional)" rows="2" maxlength="1000"></textarea>
-          <button type="button" class="bk-csat-send">Send</button>
+          <div class="bk-csat-title">${this.#chrome('csatThanks')}</div>
+          <textarea class="bk-csat-comment" placeholder="${this.#chrome('csatComment')}" rows="2" maxlength="1000"></textarea>
+          <button type="button" class="bk-csat-send">${this.#chrome('csatSend')}</button>
         `;
         const commentEl = card.querySelector('.bk-csat-comment');
         card.querySelector('.bk-csat-send').addEventListener('click', async () => {
@@ -4266,7 +4527,7 @@ class BokitoChatWidget extends HTMLElement {
           try {
             if (comment) await this.#api.post(`conversation/${convId}/csat`, { score, comment });
           } catch {}
-          card.innerHTML = '<div class="bk-csat-title">Thanks for your feedback</div>';
+          card.innerHTML = `<div class="bk-csat-title">${this.#chrome('csatThanks')}</div>`;
         });
         this.#scrollToBottom();
       } catch {
@@ -4833,12 +5094,12 @@ class BokitoChatWidget extends HTMLElement {
     const dark = this.#effectiveUserThemeIsDark();
     if (dark) {
       icon.innerHTML = ICONS.sun;
-      cap.textContent = 'Light mode';
-      btn.setAttribute('aria-label', 'Switch to light theme');
+      cap.textContent = this.#chrome('lightMode');
+      btn.setAttribute('aria-label', this.#chrome('switchLight'));
     } else {
       icon.innerHTML = ICONS.moon;
-      cap.textContent = 'Dark mode';
-      btn.setAttribute('aria-label', 'Switch to dark theme');
+      cap.textContent = this.#chrome('darkMode');
+      btn.setAttribute('aria-label', this.#chrome('switchDark'));
     }
   }
 
@@ -4996,7 +5257,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#recordActionsWrap.hidden = true;
 
     const prevPh = this.#textarea ? this.#textarea.placeholder : '';
-    if (this.#textarea) this.#textarea.placeholder = 'Transcribing…';
+    if (this.#textarea) this.#textarea.placeholder = this.#chrome('transcribing');
     if (this.#recordConfirmBtn) this.#recordConfirmBtn.disabled = true;
     if (this.#recordCancelBtn) this.#recordCancelBtn.disabled = true;
 

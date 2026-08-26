@@ -36,20 +36,24 @@ export default function ThreadListQuickFilters({ value, onChange, counts, onComp
         const Icon = filter.icon
         const count = counts[filter.id]
         const active = value === filter.id
-        const disabled = filter.id !== 'all' && count === 0
 
         return (
           <button
             key={filter.id}
             type="button"
-            disabled={disabled}
             onClick={() => onChange(filter.id)}
+            title={
+              filter.id !== 'all' && count === 0
+                ? filter.id === 'unread'
+                  ? t('threadList.emptyUnread')
+                  : t('threadList.emptyPinned')
+                : undefined
+            }
             className={cn(
               'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
               active
                 ? 'border-accent/35 bg-accent/12 text-accent'
                 : 'border-border/60 bg-bg-surface-hover/40 text-text-secondary hover:border-border hover:bg-bg-hover/60 hover:text-text-primary',
-              disabled && 'opacity-40 pointer-events-none',
             )}
           >
             {Icon ? <Icon size={11} className={active ? 'text-accent' : 'text-text-muted'} /> : null}

@@ -62,6 +62,7 @@ The product is in the **initial building phase**. Prefer the cleanest design ove
 6. **Learning hook** — What outcome is captured?
 7. **Trust** — Permissions, audit, rollback for agent mutations?
 8. **UI surface** — Messages, `/os`, `/govern`, Cockpit, or settings — not a duplicate comms/agent hub
+9. **Docs** — Do operators or integrators see or do something different? If yes: look up `docs/product-help/surface-map.yaml`, update the matching `en/` and `nl/` articles, recapture screenshots when that use-case UI changed, run `python apps/api/scripts/dev/sync_product_help.py`. Internal facts go to `BOKITO_KNOWLEDGE.md`.
 
 ## Anti-patterns
 

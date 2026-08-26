@@ -21,7 +21,7 @@ export function WorkLogsTable({
   runTo,
   showProjectColumn = true,
 }: WorkLogsTableProps) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
 
   return (
     <Card className="overflow-hidden">
@@ -42,7 +42,7 @@ export function WorkLogsTable({
             <TableRow key={run.id}>
               <TableCell>
                 <Link to={runTo(run)} className="font-medium text-accent hover:underline">
-                  {formatWorkLogSubject(run.task_subject, t('workforce.runs.fallbackSubject'))}
+                  {formatWorkLogSubject(run.task_subject, t, t('workforce.runs.fallbackSubject'))}
                 </Link>
               </TableCell>
               {showProjectColumn ? (
@@ -51,7 +51,7 @@ export function WorkLogsTable({
                 </TableCell>
               ) : null}
               <TableCell>{workLogStatusLabel(run.status, t)}</TableCell>
-              <TableCell className="text-text-muted">{formatWorkLogWhen(run.started_at)}</TableCell>
+              <TableCell className="text-text-muted">{formatWorkLogWhen(run.started_at, i18n.language)}</TableCell>
               <TableCell className="text-text-muted">{run.tokens_used ?? 0}</TableCell>
             </TableRow>
           ))}

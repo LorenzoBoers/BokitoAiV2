@@ -80,6 +80,7 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             chat_access="everyone",
             runtime_status="standby",
             system_prompt=ONBOARDING_SYSTEM_PROMPT,
+            is_lead=True,
         )
     )
     for path, kind, content in DEFAULT_DOCS:
@@ -141,11 +142,11 @@ async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:
 
 def default_tenant_settings() -> dict:
     base = {
+        # Welcome copy and widget name are deliberately not seeded: empty means
+        # "use the localized defaults" (welcome text in the workspace language,
+        # widget name from the assistant/tenant name) until the tenant edits them.
         "appearance": {
             "main_color": DEFAULT_BRAND_COLOR,
-            "welcome_title": "Welcome",
-            "welcome_subtitle": "How can we help?",
-            "chatbot_name": "Assistant",
             "powered_by": True,
         },
         # How the AI handles inbound customer messages per channel:

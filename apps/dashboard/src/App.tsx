@@ -10,7 +10,7 @@ import ControlPlaneRoute from './components/auth/ControlPlaneRoute'
 import { useWorkspace } from './context/WorkspaceContext'
 import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
-import { ASSISTANT_DEFAULT_PATH } from './lib/assistant-settings-path'
+import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-settings-path'
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { agentChatPath, agentRunsPath, assistantPath, channelPath, inboxPath } from './lib/messages-paths'
 
@@ -23,6 +23,8 @@ const AcceptInvite = lazy(() => import('./pages/AcceptInvite'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'))
 const HelpCenter = lazy(() => import('./pages/HelpCenter'))
+const DocsPage = lazy(() => import('./pages/DocsPage'))
+const DocsApiReference = lazy(() => import('./pages/DocsApiReference'))
 // Chat (default surface)
 const NewConversationPage = lazy(() => import('./pages/NewConversationPage'))
 
@@ -89,18 +91,18 @@ function HomeRoute() {
   }
 
   if (tenantSubdomain) {
-    return <Navigate to={inboxPath('all')} replace />
+    return <Navigate to={inboxPath('open')} replace />
   }
 
   // Daily login should resume work, not the workspace picker.
   // Switch workspaces from the user menu → Workspaces (`/workspaces`).
   if (currentWorkspace) {
-    return <Navigate to={inboxPath('all')} replace />
+    return <Navigate to={inboxPath('open')} replace />
   }
 
   const activeMemberships = (user?.memberships ?? []).filter((m) => m.status === 'active')
   if (activeMemberships.length === 1 && workspaces.length <= 1) {
-    return <Navigate to={inboxPath('all')} replace />
+    return <Navigate to={inboxPath('open')} replace />
   }
 
   return (
@@ -232,6 +234,10 @@ export default function App() {
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/help/:tenantSlug" element={<HelpCenter />} />
       <Route path="/help/:tenantSlug/:articleSlug" element={<HelpCenter />} />
+      <Route path="/docs" element={<DocsPage />} />
+      <Route path="/docs/api" element={<DocsApiReference />} />
+      <Route path="/docs/:section/:slug" element={<DocsPage />} />
+      <Route path="/docs/:slug" element={<DocsPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<HomeRoute />} />
@@ -246,11 +252,11 @@ export default function App() {
         <Route element={<AppShell />}>
           {/* Communication hub: chats + customers + agents */}
           <Route element={<MessagesHub />}>
-            <Route path="/communication" element={<Navigate to={inboxPath('all')} replace />} />
+            <Route path="/communication" element={<Navigate to={inboxPath('open')} replace />} />
             <Route path="/communication/new" element={<NewConversationPage />} />
 
             {/* Inbox queues */}
-            <Route path="/communication/inbox" element={<Navigate to={inboxPath('all')} replace />} />
+            <Route path="/communication/inbox" element={<Navigate to={inboxPath('open')} replace />} />
             <Route path="/communication/inbox/:queue" element={<Communication />} />
             <Route path="/communication/inbox/:queue/t/:threadId" element={<Communication />} />
 
@@ -297,6 +303,7 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/learn" element={<LearnPage />} />
           <Route path="/learn/:slug" element={<LearnPage />} />
           <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />
           <Route path="/triggers" element={<Navigate to="/agenda" replace />} />
@@ -326,6 +333,9 @@ export default function App() {
             <Route path="/settings/communication" element={<AiCommunicationSettings />} />
             <Route path="/settings/help-centers" element={<HelpCentersSettings />} />
             <Route path="/settings/integrations" element={<IntegrationsConnected />} />
+            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/settings/marketplace" />} />
+            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
+            <Route path="/settings/integrations/docs" element={<Navigate to="/settings/marketplace" replace />} />
             <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
@@ -333,7 +343,7 @@ export default function App() {
             <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/projects" element={<Navigate to="/projects" replace />} />
-            <Route path="/ai/assistant" element={<Navigate to={ASSISTANT_DEFAULT_PATH} replace />} />
+            <Route path="/ai/assistant" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
             <Route path="/ai/assistant/:audience/:section" element={<MessengerSettings />} />
             {/* Legacy Dutch route name */}
             <Route path="/ai/assistent/*" element={<Navigate to={ASSISTANT_DEFAULT_PATH} replace />} />
@@ -355,7 +365,7 @@ export default function App() {
           <Route path="/inbox/*" element={<LegacyInboxRedirect />} />
           <Route path="/inbox" element={<LegacyInboxRedirect />} />
           <Route path="/govern" element={<RedirectPreserveSearch to="/settings/govern" />} />
-          <Route path="/automations" element={<Navigate to="/agenda" replace />} />
+          <Route path="/automations" element={<Navigate to="/agenda?view=automations" replace />} />
           <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
           <Route path="/integrations" element={<RedirectPreserveSearch to="/settings/integrations" />} />
           <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/settings/integrations" />} />
@@ -363,6 +373,9 @@ export default function App() {
           <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
+          <Route path="/settings/widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
+          <Route path="/settings/chat-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
+          <Route path="/settings/website-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
           <Route path="/ai/communicatie" element={<Navigate to="/settings/communication" replace />} />
           <Route path="/os" element={<Navigate to="/agents" replace />} />
           <Route path="/os/agents" element={<Navigate to="/agents" replace />} />

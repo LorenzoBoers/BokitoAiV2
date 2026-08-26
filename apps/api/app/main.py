@@ -28,6 +28,7 @@ from app.routers import (
     govern,
     health,
     help_center,
+    product_help,
     inbound,
     kb,
     livechat,
@@ -168,6 +169,7 @@ app.include_router(email.router, prefix=api_prefix)
 app.include_router(inbound.router, prefix=api_prefix)
 app.include_router(kb.router, prefix=api_prefix)
 app.include_router(help_center.router, prefix=api_prefix)
+app.include_router(product_help.router, prefix=api_prefix)
 app.include_router(channels.router, prefix=api_prefix)
 app.include_router(push.router, prefix=api_prefix)
 app.include_router(cockpit.router, prefix=api_prefix)
@@ -190,3 +192,23 @@ app.include_router(public_api.router, prefix=api_prefix)
 app.include_router(orchestration.router, prefix=api_prefix)
 app.include_router(custom_db.router, prefix=f"{api_prefix}/app")
 app.include_router(app_workspaces.router, prefix=f"{api_prefix}/app")
+
+
+# llms.txt convention: served from the app root (outside /api) so external AI
+# agents can discover the docs at a well-known path.
+@app.get("/llms.txt", include_in_schema=False)
+async def llms_txt():
+    from fastapi.responses import PlainTextResponse
+
+    from app.services.product_help import build_llms_txt
+
+    return PlainTextResponse(build_llms_txt(), media_type="text/plain; charset=utf-8")
+
+
+@app.get("/llms-full.txt", include_in_schema=False)
+async def llms_full_txt():
+    from fastapi.responses import PlainTextResponse
+
+    from app.services.product_help import build_llms_full_txt
+
+    return PlainTextResponse(build_llms_full_txt(), media_type="text/plain; charset=utf-8")

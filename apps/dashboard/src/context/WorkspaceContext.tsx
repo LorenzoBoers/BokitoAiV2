@@ -124,6 +124,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
               : undefined;
         const messengerAppearance = normalizeMessengerAppearance(livechatSettings, {
           brandColorFallback: resolvedBrandColor,
+          brandIconFallback: resolvedFavicon ?? resolvedLogo,
           normalizeAssetUrl,
         });
         return {

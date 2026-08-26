@@ -33,7 +33,7 @@ class RuntimeProfileCreate(BaseModel):
     slug: str = ""
     role_tag: str = "executor"
     provider: str = "platform"
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "bokito-ai-3-1"
     thinking_budget: int = 0
     max_tokens: int = 4096
     max_loops: int = 25

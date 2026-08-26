@@ -1,10 +1,11 @@
 import { Redirect } from 'expo-router'
 import { ActivityIndicator, View } from 'react-native'
 import { useAuth } from '../src/context/AuthContext'
-import { colors } from '../src/theme'
+import { useTheme } from '../src/context/ThemeContext'
 
 export default function Index() {
   const { user, loading } = useAuth()
+  const { colors } = useTheme()
 
   if (loading) {
     return (
@@ -14,5 +15,5 @@ export default function Index() {
     )
   }
 
-  return <Redirect href={user ? '/(tabs)/assistant' : '/login'} />
+  return <Redirect href={user ? '/(tabs)/home' : '/login'} />
 }

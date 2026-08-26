@@ -24,6 +24,9 @@ export const LIVECHAT_API_BASE = '/api/livechat'
 /** Public help center (`/api/help/*`): unauthenticated published articles. */
 export const HELP_API_BASE = '/api/help'
 
+/** Public Bokito product-help (`/api/docs/*`): how to use the platform. */
+export const DOCS_API_BASE = '/api/docs'
+
 /** Settings router (`/api/settings/*`): providers, models, llm keys. */
 export const SETTINGS_API_BASE = '/api/settings'
 

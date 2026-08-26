@@ -41,6 +41,7 @@ English handbook for the Bokito platform: products, tenancy, infrastructure, and
 |------|---------|
 | [`docs/CORE_INTENT.md`](../CORE_INTENT.md) | Product north star and feature-alignment checklist for engineers and agents |
 | [`docs/POSITIONING.md`](../POSITIONING.md) | Market category, ICP, competitors, messaging |
+| [`docs/product-help/README.md`](../product-help/README.md) | Operator how-to articles for `/learn`, `/docs`, and assistant RAG |
 | [`apps/dashboard/docs/NAVIGATION.md`](../../apps/dashboard/docs/NAVIGATION.md) | Portal IA, rail, sidebars, redirects |
 | [`apps/dashboard/docs/API.md`](../../apps/dashboard/docs/API.md) | Frontend API env and route pattern |
 | [`apps/dashboard/docs/INTEGRATIONS.md`](../../apps/dashboard/docs/INTEGRATIONS.md) | Integrations developer checklist |

@@ -5,6 +5,7 @@ import { CircleHelp, X } from 'lucide-react'
 import {
   dismissPageGuide,
   isPageGuideDismissed,
+  pageGuideDismissKey,
   pageGuidePath,
   type PageGuideSlug,
 } from '../../lib/page-guides'
@@ -12,15 +13,45 @@ import { cn } from '../../lib/utils'
 
 interface PageGuideBannerProps {
   page: PageGuideSlug
+  /** Optional copy + dismiss key, e.g. `runs` on Communication. */
+  variant?: string
   className?: string
 }
 
+function variantDismissed(page: PageGuideSlug, variant?: string): boolean {
+  if (!variant) return isPageGuideDismissed(page)
+  try {
+    return localStorage.getItem(`${pageGuideDismissKey(page)}:${variant}`) === '1'
+  } catch {
+    return false
+  }
+}
+
+function dismissVariant(page: PageGuideSlug, variant?: string): void {
+  if (!variant) {
+    dismissPageGuide(page)
+    return
+  }
+  try {
+    localStorage.setItem(`${pageGuideDismissKey(page)}:${variant}`, '1')
+  } catch {
+    // ignore storage failures
+  }
+}
+
 /** Dismissible intro banner that links to the in-app explanation page. */
-export function PageGuideBanner({ page, className }: PageGuideBannerProps) {
+export function PageGuideBanner({ page, variant, className }: PageGuideBannerProps) {
   const { t } = useTranslation('nav')
-  const [dismissed, setDismissed] = useState(() => isPageGuideDismissed(page))
+  const [dismissed, setDismissed] = useState(() => variantDismissed(page, variant))
 
   if (dismissed) return null
+
+  const titleKey = variant
+    ? `pageGuides.${page}.${variant}BannerTitle`
+    : `pageGuides.${page}.bannerTitle`
+  const bodyKey = variant
+    ? `pageGuides.${page}.${variant}BannerBody`
+    : `pageGuides.${page}.bannerBody`
 
   return (
     <aside
@@ -33,9 +64,9 @@ export function PageGuideBanner({ page, className }: PageGuideBannerProps) {
         <CircleHelp size={15} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-medium text-text-heading">{t(`pageGuides.${page}.bannerTitle`)}</p>
+        <p className="text-[13px] font-medium text-text-heading">{t(titleKey)}</p>
         <p className="mt-0.5 text-[12.5px] leading-relaxed text-text-muted">
-          {t(`pageGuides.${page}.bannerBody`)}
+          {t(bodyKey)}
         </p>
         <Link
           to={pageGuidePath(page)}
@@ -47,7 +78,7 @@ export function PageGuideBanner({ page, className }: PageGuideBannerProps) {
       <button
         type="button"
         onClick={() => {
-          dismissPageGuide(page)
+          dismissVariant(page, variant)
           setDismissed(true)
         }}
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading"

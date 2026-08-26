@@ -144,7 +144,13 @@ async def list_accounts(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    accounts = await _list_email_accounts(session, auth.tenant.id)
+    from app.services.channel_visibility import is_account_visible_to
+
+    accounts = [
+        a
+        for a in await _list_email_accounts(session, auth.tenant.id)
+        if is_account_visible_to(a, user_id=auth.user.id, role=auth.role)
+    ]
     explicit_primary = any(_load_settings(a).get("is_primary") for a in accounts)
     return [
         _serialize_connection(a, is_primary=(not explicit_primary and index == 0))

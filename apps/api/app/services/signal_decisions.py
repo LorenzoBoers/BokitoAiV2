@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_decision, publish_signal_message
+from app.services.automated_mail import clip_with_ellipsis
 from app.models.agent import Agent
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
@@ -115,7 +116,8 @@ async def append_decision_to_signal(
         author_agent_id=agent_id,
         subject=decision.title,
         body_text=decision.summary or decision.title,
-        body_preview=(decision.summary or decision.title)[:200],
+        body_preview=clip_with_ellipsis(decision.summary or decision.title, 200)
+        or (decision.title or "")[:200],
         decision_id=decision.id,
         received_at=datetime.utcnow(),
     )

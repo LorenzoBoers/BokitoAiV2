@@ -5,12 +5,12 @@ import { translateMockAgentBody } from '../../lib/activity-labels'
 import { cn } from '../../lib/utils'
 import { submitMessageFeedback } from '../../lib/signals-api'
 import { useCorrectionChat } from '../../lib/correction-chat'
-import { getDomainFaviconUrl } from '../../lib/domain-favicon'
-import { getInitials, getAvatarColor } from '../../lib/avatar'
+import { DomainFavicon } from '../ui/DomainFavicon'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
+import { formatAppTime } from '../../lib/app-locale'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment } from '../../lib/inbox-api'
@@ -45,14 +45,11 @@ type EventItemProps = {
   memberName?: string
 }
 
-export function formatHourMinute(iso: string | null): string {
+export function formatHourMinute(iso: string | null, language?: string | null): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatAppTime(date, language)
 }
 
 // Hover popover with contact details (name, email, phone) shown next to the
@@ -121,35 +118,9 @@ function ContactAvatar({
   phone?: string
   size?: number
 }) {
-  const [errored, setErrored] = useState(false)
-  const faviconUrl = useMemo(() => getDomainFaviconUrl(email, 64), [email])
-  const initials = getInitials(name || email || '?')
-  const { bg, text } = getAvatarColor(email || name || '?')
-  const borderRadius = Math.round(size * 0.3)
-
-  const avatarNode =
-    !faviconUrl || errored ? (
-      <span
-        style={{ width: size, height: size, borderRadius, background: bg, color: text, fontSize: Math.round(size * 0.36) }}
-        className="inline-flex items-center justify-center font-semibold shrink-0 select-none cursor-default"
-      >
-        {initials}
-      </span>
-    ) : (
-      <span
-        style={{ width: size, height: size, borderRadius }}
-        className="inline-flex items-center justify-center bg-bg border border-border/40 overflow-hidden shrink-0 cursor-default"
-      >
-        <img
-          src={faviconUrl}
-          alt={name || email}
-          onError={() => setErrored(true)}
-          width={Math.round(size * 0.7)}
-          height={Math.round(size * 0.7)}
-          className="object-contain"
-        />
-      </span>
-    )
+  const avatarNode = (
+    <DomainFavicon email={email} name={name} size={size} className="cursor-default" />
+  )
 
   const hasInfo = !!(name && name !== email) || !!email || !!phone
   if (!hasInfo) return avatarNode
@@ -974,7 +945,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
           {!isOwn ? (
             <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
           ) : null}
-          <span className="text-[10px] text-text-muted shrink-0">Internal note</span>
+          <span className="text-[10px] text-text-muted shrink-0">{t('timeline.internalNote')}</span>
           {noteEditControls}
         </div>
       )
@@ -984,7 +955,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1.5">
           <span className="truncate text-xs font-medium text-text-heading">
-            {agentName || 'AI agent'}
+            {agentName || t('timeline.aiAgent')}
           </span>
           <RoleChip kind="ai" />
         </div>
@@ -1003,14 +974,14 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     if (sendFailed) {
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
-          <span className="text-[10px] font-medium text-status-error">Not delivered</span>
+          <span className="text-[10px] font-medium text-status-error">{t('timeline.notDelivered')}</span>
         </div>
       )
     }
     if (message.sendStatus === 'scheduled') {
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
-          <span className="text-[10px] font-medium text-text-muted">Sending...</span>
+          <span className="text-[10px] font-medium text-text-muted">{t('timeline.sending')}</span>
         </div>
       )
     }

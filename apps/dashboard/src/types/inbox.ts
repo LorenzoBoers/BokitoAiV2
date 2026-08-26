@@ -4,6 +4,8 @@ export type MailboxStatus = 'connected' | 'syncing' | 'error' | 'token_expired' 
 
 export interface MailboxConnection {
   id: number;
+  /** ChannelAccount UUID backing this mailbox (agent bindings, visibility). */
+  channel_account_id?: string | null;
   provider: MailboxProvider;
   email_address: string;
   display_name: string;

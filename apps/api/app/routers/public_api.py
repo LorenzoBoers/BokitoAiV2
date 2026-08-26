@@ -13,7 +13,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +43,50 @@ def _require_scope(token: ApiToken, scope: str) -> None:
         raise HTTPException(
             status_code=403, detail=f"Token is missing the '{scope}' scope"
         )
+
+
+class SignalSummary(BaseModel):
+    """A conversation thread in the inbox."""
+
+    id: str = Field(description="Signal UUID.")
+    channel: str = Field(description="Origin channel, e.g. `email`, `chat`, `whatsapp`, `api`.")
+    source: str = Field(description="Producer of the signal, e.g. `public_api` or a connector name.")
+    subject: str = Field(description="Thread subject line.")
+    status: str = Field(description="One of `open`, `pending`, `closed`, `spam`.")
+    priority: str = Field(description="One of `low`, `normal`, `high`, `urgent`.")
+    contact_name: str = Field(description="Display name of the contact, if known.")
+    contact_email: str = Field(description="Email address of the contact, if known.")
+    tags: list[str] = Field(description="Free-form labels on the thread.")
+    created_at: str | None = Field(description="ISO 8601 creation timestamp.")
+    last_message_at: str | None = Field(description="ISO 8601 timestamp of the latest message.")
+
+
+class SignalListResponse(BaseModel):
+    """One page of signals, newest activity first."""
+
+    items: list[SignalSummary]
+    total: int = Field(description="Total signals matching the filters, ignoring paging.")
+    limit: int
+    offset: int
+
+
+class SignalMessageOut(BaseModel):
+    """A single message inside a signal thread."""
+
+    id: str = Field(description="Message UUID.")
+    kind: str = Field(description="Message kind, e.g. `user_message`, `agent_message`.")
+    direction: str = Field(description="`inbound` or `outbound`.")
+    role: str = Field(description="Author role, e.g. `user`, `assistant`, `operator`.")
+    from_address: str = Field(description="Sender address, when the channel has one.")
+    subject: str = Field(description="Message subject, when the channel has one.")
+    body_text: str = Field(description="Plain-text message body.")
+    created_at: str | None = Field(description="ISO 8601 creation timestamp.")
+
+
+class SignalDetail(SignalSummary):
+    """A signal plus its messages in chronological order (up to 200)."""
+
+    messages: list[SignalMessageOut]
 
 
 def _serialize_signal(signal: Signal) -> dict:
@@ -76,7 +120,12 @@ def _serialize_message(message: SignalMessage) -> dict:
     }
 
 
-@router.get("/signals", dependencies=[Depends(rate_limit("public-api", limit=120))])
+@router.get(
+    "/signals",
+    dependencies=[Depends(rate_limit("public-api", limit=120))],
+    response_model=SignalListResponse,
+    summary="List signals",
+)
 async def list_signals(
     token: Annotated[ApiToken, Depends(get_api_token)],
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -85,6 +134,13 @@ async def list_signals(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
+    """List conversation threads in the workspace inbox.
+
+    Requires the `signals:read` scope. Filter with `status` (`open`,
+    `pending`, `closed`, `spam`) and `channel` (for example `email`, `chat`,
+    `api`); page with `limit` and `offset`. Results are ordered by most
+    recent activity.
+    """
     _require_scope(token, "signals:read")
     query = select(Signal).where(Signal.tenant_id == token.tenant_id)
     count_query = select(func.count()).select_from(Signal).where(Signal.tenant_id == token.tenant_id)
@@ -108,12 +164,22 @@ async def list_signals(
     }
 
 
-@router.get("/signals/{signal_id}", dependencies=[Depends(rate_limit("public-api", limit=120))])
+@router.get(
+    "/signals/{signal_id}",
+    dependencies=[Depends(rate_limit("public-api", limit=120))],
+    response_model=SignalDetail,
+    summary="Get a signal with messages",
+)
 async def get_signal(
     signal_id: UUID,
     token: Annotated[ApiToken, Depends(get_api_token)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Fetch one signal plus up to 200 messages in chronological order.
+
+    Requires the `signals:read` scope. Returns `404` when the signal does
+    not exist in the token's workspace.
+    """
     _require_scope(token, "signals:read")
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == token.tenant_id)
@@ -134,21 +200,36 @@ async def get_signal(
 
 
 class SignalCreate(BaseModel):
-    subject: str
-    body: str
-    contact_name: str = ""
-    contact_email: str = ""
-    priority: str = "normal"
-    tags: list[str] = []
+    """Payload for creating an inbound signal from an external system."""
+
+    subject: str = Field(description="Thread subject, required, max 200 characters.")
+    body: str = Field(description="Plain-text message body, required.")
+    contact_name: str = Field(default="", description="Display name of the sender, optional.")
+    contact_email: str = Field(default="", description="Email address of the sender, optional.")
+    priority: str = Field(
+        default="normal", description="One of `low`, `normal`, `high`, `urgent`."
+    )
+    tags: list[str] = Field(default=[], description="Up to 10 labels, max 50 characters each.")
 
 
-@router.post("/signals", dependencies=[Depends(rate_limit("public-api-write", limit=30))])
+@router.post(
+    "/signals",
+    dependencies=[Depends(rate_limit("public-api-write", limit=30))],
+    response_model=SignalSummary,
+    summary="Create a signal",
+)
 async def create_signal(
     body: SignalCreate,
     token: Annotated[ApiToken, Depends(get_api_token)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Push an external event/message into the inbox as an API-channel signal."""
+    """Push an external event or message into the inbox as an `api`-channel signal.
+
+    Requires the `signals:write` scope. The signal enters the same flow as
+    customer mail: routing rules and agents pick it up, and a
+    `signal.created` webhook fires. Use this to route alerts, form
+    submissions or events from other systems into the inbox.
+    """
     _require_scope(token, "signals:write")
     subject = body.subject.strip()[:200]
     text = body.body.strip()

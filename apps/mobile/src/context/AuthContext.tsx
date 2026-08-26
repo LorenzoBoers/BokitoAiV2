@@ -1,17 +1,39 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { fetchMe, login as apiLogin, setAccessToken, type AuthUser } from '../lib/api'
+import {
+  fetchMe,
+  isTwoFactorChallenge,
+  login as apiLogin,
+  setAccessToken,
+  setOnUnauthorized,
+  switchWorkspace as apiSwitchWorkspace,
+  verifyTotp,
+  type AuthUser,
+  type LoginResponse,
+} from '../lib/api'
 import { gateway } from '../lib/gateway'
-import { clearToken, loadToken, saveToken } from '../lib/storage'
 import { registerForPush } from '../lib/push'
+import { clearToken, loadToken, saveLastEmail, saveToken } from '../lib/storage'
+
+export type SignInResult = { status: 'ok' } | { status: '2fa'; challengeToken: string }
 
 type AuthState = {
   user: AuthUser | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<SignInResult>
+  completeTwoFactor: (challengeToken: string, code: string) => Promise<void>
+  switchWorkspace: (tenantId: string) => Promise<void>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
+
+async function applySession(result: LoginResponse, setUser: (user: AuthUser) => void) {
+  setAccessToken(result.access_token)
+  await saveToken(result.access_token)
+  gateway.reset()
+  setUser(result.user)
+  void registerForPush()
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -44,13 +66,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string): Promise<SignInResult> => {
     const result = await apiLogin(email, password)
-    setAccessToken(result.access_token)
-    await saveToken(result.access_token)
-    gateway.reset()
-    setUser(result.user)
-    void registerForPush()
+    await saveLastEmail(email)
+    if (isTwoFactorChallenge(result)) {
+      return { status: '2fa', challengeToken: result.challenge_token }
+    }
+    await applySession(result, setUser)
+    return { status: 'ok' }
+  }, [])
+
+  const completeTwoFactor = useCallback(async (challengeToken: string, code: string) => {
+    const result = await verifyTotp(challengeToken, code)
+    await applySession(result, setUser)
+  }, [])
+
+  const switchWorkspace = useCallback(async (tenantId: string) => {
+    const result = await apiSwitchWorkspace(tenantId)
+    await applySession(result, setUser)
   }, [])
 
   const signOut = useCallback(async () => {
@@ -60,8 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      void signOut()
+    })
+    return () => setOnUnauthorized(null)
+  }, [signOut])
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, signIn, completeTwoFactor, switchWorkspace, signOut }}>
+      {children}
+    </AuthContext.Provider>
   )
 }
 

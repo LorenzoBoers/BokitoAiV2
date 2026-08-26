@@ -23,7 +23,12 @@ import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import { agentRuntimeStatusLabel, threadStatusLabel, workLogStatusLabel } from '../../lib/status-labels'
 import { humanizeLabel } from '../../lib/labels'
-import { agentChatPath, agentRunsPath, inboxPath } from '../../lib/messages-paths'
+import { agentRoleLabel } from '../../lib/agent-role-label'
+import { formatAgentModelLine } from '../../lib/model-label'
+import { agentChatPath, agentRunsPath } from '../../lib/messages-paths'
+import { threadHubPath } from '../../lib/message-composer'
+import { translateDecisionText } from '../../lib/activity-labels'
+import { permissionScopeLabel } from '../../lib/permission-scope-label'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ThreadProjectPicker } from './ThreadProjectPicker'
 
@@ -181,7 +186,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
 
   const model = agent?.model ?? null
   const provider = agent?.provider ?? null
-  const role = agent?.role_name || agent?.role_slug || 'Agent'
+  const role = agentRoleLabel(agent?.role_name || agent?.role_slug, t)
   const status = agent?.status ?? passport?.runtime_status ?? null
 
   return (
@@ -222,7 +227,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
               </span>
               {status ? (
                 <span
-                  className={`mt-1 inline-flex items-center text-[10px] font-semibold capitalize ${
+                  className={`mt-1 inline-flex items-center text-[10px] font-semibold ${
                     STATUS_CLASS[status] ?? 'text-text-muted'
                   }`}
                 >
@@ -266,18 +271,12 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             <Link to="/settings/integrations" className="font-medium text-accent hover:underline">
               {t('agentContext.openIntegrations')}
             </Link>
-            <Link to={`/agents/${agentId}`} className="font-medium text-accent hover:underline">
-              {t('agentContext.openAgent')}
-            </Link>
           </div>
         ) : null}
         {model ? (
           <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-text-secondary">
             <Cpu size={12} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 truncate">
-              {model}
-              {provider ? <span className="text-text-muted"> ({provider})</span> : null}
-            </span>
+            <span className="min-w-0 truncate">{formatAgentModelLine(model, provider, t)}</span>
           </p>
         ) : null}
       </div>
@@ -377,9 +376,9 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
           {scopes.map((scope) => (
             <span
               key={scope}
-              className="rounded-md bg-bg-elevated px-1.5 py-px font-mono text-[10.5px] text-text-secondary"
+              className="rounded-md bg-bg-elevated px-1.5 py-px text-[10.5px] text-text-secondary"
             >
-              {scope}
+              {permissionScopeLabel(scope, t)}
             </span>
           ))}
         </div>
@@ -423,13 +422,13 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             {recent.slice(0, 8).map((thread) => (
               <Link
                 key={String(thread.id)}
-                to={thread.folder === 'internal' ? agentRunsPath('all', String(thread.id)) : inboxPath('all', String(thread.id))}
+                to={threadHubPath(thread)}
                 className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
                 <MessageSquare size={12} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[12px] font-medium text-text-primary">
-                    {thread.emailSubject || t('listItem.noSubject')}
+                    {translateDecisionText(thread.emailSubject, t) || t('listItem.noSubject')}
                   </span>
                   <span className="block truncate text-[10.5px] text-text-muted">
                     {threadStatusLabel(thread.status, t)}

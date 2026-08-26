@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe, Paintbrush, ArrowRight, Shield } from 'lucide-react';
+import { Globe, Paintbrush, ArrowRight, Shield, ListChecks, Mail, Bot } from 'lucide-react';
 import { Switch } from '../components/ui/switch';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -15,7 +15,7 @@ import { SettingsSection } from '../components/layout/SettingsSection';
 import { persistUiLanguage } from '../lib/language-preference';
 
 export default function WorkspaceSettings() {
-  const { t, i18n } = useTranslation(['workspace', 'common']);
+  const { t, i18n } = useTranslation(['workspace', 'common', 'nav']);
   const { user, token } = useAuth();
   const { currentWorkspace, updateWorkspace, deleteWorkspace } = useWorkspace();
   const canManageWorkspace = usePermission('delete_workspace') || usePermission('invite_members');
@@ -96,6 +96,43 @@ export default function WorkspaceSettings() {
       <p className="text-sm text-text-secondary">
         {t('description')}
       </p>
+
+      <div className="rounded-xl border border-border/60 bg-bg-elevated/40 p-4">
+        <p className="text-sm font-medium text-text-heading">{t('startHereTitle')}</p>
+        <p className="mt-1 text-sm text-text-secondary">{t('startHereBody')}</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <Link
+            to="/settings/setup"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+          >
+            <ListChecks size={14} className="shrink-0 text-accent" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-text-heading">{t('startHereSetup')}</span>
+              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.setupGuide')}</span>
+            </span>
+          </Link>
+          <Link
+            to="/settings/channels"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+          >
+            <Mail size={14} className="shrink-0 text-accent" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-text-heading">{t('startHereEmail')}</span>
+              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.emailMessages')}</span>
+            </span>
+          </Link>
+          <Link
+            to="/settings/communication"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+          >
+            <Bot size={14} className="shrink-0 text-accent" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-text-heading">{t('startHereInboxAi')}</span>
+              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.inboxAi')}</span>
+            </span>
+          </Link>
+        </div>
+      </div>
 
       <SettingsSection
         title={t('generalTitle')}

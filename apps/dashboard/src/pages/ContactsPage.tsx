@@ -19,6 +19,8 @@ import {
   X,
 } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { ChannelGlyph, ChannelLabel, channelKind } from '../components/ui/ChannelGlyph'
+import { DomainFavicon } from '../components/ui/DomainFavicon'
 import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
@@ -29,8 +31,10 @@ import {
   deleteCompany,
   deleteContact,
   getCompany,
+  enrichContactsFromThreads,
+  findThreadsForContact,
   getContact,
-  getContactThreads,
+  latestThreadActivityAt,
   listCompanies,
   listContacts,
   updateCompany,
@@ -41,8 +45,11 @@ import {
   type ContactStatus,
 } from '../lib/contacts-api'
 import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
+import { humanizeContactName, isPlaceholderContactAddress } from '../lib/contact-label'
 import { inboxPath } from '../lib/messages-paths'
+import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
 import type { InboxThread } from '../lib/inbox-api'
+import { listSignalThreads } from '../lib/signals-api'
 
 const STATUS_STYLE: Record<ContactStatus, string> = {
   approved: 'bg-status-success/15 text-status-success',
@@ -76,12 +83,8 @@ function ContactDetail({ contactId }: { contactId: string }) {
     if (!token) return
     setLoading(true)
     try {
-      const [row, history] = await Promise.all([
-        getContact(token, contactId),
-        getContactThreads(token, contactId),
-      ])
+      const row = await getContact(token, contactId)
       setContact(row)
-      setThreads(history)
       if (row) {
         setDraft({
           displayName: row.displayName,
@@ -92,6 +95,15 @@ function ContactDetail({ contactId }: { contactId: string }) {
         })
       }
       setDirty(false)
+      if (!row) {
+        setThreads([])
+      } else {
+        try {
+          setThreads(await findThreadsForContact(token, row))
+        } catch {
+          setThreads([])
+        }
+      }
     } catch (err) {
       setContact(null)
       setThreads([])
@@ -173,16 +185,27 @@ function ContactDetail({ contactId }: { contactId: string }) {
     return (
       <div className="pt-10 text-center">
         <p className="text-sm text-text-muted">{t('contactsPage.contactNotFound')}</p>
-        <button
-          type="button"
-          onClick={() => navigate('/contacts')}
-          className="mt-3 text-sm font-medium text-accent hover:underline"
-        >
-          {t('contactsPage.backToContacts')}
-        </button>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            {t('contactsPage.tryAgain')}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/contacts')}
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            {t('contactsPage.backToContacts')}
+          </button>
+        </div>
       </div>
     )
   }
+
+  const lastSeenAt = contact.lastSeenAt || latestThreadActivityAt(threads)
 
   const field = (label: string, key: keyof typeof draft, placeholder: string) => (
     <label className="block">
@@ -203,7 +226,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
     <PageContent width="xl">
       <ContentHeader
         title={contact.displayName || contact.address || t('contactsPage.newContact')}
-        subtitle={[contact.title, contact.company].filter(Boolean).join(' - ') || t(`contactsPage.channels.${contact.channel}`, { defaultValue: contact.channel })}
+        subtitle={[contact.title, contact.company].filter(Boolean).join(' - ') || t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
         meta={
           <>
             <Link
@@ -213,6 +236,16 @@ function ContactDetail({ contactId }: { contactId: string }) {
               <ArrowLeft size={12} />
               {t('contactsPage.allContacts')}
             </Link>
+            {canComposeToAddress(contact.channel, contact.address) ? (
+              <Link
+                to={composeEmailPath({ to: contact.address })}
+                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+                title={t('contactsPage.writeEmailHint')}
+              >
+                <Mail size={12} />
+                {t('contactsPage.writeEmail')}
+              </Link>
+            ) : null}
             {contact.status !== 'approved' ? (
               <button
                 type="button"
@@ -250,8 +283,15 @@ function ContactDetail({ contactId }: { contactId: string }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex min-w-0 items-center gap-2.5">
+              <DomainFavicon
+                email={contact.address}
+                name={contact.displayName || contact.address}
+                size={32}
+              />
+              <h2 className="truncate text-[14px] font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
+            </span>
             <span
               className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_STYLE[contact.status]}`}
             >
@@ -260,11 +300,22 @@ function ContactDetail({ contactId }: { contactId: string }) {
           </div>
           <div className="mt-3 space-y-3">
             <p className="flex items-center gap-2 text-[12.5px] text-text-secondary">
-              <Mail size={13} className="text-text-muted" />
-              {contact.address || t('contactsPage.noAddress')}
+              <ChannelGlyph channel={contact.channel} size={13} />
+              {isPlaceholderContactAddress(contact.address)
+                ? t('contactsPage.widgetVisitor')
+                : contact.address || t('contactsPage.noAddress')}
               <span className="ml-auto text-[11px] text-text-muted">
-                {t(`contactsPage.channels.${contact.channel}`, { defaultValue: contact.channel })}
+                <ChannelLabel
+                  channel={contact.channel}
+                  label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
+                  size={11}
+                />
               </span>
+            </p>
+            <p className="text-[11px] text-text-muted">
+              {lastSeenAt
+                ? t('contactsPage.lastSeen', { time: timeAgo(lastSeenAt, t) })
+                : t('contactsPage.neverSeen')}
             </p>
             {field(t('contactsPage.fieldName'), 'displayName', t('contactsPage.namePlaceholderFull'))}
             <div className="grid grid-cols-2 gap-3">
@@ -279,7 +330,21 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 <Building2 size={12} />
                 {t('contactsPage.viewCompany')}
               </Link>
-            ) : null}
+            ) : (
+              <div className="space-y-1">
+                <p className="text-[11px] text-text-muted">{t('contactsPage.noCompanyHint')}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <Link
+                    to="/contacts?view=companies"
+                    className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
+                  >
+                    <Building2 size={12} />
+                    {t('contactsPage.viewCompanies')}
+                  </Link>
+                  <span className="text-[11px] text-text-muted">{t('contactsPage.linkContactsHint')}</span>
+                </div>
+              </div>
+            )}
             {field(t('contactsPage.fieldPhone'), 'phone', t('contactsPage.phonePlaceholder'))}
             <label className="block">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t('contactsPage.notes')}</span>
@@ -319,14 +384,23 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 <p className="text-[12px] text-text-muted">{t('contactsPage.noConversations')}</p>
                 <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noConversationsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                  {canComposeToAddress(contact.channel, contact.address) ? (
+                    <Link
+                      to={composeEmailPath({ to: contact.address })}
+                      className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                    >
+                      {t('contactsPage.writeEmail')}
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/settings/channels"
+                      className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
+                    >
+                      {t('contactsPage.connectChannels')}
+                    </Link>
+                  )}
                   <Link
-                    to="/settings/channels"
-                    className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
-                  >
-                    {t('contactsPage.connectChannels')}
-                  </Link>
-                  <Link
-                    to={inboxPath('all')}
+                    to={inboxPath('open')}
                     className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.openCommunication')}
@@ -337,7 +411,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
               threads.map((thread) => (
                 <Link
                   key={String(thread.id)}
-                  to={inboxPath('all', String(thread.id))}
+                  to={inboxPath('open', String(thread.id))}
                   className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <MessageSquare size={13} className="shrink-0 text-text-muted" />
@@ -490,7 +564,10 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
-          <h2 className="text-[14px] font-semibold text-text-heading">{t('contactsPage.companySection')}</h2>
+          <h2 className="flex items-center gap-2.5 text-[14px] font-semibold text-text-heading">
+            <DomainFavicon host={company.domain} name={company.name || company.domain} size={28} />
+            {t('contactsPage.companySection')}
+          </h2>
           <div className="mt-3 space-y-3">
             {field(t('contactsPage.fieldName'), 'name', t('contactsPage.companyNamePlaceholder'))}
             {field(t('contactsPage.colWebsite'), 'website', t('contactsPage.websitePlaceholder'))}
@@ -548,12 +625,15 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                   to={`/contacts/${c.id}`}
                   className="flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
-                  <UserRound size={13} className="shrink-0 text-text-muted" />
+                  <DomainFavicon email={c.address} name={c.displayName || c.address} size={24} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12.5px] font-medium text-text-primary">
-                      {c.displayName || c.address}
+                      {humanizeContactName(c.displayName, c.address, t('contactsPage.widgetVisitor')) ||
+                        c.address}
                     </span>
-                    <span className="block truncate text-[11px] text-text-muted">{c.address}</span>
+                    <span className="block truncate text-[11px] text-text-muted">
+                      {isPlaceholderContactAddress(c.address) ? t('contactsPage.widgetVisitor') : c.address}
+                    </span>
                   </span>
                 </Link>
               ))
@@ -577,7 +657,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                     {t('contactsPage.connectChannels')}
                   </Link>
                   <Link
-                    to={inboxPath('all')}
+                    to={inboxPath('open')}
                     className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.openCommunication')}
@@ -588,7 +668,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
               company.threads.map((thread) => (
                 <Link
                   key={String(thread.id)}
-                  to={inboxPath('all', String(thread.id))}
+                  to={inboxPath('open', String(thread.id))}
                   className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <MessageSquare size={13} className="shrink-0 text-text-muted" />
@@ -637,7 +717,7 @@ export default function ContactsPage() {
   const [listError, setListError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
-  const [createOpen, setCreateOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
   const [createDraft, setCreateDraft] = useState({ address: '', displayName: '', company: '' })
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -660,6 +740,14 @@ export default function ContactsPage() {
     setView((current) => (current === fromUrl ? current : fromUrl))
   }, [searchParams, companyId])
 
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return
+    setCreateOpen(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('new')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
   const load = useCallback(async () => {
     if (!token) return
     setLoading(true)
@@ -671,11 +759,14 @@ export default function ContactsPage() {
         })
         setCompanies(rows)
       } else {
-        const rows = await listContacts(token, {
-          ...(search.trim() ? { search: search.trim() } : {}),
-          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
-        })
-        setContacts(rows)
+        const [rows, inbox] = await Promise.all([
+          listContacts(token, {
+            ...(search.trim() ? { search: search.trim() } : {}),
+            ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          }),
+          listSignalThreads(token, { perPage: 80 }).catch(() => ({ items: [] as InboxThread[] })),
+        ])
+        setContacts(enrichContactsFromThreads(rows, inbox.items))
       }
     } catch (err) {
       setContacts([])
@@ -932,7 +1023,13 @@ export default function ContactsPage() {
                   {backfilling ? t('contactsPage.linking') : t('contactsPage.linkContacts')}
                 </button>
                 <Link
-                  to={inboxPath('all')}
+                  to="/contacts"
+                  className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('contactsPage.openPeople')}
+                </Link>
+                <Link
+                  to={inboxPath('open')}
                   className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                 >
                   {t('contactsPage.openCommunication')}
@@ -960,9 +1057,7 @@ export default function ContactsPage() {
                   >
                     <td className="px-4 py-2.5">
                       <span className="flex items-center gap-2.5">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent">
-                          <Building2 size={13} />
-                        </span>
+                        <DomainFavicon host={company.domain} name={company.name || company.domain} size={28} />
                         <span className="truncate text-[13px] font-medium text-text-primary">
                           {company.name || company.domain}
                         </span>
@@ -1014,6 +1109,13 @@ export default function ContactsPage() {
               >
                 {t('contactsPage.openSetup')}
               </Link>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('contactsPage.addManually')}
+              </button>
             </div>
           )}
         </div>
@@ -1035,23 +1137,55 @@ export default function ContactsPage() {
                 <tr
                   key={contact.id}
                   onClick={() => navigate(`/contacts/${contact.id}`)}
-                  className="cursor-pointer border-b border-border/40 transition-colors last:border-b-0 hover:bg-bg-hover/45"
+                  className="group cursor-pointer border-b border-border/40 transition-colors last:border-b-0 hover:bg-bg-hover/45"
                 >
                   <td className="px-4 py-2.5">
                     <span className="flex items-center gap-2.5">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-[11.5px] font-semibold text-accent">
-                        {(contact.displayName || contact.address || '?').slice(0, 1).toUpperCase()}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-medium text-text-primary">
-                          {contact.displayName || contact.address || t('contactsPage.noAddress')}
+                      <Link
+                        to={`/contacts/${contact.id}`}
+                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <DomainFavicon
+                          email={contact.address}
+                          name={contact.displayName || contact.address}
+                          size={28}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium text-text-primary">
+                            {humanizeContactName(
+                              contact.displayName,
+                              contact.address,
+                              t('contactsPage.widgetVisitor'),
+                            ) ||
+                              contact.address ||
+                              t('contactsPage.noAddress')}
+                          </span>
+                          <span className="block truncate text-[11px] text-text-muted">
+                            {isPlaceholderContactAddress(contact.address)
+                              ? t('contactsPage.widgetVisitor')
+                              : contact.address}
+                          </span>
                         </span>
-                        <span className="block truncate text-[11px] text-text-muted">{contact.address}</span>
-                      </span>
+                      </Link>
+                      {canComposeToAddress(contact.channel, contact.address) ? (
+                        <Link
+                          to={composeEmailPath({ to: contact.address })}
+                          onClick={(event) => event.stopPropagation()}
+                          title={t('contactsPage.writeEmail')}
+                          aria-label={t('contactsPage.writeEmail')}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted opacity-0 transition-opacity hover:bg-accent/10 hover:text-accent group-hover:opacity-100 focus-visible:opacity-100"
+                        >
+                          <Mail size={13} />
+                        </Link>
+                      ) : null}
                     </span>
                   </td>
                   <td className="hidden px-4 py-2.5 text-[12.5px] text-text-secondary sm:table-cell">
-                    {t(`contactsPage.channels.${contact.channel}`, { defaultValue: contact.channel })}
+                    <ChannelLabel
+                      channel={contact.channel}
+                      label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
+                    />
                   </td>
                   <td className="hidden px-4 py-2.5 md:table-cell">
                     {contact.company ? (
@@ -1075,9 +1209,9 @@ export default function ContactsPage() {
                           event.stopPropagation()
                           if (!token) return
                           try {
-                            const history = await getContactThreads(token, contact.id)
+                            const history = await findThreadsForContact(token, contact)
                             const latest = history[0]
-                            navigate(latest ? inboxPath('all', String(latest.id)) : `/contacts/${contact.id}`)
+                            navigate(latest ? inboxPath('open', String(latest.id)) : `/contacts/${contact.id}`)
                           } catch {
                             navigate(`/contacts/${contact.id}`)
                           }
@@ -1085,8 +1219,17 @@ export default function ContactsPage() {
                       >
                         {contact.threadCount}
                       </button>
+                    ) : canComposeToAddress(contact.channel, contact.address) ? (
+                      <Link
+                        to={composeEmailPath({ to: contact.address })}
+                        onClick={(event) => event.stopPropagation()}
+                        className="text-accent hover:underline"
+                        title={t('contactsPage.writeEmailHint')}
+                      >
+                        {t('contactsPage.writeEmail')}
+                      </Link>
                     ) : (
-                      contact.threadCount
+                      <span className="text-text-muted">{t('contactsPage.neverSeen')}</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-right">

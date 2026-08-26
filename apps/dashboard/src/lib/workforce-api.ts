@@ -88,6 +88,8 @@ export interface RuntimeAgent {
   email_signature_html?: string
   chat_access?: 'everyone' | 'selected' | 'nobody'
   kind?: 'company' | 'personal'
+  /** Exactly one company agent per workspace carries the lead label. */
+  is_lead?: boolean
   current_session_id: string | null
   current_activity_id: string | null
   current_activity_summary: string | null
@@ -317,6 +319,18 @@ export async function updateAgentStatus(
     credentials: 'include',
     headers: buildHeaders(token),
     body: JSON.stringify({ status }),
+  })
+  return readResponse<{ ok: boolean; agent: RuntimeAgent }>(res)
+}
+
+export async function setLeadAgent(
+  token: string | undefined,
+  agentId: string,
+): Promise<{ ok: boolean; agent: RuntimeAgent }> {
+  const res = await fetch(`${AGENT_RUNTIME_API_BASE}${workforceRoutes.agents.lead(agentId)}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: buildHeaders(token),
   })
   return readResponse<{ ok: boolean; agent: RuntimeAgent }>(res)
 }

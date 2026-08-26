@@ -15,6 +15,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
@@ -34,7 +35,9 @@ import {
   MESSENGER_MODULE_KEYS,
   appearanceToBrandingJson,
   messengerAppearanceEquals,
+  resolveWidgetName,
   serializeAppearanceForWidgetPreview,
+  welcomeDefaultsForLocale,
   type MessengerAppearance,
 } from '../lib/messenger-appearance'
 import {
@@ -45,12 +48,16 @@ import {
   type AssistantSection,
 } from '../lib/assistant-settings-path'
 import {
+  getAiCommunicationSettings,
   getWidgetSettings,
   saveWidgetSettings,
   type WidgetSettings,
 } from '../lib/inbox-api'
+import { listAgents } from '../lib/agents-api'
+import AgentBindingPicker from '../components/settings/AgentBindingPicker'
 import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
+import { inboxPath } from '../lib/messages-paths'
 import { toast } from 'sonner'
 
 type CustomizationPanel = 'content' | 'styling'
@@ -172,7 +179,7 @@ function MessengerSettingsContent({
   audience: AssistantAudience
   section: AssistantSection
 }) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const navigate = useNavigate()
   const { currentWorkspace, refreshWorkspaces } = useWorkspace()
   const { token } = useAuth()
@@ -199,6 +206,16 @@ function MessengerSettingsContent({
 
   const [widgetBehaviour, setWidgetBehaviour] = useState<WidgetSettings | null>(null)
   const [widgetBehaviourSaving, setWidgetBehaviourSaving] = useState(false)
+
+  // Placeholders mirror what the widget really shows when a field is empty:
+  // assistant/tenant name and localized welcome defaults in the team language.
+  const [assistantName, setAssistantName] = useState('')
+  const [workspaceLanguage, setWorkspaceLanguage] = useState('en')
+  const resolvedWidgetName = resolveWidgetName({
+    assistantName,
+    tenantName: currentWorkspace?.name ?? '',
+  })
+  const welcomeDefaults = welcomeDefaultsForLocale(workspaceLanguage)
 
   const previewPanelActive = section === 'customization' || section === 'installation'
 
@@ -292,6 +309,23 @@ function MessengerSettingsContent({
       })
   }, [token])
 
+  useEffect(() => {
+    if (!token) return
+    listAgents()
+      .then((agents) => {
+        const assistant = agents.find((a) => a.role_slug === 'assistant')
+        setAssistantName(assistant?.name ?? '')
+      })
+      .catch(() => {
+        // tenant name remains the placeholder fallback
+      })
+    getAiCommunicationSettings(token)
+      .then((settings) => setWorkspaceLanguage(settings.workspaceLanguage))
+      .catch(() => {
+        // English welcome defaults remain
+      })
+  }, [token])
+
   const handleSaveWidgetBehaviour = useCallback(async () => {
     if (!token || !widgetBehaviour) return
     setWidgetBehaviourSaving(true)
@@ -350,6 +384,7 @@ function MessengerSettingsContent({
         if (currentWorkspace?.slug) el.dataset.tenant = currentWorkspace.slug
         el.dataset.previewMode = 'true'
         el.dataset.previewOverrides = previewOverridesJson
+        el.dataset.locale = (i18n.language || 'en').slice(0, 2)
         el.setAttribute('data-theme', previewThemeRef.current)
         previewHostRef.current.appendChild(el)
         previewWidgetRef.current = el
@@ -363,7 +398,7 @@ function MessengerSettingsContent({
       previewWidgetRef.current = null
       el?.remove()
     }
-  }, [token, previewPanelActive, currentWorkspace?.slug])
+  }, [token, previewPanelActive, currentWorkspace?.slug, i18n.language])
 
   useEffect(() => {
     const w = previewWidgetRef.current
@@ -486,6 +521,7 @@ function MessengerSettingsContent({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
+      <PageGuideBanner page="widget" className="mb-4" />
       <div className="flex flex-col gap-3 border-b border-border/60 pb-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
           <h2 className="shrink-0 text-[17px] font-semibold leading-none text-text-heading">{t('messengerPage.title')}</h2>
@@ -584,7 +620,15 @@ function MessengerSettingsContent({
                             className="mt-2"
                             value={draft.chatbot_name}
                             onChange={(e) => patchDraft({ chatbot_name: e.target.value })}
-                            placeholder={t('messengerPage.displayNamePlaceholder')}
+                            placeholder={resolvedWidgetName || t('messengerPage.displayNamePlaceholder')}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-text-heading">{t('messengerPage.handlingAgent')}</p>
+                          <p className="mt-0.5 text-xs text-text-muted">{t('messengerPage.handlingAgentHint')}</p>
+                          <AgentBindingPicker
+                            channel="widget"
+                            className="mt-2 h-9 w-full max-w-sm rounded-md border border-border/60 bg-bg-elevated px-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
                           />
                         </div>
                         <div>
@@ -593,7 +637,7 @@ function MessengerSettingsContent({
                             className="mt-2"
                             value={draft.welcome_title}
                             onChange={(e) => patchDraft({ welcome_title: e.target.value })}
-                            placeholder={t('messengerPage.welcomeHeadingPlaceholder')}
+                            placeholder={welcomeDefaults.title}
                           />
                         </div>
                         <div>
@@ -602,7 +646,7 @@ function MessengerSettingsContent({
                             className="mt-2"
                             value={draft.welcome_subtitle}
                             onChange={(e) => patchDraft({ welcome_subtitle: e.target.value })}
-                            placeholder={t('messengerPage.welcomeSubtitlePlaceholder')}
+                            placeholder={welcomeDefaults.subtitle}
                           />
                         </div>
                       </div>
@@ -889,7 +933,7 @@ function MessengerSettingsContent({
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border/60 px-4 py-3">
                     <Link
-                      to="/communication/inbox/all"
+                      to={inboxPath('open')}
                       className="text-[12px] font-medium text-accent hover:underline"
                     >
                       {t('messengerPage.openCommunication')}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, MessageCircle, Trash2 } from 'lucide-react'
+import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -15,6 +15,9 @@ import {
   type WhatsAppSetupInfo,
 } from '../../lib/channel-accounts-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import AgentBindingPicker from '../settings/AgentBindingPicker'
+import ChannelVisibilityPicker from '../settings/ChannelVisibilityPicker'
+import { BrandMark, BrandTile } from '../integrations/BrandMark'
 
 /**
  * Connect a WhatsApp Business number (Cloud API) so customer messages land in
@@ -124,10 +127,11 @@ export default function WhatsAppConnectCard() {
     <SettingsSection
       title={t('whatsappCard.title')}
       description={t('whatsappCard.description')}
+      icon={<BrandTile slug="whatsapp" />}
       actions={
         accounts.length === 0 && !formOpen ? (
           <Button variant="secondary" size="sm" onClick={() => setFormOpen(true)}>
-            <MessageCircle size={14} className="mr-1.5" aria-hidden />
+            <BrandMark slug="whatsapp" className="mr-1.5" />
             {t('whatsappCard.connect')}
           </Button>
         ) : null
@@ -146,7 +150,7 @@ export default function WhatsAppConnectCard() {
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <MessageCircle size={14} className="shrink-0 text-text-muted" aria-hidden />
+              <BrandMark slug="whatsapp" />
               <span className="truncate text-sm font-medium text-text-primary">
                 {account.displayName || t('whatsappCard.numberFallback')}
               </span>
@@ -157,6 +161,11 @@ export default function WhatsAppConnectCard() {
             <p className="mt-0.5 text-xs text-text-muted">
               {t('whatsappCard.phoneNumberId')}: <code className="text-[11px]">{account.address}</code>
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-text-muted">{t('bindingPicker.ariaLabel')}</span>
+              <AgentBindingPicker channel="whatsapp" channelAccountId={account.id} />
+              <ChannelVisibilityPicker accountId={account.id} visibility={account.visibility} />
+            </div>
             {connectedAccountId === account.id ? (
               <div className="mt-2 space-y-1 text-xs text-text-muted">
                 <p>{t('whatsappCard.finishSetup')}</p>

@@ -14,6 +14,7 @@ from app.dependencies import AuthContext, get_current_auth, require_verified_ema
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
 from app.services import signal_threads as svc
+from app.services.channel_visibility import visible_channel_account_ids
 from app.services.interpretation import triage_signal
 from app.services.signals import create_inbound_signal, serialize_signal
 
@@ -341,6 +342,9 @@ async def badge_counts(
         auth.tenant.id,
         auth.user.id,
         include_agents_attention=auth.is_staff or auth.role in ("owner", "admin"),
+        visible_account_ids=await visible_channel_account_ids(
+            session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+        ),
     )
 
 
@@ -378,6 +382,9 @@ async def list_signal_threads(
         agent_id=agent_id,
         page=page,
         per_page=per_page,
+        visible_account_ids=await visible_channel_account_ids(
+            session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+        ),
     )
 
 
@@ -387,7 +394,15 @@ async def get_signal(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    detail = await svc.get_thread(session, auth.tenant.id, auth.user.id, signal_id)
+    detail = await svc.get_thread(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        signal_id,
+        visible_account_ids=await visible_channel_account_ids(
+            session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+        ),
+    )
     if not detail:
         raise HTTPException(status_code=404, detail="Signal not found")
     return detail

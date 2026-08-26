@@ -21,8 +21,12 @@ DEFAULT_MARKUP = 1.3
 # slug, provider, kind, model_id, display_name, ctx, in_cents/Mtok, out_cents/Mtok,
 # tools, vision, default_chat, default_embedding, sort
 DEFAULT_MODELS: list[tuple] = [
+    # Bokito AI is the platform's own virtual model: it has no model_id of its
+    # own; resolution routes it to a real backing model (see bokito_models.py).
+    ("bokito-ai-3-1", "bokito", "chat", "", "Bokito AI 3.1",
+     200000, 300, 1500, True, True, True, False, 5),
     ("claude-sonnet-4-6", "anthropic", "chat", "claude-sonnet-4-6", "Claude Sonnet 4.6",
-     200000, 300, 1500, True, True, True, False, 10),
+     200000, 300, 1500, True, True, False, False, 10),
     ("claude-haiku-4-5", "anthropic", "chat", "claude-haiku-4-5-20251001", "Claude Haiku 4.5",
      200000, 100, 500, True, True, False, False, 20),
     ("claude-opus-4-8", "anthropic", "chat", "claude-opus-4-8", "Claude Opus 4.8",
@@ -76,6 +80,70 @@ async def refresh_catalog_model_ids(session: AsyncSession) -> None:
         await session.commit()
 
 
+BOKITO_MODEL_SLUG = "bokito-ai-3-1"
+
+
+async def _promote_bokito_default_chat(session: AsyncSession) -> None:
+    """Existing databases seeded before the Bokito model default to it now.
+
+    Seeding is non-destructive, so flipping ``is_default_chat`` in
+    ``DEFAULT_MODELS`` alone would leave old rows (e.g. Claude Sonnet) as the
+    default. Tenants run on the Bokito virtual model unless staff changes it.
+    """
+    result = await session.execute(
+        select(ModelCatalog).where(ModelCatalog.slug == BOKITO_MODEL_SLUG)
+    )
+    bokito = result.scalar_one_or_none()
+    if not bokito:
+        return
+    changed = False
+    if not bokito.is_default_chat:
+        bokito.is_default_chat = True
+        changed = True
+    others = await session.execute(
+        select(ModelCatalog).where(
+            ModelCatalog.kind == "chat",
+            ModelCatalog.is_default_chat.is_(True),
+            ModelCatalog.slug != BOKITO_MODEL_SLUG,
+        )
+    )
+    for row in others.scalars().all():
+        row.is_default_chat = False
+        changed = True
+    if changed:
+        await session.commit()
+
+
+# Legacy agent/profile model values -> current slugs. Retired snapshot ids were
+# never a deliberate tenant choice, so they move to the Bokito virtual model
+# (platform default); explicit current slugs (e.g. claude-sonnet-4-6) stay.
+LEGACY_AGENT_MODEL_REFRESH: dict[str, str] = {
+    "claude-sonnet-4-20250514": BOKITO_MODEL_SLUG,
+    "claude-sonnet-4": BOKITO_MODEL_SLUG,
+    "claude-haiku-4-20250514": "claude-haiku-4-5",
+    "claude-haiku-4": "claude-haiku-4-5",
+}
+
+
+async def _refresh_legacy_agent_models(session: AsyncSession) -> None:
+    """Move agents and runtime profiles off retired model ids at startup."""
+    from sqlalchemy import update
+
+    from app.models.agent import Agent
+    from app.models.orchestration import RuntimeProfile
+
+    changed = False
+    for legacy, current in LEGACY_AGENT_MODEL_REFRESH.items():
+        for table in (Agent, RuntimeProfile):
+            result = await session.execute(
+                update(table).where(table.model == legacy).values(model=current)
+            )
+            if result.rowcount:
+                changed = True
+    if changed:
+        await session.commit()
+
+
 async def seed_model_catalog(session: AsyncSession) -> None:
     """Insert any default catalog rows that don't yet exist (non-destructive)."""
     existing = await session.execute(select(ModelCatalog.slug))
@@ -108,6 +176,8 @@ async def seed_model_catalog(session: AsyncSession) -> None:
     if added:
         await session.commit()
     await refresh_catalog_model_ids(session)
+    await _promote_bokito_default_chat(session)
+    await _refresh_legacy_agent_models(session)
 
 
 async def list_models(

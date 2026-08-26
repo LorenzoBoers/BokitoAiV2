@@ -18,6 +18,8 @@ export type GatewayEvent = {
 }
 
 export type GatewayHandler = (event: GatewayEvent) => void
+export type GatewayStatus = 'connected' | 'connecting' | 'disconnected'
+export type GatewayStatusHandler = (status: GatewayStatus) => void
 
 const PING_INTERVAL_MS = 30_000
 const RECONNECT_MIN_MS = 1_000
@@ -31,6 +33,32 @@ class GatewayClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private closedByUser = false
+  private statusHandlers = new Set<GatewayStatusHandler>()
+  private status: GatewayStatus = 'disconnected'
+
+  onStatus(handler: GatewayStatusHandler): () => void {
+    this.statusHandlers.add(handler)
+    handler(this.status)
+    return () => {
+      this.statusHandlers.delete(handler)
+    }
+  }
+
+  getStatus(): GatewayStatus {
+    return this.status
+  }
+
+  private setStatus(next: GatewayStatus): void {
+    if (this.status === next) return
+    this.status = next
+    for (const handler of this.statusHandlers) {
+      try {
+        handler(next)
+      } catch {
+        // status handler errors must not break the socket loop
+      }
+    }
+  }
 
   subscribe(topic: string, handler: GatewayHandler): () => void {
     let set = this.handlers.get(topic)
@@ -61,12 +89,14 @@ class GatewayClient {
     this.ws?.close()
     this.ws = null
     this.sentTopics.clear()
+    this.setStatus('disconnected')
   }
 
   reset() {
-    // Called after login/logout so the next subscribe reconnects with the new token.
+    // Called after login/logout so existing subscribers reconnect with the new token.
     this.disconnect()
     this.closedByUser = false
+    if (this.handlers.size > 0) this.ensureConnected()
   }
 
   private ensureConnected() {
@@ -77,10 +107,12 @@ class GatewayClient {
     const token = getAccessToken()
     if (!token) return
 
+    this.setStatus('connecting')
     const ws = new WebSocket(gatewayUrl(token))
     this.ws = ws
 
     ws.onopen = () => {
+      this.setStatus('connected')
       this.reconnectDelay = RECONNECT_MIN_MS
       this.sentTopics.clear()
       this.syncSubscriptions()
@@ -115,6 +147,7 @@ class GatewayClient {
       this.clearTimers()
       this.ws = null
       this.sentTopics.clear()
+      this.setStatus('disconnected')
       if (this.closedByUser || this.handlers.size === 0) return
       this.reconnectTimer = setTimeout(() => this.ensureConnected(), this.reconnectDelay)
       this.reconnectDelay = Math.min(this.reconnectDelay * 2, RECONNECT_MAX_MS)
@@ -149,4 +182,8 @@ export const gateway = new GatewayClient()
 
 export function onGatewayEvent(topic: string, handler: GatewayHandler): () => void {
   return gateway.subscribe(topic, handler)
+}
+
+export function onGatewayStatus(handler: GatewayStatusHandler): () => void {
+  return gateway.onStatus(handler)
 }

@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels import ingest_inbound
@@ -27,6 +27,11 @@ from app.models.channel import (
     Contact,
 )
 from app.models.signal import Signal
+from app.services.channel_visibility import (
+    account_visibility,
+    is_account_visible_to,
+    set_account_visibility,
+)
 from app.services.signal_threads import serialize_thread
 from app.workers.tasks import enqueue_signal_processing
 
@@ -59,6 +64,7 @@ def _serialize_account(row: ChannelAccount) -> dict:
         "is_enabled": row.is_enabled,
         "require_pairing": bool(settings.get("require_pairing")),
         "has_inbound_secret": bool(settings.get("inbound_secret")),
+        "visibility": account_visibility(row),
         "created_at": row.created_at.isoformat(),
     }
 
@@ -73,7 +79,43 @@ async def list_accounts(
         .where(ChannelAccount.tenant_id == auth.tenant.id)
         .order_by(ChannelAccount.channel, ChannelAccount.created_at)
     )
-    return {"accounts": [_serialize_account(a) for a in result.scalars().all()]}
+    accounts = [
+        a
+        for a in result.scalars().all()
+        if is_account_visible_to(a, user_id=auth.user.id, role=auth.role)
+    ]
+    return {"accounts": [_serialize_account(a) for a in accounts]}
+
+
+class AccountVisibilityBody(BaseModel):
+    mode: str  # everyone | selected
+    user_ids: list[str] = []
+
+
+@router.patch("/accounts/{account_id}/visibility")
+async def update_account_visibility(
+    account_id: UUID,
+    body: AccountVisibilityBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    result = await session.execute(
+        select(ChannelAccount).where(
+            ChannelAccount.id == account_id, ChannelAccount.tenant_id == auth.tenant.id
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    try:
+        set_account_visibility(account, mode=body.mode, user_ids=body.user_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    session.add(account)
+    await session.commit()
+    await session.refresh(account)
+    return _serialize_account(account)
 
 
 @router.post("/accounts")
@@ -180,8 +222,19 @@ def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict
 async def _contact_or_404(
     session: AsyncSession, tenant_id: UUID, contact_id: UUID
 ) -> Contact:
+    # SQLite (and older rows) store UUID text with or without hyphens. Bind a
+    # Python UUID as compact hex and hyphenated rows miss the equality check.
+    hyphenated = str(contact_id)
+    compact = hyphenated.replace("-", "")
     result = await session.execute(
-        select(Contact).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
+        select(Contact).where(
+            Contact.tenant_id == tenant_id,
+            or_(
+                Contact.id == contact_id,
+                cast(Contact.id, String) == hyphenated,
+                cast(Contact.id, String) == compact,
+            ),
+        )
     )
     contact = result.scalar_one_or_none()
     if not contact:

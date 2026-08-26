@@ -21,12 +21,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.usage import UsageLedger
+from app.services import bokito_models
 from app.services import model_catalog as catalog_svc
 from app.services import platform_secrets, provider_connections, tenant_model_catalog, tenant_secrets
 
 settings = get_settings()
 
-_FALLBACK_CHAT = ("claude-sonnet-4-6", "anthropic", "claude-sonnet-4-6")
+_FALLBACK_CHAT = ("bokito-ai-3-1", "anthropic", "claude-sonnet-4-6")
 _FALLBACK_EMBEDDING = ("text-embedding-3-small", "openai", "text-embedding-3-small")
 
 
@@ -43,7 +44,7 @@ def _infer_provider(model_id: str) -> str | None:
 @dataclass
 class ResolvedModelCall:
     slug: str
-    provider: str  # anthropic | openai | openai_compatible (usage label)
+    provider: str  # anthropic | openai | openai_compatible | bokito (usage label)
     provider_type: str  # anthropic | openai | openai_compatible
     model_id: str
     kind: str  # chat | embedding
@@ -53,6 +54,11 @@ class ResolvedModelCall:
     input_cost_per_mtok_cents: int = 0
     output_cost_per_mtok_cents: int = 0
     markup: float = catalog_svc.DEFAULT_MARKUP
+    # Customer-facing list price when it differs from the provider cost basis.
+    # Set for Bokito virtual models: provider cost follows the backing model,
+    # the customer pays the Bokito row's price. None means "same as provider".
+    bill_input_cost_per_mtok_cents: int | None = None
+    bill_output_cost_per_mtok_cents: int | None = None
 
     @property
     def live(self) -> bool:
@@ -162,7 +168,32 @@ async def _resolve_from_platform_catalog(
     if model is None:
         model = await catalog_svc.get_default_model(session, kind)
 
-    if model is not None:
+    bill_in: int | None = None
+    bill_out: int | None = None
+    provider_label = ""
+
+    if model is not None and bokito_models.is_bokito_provider(model.provider):
+        # Bokito virtual model: route to the real backing model. The slug and
+        # usage label keep the Bokito identity; provider cost follows the
+        # backing row while the customer pays the Bokito row's list price.
+        provider_label = bokito_models.BOKITO_PROVIDER
+        bill_in = model.input_cost_per_mtok_cents
+        bill_out = model.output_cost_per_mtok_cents
+        slug = model.slug
+        backing = await catalog_svc.get_model(
+            session, bokito_models.select_backing_slug(model.slug)
+        )
+        if backing is not None and not bokito_models.is_bokito_provider(backing.provider):
+            provider = backing.provider
+            model_id = backing.model_id or backing.slug
+            in_cents = backing.input_cost_per_mtok_cents
+            out_cents = backing.output_cost_per_mtok_cents
+        else:
+            # No usable backing row: hard default so the call still reaches
+            # a real provider.
+            _, provider, model_id = _FALLBACK_CHAT
+            in_cents = out_cents = 0
+    elif model is not None:
         provider = model.provider
         slug = model.slug
         model_id = model.model_id or model.slug
@@ -185,7 +216,7 @@ async def _resolve_from_platform_catalog(
 
     return ResolvedModelCall(
         slug=slug,
-        provider=provider,
+        provider=provider_label or provider,
         provider_type=provider,
         model_id=model_id,
         kind=kind,
@@ -195,6 +226,8 @@ async def _resolve_from_platform_catalog(
         input_cost_per_mtok_cents=in_cents,
         output_cost_per_mtok_cents=out_cents,
         markup=markup,
+        bill_input_cost_per_mtok_cents=bill_in,
+        bill_output_cost_per_mtok_cents=bill_out,
     )
 
 
@@ -223,12 +256,28 @@ async def resolve_model_call(
 def compute_costs(
     resolved: ResolvedModelCall, tokens_in: int, tokens_out: int
 ) -> tuple[int, int]:
-    """Return (provider_cost_micros, customer_cost_micros) in micro-USD (1e-6 USD)."""
+    """Return (provider_cost_micros, customer_cost_micros) in micro-USD (1e-6 USD).
+
+    Provider cost always follows the real backing model. The customer price is
+    based on the billing list price when set (Bokito virtual models), so a
+    cheaper backing model widens the margin instead of lowering the bill.
+    """
     provider_micros = round(
         tokens_in * resolved.input_cost_per_mtok_cents / 100
         + tokens_out * resolved.output_cost_per_mtok_cents / 100
     )
-    customer_micros = round(provider_micros * resolved.markup) if resolved.billable else 0
+    bill_in = resolved.bill_input_cost_per_mtok_cents
+    bill_out = resolved.bill_output_cost_per_mtok_cents
+    if bill_in is None and bill_out is None:
+        bill_micros = provider_micros
+    else:
+        bill_micros = round(
+            tokens_in * (bill_in if bill_in is not None else resolved.input_cost_per_mtok_cents) / 100
+            + tokens_out
+            * (bill_out if bill_out is not None else resolved.output_cost_per_mtok_cents)
+            / 100
+        )
+    customer_micros = round(bill_micros * resolved.markup) if resolved.billable else 0
     return provider_micros, customer_micros
 
 

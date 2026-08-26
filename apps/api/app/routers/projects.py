@@ -60,6 +60,15 @@ class PoAgentLinkBody(BaseModel):
     po_agent_id: str
 
 
+class ProjectAgentAddBody(BaseModel):
+    agent_id: str
+    is_default: bool = False
+
+
+class ProjectAgentPatchBody(BaseModel):
+    is_default: bool
+
+
 @router.get("")
 async def list_projects(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -259,3 +268,47 @@ async def unlink_po_agent(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await svc.unlink_po_agent(session, auth.tenant.id, project_id)
+
+
+@router.get("/{project_id}/agents")
+async def list_project_agents(
+    project_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.list_project_agents(session, auth.tenant.id, project_id)
+
+
+@router.post("/{project_id}/agents")
+async def add_project_agent(
+    project_id: UUID,
+    body: ProjectAgentAddBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.add_project_agent(
+        session, auth.tenant.id, project_id, UUID(body.agent_id), is_default=body.is_default
+    )
+
+
+@router.patch("/{project_id}/agents/{agent_id}")
+async def set_project_agent_default(
+    project_id: UUID,
+    agent_id: UUID,
+    body: ProjectAgentPatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.set_project_agent_default(
+        session, auth.tenant.id, project_id, agent_id, is_default=body.is_default
+    )
+
+
+@router.delete("/{project_id}/agents/{agent_id}")
+async def remove_project_agent(
+    project_id: UUID,
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    return await svc.remove_project_agent(session, auth.tenant.id, project_id, agent_id)

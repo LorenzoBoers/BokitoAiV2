@@ -114,6 +114,7 @@ export type InboxEvent = {
 
 export type InboxMember = {
   id: number
+  uuid: string
   name: string
   email: string
   avatarUrl: string | null

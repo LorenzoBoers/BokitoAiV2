@@ -5,6 +5,8 @@ import { cn } from '../../lib/utils'
 interface SettingsSectionProps {
   title: ReactNode
   description?: ReactNode
+  /** Optional leading visual (brand logo tile, icon) left of the title. */
+  icon?: ReactNode
   /** Optional actions rendered on the right of the header (Save button, etc). */
   actions?: ReactNode
   children: ReactNode
@@ -22,6 +24,7 @@ interface SettingsSectionProps {
 export function SettingsSection({
   title,
   description,
+  icon,
   actions,
   children,
   className,
@@ -30,6 +33,7 @@ export function SettingsSection({
   return (
     <Card className={className}>
       <CardHeader className="flex-wrap items-start gap-3">
+        {icon ? <div className="shrink-0">{icon}</div> : null}
         <div className="min-w-0 flex-1">
           <CardTitle>{title}</CardTitle>
           {description ? (

@@ -50,6 +50,9 @@ async def create_agent_task(
         ).scalar_one_or_none()
         if not ws:
             raise HTTPException(status_code=404, detail="Workstream not found")
+        # Workstream runs keep their project so run history stays attributable.
+        if not project_id and ws.project_id:
+            project_id = ws.project_id
 
     if not signal_id:
         agent_name = "Agent"

@@ -30,6 +30,16 @@ async def _search_index(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     return {"results": results}
 
 
+async def _search_product_help(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.product_help import search_product_help
+
+    results = await search_product_help(
+        tool_input.get("query", ""),
+        top_k=int(tool_input.get("top_k") or 5),
+    )
+    return {"results": results}
+
+
 async def _list_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.workspace import list_docs, serialize_doc
 
@@ -788,6 +798,26 @@ register_tool(
             "required": ["query"],
         },
         handler=_search_index,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="search_product_help",
+        description=(
+            "Search Bokito product-help articles (how to use the platform). "
+            "Use this when the user asks how a Bokito page, setting, or workflow works. "
+            "Cite /learn/{slug} in-app or /docs/{slug} for a public link."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {"query": {"type": "string"}, "top_k": {"type": "integer"}},
+            "required": ["query"],
+        },
+        handler=_search_product_help,
         mutating=False,
         gated=False,
     )

@@ -13,6 +13,7 @@ import {
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
+import { inboxPath } from '../../lib/messages-paths'
 
 /** Settings card: manage the workspace's saved replies (canned responses). */
 export default function SavedRepliesManager() {
@@ -121,7 +122,7 @@ export default function SavedRepliesManager() {
                 {t('savedReplies.newReply')}
               </Button>
               <Link
-                to="/communication/inbox/all"
+                to={inboxPath('open')}
                 className="text-[12px] font-medium text-accent hover:underline"
               >
                 {t('savedReplies.openCommunication')}

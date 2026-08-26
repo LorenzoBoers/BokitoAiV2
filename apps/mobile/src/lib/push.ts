@@ -17,6 +17,19 @@ function expoProjectId(): string | undefined {
  * on the backend. Skips Expo Go (push is not supported there since SDK 53),
  * simulators, and when permission is denied.
  */
+export type PushStatus = 'on' | 'off' | 'unavailable'
+
+export async function getPushStatus(): Promise<PushStatus> {
+  if (isExpoGo() || !Device.isDevice) return 'unavailable'
+  try {
+    const Notifications = await import('expo-notifications')
+    const { status } = await Notifications.getPermissionsAsync()
+    return status === 'granted' ? 'on' : 'off'
+  } catch {
+    return 'unavailable'
+  }
+}
+
 export async function registerForPush(): Promise<string | null> {
   if (isExpoGo() || !Device.isDevice) return null
 

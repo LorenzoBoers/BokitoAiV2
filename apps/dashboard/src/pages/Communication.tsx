@@ -13,11 +13,25 @@ import {
   type InboxQueue,
   type RunsQueue,
 } from '../lib/messages-paths'
+import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
-import { isInternalThread } from '../lib/message-composer'
+import { parseComposeIntent, stripComposeIntent } from '../lib/compose-intent'
+import {
+  dedicatedInboxQueueForStatus,
+  pickRemainingInboxThread,
+  resolvedStatusLeavesInboxQueue,
+  threadFitsInboxQueue,
+} from '../lib/inbox-queue'
+import {
+  customersFirst,
+  customersOnly,
+  isInternalThread,
+  pickPreferredInboxThread,
+} from '../lib/message-composer'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
@@ -43,6 +57,8 @@ import {
   type ThreadId,
 } from '../lib/inbox-api'
 import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
+import { listAgents } from '../lib/agents-api'
+import { listProjects } from '../lib/projects-api'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
@@ -133,28 +149,6 @@ function configForLeaf(leaf: HubLeaf): LeafConfig {
   }
 }
 
-function threadFitsInboxQueue(thread: InboxThread, queue: InboxQueue, userId: number | null): boolean {
-  switch (queue) {
-    case 'all':
-      // Mirrors view=all server-side: closing moves a thread out of "All".
-      return thread.status !== 'closed' && thread.status !== 'spam'
-    case 'mine':
-      return thread.status === 'open' && thread.assignedToUserId === userId
-    case 'open':
-      return thread.status === 'open'
-    case 'unassigned':
-      return thread.status === 'open' && thread.assignedToUserId == null
-    case 'snoozed':
-      return thread.status === 'pending'
-    case 'closed':
-      return thread.status === 'closed'
-    case 'spam':
-      return thread.status === 'spam'
-    default:
-      return true
-  }
-}
-
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
   switch (quickFilter) {
     case 'unread':
@@ -173,7 +167,7 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
  */
 export default function Communication() {
   const { t } = useTranslation('communication')
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
   const { threadId: threadIdParam } = useParams<{ threadId?: string }>()
   const navigate = useNavigate()
@@ -186,16 +180,51 @@ export default function Communication() {
     [location.pathname],
   )
 
-  useEffect(() => {
-    if (leaf.type === 'inbox' && leaf.queue === 'snoozed') {
-      navigate(inboxPath('all', threadIdParam) + location.search, { replace: true })
-    }
-  }, [leaf, navigate, threadIdParam, location.search])
-
   const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(leaf), [leaf])
 
   const projectId = searchParams.get('project_id')?.trim() || undefined
   const agentIdFilter = searchParams.get('agent')?.trim() || undefined
+  const [scopeName, setScopeName] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!agentIdFilter && !projectId) {
+      setScopeName(null)
+      return
+    }
+    void (async () => {
+      try {
+        if (agentIdFilter) {
+          const rows = await listAgents()
+          if (!cancelled) setScopeName(rows.find((row) => row.id === agentIdFilter)?.name ?? null)
+          return
+        }
+        const rows = await listProjects()
+        if (!cancelled) setScopeName(rows.find((row) => row.id === projectId)?.name ?? null)
+      } catch {
+        if (!cancelled) setScopeName(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [agentIdFilter, projectId])
+
+  const scopeLabel = agentIdFilter
+    ? t('threadList.scopeAgent', { name: scopeName || t('threadList.scopeAgentFallback') })
+    : projectId
+      ? t('threadList.scopeProject', { name: scopeName || t('threadList.scopeProjectFallback') })
+      : null
+
+  const clearScope = useCallback(() => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('agent')
+    next.delete('project_id')
+    const query = next.toString()
+    navigate(`${leafPath(leaf, threadIdParam ?? undefined)}${query ? `?${query}` : ''}`, {
+      replace: true,
+    })
+  }, [leaf, navigate, searchParams, threadIdParam])
 
   const inboxQuery = useMemo(() => {
     const params = new URLSearchParams()
@@ -300,10 +329,12 @@ export default function Communication() {
 
   const handleClearBulkSelection = useCallback(() => setBulkSelectedIds(new Set()), [])
 
-  const filteredThreads = useMemo(
-    () => applyQuickFilter(threads, quickFilter),
-    [threads, quickFilter],
-  )
+  const filteredThreads = useMemo(() => {
+    const next = applyQuickFilter(threads, quickFilter)
+    if (leaf.type !== 'inbox') return next
+    if (leaf.queue === 'open') return customersOnly(next)
+    return customersFirst(next)
+  }, [threads, quickFilter, leaf])
 
   const {
     detail,
@@ -338,26 +369,36 @@ export default function Communication() {
 
   // Compose (new outbound email) + forward. Forward pre-fills the compose
   // modal with the quoted thread content; sending creates a new thread.
-  const [composeOpen, setComposeOpen] = useState(false)
-  const [composePrefill, setComposePrefill] = useState<ComposePrefill | null>(null)
+  const incomingCompose = parseComposeIntent(searchParams)
+  const [composeOpen, setComposeOpen] = useState(() => Boolean(incomingCompose))
+  const [composePrefill, setComposePrefill] = useState<ComposePrefill | null>(() => incomingCompose)
   const openCompose = useCallback(() => {
     setComposePrefill(null)
     setComposeOpen(true)
   }, [])
+
+  useEffect(() => {
+    const intent = parseComposeIntent(searchParams)
+    if (!intent) return
+    setComposePrefill(intent)
+    setComposeOpen(true)
+    setSearchParams(stripComposeIntent(searchParams), { replace: true })
+  }, [searchParams, setSearchParams])
   const handleComposeSent = useCallback(
     (threadId: string) => {
       void refreshThreads()
-      if (threadId) navigate(inboxPath('all', threadId))
+      if (threadId) navigate(inboxPath('open', threadId))
     },
     [refreshThreads, navigate],
   )
 
-  const firstThreadId = filteredThreads[0]?.id ?? null
+  const firstThreadId = pickPreferredInboxThread(filteredThreads)?.id ?? null
 
   useEffect(() => {
+    if (incomingCompose || composeOpen) return
     if (threadIdParam || !threadsReady || firstThreadId == null) return
     handleSelectThread(firstThreadId, true)
-  }, [threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
+  }, [incomingCompose, composeOpen, threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
 
   const handleListMarkRead = useCallback(
     async (id: ThreadId) => {
@@ -476,48 +517,90 @@ export default function Communication() {
     await handleDeleteThread(selectedThreadId, detail?.thread.emailSubject)
   }, [selectedThreadId, detail?.thread.emailSubject, handleDeleteThread])
 
-  // Set while a resolve action (close/spam/snooze) is advancing to the next
-  // thread, so the queue-mismatch redirect below does not fight the advance.
+  // Set while a resolve action (close/spam/snooze) is leaving the current
+  // thread, so the queue-mismatch effect below does not fight the advance.
   const advancingRef = useRef(false)
 
-  // When a thread's status changes so it no longer fits the active inbox
-  // queue (e.g. closed while viewing Open), hop to the All queue.
-  const redirectCheckedForThreadRef = useRef<ThreadId | null>(null)
+  const leaveResolvedThread = useCallback(
+    (fromId: ThreadId, status?: InboxThread['status']) => {
+      const remaining = pickRemainingInboxThread(filteredThreads, fromId)
+      if (remaining) {
+        handleSelectThread(remaining.id, true)
+      } else {
+        navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
+      }
+      const dedicated = status ? dedicatedInboxQueueForStatus(status) : 'closed'
+      if (!(leaf.type === 'inbox' && dedicated != null && leaf.queue === dedicated)) {
+        removeThread(fromId)
+      }
+    },
+    [filteredThreads, handleSelectThread, navigate, leaf, inboxQuery, removeThread],
+  )
+
+  // When a thread no longer fits the active inbox (closed while on Open),
+  // stay on that box and open the first remaining thread — or the empty box.
+  const redirectCheckedForThreadRef = useRef<string | null>(null)
   useEffect(() => {
     if (selectedThreadId == null) {
       redirectCheckedForThreadRef.current = null
       return
     }
     if (advancingRef.current) return
-    if (leaf.type !== 'inbox') return
     if (!detail) return
     if (String(detail.thread.id) !== String(selectedThreadId)) return
-    if (redirectCheckedForThreadRef.current === selectedThreadId) return
+    const leafKeyPart = leaf.type === 'inbox' ? leaf.queue : leaf.type
+    const fitKey = `${selectedThreadId}:${detail.thread.status}:${leafKeyPart}`
+    if (redirectCheckedForThreadRef.current === fitKey) return
 
-    redirectCheckedForThreadRef.current = selectedThreadId
+    redirectCheckedForThreadRef.current = fitKey
 
-    if (threadFitsInboxQueue(detail.thread, leaf.queue, currentUserId)) return
-    navigate(`${inboxPath('all', String(detail.thread.id))}${inboxQuery}`, { replace: true })
-  }, [detail, selectedThreadId, leaf, currentUserId, navigate, inboxQuery])
-
-  // Front/Intercom-style advance: resolving a conversation moves you to the
-  // next one in the visible list (or the previous one at the end of the
-  // list), instead of staying on a thread that visually barely changed.
-  const advanceToNextThread = useCallback(
-    (fromId: ThreadId) => {
-      const idx = filteredThreads.findIndex((t) => String(t.id) === String(fromId))
-      const next =
-        idx >= 0
-          ? filteredThreads[idx + 1] ?? filteredThreads[idx - 1]
-          : filteredThreads.find((t) => String(t.id) !== String(fromId))
-      if (next && String(next.id) !== String(fromId)) {
-        handleSelectThread(next.id, true)
-      } else {
-        navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
+    if (leaf.type === 'inbox') {
+      if (leaf.queue === 'open' && isInternalThread(detail.thread)) {
+        navigate(`${agentRunsPath('all', String(detail.thread.id))}${inboxQuery}`, { replace: true })
+        return
       }
-    },
-    [filteredThreads, handleSelectThread, navigate, leaf, inboxQuery],
-  )
+      if (threadFitsInboxQueue(detail.thread, leaf.queue, currentUserId)) return
+      if (resolvedStatusLeavesInboxQueue(detail.thread.status, leaf.queue)) {
+        const dedicated = dedicatedInboxQueueForStatus(detail.thread.status)
+        if (dedicated) {
+          navigate(`${inboxPath(dedicated, String(detail.thread.id))}${inboxQuery}`, { replace: true })
+          return
+        }
+        advancingRef.current = true
+        try {
+          leaveResolvedThread(selectedThreadId, detail.thread.status)
+        } finally {
+          advancingRef.current = false
+        }
+        return
+      }
+      const destQueue =
+        detail.thread.status === 'open' && !isInternalThread(detail.thread) ? 'open' : 'all'
+      navigate(`${inboxPath(destQueue, String(detail.thread.id))}${inboxQuery}`, { replace: true })
+      return
+    }
+
+    if (
+      (detail.thread.status === 'closed' || detail.thread.status === 'spam') &&
+      !filteredThreads.some((thread) => String(thread.id) === String(selectedThreadId))
+    ) {
+      advancingRef.current = true
+      try {
+        leaveResolvedThread(selectedThreadId, detail.thread.status)
+      } finally {
+        advancingRef.current = false
+      }
+    }
+  }, [
+    detail,
+    selectedThreadId,
+    leaf,
+    currentUserId,
+    navigate,
+    inboxQuery,
+    filteredThreads,
+    leaveResolvedThread,
+  ])
 
   const handlePatch = useCallback(
     async (input: PatchThreadInput) => {
@@ -533,22 +616,13 @@ export default function Communication() {
           if (input.status === 'closed') toast.success(t('threadResolved.closed'))
           else if (input.status === 'spam') toast.success(t('threadResolved.spam'))
           else toast.success(t('threadResolved.snoozed'))
-          advanceToNextThread(fromId)
-          // Evict the row immediately instead of waiting for the refetch or
-          // the websocket update; closed/spam never fit the queue they were
-          // resolved from (they have dedicated queues).
-          if (
-            (input.status === 'closed' || input.status === 'spam') &&
-            !(leaf.type === 'inbox' && leaf.queue === input.status)
-          ) {
-            removeThread(fromId)
-          }
+          leaveResolvedThread(fromId, input.status)
         }
       } finally {
         advancingRef.current = false
       }
     },
-    [patch, refreshThreads, refreshNavBadges, selectedThreadId, advanceToNextThread, removeThread, leaf, t],
+    [patch, refreshThreads, refreshNavBadges, selectedThreadId, leaveResolvedThread, t],
   )
 
   const handleBulkAction = useCallback(
@@ -588,43 +662,67 @@ export default function Communication() {
       // delivery and the toast can cancel before the scheduler sends it.
       // Chat/widget/internal stay instant.
       const undoable = detail?.thread.channel === 'email'
-      const msg = await reply({
-        bodyText,
-        action,
-        format,
-        attachments,
-        snoozeMinutes,
-        cc: extras?.cc,
-        bcc: extras?.bcc,
-        sendAfterSeconds: undoable ? UNDO_SEND_SECONDS : undefined,
-      })
-      void refreshThreads()
-      if (undoable && msg?.id && token) {
-        const messageId = String(msg.id)
-        toast(t('undoSend.scheduled'), {
-          duration: UNDO_SEND_SECONDS * 1000,
-          action: {
-            label: t('undoSend.undo'),
-            onClick: () => {
-              void cancelScheduledMessage(token, messageId)
-                .then(() => {
-                  void refreshDetail()
-                  void refreshThreads()
-                  toast.success(
-                    t('undoSend.cancelled'),
-                  )
-                })
-                .catch(() =>
-                  toast.error(
-                    t('undoSend.tooLate'),
-                  ),
-                )
-            },
-          },
+      const resolving = action === 'send_and_close' || action === 'send_and_pending'
+      const fromId = selectedThreadId
+      if (resolving) advancingRef.current = true
+      try {
+        const msg = await reply({
+          bodyText,
+          action,
+          format,
+          attachments,
+          snoozeMinutes,
+          cc: extras?.cc,
+          bcc: extras?.bcc,
+          sendAfterSeconds: undoable ? UNDO_SEND_SECONDS : undefined,
         })
+        void refreshThreads()
+        if (resolving && fromId != null) {
+          if (!undoable) {
+            toast.success(
+              action === 'send_and_close' ? t('threadResolved.closed') : t('threadResolved.snoozed'),
+            )
+          }
+          leaveResolvedThread(fromId, action === 'send_and_pending' ? 'pending' : 'closed')
+        }
+        if (undoable && msg?.id && token) {
+          const messageId = String(msg.id)
+          toast(t('undoSend.scheduled'), {
+            duration: UNDO_SEND_SECONDS * 1000,
+            action: {
+              label: t('undoSend.undo'),
+              onClick: () => {
+                void cancelScheduledMessage(token, messageId)
+                  .then(() => {
+                    void refreshDetail()
+                    void refreshThreads()
+                    toast.success(
+                      t('undoSend.cancelled'),
+                    )
+                  })
+                  .catch(() =>
+                    toast.error(
+                      t('undoSend.tooLate'),
+                    ),
+                  )
+              },
+            },
+          })
+        }
+      } finally {
+        if (resolving) advancingRef.current = false
       }
     },
-    [reply, refreshThreads, detail?.thread.channel, token, t, refreshDetail],
+    [
+      reply,
+      refreshThreads,
+      detail?.thread.channel,
+      token,
+      t,
+      refreshDetail,
+      selectedThreadId,
+      leaveResolvedThread,
+    ],
   )
 
   const handleNote = useCallback(
@@ -683,11 +781,22 @@ export default function Communication() {
     }
   }, [selectedThreadId, markUnread, setThreadReadState, refreshNavBadges, t])
 
-  const handleDecisionResolved = useCallback(() => {
-    void refreshDetail()
-    void refreshThreads()
-    void refreshNavBadges()
-  }, [refreshDetail, refreshThreads, refreshNavBadges])
+  const handleDecisionResolved = useCallback(
+    (info?: { closed?: boolean }) => {
+      if (info?.closed && selectedThreadId != null) {
+        advancingRef.current = true
+        try {
+          leaveResolvedThread(selectedThreadId, 'closed')
+        } finally {
+          advancingRef.current = false
+        }
+      }
+      void refreshDetail()
+      void refreshThreads()
+      void refreshNavBadges()
+    },
+    [leaveResolvedThread, refreshDetail, refreshNavBadges, refreshThreads, selectedThreadId],
+  )
 
   const handleThreadUpdated = handleDecisionResolved
 
@@ -811,6 +920,11 @@ export default function Communication() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+      <PageGuideBanner
+        page="communication"
+        variant={leaf.type === 'runs' ? 'runs' : undefined}
+        className="mx-3 mt-3 shrink-0"
+      />
       {showActivityChips ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-2">
           <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
@@ -834,108 +948,162 @@ export default function Communication() {
           })}
         </div>
       ) : null}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ThreadList
-          threads={filteredThreads}
-          allThreads={threads}
-          loading={threadsLoading}
-          error={threadsError}
-          selectedId={selectedThreadId}
-          quickFilter={quickFilter}
-          onQuickFilterChange={setQuickFilter}
-          onSelectThread={handleSelectThread}
-          onMarkRead={handleListMarkRead}
-          onMarkUnread={handleListMarkUnread}
-          onTogglePin={handleListTogglePin}
-          onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
-          deletingThreadId={deletingThreadId}
-          variant={variant}
-          bulkSelectedIds={mode === 'customer' ? bulkSelectedIds : undefined}
-          onToggleBulkSelect={mode === 'customer' ? handleToggleBulkSelect : undefined}
-          onBulkAction={mode === 'customer' ? (a, uid) => void handleBulkAction(a, uid) : undefined}
-          onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
-          bulkBusy={bulkBusy}
-          activeTag={tagFilter}
-          onTagSelect={mode === 'customer' ? setTagFilter : undefined}
-          total={threadsTotal}
-          hasMore={threadsHaveMore}
-          loadingMore={threadsLoadingMore}
-          onLoadMore={() => void loadMoreThreads()}
-          onCompose={mode === 'customer' && enabledConnections.length > 0 ? openCompose : undefined}
-          emptyLabel={leaf.type === 'runs' ? t('threadList.emptyRuns') : undefined}
-          emptyHint={
-            leaf.type === 'runs' ? (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                <Link
-                  to="/agents"
-                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+      <SplitRow
+        storageKey="bokito.split.inbox"
+        minFlex={360}
+        resetHint={t('split.resetHint')}
+        className="min-h-0 flex-1"
+      >
+        <SplitPane
+          id="list"
+          defaultWidth={288}
+          minWidth={220}
+          maxWidth={520}
+          label={t('split.list')}
+          className={selectedThreadId != null ? 'hidden md:flex' : 'flex'}
+        >
+          <ThreadList
+            threads={filteredThreads}
+            allThreads={threads}
+            loading={threadsLoading}
+            error={threadsError}
+            selectedId={selectedThreadId}
+            quickFilter={quickFilter}
+            onQuickFilterChange={setQuickFilter}
+            onSelectThread={handleSelectThread}
+            onMarkRead={handleListMarkRead}
+            onMarkUnread={handleListMarkUnread}
+            onTogglePin={handleListTogglePin}
+            onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
+            deletingThreadId={deletingThreadId}
+            variant={variant}
+            bulkSelectedIds={mode === 'customer' ? bulkSelectedIds : undefined}
+            onToggleBulkSelect={mode === 'customer' ? handleToggleBulkSelect : undefined}
+            onBulkAction={mode === 'customer' ? (a, uid) => void handleBulkAction(a, uid) : undefined}
+            onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
+            bulkBusy={bulkBusy}
+            activeTag={tagFilter}
+            onTagSelect={mode === 'customer' ? setTagFilter : undefined}
+            scopeLabel={scopeLabel}
+            onClearScope={agentIdFilter || projectId ? clearScope : undefined}
+            total={threadsTotal}
+            hasMore={threadsHaveMore}
+            loadingMore={threadsLoadingMore}
+            onLoadMore={() => void loadMoreThreads()}
+            onCompose={mode === 'customer' && enabledConnections.length > 0 ? openCompose : undefined}
+            emptyLabel={
+              agentIdFilter || projectId
+                ? t('threadList.emptyScoped')
+                : leaf.type === 'runs'
+                  ? t('threadList.emptyRuns')
+                  : leaf.type === 'inbox' && leaf.queue === 'snoozed'
+                    ? t('threadList.emptySnoozed')
+                    : undefined
+            }
+            emptyHint={
+              agentIdFilter || projectId ? (
+                <button
+                  type="button"
+                  onClick={clearScope}
+                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
                 >
-                  {t('threadList.openAgents')}
-                </Link>
-                <Link
-                  to="/communication/new"
-                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                >
-                  {t('onboarding.startChat')}
-                </Link>
-              </div>
-            ) : mode === 'customer' && threads.length === 0 && !threadsLoading ? (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                <Link
-                  to="/settings/setup"
-                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                >
-                  {t('onboarding.openGuide')}
-                </Link>
-                <Link
-                  to="/settings/channels"
-                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                >
-                  {t('threadChrome.openEmailSettings')}
-                </Link>
-                <Link
-                  to="/communication/new"
-                  className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                >
-                  {t('onboarding.startChat')}
-                </Link>
-              </div>
-            ) : undefined
-          }
-        />
-        <ThreadDetail
-          detail={detail}
-          loading={detailLoading}
-          error={detailError}
-          saving={saving}
-          threadId={selectedThreadId}
-          onPatch={handlePatch}
-          onReply={handleReply}
-          onNote={handleNote}
-          onUpdateNote={handleUpdateNote}
-          onDeleteNote={handleDeleteNote}
-          onMarkUnread={detail ? handleDetailMarkUnread : undefined}
-          onRefresh={refreshDetail}
-          onTogglePin={handleDetailTogglePin}
-          onToggleTakeover={detail ? handleToggleTakeover : undefined}
-          onDelete={detail ? handleDetailDelete : undefined}
-          deleting={String(deletingThreadId) === String(selectedThreadId)}
-          onToggleContact={detail ? toggleContactPanel : undefined}
-          onBack={() => navigate(`${leafPath(leaf)}${inboxQuery}`)}
-          contactOpen={showContactPanel}
-          onDecisionResolved={handleDecisionResolved}
-          mode={mode}
-          onAskAssistant={detail ? handleAskAssistant : undefined}
-          onForward={
-            detail && detail.thread.channel === 'email' && enabledConnections.length > 0
-              ? handleForward
-              : undefined
-          }
-        />
+                  {t('threadList.clearScope')}
+                </button>
+              ) : leaf.type === 'inbox' && leaf.queue === 'snoozed' ? (
+                <div className="mt-2 flex flex-col items-center gap-2">
+                  <p className="text-[11px] text-text-muted">{t('threadList.emptySnoozedHint')}</p>
+                  <Link
+                    to={inboxPath('open')}
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.openInbox')}
+                  </Link>
+                </div>
+              ) : leaf.type === 'runs' ? (
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    to="/agents"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.openAgents')}
+                  </Link>
+                  <Link
+                    to="/communication/new"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('onboarding.startChat')}
+                  </Link>
+                </div>
+              ) : mode === 'customer' && threads.length === 0 && !threadsLoading ? (
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    to="/settings/setup"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('onboarding.openGuide')}
+                  </Link>
+                  <Link
+                    to="/settings/channels"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadChrome.openEmailSettings')}
+                  </Link>
+                  <Link
+                    to="/communication/new"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('onboarding.startChat')}
+                  </Link>
+                </div>
+              ) : undefined
+            }
+          />
+        </SplitPane>
+        <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
+          <ThreadDetail
+            detail={detail}
+            loading={detailLoading}
+            error={detailError}
+            saving={saving}
+            threadId={selectedThreadId}
+            onPatch={handlePatch}
+            onReply={handleReply}
+            onNote={handleNote}
+            onUpdateNote={handleUpdateNote}
+            onDeleteNote={handleDeleteNote}
+            onMarkUnread={detail ? handleDetailMarkUnread : undefined}
+            onRefresh={refreshDetail}
+            onTogglePin={handleDetailTogglePin}
+            onToggleTakeover={detail ? handleToggleTakeover : undefined}
+            onDelete={detail ? handleDetailDelete : undefined}
+            deleting={String(deletingThreadId) === String(selectedThreadId)}
+            onToggleContact={detail ? toggleContactPanel : undefined}
+            onBack={() => navigate(`${leafPath(leaf)}${inboxQuery}`)}
+            contactOpen={showContactPanel}
+            onDecisionResolved={handleDecisionResolved}
+            mode={mode}
+            onAskAssistant={detail ? handleAskAssistant : undefined}
+            onForward={
+              detail && detail.thread.channel === 'email' && enabledConnections.length > 0
+                ? handleForward
+                : undefined
+            }
+          />
+        </SplitPane>
         {detail && showContactPanel ? (
-          <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} onThreadUpdated={handleThreadUpdated} />
+          <SplitPane
+            id="context"
+            defaultWidth={288}
+            minWidth={240}
+            maxWidth={420}
+            label={t('split.context')}
+            className="hidden lg:flex"
+            handleClassName="hidden lg:block"
+          >
+            <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} onThreadUpdated={handleThreadUpdated} />
+          </SplitPane>
         ) : null}
-      </div>
+      </SplitRow>
       <ComposeEmailModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}

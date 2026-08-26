@@ -707,6 +707,7 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
       if (!Number.isFinite(id)) return null
       return {
         id,
+        uuid: asString(raw.uuid),
         name: asString(raw.name, `User ${id}`),
         email: asString(raw.email),
         avatarUrl: typeof raw.avatar_url === 'string' && raw.avatar_url ? raw.avatar_url : null,

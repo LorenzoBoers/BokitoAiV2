@@ -35,6 +35,7 @@ import {
   type WorkspaceDocRow,
   type WorkspaceSearchHit,
 } from '../lib/workspace-api'
+import { agentRunsPath } from '../lib/messages-paths'
 import { cn } from '../lib/utils'
 
 const KIND_ORDER: WorkspaceDocKind[] = ['persona', 'memory', 'skill', 'heartbeat', 'doc', 'daily_log']
@@ -117,6 +118,15 @@ export default function WorkspaceDocs() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  useEffect(() => {
+    if (docId || loading || error || docs.length === 0) return
+    const preferred =
+      docs.find((doc) => doc.kind === 'persona') ??
+      docs.find((doc) => doc.kind === 'memory') ??
+      docs[0]
+    if (preferred) navigate(`/knowledge/${preferred.id}`, { replace: true })
+  }, [docId, loading, error, docs, navigate])
 
   useEffect(() => {
     if (!docId) {
@@ -525,6 +535,16 @@ export default function WorkspaceDocs() {
                       </span>
                     ) : null}
                   </div>
+                  <p className="mt-2 text-[12px] text-text-muted">
+                    {t('knowledgePage.usedByAgents')}{' '}
+                    <Link to="/agents" className="font-medium text-accent hover:underline">
+                      {t('knowledgePage.openAgents')}
+                    </Link>
+                    {' · '}
+                    <Link to={agentRunsPath('all')} className="font-medium text-accent hover:underline">
+                      {t('knowledgePage.openRuns')}
+                    </Link>
+                  </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {editing ? (

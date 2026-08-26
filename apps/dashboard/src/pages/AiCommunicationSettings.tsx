@@ -34,7 +34,8 @@ import {
   type WorkspaceLanguage,
 } from '../lib/inbox-api'
 import { resetTenantDefaultSendAs } from '../lib/reply-send-as'
-import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
+import { WEBSITE_WIDGET_CUSTOMIZE_PATH, WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
+import { inboxPath } from '../lib/messages-paths'
 
 const MODES: AiMode[] = ['suggest', 'auto', 'off']
 const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
@@ -252,11 +253,20 @@ export default function AiCommunicationSettings() {
           <Link to="/settings/channels" className="font-medium text-accent hover:underline">
             {t('ai.communication.crossLinks.channels')}
           </Link>
-          <Link to={ASSISTANT_DEFAULT_PATH} className="font-medium text-accent hover:underline">
+          <Link to={WEBSITE_WIDGET_CUSTOMIZE_PATH} className="font-medium text-accent hover:underline">
             {t('ai.communication.crossLinks.widget')}
           </Link>
-          <Link to="/ai/assistant/external/installation" className="font-medium text-accent hover:underline">
+          <Link to={WEBSITE_WIDGET_PATH} className="font-medium text-accent hover:underline">
             {t('ai.communication.crossLinks.installWidget')}
+          </Link>
+          <Link to="/agents" className="font-medium text-accent hover:underline">
+            {t('ai.communication.crossLinks.agents')}
+          </Link>
+          <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
+            {t('ai.communication.crossLinks.govern')}
+          </Link>
+          <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
+            {t('ai.communication.crossLinks.communication')}
           </Link>
         </div>
       </div>

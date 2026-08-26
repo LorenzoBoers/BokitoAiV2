@@ -4,6 +4,7 @@ import { ArrowUpRight, Check, Cpu, Loader2, Plus, ShieldCheck, Sparkles, Zap } f
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -38,8 +39,8 @@ const PROVIDER_TYPE_OPTIONS: { value: ProviderType; label: string }[] = [
   { value: 'openai_compatible', label: 'OpenAI-compatible' },
 ]
 
-function pricePerMtok(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}/Mtok`
+function pricePerMillion(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`
 }
 
 export default function ModelsSettings() {
@@ -239,6 +240,7 @@ export default function ModelsSettings() {
 
   return (
     <PageContent width="lg" className="space-y-7 py-1">
+      <PageGuideBanner page="models" />
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-bg-surface text-accent shadow-card">
           <Cpu size={18} />
@@ -530,8 +532,8 @@ export default function ModelsSettings() {
                         {m.connection_label ?? m.provider_type} · {m.slug} · {m.model_id}
                         {m.kind === 'chat'
                           ? ` · ${t('modelsPage.pricingInOut', {
-                              in: pricePerMtok(m.input_cost_per_mtok_cents),
-                              out: pricePerMtok(m.output_cost_per_mtok_cents),
+                              in: pricePerMillion(m.input_cost_per_mtok_cents),
+                              out: pricePerMillion(m.output_cost_per_mtok_cents),
                             })}`
                           : ''}
                       </p>

@@ -95,6 +95,9 @@
     "verificationSentDev": "Verificatie-e-mail verstuurd. Controleer de ontwikkelingslink in de serverlogs."
   },
   "links": {
-    "openInboxSettings": "Open kanaalinstellingen"
+    "openInboxSettings": "Open kanaalinstellingen",
+    "openMailboxSignatures": "Mailbox-handtekeningen",
+    "openAssistant": "Mijn assistent",
+    "openNotifications": "Meldingen"
   }
 }

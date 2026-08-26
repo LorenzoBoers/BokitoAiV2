@@ -312,6 +312,7 @@ async def _seed_tenant_data(session, tenant):
                 chat_access="everyone",
                 runtime_status="standby",
                 system_prompt="You are the Bokito AI OS assistant.",
+                is_lead=True,
             )
         )
         session.add(

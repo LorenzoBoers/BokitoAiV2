@@ -1,5 +1,10 @@
-﻿{
+{
   "comingSoon": "Binnenkort",
+  "errorBoundary": {
+    "title": "Er ging iets mis",
+    "body": "Deze pagina liep vast. Vernieuw om verder te gaan — je andere werk blijft staan.",
+    "refresh": "Vernieuwen"
+  },
   "app": {
     "loading": "Laden...",
     "loadingWorkspaces": "Workspaces laden..."
@@ -11,7 +16,7 @@
     },
     "communication": {
       "title": "Communicatie",
-      "subtitle": "Chats, klant- en agentthreads"
+      "subtitle": "Chats, klant- en agentgesprekken"
     },
     "contacts": {
       "title": "Contacten",
@@ -44,17 +49,97 @@
     "activity": "Activiteit",
     "usage": "Verbruik"
   },
+  "crumbs": {
+    "company": "Bedrijf",
+    "person": "Persoon",
+    "agent": "Agent",
+    "project": "Project",
+    "document": "Document",
+    "learn": "Hulp",
+    "docs": "Docs",
+    "newConversation": "Nieuw gesprek",
+    "decisions": "Beslissingen",
+    "widgetInstall": "Installeren",
+    "widgetVoice": "Stem en uren",
+    "widgetLook": "Uiterlijk",
+    "marketplace": "Marketplace",
+    "connectedTools": "Gekoppelde tools",
+    "myAssistant": "Mijn assistent"
+  },
   "pageHeaders": {
     "cockpitOverview": "Werkruimtegezondheid in één oogopslag",
     "cockpitActivity": "Live activiteit van agents en je team",
     "cockpitUsage": "Modelkosten en runvolume",
-    "setupGuide": "De levende checklist voor deze workspace — kanalen, kennis, agents, automatiseringen en KPI's.",
+    "setupGuide": "De levende checklist voor deze workspace — kanalen, kennis, agents, automatiseringen en cijfers.",
     "emailMessages": "Beheer gekoppelde mailboxen, handtekeningen, routing en e-mailafhandeling."
+  },
+  "docs": {
+    "title": "Bokito Docs",
+    "heroTitle": "Waarmee kunnen we helpen?",
+    "heroBody": "Gidsen voor het werken met Bokito en het bouwen op de API - van je eerste mailbox tot webhooks en MCP.",
+    "searchPlaceholder": "Doorzoek de docs (druk /)",
+    "noResults": "Geen resultaten voor die zoekopdracht.",
+    "apiReference": "API-reference",
+    "apiReferenceIntro": "Interactieve reference voor de publieke Bokito-API, gegenereerd uit het live OpenAPI-schema.",
+    "apiReferenceFallback": "De interactieve reference kon niet laden. Het rauwe schema staat op",
+    "apiGuides": "Developergidsen",
+    "onThisPage": "Op deze pagina",
+    "previous": "Vorige",
+    "next": "Volgende",
+    "copyMarkdown": "Kopieer als Markdown",
+    "copied": "Gekopieerd",
+    "backToDocs": "Alle docs",
+    "popular": "Begin hier",
+    "sectionCta": "{{count}} artikelen",
+    "sections": {
+      "getting-started": {
+        "title": "Aan de slag",
+        "blurb": "Wat Bokito is, de quickstart, de volledige setupgids en een tour door de interface."
+      },
+      "inbox": {
+        "title": "Inbox",
+        "blurb": "Werk gesprekken af in Communication, koppel kanalen, beheer contacten en installeer de widget."
+      },
+      "ai": {
+        "title": "AI-workforce",
+        "blurb": "Configureer agents, keur beslissingen goed, laad kennis en plan terugkerend werk."
+      },
+      "govern": {
+        "title": "Govern",
+        "blurb": "Autonomy posture, goedkeuringen, audit en de modellen die de workspace aandrijven."
+      },
+      "integrations": {
+        "title": "Integraties",
+        "blurb": "Koppel externe tools en MCP-servers zodat agents in je andere systemen kunnen handelen."
+      },
+      "developers": {
+        "title": "Developers",
+        "blurb": "REST-API, authenticatie, webhooks, het MCP-endpoint, widget-embedding en rate limits."
+      }
+    }
   },
   "pageGuides": {
     "learnMore": "Lees de volledige uitleg",
     "dismiss": "Tip sluiten",
     "back": "Terug naar de pagina",
+    "allArticles": "Alle hulp-artikelen",
+    "publicTitle": "Zo gebruik je Bokito",
+    "publicLink": "Open de publieke pagina",
+    "indexTitle": "Zo werkt Bokito",
+    "indexIntro": "Korte gidsen voor de pagina's en instellingen die je elke dag gebruikt.",
+    "search": "Zoek in hulp-artikelen...",
+    "loading": "Hulp laden...",
+    "loadError": "Dit hulp-artikel kon niet worden geladen.",
+    "notFound": "Dat hulp-artikel bestaat niet.",
+    "empty": "Nog geen hulp-artikelen.",
+    "emptySearch": "Geen artikelen komen overeen met die zoekopdracht.",
+    "feedback": {
+      "question": "Was dit nuttig?",
+      "thanks": "Bedankt voor de feedback.",
+      "yes": "Ja, nuttig",
+      "no": "Nee, niet nuttig"
+    },
+    "relatedArticlesTitle": "Gerelateerde artikelen",
     "videoTitle": "Video-uitleg",
     "videoSoon": "Hier komt straks een korte video. Tot die tijd gebruik je de tekst hieronder.",
     "getStartedTitle": "Nieuw bij Bokito?",
@@ -73,11 +158,18 @@
       "projects": "Projecten",
       "govern": "Govern",
       "knowledge": "Kennis",
-      "developers": "Developer-instellingen"
+      "developers": "Developer-instellingen",
+      "agentRuns": "Agent-runs",
+      "widget": "Website-chatwidget",
+      "automations": "Automatiseringen",
+      "models": "Modellen",
+      "integrations": "Integraties",
+      "autonomy": "Autonomiehouding",
+      "usage": "Verbruik"
     },
     "cockpit": {
       "bannerTitle": "Cockpit is de polsslag van de workspace",
-      "bannerBody": "Gezondheid, live activiteit en modelkosten op één plek, voordat je de threads of agents induikt.",
+      "bannerBody": "Gezondheid, live activiteit en modelkosten op één plek, voordat je de gesprekken of agents induikt.",
       "pageTitle": "Zo werkt Cockpit",
       "intro": "Begin hier als je wilt weten of het werk loopt en waar aandacht nodig is.",
       "sections": [
@@ -97,33 +189,39 @@
     },
     "communication": {
       "bannerTitle": "Communicatie is waar werk binnenkomt",
-      "bannerBody": "Klantberichten, agentchats en interne threads delen één inbox. Koppel kanalen en antwoord zelf of laat AI concepten maken.",
+      "bannerBody": "Klantberichten, agentchats en interne gesprekken delen één inbox. Koppel kanalen en antwoord zelf of laat AI concepten maken.",
+      "runsBannerTitle": "Agent-runs zijn intern werk",
+      "runsBannerBody": "Geplande scans, beslissingen en agent-updates staan hier. Klantmail blijft in Inbox — Open is alleen werk dat nog een mens nodig heeft.",
       "pageTitle": "Zo werkt Communicatie",
       "intro": "De hub voor elk gesprek — externe klanten en interne agents op één plek.",
       "sections": [
         {
           "title": "Inbox-wachtrijen",
-          "body": "Alles, Van mij, Open en Niet toegewezen filteren dezelfde threadlijst. Pin belangrijke threads, wijs eigenaren toe en sluit af wanneer klaar."
+          "body": "Open is klantwerk dat nog jou nodig heeft. Meer verbergt Uitgesteld, Gesloten en Spam. Pin belangrijke gesprekken, wijs eigenaren toe en stel uit wat kan wachten."
         },
         {
           "title": "Kanalen",
           "body": "E-mail, webchat, WhatsApp en Slack krijgen elk een wachtrij na koppeling. Kanaalinstellingen en Inbox AI-modi staan onder Instellingen in de zijbalk."
         },
         {
-          "title": "Agents in threads",
+          "title": "Agents in gesprekken",
           "body": "Noem een agent of start een chat via Nieuw gesprek. Agentruns en keuzekaarten verschijnen inline — keur goed of pas aan voordat iets wordt verstuurd."
+        },
+        {
+          "title": "Agent-runs",
+          "body": "Geplande scans en wachtende beslissingen staan onder Agent-runs, niet in Open. Cockpit “Wacht op beslissing” opent dezelfde lijst."
         }
       ]
     },
     "contacts": {
-      "bannerTitle": "Contacten zijn de mensen achter je threads",
+      "bannerTitle": "Contacten zijn de mensen achter je gesprekken",
       "bannerBody": "Iedereen die binnenkomt — e-mail, chat of een ander kanaal — landt hier zodat het team ze herkent, goedkeurt en groepeert.",
       "pageTitle": "Zo werken Contacten",
       "intro": "Een gedeeld adresboek uit echte gesprekken, geen aparte CRM die je bij moet houden.",
       "sections": [
         {
           "title": "Mensen en bedrijven",
-          "body": "Wissel tussen mensen en bedrijven. Koppel contacten aan een bedrijf zodat gerelateerde threads bij elkaar blijven. Gebruik Contacten koppelen als oudere threads nog geen bedrijf hadden."
+          "body": "Wissel tussen mensen en bedrijven. Koppel contacten aan een bedrijf zodat gerelateerde gesprekken bij elkaar blijven. Gebruik Contacten koppelen als oudere gesprekken nog geen bedrijf hadden."
         },
         {
           "title": "Goedkeuren en blokkeren",
@@ -131,7 +229,7 @@
         },
         {
           "title": "Het gesprek openen",
-          "body": "Vanuit een contact spring je terug naar de threads in Communicatie. Het contact is de persoon; de inbox is het werk."
+          "body": "Vanuit een contact spring je terug naar de gesprekken in Communicatie. Het contact is de persoon; de inbox is het werk."
         }
       ]
     },
@@ -167,7 +265,7 @@
         },
         {
           "title": "Chat en planning",
-          "body": "Chat opent een interne thread met die agent. Planning springt naar Agenda, gefilterd op dezelfde agent, zodat je een wake kunt koppelen."
+          "body": "Chat opent een intern gesprek met die agent. Planning springt naar Agenda, gefilterd op dezelfde agent, zodat je een wake kunt koppelen."
         },
         {
           "title": "Nieuwe agent",
@@ -177,7 +275,7 @@
     },
     "projects": {
       "bannerTitle": "Projecten houden een gedeeld doel vast",
-      "bannerBody": "Groepeer een product-owner-agent, repository, threads en een tokenbudget zodat werk een thuis heeft in plaats van alleen in chat te leven.",
+      "bannerBody": "Groepeer een product-owner-agent, repository, gesprekken en een tokenbudget zodat werk een thuis heeft in plaats van alleen in chat te leven.",
       "pageTitle": "Zo werken Projecten",
       "intro": "Een project is de container voor een doel: wie het leidt, welke repo het gebruikt en hoeveel het mag uitgeven.",
       "sections": [
@@ -186,8 +284,8 @@
           "body": "Elk project toont de lead-agent, repostatus en resterend budget. Open het voor orchestratie, repository en recente runs."
         },
         {
-          "title": "Threads",
-          "body": "Bekijk threads springt naar Communicatie, gefilterd op dat project. Agents en mensen praten in Berichten; het project is de ruggengraat."
+          "title": "Gesprekken",
+          "body": "Bekijk gesprekken springt naar Communicatie, gefilterd op dat project. Agents en mensen praten in Berichten; het project is de ruggengraat."
         },
         {
           "title": "Budget",
@@ -227,13 +325,43 @@
         },
         {
           "title": "Concepten en keuzes",
-          "body": "Door agents voorgestelde platformwijzigingen wachten hier tot iemand ze accepteert of afwijst. Inline keuzes in threads zijn voor berichten; Govern is voor blijvend beleid."
+          "body": "Door agents voorgestelde platformwijzigingen wachten hier tot iemand ze accepteert of afwijst. Inline keuzes in gesprekken zijn voor berichten; Govern is voor blijvend beleid."
         },
         {
           "title": "Tools",
           "body": "Sliders per categorie (weigeren, vragen, toestaan) plus overrides per tool. Externe klantsessies muteren nooit automatisch, ongeacht de houding."
         }
       ]
+    },
+    "channels": {
+      "bannerTitle": "Kanalen brengen werk naar Communicatie",
+      "bannerBody": "Koppel eerst een mailbox. Websitechat, WhatsApp en Slack krijgen elk een wachtrij na koppeling.",
+      "pageTitle": "Kanalen koppelen",
+      "intro": "Breng klantmail en andere inboxen naar Communicatie zodat werk op één plek landt."
+    },
+    "integrations": {
+      "bannerTitle": "Integraties zijn de tools die agents mogen aanroepen",
+      "bannerBody": "Installeer marketplace-apps en MCP-servers, en zet daarna op Govern of agents die automatisch mogen gebruiken.",
+      "pageTitle": "Integraties koppelen",
+      "intro": "Geef agents tools buiten Bokito — boekhouding, GitHub, MCP-servers en marketplace-apps."
+    },
+    "models": {
+      "bannerTitle": "Modellen bepalen wat de workspace kan aanroepen",
+      "bannerBody": "Zet hier chat- en embeddingmodellen aan. Kosten blijven op Cockpit Verbruik; Govern bepaalt nog steeds wat agents mogen doen.",
+      "pageTitle": "Modellen kiezen",
+      "intro": "Kies welke taal- en embeddingmodellen deze workspace mag gebruiken, en wie daarvoor betaalt."
+    },
+    "widget": {
+      "bannerTitle": "De websitewidget landt in Communicatie",
+      "bannerBody": "Plaats de snippet op je site. Bezoekerschats verschijnen naast e-mail in dezelfde hub.",
+      "pageTitle": "De websitewidget installeren",
+      "intro": "Zet Bokito-chat op je site zodat bezoekers in dezelfde Communicatie-hub landen als e-mail."
+    },
+    "autonomy": {
+      "bannerTitle": "Autonomie is de vertrouwensknop van de workspace",
+      "bannerBody": "Handmatig, ondersteund of autonoom bepaalt hoeveel agents mogen doen voordat een mens ingrijpt.",
+      "pageTitle": "Autonomiehouding instellen",
+      "intro": "Bepaal hoeveel agents zelf mogen doen, van volledig toezicht tot alleen uitzonderingen."
     }
   },
   "agendaPage": {
@@ -268,6 +396,16 @@
       "interval": "Herhalend",
       "heartbeat": "Check-in",
       "webhook": "Inkomend"
+    },
+    "schedule": {
+      "webhook": "bij webhook",
+      "unscheduled": "niet gepland",
+      "everyDay": "elke dag",
+      "everyDays": "elke {{count}} dagen",
+      "everyHour": "elk uur",
+      "everyHours": "elke {{count}} uur",
+      "everyMinute": "elke minuut",
+      "everyMinutes": "elke {{count}} min"
     },
     "allTriggers": "Alle triggers",
     "noTriggers": "Nog geen triggers. Plan een wake, een eenmalige taak of een event.",
@@ -372,6 +510,7 @@
     "noCompaniesHint": "Bedrijven ontstaan automatisch uit zakelijke e-maildomeinen. Gebruik Contacten koppelen om bestaande contacten na te trekken.",
     "tryDifferentSearch": "Probeer een andere zoekterm.",
     "openCommunication": "Communicatie openen",
+    "openPeople": "Mensen tonen",
     "noContacts": "Nog geen contacten",
     "noMatchingContacts": "Geen contacten gevonden",
     "noContactsHint": "Contacten ontstaan automatisch wanneer klanten mailen of de website-widget gebruiken.",
@@ -388,7 +527,7 @@
     "colName": "Naam",
     "colChannel": "Kanaal",
     "colLastSeen": "Laatst gezien",
-    "colThreads": "Threads",
+    "colThreads": "Gesprekken",
     "colStatus": "Status",
     "emailPlaceholder": "E-mailadres *",
     "namePlaceholder": "Volledige naam",
@@ -444,11 +583,20 @@
     "block": "Blokkeren",
     "delete": "Verwijderen",
     "viewCompany": "Bedrijfsrecord bekijken",
+    "noCompanyHint": "Nog geen bedrijf gekoppeld. Bedrijven ontstaan uit zakelijke e-maildomeinen.",
+    "viewCompanies": "Bedrijven bekijken",
+    "linkContactsHint": "Gebruik Contacten koppelen om bedrijven uit bestaande adressen aan te vullen.",
     "conversations": "Gesprekken",
     "threadCount": "{{count}} gesprekken met dit contact",
     "threadCount_one": "{{count}} gesprek met dit contact",
     "noConversations": "Nog geen gesprekken.",
     "noConversationsHint": "Koppel een kanaal of installeer de chatwidget zodat klanten je kunnen bereiken.",
+    "lastSeen": "Laatst gezien {{time}}",
+    "widgetVisitor": "Websitebezoeker",
+    "neverSeen": "Nog geen gesprekken",
+    "writeEmail": "E-mail schrijven",
+    "writeEmailHint": "Start een nieuwe e-mail naar deze persoon",
+    "addManually": "Contact toevoegen",
     "connectChannels": "Kanalen koppelen",
     "noSubject": "(Geen onderwerp)",
     "companySection": "Bedrijf",
@@ -485,7 +633,7 @@
       "done": "E-mailkanaal actief",
       "todo": "Nog geen e-mailkanaal",
       "decisionDone": "Eerste keuze beoordeeld",
-      "decisionTodo": "Probeer een keuzekaart in een thread",
+      "decisionTodo": "Probeer een keuzekaart in een gesprek",
       "teamDone": "Team uitgenodigd",
       "teamTodo": "Nodig een teamlid uit",
       "inviteTeam": "Teamleden uitnodigen",
@@ -511,7 +659,7 @@
       "done": "{{count}} automatisering ingesteld",
       "done_other": "{{count}} automatiseringen ingesteld",
       "todo": "Nog geen automatiseringen",
-      "openAgenda": "Agenda openen"
+      "openAgenda": "Automatiseringen openen"
     },
     "branding": {
       "title": "4. Branding & widget",
@@ -522,12 +670,13 @@
       "installWidget": "Widget installeren"
     },
     "kpis": {
-      "title": "5. KPI's & metrics",
-      "description": "Volg de cijfers die ertoe doen op de Cockpit. Agents houden ze automatisch bij.",
-      "done": "{{count}} eigen metric",
-      "done_other": "{{count}} eigen metrics",
-      "todo": "Nog geen eigen metrics",
-      "openCockpit": "Cockpit openen"
+      "title": "5. Cijfers op de Cockpit",
+      "description": "Zet de getallen die ertoe doen op de Cockpit. Agents houden ze bij.",
+      "done": "{{count}} eigen cijfer",
+      "done_other": "{{count}} eigen cijfers",
+      "todo": "Nog geen eigen cijfers",
+      "openCockpit": "Cockpit openen",
+      "openUsage": "Gebruik openen"
     }
   },
   "loginPage": {
@@ -653,6 +802,14 @@
   },
   "activityPage": {
     "all": "Alles",
+    "headlines": "Kopregels",
+    "fullLog": "Volledig log",
+    "emptyHeadlines": "Geen kopregels in deze weergave. Denkstappen en zoekacties staan in het volledige log.",
+    "showFullLog": "Volledig log tonen",
+    "executedApprovedAction": "Goedgekeurde actie uitgevoerd: {{action}}",
+    "approvedActions": {
+      "approve": "goedkeuren"
+    },
     "agents": "Agents",
     "people": "Mensen",
     "filterPlaceholder": "Filter gebeurtenissen...",
@@ -677,12 +834,15 @@
     "timelineLoading": "Geschiedenis laden...",
     "eventTypes": {
       "think": "Nadenken",
-      "tool_call": "Tool-aanroep",
-      "tool_result": "Tool-resultaat",
+      "tool_call": "Aan het opzoeken",
+      "tool_result": "Opzoeken klaar",
       "failed": "Mislukt",
       "error": "Fout",
       "completed": "Afgerond",
-      "started": "Gestart"
+      "started": "Gestart",
+      "runStarted": "Run gestart",
+      "runCompleted": "Run afgerond",
+      "decisionApproved": "Beslissing goedgekeurd"
     },
     "tools": {
       "createDecision": "Beslissing opstellen",
@@ -706,7 +866,11 @@
       "invite_created": "Uitnodiging verstuurd",
       "invite_accepted": "Uitnodiging geaccepteerd",
       "user_password_changed": "Wachtwoord gewijzigd",
-      "workspace_settings_updated": "Workspace-instellingen bijgewerkt"
+      "workspace_settings_updated": "Workspace-instellingen bijgewerkt",
+      "agent_passport_update": "Agenttoegang bijgewerkt"
+    },
+    "knownMessages": {
+      "agentPassportUpdate": "Agenttoegang bijgewerkt"
     }
   },
   "cockpitPage": {
@@ -714,6 +878,8 @@
     "loadError": "Kon overzicht niet laden.",
     "partialLoadError": "Een deel van het overzicht kon niet worden geladen: {{items}}.",
     "conversations": "Gesprekken 7d",
+    "conversationsHint": "Nieuwe klant- en teamgesprekken deze week",
+    "conversationsEmptyHint": "Geen deze week — oudere gesprekken staan nog in de inbox",
     "awaitingDecision": "Wacht op beslissing",
     "autonomyRate": "Afgehandeld zonder jou",
     "posture": "Hoeveel agents mogen doen",
@@ -731,12 +897,16 @@
     "nothingAttention": "Niets vraagt nu je aandacht.",
     "openCommunication": "Communicatie openen",
     "decisionNeeded": "Beslissing nodig",
+    "waitingDays": "Wacht al {{count}} dag — open om te beslissen",
+    "waitingDays_other": "Wacht al {{count}} dagen — open om te beslissen",
+    "staleAttention": "Wacht al lang — open om te beantwoorden of te sluiten",
     "threadFallback": "gesprek",
     "changesAwaiting": "{{count}} platformwijziging wacht op review",
     "changesAwaiting_other": "{{count}} platformwijzigingen wachten op review",
     "reviewGovern": "Review concepten in Govern",
     "recentEvents": "Recente events",
-    "recentEventsHint": "Laatste agent-runs en teamacties",
+    "recentEventsHint": "Afgeronde runs, beslissingen en teamacties — denkstappen staan op Activiteit",
+    "eventRepeats": "{{count}} vergelijkbaar",
     "openActivity": "Activiteit openen",
     "noEvents": "Geen recente events. Agent-runs verschijnen hier.",
     "openAgents": "Agents openen",
@@ -748,16 +918,26 @@
     "recentContacts": "Recente contacten",
     "recentContactsHint": "Mensen die recent actief waren op je kanalen",
     "openContacts": "Contacten openen",
+    "writeEmail": "E-mail schrijven",
     "noContacts": "Nog geen contacten. Ze verschijnen wanneer klanten je berichten.",
     "connectEmail": "E-mail koppelen",
     "installWidget": "Widget installeren",
     "openSetup": "Setupgids openen",
-    "yourMetrics": "Jouw metrics",
+    "loopTitle": "Hoe Bokito samenhangt",
+    "loopHint": "Berichten, agents en goedkeuringen zijn een loop. Begin hier, open de rest als je het nodig hebt.",
+    "loopMessages": "Berichten",
+    "loopMessagesHint": "Klant- en teamgesprekken komen hier binnen.",
+    "loopAgents": "Agents",
+    "loopAgentsHint": "Zij maken conceptantwoorden en doen gepland werk.",
+    "loopGovern": "Goedkeuringen",
+    "loopGovernHint": "Jij bepaalt wat zonder jou mag lopen.",
+    "loopDismiss": "Verbergen",
+    "yourMetrics": "Jouw cijfers",
     "metricsHint": "Ingevuld door jou of je agents",
-    "addMetric": "Metric toevoegen",
-    "trackKpi": "Volg een bedrijfs-KPI. Jij of je agents houden het cijfer bij.",
-    "editMetric": "Metric bewerken",
-    "newMetric": "Nieuwe metric",
+    "addMetric": "Cijfer toevoegen",
+    "trackKpi": "Volg een bedrijfscijfer. Jij of je agents houden het bij.",
+    "editMetric": "Cijfer bewerken",
+    "newMetric": "Nieuw cijfer",
     "metricName": "Naam",
     "metricNamePlaceholder": "bijv. Maandelijks terugkerende omzet",
     "dataSource": "Databron",
@@ -814,6 +994,12 @@
     "tokens30d": "Tokens (30d)",
     "cost30d": "Kosten (30d)",
     "conversations7d": "Gesprekken (7d)",
+    "conversationsEmptyHint": "Deze week nog geen gesprekken. Open de inbox om te beginnen.",
+    "openInbox": "Inbox openen",
+    "autonomyEmptyHint": "Nog niets zelf afgehandeld. Stel in Govern in hoeveel agents mogen doen.",
+    "openGovern": "Govern openen",
+    "feedbackEmptyHint": "Nog geen klantbeoordelingen. Websitechat vraagt die na een gesprek.",
+    "openWebsiteWidget": "Websitechat installeren",
     "autonomyRate": "Afgehandeld zonder jou",
     "timeSaved": "Tijd bespaard (7d, schatting)",
     "avgFeedback": "Gem. feedback",
@@ -827,19 +1013,20 @@
     "openModels": "Modellen en providers openen",
     "tokens": "{{count}} tokens",
     "billableRow": "factureerbaar {{amount}}",
-    "byok": "BYOK (geen kosten)",
+    "byok": "Eigen sleutel (geen kosten)",
     "byAgent": "Per agent ({{days}}d)",
     "noAgentUsage": "Nog geen agentverbruik.",
     "byUser": "Per gebruiker ({{days}}d)",
     "noUserUsage": "Nog geen verbruik toegewezen aan gebruikers.",
     "userHint": "Chats die een gebruiker start, worden aan die gebruiker toegerekend; autonome runs staan onder Agents / systeem.",
-    "byokFooter": "Modellen op je eigen sleutels tonen geen kosten (BYOK); modellen op Bokito-sleutels worden per token gefactureerd inclusief platformopslag.",
+    "byokFooter": "Modellen op je eigen sleutels tonen geen kosten; modellen op Bokito-sleutels worden per token gefactureerd inclusief platformopslag.",
     "usedOfCap": "{{used}} van {{cap}}",
     "noCapParen": "(geen plafond)",
     "couldNotLoad": "Verbruik kon niet worden geladen.",
     "couldNotSave": "Budgetplafonds konden niet worden opgeslagen.",
     "capsMustBeNumbers": "Plafonds moeten getallen zijn (laat leeg voor geen plafond).",
     "unknown": "onbekend",
+    "systemUser": "Agents / systeem",
     "tokensShort": "{{count}} tok"
   },
   "verifyEmail": {
@@ -856,15 +1043,40 @@
     "title": "Notificaties",
     "markAll": "Alles als gelezen",
     "empty": "Geen notificaties",
+    "emptyHint": "Bokito laat je weten wanneer een klant schrijft of een agent een beslissing nodig heeft.",
+    "settings": "Instellingen",
+    "openDecisions": "Beslissingen openen",
+    "openChannels": "E-mail en berichten",
     "openCommunication": "Communicatie openen",
     "now": "Nu",
     "minutesAgo": "{{count}}m geleden",
     "hoursAgo": "{{count}}u geleden",
-    "daysAgo": "{{count}}d geleden"
+    "daysAgo": "{{count}}d geleden",
+    "staleDays": "{{count}}d geleden — nog open",
+    "similarCount": "{{count}} vergelijkbaar — nog open"
+  },
+  "bindingPicker": {
+    "ariaLabel": "Behandelende agent",
+    "hint": "De agent die nieuwe gesprekken op dit item behandelt.",
+    "leadDefault": "Lead agent (standaard)",
+    "leadDefaultNamed": "{{name}} — lead agent (standaard)",
+    "unknownAgent": "Onbekende agent",
+    "saveError": "Kon de behandelende agent niet bijwerken."
+  },
+  "channelVisibility": {
+    "title": "Zichtbaarheid",
+    "hint": "Welke workspace-members gesprekken op dit kanaal zien. Owners en admins zien altijd alles.",
+    "everyone": "Iedereen",
+    "selected": "Geselecteerde members",
+    "selectedCount": "{{count}} member(s)",
+    "membersLabel": "Members",
+    "saveError": "Kon zichtbaarheid niet bijwerken."
   },
   "channelsPage": {
     "bokitoTitle": "Je Bokito-adres",
     "ready": "Klaar",
+    "colAgent": "Agent",
+    "colVisibility": "Zichtbaarheid",
     "bokitoBody": "Ingebouwd en klaar om te ontvangen. Deel het direct of zet doorsturen vanaf je bestaande mailbox — inkomende mail landt in Communicatie en antwoorden gaan vanaf dit adres.",
     "copied": "Gekopieerd",
     "copy": "Kopiëren",
@@ -929,9 +1141,11 @@
     },
     "bindings": {
       "title": "Kanaalrouting",
-      "body": "Stuur inkomende gesprekken op een kanaal naar een specifieke agent. Zonder route handelt je assistent nieuwe threads af.",
+      "body": "Stuur inkomende gesprekken op een kanaal naar een specifieke agent. Zonder route behandelt de lead agent nieuwe gesprekken.",
       "loading": "Routes laden...",
-      "empty": "Nog geen routes. Nieuwe gesprekken gebruiken je assistent tot je er een toevoegt.",
+      "empty": "Nog geen routes. Nieuwe gesprekken gaan naar de lead agent tot je er een toevoegt.",
+      "accountScope": "Mailbox / account {{address}}",
+      "contactScope": "Specifiek contact",
       "emptyHint": "Gebruik Route toevoegen hieronder om een kanaal naar een agent te sturen.",
       "openAgents": "Agents openen",
       "openCommunication": "Communicatie openen",
@@ -946,7 +1160,7 @@
       "disabled": "gepauzeerd",
       "removeAria": "Route verwijderen",
       "email": "E-mail",
-      "widget": "Webchat",
+      "widget": "Websitechat",
       "slack": "Slack",
       "whatsapp": "WhatsApp",
       "adding": "Toevoegen...",
@@ -989,7 +1203,7 @@
   },
   "automationRules": {
     "title": "Automatiseringsregels",
-    "description": "Geleerd van je keuzes bij geautomatiseerde mail: bijpassende threads worden gesloten, een taak, of blijven voor het team zonder AI-concept.",
+    "description": "Geleerd van je keuzes bij geautomatiseerde mail: bijpassende gesprekken worden gesloten, een taak, of blijven voor het team zonder AI-concept.",
     "selfLearning": "Zelflerend",
     "newRule": "Nieuwe regel",
     "empty": "Nog geen regels. Ze verschijnen automatisch als je dezelfde keuze een paar keer maakt op een \"Geen antwoord nodig\"-kaart, of maak er zelf een.",
@@ -1007,7 +1221,7 @@
     "matchSenderAddr": "Afzenderadres",
     "matchDomainOpt": "Domein",
     "matchListIdOpt": "Mailinglijst-id",
-    "actionCloseThread": "Thread automatisch sluiten",
+    "actionCloseThread": "Gesprek automatisch sluiten",
     "actionCreateTask": "Taak maken",
     "actionSkipAi": "AI overslaan (voor het team)",
     "active": "Actief",
@@ -1098,7 +1312,7 @@
       "ops-run-failed": "Wanneer een agent-run of trigger faalt",
       "ops-channel-disconnect": "Wanneer een gekoppeld kanaal stopt met synchroniseren",
       "billing-alerts": "Wanneer LLM-verbruik 80% of 100% van het budget bereikt",
-      "digest-daily": "Dagelijks e-maildigest (open threads, openstaande beslissingen, agentactiviteit)",
+      "digest-daily": "Dagelijks e-maildigest (open gesprekken, openstaande beslissingen, agentactiviteit)",
       "digest-weekly": "Wekelijks e-maildigest"
     }
   },
@@ -1107,7 +1321,7 @@
     "description": "Ontvang en beantwoord WhatsApp Business-berichten in de inbox via de Cloud API.",
     "connect": "WhatsApp koppelen",
     "loading": "Laden...",
-    "empty": "Geen WhatsApp-nummer gekoppeld. Maak een Meta-app met het WhatsApp-product, genereer een permanent System User-toegangstoken en koppel die hier met het telefoonnummer-ID.",
+    "empty": "Nog geen WhatsApp-nummer gekoppeld. Klantchats landen in Communicatie zodra je WhatsApp Business hier koppelt — je hebt een Meta-app token en telefoonnummer-ID nodig.",
     "numberFallback": "WhatsApp-nummer",
     "connected": "Verbonden",
     "disabled": "Uitgeschakeld",
@@ -1141,7 +1355,7 @@
     "description": "Bezorg beslissingskaarten als Slack-berichten met Goedkeuren- en Weigeren-knoppen.",
     "connect": "Slack koppelen",
     "loading": "Laden...",
-    "empty": "Geen Slack-workspace gekoppeld. Maak een Slack-app met de scopes chat:write, users:read en users:read.email, en koppel die hier met de bot-token en signing secret.",
+    "empty": "Nog geen Slack-workspace gekoppeld. Beslissingskaarten met Goedkeuren en Weigeren verschijnen in Slack zodra je hier een workspace koppelt.",
     "workspace": "Slack-workspace",
     "connected": "Verbonden",
     "disabled": "Uitgeschakeld",
@@ -1244,20 +1458,28 @@
     "settings": "Instellingen"
   },
   "palette": {
-    "placeholder": "Zoek pagina's, threads, contacten, acties...",
+    "placeholder": "Zoek pagina's, gesprekken, contacten, kennis, acties...",
     "noResults": "Geen resultaten",
+    "tryInstead": "Probeer een van deze",
+    "footerHint": "Tip: typ een naam, onderwerp of pagina. Instellingen verschijnen terwijl je typt.",
+    "groupRecent": "Recent",
     "groupGoTo": "Ga naar",
     "groupSessions": "Sessies",
     "groupActions": "Acties",
-    "groupThreads": "Threads",
+    "groupThreads": "Gesprekken",
     "groupContacts": "Contacten",
     "groupSettings": "Instellingen",
     "groupInbox": "Inbox-wachtrijen",
+    "groupKnowledge": "Kennis",
     "unnamedContact": "Naamloos contact",
     "untitledConversation": "Naamloos gesprek",
     "newChat": "Nieuwe chat",
+    "newEmail": "Nieuwe e-mail",
+    "newContact": "Nieuw contact",
+    "newAgent": "Nieuwe agent",
     "connectMailbox": "Mailbox koppelen",
     "openSetupGuide": "Setupgids openen",
+    "openHelp": "Hulp openen",
     "switchToLight": "Schakel naar lichte modus",
     "switchToDark": "Schakel naar donkere modus",
     "ariaDialog": "Commandopalet",
@@ -1276,9 +1498,13 @@
     "allWorkspaces": "Alle workspaces",
     "current": "huidig",
     "profile": "Profiel",
+    "help": "Hulp",
     "notifications": "Notificaties",
     "workspaces": "Workspaces",
     "resumeSetup": "Setupgids hervatten",
+    "setup": "Setup",
+    "emailMessages": "E-mail en berichten",
+    "inboxAi": "Inbox AI",
     "signOut": "Uitloggen"
   },
   "rail": {
@@ -1559,7 +1785,7 @@
       "mine": "Van mij",
       "open": "Open",
       "unassigned": "Niet toegewezen",
-      "snoozed": "Gesnoozed",
+      "snoozed": "Uitgesteld",
       "closed": "Gesloten",
       "spam": "Spam"
     },
@@ -1582,9 +1808,11 @@
     },
     "channels": {
       "loading": "Kanalen laden...",
-      "webchat": "Webchat",
+      "webchat": "Websitechat",
       "internal": "Interne chat",
-      "agent": "Agentberichten"
+      "agent": "Agentberichten",
+      "whatsapp": "WhatsApp",
+      "slack": "Slack"
     },
     "agents": {
       "loading": "Agents laden...",
@@ -1603,7 +1831,8 @@
       "assistant": "Inbox AI",
       "widget": "Chatwidget",
       "integrations": "Integraties",
-      "setupGuide": "Setupgids"
+      "setupGuide": "Setupgids",
+      "allSettings": "Alle instellingen"
     },
     "customize": {
       "title": "Zijbalk aanpassen",
@@ -1633,7 +1862,7 @@
     "segmentCustomer": "Klant",
     "segmentAgents": "Agents",
     "moreQueues": "Meer",
-    "agentOpsHint": "Beslissingen verschijnen inline in threads",
+    "agentOpsHint": "Beslissingen verschijnen inline in gesprekken",
     "mailboxes": "Kanalen",
     "channelViews": {
       "open": "Open",
@@ -1716,9 +1945,9 @@
         "es": "Spaans"
       },
       "triageTitle": "Triage",
-      "triageDescription": "Hoe zeker de AI moet zijn voordat de classificatie de prioriteit van een thread beinvloedt.",
+      "triageDescription": "Hoe zeker de AI moet zijn voordat de classificatie de prioriteit van een gesprek beinvloedt.",
       "certaintyLabel": "Zekerheidsdrempel",
-      "certaintyHint": "Onder deze zekerheid verhoogt triage nooit de prioriteit van een thread. Hogere waarden betekenen minder maar betrouwbaardere prioriteitsverhogingen.",
+      "certaintyHint": "Onder deze zekerheid verhoogt triage nooit de prioriteit van een gesprek. Hogere waarden betekenen minder maar betrouwbaardere prioriteitsverhogingen.",
       "certaintyLow": "soepel",
       "certaintyMedium": "gebalanceerd",
       "certaintyHigh": "strikt",
@@ -1736,7 +1965,10 @@
         "body": "AI-modi gelden per kanaal. Koppel eerst kanalen en stel hier het gedrag bij.",
         "channels": "E-mail en kanalen",
         "widget": "Chatwidget uiterlijk",
-        "installWidget": "Widget op je site installeren"
+        "installWidget": "Widget op je site installeren",
+        "agents": "Agents openen",
+        "govern": "Govern-beleid openen",
+        "communication": "Communicatie openen"
       }
     },
     "cloudAgent": {
@@ -1768,7 +2000,7 @@
     "kind": {
       "inbox": "Communicatie",
       "repository": "Repository",
-      "mcp": "Gekoppelde tools"
+      "mcp": "Tools"
     },
     "actions": {
       "setupConnection": "Koppelen",
@@ -1788,7 +2020,7 @@
       "all": "Alle integraties",
       "inbox": "Communicatie",
       "repository": "Repository",
-      "mcp": "Gekoppelde tools",
+      "mcp": "Tools voor agents",
       "connected": "Verbonden",
       "available": "Beschikbaar",
       "statusAll": "Alle statussen"
@@ -1842,6 +2074,76 @@
       "connectionTypes": "Koppelingstypen",
       "connectedShort": "Verbonden"
     },
+    "hosts": {
+      "github": {
+        "name": "GitHub",
+        "description": "Repositories voor code-indexering en optionele GitHub-tools voor agents."
+      },
+      "microsoft": {
+        "name": "Microsoft",
+        "description": "Outlook-mailboxen en optionele Microsoft Graph-tools (Entra-directory, preview)."
+      },
+      "google": {
+        "name": "Google",
+        "description": "Gmail-mailboxen voor inbox en e-mail in Bokito."
+      },
+      "notion": {
+        "name": "Notion",
+        "description": "Workspace-pagina's en kennis via inloggen."
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Issues, projecten en reacties via inloggen."
+      },
+      "atlassian": {
+        "name": "Atlassian",
+        "description": "Jira, Confluence en Compass via Atlassian."
+      },
+      "slack": {
+        "name": "Slack",
+        "description": "Kanalen en berichten via Slack."
+      },
+      "asana": {
+        "name": "Asana",
+        "description": "Taken en projecten in Asana."
+      },
+      "clickup": {
+        "name": "ClickUp",
+        "description": "ClickUp-workspaces en taken."
+      },
+      "sentry": {
+        "name": "Sentry",
+        "description": "Issues en debugcontext uit Sentry."
+      },
+      "stripe": {
+        "name": "Stripe",
+        "description": "Facturatiegegevens en acties uit Stripe."
+      },
+      "shopify": {
+        "name": "Shopify",
+        "description": "Winkel- en beheergegevens voor e-commerce-agents (OAuth per winkel)."
+      },
+      "king": {
+        "name": "KING Accountancy",
+        "description": "Alleen-lezen Cloudswitch-toegang tot KING Accountancy-administraties."
+      },
+      "bjorn_lunden": {
+        "name": "Bjorn Lunden",
+        "description": "Boekhoud- en ERP-tools via de Zweedse Bjorn Lunden BLA API."
+      },
+      "custom": {
+        "name": "Eigen tool",
+        "description": "Elke externe tool via URL met API-sleutel of bearer-token."
+      },
+      "higgsfield": {
+        "name": "Higgsfield",
+        "description": "AI-beeld- en videogeneratie via Higgsfield."
+      },
+      "whatsapp": {
+        "name": "WhatsApp",
+        "description": "WhatsApp Business-berichten in de inbox via de Cloud API."
+      }
+    },
     "marketplace": {
       "connectedCount": "{{count}} verbonden",
       "activeConnections": "{{count}} actieve verbindingen",
@@ -1864,7 +2166,7 @@
       "setupGuideHint": "Of begin met de setupgids",
       "openInbox": "Inbox openen",
       "emptyInbox": "Nog geen mailboxen gekoppeld.",
-      "browseInbox": "Communication bekijken in Marketplace",
+      "browseInbox": "Communicatie bekijken in Marketplace",
       "browseRepository": "GitHub koppelen in Marketplace",
       "browseMcp": "Tools bekijken in Marketplace",
       "openProjects": "Projecten openen",
@@ -1899,7 +2201,7 @@
         "title": "API-sleutels",
         "description": "Developer-sleutels voor programmatische toegang.",
         "comingSoon": "Binnenkort",
-        "comingSoonBody": "Webhook-triggers configureer je op Agenda onder Automations. Zie Integrations setup voor de volledige checklist."
+        "comingSoonBody": "Webhook-triggers configureer je op Agenda onder Automatiseringen. Zie de setupgids voor de volledige checklist."
       },
       "sources": {
         "title": "Bronnen",
@@ -1942,8 +2244,12 @@
       "servers": {
         "title": "Gekoppelde tools",
         "description": "Geef je agents extra mogelijkheden door andere apps te koppelen.",
-        "reachabilityHint": "Gebruik een adres dat de Bokito-API kan bereiken. Interne Docker-hostnamen zijn prima.",
-        "docsLink": "Lees integratiedocumentatie",
+        "reachabilityHint": "Gebruik een adres dat Bokito vanaf de servers kan bereiken.",
+        "docsLink": "Marketplace bekijken",
+        "openMarketplace": "Marketplace bekijken",
+        "openAgents": "Agents openen",
+        "openGovern": "Govern openen",
+        "emptyHint": "Kies een app in Marketplace, of koppel hierboven een eigen tool. Agents gebruiken deze tools in gesprekken.",
         "addTitle": "Toolserver toevoegen",
         "newConnection": "Tool koppelen",
         "modalDescription": "Koppel een app die je agents in deze workspace kunnen gebruiken.",
@@ -2045,11 +2351,24 @@
       "projects": "Projecten",
       "library": "Agentbibliotheek"
     },
+    "scopes": {
+      "platformRead": "Platform bekijken",
+      "graphEdit": "AI OS-canvas bewerken",
+      "agentCreate": "Agents aanmaken",
+      "agentUpdate": "Agents bijwerken",
+      "workstreamCreate": "Agenda-schema's aanmaken",
+      "workstreamUpdate": "Agenda-schema's bijwerken",
+      "docWrite": "Kennisdocumenten schrijven",
+      "integrationPropose": "Integraties voorstellen",
+      "integrationCreate": "Integraties toevoegen",
+      "mcpRegister": "Externe tools koppelen",
+      "edgeConnect": "Canvasverbindingen maken"
+    },
     "links": {
       "overview": "Overzicht",
       "agents": "Agentbibliotheek",
       "assistant": "Assistant agent",
-      "communication": "Inbox-AI",
+      "communication": "Inbox AI",
       "po": "Lead",
       "backgroundWorkers": "Stromen",
       "viewAllAgents": "Alle agents",
@@ -2070,13 +2389,17 @@
       "showLess": "Toon minder"
     },
     "agents": {
-      "title": "Agentbibliotheek",
+      "title": "Agents",
       "newAgent": "Nieuwe agent",
       "listDescription": "Agents behandelen klantgesprekken, gepland werk en tools. Chat met ze vanuit Communicatie of wek ze vanuit de Agenda.",
       "loading": "Agents laden…",
       "loadError": "Agents laden mislukt.",
       "empty": "Nog geen agents.",
       "emptyHint": "Maak een agent voor gesprekken. Je kunt ermee chatten vanuit Communicatie en hem plannen op de Agenda.",
+      "attentionTitle": "{{count}} gesprekken wachten op een beslissing",
+      "attentionTitle_one": "{{count}} gesprek wacht op een beslissing",
+      "attentionHint": "Je agents zijn gestopt en hebben een ja of nee nodig voordat ze verdergaan.",
+      "attentionAction": "Bekijk beslissingen",
       "askAdmin": "Vraag je workspace-admin",
       "askAdminHint": "Agents worden beheerd door workspace-admins. Je kunt nog steeds met ze chatten vanuit Communicatie.",
       "openCommunication": "Communicatie openen",
@@ -2114,6 +2437,7 @@
       "agendaDescription": "Geplande wakes en taken voor deze agent in de komende twee weken.",
       "agendaEmptyHint": "Nog niets gepland. Plan een wake op de Agenda via timer of webhook.",
       "openFullAgenda": "Agenda openen",
+      "openAgendaAutomations": "Automatiseringen",
       "scheduleOnAgenda": "Plannen op Agenda",
       "editTools": "Bewerken",
       "cancelTools": "Annuleren",
@@ -2125,7 +2449,7 @@
       "modelBody": "Het model dat deze agent gebruikt voor redeneren en chat.",
       "modelLoadError": "Kon de modellijst niet laden.",
       "modelUpdateError": "Kon model niet bijwerken.",
-      "openModels": "Providers en models openen",
+      "openModels": "Providers en modellen openen",
       "instructionsSaveError": "Kon wijzigingen niet opslaan.",
       "nameRequired": "Naam mag niet leeg zijn.",
       "chatAccessLoadError": "Kon chattoegang niet laden.",
@@ -2147,6 +2471,7 @@
       "signatureEdit": "Bewerken",
       "signatureAdd": "Toevoegen",
       "signatureEmpty": "Nog geen handtekening. Zonder handtekening wordt de mailbox-handtekening als terugval gebruikt.",
+      "openMailboxSignatures": "Mailbox-handtekeningen",
       "signatureSaved": "Agenthandtekening opgeslagen",
       "signatureSaveError": "Handtekening kon niet worden opgeslagen",
       "signatureEditorContext": "voor agent {{name}}",
@@ -2165,13 +2490,19 @@
       },
       "status": {
         "active": "Actief",
-        "standby": "Stand-by",
+        "standby": "Pauze",
         "sleeping": "Slapend",
         "error": "Fout"
       },
       "archiveConfirm": "Deze agent archiveren? Die verdwijnt uit de agentlijst. Run-geschiedenis blijft bewaard.",
       "statusUpdateError": "Kon de agentstatus niet bijwerken.",
       "archiveError": "Kon de agent niet archiveren.",
+      "leadBadge": "Lead agent",
+      "leadHint": "Behandelt alles zonder specifieke toewijzing.",
+      "makeLead": "Maak lead agent",
+      "makeLeadConfirm": "Deze agent de lead agent maken? De lead agent behandelt alle gesprekken en al het werk zonder specifieke toewijzing.",
+      "leadUpdateError": "Kon de lead agent niet wijzigen.",
+      "leadArchiveBlocked": "Dit is de lead agent. Maak eerst een andere agent lead en archiveer daarna.",
       "autonomyUpdateError": "Kon niet bijwerken wat deze agent mag doen.",
       "permissionsTitle": "Tools en toestemmingen",
       "permissionsDescription": "Wat deze agent mag doen. Workspace-brede regels stel je in bij Govern.",
@@ -2183,8 +2514,9 @@
       "autonomyDefault": "Workspace-standaard",
       "allowedTools": "Toegestane tools",
       "allToolsByPolicy": "Alle tools, begrensd door workspace-regels.",
-      "permissionScopes": "Toestemmingsbereiken",
-      "wake": "Weken",
+      "permissionScopes": "Wat deze agent mag",
+      "modelCost": "invoer ${{input}} / miljoen tokens · uitvoer ${{output}} / miljoen tokens",
+      "wake": "Wekken",
       "pause": "Pauzeren",
       "archive": "Archiveren",
       "create": {
@@ -2270,7 +2602,10 @@
       "loadingEvents": "Events laden...",
       "loadError": "Kon run-events niet laden",
       "waiting": "Wachten op events...",
-      "eventFallback": "event"
+      "eventFallback": "event",
+      "openConversation": "Openen in Communicatie",
+      "stepsHint": "Wat de agent deed, in volgorde",
+      "backToAgenda": "Terug naar Agenda"
     },
     "overview": {
       "loading": "Workforce-overzicht laden…",
@@ -2310,12 +2645,14 @@
       "emptyTitle": "Nog geen projecten",
       "emptyBody": "Een project groepeert gesprekken, agents en kennis rond één doel. Maak er een, of begin bij Agents.",
       "openAgents": "Agents openen",
-      "openSetup": "Open setupgids",
+      "openSetup": "Setupgids openen",
       "openKnowledge": "Kennis openen",
       "openCommunication": "Communicatie openen",
+      "actionsFor": "Acties voor {{name}}",
       "openThreads": "Gesprekken openen",
       "openLead": "Lead openen",
       "noLead": "Nog geen lead",
+      "defaultAgent": "{{name}} (standaard voor gesprekken)",
       "noRepo": "Geen repository",
       "delete": "Verwijderen",
       "deleted": "Project verwijderd",
@@ -2386,6 +2723,7 @@
       "notFound": "Project niet gevonden.",
       "loadError": "Kon project niet laden.",
       "viewThreads": "Gesprekken bekijken",
+      "openKnowledge": "Kennis openen",
       "delete": "Verwijderen",
       "about": "Over dit project",
       "name": "Naam",
@@ -2421,7 +2759,17 @@
       "leadPlaceholder": "Koppel een lead",
       "leadCreate": "Nieuwe lead maken",
       "leadDefaultName": "Projectlead",
-      "copyIdShort": "ID kopiëren"
+      "copyIdShort": "ID kopiëren",
+      "agentsLabel": "Agents",
+      "agentsLoading": "Agents laden…",
+      "agentsEmpty": "Nog geen agents op dit project. Gesprekken vallen terug op de projectlead, daarna de lead agent.",
+      "agentAddPlaceholder": "Agent toevoegen",
+      "agentAddError": "Kon agent niet toevoegen.",
+      "agentRemove": "Van project verwijderen",
+      "agentRemoveError": "Kon agent niet verwijderen.",
+      "agentMakeDefault": "Standaard maken voor projectgesprekken",
+      "agentDefaultError": "Kon standaardagent niet bijwerken.",
+      "agentDefaultBadge": "Standaard"
     }
   },
   "project": {
@@ -2766,6 +3114,25 @@
       "conversations": "Gesprekken",
       "importsExports": "Importeren en exporteren",
       "mailboxes": "Mailboxen"
+    },
+    "hints": {
+      "profileSecurity": "Naam, foto, wachtwoord en e-mailhandtekening",
+      "myAssistant": "Je persoonlijke assistent",
+      "notifications": "Wanneer Bokito je moet waarschuwen",
+      "setupGuide": "Begeleide checklist om te starten",
+      "general": "Bedrijfsnaam en taal",
+      "branding": "Logo en kleuren",
+      "members": "Collega's uitnodigen",
+      "emailMessages": "Mailboxen, WhatsApp en handtekeningen",
+      "chatWidget": "Websitechat voor klanten",
+      "inboxAi": "Hoe agents klanten beantwoorden",
+      "helpCenters": "Openbare helpartikelen",
+      "integrations": "Andere tools koppelen",
+      "marketplace": "Marketplace-apps en tools die je agents kunnen gebruiken — zoek op markt",
+      "connectedTools": "Tools die agents al mogen gebruiken",
+      "govern": "Goedkeuringen en hoeveel agents mogen doen",
+      "developers": "API-sleutels en webhooks",
+      "models": "Welke AI-modellen je gebruikt"
     }
   },
   "settingsPageMeta": {
@@ -2853,7 +3220,7 @@
     },
     "created": {
       "title": "Door mij gemaakt",
-      "description": "Tickets en threads die jij hebt gestart."
+      "description": "Tickets en gesprekken die jij hebt gestart."
     },
     "unassigned": {
       "title": "Niet toegewezen",
@@ -2888,7 +3255,8 @@
   "helpCentersPage": {
     "intro": "Klantartikelen voor je website. Interne documenten waar agents van leren staan in Kennis.",
     "openKnowledge": "Kennis openen",
-    "collectionName": "Nieuwe collectienaam",
+    "openWidget": "Websitechat installeren",
+    "collectionName": "bijv. Veelgestelde vragen",
     "descriptionOptional": "Beschrijving (optioneel)",
     "add": "Toevoegen",
     "adding": "Toevoegen...",
@@ -2901,6 +3269,7 @@
     "upload": "Uploaden",
     "uploading": "Uploaden...",
     "emptyDocuments": "Nog geen documenten in deze collectie. Voeg er hierboven een toe.",
+    "emptyDocumentsNoCollection": "Maak hierboven eerst een collectie, bijvoorbeeld Veelgestelde vragen. Interne documenten staan in Kennis.",
     "selectCollection": "Selecteer eerst een collectie.",
     "created": "Collectie aangemaakt",
     "createError": "Kon collectie niet aanmaken",
@@ -2940,8 +3309,10 @@
     "deleteError": "Kon document niet verwijderen.",
     "emptyHint": "Agents gebruiken dit om te antwoorden. Voeg een document toe, chat met een agent, of publiceer klantartikelen in het Helpcentrum.",
     "openAgents": "Agents openen",
-    "openSetup": "Open setupgids",
+    "openSetup": "Setupgids openen",
     "talkAssistant": "Praat met je assistent",
+    "usedByAgents": "Agents lezen dit tijdens het werk.",
+    "openRuns": "Agent-runs openen",
     "openHelpCenter": "Klant-helpcentrum",
     "emptyTitle": "Workspace-kennis",
     "emptyBody": "Notities, skills en geheugen die je agents lezen tijdens het werk — en zelf bijhouden terwijl ze leren.",
@@ -3080,16 +3451,16 @@
     "modulesBody": "Zet modules in de chatwidget aan of uit.",
     "welcomeTitle": "Welkomstberichten",
     "displayName": "Assistentnaam",
-    "displayNamePlaceholder": "Bokito AI",
+    "displayNamePlaceholder": "Assistentnaam",
+    "handlingAgent": "Behandelende agent",
+    "handlingAgentHint": "De agent die nieuwe widgetgesprekken beantwoordt. De widgetnaam volgt deze agent tenzij je hierboven een naam instelt.",
     "welcomeHeading": "Welkomsttitel",
-    "welcomeHeadingPlaceholder": "Hoi!",
     "welcomeSubtitle": "Welkomstondertitel",
-    "welcomeSubtitlePlaceholder": "Stel je vraag...",
     "colorsTitle": "Kleuren",
     "colorsBody": "Voor knoppen en highlights in de chatwidget. Het product houdt je tint en zet die om naar een moderne look in light en dark.",
     "accent": "Accent",
     "iconTitle": "Widgetpictogram",
-    "iconBody": "In de widgetkop. Los van het browsertabblad-pictogram onder Branding.",
+    "iconBody": "Volgt automatisch het pictogram uit Branding. Zonder eigen pictogram gebruikt de widget het Bokito-pictogram. Je kunt hier een override uploaden.",
     "remove": "Verwijderen",
     "upload": "Uploaden",
     "tone": "Toon",
@@ -3142,8 +3513,11 @@
     "saved": "Opgeslagen",
     "loadError": "Kon assistentinstellingen niet laden.",
     "saveError": "Kon instellingen niet opslaan.",
-    "openCommunication": "Communicatie openen",
-    "openModels": "Providers en modellen openen"
+    "openCommunication": "Nieuwe chat openen",
+    "openModels": "Providers en modellen openen",
+    "openKnowledge": "Kennis openen",
+    "openInboxAi": "Inbox AI openen",
+    "openNotifications": "Meldingen openen"
   },
   "acceptInvitePage": {
     "missingToken": "Deze uitnodigingslink mist het token.",
@@ -3182,7 +3556,7 @@
     "signIn": "Inloggen"
   },
   "modelsPage": {
-    "loadError": "Kon models niet laden.",
+    "loadError": "Kon modellen niet laden.",
     "addProviderError": "Kon provider niet toevoegen.",
     "enablePresetsError": "Kon voorgestelde models niet inschakelen.",
     "updateModelError": "Kon model niet bijwerken.",
@@ -3226,14 +3600,14 @@
     "saveProvider": "Provider opslaan",
     "cancel": "Annuleren",
     "test": "Testen",
-    "enablePresets": "Presets inschakelen",
+    "enablePresets": "Voorgestelde modellen inschakelen",
     "modelsTitle": "Modellen",
-    "modelsEmpty": "Schakel presetmodellen in op een provider of voeg hierboven een aangepast model toe.",
-    "openSetup": "Open setupgids",
-    "openAgents": "Open Agents",
-    "openUsage": "Bekijk verbruik",
-    "openGovern": "Open Govern-beleid",
-    "pricingInOut": "in {{in}} · uit {{out}}",
+    "modelsEmpty": "Schakel voorgestelde modellen in op een provider of voeg hierboven een aangepast model toe.",
+    "openSetup": "Setupgids openen",
+    "openAgents": "Agents openen",
+    "openUsage": "Verbruik bekijken",
+    "openGovern": "Govern-beleid openen",
+    "pricingInOut": "invoer {{in}} / miljoen tokens · uitvoer {{out}} / miljoen tokens",
     "managed": {
       "title": "Bokito AI",
       "body": "Beheerd door Bokito: wij kiezen en onderhouden automatisch het beste model per taak. Verbruik wordt per token gemeten voor deze workspace en telt mee voor je budget.",
@@ -3292,6 +3666,7 @@
     "emptyHint": "Nodig teamleden uit om samen gesprekken en agent-runs af te handelen.",
     "openSetup": "Setupgids openen",
     "inviteFromEmpty": "Lid uitnodigen",
+    "you": "Jij",
     "statusActive": "Actief",
     "statusPending": "In afwachting",
     "unknown": "Onbekend",

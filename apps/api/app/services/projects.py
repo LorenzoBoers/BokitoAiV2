@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
-from app.models.project import Project
+from app.models.project import Project, ProjectAgent
 from app.models.orchestra import Workstream
 from app.models.usage import UsageLedger
 
@@ -97,10 +97,28 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             select(Agent).where(Agent.id.in_(po_ids), Agent.tenant_id == tenant_id)
         )
         agents_by_id = {a.id: a for a in agents_result.scalars().all()}
-    return [
-        serialize_project(p, agents_by_id.get(p.po_agent_id) if p.po_agent_id else None)
-        for p in projects
-    ]
+    # Roster chips for the projects list (batched; avoids N+1).
+    roster_by_project: dict[UUID, list[dict[str, Any]]] = {}
+    if projects:
+        roster_result = await session.execute(
+            select(ProjectAgent, Agent)
+            .join(Agent, Agent.id == ProjectAgent.agent_id)
+            .where(
+                ProjectAgent.tenant_id == tenant_id,
+                ProjectAgent.project_id.in_([p.id for p in projects]),
+            )
+            .order_by(ProjectAgent.created_at)
+        )
+        for row, agent in roster_result.all():
+            roster_by_project.setdefault(row.project_id, []).append(
+                {"agent_id": str(agent.id), "name": agent.name, "is_default": row.is_default}
+            )
+    out = []
+    for p in projects:
+        item = serialize_project(p, agents_by_id.get(p.po_agent_id) if p.po_agent_id else None)
+        item["agents"] = roster_by_project.get(p.id, [])
+        out.append(item)
+    return out
 
 
 async def create_project(
@@ -520,3 +538,151 @@ async def unlink_po_agent(
     session.add(project)
     await session.commit()
     return await po_agent_summary(session, tenant_id, project_id)
+
+
+# ── project agent roster ─────────────────────────────────────────────
+
+
+def _serialize_project_agent(row: ProjectAgent, agent: Agent | None) -> dict[str, Any]:
+    return {
+        "id": str(row.id),
+        "agent_id": str(row.agent_id),
+        "name": agent.name if agent else "",
+        "role": agent.role if agent else "",
+        "is_active": bool(agent.is_active) if agent else False,
+        "is_default": row.is_default,
+        "created_at": _iso(row.created_at),
+    }
+
+
+async def list_project_agents(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID
+) -> list[dict[str, Any]]:
+    await get_project_row(session, tenant_id, project_id)
+    result = await session.execute(
+        select(ProjectAgent, Agent)
+        .join(Agent, Agent.id == ProjectAgent.agent_id)
+        .where(ProjectAgent.project_id == project_id, ProjectAgent.tenant_id == tenant_id)
+        .order_by(ProjectAgent.created_at)
+    )
+    return [_serialize_project_agent(row, agent) for row, agent in result.all()]
+
+
+async def add_project_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    project_id: UUID,
+    agent_id: UUID,
+    *,
+    is_default: bool = False,
+) -> dict[str, Any]:
+    project, _ = await get_project_row(session, tenant_id, project_id)
+    agent = (
+        await session.execute(
+            select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if not agent or agent.kind != "company":
+        raise HTTPException(status_code=404, detail="Agent not found")
+    existing = (
+        await session.execute(
+            select(ProjectAgent).where(
+                ProjectAgent.project_id == project_id, ProjectAgent.agent_id == agent_id
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="Agent is already on this project")
+    row = ProjectAgent(
+        tenant_id=tenant_id, project_id=project_id, agent_id=agent_id, is_default=is_default
+    )
+    if is_default:
+        await _clear_project_default(session, project_id)
+    session.add(row)
+    project.updated_at = datetime.utcnow()
+    session.add(project)
+    await session.commit()
+    await session.refresh(row)
+    return _serialize_project_agent(row, agent)
+
+
+async def _clear_project_default(session: AsyncSession, project_id: UUID) -> None:
+    result = await session.execute(
+        select(ProjectAgent).where(
+            ProjectAgent.project_id == project_id, ProjectAgent.is_default.is_(True)
+        )
+    )
+    for other in result.scalars().all():
+        other.is_default = False
+        session.add(other)
+
+
+async def set_project_agent_default(
+    session: AsyncSession,
+    tenant_id: UUID,
+    project_id: UUID,
+    agent_id: UUID,
+    *,
+    is_default: bool,
+) -> dict[str, Any]:
+    await get_project_row(session, tenant_id, project_id)
+    row = (
+        await session.execute(
+            select(ProjectAgent).where(
+                ProjectAgent.project_id == project_id,
+                ProjectAgent.agent_id == agent_id,
+                ProjectAgent.tenant_id == tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Agent is not on this project")
+    if is_default:
+        await _clear_project_default(session, project_id)
+    row.is_default = is_default
+    session.add(row)
+    await session.commit()
+    agent = (
+        await session.execute(
+            select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    return _serialize_project_agent(row, agent)
+
+
+async def remove_project_agent(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID, agent_id: UUID
+) -> dict[str, Any]:
+    await get_project_row(session, tenant_id, project_id)
+    row = (
+        await session.execute(
+            select(ProjectAgent).where(
+                ProjectAgent.project_id == project_id,
+                ProjectAgent.agent_id == agent_id,
+                ProjectAgent.tenant_id == tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Agent is not on this project")
+    await session.delete(row)
+    await session.commit()
+    return {"ok": True}
+
+
+async def project_default_agent(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID
+) -> Agent | None:
+    """The active agent marked default on the project roster, if any."""
+    result = await session.execute(
+        select(Agent)
+        .join(ProjectAgent, ProjectAgent.agent_id == Agent.id)
+        .where(
+            ProjectAgent.project_id == project_id,
+            ProjectAgent.tenant_id == tenant_id,
+            ProjectAgent.is_default.is_(True),
+            Agent.is_active.is_(True),
+        )
+        .limit(1)
+    )
+    return result.scalars().first()

@@ -97,7 +97,7 @@ function ProjectCard({
               type="button"
               size="sm"
               variant="ghost"
-              aria-label={`Actions for ${project.name}`}
+              aria-label={t('projects.page.actionsFor', { name: project.name })}
               onClick={(e) => e.stopPropagation()}
             >
               <MoreHorizontal size={15} />
@@ -152,6 +152,24 @@ function ProjectCard({
             <span className="text-text-muted">{t('projects.page.noLead')}</span>
           )}
         </div>
+        {project.agents && project.agents.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1">
+            {project.agents.slice(0, 4).map((agent) => (
+              <span
+                key={agent.agent_id}
+                className="inline-flex max-w-[10rem] items-center truncate rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-text-secondary"
+                title={agent.is_default ? t('projects.page.defaultAgent', { name: agent.name }) : agent.name}
+              >
+                {agent.name}
+              </span>
+            ))}
+            {project.agents.length > 4 ? (
+              <span className="text-[10px] text-text-muted">
+                +{project.agents.length - 4}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 text-xs text-text-secondary">
           <GitBranch size={13} className="shrink-0 text-text-muted" />
           {project.github_repo_full_name ? (
@@ -171,6 +189,31 @@ function ProjectCard({
           )}
         </div>
         {budget ? <ProjectBudgetBar budget={budget} /> : null}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
+          <Link
+            to={threadsHref}
+            onClick={(event) => event.stopPropagation()}
+            className="text-[11px] font-medium text-accent hover:underline"
+          >
+            {t('projects.page.openThreads')}
+          </Link>
+          {project.po_agent ? (
+            <Link
+              to={`/agents/${project.po_agent.id}`}
+              onClick={(event) => event.stopPropagation()}
+              className="text-[11px] font-medium text-accent hover:underline"
+            >
+              {t('projects.page.openLead')}
+            </Link>
+          ) : null}
+          <Link
+            to="/knowledge"
+            onClick={(event) => event.stopPropagation()}
+            className="text-[11px] font-medium text-accent hover:underline"
+          >
+            {t('projects.page.openKnowledge')}
+          </Link>
+        </div>
       </div>
     </Card>
   )
@@ -306,7 +349,7 @@ export default function ProjectsPage() {
                 <Link to="/knowledge">{t('projects.page.openKnowledge')}</Link>
               </Button>
               <Button size="sm" variant="outline" asChild>
-                <Link to="/communication/inbox/all">{t('projects.page.openCommunication')}</Link>
+                <Link to={inboxPath('open')}>{t('projects.page.openCommunication')}</Link>
               </Button>
               <Button size="sm" variant="outline" asChild>
                 <Link to="/settings/setup">{t('projects.page.openSetup')}</Link>

@@ -1,4 +1,5 @@
 import type { InboxThread } from './inbox-api'
+import { agentRunsPath, inboxPath } from './messages-paths'
 
 /** Outbound surface aligned with how Intercom picks reply channel per conversation. */
 export type ComposerChannel = 'email' | 'chat' | 'slack' | 'whatsapp' | 'internal' | 'assistant'
@@ -11,6 +12,8 @@ export type ComposerSurface = {
   tabs: ComposerTab[]
   replyLabel: string
   replyPlaceholder: string
+  replyPlaceholderKey: string
+  replyPlaceholderParams?: Record<string, string>
   /** Append mailbox signature + logo on send (email only). */
   includeSignature: boolean
   /** Show a read-only recipient row above the composer (email / some chat). */
@@ -24,6 +27,38 @@ const INTERNAL_CHANNELS = new Set(['internal', 'assistant'])
 export function isInternalThread(thread: Pick<InboxThread, 'channel' | 'folder'>): boolean {
   const channel = thread.channel ?? 'email'
   return thread.folder === 'internal' || INTERNAL_CHANNELS.has(channel)
+}
+
+/** Prefer a customer conversation when auto-opening the inbox. */
+export function pickPreferredInboxThread<
+  T extends Pick<InboxThread, 'channel' | 'folder' | 'hasUnread'>,
+>(threads: T[]): T | null {
+  const customers = threads.filter((thread) => !isInternalThread(thread))
+  const pool = customers.length > 0 ? customers : threads
+  return pool.find((thread) => thread.hasUnread) ?? pool[0] ?? null
+}
+
+/** Keep All looking like a customer inbox: agent work stays visible, but below. */
+export function customersFirst<T extends Pick<InboxThread, 'channel' | 'folder'>>(threads: T[]): T[] {
+  const customers: T[] = []
+  const internal: T[] = []
+  for (const thread of threads) {
+    if (isInternalThread(thread)) internal.push(thread)
+    else customers.push(thread)
+  }
+  return [...customers, ...internal]
+}
+
+/** Open is customer work; agent runs live under Agent-runs. */
+export function customersOnly<T extends Pick<InboxThread, 'channel' | 'folder'>>(threads: T[]): T[] {
+  return threads.filter((thread) => !isInternalThread(thread))
+}
+
+/** Deep-link a thread to the hub leaf a first-time user expects. */
+export function threadHubPath(thread: Pick<InboxThread, 'id' | 'channel' | 'folder'>): string {
+  return isInternalThread(thread)
+    ? agentRunsPath('all', String(thread.id))
+    : inboxPath('open', String(thread.id))
 }
 
 /** Primary label for thread list rows and headers. */
@@ -72,6 +107,8 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       tabs: ['reply', 'note'],
       replyLabel: channel === 'assistant' ? 'Chat' : 'Message',
       replyPlaceholder: `Message ${name}...`,
+      replyPlaceholderKey: 'composer.placeholders.messageAgent',
+      replyPlaceholderParams: { name },
       includeSignature: false,
       showRecipient: true,
       recipientLabel: channel === 'assistant' ? 'Assistant' : 'Agent',
@@ -88,6 +125,8 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       tabs: ['reply', 'note'],
       replyLabel: 'Email',
       replyPlaceholder: email ? `Reply to ${email}...` : 'Type an email...',
+      replyPlaceholderKey: email ? 'composer.placeholders.replyEmail' : 'composer.placeholders.typeEmail',
+      replyPlaceholderParams: email ? { email } : undefined,
       includeSignature: true,
       showRecipient: Boolean(email || name),
       recipientLabel: 'To',
@@ -102,6 +141,7 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       tabs: ['reply', 'note'],
       replyLabel: 'Slack',
       replyPlaceholder: 'Type a Slack message...',
+      replyPlaceholderKey: 'composer.placeholders.slack',
       includeSignature: false,
       showRecipient: Boolean(thread.contactName),
       recipientLabel: 'Channel',
@@ -117,6 +157,8 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
       tabs: ['reply', 'note'],
       replyLabel: 'WhatsApp',
       replyPlaceholder: `Reply on WhatsApp to ${name}...`,
+      replyPlaceholderKey: 'composer.placeholders.whatsapp',
+      replyPlaceholderParams: { name },
       includeSignature: false,
       showRecipient: Boolean(thread.contactName),
       recipientLabel: 'To',
@@ -132,6 +174,8 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
     tabs: ['reply', 'note'],
     replyLabel: 'Chat',
     replyPlaceholder: `Reply in chat to ${name}...`,
+    replyPlaceholderKey: 'composer.placeholders.chat',
+    replyPlaceholderParams: { name },
     includeSignature: false,
     showRecipient: Boolean(thread.contactName || thread.contactEmail),
     recipientLabel: 'With',

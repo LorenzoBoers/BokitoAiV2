@@ -1,16 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CornerDownLeft, Inbox, MessageSquare, Moon, Plus, Settings, User } from 'lucide-react'
+import {
+  Bot,
+  CircleHelp,
+  Clock,
+  CornerDownLeft,
+  FileText,
+  Inbox,
+  Mail,
+  MessageSquare,
+  Moon,
+  Plus,
+  Settings,
+  User,
+  UserPlus,
+} from 'lucide-react'
 import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
 import { assistantPath, inboxPath } from '../../lib/messages-paths'
+import { threadHubPath } from '../../lib/message-composer'
+import { composeEmailPath, newAgentPath, newContactPath } from '../../lib/compose-intent'
+import { listRecentPages } from '../../lib/recent-pages'
 import { listSignalThreads } from '../../lib/signals-api'
 import { listContacts, type ContactRow } from '../../lib/contacts-api'
 import type { InboxThread } from '../../lib/inbox-api'
+import { searchWorkspace, type WorkspaceSearchHit } from '../../lib/workspace-api'
+import { humanizeKnowledgeTitle } from '../../lib/knowledge-title'
 import type { LucideIcon } from 'lucide-react'
 
 type PaletteItem = {
@@ -29,6 +48,7 @@ type CommandPaletteProps = {
 
 export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const { toggleMode, isDark } = useTheme()
@@ -37,6 +57,8 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [threadResults, setThreadResults] = useState<InboxThread[]>([])
   const [contactResults, setContactResults] = useState<ContactRow[]>([])
+  const [docResults, setDocResults] = useState<WorkspaceSearchHit[]>([])
+  const [recent, setRecent] = useState(() => listRecentPages())
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -46,6 +68,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (!token || q.length < 2) {
       setThreadResults([])
       setContactResults([])
+      setDocResults([])
       return
     }
     let cancelled = false
@@ -64,6 +87,13 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         .catch(() => {
           if (!cancelled) setContactResults([])
         })
+      void searchWorkspace(q, 5)
+        .then((rows) => {
+          if (!cancelled) setDocResults(rows)
+        })
+        .catch(() => {
+          if (!cancelled) setDocResults([])
+        })
     }, 200)
     return () => {
       cancelled = true
@@ -71,7 +101,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
   }, [token, query])
 
-  const items = useMemo<PaletteItem[]>(() => {
+  const catalog = useMemo(() => {
     const nav: PaletteItem[] = TAB_GROUPS.flatMap((group) =>
       group.tabs.map((tab) => ({
         id: `nav-${tab}`,
@@ -85,8 +115,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const inboxQueues: PaletteItem[] = (
       [
         { id: 'inbox-all', queue: 'all' as const, labelKey: 'support.inbox.all' },
+        { id: 'inbox-open', queue: 'open' as const, labelKey: 'support.inbox.open' },
         { id: 'inbox-mine', queue: 'mine' as const, labelKey: 'support.inbox.mine' },
         { id: 'inbox-unassigned', queue: 'unassigned' as const, labelKey: 'support.inbox.unassigned' },
+        { id: 'inbox-snoozed', queue: 'snoozed' as const, labelKey: 'support.inbox.snoozed' },
       ] as const
     ).map((item) => ({
       id: item.id,
@@ -98,6 +130,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const settings: PaletteItem[] = SETTINGS_PALETTE_LINKS.map((link) => ({
       id: `settings-${link.to}`,
       label: t(link.labelKey),
+      hint: link.hintKey ? t(link.hintKey) : undefined,
       group: t('palette.groupSettings'),
       icon: Settings,
       run: () => navigate(link.to),
@@ -118,6 +151,27 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => startNewChat(),
       },
       {
+        id: 'action-new-email',
+        label: t('palette.newEmail'),
+        group: t('palette.groupActions'),
+        icon: Mail,
+        run: () => navigate(composeEmailPath()),
+      },
+      {
+        id: 'action-new-contact',
+        label: t('palette.newContact'),
+        group: t('palette.groupActions'),
+        icon: UserPlus,
+        run: () => navigate(newContactPath()),
+      },
+      {
+        id: 'action-new-agent',
+        label: t('palette.newAgent'),
+        group: t('palette.groupActions'),
+        icon: Bot,
+        run: () => navigate(newAgentPath()),
+      },
+      {
         id: 'action-connect-mailbox',
         label: t('palette.connectMailbox'),
         group: t('palette.groupActions'),
@@ -132,6 +186,13 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => navigate('/settings/setup'),
       },
       {
+        id: 'action-help',
+        label: t('palette.openHelp'),
+        group: t('palette.groupActions'),
+        icon: CircleHelp,
+        run: () => navigate('/learn'),
+      },
+      {
         id: 'action-theme',
         label: isDark ? t('palette.switchToLight') : t('palette.switchToDark'),
         group: t('palette.groupActions'),
@@ -139,8 +200,29 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => toggleMode(),
       },
     ]
-    return [...nav, ...inboxQueues, ...settings, ...sessions, ...actions]
+    return { nav, inboxQueues, settings, sessions, actions }
   }, [conversations, navigate, startNewChat, toggleMode, isDark, t])
+
+  const recentItems = useMemo<PaletteItem[]>(
+    () =>
+      recent
+        .filter((row) => {
+          const recentPath = row.path.split('?')[0] ?? row.path
+          if (recentPath === pathname) return false
+          if (pathname.startsWith(`${recentPath}/`)) return false
+          if (recentPath.startsWith(`${pathname}/`)) return false
+          return true
+        })
+        .slice(0, 5)
+        .map((row) => ({
+          id: `recent-${row.path}`,
+          label: row.title,
+          group: t('palette.groupRecent'),
+          icon: Clock,
+          run: () => navigate(row.path),
+        })),
+    [recent, pathname, navigate, t],
+  )
 
   const remoteItems = useMemo<PaletteItem[]>(() => {
     const threads: PaletteItem[] = threadResults.map((thread) => ({
@@ -149,7 +231,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       hint: thread.contactName || thread.contactEmail || undefined,
       group: t('palette.groupThreads'),
       icon: Inbox,
-      run: () => navigate(inboxPath('all', String(thread.id))),
+      run: () => navigate(threadHubPath(thread)),
     }))
     const contacts: PaletteItem[] = contactResults.map((contact) => ({
       id: `contact-${contact.id}`,
@@ -159,22 +241,51 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       icon: User,
       run: () => navigate(`/contacts/${contact.id}`),
     }))
-    return [...threads, ...contacts]
-  }, [threadResults, contactResults, navigate, t])
+    const docs: PaletteItem[] = docResults
+      .filter((hit) => hit.doc_id)
+      .map((hit) => ({
+        id: `doc-${hit.doc_id}`,
+        label: humanizeKnowledgeTitle(hit.title) || t('knowledgePage.emptyTitle'),
+        hint: hit.content?.slice(0, 80) || undefined,
+        group: t('palette.groupKnowledge'),
+        icon: FileText,
+        run: () => navigate(`/knowledge/${hit.doc_id}`),
+      }))
+    return [...threads, ...contacts, ...docs]
+  }, [threadResults, contactResults, docResults, navigate, t])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return items
-    const local = items.filter(
+    const unique = (items: PaletteItem[]) => {
+      const seen = new Set<string>()
+      const next: PaletteItem[] = []
+      for (const item of items) {
+        if (seen.has(item.id)) continue
+        seen.add(item.id)
+        next.push(item)
+      }
+      return next
+    }
+    if (!q) return unique([...recentItems, ...catalog.actions, ...catalog.nav])
+    const haystack = [
+      ...catalog.nav,
+      ...catalog.inboxQueues,
+      ...catalog.settings,
+      ...catalog.sessions,
+      ...catalog.actions,
+      ...recentItems,
+    ]
+    const local = haystack.filter(
       (item) => item.label.toLowerCase().includes(q) || item.hint?.toLowerCase().includes(q),
     )
-    return [...local, ...remoteItems]
-  }, [items, remoteItems, query])
+    return unique([...local, ...remoteItems])
+  }, [catalog, recentItems, remoteItems, query])
 
   useEffect(() => {
     if (open) {
       setQuery('')
       setSelectedIndex(0)
+      setRecent(listRecentPages())
       window.setTimeout(() => inputRef.current?.focus(), 0)
     }
   }, [open])
@@ -195,10 +306,16 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     item.run()
   }
 
+  const suggestions: PaletteItem[] = [
+    catalog.actions[0],
+    catalog.nav.find((item) => item.id === 'nav-communication') ?? catalog.actions[1],
+    catalog.actions.find((item) => item.id === 'action-setup-guide') ?? catalog.actions[catalog.actions.length - 1],
+  ].filter((item): item is PaletteItem => Boolean(item))
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1))
+      setSelectedIndex((i) => Math.min(i + 1, Math.max(filtered.length - 1, 0)))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setSelectedIndex((i) => Math.max(i - 1, 0))
@@ -237,7 +354,22 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         />
         <div ref={listRef} className="max-h-[340px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[13px] text-text-muted">{t('palette.noResults')}</p>
+            <div className="px-3 py-6 text-center">
+              <p className="text-[13px] text-text-muted">{t('palette.noResults')}</p>
+              <p className="mt-1 text-[12px] text-text-secondary">{t('palette.tryInstead')}</p>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                {suggestions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => runItem(item)}
+                    className="rounded-lg border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
             filtered.map((item, index) => {
               const showGroup = item.group !== lastGroup
@@ -275,6 +407,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
             })
           )}
         </div>
+        <p className="border-t border-border/50 px-3 py-2 text-[11px] text-text-muted">{t('palette.footerHint')}</p>
       </div>
     </div>
   )

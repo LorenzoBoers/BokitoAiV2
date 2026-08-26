@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { BookmarkPlus, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
+import { BookmarkPlus, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { ComposerCard } from '../ui/ComposerCard'
 import { useMembers } from '../../hooks/useMembers'
 import { Button } from '../ui/button'
 import {
@@ -17,11 +18,13 @@ import type { ComposerSurface, ComposerTab } from '../../lib/message-composer'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import {
   activeMentionQuery,
-  applyMention,
   filterMentionItems,
+  tokenizeMentions,
   type MentionItem,
   type MentionQuery,
 } from '../../lib/mentions'
+import { applyDisplayEdit, applyMentionAtDisplay, displayFromRaw } from '../../lib/mention-editor'
+import { SNOOZE_PRESETS } from '../../lib/snooze'
 import { createSavedReply, listSavedReplies, type SavedReplyRow } from '../../lib/signals-api'
 import { uploadAttachment } from '../../lib/uploads-api'
 import MentionPopover from './MentionPopover'
@@ -99,7 +102,13 @@ export default function ReplyComposer({
   const navigate = useNavigate()
   const { token } = useAuth()
   const [tab, setTab] = useState<ComposerTab>(surface.defaultTab)
+  // `body` keeps the raw mention markup (storage/API format); the textarea
+  // shows `displayBody` where mentions read as `@Name` pills.
   const [body, setBody] = useState('')
+  const displayBody = useMemo(() => displayFromRaw(body), [body])
+  // Caret to restore after an edit rewrote the display text (atomic mention
+  // deletion or mention insertion make our text differ from the browser's).
+  const pendingCaretRef = useRef<number | null>(null)
   const [attachments, setAttachments] = useState<MessageAttachment[]>([])
   // Email-only extra recipients; hidden behind a CC/BCC toggle.
   const [ccBccOpen, setCcBccOpen] = useState(false)
@@ -140,20 +149,23 @@ export default function ReplyComposer({
 
   const selectMention = (item: MentionItem) => {
     if (!mentionQuery) return
-    const caret = textareaRef.current?.selectionStart ?? body.length
-    const applied = applyMention(body, caret, mentionQuery, item)
-    setBody(applied.value)
+    const caret = textareaRef.current?.selectionStart ?? displayBody.length
+    const applied = applyMentionAtDisplay(body, caret, mentionQuery, item)
+    setBody(applied.raw)
+    pendingCaretRef.current = applied.displayCaret
     setMentionQuery(null)
     setMentionIndex(0)
     onMentionInserted?.(item)
-    requestAnimationFrame(() => {
-      const el = textareaRef.current
-      if (el) {
-        el.focus()
-        el.setSelectionRange(applied.caret, applied.caret)
-      }
-    })
+    requestAnimationFrame(() => textareaRef.current?.focus())
   }
+
+  // Restore the caret after renders where we rewrote the display text.
+  useLayoutEffect(() => {
+    const caret = pendingCaretRef.current
+    if (caret == null) return
+    pendingCaretRef.current = null
+    textareaRef.current?.setSelectionRange(caret, caret)
+  }, [displayBody])
 
   const replyBlocked = replyDisabledNotice != null
 
@@ -223,6 +235,8 @@ export default function ReplyComposer({
 
   const showReplyTab = surface.tabs.includes('reply')
   const showNoteTab = surface.tabs.includes('note')
+  const showCustomerActions =
+    showReplyTab && surface.channel !== 'internal' && surface.channel !== 'assistant'
 
   const handleSubmit = async (
     action: 'send' | 'send_and_close' | 'send_and_pending',
@@ -424,39 +438,71 @@ export default function ReplyComposer({
         />
 
         {!isNote && replyBlocked ? null : (
-        <div
-          className={`relative flex items-end gap-2 rounded-2xl border px-3 py-2 shadow-card transition-colors focus-within:border-accent/50 ${
+        <ComposerCard
+          ref={textareaRef}
+          mode={isNote ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
+          value={displayBody}
+          onChange={(e) => {
+            const el = e.currentTarget
+            const edit = applyDisplayEdit(body, el.value)
+            setBody(edit.raw)
+            if (edit.display !== el.value) {
+              // A mention was removed atomically; restore our caret position.
+              pendingCaretRef.current = edit.displayCaret
+              refreshMentionState(edit.display, edit.displayCaret)
+            } else {
+              refreshMentionState(edit.display, el.selectionStart ?? edit.display.length)
+            }
+          }}
+          onKeyDown={onKeyDown}
+          onClick={(e) => {
+            const el = e.currentTarget
+            refreshMentionState(el.value, el.selectionStart ?? el.value.length)
+          }}
+          onBlur={() => setMentionQuery(null)}
+          highlighter={
+            <>
+              {tokenizeMentions(body).map((token, index) =>
+                token.kind === 'text' ? (
+                  <span key={index}>{token.text}</span>
+                ) : (
+                  <span
+                    key={index}
+                    className="composer-mention-pill"
+                    data-mention-type={token.targetType}
+                  >
+                    @{token.name}
+                  </span>
+                ),
+              )}
+              {'\n'}
+            </>
+          }
+          disabled={disabled || saving}
+          placeholder={
+            isNote
+              ? t('composer.notePlaceholder')
+              : t(surface.replyPlaceholderKey, {
+                  ...surface.replyPlaceholderParams,
+                  defaultValue: surface.replyPlaceholder,
+                })
+          }
+          className={
             isNote
               ? 'border-yellow-300/50 bg-yellow-50/40 dark:border-yellow-700/40 dark:bg-yellow-900/10'
               : 'border-border/60 bg-bg-surface'
-          }`}
+          }
+          overlay={
+            mentionOpen ? (
+              <MentionPopover
+                items={mentionMatches}
+                activeIndex={mentionIndex}
+                onSelect={selectMention}
+                onHover={setMentionIndex}
+              />
+            ) : null
+          }
         >
-          {mentionOpen ? (
-            <MentionPopover
-              items={mentionMatches}
-              activeIndex={mentionIndex}
-              onSelect={selectMention}
-              onHover={setMentionIndex}
-            />
-          ) : null}
-          <textarea
-            ref={textareaRef}
-            value={body}
-            onChange={(e) => {
-              setBody(e.target.value)
-              refreshMentionState(e.target.value, e.target.selectionStart ?? e.target.value.length)
-            }}
-            onKeyDown={onKeyDown}
-            onClick={(e) => {
-              const el = e.currentTarget
-              refreshMentionState(el.value, el.selectionStart ?? el.value.length)
-            }}
-            onBlur={() => setMentionQuery(null)}
-            disabled={disabled || saving}
-            placeholder={isNote ? t('composer.notePlaceholder') : surface.replyPlaceholder}
-            rows={Math.min(6, Math.max(1, body.split('\n').length))}
-            className="max-h-[180px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none disabled:opacity-50"
-          />
           <input
             ref={fileInputRef}
             type="file"
@@ -503,7 +549,7 @@ export default function ReplyComposer({
                 {body.trim() ? (
                   <DropdownMenuItem className="gap-1.5 text-xs" onSelect={() => void saveCurrentAsReply()}>
                     <BookmarkPlus size={12} />
-                    Save current text as template
+                    {t('composer.saveAsTemplate')}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem
@@ -537,7 +583,7 @@ export default function ReplyComposer({
           >
             {isNote ? <StickyNote size={13} /> : <Send size={13} />}
           </button>
-        </div>
+        </ComposerCard>
         )}
 
         {!isNote && replyBlocked ? null : (
@@ -547,16 +593,43 @@ export default function ReplyComposer({
               ? t('composer.hintEmail')
               : t('composer.hintChat')}
           </p>
-          {!isNote && showReplyTab ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
-              onClick={() => void handleSubmit('send_and_close')}
-              className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
-            >
-              Send and close
-            </Button>
+          {!isNote && showCustomerActions ? (
+            <div className="flex items-center gap-0.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
+                    className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
+                  >
+                    <Clock size={11} className="mr-1" />
+                    {t('composer.sendAndWait')}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-44">
+                  {SNOOZE_PRESETS.map((preset) => (
+                    <DropdownMenuItem
+                      key={preset.key}
+                      onClick={() =>
+                        void handleSubmit('send_and_pending', preset.minutes() ?? undefined)
+                      }
+                    >
+                      {t(preset.labelKey)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
+                onClick={() => void handleSubmit('send_and_close')}
+                className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
+              >
+                {t('composer.sendAndClose')}
+              </Button>
+            </div>
           ) : null}
         </div>
         )}

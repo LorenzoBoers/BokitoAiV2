@@ -15,6 +15,7 @@ import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
 import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
+import { inboxPath } from '../../lib/messages-paths'
 
 const ACTION_KEYS: Record<InboxRule['action'], string> = {
   auto_close: 'automationRules.actionClose',
@@ -171,7 +172,7 @@ export default function AutomationRulesManager() {
                 {t('automationRules.newRule')}
               </Button>
               <Link
-                to="/communication/inbox/all"
+                to={inboxPath('open')}
                 className="text-[12px] font-medium text-accent hover:underline"
               >
                 {t('automationRules.openCommunication')}

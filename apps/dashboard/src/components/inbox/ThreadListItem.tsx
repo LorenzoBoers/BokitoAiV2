@@ -1,7 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { Bot, Trash2 } from 'lucide-react'
+import { ChannelGlyph } from '../ui/ChannelGlyph'
+import { DomainFavicon } from '../ui/DomainFavicon'
 import { cn } from '../../lib/utils'
+import { translateDecisionText } from '../../lib/activity-labels'
+import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import { isInternalThread, threadCounterpartyName, threadSecondaryLine } from '../../lib/message-composer'
+import { formatAppDate } from '../../lib/app-locale'
+import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import ThreadIndicatorMenu from './ThreadIndicatorMenu'
 
@@ -26,7 +32,7 @@ type Props = {
   assigneeName?: string | null
 }
 
-function formatRelativeTime(iso: string | null, t: (key: string) => string): string {
+function formatRelativeTime(iso: string | null, t: (key: string) => string, language?: string | null): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
@@ -36,10 +42,10 @@ function formatRelativeTime(iso: string | null, t: (key: string) => string): str
   if (minutes < 1) return t('listItem.now')
   if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}u`
+  if (hours < 24) return `${hours}h`
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d`
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return formatAppDate(date, language, { day: 'numeric', month: 'short' })
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -64,20 +70,21 @@ export default function ThreadListItem({
   onTagClick,
   assigneeName = null,
 }: Props) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
   const isAgentThread = isInternalThread(thread)
+  const visitorLabel = t('contactPanel.widgetVisitor')
+  const contactLabel = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel)
+  const readableEmail = isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail?.trim()
   const primaryLabel = isDirect
-    ? thread.emailSubject || t('listItem.untitled')
+    ? translateDecisionText(thread.emailSubject, t) || t('listItem.untitled')
     : isAgentThread
       ? threadCounterpartyName(thread)
-      : thread.contactName || thread.contactEmail || t('listItem.unknownSender')
+      : contactLabel || readableEmail || t('listItem.unknownSender')
   const secondaryLabel = isDirect
     ? thread.agentName ?? (thread.agentKind === 'company' ? t('listItem.companyAgent') : t('listItem.assistant'))
-    : isAgentThread
-      ? threadSecondaryLine(thread)
-      : thread.emailSubject
+    : translateDecisionText(isAgentThread ? threadSecondaryLine(thread) : thread.emailSubject, t)
 
   return (
     <div
@@ -115,6 +122,18 @@ export default function ThreadListItem({
             )}
           />
         ) : null}
+        {isDirect || isAgentThread ? (
+          <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+            <Bot size={13} />
+          </span>
+        ) : (
+          <DomainFavicon
+            email={thread.contactEmail}
+            name={thread.contactName || thread.contactEmail}
+            size={28}
+            className="mt-0.5"
+          />
+        )}
         <ThreadIndicatorMenu
           hasUnread={thread.hasUnread}
           isPinned={thread.isPinned}
@@ -124,15 +143,20 @@ export default function ThreadListItem({
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1 mb-0.5">
-            <span className={cn('text-sm font-medium truncate', thread.hasUnread ? 'text-text-heading' : 'text-text-primary')}>
-              {isDirect ? (
-                <span className="inline-flex items-center gap-1.5 min-w-0">
-                  <Bot size={12} className="shrink-0 text-text-muted" />
-                  <span className="truncate">{primaryLabel}</span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className={cn('text-sm font-medium truncate', thread.hasUnread ? 'text-text-heading' : 'text-text-primary')}>
+                {primaryLabel}
+              </span>
+              {isAgentThread && !isDirect ? (
+                <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated/70 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-text-muted">
+                  {t('listItem.internal')}
                 </span>
-              ) : (
-                primaryLabel
-              )}
+              ) : null}
+              {thread.status === 'pending' ? (
+                <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated/70 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-text-muted">
+                  {t('listItem.snoozed')}
+                </span>
+              ) : null}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -154,7 +178,21 @@ export default function ThreadListItem({
               >
                 <Trash2 size={13} />
               </button>
-              <span className="text-xs text-text-muted">{formatRelativeTime(thread.lastMessageAt, t)}</span>
+              {!isDirect && !isAgentThread ? (
+                <span
+                  title={t(`composer.channel.${thread.channel ?? 'email'}`, {
+                    defaultValue: thread.channel ?? '',
+                  })}
+                  className="inline-flex"
+                >
+                  <ChannelGlyph channel={thread.channel ?? 'email'} size={11} className="text-text-muted/80" />
+                </span>
+              ) : null}
+              <span className="text-xs text-text-muted">
+                {thread.status === 'pending'
+                  ? formatWakeTime(thread.snoozedUntil, t, i18n.language) ?? t('snooze.untilReply')
+                  : formatRelativeTime(thread.lastMessageAt, t, i18n.language)}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-1 mb-1">
@@ -183,7 +221,7 @@ export default function ThreadListItem({
                       onTagClick(tag)
                     }}
                     onKeyDown={(e) => e.stopPropagation()}
-                    title={`Filter by ${tag}`}
+                    title={t('listItem.filterBy', { tag })}
                     className="inline-block rounded px-1.5 py-0.5 text-xs bg-bg-surface-hover text-text-secondary hover:bg-accent/10 hover:text-accent transition-colors"
                   >
                     {tag}

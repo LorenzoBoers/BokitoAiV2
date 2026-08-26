@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Bot, Check, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { inboxPath } from '../lib/messages-paths'
+import { assistantPath } from '../lib/messages-paths'
 import { PageContent } from '../components/layout/PageContent'
 import { AgentModelCard } from '../components/workforce/AgentModelCard'
 import {
@@ -172,7 +172,7 @@ export default function MyAssistantSettings() {
             </span>
           ) : null}
           <Link
-            to={inboxPath('all')}
+            to={assistantPath()}
             className="text-[12px] font-medium text-accent hover:underline"
           >
             {t('assistantSettings.openCommunication')}
@@ -182,6 +182,24 @@ export default function MyAssistantSettings() {
             className="text-[12px] font-medium text-accent hover:underline"
           >
             {t('assistantSettings.openModels')}
+          </Link>
+          <Link
+            to="/knowledge"
+            className="text-[12px] font-medium text-accent hover:underline"
+          >
+            {t('assistantSettings.openKnowledge')}
+          </Link>
+          <Link
+            to="/settings/communication"
+            className="text-[12px] font-medium text-accent hover:underline"
+          >
+            {t('assistantSettings.openInboxAi')}
+          </Link>
+          <Link
+            to="/settings/notifications"
+            className="text-[12px] font-medium text-accent hover:underline"
+          >
+            {t('assistantSettings.openNotifications')}
           </Link>
         </div>
       </div>

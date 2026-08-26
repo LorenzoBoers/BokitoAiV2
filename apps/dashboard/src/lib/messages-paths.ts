@@ -47,6 +47,16 @@ export function agentRunsPath(queue: RunsQueue = 'all', threadId?: string | null
   return withThread(`/communication/runs/${queue}`, threadId)
 }
 
+/** Open a waiting decision in Inbox or Agent-runs based on the thread folder. */
+export function attentionThreadPath(thread: {
+  id: string | number
+  folder?: string | null
+}): string {
+  return thread.folder === 'internal'
+    ? agentRunsPath('awaiting-decision', String(thread.id))
+    : inboxPath('open', String(thread.id))
+}
+
 export function channelPath(
   channelKey: ChannelKey,
   options: { connectionId?: string | number; threadId?: string | null } = {},

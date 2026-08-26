@@ -5,6 +5,9 @@ import { AlertTriangle, AtSign, Bell, CalendarClock, MessageSquare, ShieldCheck,
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
 import { Button } from '../ui/button';
 import { Dropdown } from '../ui/dropdown';
+import { translateDecisionText } from '../../lib/activity-labels';
+import { collapseNotifications } from '../../lib/notification-groups';
+import { pathForNotification } from '../../lib/notification-path';
 import { agentRunsPath, inboxPath } from '../../lib/messages-paths';
 
 const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -27,55 +30,24 @@ function formatTimeAgo(timestamp: string, t: (key: string, opts?: { count: numbe
   if (diffMins < 1) return t('notificationsUi.now');
   if (diffMins < 60) return t('notificationsUi.minutesAgo', { count: diffMins });
   if (diffHours < 24) return t('notificationsUi.hoursAgo', { count: diffHours });
+  if (diffDays >= 7) return t('notificationsUi.staleDays', { count: diffDays });
   return t('notificationsUi.daysAgo', { count: diffDays });
 }
 
-function isInternalPayload(payload: Record<string, unknown>): boolean {
-  const channel = typeof payload.channel === 'string' ? payload.channel : '';
-  const folder = typeof payload.folder === 'string' ? payload.folder : '';
-  return folder === 'internal' || channel === 'internal' || channel === 'assistant';
-}
-
-/** Route a notification to the surface that owns it. */
-function notificationTarget(notification: AppNotification): string | null {
-  const payload = notification.payload;
-  const signalId = typeof payload.signal_id === 'string' ? payload.signal_id : null;
-  if (signalId) {
-    if (isInternalPayload(payload)) {
-      return notification.kind === 'decision_request'
-        ? agentRunsPath('awaiting-decision', signalId)
-        : agentRunsPath('all', signalId);
-    }
-    return inboxPath('all', signalId);
-  }
-  if (typeof payload.platform_change_id === 'string') return '/settings/govern?tab=drafts';
-  if (typeof payload.trigger_id === 'string') return '/agenda';
-  if (notification.kind === 'ops_alert') {
-    // Channel problems are fixed in settings; run failures live under Agent runs.
-    if (typeof payload.account_id === 'string') return '/settings/channels';
-    return agentRunsPath('all');
-  }
-  if (notification.kind === 'decision_request') {
-    return isInternalPayload(payload)
-      ? agentRunsPath('awaiting-decision')
-      : inboxPath('all');
-  }
-  if (notification.kind === 'status_update') {
-    return isInternalPayload(payload) ? agentRunsPath('all') : inboxPath('all');
-  }
-  return null;
-}
-
 export default function NotificationDropdown() {
-  const { t } = useTranslation('nav');
+  const { t } = useTranslation(['nav', 'communication']);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
+  const hasDecisions = notifications.some((item) => item.kind === 'decision_request');
 
-  const handleNotificationClick = (notification: AppNotification) => {
-    if (notification.status === 'unread') {
-      markAsRead(notification.id);
+  const groupedNotifications = collapseNotifications(notifications);
+
+  const handleNotificationClick = (notification: AppNotification, ids: string[]) => {
+    for (const id of ids) {
+      const row = notifications.find((item) => item.id === id);
+      if (row?.status === 'unread') markAsRead(id);
     }
-    const target = notificationTarget(notification);
+    const target = pathForNotification({ kind: notification.kind, payload: notification.payload });
     if (target) navigate(target);
   };
 
@@ -102,39 +74,69 @@ export default function NotificationDropdown() {
           <h3 className="font-semibold text-sm text-text-heading">
             {t('notificationsUi.title')}
           </h3>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={markAllAsRead}
-              className="text-xs h-6 px-2"
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={markAllAsRead}
+                className="text-xs h-6 px-2"
+              >
+                {t('notificationsUi.markAll')}
+              </Button>
+            ) : null}
+            {hasDecisions ? (
+              <button
+                type="button"
+                onClick={() => navigate(agentRunsPath('awaiting-decision'))}
+                className="text-xs font-medium text-accent hover:underline"
+              >
+                {t('notificationsUi.openDecisions')}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => navigate('/settings/notifications')}
+              className="text-xs font-medium text-accent hover:underline"
             >
-              {t('notificationsUi.markAll')}
-            </Button>
-          )}
+              {t('notificationsUi.settings')}
+            </button>
+          </div>
         </div>
 
         <div className="space-y-1 max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="py-6 text-center">
               <p className="text-sm text-text-muted">{t('notificationsUi.empty')}</p>
-              <button
-                type="button"
-                onClick={() => navigate(inboxPath('all'))}
-                className="mt-2 text-xs font-medium text-accent hover:underline"
-              >
-                {t('notificationsUi.openCommunication')}
-              </button>
+              <p className="mt-1 text-[11px] text-text-muted">{t('notificationsUi.emptyHint')}</p>
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                <button
+                  type="button"
+                  onClick={() => navigate(inboxPath('open'))}
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  {t('notificationsUi.openCommunication')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/channels')}
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  {t('notificationsUi.openChannels')}
+                </button>
+              </div>
             </div>
           ) : (
-            notifications.map((notification) => {
+            groupedNotifications.map((notification) => {
               const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare;
-              const unread = notification.status === 'unread';
+              const unread = notification.status === 'unread' || notification.ids.some((id) =>
+                notifications.find((item) => item.id === id)?.status === 'unread',
+              );
 
               return (
                 <div
                   key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
+                  onClick={() => handleNotificationClick(notification, notification.ids)}
                   data-active={unread || undefined}
                   className={`
                     row-interactive p-3 rounded-lg cursor-pointer
@@ -151,13 +153,16 @@ export default function NotificationDropdown() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm ${unread ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
-                        {notification.title}
+                        {translateDecisionText(notification.title, t)}
                       </p>
                       <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
-                        {notification.body}
+                        {translateDecisionText(notification.body, t)}
                       </p>
                       <p className="text-xs text-text-muted mt-1">
                         {formatTimeAgo(notification.createdAt, t)}
+                        {notification.count > 1
+                          ? ` · ${t('notificationsUi.similarCount', { count: notification.count })}`
+                          : ''}
                       </p>
                     </div>
                   </div>

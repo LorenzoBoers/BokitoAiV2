@@ -4,9 +4,11 @@ import { StatusBar } from 'expo-status-bar'
 import { KeyboardProvider } from 'react-native-keyboard-controller'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider } from '../src/context/AuthContext'
+import { LocaleProvider } from '../src/context/LocaleContext'
+import { useCopy } from '../src/context/LocaleContext'
+import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
 import { useGatewayInvalidation } from '../src/hooks/useMessagingQueries'
 import { useNotificationRouting } from '../src/lib/notification-routing'
-import { colors } from '../src/theme'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,8 +23,12 @@ function GatewaySync() {
 
 function RootNavigator() {
   useNotificationRouting()
+  const { t } = useCopy()
+  const { colors, resolved } = useTheme()
 
   return (
+    <>
+      <StatusBar style={resolved === 'light' ? 'dark' : 'light'} />
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: colors.surface },
@@ -33,8 +39,10 @@ function RootNavigator() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="thread/[id]" options={{ title: 'Thread' }} />
+      <Stack.Screen name="thread/[id]" options={{ title: t('thread.screenTitle') }} />
+      <Stack.Screen name="notifications" options={{ title: t('notifications.title') }} />
     </Stack>
+    </>
   )
 }
 
@@ -43,11 +51,14 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <KeyboardProvider>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <GatewaySync />
-            <StatusBar style="light" />
-            <RootNavigator />
-          </AuthProvider>
+          <ThemeProvider>
+            <LocaleProvider>
+              <AuthProvider>
+                <GatewaySync />
+                <RootNavigator />
+              </AuthProvider>
+            </LocaleProvider>
+          </ThemeProvider>
         </QueryClientProvider>
       </KeyboardProvider>
     </SafeAreaProvider>

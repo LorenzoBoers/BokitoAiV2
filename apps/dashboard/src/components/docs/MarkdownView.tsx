@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
+import { headingId } from '../../lib/docs-toc'
+import { isDocsAssetSrc, parseImageLine, parseItalicCaption } from '../../lib/docs-images'
 
 /**
  * Document-scale markdown renderer shared by the Knowledge page and the
  * public help center. Hand-rolled (no dependency), covering what docs
  * actually contain: headings, bold/italic (both * and _ styles), inline
  * code, fenced code, links, ordered/unordered lists, tables, blockquotes,
- * and horizontal rules. Safe by construction: only text nodes, never raw
- * HTML.
+ * horizontal rules, and same-origin product-help screenshots. Safe by
+ * construction: only text nodes and allowlisted image srcs, never raw HTML.
  */
 
 const INLINE_PATTERN =
@@ -122,6 +124,35 @@ export default function MarkdownView({ content }: { content: string }) {
       continue
     }
 
+    // Product-help screenshot: ![alt](/api/docs/assets/...) plus optional italic caption
+    const image = parseImageLine(line)
+    if (image) {
+      i += 1
+      let caption: string | null = null
+      if (i < lines.length && lines[i].trim() === '' && i + 1 < lines.length) {
+        caption = parseItalicCaption(lines[i + 1])
+        if (caption) i += 2
+      } else {
+        caption = parseItalicCaption(lines[i])
+        if (caption) i += 1
+      }
+      if (isDocsAssetSrc(image.src)) {
+        blocks.push(
+          <figure key={key++} className="space-y-2">
+            <img
+              src={image.src}
+              alt={image.alt}
+              className="w-full rounded-lg border border-border/40 bg-bg-elevated"
+            />
+            {caption ? (
+              <figcaption className="text-xs leading-5 text-muted-foreground">{caption}</figcaption>
+            ) : null}
+          </figure>,
+        )
+      }
+      continue
+    }
+
     // Horizontal rule
     if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
       blocks.push(<hr key={key++} className="my-2 border-border/40" />)
@@ -134,7 +165,11 @@ export default function MarkdownView({ content }: { content: string }) {
     if (headingMatch) {
       const level = headingMatch[1].length
       blocks.push(
-        <div key={key++} className={HEADING_CLASS[level]}>
+        <div
+          key={key++}
+          id={level === 2 || level === 3 ? headingId(headingMatch[2]) : undefined}
+          className={`${HEADING_CLASS[level]} scroll-mt-24`}
+        >
           {renderInline(headingMatch[2])}
         </div>,
       )
@@ -241,7 +276,7 @@ export default function MarkdownView({ content }: { content: string }) {
     while (
       i < lines.length &&
       lines[i].trim() !== '' &&
-      !/^(#{1,4}\s|```|\s*[-*]\s+|\s*\d+[.)]\s+|\s*>|\s*(-{3,}|\*{3,}|_{3,})\s*$)/.test(lines[i]) &&
+      !/^(#{1,4}\s|```|\s*[-*]\s+|\s*\d+[.)]\s+|\s*>|\s*(-{3,}|\*{3,}|_{3,})\s*$|!\[[^\]]*\]\()/.test(lines[i]) &&
       !isTableRow(lines[i])
     ) {
       para.push(lines[i])

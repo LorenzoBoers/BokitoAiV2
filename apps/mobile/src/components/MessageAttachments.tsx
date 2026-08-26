@@ -1,13 +1,16 @@
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Linking, Pressable, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { resolveAttachmentUrl, type Attachment } from '../lib/api'
-import { colors, spacing } from '../theme'
+import { spacing, type ColorTokens } from '../theme'
 
 type Props = {
   attachments: Attachment[]
 }
 
 export default function MessageAttachments({ attachments }: Props) {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(attachmentStyles)
   if (!attachments.length) return null
 
   const images = attachments.filter((a) => a.mime.startsWith('image/'))
@@ -24,7 +27,7 @@ export default function MessageAttachments({ attachments }: Props) {
             >
               <Image
                 source={{ uri: resolveAttachmentUrl(att.url) }}
-                style={styles.thumbnail}
+                style={styles.thumbnail as object}
                 resizeMode="cover"
               />
             </Pressable>
@@ -47,29 +50,31 @@ export default function MessageAttachments({ attachments }: Props) {
   )
 }
 
-const styles = StyleSheet.create({
-  root: { gap: spacing.sm, marginTop: spacing.sm },
-  imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  thumbnail: {
-    width: 120,
-    height: 90,
-    borderRadius: 8,
-    backgroundColor: colors.elevated,
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    backgroundColor: colors.elevated,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-  },
-  chipText: { color: colors.textSecondary, fontSize: 12, flexShrink: 1 },
-})
+function attachmentStyles(colors: ColorTokens) {
+  return {
+    root: { gap: spacing.sm, marginTop: spacing.sm },
+    imageRow: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.sm },
+    thumbnail: {
+      width: 120,
+      height: 90,
+      borderRadius: 8,
+      backgroundColor: colors.elevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+    chip: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 6,
+      alignSelf: 'flex-start' as const,
+      maxWidth: '100%' as const,
+      backgroundColor: colors.elevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+    },
+    chipText: { color: colors.textSecondary, fontSize: 12, flexShrink: 1 },
+  }
+}

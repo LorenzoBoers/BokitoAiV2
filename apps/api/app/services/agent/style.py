@@ -22,6 +22,15 @@ RESPONSE_STYLE = (
 # For prompts that produce short structured output rather than prose.
 PLAIN_STYLE = "Plain text only. Never use emoji or emoticons."
 
+# Appended only when the call resolves to a Bokito virtual model (provider
+# "bokito" in model_resolution). Agents on BYOK/real models never get this.
+BOKITO_MODEL_IDENTITY = (
+    "## Model identity\n"
+    "You run on Bokito AI 3.1, Bokito's own model. Never state or imply that "
+    "you are Claude, Anthropic, or any other third-party model or vendor. If "
+    "asked which model you are, answer: Bokito AI 3.1."
+)
+
 # Emoji and pictograph ranges plus variation selectors and the zero-width
 # joiner that glues emoji sequences together.
 _EMOJI_PATTERN = re.compile(

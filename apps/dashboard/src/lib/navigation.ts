@@ -36,7 +36,7 @@ export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> 
 
 export const TAB_PATHS: Record<Tab, string> = {
   cockpit: '/cockpit',
-  communication: '/communication/inbox/all',
+  communication: '/communication/inbox/open',
   contacts: '/contacts',
   agenda: '/agenda',
   agents: '/agents',
@@ -44,6 +44,9 @@ export const TAB_PATHS: Record<Tab, string> = {
   knowledge: '/knowledge',
   settings: '/settings',
 }
+
+/** Scheduled flows and recurring wakes — not the week calendar. */
+export const AGENDA_AUTOMATIONS_PATH = '/agenda?view=automations' as const
 
 const TAB_ICONS: Record<Tab, LucideIcon> = {
   cockpit: Gauge,

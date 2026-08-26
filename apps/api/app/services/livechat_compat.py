@@ -19,6 +19,11 @@ from app.services.tenant_bootstrap import resolve_brand_color
 settings = get_settings()
 
 
+def _is_platform_mark(url: str) -> bool:
+    path = url.split("?", 1)[0].rstrip("/")
+    return path.endswith("bokito-logo.svg")
+
+
 def _asset_url(value: Any) -> str:
     if isinstance(value, str) and value.strip():
         return value.strip()
@@ -40,7 +45,36 @@ def _messenger_modules(appearance: dict[str, Any]) -> dict[str, bool]:
     return {key: bool(raw.get(key, True)) for key in MESSENGER_MODULE_KEYS}
 
 
-def livechat_theme_from_tenant(tenant: Tenant) -> dict[str, Any]:
+# Bootstrap seeds the company agent as "Assistant"; that generic name is not a
+# deliberate choice, so the widget falls through to the tenant name instead.
+GENERIC_ASSISTANT_NAMES = {"assistant", "assistent"}
+
+# Welcome copy shown until the tenant customizes it, keyed by workspace language.
+WELCOME_DEFAULTS: dict[str, dict[str, str]] = {
+    "en": {"title": "Welcome", "subtitle": "How can we help?"},
+    "nl": {"title": "Welkom", "subtitle": "Hoe kunnen we je helpen?"},
+}
+
+
+def welcome_defaults_for_locale(locale: str) -> dict[str, str]:
+    return WELCOME_DEFAULTS.get(locale, WELCOME_DEFAULTS["en"])
+
+
+async def widget_assistant_name(session: AsyncSession, tenant_id: UUID) -> str:
+    """Name of the agent that actually answers the widget (binding, else lead).
+
+    Empty when unset or still generic, so callers fall back to the tenant name.
+    """
+    from app.services.routing import resolve_agent_for_channel
+
+    agent = await resolve_agent_for_channel(session, tenant_id, "widget")
+    name = (agent.name or "").strip() if agent else ""
+    if name.lower() in GENERIC_ASSISTANT_NAMES:
+        return ""
+    return name
+
+
+def livechat_theme_from_tenant(tenant: Tenant, *, assistant_name: str = "") -> dict[str, Any]:
     settings_data = tenant_settings(tenant)
     livechat = settings_data.get("livechat_settings")
     if not isinstance(livechat, dict):
@@ -57,18 +91,39 @@ def livechat_theme_from_tenant(tenant: Tenant) -> dict[str, Any]:
         or str(livechat.get("main_color") or "").strip()
         or str(flat_appearance.get("main_color") or "").strip()
     )
-    favicon = _asset_url(appearance.get("widget_favicon")) or _asset_url(
-        appearance.get("widget_favicon_url")
+    favicon = (
+        _asset_url(appearance.get("widget_favicon"))
+        or _asset_url(appearance.get("widget_favicon_url"))
+        or _asset_url(livechat.get("favicon"))
+        or _asset_url(livechat.get("favicon_url"))
+        or _asset_url(settings_data.get("favicon_url"))
+        or _asset_url(getattr(tenant, "logo_url", None))
+        or _asset_url(livechat.get("logo"))
+        or _asset_url(livechat.get("logo_url"))
     )
-    if not favicon:
-        favicon = _asset_url(livechat.get("favicon")) or _asset_url(livechat.get("favicon_url"))
+    if _is_platform_mark(favicon):
+        favicon = ""
+
+    from app.services.language import resolve_workspace_language
+
+    locale = resolve_workspace_language(tenant)
+    defaults = welcome_defaults_for_locale(locale)
+
+    # Name chain: explicit widget override -> customized assistant name ->
+    # tenant name. The platform name is never shown on a tenant's widget.
+    explicit_name = str(appearance.get("chatbot_name") or "").strip()
+    if explicit_name.lower() in GENERIC_ASSISTANT_NAMES:
+        explicit_name = ""
+    chatbot_name = explicit_name or assistant_name.strip() or (tenant.name or "").strip()
 
     return {
         "main_color": main_color,
         "primary_color": main_color,
-        "welcome_title": str(appearance.get("welcome_title") or "").strip(),
-        "welcome_subtitle": str(appearance.get("welcome_subtitle") or "").strip(),
-        "chatbot_name": str(appearance.get("chatbot_name") or "").strip() or "Bokito AI",
+        "locale": locale,
+        "welcome_title": str(appearance.get("welcome_title") or "").strip() or defaults["title"],
+        "welcome_subtitle": str(appearance.get("welcome_subtitle") or "").strip()
+        or defaults["subtitle"],
+        "chatbot_name": chatbot_name,
         "widget_favicon_url": favicon,
         "modules": _messenger_modules(appearance),
     }
@@ -205,8 +260,9 @@ def session_start_payload(
     session_token: str,
     auth_mode: str = "optional",
     customer_id: str | None = None,
+    assistant_name: str = "",
 ) -> dict[str, Any]:
-    theme = livechat_theme_from_tenant(tenant)
+    theme = livechat_theme_from_tenant(tenant, assistant_name=assistant_name)
     identity_type = "authenticated" if user else "anonymous"
     # Optional host sign-in link shown on the widget's "Sign in required" panel.
     login_url = ""

@@ -1,9 +1,14 @@
 import { API_URL } from './config'
 
 let accessToken: string | null = null
+let onUnauthorized: (() => void) | null = null
 
 export function setAccessToken(token: string | null) {
   accessToken = token
+}
+
+export function setOnUnauthorized(handler: (() => void) | null) {
+  onUnauthorized = handler
 }
 
 export function getAccessToken(): string | null {
@@ -28,6 +33,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
+    if (res.status === 401 && accessToken) onUnauthorized?.()
     const text = await res.text().catch(() => '')
     throw new ApiError(res.status, text || `HTTP ${res.status}`)
   }
@@ -55,6 +61,7 @@ export type AuthUser = {
   display_name: string | null
   role: string
   is_staff: boolean
+  totp_enabled?: boolean
   tenant: { id: string; slug: string; name: string }
 }
 
@@ -64,10 +71,30 @@ export type LoginResponse = {
   tenant: { id: string; slug: string; name: string; logo?: string | null }
 }
 
+export type TwoFactorChallenge = {
+  requires_2fa: true
+  challenge_token: string
+}
+
+export function isTwoFactorChallenge(
+  value: LoginResponse | TwoFactorChallenge,
+): value is TwoFactorChallenge {
+  return 'requires_2fa' in value && value.requires_2fa === true
+}
+
 export const login = (email: string, password: string) =>
-  apiPost<LoginResponse>('/api/auth/login', { email, password })
+  apiPost<LoginResponse | TwoFactorChallenge>('/api/auth/login', { email, password })
+
+export const verifyTotp = (challengeToken: string, code: string) =>
+  apiPost<LoginResponse>('/api/auth/2fa/verify', { challenge_token: challengeToken, code })
 
 export const fetchMe = () => apiGet<{ user: AuthUser }>('/api/auth/me')
+
+export const requestPasswordReset = (email: string) =>
+  apiPost<{ message: string; dev_link?: string }>('/api/auth/password-reset-request', { email })
+
+export const switchWorkspace = (tenantId: string) =>
+  apiPost<LoginResponse>('/api/auth/switch-workspace', { tenant_id: tenantId })
 
 // ---------------------------------------------------------------------------
 // Attachments / uploads
@@ -103,6 +130,7 @@ export async function uploadFile(input: UploadInput): Promise<Attachment> {
     body: form,
   })
   if (!res.ok) {
+    if (res.status === 401 && accessToken) onUnauthorized?.()
     const text = await res.text().catch(() => '')
     throw new ApiError(res.status, text || `HTTP ${res.status}`)
   }
@@ -116,6 +144,7 @@ export async function uploadFile(input: UploadInput): Promise<Attachment> {
 export type Thread = {
   id: string
   email_subject: string
+  contact_id?: string | null
   contact_email: string
   contact_name: string
   contact_phone?: string
@@ -132,6 +161,10 @@ export type Thread = {
   agent_id?: string | null
   agent_name?: string | null
   agent_kind?: string | null
+  ai_summary?: string | null
+  category?: string | null
+  urgency?: number | string | null
+  snoozed_until?: string | null
 }
 
 export type DecisionOption = {
@@ -163,9 +196,11 @@ export type ThreadMessage = {
   created_at: string | null
   received_at?: string | null
   attachments?: Attachment[]
+  author_user_id?: number | null
   payload?: {
     decision?: DecisionPayload
     decision_id?: string
+    agent_id?: string
     [key: string]: unknown
   }
 }
@@ -212,6 +247,7 @@ export type PatchThreadInput = {
   assigned_to_user_id?: number | null
   tags?: string[]
   priority?: string
+  snoozed_until?: string | null
 }
 
 export type ReplyAction = 'send' | 'send_and_close' | 'send_and_pending'
@@ -271,11 +307,34 @@ export const addNote = (id: string, bodyText: string, attachments?: Attachment[]
 
 export type ResolveAction = 'approved' | 'rejected' | 'deferred'
 
+export type SavedReply = {
+  id: string
+  title: string
+  body_text: string
+}
+
+export const listSavedReplies = () => apiGet<SavedReply[]>('/api/signals/saved-replies')
+
+export const draftThreadReply = (id: string, instruction = '') =>
+  apiPost<{ draft?: string }>(`/api/signals/${id}/draft`, { instruction })
+
+export const invokeThreadAgent = (
+  id: string,
+  agentId: string,
+  instruction = '',
+  output: 'note' | 'reply_suggestion' = 'note',
+) =>
+  apiPost<{ ok?: boolean }>(`/api/signals/${id}/invoke-agent`, {
+    agent_id: agentId,
+    instruction,
+    output,
+  })
+
 export const resolveThreadDecision = (
   threadId: string,
   messageId: string,
   action: ResolveAction,
-  opts?: { optionId?: string; body?: string; subject?: string },
+  opts?: { optionId?: string; body?: string; subject?: string; sendAs?: 'user' | 'agent' },
 ) => {
   const payload: Record<string, unknown> = { action }
   if (opts?.optionId) payload.option_id = opts.optionId
@@ -284,8 +343,35 @@ export const resolveThreadDecision = (
     payload.body_text = opts.body
   }
   if (opts?.subject != null) payload.subject = opts.subject
+  if (opts?.sendAs) payload.send_as = opts.sendAs
   return apiPost(`/api/signals/${threadId}/messages/${messageId}/resolve`, payload)
 }
+
+export type SignalMember = {
+  id: number
+  name: string
+  email: string
+}
+
+export const listSignalMembers = () => apiGet<SignalMember[]>('/api/signals/members')
+
+export const cancelScheduledMessage = (messageId: string) =>
+  apiPost<{ id?: string }>(`/api/signals/messages/${messageId}/cancel`)
+
+export const updateThreadNote = (threadId: string, messageId: string, bodyText: string) =>
+  apiPatch<ThreadMessage>(`/api/signals/${threadId}/notes/${messageId}`, { body_text: bodyText })
+
+export const deleteThreadNote = (threadId: string, messageId: string) =>
+  apiDelete<{ ok: boolean }>(`/api/signals/${threadId}/notes/${messageId}`)
+
+export const submitMessageFeedback = (messageId: string, sentiment: 'up' | 'down') =>
+  apiPost<{ ok?: boolean }>(`/api/messages/${messageId}/feedback`, { sentiment })
+
+export const listContactThreads = (contactId: string) =>
+  apiGet<{ threads: Thread[] }>(`/api/channels/contacts/${contactId}/threads`)
+
+export const patchContact = (contactId: string, patch: { notes?: string; status?: string }) =>
+  apiPatch<Contact>(`/api/channels/contacts/${contactId}`, patch)
 
 // ---------------------------------------------------------------------------
 // Assistant chat
@@ -325,11 +411,16 @@ export type ChatTargetsResponse = {
 
 export const listConversations = () => apiGet<Conversation[]>('/api/chat/conversations?channel=assistant')
 
-export const createConversation = (title = 'New conversation', agentId?: string) =>
-  apiPost<Conversation>(
-    '/api/chat/conversations',
-    agentId ? { title, agent_id: agentId } : { title },
-  )
+export const createConversation = (
+  title?: string,
+  agentId?: string,
+  contextSignalId?: string,
+) =>
+  apiPost<Conversation>('/api/chat/conversations', {
+    ...(title ? { title } : {}),
+    ...(agentId ? { agent_id: agentId } : {}),
+    ...(contextSignalId ? { context_signal_id: contextSignalId } : {}),
+  })
 
 export const renameConversation = (conversationId: string, title: string) =>
   apiPatch<{ id: string; title: string }>(`/api/chat/conversations/${conversationId}`, { title })
@@ -421,10 +512,42 @@ export type Decision = {
   title: string
   summary: string
   status: string
-  options: Array<{ id: string; label: string }>
+  options: Array<{ id: string; label: string; action_type?: string }>
   source_type: string | null
   signal_id?: string | null
   created_at: string
+}
+
+export type CockpitSummary = {
+  volume_week: number
+  open_decisions: number
+  autonomy_rate_pct: number
+  avg_feedback_score: number
+  csat_score: number | null
+  csat_responses: number
+  tokens_month: number
+  cost_cents_month: number
+  time_saved_minutes_week: number
+}
+
+export type NotificationPrefRow = {
+  id: string
+  label: string
+  channels: { desktop?: boolean; email?: boolean; slack?: boolean }
+}
+
+export type Contact = {
+  id: string
+  channel: string
+  address: string
+  display_name: string
+  status: string
+  company: string
+  title: string
+  phone: string
+  notes: string
+  last_seen_at: string | null
+  thread_count?: number
 }
 
 export const listDecisions = (status = 'awaiting_human') =>
@@ -436,6 +559,9 @@ export const approveDecision = (id: string, optionId = 'approve') =>
 export const rejectDecision = (id: string, optionId = 'reject') =>
   apiPost(`/api/notifications/decisions/${id}/reject`, { option_id: optionId })
 
+export const deferDecision = (id: string, optionId = 'later') =>
+  apiPost(`/api/notifications/decisions/${id}/defer`, { option_id: optionId })
+
 // ---------------------------------------------------------------------------
 // Push
 // ---------------------------------------------------------------------------
@@ -445,3 +571,61 @@ export const subscribePush = (expoPushToken: string) =>
     endpoint: `expo:${expoPushToken}`,
     keys: { provider: 'expo' },
   })
+
+export const getCockpitSummary = () => apiGet<CockpitSummary>('/api/cockpit/summary')
+
+export const getNotificationPreferences = () =>
+  apiGet<{ rows: NotificationPrefRow[] }>('/api/user/notification-preferences')
+
+export const patchNotificationPreferences = (rows: NotificationPrefRow[]) =>
+  apiPatch<{ rows: NotificationPrefRow[] }>('/api/user/notification-preferences', { rows })
+
+export const getContact = (id: string) => apiGet<Contact>(`/api/channels/contacts/${id}`)
+
+export type Workspace = {
+  id: string
+  name: string
+  slug: string
+  role: string
+}
+
+export type WorkspaceMember = {
+  id: number
+  uuid: string
+  name: string
+  email: string
+  role: string
+}
+
+export type AppNotification = {
+  id: string
+  kind: string
+  title: string
+  body: string
+  status: string
+  payload: Record<string, unknown>
+  created_at: string
+}
+
+export const DEFAULT_NOTIFICATION_PREF_ROWS: NotificationPrefRow[] = [
+  { id: 'assigned-to-me', label: 'When a conversation is assigned to you', channels: { desktop: true } },
+  { id: 'mentions', label: 'When you are mentioned', channels: { desktop: true } },
+  { id: 'decisions', label: 'When an agent needs your decision', channels: { desktop: true } },
+  { id: 'handoff', label: 'When someone asks for a human', channels: { desktop: true } },
+]
+
+export const listWorkspaces = () => apiGet<Workspace[]>('/api/app/workspaces')
+
+export const listMembers = (workspaceId: string) =>
+  apiGet<WorkspaceMember[]>(`/api/app/workspaces/${workspaceId}/members`)
+
+export const listNotifications = (status?: string) =>
+  apiGet<AppNotification[]>(
+    status ? `/api/notifications?status_filter=${encodeURIComponent(status)}` : '/api/notifications',
+  )
+
+export const markNotificationRead = (id: string) =>
+  apiPost<{ id: string; status: string }>(`/api/notifications/${id}/read`)
+
+export const markAllNotificationsRead = () =>
+  apiPost<{ updated: number }>('/api/notifications/read-all')

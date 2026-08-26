@@ -1,0 +1,295 @@
+# Maps operator surfaces to product-help slugs.
+# Agents: match edited files (code_globs) or routes, then update that article.
+# `docs: none` = personal screen, no public article.
+# `screenshots` lists files under assets/{slug}/{name}.png (no extension).
+
+profile:
+  docs: none
+  routes:
+    - /settings/profile
+
+notifications:
+  docs: none
+  routes:
+    - /settings/notifications
+
+welcome:
+  section: getting-started
+  routes:
+    - /docs
+    - /learn
+  code_globs:
+    - apps/dashboard/src/pages/DocsPage.tsx
+    - apps/dashboard/src/pages/LearnPage.tsx
+  screenshots: []
+
+quickstart:
+  section: getting-started
+  routes:
+    - /settings/setup
+  code_globs:
+    - apps/dashboard/src/components/onboarding/OnboardingChecklist.tsx
+    - apps/dashboard/src/pages/SetupHubPage.tsx
+  screenshots: []
+
+setup-guide:
+  section: getting-started
+  routes:
+    - /settings
+    - /settings/setup
+    - /settings/general
+    - /settings/branding
+  code_globs:
+    - apps/dashboard/src/pages/WorkspaceSettings.tsx
+    - apps/dashboard/src/pages/CompanyConfig.tsx
+    - apps/dashboard/src/pages/SetupHubPage.tsx
+    - apps/dashboard/src/components/shell/SettingsLayout.tsx
+  screenshots: []
+
+tour:
+  section: getting-started
+  routes:
+    - /learn
+  code_globs:
+    - apps/dashboard/src/components/tour/tour-steps.ts
+    - apps/dashboard/src/components/shell/ShellSidebar.tsx
+  screenshots: []
+
+cockpit:
+  section: getting-started
+  routes:
+    - /cockpit
+    - /cockpit/activity
+    - /cockpit/usage
+  code_globs:
+    - apps/dashboard/src/pages/CockpitPage.tsx
+    - apps/dashboard/src/pages/ActivityPage.tsx
+    - apps/dashboard/src/pages/UsagePage.tsx
+    - apps/dashboard/src/components/cockpit/**
+  screenshots: []
+
+members:
+  section: getting-started
+  routes:
+    - /settings/members
+  code_globs:
+    - apps/dashboard/src/pages/MemberManagement.tsx
+  screenshots: []
+
+communication:
+  section: inbox
+  routes:
+    - /communication
+    - /communication/inbox
+    - /communication/inbox/open
+  code_globs:
+    - apps/dashboard/src/pages/Communication.tsx
+    - apps/dashboard/src/components/inbox/**
+    - apps/dashboard/src/components/shell/MessagesHub.tsx
+  screenshots: []
+
+agent-runs:
+  section: inbox
+  routes:
+    - /communication/runs
+    - /communication/runs/all
+  code_globs:
+    - apps/dashboard/src/pages/Communication.tsx
+    - apps/dashboard/src/components/inbox/ThreadList.tsx
+  screenshots: []
+
+channels:
+  section: inbox
+  routes:
+    - /settings/channels
+  code_globs:
+    - apps/dashboard/src/pages/InboxSettings.tsx
+    - apps/dashboard/src/components/settings/ChannelBindingsPanel.tsx
+  screenshots: []
+
+contacts:
+  section: inbox
+  routes:
+    - /contacts
+  code_globs:
+    - apps/dashboard/src/pages/ContactsPage.tsx
+    - apps/dashboard/src/components/inbox/ContactPanel.tsx
+  screenshots: []
+
+inbox-ai:
+  section: inbox
+  routes:
+    - /settings/communication
+  code_globs:
+    - apps/dashboard/src/pages/AiCommunicationSettings.tsx
+  screenshots: []
+
+widget:
+  section: inbox
+  routes:
+    - /ai/assistant
+    - /ai/assistant/external/installation
+  code_globs:
+    - apps/dashboard/src/pages/MessengerSettings.tsx
+    - apps/chat-widget/src/widget-main.ts
+  screenshots: []
+
+help-centers:
+  section: inbox
+  routes:
+    - /settings/help-centers
+    - /help
+  code_globs:
+    - apps/dashboard/src/pages/HelpCentersSettings.tsx
+    - apps/dashboard/src/pages/HelpCenter.tsx
+  screenshots: []
+
+agents:
+  section: ai
+  routes:
+    - /agents
+    - /settings/assistant
+  code_globs:
+    - apps/dashboard/src/pages/AiAgents.tsx
+    - apps/dashboard/src/pages/AiAgentDetail.tsx
+    - apps/dashboard/src/pages/MyAssistantSettings.tsx
+    - apps/dashboard/src/components/workforce/**
+  screenshots: []
+
+decisions:
+  section: ai
+  routes:
+    - /communication/inbox/open
+  code_globs:
+    - apps/dashboard/src/components/inbox/DecisionRequestMessage.tsx
+    - apps/api/app/services/signal_decisions.py
+  screenshots: []
+
+knowledge:
+  section: ai
+  routes:
+    - /knowledge
+  code_globs:
+    - apps/dashboard/src/pages/WorkspaceDocs.tsx
+    - apps/api/app/services/workspace.py
+  screenshots: []
+
+projects:
+  section: ai
+  routes:
+    - /projects
+  code_globs:
+    - apps/dashboard/src/pages/ProjectsPage.tsx
+    - apps/dashboard/src/pages/ProjectDetail.tsx
+  screenshots: []
+
+agenda:
+  section: ai
+  routes:
+    - /agenda
+    - /agenda?view=automations
+  code_globs:
+    - apps/dashboard/src/pages/AgendaPage.tsx
+    - apps/dashboard/src/components/agenda/**
+  screenshots: []
+
+govern:
+  section: govern
+  routes:
+    - /settings/govern
+  code_globs:
+    - apps/dashboard/src/pages/GovernPage.tsx
+    - apps/api/app/services/platform_apply.py
+  screenshots: []
+
+autonomy:
+  section: govern
+  routes:
+    - /settings/govern
+  code_globs:
+    - apps/dashboard/src/pages/GovernPage.tsx
+  screenshots: []
+
+models:
+  section: govern
+  routes:
+    - /settings/models
+  code_globs:
+    - apps/dashboard/src/pages/ModelsSettings.tsx
+    - apps/dashboard/src/components/workforce/AgentModelCard.tsx
+  screenshots: []
+
+integrations:
+  section: integrations
+  routes:
+    - /settings/integrations
+    - /settings/marketplace
+  code_globs:
+    - apps/dashboard/src/pages/IntegrationsConnected.tsx
+    - apps/dashboard/src/pages/IntegrationsMarketplace.tsx
+    - apps/dashboard/src/components/integrations/**
+  screenshots: []
+
+mcp:
+  section: integrations
+  routes:
+    - /settings/mcp
+  code_globs:
+    - apps/dashboard/src/components/mcp/**
+    - apps/dashboard/src/pages/IntegrationsMcp.tsx
+  screenshots: []
+
+api-overview:
+  section: developers
+  routes:
+    - /docs/api
+    - /settings/developers
+  code_globs:
+    - apps/dashboard/src/pages/DocsApiReference.tsx
+    - apps/api/app/routers/public_api.py
+  screenshots: []
+
+authentication:
+  section: developers
+  routes:
+    - /settings/developers
+  code_globs:
+    - apps/dashboard/src/pages/DeveloperSettings.tsx
+  screenshots: []
+
+api-signals:
+  section: developers
+  routes:
+    - /docs/developers/api-signals
+  code_globs:
+    - apps/api/app/routers/public_api.py
+  screenshots: []
+
+webhooks:
+  section: developers
+  routes:
+    - /docs/developers/webhooks
+  code_globs:
+    - apps/api/app/routers/public_api.py
+  screenshots: []
+
+mcp-endpoint:
+  section: developers
+  routes:
+    - /docs/developers/mcp-endpoint
+  screenshots: []
+
+widget-embed:
+  section: developers
+  routes:
+    - /ai/assistant/external/installation
+  code_globs:
+    - apps/chat-widget/src/widget-main.ts
+    - docs/product-help/en/developers/widget-embed.md
+  screenshots: []
+
+rate-limits:
+  section: developers
+  routes:
+    - /docs/developers/rate-limits
+  screenshots: []

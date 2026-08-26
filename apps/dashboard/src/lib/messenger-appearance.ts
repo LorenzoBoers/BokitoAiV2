@@ -4,7 +4,7 @@
  * Widget preview uses the same keys in data-preview-overrides JSON.
  */
 
-import { DEFAULT_BRAND_COLOR } from './tenant-branding'
+import { DEFAULT_BRAND_COLOR, resolveBrandIconUrl } from './tenant-branding'
 
 // Mirrors the widget's real tabs (Home / Messages / Help / Tools). The Help
 // tab additionally requires published help-center articles to appear.
@@ -78,6 +78,7 @@ export function normalizeMessengerAppearance(
   livechatSettings: Record<string, unknown> | null | undefined,
   opts?: {
     brandColorFallback?: string
+    brandIconFallback?: string | null
     normalizeAssetUrl?: (v: unknown) => string | null
   },
 ): MessengerAppearance {
@@ -98,7 +99,9 @@ export function normalizeMessengerAppearance(
   const welcomeTitle = str(rawAppearance.welcome_title)
   const welcomeSub = str(rawAppearance.welcome_subtitle)
   const chatbotName = str(rawAppearance.chatbot_name)
-  const fav = pickWidgetFaviconUrl(rawAppearance, normalizeUrl)
+  const fav = pickWidgetFaviconUrl(rawAppearance, normalizeUrl) || resolveBrandIconUrl({
+    favicon: opts?.brandIconFallback,
+  })
 
   const main_color = mainFromAppearance || mainFlat || brand || DEFAULT_MESSENGER_APPEARANCE.main_color
 
@@ -135,6 +138,45 @@ export function messengerAppearanceEquals(a: MessengerAppearance, b: MessengerAp
     a.widget_favicon_url === b.widget_favicon_url &&
     MESSENGER_MODULE_KEYS.every((key) => a.modules[key] === b.modules[key])
   )
+}
+
+// Bootstrap seeds the company agent as "Assistant"; that generic name is not
+// a deliberate choice, so the widget name falls through to the tenant name.
+const GENERIC_ASSISTANT_NAMES = ['assistant', 'assistent']
+
+function meaningfulName(value: string | null | undefined): string {
+  const name = (value ?? '').trim()
+  return name && !GENERIC_ASSISTANT_NAMES.includes(name.toLowerCase()) ? name : ''
+}
+
+/**
+ * Widget display name chain, mirroring the API theme resolution:
+ * explicit widget override -> customized assistant name -> tenant name.
+ */
+export function resolveWidgetName(input: {
+  chatbotName?: string | null
+  assistantName?: string | null
+  tenantName?: string | null
+}): string {
+  return (
+    meaningfulName(input.chatbotName) ||
+    meaningfulName(input.assistantName) ||
+    (input.tenantName ?? '').trim()
+  )
+}
+
+/** Welcome copy the API serves until the tenant customizes it (mirrors backend). */
+export const WELCOME_DEFAULTS: Record<'en' | 'nl', { title: string; subtitle: string }> = {
+  en: { title: 'Welcome', subtitle: 'How can we help?' },
+  nl: { title: 'Welkom', subtitle: 'Hoe kunnen we je helpen?' },
+}
+
+export function welcomeDefaultsForLocale(locale: string | null | undefined): {
+  title: string
+  subtitle: string
+} {
+  const key = (locale ?? '').slice(0, 2).toLowerCase()
+  return WELCOME_DEFAULTS[key === 'nl' ? 'nl' : 'en']
 }
 
 /** Shape sent with workspace branding save (JSON field). */

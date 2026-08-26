@@ -9,7 +9,7 @@
   "toolOverrideError": "Could not save this tool override.",
   "refresh": "Refresh",
   "tabs": {
-    "drafts": "Pending drafts",
+    "drafts": "Pending reviews",
     "policy": "Policy",
     "history": "Version history",
     "passports": "Agent access",
@@ -35,7 +35,7 @@
   },
   "history": {
     "empty": "No accepted changes yet.",
-    "openDrafts": "Open pending drafts",
+    "openDrafts": "Open pending reviews",
     "rollback": "Undo",
     "rolledBack": "Change undone",
     "rollbackError": "Could not undo this change."
@@ -58,6 +58,7 @@
   "posture": {
     "title": "How much agents can do",
     "intro": "Choose how much agents can do without waiting for you. You can fine-tune individual tool categories below.",
+    "perAgentHint": "Per-agent overrides live on the agent page under Tools and permissions.",
     "saved": "Autonomy setting updated",
     "current": "Current setting",
     "manual": {

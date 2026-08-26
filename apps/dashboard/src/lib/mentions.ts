@@ -88,18 +88,6 @@ export function activeMentionQuery(value: string, caret: number): MentionQuery |
   return { start: at, query }
 }
 
-/** Insert a selected mention, replacing the typed `@query`. Returns new value + caret. */
-export function applyMention(
-  value: string,
-  caret: number,
-  query: MentionQuery,
-  item: MentionItem,
-): { value: string; caret: number } {
-  const markup = `${mentionMarkup(item)} `
-  const next = value.slice(0, query.start) + markup + value.slice(caret)
-  return { value: next, caret: query.start + markup.length }
-}
-
 export function filterMentionItems(items: MentionItem[], query: string): MentionItem[] {
   const q = query.trim().toLowerCase()
   if (!q) return items.slice(0, 8)

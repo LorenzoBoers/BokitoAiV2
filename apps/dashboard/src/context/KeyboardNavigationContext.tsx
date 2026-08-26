@@ -69,7 +69,7 @@ export function KeyboardNavigationProvider({ children }: { children: React.React
           setActiveElement(null);
           const activeModal = document.querySelector('[role="dialog"]');
           if (activeModal) {
-            const closeButton = activeModal.querySelector('[aria-label="Close"]') as HTMLButtonElement;
+            const closeButton = activeModal.querySelector('[data-dialog-close], [aria-label="Close"]') as HTMLButtonElement;
             if (closeButton) {
               closeButton.click();
             }

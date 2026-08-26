@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { buildTenantOrigin, isLocalHostname } from '../lib/host-routing'
 import { useAuth } from '../context/AuthContext'
+import { inboxPath } from '../lib/messages-paths'
 import {
   Dialog,
   DialogContent,
@@ -120,7 +121,7 @@ export default function Workspaces() {
                       return
                     }
                     await switchWorkspace(workspace.id)
-                    navigate('/communication/inbox/all', { replace: true })
+                    navigate(inboxPath('open'), { replace: true })
                   }}
                   className={`rounded-xl border p-5 text-left shadow-card hover-lift ${
                     isCurrent

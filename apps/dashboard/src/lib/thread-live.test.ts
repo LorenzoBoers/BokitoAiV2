@@ -87,7 +87,7 @@ describe('threadMatchesFilters', () => {
         me,
       ),
     ).toBe(true)
-    expect(threadMatchesFilters(thread({ status: 'pending' }), { view: 'snoozed' }, me)).toBe(false)
+    expect(threadMatchesFilters(thread({ status: 'pending' }), { view: 'snoozed' }, me)).toBe(true)
   })
 
   it('resolves mine / unassigned against the signed-in user', () => {

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Clock, Info } from 'lucide-react'
-import type { IntegrationApplication } from '../../lib/integration-applications'
+import { localizeApplication, type IntegrationApplication } from '../../lib/integration-applications'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
@@ -12,7 +12,8 @@ type Props = {
 
 export function ApplicationCard({ application, onOpenDetail }: Props) {
   const { t } = useTranslation('nav')
-  const { brand, offers, connectionCount, status } = application
+  const localized = localizeApplication(application, t)
+  const { brand, offers, connectionCount, status } = localized
   const isComingSoon = status === 'coming_soon'
   const isConnected = connectionCount > 0
   const offerCount = offers.length
@@ -33,7 +34,7 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="text-sm font-semibold text-text-heading">{application.name}</h3>
+            <h3 className="text-sm font-semibold text-text-heading">{localized.name}</h3>
             {offerCount > 1 ? (
               <Badge variant="neutral" className="text-[10px] font-medium">
                 {t('integrations.application.offerCount', { count: offerCount })}
@@ -45,7 +46,7 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
             )}
           </div>
           <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
-            {application.description}
+            {localized.description}
           </p>
         </div>
         <IntegrationHostLogo
@@ -53,7 +54,7 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
           logoDarkUrl={brand.logoDarkUrl}
           initials={brand.initials}
           color={brand.color}
-          name={application.name}
+          name={localized.name}
           hostSlug={brand.hostSlug}
           size="md"
         />

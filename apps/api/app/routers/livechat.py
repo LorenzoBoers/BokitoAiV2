@@ -23,6 +23,7 @@ from app.services.livechat_compat import (
     decode_widget_session_token,
     resolve_tenant_for_livechat,
     session_start_payload,
+    widget_assistant_name,
 )
 from app.services.livechat_stream import (
     get_or_create_widget_thread,
@@ -93,12 +94,14 @@ async def session_start(
         user_id=user.id if user else None,
         customer_id=customer_id,
     )
+    assistant_name = await widget_assistant_name(session, tenant.id)
     return session_start_payload(
         tenant,
         user,
         session_token=session_token,
         auth_mode=auth_mode,
         customer_id=customer_id,
+        assistant_name=assistant_name,
     )
 
 
@@ -203,13 +206,107 @@ async def livechat_me(
     }
 
 
+def _widget_viewer_key(user: User | None, token: str) -> str:
+    """Stable per-viewer key for widget read state (logged-in user or visitor)."""
+    if user is not None:
+        return f"user:{user.id}"
+    try:
+        customer_id = decode_widget_session_token(token).get("customer_id")
+    except Exception:
+        customer_id = None
+    return f"customer:{customer_id}" if customer_id else ""
+
+
+async def _mark_widget_seen(session: AsyncSession, signal: Signal, viewer_key: str) -> None:
+    """Upsert the viewer's `widget_seen` event so unread counts reset on read."""
+    if not viewer_key:
+        return
+    from datetime import datetime
+
+    from app.models.signal import SignalEvent
+
+    result = await session.execute(
+        sa_select(SignalEvent).where(
+            SignalEvent.signal_id == signal.id,
+            SignalEvent.event_type == "widget_seen",
+            SignalEvent.actor_id == viewer_key,
+        )
+    )
+    event = result.scalars().first()
+    if event:
+        event.created_at = datetime.utcnow()
+    else:
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=signal.tenant_id,
+                event_type="widget_seen",
+                actor_type="visitor",
+                actor_id=viewer_key,
+            )
+        )
+    await session.commit()
+
+
+async def _widget_unread_counts(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_ids: list[UUID],
+    viewer_key: str,
+) -> dict[UUID, int]:
+    """Agent messages newer than the viewer's last read or last reply, per thread."""
+    counts: dict[UUID, int] = {sid: 0 for sid in signal_ids}
+    if not signal_ids or not viewer_key:
+        return counts
+    from sqlalchemy import func as sa_func
+
+    from app.models.signal import SignalEvent, SignalMessage
+
+    seen_rows = (
+        await session.execute(
+            sa_select(SignalEvent.signal_id, sa_func.max(SignalEvent.created_at))
+            .where(
+                SignalEvent.tenant_id == tenant_id,
+                SignalEvent.signal_id.in_(signal_ids),
+                SignalEvent.event_type == "widget_seen",
+                SignalEvent.actor_id == viewer_key,
+            )
+            .group_by(SignalEvent.signal_id)
+        )
+    ).all()
+    seen = {row[0]: row[1] for row in seen_rows}
+    last_reply_rows = (
+        await session.execute(
+            sa_select(SignalMessage.signal_id, sa_func.max(SignalMessage.created_at))
+            .where(
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.signal_id.in_(signal_ids),
+                SignalMessage.kind == "user_message",
+            )
+            .group_by(SignalMessage.signal_id)
+        )
+    ).all()
+    last_reply = {row[0]: row[1] for row in last_reply_rows}
+    for sid in signal_ids:
+        anchors = [t for t in (seen.get(sid), last_reply.get(sid)) if t]
+        query = sa_select(sa_func.count()).where(
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.signal_id == sid,
+            SignalMessage.kind == "agent_message",
+        )
+        if anchors:
+            query = query.where(SignalMessage.created_at > max(anchors))
+        counts[sid] = int((await session.execute(query)).scalar() or 0)
+    return counts
+
+
 @router.get("/user/conversations")
 async def user_conversations(
     ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     per_page: int = 10,
 ):
-    tenant, user, _token = ctx
+    tenant, user, token = ctx
     if not user:
         return {"items": [], "conversations": [], "per_page": per_page}
     result = await session.execute(
@@ -222,14 +319,19 @@ async def user_conversations(
         .order_by(Signal.updated_at.desc())
         .limit(per_page)
     )
+    signals = result.scalars().all()
+    unread = await _widget_unread_counts(
+        session, tenant.id, [s.id for s in signals], _widget_viewer_key(user, token)
+    )
     items = [
         {
             "id": str(s.id),
             "conversation_id": str(s.id),
             "title": s.subject,
             "updated_at": s.updated_at.isoformat(),
+            "unread_count": unread.get(s.id, 0),
         }
-        for s in result.scalars().all()
+        for s in signals
     ]
     return {"items": items, "conversations": items, "per_page": per_page}
 
@@ -271,14 +373,19 @@ async def customer_conversations(
         .order_by(Signal.updated_at.desc())
         .limit(per_page)
     )
+    signals = result.scalars().all()
+    unread = await _widget_unread_counts(
+        session, tenant.id, [s.id for s in signals], f"customer:{customer_id}"
+    )
     items = [
         {
             "id": str(s.id),
             "conversation_id": str(s.id),
             "title": s.subject,
             "updated_at": s.updated_at.isoformat(),
+            "unread_count": unread.get(s.id, 0),
         }
-        for s in result.scalars().all()
+        for s in signals
     ]
     return {"items": items, "conversations": items, "per_page": per_page}
 
@@ -412,6 +519,9 @@ async def conversation_messages(
 
     tenant, user, token = ctx
     signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
+    # Fetching the transcript is the widget's read moment; it resets the
+    # thread's unread badge for this viewer.
+    await _mark_widget_seen(session, signal, _widget_viewer_key(user, token))
     result = await session.execute(
         sa_select(SignalMessage)
         .where(SignalMessage.signal_id == signal.id)

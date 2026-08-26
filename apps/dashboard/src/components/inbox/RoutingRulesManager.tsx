@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '../ui/button';
+import { inboxPath } from '../../lib/messages-paths';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
@@ -257,7 +258,7 @@ export default function RoutingRulesManager({
                       {t('routingRules.addRule')}
                     </Button>
                     <Link
-                      to="/communication/inbox/all"
+                      to={inboxPath('open')}
                       className="text-sm font-medium text-accent hover:underline"
                     >
                       {t('routingRules.openCommunication')}

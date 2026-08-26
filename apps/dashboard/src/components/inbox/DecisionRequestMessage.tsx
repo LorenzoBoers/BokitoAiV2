@@ -16,6 +16,7 @@ import {
   UserRound,
   Zap,
 } from 'lucide-react'
+import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
@@ -51,7 +52,7 @@ type Props = {
   message: InboxMessage
   threadId: ThreadId
   events: InboxEvent[]
-  onResolved?: () => void
+  onResolved?: (info?: { closed?: boolean }) => void
   onEditDraft?: (draft: {
     body: string
     subject?: string
@@ -224,6 +225,7 @@ export default function DecisionRequestMessage({
       t('decisionCard.decisionNeeded'),
     t,
   )
+  const excerpt = formatDecisionExcerpt(summary)
   const draftBody = useMemo(
     () =>
       translateMockAgentBody(
@@ -264,6 +266,7 @@ export default function DecisionRequestMessage({
     successLabel?: string,
     answerText?: string,
     sendAsOverride?: ReplySendAs,
+    info?: { closed?: boolean },
   ) {
     if (!token || resolved) return
     setBusy(true)
@@ -295,7 +298,9 @@ export default function DecisionRequestMessage({
       } else if (suggestion?.readyToActivate) {
         setRuleSuggestion(suggestion)
       }
-      onResolved?.()
+      onResolved?.(
+        info?.closed || optionId === 'close' || optionId === 'close_thread' ? { closed: true } : undefined,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : t('decisionCard.resolveError'))
     } finally {
@@ -324,7 +329,7 @@ export default function DecisionRequestMessage({
     try {
       await patchThread(token, threadId, { status: 'closed' })
       toast.success(t('decisionCard.toastClosed'))
-      onResolved?.()
+      onResolved?.({ closed: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : t('decisionCard.closeError'))
     } finally {
@@ -345,7 +350,9 @@ export default function DecisionRequestMessage({
       return
     }
     if (option.action_type === 'close_thread') {
-      await resolve('approve', option.id, undefined, t('decisionCard.toastClosed'))
+      await resolve('approve', option.id, undefined, t('decisionCard.toastClosed'), undefined, undefined, {
+        closed: true,
+      })
       return
     }
     if (option.action_type === 'create_task') {
@@ -417,8 +424,8 @@ export default function DecisionRequestMessage({
         {isActionSuggestion ? (
           <>
             <p className="text-sm text-text-primary">{t('decisionCard.automatedExplainer')}</p>
-            {summary ? (
-              <p className="mt-1.5 line-clamp-3 text-sm text-text-secondary">{summary}</p>
+            {excerpt ? (
+              <p className="mt-1.5 text-sm text-text-secondary">{excerpt}</p>
             ) : null}
           </>
         ) : (

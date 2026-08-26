@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { appScopedGet, appScopedPost } from '../../lib/api'
 import { appRoutes } from '../../api/routes/app.routes'
+import { inboxPath } from '../../lib/messages-paths'
 
 export type OnboardingStepId = 'email' | 'company' | 'assistant' | 'first_decision' | 'team'
 
@@ -99,7 +100,7 @@ export function useDemoThread(): { start: () => void; starting: boolean } {
     appScopedPost<{ signal_id?: string }>(appRoutes.onboarding.demoThread, {}, token)
       .then((res) => {
         if (res?.signal_id) {
-          navigate(`/communication/inbox/all/t/${res.signal_id}`)
+          navigate(inboxPath('open', res.signal_id))
         }
       })
       .catch(() => undefined)

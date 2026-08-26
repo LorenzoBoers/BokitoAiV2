@@ -97,7 +97,7 @@ async def apply_agent_change(
         role=role,
         slug=_slugify(name),
         system_prompt=after.get("system_prompt", ""),
-        model=after.get("model", "claude-sonnet-4-20250514"),
+        model=after.get("model", "bokito-ai-3-1"),
         tools_json=json.dumps(after.get("tools", [])),
         permission_scopes_json=json.dumps(after.get("permission_scopes", [])),
     )

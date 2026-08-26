@@ -231,11 +231,25 @@ class AgentLoop:
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
         workspace = await build_workspace_context(self.session, self.tenant_id)
         rag_context = ""
+        product_help_context = ""
         if user_query:
             hits = await hybrid_search(self.session, self.tenant_id, user_query, top_k=5)
             self.last_rag_hits = hits or []
             if hits:
                 rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
+            if self.trust != "external":
+                from app.services.product_help import search_product_help
+
+                product_hits = await search_product_help(
+                    user_query,
+                    lang=get_settings().platform_default_language,
+                    top_k=3,
+                )
+                if product_hits:
+                    product_help_context = "\n".join(
+                        f"- {h['title']} (/learn/{h['slug']}): {h['content'][:300]}"
+                        for h in product_hits
+                    )
         default_prompt = (
             "You are the Bokito AI OS assistant. "
             "You have introspection tools (get_tenant_overview, list_recent_activity, "
@@ -255,6 +269,13 @@ class AgentLoop:
             )
         if rag_context:
             parts.append(f"## Relevant context\n{rag_context}")
+        if product_help_context:
+            parts.append(
+                "## How Bokito works\n"
+                "Cite these platform help articles when the user asks how to use Bokito. "
+                "In-app path is /learn/{slug}; the public URL is /docs/{slug}.\n"
+                f"{product_help_context}"
+            )
         if self.trust == "external":
             parts.append(
                 "## Human handoff\n"
@@ -268,9 +289,14 @@ class AgentLoop:
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
-        from app.services.agent.style import RESPONSE_STYLE
+        from app.services.agent.style import BOKITO_MODEL_IDENTITY, RESPONSE_STYLE
 
         parts.append(RESPONSE_STYLE)
+        # Bokito virtual models present as Bokito's own model; agents on
+        # BYOK/real models keep their actual identity.
+        resolved = getattr(self, "resolved_call", None)
+        if resolved is not None and resolved.provider == "bokito":
+            parts.append(BOKITO_MODEL_IDENTITY)
         return "\n\n".join(parts).strip()
 
     async def _prepare_chat(

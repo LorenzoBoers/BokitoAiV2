@@ -365,6 +365,30 @@ async def patch_agent_status(
     return await svc.update_agent_runtime_status(session, auth.tenant.id, agent_id, body.status)
 
 
+@router.patch("/agents/{agent_id}/lead")
+async def patch_agent_lead(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Move the tenant's lead-agent label to this agent (owner/admin)."""
+    auth.require_role("owner", "admin")
+    from app.services.audit import record_audit
+    from app.services.lead_agent import set_lead_agent
+
+    agent = await set_lead_agent(session, auth.tenant.id, agent_id)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent:lead_changed",
+        actor_type="user",
+        actor_id=auth.user.id,
+        resource_type="agent",
+        resource_id=agent_id,
+    )
+    return {"ok": True, "agent": svc.serialize_runtime_agent(agent)}
+
+
 @router.patch("/agents/{agent_id}/model")
 async def patch_agent_model(
     agent_id: UUID,

@@ -14,8 +14,19 @@ import {
   titleForTab,
   type Tab,
 } from '../../lib/navigation'
+import { useWorkspace } from '../../context/WorkspaceContext'
+import {
+  DEFAULT_BRAND_MARK,
+  resolveBrandIconUrl,
+  workspaceBrandName,
+} from '../../lib/tenant-branding'
 import ConnectionStatus from './ConnectionStatus'
 import ThemeModeToggle from './ThemeModeToggle'
+
+const BOKITO_MARK_FILTER_DARK =
+  'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
+const BOKITO_MARK_FILTER_LIGHT =
+  'brightness(0) saturate(100%) invert(53%) sepia(9%) saturate(428%) hue-rotate(183deg) brightness(91%) contrast(88%)'
 
 const GROUPS_COLLAPSED_KEY = 'bokito-nav-groups-collapsed'
 
@@ -38,7 +49,11 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
   const { isDark } = useTheme()
+  const { currentWorkspace } = useWorkspace()
   const { counts } = useOptionalNavBadges()
+  const brandName = workspaceBrandName(currentWorkspace)
+  const brandIconUrl = resolveBrandIconUrl(currentWorkspace)
+  const brandMarkSrc = brandIconUrl || DEFAULT_BRAND_MARK
   const activeTab = tabFromPath(pathname)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups)
 
@@ -65,25 +80,38 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   return (
     <div className="flex h-full flex-col bg-bg-sidebar">
       {/* Brand header */}
-      <div className={`flex h-14 shrink-0 items-center border-b border-border/40 ${collapsed ? 'justify-center px-0' : 'justify-between pl-4 pr-2'}`}>
+      <div className={`flex shrink-0 items-center border-b border-border/40 ${collapsed ? 'h-auto flex-col justify-center gap-1 px-0 py-2' : 'h-14 justify-between pl-4 pr-2'}`}>
         {!collapsed ? (
           <NavLink to="/" className="flex min-w-0 items-center gap-2.5" onClick={onNavigate}>
             <img
-              src="/bokito-logo.svg"
-              alt="Bokito"
+              src={brandMarkSrc}
+              alt=""
               className="h-6 w-6 shrink-0 object-contain"
-              style={{
-                filter: isDark
-                  ? 'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
-                  : 'brightness(0) saturate(100%) invert(53%) sepia(9%) saturate(428%) hue-rotate(183deg) brightness(91%) contrast(88%)',
-              }}
+              style={
+                brandIconUrl
+                  ? undefined
+                  : { filter: isDark ? BOKITO_MARK_FILTER_DARK : BOKITO_MARK_FILTER_LIGHT }
+              }
             />
             <span className="flex min-w-0 flex-col leading-tight">
               <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-muted">{t('topbar.controlBrand')}</span>
-              <span className="truncate text-[14px] font-semibold text-text-heading">Bokito</span>
+              <span className="truncate text-[14px] font-semibold text-text-heading">{brandName}</span>
             </span>
           </NavLink>
-        ) : null}
+        ) : (
+          <NavLink to="/" className="flex items-center justify-center" onClick={onNavigate} title={brandName}>
+            <img
+              src={brandMarkSrc}
+              alt={brandName}
+              className="h-6 w-6 shrink-0 object-contain"
+              style={
+                brandIconUrl
+                  ? undefined
+                  : { filter: isDark ? BOKITO_MARK_FILTER_DARK : BOKITO_MARK_FILTER_LIGHT }
+              }
+            />
+          </NavLink>
+        )}
         <button
           type="button"
           onClick={onToggleCollapsed}

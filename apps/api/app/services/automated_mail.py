@@ -84,6 +84,23 @@ def classify_automated_email(
     return {"automated": False, "reason": ""}
 
 
+_WS_RE = re.compile(r"\s+")
+
+
+def clip_with_ellipsis(text: str, max_chars: int = 160) -> str:
+    """Collapse whitespace and cut on a word boundary with a trailing ellipsis."""
+    cleaned = _WS_RE.sub(" ", (text or "").strip())
+    if not cleaned:
+        return ""
+    if len(cleaned) <= max_chars:
+        return cleaned
+    slice_ = cleaned[:max_chars]
+    at = slice_.rfind(" ")
+    clipped = slice_[:at] if at >= 40 else slice_
+    clipped = clipped.rstrip(".,;:").rstrip()
+    return f"{clipped}..." if clipped else f"{slice_.rstrip()}..."
+
+
 def extract_no_reply_summary(reply_text: str) -> str | None:
     """Parse the agent's ``NO_REPLY_NEEDED: <summary>`` sentinel.
 

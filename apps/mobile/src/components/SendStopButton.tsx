@@ -1,6 +1,7 @@
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native'
+import { ActivityIndicator, Pressable } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { colors } from '../theme'
+import { useTheme, useThemedStyles } from '../context/ThemeContext'
+import type { ColorTokens } from '../theme'
 
 type Props = {
   streaming: boolean
@@ -11,6 +12,8 @@ type Props = {
 }
 
 export default function SendStopButton({ streaming, canSend, onSend, onStop, busy }: Props) {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(sendStyles)
   const disabled = streaming ? false : !canSend || busy
 
   return (
@@ -20,24 +23,26 @@ export default function SendStopButton({ streaming, canSend, onSend, onStop, bus
       disabled={disabled}
     >
       {busy && !streaming ? (
-        <ActivityIndicator color="#fff" size="small" />
+        <ActivityIndicator color={colors.accentFg} size="small" />
       ) : streaming ? (
-        <Ionicons name="stop" size={16} color="#fff" />
+        <Ionicons name="stop" size={16} color={colors.accentFg} />
       ) : (
-        <Ionicons name="send" size={16} color="#fff" />
+        <Ionicons name="send" size={16} color={colors.accentFg} />
       )}
     </Pressable>
   )
 }
 
-const styles = StyleSheet.create({
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: 18,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabled: { opacity: 0.5 },
-})
+function sendStyles(colors: ColorTokens) {
+  return {
+    button: {
+      backgroundColor: colors.accent,
+      borderRadius: 18,
+      width: 36,
+      height: 36,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+    disabled: { opacity: 0.5 },
+  }
+}

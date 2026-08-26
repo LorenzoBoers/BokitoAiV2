@@ -1,15 +1,15 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { Stack } from 'expo-router'
+import { Stack, useLocalSearchParams, useNavigation } from 'expo-router'
 import { KeyboardAvoidingView, KeyboardStickyView } from 'react-native-keyboard-controller'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import ConversationPicker from '../../src/components/ConversationPicker'
@@ -24,12 +24,26 @@ import {
 } from '../../src/hooks/useMessagingQueries'
 import { useLastAgentSteps } from '../../src/hooks/useLastAgentSteps'
 import { useSignalStream } from '../../src/hooks/useSignalStream'
+import EmptyState from '../../src/components/EmptyState'
+import { LiveBanner } from '../../src/components/StatusBanner'
+import { useCopy } from '../../src/context/LocaleContext'
 import { streamChatMessage, type ChatMessage } from '../../src/lib/api'
-import { colors, spacing } from '../../src/theme'
+import { translateMockAgentBody } from '../../src/lib/format'
+import { useTheme, useThemedStyles } from '../../src/context/ThemeContext'
+import { spacing, type ColorTokens } from '../../src/theme'
 
 export default function AssistantScreen() {
+  const { t, locale } = useCopy()
+  const { colors } = useTheme()
+  const styles = useThemedStyles(assistantStyles)
+  const navigation = useNavigation()
   const insets = useSafeAreaInsets()
+  const params = useLocalSearchParams<{ conversationId?: string }>()
   const [conversationId, setConversationId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (params.conversationId) setConversationId(params.conversationId)
+  }, [params.conversationId])
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -38,13 +52,18 @@ export default function AssistantScreen() {
   const abortRef = useRef<AbortController | null>(null)
   const listRef = useRef<FlatList<ChatMessage>>(null)
 
-  const { data: conversations = [], isLoading: loadingConversations } = useConversations()
+  const {
+    data: conversations = [],
+    isLoading: loadingConversations,
+    isError: conversationsError,
+    refetch: refetchConversations,
+  } = useConversations()
   const { data: targetsData } = useChatTargets()
   const targets = targetsData?.items ?? []
   const defaultAgentId = targetsData?.default_agent_id ?? null
 
   const activeId = conversationId ?? conversations[0]?.id ?? null
-  const { data: messages = [], refetch: refetchMessages } = useChatMessages(activeId)
+  const { data: messages = [], refetch: refetchMessages, isError: messagesError } = useChatMessages(activeId)
   const gatewayStream = useSignalStream(activeId)
   const { create, rename, remove } = useConversationMutations()
 
@@ -61,11 +80,11 @@ export default function AssistantScreen() {
   const ensureConversation = useCallback(async () => {
     if (activeId) return activeId
     const agentId = selectedAgentId ?? defaultAgentId ?? undefined
-    const created = await create.mutateAsync({ title: 'Assistant', agentId })
+    const created = await create.mutateAsync({ title: t('assistant.defaultTitle'), agentId })
     setConversationId(created.id)
     if (created.agent_id) setSelectedAgentId(created.agent_id)
     return created.id
-  }, [activeId, create, defaultAgentId, selectedAgentId])
+  }, [activeId, create, defaultAgentId, selectedAgentId, t])
 
   const send = async () => {
     const content = draft.trim()
@@ -87,6 +106,7 @@ export default function AssistantScreen() {
     } catch (err) {
       if (!(err instanceof Error && err.name === 'AbortError')) {
         setDraft(content)
+        Alert.alert(t('assistant.sendFailed'))
       }
     } finally {
       abortRef.current = null
@@ -98,30 +118,93 @@ export default function AssistantScreen() {
 
   const stopStreaming = () => {
     abortRef.current?.abort()
+    gatewayStream.reset()
   }
 
   const handleCreateConversation = async (agentId?: string) => {
-    const created = await create.mutateAsync({ title: 'New conversation', agentId })
-    setConversationId(created.id)
-    if (agentId) setSelectedAgentId(agentId)
-    else if (created.agent_id) setSelectedAgentId(created.agent_id)
+    try {
+      const created = await create.mutateAsync({ title: t('assistant.newTitle'), agentId })
+      setConversationId(created.id)
+      if (agentId) setSelectedAgentId(agentId)
+      else if (created.agent_id) setSelectedAgentId(created.agent_id)
+    } catch {
+      Alert.alert(t('assistant.actionFailed'))
+    }
+  }
+
+  const handleDeleteConversation = (id: string) => {
+    Alert.alert(t('assistant.deleteTitle'), t('assistant.deleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => {
+          void remove
+            .mutateAsync(id)
+            .then(() => {
+              if (conversationId === id) setConversationId(null)
+            })
+            .catch(() => Alert.alert(t('assistant.actionFailed')))
+        },
+      },
+    ])
+  }
+
+  const handleRenameConversation = (id: string, title: string) => {
+    void rename.mutateAsync({ id, title }).catch(() => Alert.alert(t('assistant.actionFailed')))
+  }
+
+  const handleSelectAgent = (agentId: string) => {
+    setSelectedAgentId(agentId)
+    if (activeConversation && activeConversation.agent_id !== agentId) {
+      void handleCreateConversation(agentId)
+    }
   }
 
   const loading = loadingConversations && !activeId
+  const activeConversation = conversations.find((item) => item.id === activeId)
+  const activeAgent =
+    targets.find((item) => item.id === (activeConversation?.agent_id ?? selectedAgentId ?? defaultAgentId)) ??
+    null
+  const headerTitle = activeAgent?.name || activeConversation?.title || t('assistant.defaultTitle')
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle,
+      tabBarLabel: t('tabs.assistant'),
+    })
+  }, [headerTitle, navigation, t])
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior="padding" keyboardVerticalOffset={insets.top}>
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Pressable onPress={() => setPickerOpen(true)} hitSlop={8} style={styles.headerButton}>
-              <Ionicons name="list-outline" size={22} color={colors.textHeading} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => void handleCreateConversation(selectedAgentId ?? defaultAgentId ?? undefined)}
+                hitSlop={8}
+                style={styles.headerButton}
+              >
+                <Ionicons name="add" size={22} color={colors.textHeading} />
+              </Pressable>
+              <Pressable onPress={() => setPickerOpen(true)} hitSlop={8} style={styles.headerButton}>
+                <Ionicons name="list-outline" size={22} color={colors.textHeading} />
+              </Pressable>
+            </View>
           ),
         }}
       />
 
-      {loading ? (
+      <LiveBanner />
+
+      {conversationsError ? (
+        <EmptyState
+          title={t('assistant.loadError')}
+          actionLabel={t('common.retry')}
+          onAction={() => void refetchConversations()}
+        />
+      ) : loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} />
         </View>
@@ -144,12 +227,19 @@ export default function AssistantScreen() {
                   item.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant,
                 ]}
               >
-                <Text style={styles.bubbleText}>{item.content}</Text>
+                <Text style={item.role === 'user' ? styles.bubbleTextUser : styles.bubbleText}>
+                  {item.role === 'assistant' ? translateMockAgentBody(item.content, locale) : item.content}
+                </Text>
               </View>
             </View>
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>Ask your assistant anything about your workspace.</Text>
+            <EmptyState
+              title={messagesError ? t('assistant.loadError') : t('assistant.empty')}
+              body={messagesError ? undefined : t('assistant.emptyHint')}
+              actionLabel={messagesError ? t('common.retry') : t('assistant.conversations')}
+              onAction={() => (messagesError ? void refetchMessages() : setPickerOpen(true))}
+            />
           }
           ListFooterComponent={
             showStreamBubble ? (
@@ -167,7 +257,7 @@ export default function AssistantScreen() {
         <View style={styles.composer}>
           <TextInput
             style={styles.input}
-            placeholder="Message your assistant"
+            placeholder={t('assistant.placeholder')}
             placeholderTextColor={colors.textMuted}
             value={draft}
             onChangeText={setDraft}
@@ -192,17 +282,20 @@ export default function AssistantScreen() {
         selectedAgentId={selectedAgentId ?? defaultAgentId}
         loading={loadingConversations}
         onSelectConversation={setConversationId}
+        onSelectAgent={handleSelectAgent}
         onCreateConversation={(agentId) => void handleCreateConversation(agentId)}
-        onDeleteConversation={(id) => void remove.mutate(id)}
-        onRenameConversation={(id, title) => void rename.mutate({ id, title })}
+        onDeleteConversation={handleDeleteConversation}
+        onRenameConversation={handleRenameConversation}
       />
     </KeyboardAvoidingView>
   )
 }
 
-const styles = StyleSheet.create({
+function assistantStyles(colors: ColorTokens) {
+  return {
   root: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
   headerButton: { marginRight: spacing.sm },
   list: { padding: spacing.lg, gap: spacing.sm, flexGrow: 1 },
   messageRow: { gap: spacing.xs },
@@ -220,6 +313,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   bubbleText: { color: colors.textHeading, fontSize: 15, lineHeight: 21 },
+  bubbleTextUser: { color: colors.accentFg, fontSize: 15, lineHeight: 21 },
   empty: {
     color: colors.textMuted,
     textAlign: 'center',
@@ -247,4 +341,5 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 15,
   },
-})
+  }
+}

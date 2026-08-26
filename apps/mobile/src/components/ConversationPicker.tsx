@@ -10,8 +10,11 @@ import {
   View,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useCopy } from '../context/LocaleContext'
+import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import type { ChatTarget, Conversation } from '../lib/api'
-import { colors, spacing } from '../theme'
+import { translateKnownText } from '../lib/format'
+import { spacing, type ColorTokens } from '../theme'
 
 type Props = {
   visible: boolean
@@ -22,6 +25,7 @@ type Props = {
   selectedAgentId: string | null
   loading?: boolean
   onSelectConversation: (id: string) => void
+  onSelectAgent: (agentId: string) => void
   onCreateConversation: (agentId?: string) => void
   onDeleteConversation: (id: string) => void
   onRenameConversation: (id: string, title: string) => void
@@ -36,10 +40,14 @@ export default function ConversationPicker({
   selectedAgentId,
   loading,
   onSelectConversation,
+  onSelectAgent,
   onCreateConversation,
   onDeleteConversation,
   onRenameConversation,
 }: Props) {
+  const { t, locale } = useCopy()
+  const { colors } = useTheme()
+  const styles = useThemedStyles(pickerStyles)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
 
@@ -59,13 +67,13 @@ export default function ConversationPicker({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.root}>
         <View style={styles.header}>
-          <Text style={styles.title}>Conversations</Text>
+          <Text style={styles.title}>{t('assistant.conversations')}</Text>
           <Pressable onPress={onClose} hitSlop={8}>
             <Ionicons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
 
-        <Text style={styles.sectionLabel}>Agent</Text>
+        <Text style={styles.sectionLabel}>{t('assistant.agent')}</Text>
         <FlatList
           horizontal
           data={targets}
@@ -77,7 +85,7 @@ export default function ConversationPicker({
             return (
               <Pressable
                 style={[styles.agentChip, active && styles.agentChipActive]}
-                onPress={() => onCreateConversation(item.id)}
+                onPress={() => onSelectAgent(item.id)}
               >
                 <Text style={[styles.agentChipText, active && styles.agentChipTextActive]}>
                   {item.name}
@@ -88,10 +96,10 @@ export default function ConversationPicker({
         />
 
         <View style={styles.listHeader}>
-          <Text style={styles.sectionLabel}>History</Text>
+          <Text style={styles.sectionLabel}>{t('assistant.history')}</Text>
           <Pressable style={styles.newButton} onPress={() => onCreateConversation(selectedAgentId ?? undefined)}>
             <Ionicons name="add" size={16} color={colors.accent} />
-            <Text style={styles.newButtonText}>New</Text>
+            <Text style={styles.newButtonText}>{t('assistant.new')}</Text>
           </Pressable>
         </View>
 
@@ -130,7 +138,7 @@ export default function ConversationPicker({
                 >
                   <View style={styles.rowBody}>
                     <Text style={[styles.rowTitle, selected && styles.rowTitleSelected]} numberOfLines={1}>
-                      {item.title || 'Untitled'}
+                      {translateKnownText(item.title, locale) || t('assistant.untitled')}
                     </Text>
                     {item.agent_name ? (
                       <Text style={styles.rowMeta} numberOfLines={1}>
@@ -147,7 +155,7 @@ export default function ConversationPicker({
                 </Pressable>
               )
             }}
-            ListEmptyComponent={<Text style={styles.empty}>No conversations yet.</Text>}
+            ListEmptyComponent={<Text style={styles.empty}>{t('assistant.noConversations')}</Text>}
           />
         )}
       </View>
@@ -155,7 +163,8 @@ export default function ConversationPicker({
   )
 }
 
-const styles = StyleSheet.create({
+function pickerStyles(colors: ColorTokens) {
+  return {
   root: { flex: 1, backgroundColor: colors.bg, paddingTop: spacing.xl },
   header: {
     flexDirection: 'row',
@@ -226,4 +235,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   empty: { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl },
-})
+  }
+}

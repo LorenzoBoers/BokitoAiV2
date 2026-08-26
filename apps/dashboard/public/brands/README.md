@@ -11,6 +11,7 @@ Used when `integration_hosts.logo` is empty. Mapped in `apps/dashboard/src/lib/b
 | `logo-notion.svg`, `logo-atlassian.svg`, `logo-asana.svg`, `logo-clickup.svg`, `logo-sentry.svg` | Brand-colored marks via `cdn.simpleicons.org` (geometry from Simple Icons, official hex colors) |
 | `logo-linear.svg` | Linear logomark geometry (Simple Icons) with official color `#5E6AD2` ([linear.app/brand](https://linear.app/brand)) |
 | `logo-slack.svg` | Slack icon ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Slack_icon_2019.svg), four-color) |
+| `logo-whatsapp.svg` | WhatsApp glyph via [Simple Icons](https://simpleicons.org/) (brand color `#25D366`) |
 | `logo-stripe.svg` | Stripe wordmark ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Stripe_Logo,_revised_2016.svg)) |
 | `logo-microsoft.svg` | Microsoft four-square ([worldvectorlogo.com](https://worldvectorlogo.com/logo/microsoft-5)) |
 | `logo-gmail.svg` | Gmail product mark (Google colors, existing repo asset) |

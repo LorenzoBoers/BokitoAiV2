@@ -16,7 +16,7 @@ class RuntimeProfile(SQLModel, table=True):
     slug: str = ""
     role_tag: str = Field(default="executor")  # planner | executor | judge
     provider: str = Field(default="platform")
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "bokito-ai-3-1"
     thinking_budget: int = 0
     max_tokens: int = 4096
     max_loops: int = 25

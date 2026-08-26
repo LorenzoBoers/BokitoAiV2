@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Pause, Play, RefreshCw, Trash2 } from 'lucide-react'
-import { inboxPath } from '../lib/messages-paths'
-import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
+import { formatAppTime } from '../lib/app-locale'
+import { agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { workLogRunsPath } from '../lib/agenda-thread'
+import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
@@ -13,7 +15,12 @@ import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent, type GatewayEvent } from '../lib/gateway'
 import { bokitoGetCockpitActivity, type CockpitActivityEvent } from '../lib/bokito-api'
 import { listAgendaOccurrences, type AgendaItem } from '../lib/orchestration-api'
-import { activityEventMessage, activityEventTypeLabel } from '../lib/activity-labels'
+import {
+  activityEventMessage,
+  activityEventTypeLabel,
+  collapseCockpitEvents,
+  isCockpitHeadlineEvent,
+} from '../lib/activity-labels'
 
 type ActivityEntry = {
   id: string
@@ -29,6 +36,7 @@ type ActivityEntry = {
 }
 
 type SourceFilter = 'all' | 'agents' | 'people'
+type DetailFilter = 'headlines' | 'all'
 
 const MAX_ENTRIES = 1000
 const HISTORY_PAGE = 100
@@ -74,18 +82,20 @@ function fromGateway(event: GatewayEvent): ActivityEntry | null {
   }
 }
 
-function formatTime(iso: string): string {
+function formatTime(iso: string, language?: string | null): string {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString()
+  return Number.isNaN(d.getTime()) ? '' : formatAppTime(d, language)
 }
 
 export default function ActivityPage() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [planned, setPlanned] = useState<AgendaItem[]>([])
+  const [runThreads, setRunThreads] = useState<InboxThread[]>([])
   const [filter, setFilter] = useState('')
   const [source, setSource] = useState<SourceFilter>('all')
+  const [detail, setDetail] = useState<DetailFilter>('headlines')
   const [autoFollow, setAutoFollow] = useState(true)
   const [loading, setLoading] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -132,6 +142,21 @@ export default function ActivityPage() {
       }
     }
     void run()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void listThreads(token, { folder: 'internal', perPage: 80 })
+      .then((found) => {
+        if (!cancelled) setRunThreads(found.items)
+      })
+      .catch(() => {
+        if (!cancelled) setRunThreads([])
+      })
     return () => {
       cancelled = true
     }
@@ -208,7 +233,7 @@ export default function ActivityPage() {
     source === 'all'
       ? entries
       : entries.filter((e) => (source === 'people' ? e.kind === 'audit' : e.kind !== 'audit'))
-  const visible = filter.trim()
+  const filtered = filter.trim()
     ? bySource.filter((e) => {
         const q = filter.trim().toLowerCase()
         return (
@@ -219,6 +244,20 @@ export default function ActivityPage() {
         )
       })
     : bySource
+  const scoped =
+    detail === 'headlines'
+      ? filtered.filter((entry) =>
+          isCockpitHeadlineEvent({ event_type: entry.eventType, message: entry.message }),
+        )
+      : filtered
+  const visible = collapseCockpitEvents(
+    scoped.map((entry) => ({
+      ...entry,
+      signal_id: entry.signalId,
+      event_type: entry.eventType,
+      actor_name: entry.actorName,
+    })),
+  )
 
   return (
     <div>
@@ -289,6 +328,27 @@ export default function ActivityPage() {
             </button>
           ))}
         </div>
+        <div className="flex items-center rounded-lg border border-border/60 p-0.5">
+          {(
+            [
+              ['headlines', 'activityPage.headlines'],
+              ['all', 'activityPage.fullLog'],
+            ] as [DetailFilter, string][]
+          ).map(([value, labelKey]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setDetail(value)}
+              className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                detail === value
+                  ? 'bg-accent/12 text-accent'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {t(labelKey)}
+            </button>
+          ))}
+        </div>
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -326,15 +386,27 @@ export default function ActivityPage() {
         {visible.length === 0 ? (
           <div className="px-4 py-10 text-center">
             <p className="text-[12.5px] text-text-muted">
-              {t('activityPage.empty')}
+              {filtered.length > 0 && detail === 'headlines'
+                ? t('activityPage.emptyHeadlines')
+                : t('activityPage.empty')}
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              {filtered.length > 0 && detail === 'headlines' ? (
+                <button
+                  type="button"
+                  onClick={() => setDetail('all')}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                >
+                  {t('activityPage.showFullLog')}
+                </button>
+              ) : (
               <Link
-                to={inboxPath('all')}
+                to={inboxPath('open')}
                 className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
               >
                 {t('activityPage.openCommunication')}
               </Link>
+              )}
               <Link
                 to="/agents"
                 className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
@@ -358,13 +430,22 @@ export default function ActivityPage() {
         ) : (
           <div className="divide-y divide-border/30">
             {visible.map((entry) => {
+              const completed = /complet/i.test(`${entry.eventType} ${entry.message}`)
               const href = entry.signalId
-                ? inboxPath('all', entry.signalId)
-                : entry.agentId && entry.runId
-                  ? agentWorkforceRunUrl(entry.agentId, entry.runId)
-                  : entry.agentId
-                    ? `/agents/${entry.agentId}`
-                    : null
+                ? entry.kind === 'audit'
+                  ? inboxPath('all', entry.signalId)
+                  : agentRunsPath(completed ? 'results' : 'all', entry.signalId)
+                : entry.agentId
+                  ? workLogRunsPath(
+                      {
+                        task_subject: /^(run |executed )/i.test(entry.message) ? '' : entry.message,
+                        started_at: entry.createdAt,
+                        status: completed ? 'completed' : 'running',
+                      },
+                      runThreads,
+                      agentRunsPath(completed ? 'results' : 'all'),
+                    )
+                  : null
               const inner = (
                 <>
                   <span
@@ -379,6 +460,9 @@ export default function ActivityPage() {
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-[12.5px] text-text-primary">
                       {activityEventMessage(entry.message, t) || activityEventTypeLabel(entry.eventType, t)}
+                      {entry.repeatCount > 1
+                        ? ` · ${t('cockpitPage.eventRepeats', { count: entry.repeatCount })}`
+                        : ''}
                     </p>
                     <p className="flex flex-wrap items-center gap-x-2 text-[10.5px] text-text-muted">
                       <span>
@@ -389,7 +473,7 @@ export default function ActivityPage() {
                     </p>
                   </div>
                   <span className="shrink-0 font-mono text-[10.5px] text-text-muted">
-                    {formatTime(entry.createdAt)}
+                    {formatTime(entry.createdAt, i18n.language)}
                   </span>
                 </>
               )

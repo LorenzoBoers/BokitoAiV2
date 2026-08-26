@@ -22,8 +22,14 @@ import {
   type AgendaItem,
   type Trigger,
 } from '../lib/orchestration-api'
+import { formatAppDate, formatAppTime } from '../lib/app-locale'
+import { agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { resolveAgendaAgentId, resolveAgendaAgentName } from '../lib/agenda-label'
+import { pickClosestThreadBySubject } from '../lib/agenda-thread'
+import { translateDecisionText } from '../lib/activity-labels'
 import { agendaStatusLabel } from '../lib/status-labels'
 import { cn } from '../lib/utils'
+import { listThreads } from '../lib/inbox-api'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 
 type ViewTab = 'week' | 'list' | 'automations'
@@ -71,8 +77,8 @@ function parseAt(iso: string): Date {
   return new Date(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`)
 }
 
-function formatTime(d: Date): string {
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+function formatTime(d: Date, language?: string | null): string {
+  return formatAppTime(d, language)
 }
 
 function statusStyle(status: string): string {
@@ -92,7 +98,7 @@ function AgendaChip({
   onClick?: () => void
   showDate?: boolean
 }) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const at = parseAt(item.at)
   return (
     <button
@@ -108,14 +114,14 @@ function AgendaChip({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium tabular-nums">
-          {showDate ? `${at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ` : ''}
-          {formatTime(at)}
+          {showDate ? `${formatAppDate(at, i18n.language, { day: 'numeric', month: 'short' })} ` : ''}
+          {formatTime(at, i18n.language)}
         </span>
         <span className="rounded border border-current/30 px-1 py-px text-[9px] uppercase tracking-wide opacity-80">
           {t(`agendaPage.kinds.${item.kind}`, { defaultValue: KIND_LABELS[item.kind] ?? item.kind })}
         </span>
       </div>
-      <p className="mt-0.5 truncate font-medium">{item.name}</p>
+      <p className="mt-0.5 truncate font-medium">{translateDecisionText(item.name, t) || item.name}</p>
       {item.agent_name ? <p className="truncate opacity-75">{item.agent_name}</p> : null}
       {item.status !== 'planned' ? (
         <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-75">{agendaStatusLabel(item.status, t)}</p>
@@ -125,7 +131,7 @@ function AgendaChip({
 }
 
 export default function AgendaPage() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -158,7 +164,17 @@ export default function AgendaPage() {
   useEffect(() => {
     const fromUrl = parseAgendaView(searchParams.get('view'))
     setView((current) => (current === fromUrl ? current : fromUrl))
+    const agentFromUrl = searchParams.get('agent') ?? 'all'
+    setAgentFilter((current) => (current === agentFromUrl ? current : agentFromUrl))
   }, [searchParams])
+
+  const handleAgentFilterChange = (next: string) => {
+    setAgentFilter(next)
+    const params = new URLSearchParams(searchParams)
+    if (next === 'all') params.delete('agent')
+    else params.set('agent', next)
+    setSearchParams(params, { replace: true })
+  }
 
   const weekStart = useMemo(() => addDays(startOfWeek(new Date()), weekOffset * 7), [weekOffset])
 
@@ -207,7 +223,7 @@ export default function AgendaPage() {
           listAgents().catch(() => []),
           listWorkstreams().catch(() => []),
         ])
-        setAgents(agentRows.map((a) => ({ id: a.id, name: a.name })))
+        setAgents(agentRows.map((a) => ({ id: a.id, name: a.name, role_slug: a.role_slug ?? null })))
         setWorkstreams((Array.isArray(wsRes) ? wsRes : []).map((w) => ({ id: w.id, name: w.name })))
       } catch {
         // target pickers stay empty; dialog still works without a target
@@ -249,11 +265,30 @@ export default function AgendaPage() {
   }, [searchParams, triggers])
 
   const openItem = (item: AgendaItem) => {
-    if (item.run_id && item.agent_id) {
-      navigate(agentWorkforceRunUrl(item.agent_id, item.run_id))
-      return
-    }
-    if (item.trigger_id) openEdit(item)
+    void (async () => {
+      if (token && item.name.trim()) {
+        try {
+          const found = await listThreads(token, {
+            folder: 'internal',
+            search: item.name,
+            perPage: 8,
+          })
+          const match = pickClosestThreadBySubject(found.items, item.name, item.at)
+          if (match) {
+            const queue = item.status === 'completed' ? 'results' : 'all'
+            navigate(agentRunsPath(queue, String(match.id)))
+            return
+          }
+        } catch {
+          // Fall through to the technical run log when search is unavailable.
+        }
+      }
+      if (item.run_id && item.agent_id) {
+        navigate(agentWorkforceRunUrl(item.agent_id, item.run_id))
+        return
+      }
+      if (item.trigger_id) openEdit(item)
+    })()
   }
 
   const openEdit = (item: AgendaItem) => {
@@ -276,7 +311,7 @@ export default function AgendaPage() {
     [weekStart],
   )
 
-  const weekLabel = `${weekStart.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} – ${addDays(weekStart, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+  const weekLabel = `${formatAppDate(weekStart, i18n.language, { day: 'numeric', month: 'short' })} – ${formatAppDate(addDays(weekStart, 6), i18n.language, { day: 'numeric', month: 'short' })}`
 
   return (
     <PageContent width="xl" className="space-y-4">
@@ -336,7 +371,7 @@ export default function AgendaPage() {
                 </Button>
               </div>
             ) : null}
-            <Select value={agentFilter} onValueChange={setAgentFilter}>
+            <Select value={agentFilter} onValueChange={handleAgentFilterChange}>
               <SelectTrigger className="h-8 w-[150px] text-xs">
                 <SelectValue placeholder={t('agendaPage.allAgents')} />
               </SelectTrigger>
@@ -400,7 +435,7 @@ export default function AgendaPage() {
                   title={t('agendaPage.scheduleDay')}
                 >
                   <span className={cn('text-xs font-medium', isToday ? 'text-accent' : 'text-text-muted')}>
-                    {day.toLocaleDateString(undefined, { weekday: 'short' })}
+                    {formatAppDate(day, i18n.language, { weekday: 'short' })}
                   </span>
                   <span className={cn('text-sm font-semibold', isToday ? 'text-accent' : 'text-text-heading')}>
                     {day.getDate()}
@@ -412,7 +447,10 @@ export default function AgendaPage() {
                   dayItems.map((item) => (
                     <AgendaChip
                       key={item.id}
-                      item={item}
+                      item={{
+                        ...item,
+                        agent_name: resolveAgendaAgentName(item, agents, triggers, items) || item.agent_name,
+                      }}
                       onClick={item.run_id || item.trigger_id ? () => openItem(item) : undefined}
                     />
                   ))
@@ -437,7 +475,7 @@ export default function AgendaPage() {
               <Link to="/agents">{t('agendaPage.openAgents')}</Link>
             </Button>
             <Button type="button" size="sm" variant="outline" asChild>
-              <Link to="/communication/inbox/all">{t('agendaPage.openCommunication')}</Link>
+              <Link to={inboxPath('open')}>{t('agendaPage.openCommunication')}</Link>
             </Button>
             <Button type="button" size="sm" variant="outline" asChild>
               <Link to="/knowledge">{t('agendaPage.openKnowledge')}</Link>
@@ -457,11 +495,13 @@ export default function AgendaPage() {
                 <h2 className={cn('mb-2 text-sm font-semibold', isToday ? 'text-accent' : 'text-text-heading')}>
                   {isToday
                     ? t('agendaPage.today')
-                    : day.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+                    : formatAppDate(day, i18n.language, { weekday: 'long', day: 'numeric', month: 'long' })}
                 </h2>
                 <div className="space-y-1.5">
                   {dayItems.map((item) => {
                     const at = parseAt(item.at)
+                    const agentLabel = resolveAgendaAgentName(item, agents, triggers, items)
+                    const agentId = resolveAgendaAgentId(item, triggers, items, agents)
                     return (
                       <button
                         key={item.id}
@@ -475,25 +515,27 @@ export default function AgendaPage() {
                         )}
                       >
                         <span className="w-12 shrink-0 font-medium tabular-nums text-text-heading">
-                          {formatTime(at)}
+                          {formatTime(at, i18n.language)}
                         </span>
                         <Badge variant="outline" className="shrink-0 text-[10px]">
                           {t(`agendaPage.kinds.${item.kind}`, { defaultValue: KIND_LABELS[item.kind] ?? item.kind })}
                         </Badge>
-                        <span className="min-w-0 flex-1 truncate font-medium text-text-heading">{item.name}</span>
-                        {item.agent_name ? (
+                        <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
+                          {translateDecisionText(item.name, t) || item.name}
+                        </span>
+                        {agentLabel ? (
                           <span
-                            className={`hidden shrink-0 text-xs sm:inline ${item.agent_id ? 'text-accent hover:underline' : 'text-text-muted'}`}
+                            className={`hidden shrink-0 text-xs sm:inline ${agentId ? 'text-accent hover:underline' : 'text-text-muted'}`}
                             onClick={
-                              item.agent_id
+                              agentId
                                 ? (event) => {
                                     event.stopPropagation()
-                                    navigate(`/agents/${item.agent_id}`)
+                                    navigate(`/agents/${agentId}`)
                                   }
                                 : undefined
                             }
                           >
-                            {item.agent_name}
+                            {agentLabel}
                           </span>
                         ) : null}
                         <span

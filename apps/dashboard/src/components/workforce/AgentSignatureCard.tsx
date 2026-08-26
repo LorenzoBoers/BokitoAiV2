@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PenLine } from 'lucide-react'
 import { toast } from 'sonner'
@@ -63,7 +64,12 @@ export function AgentSignatureCard({ agentId, agentName, signatureHtml, canEdit,
             dangerouslySetInnerHTML={{ __html: signatureHtml }}
           />
         ) : (
-          <p className="text-sm text-text-muted">{t('workforce.agents.signatureEmpty')}</p>
+          <p className="text-sm text-text-muted">
+            {t('workforce.agents.signatureEmpty')}{' '}
+            <Link to="/settings/channels" className="font-medium text-accent hover:underline">
+              {t('workforce.agents.openMailboxSignatures')}
+            </Link>
+          </p>
         )}
       </div>
       <SignatureEditor

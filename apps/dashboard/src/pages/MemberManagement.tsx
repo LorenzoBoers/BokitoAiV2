@@ -8,6 +8,7 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { appRoutes } from '../api/routes/app.routes'
 import { toast } from 'sonner'
 import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '../lib/api'
+import { formatAppDate } from '../lib/app-locale'
 import { inviteMailFeedback } from '../lib/invite-feedback'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -56,11 +57,11 @@ function asRole(value: unknown): MemberRole {
   return 'member'
 }
 
-function toDateLabel(value: string | null, unknownLabel: string): string {
+function toDateLabel(value: string | null, unknownLabel: string, language?: string | null): string {
   if (!value) return unknownLabel
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return unknownLabel
-  return parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  return formatAppDate(parsed, language, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function mapMemberRow(item: unknown, currentUserId: string | undefined): Member | null {
@@ -104,7 +105,7 @@ function mapInviteRow(item: unknown, unknownLabel: string): Invite | null {
 }
 
 export default function MemberManagement() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { user, token, hasPermission } = useAuth()
   const { currentWorkspace, workspaceLoading } = useWorkspace()
   const canInviteMembers = hasPermission('invite_members')
@@ -520,7 +521,7 @@ export default function MemberManagement() {
                       <TableCell><Badge variant="success">{t('membersPage.statusActive')}</Badge></TableCell>
                       <TableCell className="text-text-muted">-</TableCell>
                       <TableCell className="text-text-secondary">
-                        {m.joinedAt ? toDateLabel(m.joinedAt, t('membersPage.unknown')) : '-'}
+                        {m.joinedAt ? toDateLabel(m.joinedAt, t('membersPage.unknown'), i18n.language) : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         {canManageMembers && !m.isCurrentUser ? (
@@ -548,7 +549,7 @@ export default function MemberManagement() {
                     <TableCell><Badge variant="neutral">{t(`membersPage.roles.${inv.role}`)}</Badge></TableCell>
                     <TableCell><Badge variant="warning">{t('membersPage.statusPending')}</Badge></TableCell>
                     <TableCell className="text-text-secondary">{inv.invitedBy}</TableCell>
-                    <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt, t('membersPage.unknown'))}</TableCell>
+                    <TableCell className="text-text-secondary">{toDateLabel(inv.invitedAt, t('membersPage.unknown'), i18n.language)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {canManageMembers ? (

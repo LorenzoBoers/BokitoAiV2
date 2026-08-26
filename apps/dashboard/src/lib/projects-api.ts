@@ -30,6 +30,23 @@ export interface ProjectRow {
     agent_type?: 'po' | string | null
     status?: string | null
   } | null
+  agents?: ProjectAgentChip[]
+}
+
+export interface ProjectAgentChip {
+  agent_id: string
+  name: string
+  is_default: boolean
+}
+
+export interface ProjectAgentRow {
+  id: string
+  agent_id: string
+  name: string
+  role: string
+  is_active: boolean
+  is_default: boolean
+  created_at: string | null
 }
 
 export async function listProjects(): Promise<ProjectRow[]> {
@@ -116,6 +133,35 @@ export async function linkProjectPoAgentById(
   poAgentId: string,
 ): Promise<{ project_id: string; po_agent_id: string; po_agent: ProjectRow['po_agent'] }> {
   return workforcePatch(projectsRoutes.poAgent(projectId), { po_agent_id: poAgentId })
+}
+
+export async function listProjectAgents(projectId: string): Promise<ProjectAgentRow[]> {
+  return workforceGet<ProjectAgentRow[]>(projectsRoutes.agents(projectId))
+}
+
+export async function addProjectAgent(
+  projectId: string,
+  agentId: string,
+  isDefault = false,
+): Promise<ProjectAgentRow> {
+  return workforcePost<ProjectAgentRow>(projectsRoutes.agents(projectId), {
+    agent_id: agentId,
+    is_default: isDefault,
+  })
+}
+
+export async function setProjectAgentDefault(
+  projectId: string,
+  agentId: string,
+  isDefault: boolean,
+): Promise<ProjectAgentRow> {
+  return workforcePatch<ProjectAgentRow>(projectsRoutes.agentById(projectId, agentId), {
+    is_default: isDefault,
+  })
+}
+
+export async function removeProjectAgent(projectId: string, agentId: string): Promise<void> {
+  await workforceDelete(projectsRoutes.agentById(projectId, agentId))
 }
 
 export async function getRepoStatus(projectId: string): Promise<{

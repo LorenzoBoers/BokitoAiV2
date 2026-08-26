@@ -28,7 +28,7 @@ const config: ExpoConfig = {
   android: {
     package: 'ai.bokito.mobile',
     adaptiveIcon: {
-      backgroundColor: '#0b0f1a',
+      backgroundColor: '#101319',
     },
     ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
   },
@@ -39,7 +39,7 @@ const config: ExpoConfig = {
     [
       'expo-notifications',
       {
-        color: '#6e66ff',
+        color: '#0d9488',
       },
     ],
   ],

@@ -23,7 +23,9 @@ import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
+import { inboxPath } from '../lib/messages-paths'
 
 function KindSection({
   title,
@@ -150,6 +152,7 @@ export default function IntegrationsConnected() {
 
   return (
     <PageContent width="xl" className="space-y-6">
+      <PageGuideBanner page="integrations" />
       <IntegrationsTabs />
       <p className="max-w-2xl text-sm text-text-secondary">
         {t('integrations.pageMeta.connected.description')}
@@ -267,7 +270,7 @@ export default function IntegrationsConnected() {
                       <Link to="/settings/channels">{t('integrations.connections.manageInbox')}</Link>
                     </Button>
                     <Button size="sm" variant="outline" asChild>
-                      <Link to="/communication/inbox/all">{t('integrations.connected.openInbox')}</Link>
+                      <Link to={inboxPath('open')}>{t('integrations.connected.openInbox')}</Link>
                     </Button>
                   </div>
                 </>

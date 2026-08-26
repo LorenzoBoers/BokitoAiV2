@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -10,6 +11,7 @@ import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders, resendVerif
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import SignatureEditor from '../inbox/SignatureEditor'
+import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 
 // ── inline editable field ────────────────────────────────────────────────────
 
@@ -478,11 +480,11 @@ export function ProfileSettingsContent() {
           {user && !user.emailVerified ? (
             <div className="flex items-center justify-between gap-3 border-b border-border/60 py-3.5 pr-4">
               <div>
-                <p className="text-sm font-medium text-text-heading">Email verification</p>
-                <p className="text-xs text-text-muted">Confirm your email address to secure the account.</p>
+                <p className="text-sm font-medium text-text-heading">{t('profile:verification.title')}</p>
+                <p className="text-xs text-text-muted">{t('profile:verification.body')}</p>
               </div>
               <Button size="sm" variant="secondary" disabled={verifySending} onClick={() => void handleResendVerification()}>
-                {verifySending ? 'Sending...' : 'Resend email'}
+                {verifySending ? t('profile:verification.sending') : t('profile:verification.resend')}
               </Button>
             </div>
           ) : null}
@@ -537,6 +539,17 @@ export function ProfileSettingsContent() {
           mailboxEmail={user?.email ?? ''}
           contextLabel={t('profile:signature.editorContext')}
         />
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+          <Link to="/settings/channels" className="font-medium text-accent hover:underline">
+            {t('profile:links.openMailboxSignatures')}
+          </Link>
+          <Link to={MY_ASSISTANT_SETTINGS_PATH} className="font-medium text-accent hover:underline">
+            {t('profile:links.openAssistant')}
+          </Link>
+          <Link to="/settings/notifications" className="font-medium text-accent hover:underline">
+            {t('profile:links.openNotifications')}
+          </Link>
+        </div>
       </Section>
 
       {/* ── Language ── */}

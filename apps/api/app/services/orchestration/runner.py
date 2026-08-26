@@ -167,15 +167,9 @@ async def _resolve_step_agent(
         if agent:
             return agent
 
-    fallback = (
-        await session.execute(
-            select(Agent)
-            .where(Agent.tenant_id == tenant_id, Agent.is_active.is_(True))
-            .order_by(Agent.created_at)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    return fallback
+    from app.services.lead_agent import get_lead_agent
+
+    return await get_lead_agent(session, tenant_id)
 
 
 async def _execute_agent_segment(
@@ -432,14 +426,9 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 )
             ).scalar_one_or_none()
         if not agent:
-            agent = (
-                await session.execute(
-                    select(Agent)
-                    .where(Agent.tenant_id == tenant_id, Agent.is_active.is_(True))
-                    .order_by(Agent.created_at)
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
+            from app.services.lead_agent import get_lead_agent
+
+            agent = await get_lead_agent(session, tenant_id)
 
     if not agent:
         task.status = "failed"

@@ -14,12 +14,15 @@ async def test_seed_and_default_model(session_override):
     await seed_model_catalog(session_override)
     chat = await get_default_model(session_override, "chat")
     emb = await get_default_model(session_override, "embedding")
-    assert chat is not None and chat.slug == "claude-sonnet-4-6"
+    # The Bokito virtual model is the platform default chat model.
+    assert chat is not None and chat.slug == "bokito-ai-3-1"
+    assert chat.provider == "bokito"
+    assert chat.display_name == "Bokito AI 3.1"
     assert emb is not None and emb.kind == "embedding"
     # Re-seeding is idempotent.
     await seed_model_catalog(session_override)
     again = await get_default_model(session_override, "chat")
-    assert again.slug == "claude-sonnet-4-6"
+    assert again.slug == "bokito-ai-3-1"
 
 
 @pytest.mark.asyncio
@@ -30,11 +33,13 @@ async def test_resolve_byok_platform_mock(session_override):
     await session_override.commit()
     await session_override.refresh(tenant)
 
-    # No keys anywhere -> mock.
+    # No keys anywhere -> mock. Default chat is the Bokito virtual model,
+    # routed to its Anthropic backing model.
     resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
     assert resolved.key_source == "mock"
     assert resolved.billable is False
-    assert resolved.provider == "anthropic"
+    assert resolved.provider == "bokito"
+    assert resolved.provider_type == "anthropic"
 
     # Platform key only -> platform (billable).
     await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-9999")
@@ -52,6 +57,141 @@ async def test_resolve_byok_platform_mock(session_override):
     # Pricing comes from the catalog row.
     assert resolved.input_cost_per_mtok_cents == 300
     assert resolved.output_cost_per_mtok_cents == 1500
+
+
+@pytest.mark.asyncio
+async def test_bokito_virtual_model_routing(session_override):
+    """The Bokito model resolves to its backing model but keeps its identity."""
+    await seed_model_catalog(session_override)
+    tenant = Tenant(slug="bokito-route", name="Bokito Route")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+
+    await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-ant-platform-7777")
+    resolved = await resolve_model_call(
+        session_override, tenant.id, kind="chat", model_slug="bokito-ai-3-1"
+    )
+    # The LLM call goes to the real backing model...
+    assert resolved.provider_type == "anthropic"
+    assert resolved.model_id == "claude-sonnet-4-6"
+    assert resolved.api_key == "sk-ant-platform-7777"
+    # ...but slug and usage label keep the Bokito identity.
+    assert resolved.slug == "bokito-ai-3-1"
+    assert resolved.provider == "bokito"
+
+    entry = await record_usage(
+        session_override, tenant.id, resolved, tokens_in=100, tokens_out=50, commit=True
+    )
+    assert entry.model == "bokito-ai-3-1"
+    assert entry.provider == "bokito"
+
+
+def test_bokito_billing_margin():
+    """Customer pays the Bokito list price; provider cost follows the backing model."""
+    from app.services.model_resolution import ResolvedModelCall
+
+    resolved = ResolvedModelCall(
+        slug="bokito-ai-3-1",
+        provider="bokito",
+        provider_type="anthropic",
+        model_id="claude-haiku-4-5-20251001",
+        kind="chat",
+        api_key="sk-x",
+        key_source="platform",
+        # Cheap backing model...
+        input_cost_per_mtok_cents=100,
+        output_cost_per_mtok_cents=500,
+        markup=1.3,
+        # ...billed at the Bokito list price.
+        bill_input_cost_per_mtok_cents=300,
+        bill_output_cost_per_mtok_cents=1500,
+    )
+    provider_micros, customer_micros = compute_costs(resolved, 1000, 500)
+    assert provider_micros == round(1000 * 100 / 100 + 500 * 500 / 100)  # 3500
+    assert customer_micros == round((1000 * 300 / 100 + 500 * 1500 / 100) * 1.3)  # 13650
+
+
+@pytest.mark.asyncio
+async def test_bokito_default_promoted_on_existing_catalog(session_override):
+    """Databases seeded before the Bokito model move their default to it."""
+    from sqlalchemy import select
+
+    from app.models.model_catalog import ModelCatalog
+
+    await seed_model_catalog(session_override)
+    # Simulate a pre-Bokito database: sonnet is default, bokito is not.
+    rows = (await session_override.execute(select(ModelCatalog))).scalars().all()
+    for row in rows:
+        if row.slug == "bokito-ai-3-1":
+            row.is_default_chat = False
+        if row.slug == "claude-sonnet-4-6":
+            row.is_default_chat = True
+    await session_override.commit()
+
+    await seed_model_catalog(session_override)
+    chat = await get_default_model(session_override, "chat")
+    assert chat.slug == "bokito-ai-3-1"
+    sonnet = (
+        await session_override.execute(
+            select(ModelCatalog).where(ModelCatalog.slug == "claude-sonnet-4-6")
+        )
+    ).scalar_one()
+    assert sonnet.is_default_chat is False
+
+
+@pytest.mark.asyncio
+async def test_legacy_agent_models_migrate_to_bokito(session_override):
+    """Agents on retired snapshot ids move to the Bokito model at startup."""
+    tenant = Tenant(slug="legacy-models", name="Legacy Models")
+    session_override.add(tenant)
+    await session_override.flush()
+    legacy = Agent(tenant_id=tenant.id, name="Old", role="assistant", model="claude-sonnet-4-20250514")
+    explicit = Agent(tenant_id=tenant.id, name="Pinned", role="assistant", model="claude-sonnet-4-6")
+    session_override.add(legacy)
+    session_override.add(explicit)
+    await session_override.commit()
+
+    await seed_model_catalog(session_override)
+    await session_override.refresh(legacy)
+    await session_override.refresh(explicit)
+    assert legacy.model == "bokito-ai-3-1"
+    # A deliberate choice of a current real model is left alone.
+    assert explicit.model == "claude-sonnet-4-6"
+
+
+@pytest.mark.asyncio
+async def test_bokito_identity_line_in_system_prompt(session_override):
+    """Agents on the Bokito model present as Bokito AI 3.1; others do not."""
+    from app.services.agent.loop import AgentLoop
+    from app.services.model_resolution import ResolvedModelCall
+
+    await seed_model_catalog(session_override)
+    tenant = Tenant(slug="identity-a", name="Identity A")
+    session_override.add(tenant)
+    await session_override.flush()
+    agent = Agent(tenant_id=tenant.id, name="Worker", role="assistant", model="bokito-ai-3-1")
+    session_override.add(agent)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+    await session_override.refresh(agent)
+
+    loop = AgentLoop(session_override, tenant.id, None, agent=agent)
+    loop.resolved_call = ResolvedModelCall(
+        slug="bokito-ai-3-1", provider="bokito", provider_type="anthropic",
+        model_id="claude-sonnet-4-6", kind="chat", api_key="", key_source="mock",
+    )
+    prompt = await loop._build_system_prompt()
+    assert "Bokito AI 3.1" in prompt
+    assert "Never state or imply" in prompt
+
+    # A real (BYOK or platform) model keeps its actual identity.
+    loop.resolved_call = ResolvedModelCall(
+        slug="claude-sonnet-4-6", provider="anthropic", provider_type="anthropic",
+        model_id="claude-sonnet-4-6", kind="chat", api_key="", key_source="mock",
+    )
+    prompt = await loop._build_system_prompt()
+    assert "Model identity" not in prompt
 
 
 @pytest.mark.asyncio

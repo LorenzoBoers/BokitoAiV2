@@ -9,7 +9,7 @@
   "toolOverrideError": "Kon deze tool-override niet opslaan.",
   "refresh": "Vernieuwen",
   "tabs": {
-    "drafts": "Openstaande drafts",
+    "drafts": "Openstaande concepten",
     "policy": "Beleid",
     "history": "Versiegeschiedenis",
     "passports": "Agenttoegang",
@@ -35,7 +35,7 @@
   },
   "history": {
     "empty": "Nog geen geaccepteerde wijzigingen.",
-    "openDrafts": "Openstaande drafts openen",
+    "openDrafts": "Openstaande concepten openen",
     "rollback": "Ongedaan maken",
     "rolledBack": "Wijziging ongedaan gemaakt",
     "rollbackError": "Kon deze wijziging niet ongedaan maken."
@@ -51,13 +51,14 @@
   "audit": {
     "empty": "Nog geen auditgebeurtenissen. Agentwerk en goedkeuringen verschijnen hier.",
     "openCommunication": "Communicatie openen",
-    "openThread": "Open thread",
-    "openRun": "Open run",
-    "openAgent": "Open agent"
+    "openThread": "Gesprek openen",
+    "openRun": "Run openen",
+    "openAgent": "Agent openen"
   },
   "posture": {
     "title": "Hoeveel agents mogen doen",
     "intro": "Kies hoeveel agents mogen doen zonder op jou te wachten. Je kunt individuele toolcategorieën hieronder fijn afstellen.",
+    "perAgentHint": "Uitzonderingen per agent stel je in op de agentpagina onder Tools en toestemmingen.",
     "saved": "Autonomie-instelling bijgewerkt",
     "current": "Huidige instelling",
     "manual": {
@@ -81,7 +82,7 @@
     "toolOverrideCleared": "{{toolName}}: categorie-standaard"
   },
   "toolCategories": {
-    "messaging": { "label": "Berichten", "hint": "Antwoorden, beslissingen en threadacties." },
+    "messaging": { "label": "Berichten", "hint": "Antwoorden, beslissingen en gespreksacties." },
     "workspace": { "label": "Workspace", "hint": "Geheugen, documenten, skill-wijzigingen en canvas-nodes." },
     "agents": { "label": "Agents", "hint": "Agents, flows en taken aanmaken of bijwerken." },
     "channels": { "label": "Kanalen", "hint": "Kanaalaccounts en routing." },

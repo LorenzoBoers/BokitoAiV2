@@ -14,7 +14,10 @@ import {
   listChannelBindings,
   type ChannelBinding,
 } from '../../lib/channel-bindings-api'
+import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
+import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { inboxPath } from '../../lib/messages-paths'
 
 // Only channels with a real adapter + connect path.
 const CHANNELS = ['email', 'widget', 'slack', 'whatsapp'] as const
@@ -23,8 +26,10 @@ type AgentOption = { id: string; name: string }
 
 export default function ChannelBindingsPanel() {
   const { t } = useTranslation('nav')
+  const { token } = useAuth()
   const [bindings, setBindings] = useState<ChannelBinding[]>([])
   const [agents, setAgents] = useState<AgentOption[]>([])
+  const [accounts, setAccounts] = useState<ChannelAccountRow[]>([])
   const [loading, setLoading] = useState(true)
   const [channel, setChannel] = useState<string>('email')
   const [agentId, setAgentId] = useState('')
@@ -34,12 +39,14 @@ export default function ChannelBindingsPanel() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [bindingRows, agentRows] = await Promise.all([
+      const [bindingRows, agentRows, accountRows] = await Promise.all([
         listChannelBindings(),
         listAgents().catch(() => [] as AgentOption[]),
+        token ? listChannelAccounts(token).catch(() => [] as ChannelAccountRow[]) : Promise.resolve([]),
       ])
       setBindings(bindingRows)
       setAgents(agentRows.map((a) => ({ id: a.id, name: a.name })))
+      setAccounts(accountRows)
       setAgentId((prev) => prev || agentRows[0]?.id || '')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('channelsPage.bindings.loadError')))
@@ -47,7 +54,7 @@ export default function ChannelBindingsPanel() {
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [t, token])
 
   useEffect(() => {
     void load()
@@ -59,6 +66,15 @@ export default function ChannelBindingsPanel() {
       return t(`channelsPage.bindings.${value}`)
     }
     return value
+  }
+  const scopeLabel = (row: ChannelBinding): string => {
+    if (row.contact_id) return `${channelLabel(row.channel)} · ${t('channelsPage.bindings.contactScope')}`
+    if (row.channel_account_id) {
+      const account = accounts.find((a) => a.id === row.channel_account_id)
+      const address = account ? account.address || account.displayName : '…'
+      return t('channelsPage.bindings.accountScope', { address })
+    }
+    return channelLabel(row.channel)
   }
 
   const addBinding = async () => {
@@ -116,7 +132,7 @@ export default function ChannelBindingsPanel() {
                 <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
                   {t('channelsPage.bindings.openAgents')}
                 </Link>
-                <Link to="/communication/inbox/all" className="text-xs font-medium text-accent hover:underline">
+                <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">
                   {t('channelsPage.bindings.openCommunication')}
                 </Link>
               </div>
@@ -130,7 +146,7 @@ export default function ChannelBindingsPanel() {
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium text-text-heading">
-                      {channelLabel(row.channel)} → {agentName(row.agent_id)}
+                      {scopeLabel(row)} → {agentName(row.agent_id)}
                     </p>
                     <p className="text-[11px] text-text-muted">
                       {t('channelsPage.bindings.priority', { priority: row.priority })}

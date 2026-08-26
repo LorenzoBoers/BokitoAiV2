@@ -16,6 +16,7 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   linear: { logoUrl: '/brands/logo-linear.svg' },
   atlassian: { logoUrl: '/brands/logo-atlassian.svg' },
   slack: { logoUrl: '/brands/logo-slack.svg' },
+  whatsapp: { logoUrl: '/brands/logo-whatsapp.svg' },
   asana: { logoUrl: '/brands/logo-asana.svg' },
   clickup: { logoUrl: '/brands/logo-clickup.svg' },
   sentry: { logoUrl: '/brands/logo-sentry.svg' },

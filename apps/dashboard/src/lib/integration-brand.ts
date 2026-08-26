@@ -64,6 +64,7 @@ export const HOST_STATIC_BRAND_META: Record<string, { initials: string; color: s
   linear: { initials: 'LN', color: '#5e6ad2', name: 'Linear' },
   atlassian: { initials: 'AT', color: '#0052cc', name: 'Atlassian' },
   slack: { initials: 'SL', color: '#4a154b', name: 'Slack' },
+  whatsapp: { initials: 'WA', color: '#25d366', name: 'WhatsApp' },
   asana: { initials: 'AS', color: '#f06a6a', name: 'Asana' },
   clickup: { initials: 'CU', color: '#7b68ee', name: 'ClickUp' },
   sentry: { initials: 'SE', color: '#362d59', name: 'Sentry' },

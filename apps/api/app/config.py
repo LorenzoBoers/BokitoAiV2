@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Platform UI / team-facing AI fallback. `en` or `nl`; anything else is `nl`.
     # Dashboard SPA uses VITE_PLATFORM_DEFAULT_LANGUAGE (baked at build time).
     platform_default_language: str = "nl"
+    # Override path to product-help markdown (`en/` + `nl/` children). Empty
+    # walks up to `docs/product-help` or the packaged `app/data/product_help`.
+    product_help_dir: str = ""
 
     # "dev" | "prod" — prod enables fail-fast config checks and Secure cookies.
     environment: str = "dev"
@@ -46,7 +49,9 @@ class Settings(BaseSettings):
     king_finance_base_url: str = "https://api.kingfinance.nl/v1/ws1_xml.asmx"
     anthropic_api_key: str = ""
     openai_api_key: str = ""
-    default_chat_model: str = "claude-sonnet-4-20250514"
+    # Raw provider fallback when a call bypasses the catalog; must be a real
+    # API model id, not a virtual slug.
+    default_chat_model: str = "claude-sonnet-4-6"
     # Default Anthropic extended-thinking budget for assistant/internal chat when
     # the agent has thinking_budget=0. Set to 0 to disable globally.
     chat_thinking_budget: int = 1024

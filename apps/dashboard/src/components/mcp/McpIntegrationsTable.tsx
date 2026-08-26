@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Loader2, Trash2, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
@@ -85,8 +86,22 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
             </TableRow>
           ) : rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-sm text-text-muted py-8 text-center">
-                {t('integrations.mcp.servers.empty')}
+              <TableCell colSpan={6} className="py-8 text-center">
+                <p className="text-sm text-text-muted">{t('integrations.mcp.servers.empty')}</p>
+                <p className="mx-auto mt-1 max-w-md text-xs text-text-muted">
+                  {t('integrations.mcp.servers.emptyHint')}
+                </p>
+                <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
+                  <Link to="/settings/marketplace" className="font-medium text-accent hover:underline">
+                    {t('integrations.mcp.servers.openMarketplace')}
+                  </Link>
+                  <Link to="/agents" className="font-medium text-accent hover:underline">
+                    {t('integrations.mcp.servers.openAgents')}
+                  </Link>
+                  <Link to="/settings/govern" className="font-medium text-accent hover:underline">
+                    {t('integrations.mcp.servers.openGovern')}
+                  </Link>
+                </div>
               </TableCell>
             </TableRow>
           ) : (

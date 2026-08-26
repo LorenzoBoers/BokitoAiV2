@@ -86,6 +86,7 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             slug="assistant",
             runtime_status="standby",
             system_prompt="Test assistant",
+            is_lead=True,
         )
     )
     session_override.add(

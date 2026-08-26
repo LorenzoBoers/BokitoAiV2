@@ -6,8 +6,9 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
 import { AUTH_API_BASE } from '../lib/api'
-import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
+import { WEBSITE_WIDGET_CUSTOMIZE_PATH } from '../lib/assistant-settings-path'
 import { DEFAULT_BRAND_COLOR, resolveBrandSeed } from '../lib/tenant-branding'
+import { inboxPath } from '../lib/messages-paths'
 
 const SUPPORTED_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] as const
 const SUBDOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
@@ -382,7 +383,7 @@ export default function CompanyConfig() {
           {/* ── Chat assistant style link ─────────────────────────────────── */}
           <button
             type="button"
-            onClick={() => navigate(ASSISTANT_DEFAULT_PATH)}
+            onClick={() => navigate(WEBSITE_WIDGET_CUSTOMIZE_PATH)}
             className="w-full flex items-center gap-4 rounded-xl border border-border/60 bg-bg-elevated/30 px-5 py-4 hover:border-accent/35 hover:bg-bg-hover/40 transition-all group text-left"
           >
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
@@ -395,7 +396,7 @@ export default function CompanyConfig() {
             <ArrowRight size={15} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
           </button>
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
-            <Link to="/communication/inbox/all" className="text-[12px] font-medium text-accent hover:underline">
+            <Link to={inboxPath('open')} className="text-[12px] font-medium text-accent hover:underline">
               {t('brandingPage.openCommunication')}
             </Link>
             <Link to="/settings/help-centers" className="text-[12px] font-medium text-accent hover:underline">

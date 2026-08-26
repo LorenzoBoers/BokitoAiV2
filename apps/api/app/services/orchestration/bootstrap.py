@@ -15,9 +15,9 @@ from app.models.orchestra import Workstream, WorkstreamStep
 
 async def seed_tenant_runtime_profiles(session: AsyncSession, tenant_id: UUID) -> dict[str, RuntimeProfile]:
     profiles_spec = [
-        ("planner-fast", "Planner (Fast)", "planner", "claude-haiku-4-20250514", 15),
-        ("executor-standard", "Executor (Standard)", "executor", "claude-sonnet-4-20250514", 25),
-        ("judge-careful", "Judge (Careful)", "judge", "claude-sonnet-4-20250514", 10),
+        ("planner-fast", "Planner (Fast)", "planner", "claude-haiku-4-5", 15),
+        ("executor-standard", "Executor (Standard)", "executor", "bokito-ai-3-1", 25),
+        ("judge-careful", "Judge (Careful)", "judge", "bokito-ai-3-1", 10),
     ]
     out: dict[str, RuntimeProfile] = {}
     for slug, name, role_tag, model, max_loops in profiles_spec:

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useCopy } from '../context/LocaleContext'
+import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import type { AgentStep } from '../hooks/useSignalStream'
 import {
   currentActivityHeadline,
@@ -8,7 +10,7 @@ import {
   stepHeadline,
   stepLabel,
 } from '../lib/agentSteps'
-import { colors, spacing } from '../theme'
+import { spacing, type ColorTokens } from '../theme'
 import ShimmerText from './ShimmerText'
 
 type Props = {
@@ -18,11 +20,14 @@ type Props = {
 }
 
 export default function ThinkingTrace({ steps, active = false, compact = false }: Props) {
+  const { locale } = useCopy()
+  const { colors } = useTheme()
+  const styles = useThemedStyles(traceStyles)
   const [expanded, setExpanded] = useState(false)
 
   if (steps.length === 0 && !active) return null
 
-  const headline = currentActivityHeadline(steps, active)
+  const headline = currentActivityHeadline(steps, active, locale)
   const canExpand = steps.length > 0
 
   return (
@@ -55,8 +60,8 @@ export default function ThinkingTrace({ steps, active = false, compact = false }
         <View style={styles.log}>
           {steps.map((step) => (
             <View key={step.id} style={styles.logRow}>
-              <Text style={styles.logLabel}>{stepLabel(step)}</Text>
-              <Text style={styles.logTitle}>{stepHeadline(step)}</Text>
+              <Text style={styles.logLabel}>{stepLabel(step, locale)}</Text>
+              <Text style={styles.logTitle}>{stepHeadline(step, locale)}</Text>
               {formatStepDetail(step) ? (
                 <Text style={styles.logDetail}>{formatStepDetail(step)}</Text>
               ) : null}
@@ -68,64 +73,66 @@ export default function ThinkingTrace({ steps, active = false, compact = false }
   )
 }
 
-const styles = StyleSheet.create({
-  root: {
-    alignSelf: 'flex-start',
-    maxWidth: '92%',
-    backgroundColor: colors.elevated,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-  },
-  rootCompact: {
-    marginBottom: spacing.xs,
-    borderRadius: 10,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.sm,
-  },
-  spinner: { marginRight: 2 },
-  headline: { flexShrink: 1 },
-  log: {
-    borderTopColor: colors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  logRow: {
-    gap: 2,
-    paddingTop: spacing.xs,
-  },
-  logLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  logTitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  logDetail: {
-    color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 16,
-    fontFamily: 'monospace',
-  },
-})
+function traceStyles(colors: ColorTokens) {
+  return {
+    root: {
+      alignSelf: 'flex-start' as const,
+      maxWidth: '92%' as const,
+      backgroundColor: colors.elevated,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 14,
+      overflow: 'hidden' as const,
+      marginBottom: spacing.sm,
+    },
+    rootCompact: {
+      marginBottom: spacing.xs,
+      borderRadius: 10,
+    },
+    header: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+    },
+    headerLeft: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      flex: 1,
+      gap: spacing.sm,
+    },
+    spinner: { marginRight: 2 },
+    headline: { flexShrink: 1 },
+    log: {
+      borderTopColor: colors.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    logRow: {
+      gap: 2,
+      paddingTop: spacing.xs,
+    },
+    logLabel: {
+      color: colors.textMuted,
+      fontSize: 10,
+      fontWeight: '700' as const,
+      letterSpacing: 0.6,
+      textTransform: 'uppercase' as const,
+    },
+    logTitle: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontWeight: '600' as const,
+    },
+    logDetail: {
+      color: colors.textMuted,
+      fontSize: 11,
+      lineHeight: 16,
+      fontFamily: 'monospace',
+    },
+  }
+}

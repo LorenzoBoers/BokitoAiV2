@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -206,6 +206,8 @@ async def _resolve_thread_agent(
     tenant_id: UUID,
     signal: Signal,
     messages: list[SignalMessage] | None = None,
+    *,
+    fallback_to_lead: bool = True,
 ) -> Agent | None:
     if signal.agent_id:
         result = await session.execute(
@@ -229,7 +231,11 @@ async def _resolve_thread_agent(
                 return agent
     if signal.project_id:
         from app.models.project import Project
+        from app.services.projects import project_default_agent
 
+        default_agent = await project_default_agent(session, tenant_id, signal.project_id)
+        if default_agent:
+            return default_agent
         project_result = await session.execute(
             select(Project).where(Project.id == signal.project_id, Project.tenant_id == tenant_id)
         )
@@ -241,7 +247,11 @@ async def _resolve_thread_agent(
             agent = result.scalar_one_or_none()
             if agent:
                 return agent
-    return None
+    if not fallback_to_lead:
+        return None
+    from app.services.lead_agent import get_lead_agent
+
+    return await get_lead_agent(session, tenant_id)
 
 
 async def _pinned_ids(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> set[UUID]:
@@ -267,20 +277,34 @@ async def _signals_with_open_decisions(session: AsyncSession, tenant_id: UUID) -
     return {row for row in result.scalars().all()}
 
 
+def _visibility_predicate(visible_account_ids: set[UUID] | None):
+    """Signal-level ACL clause; threads without an account stay visible."""
+    if visible_account_ids is None:
+        return None
+    return or_(
+        Signal.channel_account_id.is_(None),
+        Signal.channel_account_id.in_(visible_account_ids) if visible_account_ids else Signal.id.is_(None),
+    )
+
+
 async def nav_badge_counts(
     session: AsyncSession,
     tenant_id: UUID,
     user_id: UUID,
     *,
     include_agents_attention: bool,
+    visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any]:
     """Lightweight unread/attention counts for sidebar badges (no thread payloads)."""
     tenant = Signal.tenant_id == tenant_id
     open_status = Signal.status == "open"
     unread = Signal.has_unread.is_(True)
+    acl = _visibility_predicate(visible_account_ids)
 
     async def _count(*filters) -> int:
         stmt = select(func.count()).select_from(Signal).where(tenant, *filters)
+        if acl is not None:
+            stmt = stmt.where(acl)
         return int((await session.execute(stmt)).scalar_one() or 0)
 
     my_unread = await _count(open_status, unread, Signal.assigned_user_id == user_id)
@@ -341,9 +365,13 @@ async def list_threads(
     agent_id: str | None = None,
     page: int = 1,
     per_page: int = 30,
+    visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any]:
     pinned = await _pinned_ids(session, tenant_id, user_id)
     query = select(Signal).where(Signal.tenant_id == tenant_id)
+    acl = _visibility_predicate(visible_account_ids)
+    if acl is not None:
+        query = query.where(acl)
 
     if folder == "external":
         query = query.where(Signal.channel.in_(EXTERNAL_CHANNELS))
@@ -381,7 +409,8 @@ async def list_threads(
     elif view == "pending":
         query = query.where(Signal.status == "pending")
     elif view == "snoozed":
-        query = query.where(Signal.status == "pending", Signal.snoozed_until.is_not(None))
+        # Parked conversations: timed wake or wait-until-reply (no wake time).
+        query = query.where(Signal.status == "pending")
     elif view == "closed":
         query = query.where(Signal.status == "closed")
     elif view == "spam":
@@ -550,12 +579,21 @@ async def get_thread(
     tenant_id: UUID,
     user_id: UUID,
     signal_id: UUID,
+    *,
+    visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any] | None:
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
     )
     signal = result.scalar_one_or_none()
     if not signal:
+        return None
+    if (
+        visible_account_ids is not None
+        and signal.channel_account_id
+        and signal.channel_account_id not in visible_account_ids
+    ):
+        # Hidden accounts 404 for members: existence must not leak.
         return None
     pinned = await _pinned_ids(session, tenant_id, user_id)
     messages_result = await session.execute(
@@ -1475,7 +1513,12 @@ async def _generate_agent_reply(
 
     signal_id = signal.id
     try:
-        agent = await _resolve_thread_agent(session, tenant_id, signal)
+        # Auto-reply only when the thread explicitly involves an agent (pinned,
+        # in the message history, or via its project) — the lead-agent fallback
+        # would otherwise answer every bare internal thread.
+        agent = await _resolve_thread_agent(
+            session, tenant_id, signal, fallback_to_lead=False
+        )
         if not agent or not agent.is_active:
             return
         history = await signal_chat_history(session, signal_id)
@@ -1556,6 +1599,7 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
         members.append(
             {
                 "id": user_numeric_id(user.id),
+                "uuid": str(user.id),
                 "name": user.display_name or user.email,
                 "email": user.email,
                 "avatar_url": user.avatar_url,

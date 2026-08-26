@@ -125,7 +125,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
 
         {enabledConnections.length > 1 ? (
           <label className="flex items-center gap-2 text-[12px] text-text-secondary">
-            <span className="w-12 shrink-0 font-medium text-text-muted">From</span>
+            <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
             <select
               value={connectionId ?? ''}
               onChange={(e) => setConnectionId(Number(e.target.value) || null)}
@@ -141,12 +141,12 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         ) : null}
 
         <div className="flex items-center gap-2 text-[12px]">
-          <span className="w-12 shrink-0 font-medium text-text-muted">To</span>
+          <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.to')}</span>
           <input
             type="text"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            placeholder="name@example.com, other@example.com"
+            placeholder={t('compose.toPlaceholder')}
             className={FIELD}
             autoFocus
           />
@@ -164,18 +164,18 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         {ccBccOpen ? (
           <>
             <div className="flex items-center gap-2 text-[12px]">
-              <span className="w-12 shrink-0 font-medium text-text-muted">CC</span>
+              <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.cc')}</span>
               <input type="text" value={cc} onChange={(e) => setCc(e.target.value)} className={FIELD} />
             </div>
             <div className="flex items-center gap-2 text-[12px]">
-              <span className="w-12 shrink-0 font-medium text-text-muted">BCC</span>
+              <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.bcc')}</span>
               <input type="text" value={bcc} onChange={(e) => setBcc(e.target.value)} className={FIELD} />
             </div>
           </>
         ) : null}
 
         <div className="flex items-center gap-2 text-[12px]">
-          <span className="w-12 shrink-0 font-medium text-text-muted">Subject</span>
+          <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.subject')}</span>
           <input
             type="text"
             value={subject}
@@ -215,7 +215,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             className="gap-1.5 text-xs text-text-muted hover:text-text-primary"
           >
             <Paperclip size={13} />
-            {uploading ? 'Uploading...' : 'Attach'}
+            {uploading ? t('compose.uploading') : t('compose.attach')}
           </Button>
           <div className="flex items-center gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={sending}>

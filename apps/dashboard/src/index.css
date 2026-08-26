@@ -347,6 +347,18 @@
     @apply bg-ai/10 text-ai-ink;
   }
 
+  /* Composer mention pill: drawn in the highlighter layer behind the
+     textarea, so it must not change text metrics (no padding, no font
+     size/weight changes). The ring comes from a box-shadow. */
+  .composer-mention-pill {
+    @apply rounded bg-accent/15 text-accent;
+    box-shadow: 0 0 0 1px rgb(var(--color-accent) / 0.2);
+  }
+  .composer-mention-pill[data-mention-type='agent'] {
+    @apply bg-ai/15 text-ai-ink;
+    box-shadow: 0 0 0 1px rgb(var(--color-ai) / 0.22);
+  }
+
   .panel-header {
     @apply px-5 py-4 border-b border-border/40 flex items-center justify-between;
   }

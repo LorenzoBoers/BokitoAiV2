@@ -12,5 +12,7 @@ describe('page guides', () => {
   it('builds in-app learn paths', () => {
     expect(pageGuidePath('agenda')).toBe('/learn/agenda')
     expect(PAGE_GUIDE_SLUGS).toContain('govern')
+    expect(PAGE_GUIDE_SLUGS).toContain('channels')
+    expect(PAGE_GUIDE_SLUGS).toContain('autonomy')
   })
 })

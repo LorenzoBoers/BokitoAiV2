@@ -25,7 +25,7 @@ from app.services.signal_threads import _iso
 # Tool calls that only read (research) are not "actions" worth surfacing in
 # the checkout summary; everything else mutated state somewhere.
 READ_ONLY_TOOLS = frozenset(
-    {"search_index", "list_docs", "read_doc", "get_tenant_overview"}
+    {"search_index", "search_product_help", "list_docs", "read_doc", "get_tenant_overview"}
 )
 
 SUMMARY_MAX_CHARS = 400

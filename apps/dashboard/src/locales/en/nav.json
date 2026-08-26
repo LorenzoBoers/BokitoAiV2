@@ -1,5 +1,10 @@
 {
   "comingSoon": "Coming soon",
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "This page ran into an unexpected error. Refresh to continue — your other work is still here.",
+    "refresh": "Refresh"
+  },
   "app": {
     "loading": "Loading...",
     "loadingWorkspaces": "Loading workspaces..."
@@ -20,17 +25,97 @@
     "activity": "Activity",
     "usage": "Usage"
   },
+  "crumbs": {
+    "company": "Company",
+    "person": "Person",
+    "agent": "Agent",
+    "project": "Project",
+    "document": "Document",
+    "learn": "Help",
+    "docs": "Docs",
+    "newConversation": "New conversation",
+    "decisions": "Decisions",
+    "widgetInstall": "Install",
+    "widgetVoice": "Voice and hours",
+    "widgetLook": "Appearance",
+    "marketplace": "Marketplace",
+    "connectedTools": "Connected tools",
+    "myAssistant": "My assistant"
+  },
   "pageHeaders": {
     "cockpitOverview": "Workspace health at a glance",
     "cockpitActivity": "Live activity from agents and your team",
     "cockpitUsage": "Model spend and run volume",
-    "setupGuide": "The living checklist for this workspace — channels, knowledge, agents, automations and KPIs.",
+    "setupGuide": "The living checklist for this workspace — channels, knowledge, agents, automations and numbers.",
     "emailMessages": "Manage connected mailboxes, signatures, routing and email handling."
+  },
+  "docs": {
+    "title": "Bokito Docs",
+    "heroTitle": "How can we help?",
+    "heroBody": "Guides for operating Bokito and building on its API - from your first mailbox to webhooks and MCP.",
+    "searchPlaceholder": "Search the docs (press /)",
+    "noResults": "No results for that search.",
+    "apiReference": "API reference",
+    "apiReferenceIntro": "Interactive reference for the Bokito public API, generated from the live OpenAPI schema.",
+    "apiReferenceFallback": "The interactive reference could not load. The raw schema is available at",
+    "apiGuides": "Developer guides",
+    "onThisPage": "On this page",
+    "previous": "Previous",
+    "next": "Next",
+    "copyMarkdown": "Copy as Markdown",
+    "copied": "Copied",
+    "backToDocs": "All docs",
+    "popular": "Start here",
+    "sectionCta": "{{count}} articles",
+    "sections": {
+      "getting-started": {
+        "title": "Getting started",
+        "blurb": "What Bokito is, the quickstart, the full setup guide and a tour of the interface."
+      },
+      "inbox": {
+        "title": "Inbox",
+        "blurb": "Work conversations in Communication, connect channels, manage contacts and install the widget."
+      },
+      "ai": {
+        "title": "AI workforce",
+        "blurb": "Configure agents, approve decisions, load knowledge and schedule recurring work."
+      },
+      "govern": {
+        "title": "Govern",
+        "blurb": "Autonomy posture, approvals, audit and the models that power the workspace."
+      },
+      "integrations": {
+        "title": "Integrations",
+        "blurb": "Connect external tools and MCP servers so agents can act in your other systems."
+      },
+      "developers": {
+        "title": "Developers",
+        "blurb": "REST API, authentication, webhooks, the MCP endpoint, widget embedding and rate limits."
+      }
+    }
   },
   "pageGuides": {
     "learnMore": "Read the full explanation",
     "dismiss": "Dismiss this tip",
     "back": "Back to the page",
+    "allArticles": "All help articles",
+    "publicTitle": "How to use Bokito",
+    "publicLink": "Open the public page",
+    "indexTitle": "How Bokito works",
+    "indexIntro": "Short guides for the pages and settings you use every day.",
+    "search": "Search help articles...",
+    "loading": "Loading help...",
+    "loadError": "Could not load this help article.",
+    "notFound": "That help article was not found.",
+    "empty": "No help articles yet.",
+    "emptySearch": "No articles match that search.",
+    "feedback": {
+      "question": "Was this helpful?",
+      "thanks": "Thanks for the feedback.",
+      "yes": "Yes, helpful",
+      "no": "No, not helpful"
+    },
+    "relatedArticlesTitle": "Related articles",
     "videoTitle": "Video walkthrough",
     "videoSoon": "A short video will appear here. Until then, use the sections below.",
     "getStartedTitle": "New to Bokito?",
@@ -49,7 +134,14 @@
       "projects": "Projects",
       "govern": "Govern",
       "knowledge": "Knowledge",
-      "developers": "Developer settings"
+      "developers": "Developer settings",
+      "agentRuns": "Agent runs",
+      "widget": "Website chat widget",
+      "automations": "Automations",
+      "models": "Models",
+      "integrations": "Integrations",
+      "autonomy": "Autonomy posture",
+      "usage": "Usage"
     },
     "cockpit": {
       "bannerTitle": "Cockpit is the pulse of the workspace",
@@ -74,12 +166,14 @@
     "communication": {
       "bannerTitle": "Communication is where work lands",
       "bannerBody": "Customer messages, agent chats and internal threads share one inbox. Connect channels, then reply or let AI draft answers.",
+      "runsBannerTitle": "Agent runs are internal work",
+      "runsBannerBody": "Scheduled scans, decisions and agent updates live here. Customer mail stays in Inbox — Open is only work that still needs a person.",
       "pageTitle": "How Communication works",
       "intro": "The hub for every conversation — external customers and internal agents in one place.",
       "sections": [
         {
           "title": "Inbox queues",
-          "body": "All, Mine, Open and Unassigned filter the same thread list. Pin important threads, assign owners and close when done."
+          "body": "Open is customer work that still needs you. More hides Snoozed, Closed and Spam. Pin important threads, assign owners, and snooze what can wait."
         },
         {
           "title": "Channels",
@@ -88,6 +182,10 @@
         {
           "title": "Agents in threads",
           "body": "Mention an agent or start a chat from New chat. Agent runs and decision cards appear inline — approve or edit before anything goes out."
+        },
+        {
+          "title": "Agent runs",
+          "body": "Scheduled scans and waiting decisions live under Agent runs, not in Open. Cockpit “Awaiting decision” opens the same list."
         }
       ]
     },
@@ -210,6 +308,36 @@
           "body": "Per-category sliders (deny, ask, allow) plus per-tool overrides. External customer sessions never auto-mutate, regardless of posture."
         }
       ]
+    },
+    "channels": {
+      "bannerTitle": "Channels bring work into Communication",
+      "bannerBody": "Connect a mailbox first. Website chat, WhatsApp and Slack each get a queue when they are connected.",
+      "pageTitle": "Connect channels",
+      "intro": "Bring customer mail and other inboxes into Communication so work lands in one place."
+    },
+    "integrations": {
+      "bannerTitle": "Integrations are the tools agents may call",
+      "bannerBody": "Install marketplace apps and MCP servers, then set on Govern whether agents may use them automatically.",
+      "pageTitle": "Connect integrations",
+      "intro": "Give agents tools outside Bokito — accounting, GitHub, MCP servers and marketplace apps."
+    },
+    "models": {
+      "bannerTitle": "Models decide what the workspace can call",
+      "bannerBody": "Enable chat and embedding models here. Spend still shows on Cockpit Usage; Govern still decides what agents may do.",
+      "pageTitle": "Choose models",
+      "intro": "Pick which language and embedding models this workspace may use, and who pays for them."
+    },
+    "widget": {
+      "bannerTitle": "The website widget lands in Communication",
+      "bannerBody": "Install the snippet on your site. Visitor chats appear next to email in the same hub.",
+      "pageTitle": "Install the website widget",
+      "intro": "Put Bokito chat on your site so visitors land in the same Communication hub as email."
+    },
+    "autonomy": {
+      "bannerTitle": "Autonomy is the workspace trust dial",
+      "bannerBody": "Manual, assisted or autonomous presets change how much agents may do before a person steps in.",
+      "pageTitle": "Set autonomy posture",
+      "intro": "Dial how much agents may do on their own, from full oversight to exception-only review."
     }
   },
   "agendaPage": {
@@ -244,6 +372,16 @@
       "interval": "Repeating",
       "heartbeat": "Check-in",
       "webhook": "Incoming"
+    },
+    "schedule": {
+      "webhook": "on webhook",
+      "unscheduled": "not scheduled",
+      "everyDay": "every day",
+      "everyDays": "every {{count}} days",
+      "everyHour": "every hour",
+      "everyHours": "every {{count}} hours",
+      "everyMinute": "every minute",
+      "everyMinutes": "every {{count}} min"
     },
     "allTriggers": "All triggers",
     "noTriggers": "No triggers yet. Schedule a wake, a one-off task, or an event.",
@@ -348,6 +486,7 @@
     "noCompaniesHint": "Companies are created automatically from business email domains. Use Link contacts to backfill existing contacts.",
     "tryDifferentSearch": "Try a different search.",
     "openCommunication": "Open Communication",
+    "openPeople": "Show people",
     "noContacts": "No contacts yet",
     "noMatchingContacts": "No matching contacts",
     "noContactsHint": "Contacts are created automatically when customers reach out through email or the website widget.",
@@ -420,11 +559,20 @@
     "block": "Block",
     "delete": "Delete",
     "viewCompany": "View company record",
+    "noCompanyHint": "No company linked yet. Companies are created from business email domains.",
+    "viewCompanies": "View companies",
+    "linkContactsHint": "Link contacts to backfill companies from existing addresses.",
     "conversations": "Conversations",
     "threadCount": "{{count}} threads with this contact",
     "threadCount_one": "{{count}} thread with this contact",
     "noConversations": "No conversations yet.",
     "noConversationsHint": "Connect a channel or install the chat widget so customers can reach you.",
+    "lastSeen": "Last seen {{time}}",
+    "widgetVisitor": "Website visitor",
+    "neverSeen": "No conversations yet",
+    "writeEmail": "Write email",
+    "writeEmailHint": "Start a new email to this person",
+    "addManually": "Add a contact",
     "connectChannels": "Connect channels",
     "noSubject": "(No subject)",
     "companySection": "Company",
@@ -487,7 +635,7 @@
       "done": "{{count}} automation configured",
       "done_other": "{{count}} automations configured",
       "todo": "No automations yet",
-      "openAgenda": "Open Agenda"
+      "openAgenda": "Open automations"
     },
     "branding": {
       "title": "4. Branding & widget",
@@ -498,12 +646,13 @@
       "installWidget": "Install widget"
     },
     "kpis": {
-      "title": "5. KPIs & metrics",
-      "description": "Track the numbers that matter to you on the Cockpit. Agents keep them up to date automatically.",
-      "done": "{{count}} custom metric",
-      "done_other": "{{count}} custom metrics",
-      "todo": "No custom metrics yet",
-      "openCockpit": "Open Cockpit"
+      "title": "5. Numbers on Cockpit",
+      "description": "Put the numbers that matter on Cockpit. Agents keep them up to date.",
+      "done": "{{count}} custom number",
+      "done_other": "{{count}} custom numbers",
+      "todo": "No custom numbers yet",
+      "openCockpit": "Open Cockpit",
+      "openUsage": "Open Usage"
     }
   },
   "loginPage": {
@@ -629,6 +778,14 @@
   },
   "activityPage": {
     "all": "All",
+    "headlines": "Headlines",
+    "fullLog": "Full log",
+    "emptyHeadlines": "No headline events in this view. Thinking and search steps are hidden here.",
+    "showFullLog": "Show the full log",
+    "executedApprovedAction": "Approved action carried out: {{action}}",
+    "approvedActions": {
+      "approve": "approve"
+    },
     "agents": "Agents",
     "people": "People",
     "filterPlaceholder": "Filter events...",
@@ -653,12 +810,15 @@
     "timelineLoading": "Loading history...",
     "eventTypes": {
       "think": "Thinking",
-      "tool_call": "Tool call",
-      "tool_result": "Tool result",
+      "tool_call": "Looking something up",
+      "tool_result": "Finished looking up",
       "failed": "Failed",
       "error": "Error",
       "completed": "Completed",
-      "started": "Started"
+      "started": "Started",
+      "runStarted": "Run started",
+      "runCompleted": "Run completed",
+      "decisionApproved": "Decision approved"
     },
     "tools": {
       "createDecision": "Draft decision",
@@ -682,7 +842,11 @@
       "invite_created": "Invite sent",
       "invite_accepted": "Invite accepted",
       "user_password_changed": "Password changed",
-      "workspace_settings_updated": "Workspace settings updated"
+      "workspace_settings_updated": "Workspace settings updated",
+      "agent_passport_update": "Agent access updated"
+    },
+    "knownMessages": {
+      "agentPassportUpdate": "Agent access updated"
     }
   },
   "cockpitPage": {
@@ -690,6 +854,8 @@
     "loadError": "Could not load overview.",
     "partialLoadError": "Some overview data failed to load: {{items}}.",
     "conversations": "Conversations 7d",
+    "conversationsHint": "New customer and team threads this week",
+    "conversationsEmptyHint": "None this week — older conversations are still in the inbox",
     "awaitingDecision": "Awaiting decision",
     "autonomyRate": "Handled without you",
     "posture": "How much agents can do",
@@ -707,12 +873,16 @@
     "nothingAttention": "Nothing needs your attention right now.",
     "openCommunication": "Open Communication",
     "decisionNeeded": "Decision needed",
+    "waitingDays": "Waiting {{count}} day — open to decide",
+    "waitingDays_other": "Waiting {{count}} days — open to decide",
+    "staleAttention": "Waiting a long time — open to answer or close",
     "threadFallback": "thread",
     "changesAwaiting": "{{count}} platform change awaiting review",
     "changesAwaiting_other": "{{count}} platform changes awaiting review",
     "reviewGovern": "Review drafts in Govern",
     "recentEvents": "Recent events",
-    "recentEventsHint": "Latest agent runs and team actions",
+    "recentEventsHint": "Completed runs, decisions and team actions — thinking steps stay on Activity",
+    "eventRepeats": "{{count}} similar",
     "openActivity": "Open Activity",
     "noEvents": "No recent events. Agent runs will show up here.",
     "openAgents": "Open Agents",
@@ -724,16 +894,26 @@
     "recentContacts": "Recent contacts",
     "recentContactsHint": "People recently active across your channels",
     "openContacts": "Open Contacts",
+    "writeEmail": "Write email",
     "noContacts": "No contacts yet. They appear when customers message you.",
     "connectEmail": "Connect email",
     "installWidget": "Install widget",
     "openSetup": "Open setup guide",
-    "yourMetrics": "Your metrics",
+    "loopTitle": "How Bokito fits together",
+    "loopHint": "Messages, agents and approvals are one loop. Start here, then open the rest when you need it.",
+    "loopMessages": "Messages",
+    "loopMessagesHint": "Customer and team conversations land here.",
+    "loopAgents": "Agents",
+    "loopAgentsHint": "They draft replies and do scheduled work.",
+    "loopGovern": "Approvals",
+    "loopGovernHint": "You decide what may run without you.",
+    "loopDismiss": "Hide",
+    "yourMetrics": "Your numbers",
     "metricsHint": "Filled by you or your agents",
-    "addMetric": "Add metric",
-    "trackKpi": "Track a business KPI. You or your agents can keep the number current.",
-    "editMetric": "Edit metric",
-    "newMetric": "New metric",
+    "addMetric": "Add a number",
+    "trackKpi": "Track a business number. You or your agents can keep it current.",
+    "editMetric": "Edit number",
+    "newMetric": "New number",
     "metricName": "Name",
     "metricNamePlaceholder": "e.g. Monthly recurring revenue",
     "dataSource": "Data source",
@@ -790,6 +970,12 @@
     "tokens30d": "Tokens (30d)",
     "cost30d": "Cost (30d)",
     "conversations7d": "Conversations (7d)",
+    "conversationsEmptyHint": "No conversations this week yet. Open the inbox to start one.",
+    "openInbox": "Open inbox",
+    "autonomyEmptyHint": "Nothing handled on its own yet. Set how much agents may do in Govern.",
+    "openGovern": "Open Govern",
+    "feedbackEmptyHint": "No customer ratings yet. Website chat collects them after a conversation.",
+    "openWebsiteWidget": "Install website chat",
     "autonomyRate": "Handled without you",
     "timeSaved": "Time saved (7d, est.)",
     "avgFeedback": "Avg feedback",
@@ -803,19 +989,20 @@
     "openModels": "Open models & providers",
     "tokens": "{{count}} tokens",
     "billableRow": "billable {{amount}}",
-    "byok": "BYOK (no charge)",
+    "byok": "Your own key (no charge)",
     "byAgent": "By agent ({{days}}d)",
     "noAgentUsage": "No agent usage yet.",
     "byUser": "By user ({{days}}d)",
     "noUserUsage": "No user-attributed usage yet.",
     "userHint": "Chats started by a user are attributed to that user; autonomous runs are grouped under Agents / system.",
-    "byokFooter": "Models run on your own keys show no charge (BYOK); models on Bokito's keys are billed per token with the platform markup applied.",
+    "byokFooter": "Models run on your own keys show no charge; models on Bokito's keys are billed per token with the platform markup applied.",
     "usedOfCap": "{{used}} of {{cap}}",
     "noCapParen": "(no cap)",
     "couldNotLoad": "Could not load usage.",
     "couldNotSave": "Could not save budget caps.",
     "capsMustBeNumbers": "Caps must be numbers (leave empty for no cap).",
     "unknown": "unknown",
+    "systemUser": "Agents / system",
     "tokensShort": "{{count}} tok"
   },
   "verifyEmail": {
@@ -832,15 +1019,40 @@
     "title": "Notifications",
     "markAll": "Mark all read",
     "empty": "No notifications",
+    "emptyHint": "Bokito notifies you when a customer writes or an agent needs a decision.",
+    "settings": "Settings",
+    "openDecisions": "Open decisions",
+    "openChannels": "Email & messages",
     "openCommunication": "Open Communication",
     "now": "Now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago"
+    "daysAgo": "{{count}}d ago",
+    "staleDays": "{{count}}d ago — still open",
+    "similarCount": "{{count}} similar — still waiting"
+  },
+  "bindingPicker": {
+    "ariaLabel": "Handling agent",
+    "hint": "The agent that handles new conversations on this item.",
+    "leadDefault": "Lead agent (default)",
+    "leadDefaultNamed": "{{name}} — lead agent (default)",
+    "unknownAgent": "Unknown agent",
+    "saveError": "Could not update the handling agent."
+  },
+  "channelVisibility": {
+    "title": "Visibility",
+    "hint": "Which workspace members see conversations on this channel. Owners and admins always see everything.",
+    "everyone": "Everyone",
+    "selected": "Selected members",
+    "selectedCount": "{{count}} member(s)",
+    "membersLabel": "Members",
+    "saveError": "Could not update visibility."
   },
   "channelsPage": {
     "bokitoTitle": "Your Bokito address",
     "ready": "Ready",
+    "colAgent": "Agent",
+    "colVisibility": "Visibility",
     "bokitoBody": "Built in and ready to receive. Share it directly or set up forwarding from your existing mailbox — incoming mail lands in Communication and replies are sent from this address.",
     "copied": "Copied",
     "copy": "Copy",
@@ -905,9 +1117,11 @@
     },
     "bindings": {
       "title": "Channel routing",
-      "body": "Send incoming conversations on a channel to a specific agent. Without a route, your assistant handles new threads.",
+      "body": "Send incoming conversations on a channel to a specific agent. Without a route, the lead agent handles new threads.",
       "loading": "Loading routes...",
-      "empty": "No routes yet. New conversations use your assistant until you add one.",
+      "empty": "No routes yet. New conversations go to the lead agent until you add one.",
+      "accountScope": "Mailbox / account {{address}}",
+      "contactScope": "Specific contact",
       "emptyHint": "Use Add route below to send a channel to an agent.",
       "openAgents": "Open Agents",
       "openCommunication": "Open Communication",
@@ -922,7 +1136,7 @@
       "disabled": "paused",
       "removeAria": "Remove route",
       "email": "Email",
-      "widget": "Webchat",
+      "widget": "Website chat",
       "slack": "Slack",
       "whatsapp": "WhatsApp",
       "adding": "Adding...",
@@ -1083,7 +1297,7 @@
     "description": "Receive and answer WhatsApp Business messages in the inbox via the Cloud API.",
     "connect": "Connect WhatsApp",
     "loading": "Loading...",
-    "empty": "No WhatsApp number connected. Create a Meta app with the WhatsApp product, generate a permanent System User access token, then connect it here with the phone number ID.",
+    "empty": "No WhatsApp number connected yet. Customer chats can land in Communication once you connect WhatsApp Business here — you will need a Meta app token and phone number ID.",
     "numberFallback": "WhatsApp number",
     "connected": "Connected",
     "disabled": "Disabled",
@@ -1117,7 +1331,7 @@
     "description": "Deliver decision cards as Slack messages with Approve and Deny buttons.",
     "connect": "Connect Slack",
     "loading": "Loading...",
-    "empty": "No Slack workspace connected. Create a Slack app with the scopes chat:write, users:read and users:read.email, then connect it here with the bot token and signing secret.",
+    "empty": "No Slack workspace connected yet. Decision cards can appear in Slack with Approve and Deny once you connect a workspace here.",
     "workspace": "Slack workspace",
     "connected": "Connected",
     "disabled": "Disabled",
@@ -1220,8 +1434,11 @@
     "settings": "Settings"
   },
   "palette": {
-    "placeholder": "Search pages, threads, contacts, actions...",
+    "placeholder": "Search pages, threads, contacts, knowledge, actions...",
     "noResults": "No results",
+    "tryInstead": "Try one of these instead",
+    "footerHint": "Tip: type a name, subject, or page. Settings appear as you type.",
+    "groupRecent": "Recent",
     "groupGoTo": "Go to",
     "groupSessions": "Sessions",
     "groupActions": "Actions",
@@ -1229,11 +1446,16 @@
     "groupContacts": "Contacts",
     "groupSettings": "Settings",
     "groupInbox": "Inbox queues",
+    "groupKnowledge": "Knowledge",
     "unnamedContact": "Unnamed contact",
     "untitledConversation": "Untitled conversation",
     "newChat": "New chat",
+    "newEmail": "New email",
+    "newContact": "New contact",
+    "newAgent": "New agent",
     "connectMailbox": "Connect mailbox",
     "openSetupGuide": "Open setup guide",
+    "openHelp": "Open help",
     "switchToLight": "Switch to light mode",
     "switchToDark": "Switch to dark mode",
     "ariaDialog": "Command palette",
@@ -1252,9 +1474,13 @@
     "allWorkspaces": "All workspaces",
     "current": "current",
     "profile": "Profile",
+    "help": "Help",
     "notifications": "Notifications",
     "workspaces": "Workspaces",
     "resumeSetup": "Resume setup guide",
+    "setup": "Setup",
+    "emailMessages": "Email & messages",
+    "inboxAi": "Inbox AI",
     "signOut": "Sign out"
   },
   "rail": {
@@ -1558,9 +1784,11 @@
     },
     "channels": {
       "loading": "Loading channels...",
-      "webchat": "Webchat",
+      "webchat": "Website chat",
       "internal": "Internal chat",
-      "agent": "Agent messages"
+      "agent": "Agent messages",
+      "whatsapp": "WhatsApp",
+      "slack": "Slack"
     },
     "agents": {
       "loading": "Loading agents...",
@@ -1579,7 +1807,8 @@
       "assistant": "Inbox AI",
       "widget": "Chat widget",
       "integrations": "Integrations",
-      "setupGuide": "Setup guide"
+      "setupGuide": "Setup guide",
+      "allSettings": "All settings"
     },
     "customize": {
       "title": "Customize sidebar",
@@ -1712,7 +1941,10 @@
         "body": "AI modes apply per channel. Connect channels first, then fine-tune behavior here.",
         "channels": "Email and channels",
         "widget": "Chat widget appearance",
-        "installWidget": "Install widget on your site"
+        "installWidget": "Install widget on your site",
+        "agents": "Open Agents",
+        "govern": "Open Govern policy",
+        "communication": "Open Communication"
       }
     },
     "cloudAgent": {
@@ -1744,7 +1976,7 @@
     "kind": {
       "inbox": "Communication",
       "repository": "Repository",
-      "mcp": "Connected tools"
+      "mcp": "Tools"
     },
     "actions": {
       "setupConnection": "Connect",
@@ -1764,7 +1996,7 @@
       "all": "All integrations",
       "inbox": "Communication",
       "repository": "Repository",
-      "mcp": "Connected tools",
+      "mcp": "Tools for agents",
       "connected": "Connected",
       "available": "Available",
       "statusAll": "All statuses"
@@ -1817,6 +2049,76 @@
       "hubSubtitle": "Choose how you want to connect ({{count}} options).",
       "connectionTypes": "Connection types",
       "connectedShort": "Connected"
+    },
+    "hosts": {
+      "github": {
+        "name": "GitHub",
+        "description": "Repositories for code indexing and optional GitHub tools for agents."
+      },
+      "microsoft": {
+        "name": "Microsoft",
+        "description": "Outlook mailboxes and optional Microsoft Graph tools (Entra directory, preview)."
+      },
+      "google": {
+        "name": "Google",
+        "description": "Gmail mailboxes for inbox and email in Bokito."
+      },
+      "notion": {
+        "name": "Notion",
+        "description": "Workspace pages and knowledge via sign-in."
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Issues, projects, and comments via sign-in."
+      },
+      "atlassian": {
+        "name": "Atlassian",
+        "description": "Jira, Confluence, and Compass via Atlassian."
+      },
+      "slack": {
+        "name": "Slack",
+        "description": "Channels and messages via Slack."
+      },
+      "asana": {
+        "name": "Asana",
+        "description": "Tasks and projects in Asana."
+      },
+      "clickup": {
+        "name": "ClickUp",
+        "description": "ClickUp workspaces and tasks."
+      },
+      "sentry": {
+        "name": "Sentry",
+        "description": "Issues and debugging context from Sentry."
+      },
+      "stripe": {
+        "name": "Stripe",
+        "description": "Billing data and actions from Stripe."
+      },
+      "shopify": {
+        "name": "Shopify",
+        "description": "Storefront and admin data for e-commerce agents (per-store OAuth)."
+      },
+      "king": {
+        "name": "KING Accountancy",
+        "description": "Read-only Cloudswitch access to KING Accountancy client administrations."
+      },
+      "bjorn_lunden": {
+        "name": "Bjorn Lunden",
+        "description": "Accounting and ERP tools via the Swedish Bjorn Lunden BLA API."
+      },
+      "custom": {
+        "name": "Custom tool",
+        "description": "Any external tool by URL with API key or bearer token."
+      },
+      "higgsfield": {
+        "name": "Higgsfield",
+        "description": "AI image and video generation via Higgsfield."
+      },
+      "whatsapp": {
+        "name": "WhatsApp",
+        "description": "WhatsApp Business messages in the inbox via the Cloud API."
+      }
     },
     "marketplace": {
       "connectedCount": "{{count}} connected",
@@ -1918,8 +2220,12 @@
       "servers": {
         "title": "Connected tools",
         "description": "Give your agents extra capabilities by connecting other apps.",
-        "reachabilityHint": "Use an address the Bokito API can reach. Internal Docker hostnames are fine.",
-        "docsLink": "Read integrations documentation",
+        "reachabilityHint": "Use an address Bokito can reach from its servers.",
+        "docsLink": "Browse Marketplace",
+        "openMarketplace": "Browse Marketplace",
+        "openAgents": "Open Agents",
+        "openGovern": "Open Govern",
+        "emptyHint": "Pick an app in Marketplace, or connect a custom tool above. Agents use these tools in conversations.",
         "addTitle": "Add tool server",
         "newConnection": "Connect a tool",
         "modalDescription": "Connect an app that your agents can use in this workspace.",
@@ -2034,6 +2340,19 @@
       "projects": "Projects",
       "library": "Agent library"
     },
+    "scopes": {
+      "platformRead": "View the platform",
+      "graphEdit": "Edit the AI OS canvas",
+      "agentCreate": "Create agents",
+      "agentUpdate": "Update agents",
+      "workstreamCreate": "Create agenda schedules",
+      "workstreamUpdate": "Update agenda schedules",
+      "docWrite": "Write knowledge documents",
+      "integrationPropose": "Propose integrations",
+      "integrationCreate": "Add integrations",
+      "mcpRegister": "Connect external tools",
+      "edgeConnect": "Connect canvas nodes"
+    },
     "links": {
       "overview": "Overview",
       "agents": "Agent library",
@@ -2059,13 +2378,17 @@
       "showLess": "Show less"
     },
     "agents": {
-      "title": "Agent library",
+      "title": "Agents",
       "newAgent": "New agent",
       "listDescription": "Agents handle customer conversations, scheduled work, and tools. Chat with them from Communication or wake them from the Agenda.",
       "loading": "Loading agents…",
       "loadError": "Could not load agents.",
       "empty": "No agents yet.",
       "emptyHint": "Create an agent to handle conversations. You can chat with it from Communication and schedule it on the Agenda.",
+      "attentionTitle": "{{count}} conversations wait for a decision",
+      "attentionTitle_one": "{{count}} conversation waits for a decision",
+      "attentionHint": "Your agents paused and need a yes or no before they continue.",
+      "attentionAction": "Review decisions",
       "askAdmin": "Ask your workspace admin",
       "askAdminHint": "Agents are managed by workspace admins. You can still chat with them from Communication.",
       "openCommunication": "Open Communication",
@@ -2103,6 +2426,7 @@
       "agendaDescription": "Scheduled wakes and tasks for this agent in the next two weeks.",
       "agendaEmptyHint": "Nothing scheduled yet. Wake this agent on a timer or from a webhook on the Agenda.",
       "openFullAgenda": "Open Agenda",
+      "openAgendaAutomations": "Automations",
       "scheduleOnAgenda": "Schedule on Agenda",
       "editTools": "Edit",
       "cancelTools": "Cancel",
@@ -2136,6 +2460,7 @@
       "signatureEdit": "Edit",
       "signatureAdd": "Add",
       "signatureEmpty": "No signature yet. Without one, the mailbox signature is used as a fallback.",
+      "openMailboxSignatures": "Mailbox signatures",
       "signatureSaved": "Agent signature saved",
       "signatureSaveError": "Could not save the signature",
       "signatureEditorContext": "for agent {{name}}",
@@ -2154,13 +2479,19 @@
       },
       "status": {
         "active": "Active",
-        "standby": "Standby",
+        "standby": "Paused",
         "sleeping": "Sleeping",
         "error": "Error"
       },
       "archiveConfirm": "Archive this agent? It will disappear from the agent list. Run history is kept.",
       "statusUpdateError": "Could not update agent status.",
       "archiveError": "Could not archive agent.",
+      "leadBadge": "Lead agent",
+      "leadHint": "Handles everything without a specific assignment.",
+      "makeLead": "Make lead agent",
+      "makeLeadConfirm": "Make this agent the lead agent? The lead agent handles all conversations and work without a specific assignment.",
+      "leadUpdateError": "Could not change the lead agent.",
+      "leadArchiveBlocked": "This is the lead agent. Make another agent the lead first, then archive.",
       "autonomyUpdateError": "Could not update how much this agent may do.",
       "permissionsTitle": "Tools & permissions",
       "permissionsDescription": "What this agent is allowed to do. Workspace-wide policies live in Govern.",
@@ -2172,7 +2503,8 @@
       "autonomyDefault": "Workspace default",
       "allowedTools": "Allowed tools",
       "allToolsByPolicy": "All tools, gated by workspace allowances.",
-      "permissionScopes": "Permission scopes",
+      "permissionScopes": "What this agent may do",
+      "modelCost": "in ${{input}} / million tokens · out ${{output}} / million tokens",
       "wake": "Wake",
       "pause": "Pause",
       "archive": "Archive",
@@ -2259,7 +2591,10 @@
       "loadingEvents": "Loading events...",
       "loadError": "Failed to load run events",
       "waiting": "Waiting for events...",
-      "eventFallback": "event"
+      "eventFallback": "event",
+      "openConversation": "Open in Communication",
+      "stepsHint": "What the agent did, in order",
+      "backToAgenda": "Back to Agenda"
     },
     "overview": {
       "loading": "Loading workforce overview…",
@@ -2302,9 +2637,11 @@
       "openSetup": "Open setup guide",
       "openKnowledge": "Open Knowledge",
       "openCommunication": "Open Communication",
+      "actionsFor": "Actions for {{name}}",
       "openThreads": "Open threads",
       "openLead": "Open lead",
       "noLead": "No lead yet",
+      "defaultAgent": "{{name}} (default for threads)",
       "noRepo": "No repository",
       "delete": "Delete",
       "deleted": "Project deleted",
@@ -2375,6 +2712,7 @@
       "notFound": "Project not found.",
       "loadError": "Could not load project.",
       "viewThreads": "View threads",
+      "openKnowledge": "Open Knowledge",
       "delete": "Delete",
       "about": "About this project",
       "name": "Name",
@@ -2410,7 +2748,17 @@
       "leadPlaceholder": "Link a lead",
       "leadCreate": "Create new lead",
       "leadDefaultName": "Project lead",
-      "copyIdShort": "Copy ID"
+      "copyIdShort": "Copy ID",
+      "agentsLabel": "Agents",
+      "agentsLoading": "Loading agents…",
+      "agentsEmpty": "No agents on this project yet. Threads fall back to the project lead, then the lead agent.",
+      "agentAddPlaceholder": "Add an agent",
+      "agentAddError": "Could not add agent.",
+      "agentRemove": "Remove from project",
+      "agentRemoveError": "Could not remove agent.",
+      "agentMakeDefault": "Make default for project threads",
+      "agentDefaultError": "Could not update default agent.",
+      "agentDefaultBadge": "Default"
     }
   },
   "project": {
@@ -2755,6 +3103,25 @@
       "companies": "Companies",
       "conversations": "Conversations",
       "importsExports": "Imports & exports"
+    },
+    "hints": {
+      "profileSecurity": "Name, photo, password and email signature",
+      "myAssistant": "Your personal assistant",
+      "notifications": "When Bokito should notify you",
+      "setupGuide": "Guided checklist to get started",
+      "general": "Company name and language",
+      "branding": "Logo and colors",
+      "members": "Invite teammates",
+      "emailMessages": "Mailboxes, WhatsApp and signatures",
+      "chatWidget": "Website chat for customers",
+      "inboxAi": "How agents reply to customers",
+      "helpCenters": "Public help articles",
+      "integrations": "Connect other tools",
+      "marketplace": "Browse marketplace apps and tools your agents can use",
+      "connectedTools": "Tools connected for agents",
+      "govern": "Approvals and how much agents may do",
+      "developers": "API keys and webhooks",
+      "models": "Which AI models to use"
     }
   },
   "settingsPageMeta": {
@@ -2798,7 +3165,8 @@
   "helpCentersPage": {
     "intro": "Customer-facing articles for your website. Internal docs that agents learn from live in Knowledge.",
     "openKnowledge": "Open Knowledge",
-    "collectionName": "New collection name",
+    "openWidget": "Install website chat",
+    "collectionName": "e.g. Frequently asked questions",
     "descriptionOptional": "Description (optional)",
     "add": "Add",
     "adding": "Adding...",
@@ -2811,6 +3179,7 @@
     "upload": "Upload",
     "uploading": "Uploading...",
     "emptyDocuments": "No documents in this collection yet. Add one above.",
+    "emptyDocumentsNoCollection": "Create a collection above first, for example Frequently asked questions. Internal documents live in Knowledge.",
     "selectCollection": "Select a collection first.",
     "created": "Collection created",
     "createError": "Could not create collection",
@@ -2852,6 +3221,8 @@
     "openAgents": "Open Agents",
     "openSetup": "Open setup guide",
     "talkAssistant": "Talk to your assistant",
+    "usedByAgents": "Agents read this while they work.",
+    "openRuns": "Open Agent runs",
     "openHelpCenter": "Customer help center",
     "emptyTitle": "Workspace knowledge",
     "emptyBody": "Notes, skills and memory your agents read while they work — and keep up to date as they learn.",
@@ -2990,16 +3361,16 @@
     "modulesBody": "Turn modules on or off in the chat widget.",
     "welcomeTitle": "Welcome messages",
     "displayName": "Assistant name",
-    "displayNamePlaceholder": "Bokito AI",
+    "displayNamePlaceholder": "Assistant name",
+    "handlingAgent": "Handling agent",
+    "handlingAgentHint": "The agent that answers new widget conversations. The widget name follows this agent unless you set a name above.",
     "welcomeHeading": "Welcome title",
-    "welcomeHeadingPlaceholder": "Hi!",
     "welcomeSubtitle": "Welcome subtitle",
-    "welcomeSubtitlePlaceholder": "Ask your question...",
     "colorsTitle": "Colors",
     "colorsBody": "Used for buttons and highlights in the chat widget. The product keeps your hue and tones it for a modern look in light and dark.",
     "accent": "Accent",
     "iconTitle": "Widget icon",
-    "iconBody": "Shown in the widget header. Separate from the browser tab icon in Branding.",
+    "iconBody": "Follows the pictogram from Branding. Without one the widget uses the Bokito mark. You can upload an override here.",
     "remove": "Remove",
     "upload": "Upload",
     "tone": "Tone",
@@ -3052,8 +3423,11 @@
     "saved": "Saved",
     "loadError": "Could not load assistant settings.",
     "saveError": "Could not save settings.",
-    "openCommunication": "Open Communication",
-    "openModels": "Open Providers & models"
+    "openCommunication": "Open a new chat",
+    "openModels": "Open Providers & models",
+    "openKnowledge": "Open Knowledge",
+    "openInboxAi": "Open Inbox AI",
+    "openNotifications": "Open Notifications"
   },
   "acceptInvitePage": {
     "missingToken": "This invite link is missing its token.",
@@ -3143,7 +3517,7 @@
     "openAgents": "Open Agents",
     "openUsage": "View usage",
     "openGovern": "Open Govern policy",
-    "pricingInOut": "in {{in}} · out {{out}}",
+    "pricingInOut": "in {{in}} / million tokens · out {{out}} / million tokens",
     "managed": {
       "title": "Bokito AI",
       "body": "Managed by Bokito: we select and maintain the best model for each task automatically. Usage is metered per token for this workspace and counts toward your budget.",

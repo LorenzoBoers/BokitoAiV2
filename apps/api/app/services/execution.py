@@ -78,14 +78,9 @@ class AgentLoopExecutionEnvironment(ExecutionEnvironment):
             if agent:
                 return agent
 
-        fallback = (
-            await session.execute(
-                select(Agent)
-                .where(Agent.tenant_id == tenant_id, Agent.is_active.is_(True))
-                .order_by(Agent.created_at)
-                .limit(1)
-            )
-        ).scalar_one_or_none()
+        from app.services.lead_agent import get_lead_agent
+
+        fallback = await get_lead_agent(session, tenant_id)
         if fallback:
             return fallback
         return Agent(

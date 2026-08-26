@@ -7,6 +7,15 @@ const SECTIONS: AssistantSection[] = ['customization', 'agent', 'installation']
 /** Default Assistant settings URL (team widget, customization). */
 export const ASSISTANT_DEFAULT_PATH = '/ai/assistant/internal/customization' as const
 
+/** Personal assistant name, instructions, and default chat. */
+export const MY_ASSISTANT_SETTINGS_PATH = '/settings/assistant' as const
+
+/** Website chat — first place first-time users look for the customer widget. */
+export const WEBSITE_WIDGET_PATH = '/ai/assistant/external/installation' as const
+
+/** Website chat look-and-feel (welcome, colors, icon). */
+export const WEBSITE_WIDGET_CUSTOMIZE_PATH = '/ai/assistant/external/customization' as const
+
 export function assistantSettingsPath(audience: AssistantAudience, section: AssistantSection): string {
   return `/ai/assistant/${audience}/${section}`
 }

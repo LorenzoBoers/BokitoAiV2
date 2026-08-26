@@ -61,15 +61,17 @@ export function McpServerSetupTab() {
         <div>
           <h2 className="text-lg font-medium text-text-heading">{t('integrations.mcp.servers.title')}</h2>
           <p className="text-sm text-text-secondary mt-1">{t('integrations.mcp.servers.description')}</p>
-          <p className="text-xs text-text-muted mt-2">
-            {t('integrations.mcp.servers.reachabilityHint')}
-          </p>
-          <Link
-            to="/settings/integrations"
-            className="text-xs text-accent hover:underline mt-2 inline-block"
-          >
-            {t('integrations.mcp.servers.docsLink')}
-          </Link>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <Link to="/settings/marketplace" className="font-medium text-accent hover:underline">
+              {t('integrations.mcp.servers.openMarketplace')}
+            </Link>
+            <Link to="/agents" className="font-medium text-accent hover:underline">
+              {t('integrations.mcp.servers.openAgents')}
+            </Link>
+            <Link to="/settings/govern" className="font-medium text-accent hover:underline">
+              {t('integrations.mcp.servers.openGovern')}
+            </Link>
+          </div>
         </div>
         <Button size="sm" className="shrink-0 gap-1.5" onClick={() => openDialog('custom_mcp')}>
           <Plus size={14} />

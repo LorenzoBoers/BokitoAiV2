@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowUp, Bot, Check, ChevronDown, Loader2, Sparkles } from 'lucide-react'
+import { ArrowUp, Bot, Check, ChevronDown, Loader2, Mail, Sparkles, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
 import {
@@ -9,18 +9,14 @@ import {
   bokitoListChatTargets,
   type ChatTarget,
 } from '../lib/bokito-api'
-import type { TFunction } from 'i18next'
-import { humanizeLabel } from '../lib/labels'
+import { agentRoleLabel } from '../lib/agent-role-label'
 import { agentChatPath, assistantPath } from '../lib/messages-paths'
+import { ComposerCard } from '../components/ui/ComposerCard'
+import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { listContacts, type ContactRow } from '../lib/contacts-api'
+import { humanizeContactName } from '../lib/contact-label'
 
-function agentRoleLabel(role: string, t: TFunction): string {
-  return t(`workforce.agents.types.${role}`, {
-    ns: 'nav',
-    defaultValue: humanizeLabel(role),
-  })
-}
-
-type PickerFilter = 'all' | 'company'
+type PickerFilter = 'all' | 'company' | 'people'
 
 /**
  * Composer-first "New conversation" surface: pick a recipient in the To-field
@@ -34,6 +30,7 @@ export default function NewConversationPage() {
   const { refresh: refreshSessions } = useChatSessions()
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
+  const [contacts, setContacts] = useState<ContactRow[]>([])
   const [loadingTargets, setLoadingTargets] = useState(true)
   const [selected, setSelected] = useState<ChatTarget | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -58,9 +55,13 @@ export default function NewConversationPage() {
       if (!token) return
       setLoadingTargets(true)
       try {
-        const data = await bokitoListChatTargets(token)
+        const [data, people] = await Promise.all([
+          bokitoListChatTargets(token),
+          listContacts(token).catch(() => [] as ContactRow[]),
+        ])
         if (cancelled) return
         setTargets(data.items)
+        setContacts(people)
         const preselect =
           data.items.find((t) => t.id === data.default_agent_id) ?? data.items[0] ?? null
         setSelected(preselect)
@@ -95,11 +96,25 @@ export default function NewConversationPage() {
   const filteredTargets = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase()
     return targets.filter((t) => {
+      if (pickerFilter === 'people') return false
       if (pickerFilter === 'company' && t.kind !== 'company') return false
       if (q && !t.name.toLowerCase().includes(q)) return false
       return true
     })
   }, [targets, pickerQuery, pickerFilter])
+
+  const filteredContacts = useMemo(() => {
+    const q = pickerQuery.trim().toLowerCase()
+    return contacts
+      .filter((contact) => canComposeToAddress(contact.channel, contact.address))
+      .filter((contact) => {
+        if (pickerFilter === 'company') return false
+        if (!q) return pickerFilter === 'people' || pickerFilter === 'all'
+        const name = `${contact.displayName} ${contact.address}`.toLowerCase()
+        return name.includes(q)
+      })
+      .slice(0, 8)
+  }, [contacts, pickerQuery, pickerFilter])
 
   const openPicker = (filter: PickerFilter = 'all') => {
     setPickerFilter(filter)
@@ -164,9 +179,12 @@ export default function NewConversationPage() {
                   value={pickerQuery}
                   onChange={(e) => setPickerQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && filteredTargets.length > 0) {
+                    if (e.key === 'Enter' && (filteredTargets[0] || filteredContacts[0])) {
                       e.preventDefault()
-                      choose(filteredTargets[0])
+                      if (filteredTargets[0]) choose(filteredTargets[0])
+                      else if (filteredContacts[0]) {
+                        navigate(composeEmailPath({ to: filteredContacts[0].address }))
+                      }
                     }
                     if (e.key === 'Escape') setPickerOpen(false)
                   }}
@@ -210,10 +228,10 @@ export default function NewConversationPage() {
             {pickerOpen ? (
               <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
                 <div className="max-h-[300px] overflow-y-auto p-1">
-                  {filteredTargets.length === 0 ? (
+                  {filteredTargets.length === 0 && filteredContacts.length === 0 ? (
                     <div className="px-3 py-2.5">
                       <p className="text-[12px] text-text-muted">
-                        {targets.length === 0
+                        {targets.length === 0 && contacts.length === 0
                           ? t('newConversation.noAgents')
                           : t('newConversation.noMatches')}
                       </p>
@@ -232,27 +250,58 @@ export default function NewConversationPage() {
                       ) : null}
                     </div>
                   ) : (
-                    filteredTargets.map((target) => (
-                      <button
-                        key={target.id}
-                        type="button"
-                        onClick={() => choose(target)}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
-                      >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
-                          <Bot size={12} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[12.5px] text-text-primary">{target.name}</span>
-                          <span className="block text-[10.5px] text-text-muted">
-                            {target.kind === 'personal'
-                              ? t('newConversation.personalAssistant')
-                              : t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
+                    <>
+                      {filteredTargets.map((target) => (
+                        <button
+                          key={target.id}
+                          type="button"
+                          onClick={() => choose(target)}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
+                            <Bot size={12} />
                           </span>
-                        </span>
-                        {selected?.id === target.id ? <Check size={13} className="shrink-0 text-accent" /> : null}
-                      </button>
-                    ))
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12.5px] text-text-primary">{target.name}</span>
+                            <span className="block text-[10.5px] text-text-muted">
+                              {target.kind === 'personal'
+                                ? t('newConversation.personalAssistant')
+                                : t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
+                            </span>
+                          </span>
+                          {selected?.id === target.id ? <Check size={13} className="shrink-0 text-accent" /> : null}
+                        </button>
+                      ))}
+                      {filteredContacts.length > 0 ? (
+                        <p className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+                          {t('newConversation.people')}
+                        </p>
+                      ) : null}
+                      {filteredContacts.map((contact) => (
+                        <button
+                          key={contact.id}
+                          type="button"
+                          onClick={() => navigate(composeEmailPath({ to: contact.address }))}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-text-muted">
+                            <User size={12} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12.5px] text-text-primary">
+                              {humanizeContactName(
+                                contact.displayName,
+                                contact.address,
+                                t('contactPanel.widgetVisitor'),
+                              ) || contact.address}
+                            </span>
+                            <span className="block text-[10.5px] text-text-muted">
+                              {t('newConversation.emailContact')} · {contact.address}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </>
                   )}
                 </div>
               </div>
@@ -269,25 +318,39 @@ export default function NewConversationPage() {
               <Sparkles size={11} />
               {t('newConversation.messageAnAgent')}
             </button>
+            <button
+              type="button"
+              onClick={() => openPicker('people')}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+            >
+              <User size={11} />
+              {t('newConversation.writeToPerson')}
+            </button>
+            <Link
+              to={composeEmailPath()}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+            >
+              <Mail size={11} />
+              {t('newConversation.writeEmail')}
+            </Link>
           </div>
 
           {/* Composer */}
           <div className="mt-6">
             {error ? <p className="mb-2 px-1 text-[12px] text-status-error">{error}</p> : null}
-            <div className="flex items-end gap-2 rounded-2xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card focus-within:border-accent/50">
-              <textarea
-                ref={composerRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={onComposerKeyDown}
-                rows={Math.min(8, Math.max(3, draft.split('\n').length))}
-                placeholder={
-                  selected
-                    ? t('newConversation.messageName', { name: selected.name })
-                    : t('newConversation.chooseAndType')
-                }
-                className="max-h-[220px] min-h-[64px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none"
-              />
+            <ComposerCard
+              ref={composerRef}
+              mode="chat"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onComposerKeyDown}
+              placeholder={
+                selected
+                  ? t('newConversation.messageName', { name: selected.name })
+                  : t('newConversation.chooseAndType')
+              }
+              className="border-border/60 bg-bg-surface"
+            >
               <button
                 type="button"
                 onClick={() => void start()}
@@ -297,7 +360,7 @@ export default function NewConversationPage() {
               >
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
               </button>
-            </div>
+            </ComposerCard>
             <p className="mt-1.5 px-1 text-[10.5px] text-text-muted">
               {t('composer.hintChat')}
             </p>

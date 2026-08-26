@@ -31,6 +31,7 @@ import {
 } from '../components/ui/dropdown-menu'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
+import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { PageIntro } from '../components/layout/PageIntro'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
@@ -40,6 +41,8 @@ import RoutingRulesManager from '../components/inbox/RoutingRulesManager'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import SyncStatusPanel from '../components/inbox/SyncStatusPanel'
+import AgentBindingPicker from '../components/settings/AgentBindingPicker'
+import ChannelVisibilityPicker from '../components/settings/ChannelVisibilityPicker'
 import SlackConnectCard from '../components/inbox/SlackConnectCard'
 import WhatsAppConnectCard from '../components/inbox/WhatsAppConnectCard'
 import type { MailboxConnection, MailboxProvider, MailboxStatus, RoutingRule } from '../types/inbox'
@@ -62,7 +65,9 @@ import {
   type RoutingRuleApi,
 } from '../lib/email-api'
 import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
-import { ASSISTANT_DEFAULT_PATH } from '../lib/assistant-settings-path'
+import { listChannelAccounts, type ChannelAccountVisibility } from '../lib/channel-accounts-api'
+import { formatAppDateTime } from '../lib/app-locale'
+import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 
 function toMailboxStatus(
   value: 'active' | 'error' | 'revoked' | 'connected' | 'needs_auth' | 'paused',
@@ -76,6 +81,7 @@ function toMailboxStatus(
 
 function toMailbox(connection: {
   id: number
+  uuid?: string | null
   provider: MailboxProvider
   mailboxEmail: string
   displayName: string
@@ -89,6 +95,7 @@ function toMailbox(connection: {
 }): MailboxConnection {
   return {
     id: connection.id,
+    channel_account_id: connection.uuid ?? null,
     provider: connection.provider,
     email_address: connection.mailboxEmail,
     display_name: connection.displayName,
@@ -132,16 +139,11 @@ function mapRuleToApi(rule: RoutingRule): Omit<RoutingRuleApi, 'id' | 'created_a
   }
 }
 
-function formatLastSync(lastSyncAt: string | null, neverLabel: string): string {
+function formatLastSync(lastSyncAt: string | null, neverLabel: string, language?: string | null): string {
   if (!lastSyncAt) return neverLabel
   const date = new Date(lastSyncAt)
   if (Number.isNaN(date.getTime())) return neverLabel
-  return date.toLocaleString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatAppDateTime(date, language)
 }
 
 type InboxSettingsAlert =
@@ -261,7 +263,7 @@ function MailboxRowActions({
 }
 
 export default function InboxSettings() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -288,8 +290,29 @@ export default function InboxSettings() {
   const [syncing, setSyncing] = useState(false)
   const [bokitoAddress, setBokitoAddress] = useState<BokitoAddress | null>(null)
   const [addressCopied, setAddressCopied] = useState(false)
+  const [accountVisibility, setAccountVisibility] = useState<
+    Record<string, ChannelAccountVisibility>
+  >({})
 
   const mailboxes = useMemo(() => connections.map(toMailbox), [connections])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    listChannelAccounts(token)
+      .then((accounts) => {
+        if (cancelled) return
+        const map: Record<string, ChannelAccountVisibility> = {}
+        for (const account of accounts) map[account.id] = account.visibility
+        setAccountVisibility(map)
+      })
+      .catch(() => {
+        // Non-blocking: the visibility column simply stays empty.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   useEffect(() => {
     if (!token) return
@@ -582,6 +605,7 @@ export default function InboxSettings() {
 
   return (
     <PageContent width="full" className="flex min-h-0 flex-col gap-5">
+      <PageGuideBanner page="channels" />
       <PageIntro description={t('pageHeaders.emailMessages')} />
 
       <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
@@ -590,7 +614,7 @@ export default function InboxSettings() {
           <Link to="/settings/communication" className="font-medium text-accent hover:underline">
             {t('channelsPage.crossLinks.inboxAi')}
           </Link>
-          <Link to={ASSISTANT_DEFAULT_PATH} className="font-medium text-accent hover:underline">
+          <Link to={WEBSITE_WIDGET_PATH} className="font-medium text-accent hover:underline">
             {t('channelsPage.crossLinks.widget')}
           </Link>
           <Link to="/settings/marketplace?kind=inbox" className="font-medium text-accent hover:underline">
@@ -692,6 +716,8 @@ export default function InboxSettings() {
                 <TableHead>{t('channelsPage.colMailbox')}</TableHead>
                 <TableHead>{t('channelsPage.colSync')}</TableHead>
                 <TableHead>{t('channelsPage.colHistory')}</TableHead>
+                <TableHead>{t('channelsPage.colAgent')}</TableHead>
+                <TableHead>{t('channelsPage.colVisibility')}</TableHead>
                 <TableHead>{t('channelsPage.colStatus')}</TableHead>
                 <TableHead className="text-right">{t('channelsPage.colActions')}</TableHead>
               </TableRow>
@@ -699,7 +725,7 @@ export default function InboxSettings() {
             <TableBody>
               {!loading && mailboxes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-text-muted">
+                  <TableCell colSpan={7} className="py-10 text-center text-sm text-text-muted">
                     <p>{t('channelsPage.noMailbox')}</p>
                     <button
                       type="button"
@@ -777,10 +803,37 @@ export default function InboxSettings() {
                         )}
                       </TableCell>
                       <TableCell>
+                        {mailbox.channel_account_id ? (
+                          <AgentBindingPicker
+                            channel="email"
+                            channelAccountId={mailbox.channel_account_id}
+                            aria-label={t('bindingPicker.ariaLabel')}
+                          />
+                        ) : (
+                          <span className="text-xs text-text-muted">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {mailbox.channel_account_id && accountVisibility[mailbox.channel_account_id] ? (
+                          <ChannelVisibilityPicker
+                            accountId={mailbox.channel_account_id}
+                            visibility={accountVisibility[mailbox.channel_account_id]}
+                            onChanged={(next) =>
+                              setAccountVisibility((prev) => ({
+                                ...prev,
+                                [mailbox.channel_account_id as string]: next,
+                              }))
+                            }
+                          />
+                        ) : (
+                          <span className="text-xs text-text-muted">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div>
                           <Badge variant={statusVariant}>{t(`channelsPage.status.${mailbox.status}`)}</Badge>
                           <div className="mt-1 text-xs text-text-muted">
-                            {builtin ? t('channelsPage.deliveredRealtime') : formatLastSync(mailbox.last_sync_at, t('channelsPage.neverSynced'))}
+                            {builtin ? t('channelsPage.deliveredRealtime') : formatLastSync(mailbox.last_sync_at, t('channelsPage.neverSynced'), i18n.language)}
                           </div>
                         </div>
                       </TableCell>

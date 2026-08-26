@@ -4,7 +4,7 @@
   "noActiveMailboxTitle": "Connect a channel",
   "noActiveMailboxDescription": "Every workspace has a Bokito address under Channels. Connect it, or add Gmail or Outlook, so customer email lands here.",
   "openEmailSettings": "Open channels",
-  "inboxSearchPlaceholder": "Search this folder...",
+  "inboxSearchPlaceholder": "Search conversations...",
   "inboxSearchClear": "Clear search",
   "listFilters": {
     "all": "All",
@@ -14,6 +14,10 @@
   "composer": {
     "hintEmail": "Ctrl+Enter to send, Enter for a new line — drafts are kept per conversation",
     "hintChat": "Enter to send, Shift+Enter for a new line",
+    "resize": "Resize composer",
+    "resizeHint": "Drag to make more room. Double-click to reset.",
+    "expand": "Expand composer",
+    "collapse": "Compact composer",
     "mailboxDisconnected": "The mailbox for this conversation was disconnected, so replies cannot be sent. Internal notes still work.",
     "reconnectMailbox": "Reconnect a mailbox",
     "noSavedReplies": "No saved replies yet",
@@ -26,6 +30,14 @@
     "uploadError": "Could not upload attachment.",
     "tabNote": "Note",
     "notePlaceholder": "Internal note (not visible to the customer)...",
+    "placeholders": {
+      "messageAgent": "Message {{name}}...",
+      "typeEmail": "Type an email...",
+      "replyEmail": "Reply to {{email}}...",
+      "slack": "Type a Slack message...",
+      "whatsapp": "Reply on WhatsApp to {{name}}...",
+      "chat": "Reply in chat to {{name}}..."
+    },
     "addNoteTitle": "Add note",
     "sendTitle": "Send",
     "draftWithAi": "Draft with AI",
@@ -35,6 +47,9 @@
     "cancel": "Cancel",
     "draftReply": "Draft reply",
     "savedReplies": "Saved replies",
+    "saveAsTemplate": "Save current text as template",
+    "sendAndClose": "Send and close",
+    "sendAndWait": "Send and wait",
     "loadingSavedReplies": "Loading...",
     "attachFile": "Attach file",
     "withSignature": "Your signature is added",
@@ -73,6 +88,14 @@
     "sending": "Sending...",
     "sent": "Email sent",
     "cancel": "Cancel",
+    "from": "From",
+    "to": "To",
+    "toPlaceholder": "name@example.com, other@example.com",
+    "cc": "CC",
+    "bcc": "BCC",
+    "subject": "Subject",
+    "attach": "Attach",
+    "uploading": "Uploading...",
     "uploadError": "Could not upload attachment.",
     "sendError": "Could not send email.",
     "noSubject": "(No subject)"
@@ -80,7 +103,7 @@
   "threadResolved": {
     "closed": "Conversation closed",
     "spam": "Marked as spam",
-    "snoozed": "Conversation snoozed"
+    "snoozed": "Conversation snoozed until later"
   },
   "runsChips": {
     "heading": "Agent runs",
@@ -92,9 +115,21 @@
   "threadList": {
     "loading": "Loading...",
     "empty": "No threads found.",
+    "emptyUnread": "No unread conversations in this list.",
+    "emptyPinned": "No pinned conversations yet. Pin one to keep it at the top.",
+    "showAllConversations": "Show all conversations",
     "emptyRuns": "No agent runs yet.",
+    "emptySnoozed": "Nothing waiting for later.",
+    "emptySnoozedHint": "Snooze a conversation when you have replied, or when it can wait.",
+    "openInbox": "Back to Open",
     "openAgents": "Open Agents",
     "clearLabelFilter": "Clear label filter",
+    "scopeAgent": "Conversations for {{name}}",
+    "scopeProject": "Conversations in {{name}}",
+    "scopeAgentFallback": "this agent",
+    "scopeProjectFallback": "this project",
+    "clearScope": "Show all conversations",
+    "emptyScoped": "No conversations in this filter.",
     "selectThread": "Select thread",
     "deleteThread": "Delete thread",
     "channelSettings": "Channel settings",
@@ -156,20 +191,26 @@
       "approve": "Approve",
       "defer": "Defer"
     },
-    "correctInterpretation": "That's not right",
+    "correctInterpretation": "Correct this",
     "feedbackGood": "Looks right",
-    "feedbackPoor": "Looks wrong",
+    "feedbackPoor": "Not helpful",
     "feedbackError": "Could not save feedback.",
     "knownSubjects": {
-      "replyToCustomer": "Reply to customer message"
+      "replyToCustomer": "Reply to customer message",
+      "dailyPlatformScan": "Daily platform scan",
+      "agentPassportUpdate": "Agent access updated",
+      "poWakeBacklog": "Lead: review platform backlog",
+      "leadHeartbeat": "Lead heartbeat",
+      "heartbeat": "Check-in",
+      "assistPrefix": "Help: {{subject}}"
     },
     "knownSummaries": {
       "draftForReview": "Draft reply prepared for review."
     }
   },
   "agentSteps": {
-    "toolCall": "Tool call",
-    "toolResult": "Tool result",
+    "toolCall": "Looking something up",
+    "toolResult": "Finished looking up",
     "thinking": "Thinking",
     "thinkingActive": "Thinking...",
     "writing": "Writing...",
@@ -223,11 +264,15 @@
       "wake": "Agent wake",
       "task": "Task",
       "event": "Event",
-      "webhook": "Webhook"
+      "webhook": "Webhook",
+      "once": "Task",
+      "cron": "Recurring",
+      "interval": "Repeating",
+      "heartbeat": "Check-in"
     },
     "agentRuntime": {
       "active": "Active",
-      "standby": "Standby",
+      "standby": "Paused",
       "sleeping": "Sleeping",
       "inactive": "Inactive"
     },
@@ -241,7 +286,9 @@
       "needs_review": "Needs review",
       "indexing": "Indexing",
       "failed": "Failed",
-      "unsupported": "Unsupported"
+      "unsupported": "Unsupported",
+      "ready": "Ready",
+      "error": "Error"
     },
     "workLog": {
       "running": "Running",
@@ -253,7 +300,7 @@
     }
   },
   "agentSession": {
-    "launcher": "Ask agent",
+    "launcher": "Ask assistant",
     "pickAgent": "Bring an agent into this thread",
     "title": "Agent session",
     "internalHint": "Internal - not visible to the customer",
@@ -321,7 +368,7 @@
   "newConversation": {
     "title": "New conversation",
     "to": "To:",
-    "searchPlaceholder": "Search assistants and agents...",
+    "searchPlaceholder": "Search assistants, agents and people...",
     "loading": "Loading...",
     "companyAgent": "Company agent",
     "myAssistant": "My assistant",
@@ -334,6 +381,10 @@
     "personalAssistant": "Your personal assistant",
     "companyAgentRole": "Company agent · {{role}}",
     "messageAnAgent": "Message an agent",
+    "writeToPerson": "Write to a person",
+    "people": "People",
+    "emailContact": "Email",
+    "writeEmail": "Write an email instead",
     "messageName": "Message {{name}}...",
     "chooseAndType": "Choose a recipient and start typing...",
     "send": "Send",
@@ -343,6 +394,7 @@
   "threadChrome": {
     "hideDetails": "Hide details",
     "showDetails": "Show details",
+    "askAssistant": "Ask assistant",
     "next": "Next",
     "closeThread": "Close thread",
     "assignToMe": "Assign to me",
@@ -368,6 +420,8 @@
     "pin": "Pin",
     "unpin": "Unpin",
     "close": "Close",
+    "snooze": "Snooze",
+    "resumeNow": "Resume now",
     "reopen": "Reopen",
     "markSpam": "Mark as spam",
     "notSpam": "Not spam",
@@ -405,12 +459,14 @@
     "noProject": "No project",
     "lead": "Lead: {{name}}",
     "noLead": "No lead agent on this project.",
-    "openProject": "Open project"
+    "openProject": "Open project",
+    "moreActions": "More actions"
   },
   "contactPanel": {
     "loading": "Loading contact...",
     "noContact": "No contact linked",
-    "noContactHint": "This thread has no contact yet. One is created automatically on the next inbound message.",
+    "noContactHint": "We could not match this conversation to a saved person yet. Open Contacts to add them, or write them an email.",
+    "widgetVisitor": "Website visitor",
     "unknown": "Unknown contact",
     "lastSeen": "Last seen {{time}}",
     "now": "now",
@@ -421,6 +477,7 @@
     "blockConfirm": "Block {{name}}? New messages from them will be dropped and never reach Communication.",
     "thisContact": "this contact",
     "fullProfile": "Full profile",
+    "writeEmail": "Write email",
     "notes": "Notes",
     "notesPlaceholder": "Internal notes about this contact...",
     "notesSaved": "Notes saved",
@@ -457,7 +514,8 @@
     "integrations": "Integrations",
     "tools": "Tools",
     "unrestricted": "unrestricted",
-    "openIntegrations": "Open Integrations"
+    "openIntegrations": "Open Integrations",
+    "modelManaged": "{{model}} (Bokito)"
   },
   "directChat": {
     "conversation": "Conversation",
@@ -500,7 +558,20 @@
     "assigned": "Assigned",
     "now": "Now",
     "contact": "Contact",
-    "agent": "Agent"
+    "agent": "Agent",
+    "internal": "Internal",
+    "snoozed": "Later",
+    "filterBy": "Filter by {{tag}}"
+  },
+  "snooze": {
+    "1h": "1 hour",
+    "4h": "4 hours",
+    "tomorrow": "Tomorrow 9:00",
+    "nextWeek": "Next Monday 9:00",
+    "untilReply": "Until the customer replies",
+    "wakesToday": "Back today {{time}}",
+    "wakesTomorrow": "Back tomorrow {{time}}",
+    "wakesOn": "Back {{date}} {{time}}"
   },
   "bulkActions": {
     "selected": "{{count}} selected",
@@ -538,7 +609,7 @@
       "reopened": "Reopened",
       "threadClosed": "Thread closed",
       "markedSpam": "Marked as spam",
-      "threadSnoozed": "Thread snoozed",
+      "threadSnoozed": "Conversation snoozed",
       "threadReopened": "Thread reopened",
       "threadAssigned": "Thread assigned",
       "labels": "Labels: {{tags}}",
@@ -574,7 +645,7 @@
     }
   },
   "tags": {
-    "addLabel": "Label",
+    "addLabel": "Add label",
     "placeholder": "Label…",
     "removeLabel": "Remove label {{tag}}"
   },
@@ -630,5 +701,11 @@
     "previewHint": "This is how your signature looks with sample data.",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "split": {
+    "list": "Resize conversation list",
+    "context": "Resize side panel",
+    "nav": "Resize communication sidebar",
+    "resetHint": "Drag to resize. Double-click or press Enter to reset."
   }
 }

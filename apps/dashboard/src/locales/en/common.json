@@ -10,6 +10,7 @@
     "enable": "Enable",
     "disable": "Disable",
     "signOut": "Sign out",
-    "retry": "Retry"
+    "retry": "Retry",
+    "close": "Close"
   }
 }

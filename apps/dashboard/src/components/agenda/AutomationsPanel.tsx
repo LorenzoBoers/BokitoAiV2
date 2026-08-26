@@ -34,6 +34,7 @@ import {
   type Workstream,
   type WorkstreamStep,
 } from '../../lib/orchestration-api'
+import { translateDecisionText } from '../../lib/activity-labels'
 import { WebhookTriggerPanel } from './WebhookTriggerPanel'
 
 type RuntimeProfileItem = { id: string; name: string; model: string; role_tag: string }
@@ -52,17 +53,32 @@ function runStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
   return 'outline'
 }
 
-function triggerSchedule(t: Trigger): string {
-  if (t.kind === 'cron') return t.cron_expr
-  if (t.kind === 'webhook') return 'on webhook'
-  if (t.kind === 'once' || t.kind === 'event') {
-    const at = t.next_run_at ?? t.last_run_at
-    return at ? formatWhen(at) : 'unscheduled'
+function triggerSchedule(
+  trigger: Trigger,
+  t: (key: string, opts?: { count?: number }) => string,
+): string {
+  if (trigger.kind === 'cron') return trigger.cron_expr
+  if (trigger.kind === 'webhook') return t('agendaPage.schedule.webhook')
+  if (trigger.kind === 'once' || trigger.kind === 'event') {
+    const at = trigger.next_run_at ?? trigger.last_run_at
+    return at ? formatWhen(at) : t('agendaPage.schedule.unscheduled')
   }
-  const minutes = t.interval_minutes || 60
-  if (minutes % 1440 === 0) return `every ${minutes / 1440}d`
-  if (minutes % 60 === 0) return `every ${minutes / 60}h`
-  return `every ${minutes}m`
+  const minutes = trigger.interval_minutes || 60
+  if (minutes % 1440 === 0) {
+    const days = minutes / 1440
+    return days === 1
+      ? t('agendaPage.schedule.everyDay')
+      : t('agendaPage.schedule.everyDays', { count: days })
+  }
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60
+    return hours === 1
+      ? t('agendaPage.schedule.everyHour')
+      : t('agendaPage.schedule.everyHours', { count: hours })
+  }
+  return minutes === 1
+    ? t('agendaPage.schedule.everyMinute')
+    : t('agendaPage.schedule.everyMinutes', { count: minutes })
 }
 
 type AutomationsPanelProps = {
@@ -341,19 +357,22 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                               trigger.enabled ? 'text-text-heading' : 'text-text-muted',
                             )}
                           >
-                            {trigger.name}
+                            {translateDecisionText(trigger.name, t)}
                           </span>
                           <span className="ml-2 text-text-muted">
                             {(() => {
+                              const displayName = translateDecisionText(trigger.name, t)
                               const kindLabel = t(`triggerDialog.kinds.${trigger.kind}`, {
                                 defaultValue: trigger.kind,
                               })
-                              const name = trigger.name.trim().toLowerCase()
+                              const name = displayName.trim().toLowerCase()
                               const hideKind =
-                                name === kindLabel.toLowerCase() || name === String(trigger.kind).toLowerCase()
+                                name === kindLabel.toLowerCase() ||
+                                name === String(trigger.kind).toLowerCase()
+                              const schedule = triggerSchedule(trigger, t)
                               return hideKind
-                                ? triggerSchedule(trigger)
-                                : `${kindLabel} · ${triggerSchedule(trigger)}`
+                                ? ` · ${schedule}`
+                                : ` · ${kindLabel} · ${schedule}`
                             })()}
                           </span>
                         </div>
@@ -380,8 +399,8 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                           disabled={runningId === trigger.id}
                           aria-label={
                             trigger.enabled
-                              ? t('agendaPage.pauseTrigger', { name: trigger.name })
-                              : t('agendaPage.activateTrigger', { name: trigger.name })
+                              ? t('agendaPage.pauseTrigger', { name: translateDecisionText(trigger.name, t) })
+                              : t('agendaPage.activateTrigger', { name: translateDecisionText(trigger.name, t) })
                           }
                           onCheckedChange={() => void toggleTrigger(trigger)}
                           className="h-5 w-9 [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-[16px]"

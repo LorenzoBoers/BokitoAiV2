@@ -39,6 +39,7 @@ export const workforceRoutes = {
     detail: (agentId: string) => `/agents/${encodeURIComponent(agentId)}`,
     timeline: '/timeline',
     status: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/status`,
+    lead: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/lead`,
     chatAccess: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/chat-access`,
   },
   os: {

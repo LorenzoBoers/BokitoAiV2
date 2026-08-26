@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, FileText, Search } from 'lucide-react'
 import MarkdownView from '../components/docs/MarkdownView'
+import { formatAppDate } from '../lib/app-locale'
 import {
   getHelpArticle,
   getHelpCenter,
@@ -10,9 +11,9 @@ import {
   type HelpCenterIndex,
 } from '../lib/help-api'
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, language?: string | null): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return formatAppDate(new Date(iso), language, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -24,7 +25,7 @@ function formatDate(iso: string): string {
 
 /** Public help center: published knowledge-base articles, no login required. */
 export default function HelpCenter() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { tenantSlug = '', articleSlug } = useParams<{
     tenantSlug: string
     articleSlug?: string
@@ -127,7 +128,7 @@ export default function HelpCenter() {
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">{article.title}</h1>
             <p className="mt-1 mb-6 text-xs text-muted-foreground">
-              {t('helpPublic.updated', { date: formatDate(article.updated_at) })}
+              {t('helpPublic.updated', { date: formatDate(article.updated_at, i18n.language) })}
             </p>
             <MarkdownView content={article.content} />
           </article>

@@ -11,6 +11,7 @@ import {
   type CatalogModel,
   type TenantModelRow,
 } from '../../lib/models-api'
+import { humanizeModelId } from '../../lib/model-label'
 
 type Props = {
   agentId: string
@@ -49,6 +50,13 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
   }, [token, reloadKey, t])
 
   const current = models.find((m) => m.slug === currentModel || m.model_id === currentModel)
+  const currentLabel = current?.display_name || humanizeModelId(currentModel)
+  const providerLabel =
+    current && 'provider_type' in current && current.provider_type
+      ? current.provider_type
+      : current && 'provider' in current
+        ? current.provider
+        : ''
 
   const onSelect = useCallback(
     async (slug: string) => {
@@ -85,7 +93,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             disabled={busy}
             className="min-w-[220px] rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] text-text-primary disabled:opacity-50"
           >
-            {!current ? <option value="">{currentModel || t('workforce.agents.selectModel')}</option> : null}
+            {!current ? <option value="">{currentLabel || t('workforce.agents.selectModel')}</option> : null}
             {models.map((m) => (
               <option key={m.slug} value={m.slug}>
                 {m.display_name}
@@ -94,18 +102,16 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
           </select>
         ) : (
           <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2.5 py-1 text-[12px] text-text-secondary">
-            {current?.display_name ?? currentModel ?? t('workforce.agents.defaultModel')}
+            {currentLabel || t('workforce.agents.defaultModel')}
           </span>
         )}
         {current ? (
           <span className="text-[11px] text-text-muted">
-            {'provider_type' in current && current.provider_type
-              ? current.provider_type
-              : 'provider' in current
-                ? current.provider
-                : ''}{' '}
-            · in ${(current.input_cost_per_mtok_cents / 100).toFixed(2)}/Mtok · out $
-            {(current.output_cost_per_mtok_cents / 100).toFixed(2)}/Mtok
+            {providerLabel ? `${providerLabel} · ` : ''}
+            {t('workforce.agents.modelCost', {
+              input: (current.input_cost_per_mtok_cents / 100).toFixed(2),
+              output: (current.output_cost_per_mtok_cents / 100).toFixed(2),
+            })}
           </span>
         ) : null}
       </div>

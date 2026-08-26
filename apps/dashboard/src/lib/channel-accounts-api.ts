@@ -1,7 +1,14 @@
 /** Connected channel accounts (webchat, Slack, ...) for the Channels rail. */
 
 import { appRoutes } from '../api/routes/app.routes'
-import { apiDelete, apiGet, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+
+export type ChannelVisibilityMode = 'everyone' | 'selected'
+
+export type ChannelAccountVisibility = {
+  mode: ChannelVisibilityMode
+  userIds: string[]
+}
 
 export type ChannelAccountRow = {
   id: string
@@ -10,6 +17,19 @@ export type ChannelAccountRow = {
   address: string
   displayName: string
   isEnabled: boolean
+  visibility: ChannelAccountVisibility
+}
+
+function normalizeVisibility(raw: unknown): ChannelAccountVisibility {
+  if (raw && typeof raw === 'object') {
+    const value = raw as Record<string, unknown>
+    const mode = value.mode === 'selected' ? 'selected' : 'everyone'
+    const userIds = Array.isArray(value.user_ids)
+      ? value.user_ids.filter((u): u is string => typeof u === 'string')
+      : []
+    return { mode, userIds }
+  }
+  return { mode: 'everyone', userIds: [] }
 }
 
 function normalizeAccount(row: unknown): ChannelAccountRow | null {
@@ -24,7 +44,22 @@ function normalizeAccount(row: unknown): ChannelAccountRow | null {
     address: typeof raw.address === 'string' ? raw.address : '',
     displayName: typeof raw.display_name === 'string' ? raw.display_name : '',
     isEnabled: raw.is_enabled !== false,
+    visibility: normalizeVisibility(raw.visibility),
   }
+}
+
+export async function updateChannelAccountVisibility(
+  token: string,
+  accountId: string,
+  mode: ChannelVisibilityMode,
+  userIds: string[],
+): Promise<ChannelAccountRow | null> {
+  const raw = await apiPatch<Record<string, unknown>>(
+    appRoutes.channelAccounts.visibility(accountId),
+    { mode, user_ids: mode === 'selected' ? userIds : [] },
+    token,
+  )
+  return normalizeAccount(raw)
 }
 
 export async function listChannelAccounts(token: string): Promise<ChannelAccountRow[]> {

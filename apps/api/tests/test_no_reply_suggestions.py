@@ -12,6 +12,7 @@ from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
 from app.services.automated_mail import (
     classify_automated_email,
+    clip_with_ellipsis,
     extract_no_reply_summary,
     is_no_reply_address,
 )
@@ -89,6 +90,18 @@ def test_classify_automated_headers():
     assert not classify_automated_email("klant@bedrijf.nl", {"return-path": "<klant@bedrijf.nl>"})[
         "automated"
     ]
+
+
+def test_clip_with_ellipsis_cuts_on_a_word():
+    raw = (
+        "Hallo Lorenzo, Best verkocht Topmerken Help Mijn account Verkoop Zoeken "
+        "Artikelen zijn bevestigd We willen u alleen laten weten dat de volgende "
+        "item(s) van uw Fruugo bestelling 242125383 zijn bevestigd."
+    )
+    out = clip_with_ellipsis(raw, 80)
+    assert out.endswith("...")
+    assert "beves" not in out
+    assert "  " not in out
 
 
 def test_extract_no_reply_sentinel():

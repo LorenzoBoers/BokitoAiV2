@@ -11,7 +11,6 @@ import {
   MessageCircle,
   MessageSquare,
   Plus,
-  Puzzle,
   Settings,
   Sparkles,
 } from 'lucide-react'
@@ -22,6 +21,7 @@ import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { bokitoListChatTargets, type ChatTarget } from '../../lib/bokito-api'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
+import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
@@ -36,7 +36,6 @@ import {
   type HubLeaf,
   type InboxQueue,
 } from '../../lib/messages-paths'
-import { ASSISTANT_DEFAULT_PATH } from '../../lib/assistant-settings-path'
 import NavCountBadge from '../layout/NavCountBadge'
 import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
@@ -51,13 +50,14 @@ function navLinkClass(isActive: boolean) {
 }
 
 const PRIMARY_INBOX_QUEUES: ReadonlyArray<InboxQueue> = ['all', 'mine', 'open', 'unassigned']
-const MORE_INBOX_QUEUES: ReadonlyArray<InboxQueue> = ['closed', 'spam']
+const MORE_INBOX_QUEUES: ReadonlyArray<InboxQueue> = ['snoozed', 'closed', 'spam']
 
 const INBOX_QUEUE_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string; defaultLabel: string }> = [
   { queue: 'all', labelKey: 'support.inbox.all', defaultLabel: 'All' },
   { queue: 'mine', labelKey: 'support.inbox.mine', defaultLabel: 'Mine' },
   { queue: 'open', labelKey: 'support.inbox.open', defaultLabel: 'Open' },
   { queue: 'unassigned', labelKey: 'support.inbox.unassigned', defaultLabel: 'Unassigned' },
+  { queue: 'snoozed', labelKey: 'support.inbox.snoozed', defaultLabel: 'Snoozed' },
   { queue: 'closed', labelKey: 'support.inbox.closed', defaultLabel: 'Closed' },
   { queue: 'spam', labelKey: 'support.inbox.spam', defaultLabel: 'Spam' },
 ]
@@ -165,7 +165,7 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
           key={conn.id}
           leaf={{ type: 'channel', channelKey: 'email', connectionId: String(conn.id) }}
           to={channelPath('email', { connectionId: conn.id })}
-          label={conn.displayName || conn.mailboxEmail}
+          label={mailboxDisplayLabel(conn.displayName, conn.mailboxEmail)}
           icon={<Mail size={14} className="shrink-0 text-text-muted" />}
           activeLeaf={activeLeaf}
         />
@@ -188,7 +188,7 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
         <LeafLink
           leaf={{ type: 'channel', channelKey: 'whatsapp' }}
           to={channelPath('whatsapp')}
-          label="WhatsApp"
+          label={t('support.channels.whatsapp')}
           icon={<MessageCircle size={14} className="shrink-0 text-text-muted" />}
           activeLeaf={activeLeaf}
         />
@@ -197,7 +197,7 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
         <LeafLink
           leaf={{ type: 'channel', channelKey: 'slack' }}
           to={channelPath('slack')}
-          label="Slack"
+          label={t('support.channels.slack')}
           icon={<Hash size={14} className="shrink-0 text-text-muted" />}
           activeLeaf={activeLeaf}
         />
@@ -286,25 +286,10 @@ function SettingsSection({ t }: { t: TFn }) {
           {t('support.settings.assistant')}
         </span>
       </NavLink>
-      <NavLink to={ASSISTANT_DEFAULT_PATH} className={({ isActive }) => navLinkClass(isActive)}>
-        <Globe size={14} className="shrink-0 text-text-muted" />
+      <NavLink to="/settings" end className={({ isActive }) => navLinkClass(isActive)}>
+        <Settings size={14} className="shrink-0 text-text-muted" />
         <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.widget')}
-        </span>
-      </NavLink>
-      <NavLink
-        to="/settings/marketplace?kind=inbox"
-        className={({ isActive }) => navLinkClass(isActive)}
-      >
-        <Puzzle size={14} className="shrink-0 text-text-muted" />
-        <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.integrations')}
-        </span>
-      </NavLink>
-      <NavLink to="/settings/setup" className={({ isActive }) => navLinkClass(isActive)}>
-        <Sparkles size={14} className="shrink-0 text-text-muted" />
-        <span className="min-w-0 flex-1 truncate">
-          {t('support.settings.setupGuide')}
+          {t('support.settings.allSettings')}
         </span>
       </NavLink>
     </div>

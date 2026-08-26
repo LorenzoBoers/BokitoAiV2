@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Flag, Forward, Hand, ListPlus, Mail, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, UserPlus, X } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -24,6 +24,8 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
+import { translateDecisionText } from '../../lib/activity-labels'
+import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import {
   isInternalThread,
   resolveComposerSurface,
@@ -38,6 +40,7 @@ import { bokitoListChatTargets, type ChatTarget } from '../../lib/bokito-api'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, tokenizeMentions, type MentionItem } from '../../lib/mentions'
 import { createAgentTask } from '../../lib/orchestration-api'
+import { SNOOZE_PRESETS, snoozeUntilIso } from '../../lib/snooze'
 import { toast } from 'sonner'
 
 type TimelineEntry =
@@ -122,7 +125,7 @@ type Props = {
   onBack?: () => void
   onToggleContact?: () => void
   contactOpen?: boolean
-  onDecisionResolved?: () => void
+  onDecisionResolved?: (info?: { closed?: boolean }) => void
   /**
    * Composer behavior: `customer` threads get the reply/note composer,
    * `agent` (internal) threads get a note-only composer with an
@@ -1040,16 +1043,30 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           </button>
         ) : null}
         <div className="min-w-0 flex-1 leading-tight">
-          <h2 className="text-[13px] font-medium text-text-heading truncate">{thread.emailSubject}</h2>
+          <h2 className="text-[13px] font-medium text-text-heading truncate">
+            {translateDecisionText(thread.emailSubject, t)}
+          </h2>
           <p className="text-[11px] text-text-muted truncate">
             {isInternalThread(thread) ? (
               `${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`
             ) : thread.contactId ? (
               <Link to={`/contacts/${thread.contactId}`} className="hover:text-accent hover:underline">
-                {thread.contactEmail || thread.contactName || t('listItem.contact')}
+                {humanizeContactName(
+                  thread.contactName,
+                  thread.contactEmail,
+                  t('contactPanel.widgetVisitor'),
+                ) ||
+                  (isPlaceholderContactAddress(thread.contactEmail)
+                    ? t('contactPanel.widgetVisitor')
+                    : thread.contactEmail || t('listItem.contact'))}
               </Link>
             ) : (
-              thread.contactEmail || thread.contactName
+              humanizeContactName(
+                thread.contactName,
+                thread.contactEmail,
+                t('contactPanel.widgetVisitor'),
+              ) ||
+              (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
             )}
           </p>
         </div>
@@ -1109,73 +1126,50 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               {thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
             </TooltipContent>
           </Tooltip>
-          {onForward ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={saving || loading}
-                  onClick={onForward}
-                  aria-label={t('threadChrome.forwardAsEmail')}
-                  className={HEADER_ICON}
-                >
-                  <Forward size={14} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{t('threadChrome.forwardAsEmail')}</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {!isInternalThread(thread) ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() =>
-                    void onPatch({ status: thread.status === 'spam' ? 'open' : 'spam' })
-                  }
-                  aria-label={thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
-                  className={`${HEADER_ICON}${thread.status === 'spam' ? ' text-status-error' : ''}`}
-                >
-                  <OctagonAlert size={14} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
-              </TooltipContent>
-            </Tooltip>
-          ) : null}
-          {onDelete ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={saving || deleting}
-                  onClick={() => void onDelete()}
-                  aria-label={t('threadChrome.delete')}
-                  className={`${HEADER_ICON} hover:text-status-error`}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{t('threadChrome.delete')}</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {onMarkUnread && !thread.hasUnread ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={saving || loading}
-                  onClick={() => void onMarkUnread()}
-                  aria-label={t('threadChrome.markUnread')}
-                  className={HEADER_ICON}
-                >
-                  <Mail size={14} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{t('threadChrome.markUnread')}</TooltipContent>
-            </Tooltip>
+          {!isInternalThread(thread) && thread.status !== 'closed' && thread.status !== 'spam' ? (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      aria-label={
+                        thread.status === 'pending' ? t('threadChrome.resumeNow') : t('threadChrome.snooze')
+                      }
+                      className={`${HEADER_ICON}${thread.status === 'pending' ? ' text-accent' : ''}`}
+                    >
+                      <Clock size={14} />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {thread.status === 'pending' ? t('threadChrome.resumeNow') : t('threadChrome.snooze')}
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="min-w-44">
+                {thread.status === 'pending' ? (
+                  <DropdownMenuItem
+                    onClick={() => void onPatch({ status: 'open', snoozedUntil: null })}
+                  >
+                    {t('threadChrome.resumeNow')}
+                  </DropdownMenuItem>
+                ) : null}
+                {SNOOZE_PRESETS.map((preset) => (
+                  <DropdownMenuItem
+                    key={preset.key}
+                    onClick={() =>
+                      void onPatch({
+                        status: 'pending',
+                        snoozedUntil: snoozeUntilIso(preset),
+                      })
+                    }
+                  >
+                    {t(preset.labelKey)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
           {onToggleTakeover &&
           ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') ? (
@@ -1197,24 +1191,67 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {onTogglePin ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={saving || loading}
-                  onClick={() => void onTogglePin()}
-                  aria-label={thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
-                  aria-pressed={thread.isPinned}
-                  className={`${HEADER_ICON}${thread.isPinned ? ' text-accent' : ''}`}
-                >
-                  {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
-              </TooltipContent>
-            </Tooltip>
+          {onForward ||
+          !isInternalThread(thread) ||
+          onDelete ||
+          (onMarkUnread && !thread.hasUnread) ||
+          onTogglePin ? (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      aria-label={t('threadChrome.moreActions')}
+                      className={HEADER_ICON}
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{t('threadChrome.moreActions')}</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="min-w-44">
+                {onForward ? (
+                  <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => onForward()}>
+                    <Forward size={13} />
+                    {t('threadChrome.forwardAsEmail')}
+                  </DropdownMenuItem>
+                ) : null}
+                {!isInternalThread(thread) ? (
+                  <DropdownMenuItem
+                    className="gap-2"
+                    onClick={() => void onPatch({ status: thread.status === 'spam' ? 'open' : 'spam' })}
+                  >
+                    <OctagonAlert size={13} />
+                    {thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
+                  </DropdownMenuItem>
+                ) : null}
+                {onMarkUnread && !thread.hasUnread ? (
+                  <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => void onMarkUnread()}>
+                    <Mail size={13} />
+                    {t('threadChrome.markUnread')}
+                  </DropdownMenuItem>
+                ) : null}
+                {onTogglePin ? (
+                  <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => void onTogglePin()}>
+                    {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+                    {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
+                  </DropdownMenuItem>
+                ) : null}
+                {onDelete ? (
+                  <DropdownMenuItem
+                    disabled={deleting}
+                    className="gap-2 text-status-error"
+                    onClick={() => void onDelete()}
+                  >
+                    <Trash2 size={13} />
+                    {t('threadChrome.delete')}
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
           {onToggleContact ? (
             <Tooltip>
@@ -1255,44 +1292,21 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       {!isInternalThread(thread) &&
       thread.status !== 'closed' &&
       thread.status !== 'spam' &&
-      (thread.suggestedActions?.length ?? 0) > 0 ? (
+      thread.status !== 'pending' &&
+      thread.suggestedActions?.includes('create_task') ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated px-3 py-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
             {t('threadChrome.next')}
           </span>
-          {thread.suggestedActions?.includes('close') ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void onPatch({ status: 'closed' })}
-              className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
-            >
-              <Archive size={11} />
-              {t('threadChrome.closeThread')}
-            </button>
-          ) : null}
-          {thread.suggestedActions?.includes('assign') && !thread.assignedToUserId && myMemberId != null ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void onPatch({ assignedToUserId: myMemberId })}
-              className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
-            >
-              <UserPlus size={11} />
-              {t('threadChrome.assignToMe')}
-            </button>
-          ) : null}
-          {thread.suggestedActions?.includes('create_task') ? (
-            <button
-              type="button"
-              disabled={creatingTask}
-              onClick={() => void handleCreateTaskFromThread()}
-              className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
-            >
-              <ListPlus size={11} />
-              {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            disabled={creatingTask}
+            onClick={() => void handleCreateTaskFromThread()}
+            className="flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary disabled:opacity-40"
+          >
+            <ListPlus size={11} />
+            {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
+          </button>
         </div>
       ) : null}
 
@@ -1339,13 +1353,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 const prevItem = index > 0 ? items[index - 1] : null
                 const showTime =
                   item.kind === 'message' &&
-                  (!prevItem || formatHourMinute(prevItem.time) !== formatHourMinute(item.time))
+                  (!prevItem || formatHourMinute(prevItem.time, i18n.language) !== formatHourMinute(item.time, i18n.language))
                 return (
                 <div key={item.id} className={item.kind === 'events' ? 'mb-1.5' : 'mb-3'}>
                   {showTime ? (
                     <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
                       <span className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40">
-                        {formatHourMinute(item.time)}
+                        {formatHourMinute(item.time, i18n.language)}
                       </span>
                     </div>
                   ) : null}
@@ -1461,7 +1475,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             onAskAssistant && isInternalThread(thread) ? (
               <Button size="sm" variant="secondary" onClick={onAskAssistant} className="gap-1.5 border-ai/25 bg-ai/10 text-ai-ink hover:bg-ai/15">
                 <Sparkles size={12} />
-                Ask assistant
+                {t('threadChrome.askAssistant')}
               </Button>
             ) : !isInternalThread(thread) ? (
               <div className="flex items-center gap-2">

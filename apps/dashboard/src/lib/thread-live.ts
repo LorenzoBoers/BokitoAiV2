@@ -87,7 +87,8 @@ export function threadMatchesFilters(
     case 'pending':
       return thread.status === 'pending'
     case 'snoozed':
-      return thread.status === 'pending' && thread.snoozedUntil != null
+      // Timed wake and "until the customer replies" both live here.
+      return thread.status === 'pending'
     case 'closed':
       return thread.status === 'closed'
     case 'spam':

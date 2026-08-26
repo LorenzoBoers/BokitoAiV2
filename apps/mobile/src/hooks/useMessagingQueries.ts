@@ -6,11 +6,19 @@ import {
   createConversation,
   deleteConversation,
   deleteThread,
+  deleteThreadNote,
+  getCockpitSummary,
+  getNotificationPreferences,
   getThread,
   listChatMessages,
   listChatTargets,
   listConversations,
+  listDecisions,
+  listNotifications,
+  listSavedReplies,
+  listSignalMembers,
   listThreads,
+  listWorkspaces,
   markThreadRead,
   markThreadUnread,
   patchThread,
@@ -21,6 +29,7 @@ import {
   resolveThreadDecision,
   takeoverThread,
   unpinThread,
+  updateThreadNote,
   type Attachment,
   type PatchThreadInput,
   type ReplyAction,
@@ -37,6 +46,13 @@ export const messagingKeys = {
   conversations: ['conversations'] as const,
   chatMessages: (id: string) => ['chatMessages', id] as const,
   chatTargets: ['chatTargets'] as const,
+  decisions: ['decisions'] as const,
+  cockpit: ['cockpit'] as const,
+  notificationPrefs: ['notificationPrefs'] as const,
+  notifications: ['notifications'] as const,
+  workspaces: ['workspaces'] as const,
+  savedReplies: ['savedReplies'] as const,
+  members: ['signalMembers'] as const,
 }
 
 export function useGatewayInvalidation() {
@@ -51,12 +67,21 @@ export function useGatewayInvalidation() {
         void queryClient.invalidateQueries({ queryKey: ['threads'] })
         void queryClient.invalidateQueries({ queryKey: messagingKeys.badgeCounts })
         void queryClient.invalidateQueries({ queryKey: messagingKeys.conversations })
+        void queryClient.invalidateQueries({ queryKey: messagingKeys.decisions })
+        void queryClient.invalidateQueries({ queryKey: messagingKeys.cockpit })
+        void queryClient.invalidateQueries({ queryKey: messagingKeys.notifications })
       }, 600)
     }
 
     const unsubThreads = onGatewayEvent('threads', invalidateThreads)
+    const unsubDecisions = onGatewayEvent('decisions', invalidateThreads)
+    const unsubNotification = onGatewayEvent('notification', invalidateThreads)
+    const unsubNotifications = onGatewayEvent('notifications', invalidateThreads)
     return () => {
       unsubThreads()
+      unsubDecisions()
+      unsubNotification()
+      unsubNotifications()
       if (debounce) clearTimeout(debounce)
     }
   }, [queryClient])
@@ -142,6 +167,62 @@ export function useChatTargets() {
   })
 }
 
+export function useDecisions() {
+  return useQuery({
+    queryKey: messagingKeys.decisions,
+    queryFn: () => listDecisions('awaiting_human'),
+    staleTime: 15_000,
+  })
+}
+
+export function useCockpitSummary() {
+  return useQuery({
+    queryKey: messagingKeys.cockpit,
+    queryFn: getCockpitSummary,
+    staleTime: 30_000,
+  })
+}
+
+export function useNotificationPreferences() {
+  return useQuery({
+    queryKey: messagingKeys.notificationPrefs,
+    queryFn: getNotificationPreferences,
+    staleTime: 60_000,
+  })
+}
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: messagingKeys.notifications,
+    queryFn: () => listNotifications(),
+    staleTime: 15_000,
+  })
+}
+
+export function useWorkspaces() {
+  return useQuery({
+    queryKey: messagingKeys.workspaces,
+    queryFn: listWorkspaces,
+    staleTime: 60_000,
+  })
+}
+
+export function useSavedReplies() {
+  return useQuery({
+    queryKey: messagingKeys.savedReplies,
+    queryFn: listSavedReplies,
+    staleTime: 60_000,
+  })
+}
+
+export function useSignalMembers() {
+  return useQuery({
+    queryKey: messagingKeys.members,
+    queryFn: listSignalMembers,
+    staleTime: 60_000,
+  })
+}
+
 export function useThreadMutations(threadId: string) {
   const queryClient = useQueryClient()
 
@@ -180,12 +261,21 @@ export function useThreadMutations(threadId: string) {
       messageId,
       action,
       optionId,
+      body,
+      subject,
+      sendAs,
     }: {
       messageId: string
       action: ResolveAction
       optionId?: string
-    }) => resolveThreadDecision(threadId, messageId, action, { optionId }),
-    onSuccess: invalidate,
+      body?: string
+      subject?: string
+      sendAs?: 'user' | 'agent'
+    }) => resolveThreadDecision(threadId, messageId, action, { optionId, body, subject, sendAs }),
+    onSuccess: () => {
+      invalidate()
+      void queryClient.invalidateQueries({ queryKey: messagingKeys.decisions })
+    },
   })
 
   const pin = useMutation({
@@ -211,7 +301,18 @@ export function useThreadMutations(threadId: string) {
     },
   })
 
-  return { patch, reply, note, resolveDecision, pin, takeover, markUnread, remove }
+  const updateNote = useMutation({
+    mutationFn: ({ messageId, bodyText }: { messageId: string; bodyText: string }) =>
+      updateThreadNote(threadId, messageId, bodyText),
+    onSuccess: invalidate,
+  })
+
+  const removeNote = useMutation({
+    mutationFn: (messageId: string) => deleteThreadNote(threadId, messageId),
+    onSuccess: invalidate,
+  })
+
+  return { patch, reply, note, resolveDecision, pin, takeover, markUnread, remove, updateNote, removeNote }
 }
 
 export function useConversationMutations() {
@@ -222,8 +323,15 @@ export function useConversationMutations() {
   }
 
   const create = useMutation({
-    mutationFn: ({ title, agentId }: { title?: string; agentId?: string }) =>
-      createConversation(title, agentId),
+    mutationFn: ({
+      title,
+      agentId,
+      contextSignalId,
+    }: {
+      title?: string
+      agentId?: string
+      contextSignalId?: string
+    }) => createConversation(title, agentId, contextSignalId),
     onSuccess: invalidate,
   })
 

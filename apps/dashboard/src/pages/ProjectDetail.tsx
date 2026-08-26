@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Bot,
   Copy,
+  FileText,
   GitBranch,
   Loader2,
   MessageSquare,
@@ -15,6 +16,7 @@ import {
   Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -24,14 +26,18 @@ import { Badge } from '../components/ui/badge'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { LoadingBlock } from '../components/ui/loading-block'
+import { ProjectAgentsSection } from '../components/projects/ProjectAgentsSection'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { ProjectOrchestratorSection } from '../components/projects/ProjectOrchestratorSection'
 import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useAuth } from '../context/AuthContext'
 import { listAgents } from '../lib/agents-api'
-import { flowStatusLabel } from '../lib/status-labels'
+import { workLogRunsPath } from '../lib/agenda-thread'
+import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { inboxPath } from '../lib/messages-paths'
+import { flowStatusLabel } from '../lib/status-labels'
 import {
   deleteProject,
   getProject,
@@ -63,11 +69,13 @@ export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
+  const { token } = useAuth()
 
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [budget, setBudget] = useState<ProjectBudgetResponse | null>(null)
   const [workstreams, setWorkstreams] = useState<ProjectWorkstreamRow[]>([])
   const [runs, setRuns] = useState<WorkLogRow[]>([])
+  const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -93,15 +101,17 @@ export default function ProjectDetail() {
       setName(row.name)
       setDescription(row.description ?? '')
       // Secondary data may fail independently without blocking the page.
-      const [budgetResult, streamsResult, runsResult, agentsResult] = await Promise.allSettled([
+      const [budgetResult, streamsResult, runsResult, agentsResult, threadsResult] = await Promise.allSettled([
         getProjectBudget(projectId),
         listProjectWorkstreams(projectId),
         listWorkLogs({ project_id: projectId, limit: 10 }),
         listAgents(),
+        token ? listThreads(token, { folder: 'internal', perPage: 80 }) : Promise.reject(new Error('signed out')),
       ])
       setBudget(budgetResult.status === 'fulfilled' ? budgetResult.value : null)
       setWorkstreams(streamsResult.status === 'fulfilled' ? streamsResult.value.items : [])
       setRuns(runsResult.status === 'fulfilled' ? runsResult.value : [])
+      setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
       setAgents(
         agentsResult.status === 'fulfilled'
           ? agentsResult.value.map((a) => ({ id: a.id, name: a.name }))
@@ -112,7 +122,7 @@ export default function ProjectDetail() {
     } finally {
       setLoading(false)
     }
-  }, [projectId, t])
+  }, [projectId, t, token])
 
   useEffect(() => {
     void load()
@@ -197,6 +207,12 @@ export default function ProjectDetail() {
                   {t('projects.detail.viewThreads')}
                 </Link>
               </Button>
+              <Button asChild type="button" size="sm" variant="outline">
+                <Link to="/knowledge">
+                  <FileText size={14} className="mr-1" />
+                  {t('projects.detail.openKnowledge')}
+                </Link>
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -220,6 +236,7 @@ export default function ProjectDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <ProjectOrchestratorSection project={project} agents={agents} onChanged={load} />
+                <ProjectAgentsSection projectId={project.id} agents={agents} />
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs text-text-muted">
                     <Workflow size={12} />
@@ -228,7 +245,7 @@ export default function ProjectDetail() {
                   {workstreams.length === 0 ? (
                     <p className="text-sm text-text-muted">
                       {t('projects.detail.noFlows')}{' '}
-                      <Link to="/agenda" className="text-accent hover:underline">
+                      <Link to={AGENDA_AUTOMATIONS_PATH} className="text-accent hover:underline">
                         {t('projects.detail.addOnAgenda')}
                       </Link>
                     </p>
@@ -247,7 +264,7 @@ export default function ProjectDetail() {
                               ) : (
                                 <>
                                   {t('projects.detail.noSteps')}{' '}
-                                  <Link to="/agenda" className="text-accent hover:underline">
+                                  <Link to={AGENDA_AUTOMATIONS_PATH} className="text-accent hover:underline">
                                     {t('projects.detail.addOnAgenda')}
                                   </Link>
                                 </>
@@ -320,7 +337,7 @@ export default function ProjectDetail() {
                             toast.success(
                               <span>
                                 {t('projects.detail.created')}{' '}
-                                <Link to="/agenda" className="font-medium underline">
+                                <Link to={AGENDA_AUTOMATIONS_PATH} className="font-medium underline">
                                   {t('projects.detail.addOnAgenda')}
                                 </Link>
                               </span>,
@@ -446,7 +463,7 @@ export default function ProjectDetail() {
               <Card className="p-4">
                 <p className="text-sm text-text-muted">{t('projects.detail.noRuns')}</p>
                 <div className="mt-2 flex flex-wrap gap-3">
-                  <Link to="/agenda" className="text-sm font-medium text-accent hover:underline">
+                  <Link to={AGENDA_AUTOMATIONS_PATH} className="text-sm font-medium text-accent hover:underline">
                     {t('projects.detail.scheduleRun')}
                   </Link>
                   <Link to={threadsHref} className="text-sm font-medium text-accent hover:underline">
@@ -458,7 +475,17 @@ export default function ProjectDetail() {
               <WorkLogsTable
                 runs={runs}
                 projects={[project]}
-                runTo={workLogDetailUrl}
+                runTo={(run) =>
+                  workLogRunsPath(
+                    run,
+                    internalThreads.map((row) => ({
+                      id: String(row.id),
+                      emailSubject: row.emailSubject,
+                      lastMessageAt: row.lastMessageAt,
+                    })),
+                    workLogDetailUrl(run),
+                  )
+                }
                 showProjectColumn={false}
               />
             )}

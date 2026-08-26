@@ -1,3 +1,5 @@
+import { formatAppDate, formatAppTime } from './app-locale'
+
 /** Shared snooze duration presets for the inbox (composer + thread menu).
  *
  * Presets resolve to minutes-from-now; `null` means "until the customer
@@ -6,7 +8,7 @@
 
 export type SnoozePreset = {
   key: string
-  label: string
+  labelKey: string
   /** Minutes from now, or null for "until reply". */
   minutes: () => number | null
 }
@@ -32,11 +34,11 @@ function nextMondayMorning(): Date {
 }
 
 export const SNOOZE_PRESETS: readonly SnoozePreset[] = [
-  { key: '1h', label: '1 hour', minutes: () => 60 },
-  { key: '4h', label: '4 hours', minutes: () => 240 },
-  { key: 'tomorrow', label: 'Tomorrow 9:00', minutes: () => minutesUntil(tomorrowMorning()) },
-  { key: 'next-week', label: 'Next Monday 9:00', minutes: () => minutesUntil(nextMondayMorning()) },
-  { key: 'until-reply', label: 'Until customer replies', minutes: () => null },
+  { key: '1h', labelKey: 'snooze.1h', minutes: () => 60 },
+  { key: '4h', labelKey: 'snooze.4h', minutes: () => 240 },
+  { key: 'tomorrow', labelKey: 'snooze.tomorrow', minutes: () => minutesUntil(tomorrowMorning()) },
+  { key: 'next-week', labelKey: 'snooze.nextWeek', minutes: () => minutesUntil(nextMondayMorning()) },
+  { key: 'until-reply', labelKey: 'snooze.untilReply', minutes: () => null },
 ]
 
 /** ISO wake time for a preset, or null for "until reply". */
@@ -46,8 +48,14 @@ export function snoozeUntilIso(preset: SnoozePreset): string | null {
   return new Date(Date.now() + minutes * 60_000).toISOString()
 }
 
+type WakeTranslate = (key: string, opts?: Record<string, string>) => string
+
 /** Compact human label for a wake time (e.g. "Wakes tomorrow 09:00"). */
-export function formatWakeTime(iso: string | null | undefined): string | null {
+export function formatWakeTime(
+  iso: string | null | undefined,
+  t?: WakeTranslate,
+  language?: string | null,
+): string | null {
   if (!iso) return null
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return null
@@ -56,8 +64,9 @@ export function formatWakeTime(iso: string | null | undefined): string | null {
   const tomorrow = new Date(now)
   tomorrow.setDate(now.getDate() + 1)
   const isTomorrow = date.toDateString() === tomorrow.toDateString()
-  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-  if (sameDay) return `Wakes today ${time}`
-  if (isTomorrow) return `Wakes tomorrow ${time}`
-  return `Wakes ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${time}`
+  const time = formatAppTime(date, language)
+  const dateLabel = formatAppDate(date, language, { month: 'short', day: 'numeric' })
+  if (sameDay) return t ? t('snooze.wakesToday', { time }) : `Wakes today ${time}`
+  if (isTomorrow) return t ? t('snooze.wakesTomorrow', { time }) : `Wakes tomorrow ${time}`
+  return t ? t('snooze.wakesOn', { date: dateLabel, time }) : `Wakes ${dateLabel} ${time}`
 }

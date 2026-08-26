@@ -37,6 +37,7 @@ import {
 import { applyBrandToIntegration, resolveProviderBrand } from '../lib/integration-brand'
 import {
   buildIntegrationApplications,
+  localizeApplication,
   resolveApplicationConnectTarget,
   type IntegrationApplication,
   type IntegrationOffer,
@@ -337,7 +338,8 @@ export default function IntegrationsMarketplace() {
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((app) => {
-        if (app.name.toLowerCase().includes(q) || app.description.toLowerCase().includes(q)) {
+        const localized = localizeApplication(app, t)
+        if (localized.name.toLowerCase().includes(q) || localized.description.toLowerCase().includes(q)) {
           return true
         }
         return app.offers.some((offer) => {

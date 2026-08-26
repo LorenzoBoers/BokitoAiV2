@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Tag, X } from 'lucide-react'
+import { Filter, Tag, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { useMembers } from '../../hooks/useMembers'
@@ -33,6 +33,9 @@ type Props = {
   activeTag?: string | null
   /** Set/clear the label filter; omit to make tag chips non-interactive. */
   onTagSelect?: (tag: string | null) => void
+  /** Visible scope when the list is filtered by agent or project. */
+  scopeLabel?: string | null
+  onClearScope?: () => void
   /** Total thread count for the current folder (server-side). */
   total?: number | null
   /** True when more pages exist beyond the loaded threads. */
@@ -75,6 +78,8 @@ export default function ThreadList({
   bulkBusy = false,
   activeTag = null,
   onTagSelect,
+  scopeLabel = null,
+  onClearScope,
   total = null,
   hasMore = false,
   loadingMore = false,
@@ -95,9 +100,7 @@ export default function ThreadList({
 
   return (
     <div
-      className={`${
-        selectedId != null ? 'hidden md:flex' : 'flex'
-      } flex-col h-full min-h-0 w-full md:w-72 shrink-0 border-r border-border/60 bg-bg-surface`}
+      className="flex h-full min-h-0 w-full flex-col border-r border-border/60 bg-bg-surface"
     >
       {selectionActive && onBulkAction && onClearBulkSelection ? (
         <BulkActionsBar
@@ -114,6 +117,23 @@ export default function ThreadList({
           onCompose={onCompose}
         />
       )}
+
+      {scopeLabel && onClearScope ? (
+        <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
+          <Filter size={11} className="shrink-0 text-accent" />
+          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-text-heading">
+            {scopeLabel}
+          </span>
+          <button
+            type="button"
+            aria-label={t('threadList.clearScope')}
+            onClick={onClearScope}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      ) : null}
 
       {activeTag && onTagSelect ? (
         <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
@@ -140,8 +160,24 @@ export default function ThreadList({
             <div className="py-4 px-3 text-xs text-status-error">{error}</div>
           ) : (
             <div className="px-3 py-8 text-center text-xs text-text-muted">
-              <p>{emptyLabel ?? t('threadList.empty')}</p>
-              {emptyHint}
+              <p>
+                {quickFilter === 'unread'
+                  ? t('threadList.emptyUnread')
+                  : quickFilter === 'pinned'
+                    ? t('threadList.emptyPinned')
+                    : emptyLabel ?? t('threadList.empty')}
+              </p>
+              {quickFilter !== 'all' ? (
+                <button
+                  type="button"
+                  onClick={() => onQuickFilterChange('all')}
+                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
+                >
+                  {t('threadList.showAllConversations')}
+                </button>
+              ) : (
+                emptyHint
+              )}
             </div>
           )
         ) : (

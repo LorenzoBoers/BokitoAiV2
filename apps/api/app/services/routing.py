@@ -2,7 +2,7 @@
 
 ChannelBinding rows map inbound threads to agents (OpenClaw agents.mapping
 style). Most specific match wins: contact > channel account > channel-wide.
-Falls back to the tenant's active assistant agent.
+Falls back to the tenant's lead agent.
 """
 
 from __future__ import annotations
@@ -62,31 +62,11 @@ async def resolve_agent_for_channel(
         if agent:
             return agent
 
-    # Fallbacks consider company agents only; personal assistants belong to one user.
-    result = await session.execute(
-        select(Agent)
-        .where(
-            Agent.tenant_id == tenant_id,
-            Agent.role == "assistant",
-            Agent.kind == "company",
-            Agent.is_active.is_(True),
-        )
-        .order_by(Agent.updated_at.desc())
-        .limit(1)
-    )
-    agent = result.scalar_one_or_none()
-    if agent:
-        return agent
-    result = await session.execute(
-        select(Agent)
-        .where(
-            Agent.tenant_id == tenant_id,
-            Agent.kind == "company",
-            Agent.is_active.is_(True),
-        )
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
+    # No binding: the tenant's lead agent handles it (company agents only;
+    # personal assistants belong to one user).
+    from app.services.lead_agent import get_lead_agent
+
+    return await get_lead_agent(session, tenant_id)
 
 
 async def resolve_agent_for_signal(session: AsyncSession, signal: Signal) -> Agent | None:

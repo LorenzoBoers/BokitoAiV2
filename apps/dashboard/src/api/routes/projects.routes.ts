@@ -17,4 +17,7 @@ export const projectsRoutes = {
   workstreamById: (projectId: string, workstreamId: string) =>
     `/projects/${encodeURIComponent(projectId)}/workstreams/${encodeURIComponent(workstreamId)}`,
   poAgent: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/po-agent`,
+  agents: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/agents`,
+  agentById: (projectId: string, agentId: string) =>
+    `/projects/${encodeURIComponent(projectId)}/agents/${encodeURIComponent(agentId)}`,
 } as const

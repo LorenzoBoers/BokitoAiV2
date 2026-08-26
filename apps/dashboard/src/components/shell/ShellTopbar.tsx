@@ -1,4 +1,4 @@
-import { Bell, Building2, ChevronDown, Compass, LogOut, Menu, Search, Sparkles, UserCircle2 } from 'lucide-react'
+import { Bell, Building2, ChevronDown, CircleHelp, Compass, LogOut, Mail, Menu, Search, Sparkles, UserCircle2 } from 'lucide-react'
 import { useLocation, useNavigate, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -19,6 +19,8 @@ import InboxHeaderSearch from '../inbox/InboxHeaderSearch'
 import NotificationDropdown from '../notifications/NotificationDropdown'
 import { useTour } from '../tour/TourContext'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
+import { settingsLinkForPath } from './SettingsLayout'
+import { extraCrumbsForPath } from '../../lib/page-crumbs'
 
 type ShellTopbarProps = {
   onOpenNavDrawer: () => void
@@ -37,7 +39,11 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace()
   const tab = tabFromPath(pathname)
   const pageTitle = tab ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) }) : 'Bokito'
+  const settingsLink = settingsLinkForPath(pathname)
+  const extraCrumbs = extraCrumbsForPath(pathname)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+  const workspaceName = currentWorkspace?.name?.trim() ?? ''
+  const workspaceMatchesBrand = workspaceName.toLowerCase() === 'bokito'
 
   const goToWorkspacesHub = () => {
     // On a tenant subdomain the hub lives on the control-plane host, so cross-navigate
@@ -69,10 +75,51 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
 
       {/* Breadcrumb */}
       <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px]">
-        <NavLink to="/cockpit" className="shrink-0 font-semibold text-text-heading hover:text-accent">
-          Bokito
-        </NavLink>
-        {currentWorkspace ? (
+        {currentWorkspace && workspaceMatchesBrand ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold text-text-heading transition-colors hover:bg-bg-hover/60 hover:text-accent"
+              >
+                <span className="min-w-0 truncate">{workspaceName}</span>
+                <ChevronDown size={12} className="shrink-0 text-text-muted" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>{t('topbar.switchWorkspace')}</DropdownMenuLabel>
+              {workspaces.map((workspace) => (
+                <DropdownMenuItem
+                  key={workspace.id}
+                  onClick={() => {
+                    if (workspace.id !== currentWorkspace.id) void switchWorkspace(workspace.id)
+                  }}
+                  className={workspace.id === currentWorkspace.id ? 'bg-bg-hover text-text-primary' : undefined}
+                >
+                  <Building2 size={14} className="mr-2 text-text-muted" />
+                  <span className="truncate">{workspace.name}</span>
+                  {workspace.id === currentWorkspace.id ? (
+                    <span className="ml-auto text-xs text-text-muted">{t('topbar.current')}</span>
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/cockpit')}>
+                <Building2 size={14} className="mr-2 text-text-muted" />
+                {t('tabs.cockpit.title')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={goToWorkspacesHub}>
+                <Building2 size={14} className="mr-2 text-text-muted" />
+                {t('topbar.allWorkspaces')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <NavLink to="/cockpit" className="shrink-0 font-semibold text-text-heading hover:text-accent">
+            Bokito
+          </NavLink>
+        )}
+        {currentWorkspace && !workspaceMatchesBrand ? (
           <>
             <span className="shrink-0 text-text-muted/60">/</span>
             <DropdownMenu>
@@ -81,7 +128,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
                   type="button"
                   className="flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
                 >
-                  <span className="min-w-0 truncate">{currentWorkspace.name}</span>
+                  <span className="min-w-0 truncate">{workspaceName}</span>
                   <ChevronDown size={12} className="shrink-0 text-text-muted" />
                 </button>
               </DropdownMenuTrigger>
@@ -113,9 +160,33 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         ) : null}
         <span className="shrink-0 text-text-muted/60">/</span>
         <span className="min-w-0 truncate text-text-primary">{pageTitle}</span>
+        {settingsLink ? (
+          <>
+            <span className="shrink-0 text-text-muted/60">/</span>
+            <span className="min-w-0 truncate text-text-secondary">{t(settingsLink.labelKey)}</span>
+          </>
+        ) : null}
+        {extraCrumbs.map((crumb) => (
+          <span key={crumb.labelKey} className="flex min-w-0 items-center gap-1.5">
+            <span className="shrink-0 text-text-muted/60">/</span>
+            <span className="min-w-0 truncate text-text-secondary">{t(crumb.labelKey)}</span>
+          </span>
+        ))}
       </div>
 
       <StaffTenantBar />
+
+      {setupIncomplete ? (
+        <button
+          type="button"
+          onClick={() => navigate('/settings/setup')}
+          className="hidden items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-2.5 py-1.5 text-[12px] font-medium text-accent transition-colors hover:bg-accent/15 md:flex"
+          title={t('topbar.resumeSetup')}
+        >
+          <Sparkles size={12} />
+          <span>{t('topbar.setup')}</span>
+        </button>
+      ) : null}
 
       {/* Inbox thread search (only on Communication routes with list context) */}
       {pathname.startsWith('/communication') ? <InboxHeaderSearch /> : null}
@@ -153,7 +224,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
             className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full ring-0 transition-[box-shadow,transform] duration-200 hover:ring-2 hover:ring-accent/25 active:scale-95"
             aria-label={t('topbar.openUserMenu')}
           >
-            <UserAvatar name={user?.name ?? 'Account'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={30} />
+            <UserAvatar name={user?.name ?? 'Account'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={32} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
@@ -162,9 +233,21 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
             <UserCircle2 size={14} className="mr-2 text-text-muted" />
             {t('topbar.profile')}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/learn')}>
+            <CircleHelp size={14} className="mr-2 text-text-muted" />
+            {t('topbar.help')}
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate('/settings/notifications')}>
             <Bell size={14} className="mr-2 text-text-muted" />
             {t('topbar.notifications')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/settings/channels')}>
+            <Mail size={14} className="mr-2 text-text-muted" />
+            {t('topbar.emailMessages')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/settings/communication')}>
+            <Sparkles size={14} className="mr-2 text-text-muted" />
+            {t('topbar.inboxAi')}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={goToWorkspacesHub}>
             <Building2 size={14} className="mr-2 text-text-muted" />

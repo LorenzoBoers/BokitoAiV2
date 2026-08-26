@@ -43,6 +43,8 @@ import {
   summarizeDiff,
 } from '../lib/govern-labels'
 import { agentAutonomyLevelLabel } from '../lib/labels'
+import { agentRoleLabel } from '../lib/agent-role-label'
+import { formatPermissionScopes } from '../lib/permission-scope-label'
 import { cn } from '../lib/utils'
 import {
   Dialog,
@@ -280,7 +282,7 @@ export default function GovernPage() {
                     <p className="text-sm text-text-muted">{t('drafts.empty')}</p>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" asChild>
-                        <Link to="/communication/inbox/all">{t('drafts.openCommunication')}</Link>
+                        <Link to={inboxPath('open')}>{t('drafts.openCommunication')}</Link>
                       </Button>
                       <Button size="sm" variant="outline" asChild>
                         <Link to="/agents">{t('drafts.openAgents')}</Link>
@@ -360,6 +362,15 @@ export default function GovernPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-xs text-text-muted">{t('posture.intro')}</p>
+                <p className="text-xs text-text-muted">{t('posture.perAgentHint')}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+                    {t('drafts.openAgents')}
+                  </Link>
+                  <Link to="/settings/communication" className="text-xs font-medium text-accent hover:underline">
+                    {t('drafts.openInboxAi')}
+                  </Link>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {POSTURE_ORDER.map((id) => {
                     const active = posture === id
@@ -557,7 +568,7 @@ export default function GovernPage() {
                           <Link to="/settings/govern?tab=drafts">{t('history.openDrafts')}</Link>
                         </Button>
                         <Button size="sm" variant="outline" asChild>
-                          <Link to="/communication/inbox/all">{t('drafts.openCommunication')}</Link>
+                          <Link to={inboxPath('open')}>{t('drafts.openCommunication')}</Link>
                         </Button>
                       </div>
                     }
@@ -628,7 +639,7 @@ export default function GovernPage() {
                     <div key={String(row.id)} className="rounded-lg border border-border p-3">
                       <p className="text-sm font-medium text-text-heading">
                         {String(row.name)}{' '}
-                        <span className="text-text-muted font-normal">({String(row.role)})</span>
+                        <span className="text-text-muted font-normal">({agentRoleLabel(String(row.role), tNav)})</span>
                       </p>
                       <p className="text-xs text-text-muted mt-1">
                         {t('passports.autonomy', {
@@ -640,9 +651,11 @@ export default function GovernPage() {
                       </p>
                       <p className="text-xs text-text-muted mt-1 break-words">
                         {t('passports.scopes', {
-                          scopes: Array.isArray(row.permission_scopes)
-                            ? (row.permission_scopes as string[]).join(', ') || t('passports.roleDefaults')
-                            : t('passports.roleDefaults'),
+                          scopes: formatPermissionScopes(
+                            Array.isArray(row.permission_scopes) ? (row.permission_scopes as string[]) : [],
+                            tNav,
+                            t('passports.roleDefaults'),
+                          ),
                         })}
                       </p>
                       <Link
@@ -669,7 +682,7 @@ export default function GovernPage() {
                     action={
                       <div className="flex flex-wrap justify-center gap-2">
                         <Button size="sm" asChild>
-                          <Link to={inboxPath('all')}>{t('audit.openCommunication')}</Link>
+                          <Link to={inboxPath('open')}>{t('audit.openCommunication')}</Link>
                         </Button>
                         <Button size="sm" variant="outline" asChild>
                           <Link to="/agents">{t('audit.openAgent')}</Link>

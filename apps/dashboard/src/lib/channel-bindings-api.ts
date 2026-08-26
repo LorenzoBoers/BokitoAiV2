@@ -20,6 +20,9 @@ export async function listChannelBindings(): Promise<ChannelBinding[]> {
 export async function createChannelBinding(body: {
   channel: string
   agent_id: string
+  /** Scope the binding to one mailbox / number / account instead of the whole channel. */
+  channel_account_id?: string | null
+  contact_id?: string | null
   priority?: number
   enabled?: boolean
 }): Promise<ChannelBinding> {

@@ -82,6 +82,10 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
     name: 'Higgsfield',
     description: 'AI image and video generation via Higgsfield.',
   },
+  whatsapp: {
+    name: 'WhatsApp',
+    description: 'WhatsApp Business messages in the inbox via the Cloud API.',
+  },
 }
 
 export function hostSlugForOffer(integration: Integration, provider?: IntegrationProviderRow): string {
@@ -157,6 +161,27 @@ export function buildIntegrationApplications(
 
   apps.sort((a, b) => a.name.localeCompare(b.name))
   return apps
+}
+
+type TranslateFn = (key: string, opts?: { defaultValue?: string }) => string
+
+export function localizeApplication<T extends { hostSlug: string; name: string; description: string }>(
+  app: T,
+  t: TranslateFn,
+): T {
+  return {
+    ...app,
+    name: t(`integrations.hosts.${app.hostSlug}.name`, { defaultValue: app.name }),
+    description: t(`integrations.hosts.${app.hostSlug}.description`, { defaultValue: app.description }),
+  }
+}
+
+export function localizeOfferDescription(
+  hostSlug: string,
+  fallback: string,
+  t: TranslateFn,
+): string {
+  return t(`integrations.hosts.${hostSlug}.description`, { defaultValue: fallback })
 }
 
 export function findApplicationByHostSlug(

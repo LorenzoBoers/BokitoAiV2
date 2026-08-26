@@ -95,6 +95,9 @@
     "verificationSentDev": "Verification email sent. Check the development link in the server logs."
   },
   "links": {
-    "openInboxSettings": "Open channel settings"
+    "openInboxSettings": "Open channel settings",
+    "openMailboxSignatures": "Mailbox signatures",
+    "openAssistant": "My assistant",
+    "openNotifications": "Notifications"
   }
 }

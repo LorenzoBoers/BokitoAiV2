@@ -1,37 +1,38 @@
 import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ContentHeader from './ContentHeader'
-import { ASSISTANT_DEFAULT_PATH } from '../../lib/assistant-settings-path'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
+import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 
-type SettingsLink = { labelKey: string; to: string; match?: string | string[] }
+type SettingsLink = { labelKey: string; to: string; match?: string | string[]; hintKey?: string }
 type SettingsGroup = { labelKey: string; links: SettingsLink[] }
 
 const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     labelKey: 'settings.groups.personal',
     links: [
-      { labelKey: 'settings.links.profileSecurity', to: '/settings/profile' },
-      { labelKey: 'settings.links.myAssistant', to: '/settings/assistant' },
-      { labelKey: 'settings.links.notifications', to: '/settings/notifications' },
+      { labelKey: 'settings.links.profileSecurity', to: '/settings/profile', hintKey: 'settings.hints.profileSecurity' },
+      { labelKey: 'settings.links.myAssistant', to: '/settings/assistant', hintKey: 'settings.hints.myAssistant' },
+      { labelKey: 'settings.links.notifications', to: '/settings/notifications', hintKey: 'settings.hints.notifications' },
     ],
   },
   {
     labelKey: 'settings.groups.workspace',
     links: [
-      { labelKey: 'settings.links.setupGuide', to: '/settings/setup' },
-      { labelKey: 'settings.links.general', to: '/settings/general' },
-      { labelKey: 'settings.links.branding', to: '/settings/branding' },
-      { labelKey: 'settings.links.members', to: '/settings/members' },
+      { labelKey: 'settings.links.setupGuide', to: '/settings/setup', hintKey: 'settings.hints.setupGuide' },
+      { labelKey: 'settings.links.general', to: '/settings/general', hintKey: 'settings.hints.general' },
+      { labelKey: 'settings.links.branding', to: '/settings/branding', hintKey: 'settings.hints.branding' },
+      { labelKey: 'settings.links.members', to: '/settings/members', hintKey: 'settings.hints.members' },
     ],
   },
   {
     labelKey: 'settings.groups.communication',
     links: [
-      { labelKey: 'settings.links.emailMessages', to: '/settings/channels' },
-      { labelKey: 'settings.links.chatWidget', to: ASSISTANT_DEFAULT_PATH, match: '/ai/assistant' },
-      { labelKey: 'settings.links.inboxAi', to: '/settings/communication', match: '/settings/communication' },
-      { labelKey: 'settings.links.helpCenters', to: '/settings/help-centers' },
+      { labelKey: 'settings.links.emailMessages', to: '/settings/channels', hintKey: 'settings.hints.emailMessages' },
+      { labelKey: 'settings.links.chatWidget', to: WEBSITE_WIDGET_PATH, match: '/ai/assistant', hintKey: 'settings.hints.chatWidget' },
+      { labelKey: 'settings.links.inboxAi', to: '/settings/communication', match: '/settings/communication', hintKey: 'settings.hints.inboxAi' },
+      { labelKey: 'settings.links.helpCenters', to: '/settings/help-centers', hintKey: 'settings.hints.helpCenters' },
     ],
   },
   {
@@ -41,23 +42,40 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         labelKey: 'settings.links.integrations',
         to: '/settings/integrations',
         match: ['/settings/integrations', '/settings/marketplace', '/settings/mcp'],
+        hintKey: 'settings.hints.integrations',
       },
     ],
   },
   {
     labelKey: 'settings.groups.govern',
-    links: [{ labelKey: 'settings.links.govern', to: '/settings/govern' }],
+    links: [{ labelKey: 'settings.links.govern', to: '/settings/govern', hintKey: 'settings.hints.govern' }],
   },
   {
     labelKey: 'settings.groups.advanced',
     links: [
-      { labelKey: 'settings.links.developers', to: '/settings/developers' },
-      { labelKey: 'settings.links.models', to: '/settings/models' },
+      { labelKey: 'settings.links.developers', to: '/settings/developers', hintKey: 'settings.hints.developers' },
+      { labelKey: 'settings.links.models', to: '/settings/models', hintKey: 'settings.hints.models' },
     ],
   },
 ]
 
-export const SETTINGS_PALETTE_LINKS: SettingsLink[] = SETTINGS_GROUPS.flatMap((group) => group.links)
+export const SETTINGS_PALETTE_LINKS: SettingsLink[] = [
+  ...SETTINGS_GROUPS.flatMap((group) => group.links),
+  {
+    labelKey: 'integrations.links.marketplace',
+    to: '/settings/marketplace',
+    hintKey: 'settings.hints.marketplace',
+  },
+  {
+    labelKey: 'integrations.links.mcp',
+    to: '/settings/mcp',
+    hintKey: 'settings.hints.connectedTools',
+  },
+]
+
+export function settingsLinkForPath(pathname: string): SettingsLink | undefined {
+  return SETTINGS_PALETTE_LINKS.find((link) => linkIsActive(pathname, link))
+}
 
 function linkIsActive(pathname: string, link: SettingsLink): boolean {
   if (link.match) {
@@ -99,7 +117,7 @@ export default function SettingsLayout() {
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border/40 bg-bg-sidebar/50 px-2.5 py-3 lg:flex">
+      <aside className="hidden w-[240px] shrink-0 flex-col border-r border-border/40 bg-bg-sidebar/50 px-2.5 py-3 lg:flex">
         <p className="px-2.5 pb-3 text-[15px] font-semibold leading-none text-text-heading">
           {t('tabs.settings.title')}
         </p>
@@ -127,32 +145,48 @@ export default function SettingsLayout() {
 function SettingsNav({ pathname, compact = false }: { pathname: string; compact?: boolean }) {
   const { t } = useTranslation('nav')
   return (
-    <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex flex-col gap-y-5'}>
-      {SETTINGS_GROUPS.map((group) => (
-        <section key={group.labelKey} className={compact ? 'min-w-[140px]' : undefined}>
-          <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t(group.labelKey)}
-          </p>
-          <div className="space-y-px">
-            {group.links.map((link) => {
-              const active = linkIsActive(pathname, link)
-              return (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  className={`block rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors ${
-                    active
-                      ? 'bg-accent/12 font-medium text-accent'
-                      : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
-                  }`}
-                >
-                  {t(link.labelKey)}
-                </NavLink>
-              )
-            })}
-          </div>
-        </section>
-      ))}
-    </div>
+    <TooltipProvider delayDuration={250}>
+      <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex flex-col gap-y-5'}>
+        {SETTINGS_GROUPS.map((group) => (
+          <section key={group.labelKey} className={compact ? 'min-w-[140px]' : undefined}>
+            <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+              {t(group.labelKey)}
+            </p>
+            <div className="space-y-px">
+              {group.links.map((link) => {
+                const active = linkIsActive(pathname, link)
+                const hint = link.hintKey ? t(link.hintKey) : ''
+                const item = (
+                  <NavLink
+                    to={link.to}
+                    className={`block rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors ${
+                      active
+                        ? 'bg-accent/12 font-medium text-accent'
+                        : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
+                    }`}
+                  >
+                    {t(link.labelKey)}
+                  </NavLink>
+                )
+                if (!hint) return <div key={link.to}>{item}</div>
+                return (
+                  <Tooltip key={link.to}>
+                    <TooltipTrigger asChild>{item}</TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      align="start"
+                      sideOffset={2}
+                      className="max-w-56 font-normal"
+                    >
+                      {hint}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </TooltipProvider>
   )
 }

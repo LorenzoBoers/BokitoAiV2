@@ -318,7 +318,7 @@ export default function NotificationSettings() {
             <Link to="/cockpit/usage" className="text-accent hover:underline">
               {t('notificationsPage.openUsage')}
             </Link>
-            .
+            {'.'}
           </p>
           <p className="text-xs font-medium text-text-muted">
             {t('notificationsPage.inAppEnabled', { count: desktopEnabled })}

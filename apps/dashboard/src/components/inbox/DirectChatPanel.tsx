@@ -16,6 +16,7 @@ import {
   type ChatDecisionOption,
   type ChatMessage,
 } from '../../lib/bokito-api'
+import { ComposerCard } from '../ui/ComposerCard'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/button'
 import { AI_CARD_CLASS, AI_ICON_BOX_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
@@ -597,16 +598,15 @@ export default function DirectChatPanel({
       <div className="shrink-0 px-4 pb-5 pt-2">
         <div className="mx-auto w-full max-w-[820px]">
           {error ? <p className="mb-2 px-1 text-[12px] text-status-error">{error}</p> : null}
-          <div className="flex items-end gap-2 rounded-2xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card focus-within:border-accent/50">
-            <textarea
-              ref={composerRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onComposerKeyDown}
-              rows={Math.min(6, Math.max(1, draft.split('\n').length))}
-              placeholder={composerPlaceholder ?? t('directChat.placeholder')}
-              className="max-h-[180px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none"
-            />
+          <ComposerCard
+            ref={composerRef}
+            mode="chat"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onComposerKeyDown}
+            placeholder={composerPlaceholder ?? t('directChat.placeholder')}
+            className="border-border/60 bg-bg-surface"
+          >
             {stream.active ? (
               <button type="button" onClick={stopStreaming} title={t('directChat.stop')} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-bg-hover text-text-primary transition-colors hover:bg-bg-hover/80">
                 <Square size={13} />
@@ -622,7 +622,7 @@ export default function DirectChatPanel({
                 <ArrowUp size={14} />
               </button>
             )}
-          </div>
+          </ComposerCard>
           <p className="mt-1.5 px-1 text-[10.5px] text-text-muted">{t('composer.hintChat')}</p>
         </div>
       </div>

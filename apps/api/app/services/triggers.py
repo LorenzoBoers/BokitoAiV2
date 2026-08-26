@@ -241,7 +241,12 @@ async def _resolve_agent(session: AsyncSession, trigger: Trigger) -> Agent | Non
         )
         .limit(1)
     )
-    return result.scalar_one_or_none()
+    agent = result.scalar_one_or_none()
+    if agent:
+        return agent
+    from app.services.lead_agent import get_lead_agent
+
+    return await get_lead_agent(session, trigger.tenant_id)
 
 
 async def _heartbeat_checklist(session: AsyncSession, tenant_id: UUID) -> str:

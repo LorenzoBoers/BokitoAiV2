@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_BRAND_COLOR,
+  DEFAULT_BRAND_MARK,
   buildBrandTokens,
   contrastInk,
   contrastRatio,
@@ -9,8 +10,10 @@ import {
   pickAccentFg,
   productSolid,
   relativeLuminance,
+  resolveBrandIconUrl,
   resolveBrandSeed,
   rgbToOklch,
+  workspaceBrandName,
 } from './tenant-branding'
 
 const WHITE: [number, number, number] = [255, 255, 255]
@@ -19,6 +22,33 @@ const LIGHT_BG: [number, number, number] = [247, 249, 252]
 const DARK_BG: [number, number, number] = [16, 19, 25]
 const NEON: [number, number, number] = [0, 255, 153]
 const NAVY: [number, number, number] = [15, 23, 42]
+
+describe('resolveBrandIconUrl', () => {
+  it('prefers an explicit widget icon, then favicon, then logo', () => {
+    expect(
+      resolveBrandIconUrl({
+        widgetFaviconUrl: 'https://cdn.example/widget.png',
+        favicon: 'https://cdn.example/fav.png',
+        logo: 'https://cdn.example/logo.png',
+      }),
+    ).toBe('https://cdn.example/widget.png')
+    expect(resolveBrandIconUrl({ favicon: 'https://cdn.example/fav.png', logo: 'https://cdn.example/logo.png' })).toBe(
+      'https://cdn.example/fav.png',
+    )
+    expect(resolveBrandIconUrl({ logo: 'https://cdn.example/logo.png' })).toBe('https://cdn.example/logo.png')
+    expect(resolveBrandIconUrl({ logo: '/bokito-logo.svg' })).toBeNull()
+    expect(resolveBrandIconUrl({})).toBeNull()
+  })
+})
+
+describe('workspaceBrandName', () => {
+  it('uses the tenant name and falls back to Bokito', () => {
+    expect(workspaceBrandName({ name: 'Bourgondiënadvies' })).toBe('Bourgondiënadvies')
+    expect(workspaceBrandName({ name: '  ' })).toBe('Bokito')
+    expect(workspaceBrandName(null)).toBe('Bokito')
+    expect(DEFAULT_BRAND_MARK).toBe('/bokito-logo.svg')
+  })
+})
 
 describe('resolveBrandSeed', () => {
   it('uses the teal platform default when empty or the old neon seed', () => {

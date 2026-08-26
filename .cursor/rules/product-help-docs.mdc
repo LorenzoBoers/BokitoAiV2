@@ -1,0 +1,54 @@
+---
+description: Keep product-help docs in sync with significant platform changes
+alwaysApply: true
+---
+
+# Product-help docs maintenance
+
+`docs/product-help/` is the single source for `/docs`, `/learn`, assistant RAG,
+and `llms.txt`. Docs ship in the same change as the feature. "Docs later" is
+not an option when the change is significant.
+
+Full playbook: `docs/product-help/README.md`.
+Lookup: `docs/product-help/surface-map.yaml`.
+
+## What is significant
+
+Operators or integrators see or do something different: a page, flow, setting,
+label, default, public API endpoint, webhook, widget attribute, or a removed /
+renamed feature.
+
+Not significant: tests only, a pure refactor, or an internal-only service.
+
+## After a significant change
+
+1. Match edited files and routes against `code_globs` / `routes` in
+   `surface-map.yaml`.
+2. Open the matching articles in **both** `en/` and `nl/`.
+3. Decide: update text, add or drop a use-case, recapture a screenshot, or
+   add a new article (plus a map row).
+4. Run `python apps/api/scripts/dev/sync_product_help.py`.
+5. If the UI of a documented use-case changed, open `/docs/{section}/{slug}`
+   and confirm the article still matches the screen.
+
+New public API endpoints also need a `developers` article (or an update) and
+`response_model` + docstrings so `/docs/api` stays complete.
+
+## How to write
+
+- Operator articles: two sentences, then 3–6 use-cases (`##`). Each use-case
+  is one real task: one sentence, screenshot, 3–5 steps with real UI labels.
+- Text must stand alone if the image is missing. Present tense. No emoji.
+- Cross-link with `/docs/{section}/{slug}`.
+
+## Screenshots
+
+- Path: `docs/product-help/assets/{slug}/{usecase}.png`
+- Markdown: `![alt](/api/docs/assets/{slug}/{usecase}.png)` then an italic caption
+- Shared PNG for EN and NL. Recapture when that use-case's UI changed;
+  leave the image on a copy-only fix.
+- Crop or blur names, addresses, and message bodies. No customer thread in git.
+- List the usecase name under `screenshots:` in the map. Developer articles
+  stay screenshot-free except `widget-embed`.
+
+User-facing how-to belongs here, not only in `BOKITO_KNOWLEDGE.md`.

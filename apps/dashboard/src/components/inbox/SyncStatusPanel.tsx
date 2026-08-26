@@ -6,14 +6,15 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { useAuth } from '../../context/AuthContext'
 import { syncMailboxes } from '../../lib/email-api'
 import { getSyncStatus, type SyncConnectionStatus } from '../../lib/inbox-api'
+import { formatAppDateTime } from '../../lib/app-locale'
 import { mailboxStatusLabel } from '../../lib/status-labels'
 import { cn } from '../../lib/utils'
 
-function formatDate(iso: string | null, neverLabel: string): string {
+function formatDate(iso: string | null, neverLabel: string, language?: string | null): string {
   if (!iso) return neverLabel
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '–'
-  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return formatAppDateTime(d, language)
 }
 
 type Props = {
@@ -21,7 +22,7 @@ type Props = {
 }
 
 export default function SyncStatusPanel({ className }: Props) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
   const [statuses, setStatuses] = useState<SyncConnectionStatus[]>([])
   const [loading, setLoading] = useState(false)
@@ -120,7 +121,7 @@ export default function SyncStatusPanel({ className }: Props) {
             </div>
 
             <div className="text-xs text-text-secondary">
-              {t('syncStatus.lastSync', { when: formatDate(conn.lastSyncAt, t('syncStatus.never')) })}
+              {t('syncStatus.lastSync', { when: formatDate(conn.lastSyncAt, t('syncStatus.never'), i18n.language) })}
             </div>
 
             {conn.lastError ? (

@@ -10,6 +10,7 @@
     "enable": "Inschakelen",
     "disable": "Uitschakelen",
     "signOut": "Uitloggen",
-    "retry": "Opnieuw proberen"
+    "retry": "Opnieuw proberen",
+    "close": "Sluiten"
   }
 }

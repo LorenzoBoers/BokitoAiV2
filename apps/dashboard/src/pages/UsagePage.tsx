@@ -17,18 +17,26 @@ import {
   type UsageBreakdown,
 } from '../lib/bokito-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { appDateLocale } from '../lib/app-locale'
+import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
+import { inboxPath } from '../lib/messages-paths'
+import { humanizeModelId } from '../lib/model-label'
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
+function isSystemUsageName(name: string): boolean {
+  return /system|systeem/i.test(name)
+}
+
+function formatNumber(value: number, language?: string) {
+  return new Intl.NumberFormat(appDateLocale(language), { maximumFractionDigits: 1 }).format(value)
 }
 
 // The usage ledger meters costs in USD (provider pricing); keep the label honest.
-function formatCost(cents: number) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(cents / 100)
+function formatCost(cents: number, language?: string) {
+  return new Intl.NumberFormat(appDateLocale(language), { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
-function formatUsd(micros: number) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(micros / 1_000_000)
+function formatUsd(micros: number, language?: string) {
+  return new Intl.NumberFormat(appDateLocale(language), { style: 'currency', currency: 'USD' }).format(micros / 1_000_000)
 }
 
 function BudgetBar({
@@ -67,8 +75,12 @@ function BudgetBar({
 }
 
 export default function UsagePage() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
+  const locale = i18n.language
+  const num = (value: number) => formatNumber(value, locale)
+  const cost = (value: number) => formatCost(value, locale)
+  const usd = (value: number) => formatUsd(value, locale)
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [breakdown, setBreakdown] = useState<UsageBreakdown | null>(null)
   const [budget, setBudget] = useState<SpendBudget | null>(null)
@@ -136,14 +148,32 @@ export default function UsagePage() {
 
   const stats = summary
     ? [
-        { label: t('usagePage.tokens30d'), value: formatNumber(summary.tokens_month) },
-        { label: t('usagePage.cost30d'), value: formatCost(summary.cost_cents_month) },
-        { label: t('usagePage.conversations7d'), value: formatNumber(summary.volume_week) },
-        { label: t('usagePage.autonomyRate'), value: `${formatNumber(summary.autonomy_rate_pct)}%` },
-        { label: t('usagePage.timeSaved'), value: `${formatNumber(summary.time_saved_minutes_week)} min` },
+        { key: 'tokens', label: t('usagePage.tokens30d'), value: num(summary.tokens_month) },
+        { key: 'cost', label: t('usagePage.cost30d'), value: cost(summary.cost_cents_month) },
         {
+          key: 'conversations',
+          label: t('usagePage.conversations7d'),
+          value: num(summary.volume_week),
+          hint: summary.volume_week === 0 ? t('usagePage.conversationsEmptyHint') : null,
+          hintTo: inboxPath('open'),
+          hintLink: t('usagePage.openInbox'),
+        },
+        {
+          key: 'autonomy',
+          label: t('usagePage.autonomyRate'),
+          value: `${num(summary.autonomy_rate_pct)}%`,
+          hint: summary.autonomy_rate_pct === 0 ? t('usagePage.autonomyEmptyHint') : null,
+          hintTo: '/settings/govern?tab=policy',
+          hintLink: t('usagePage.openGovern'),
+        },
+        { key: 'time', label: t('usagePage.timeSaved'), value: `${num(summary.time_saved_minutes_week)} min` },
+        {
+          key: 'feedback',
           label: t('usagePage.avgFeedback'),
-          value: summary.avg_feedback_score > 0 ? formatNumber(summary.avg_feedback_score) : '-',
+          value: summary.avg_feedback_score > 0 ? num(summary.avg_feedback_score) : '-',
+          hint: summary.avg_feedback_score > 0 ? null : t('usagePage.feedbackEmptyHint'),
+          hintTo: WEBSITE_WIDGET_PATH,
+          hintLink: t('usagePage.openWebsiteWidget'),
         },
       ]
     : []
@@ -197,12 +227,12 @@ export default function UsagePage() {
             <BudgetBar
               label={t('usagePage.tokensToday')}
               period={budget.status.daily_tokens}
-              format={formatNumber}
+              format={num}
             />
             <BudgetBar
               label={t('usagePage.spendMonth')}
               period={budget.status.monthly_customer_micros}
-              format={formatUsd}
+              format={usd}
             />
           </div>
           {capDraft ? (
@@ -255,9 +285,17 @@ export default function UsagePage() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {stats.map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 shadow-card">
+          <div key={stat.key} className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3.5 shadow-card">
             <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">{stat.label}</p>
             <p className="mt-2 text-[22px] font-semibold leading-none text-text-heading">{stat.value}</p>
+            {stat.hint && stat.hintTo && stat.hintLink ? (
+              <p className="mt-2 text-[11px] leading-snug text-text-muted">
+                {stat.hint}{' '}
+                <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
+                  {stat.hintLink}
+                </Link>
+              </p>
+            ) : null}
           </div>
         ))}
         {!summary && !error ? (
@@ -271,7 +309,7 @@ export default function UsagePage() {
             <div className="mb-3 flex items-baseline justify-between">
               <h3 className="text-[13px] font-semibold text-text-heading">{t('usagePage.byModel', { days: breakdown.days })}</h3>
               <span className="text-[11px] text-text-muted">
-                {t('usagePage.billable', { amount: formatUsd(breakdown.total_customer_cost_micros) })}
+                {t('usagePage.billable', { amount: usd(breakdown.total_customer_cost_micros) })}
               </span>
             </div>
             <div className="space-y-2">
@@ -295,24 +333,27 @@ export default function UsagePage() {
                 </div>
               ) : (
                 breakdown.by_model.map((row) => (
-                  <div
+                  <Link
                     key={`${row.model}-${row.key_source}`}
-                    className="flex items-center justify-between gap-3 text-[12.5px]"
+                    to="/settings/models"
+                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-[12.5px] hover:bg-bg-hover/50"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-text-primary">{row.model || t('usagePage.unknown')}</p>
+                      <p className="truncate font-medium text-text-primary">
+                        {humanizeModelId(row.model) || t('usagePage.unknown')}
+                      </p>
                       <p className="text-[11px] text-text-muted">
-                        {t('usagePage.tokens', { count: formatNumber(row.tokens) })} ·{' '}
+                        {t('usagePage.tokens', { count: num(row.tokens) })} ·{' '}
                         {row.billable ? (
                           <span className="text-amber-500">
-                            {t('usagePage.billableRow', { amount: formatUsd(row.customer_cost_micros) })}
+                            {t('usagePage.billableRow', { amount: usd(row.customer_cost_micros) })}
                           </span>
                         ) : (
                           <span className="text-status-success">{t('usagePage.byok')}</span>
                         )}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
@@ -345,7 +386,7 @@ export default function UsagePage() {
                     <>
                       <p className="min-w-0 truncate font-medium text-text-primary">{row.agent_name}</p>
                       <p className="shrink-0 text-[11px] text-text-muted">
-                        {t('usagePage.tokensShort', { count: formatNumber(row.tokens) })} · {formatUsd(row.customer_cost_micros)}
+                        {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
                       </p>
                     </>
                   )
@@ -395,9 +436,11 @@ export default function UsagePage() {
                     key={row.user_id ?? 'system'}
                     className="flex items-center justify-between gap-3 text-[12.5px]"
                   >
-                    <p className="min-w-0 truncate font-medium text-text-primary">{row.user_name}</p>
+                    <p className="min-w-0 truncate font-medium text-text-primary">
+                      {isSystemUsageName(row.user_name) ? t('usagePage.systemUser') : row.user_name}
+                    </p>
                     <p className="shrink-0 text-[11px] text-text-muted">
-                      {t('usagePage.tokensShort', { count: formatNumber(row.tokens) })} · {formatUsd(row.customer_cost_micros)}
+                      {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
                     </p>
                   </div>
                 ))

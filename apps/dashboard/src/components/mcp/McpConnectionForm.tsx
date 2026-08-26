@@ -137,6 +137,7 @@ export function McpConnectionForm({
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://..."
           />
+          <p className="text-xs text-text-muted">{t('integrations.mcp.servers.reachabilityHint')}</p>
         </div>
       )}
       {isCustom ? (

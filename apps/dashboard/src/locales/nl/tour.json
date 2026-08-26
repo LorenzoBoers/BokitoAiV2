@@ -6,7 +6,7 @@
     "pillars": {
       "communication": {
         "title": "Communicatie",
-        "body": "E-mail, websitechat en interne threads komen samen in Communicatie. AI triageert, stelt antwoorden op en vraagt jou wanneer het ertoe doet."
+        "body": "E-mail, websitechat en interne gesprekken komen samen in Communicatie. AI triageert, stelt antwoorden op en vraagt jou wanneer het ertoe doet."
       },
       "ai": {
         "title": "AI-workforce",
@@ -31,7 +31,7 @@
   "steps": {
     "communication": {
       "title": "Communicatie",
-      "body": "Elk kanaal komt hier binnen: e-mail, websitechat en threads met je agents. AI handelt routine af en vraagt om jouw beslissing wanneer het ertoe doet."
+      "body": "Elk kanaal komt hier binnen: e-mail, websitechat en gesprekken met je agents. AI handelt routine af en vraagt om jouw beslissing wanneer het ertoe doet."
     },
     "ai": {
       "title": "Je AI-workforce",

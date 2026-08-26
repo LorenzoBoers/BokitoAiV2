@@ -7,7 +7,10 @@ import { ChatSessionsProvider } from '../../context/ChatSessionsContext'
 import ShellSidebar from './ShellSidebar'
 import ShellTopbar from './ShellTopbar'
 import CommandPalette from './CommandPalette'
+import { settingsLinkForPath } from './SettingsLayout'
 import VerifyEmailBanner from './VerifyEmailBanner'
+import { tabFromPath, titleForTab } from '../../lib/navigation'
+import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
 import { TourProvider } from '../tour/TourContext'
 
@@ -33,7 +36,7 @@ function isFullBleed(pathname: string): boolean {
 
 export default function AppShell() {
   const { t } = useTranslation('nav')
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const [navCollapsed, setNavCollapsed] = useState(loadNavCollapsed)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -54,6 +57,17 @@ export default function AppShell() {
   useEffect(() => {
     setDrawerOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    const tab = tabFromPath(pathname)
+    const settingsLink = settingsLinkForPath(pathname)
+    const title = settingsLink
+      ? `${t('tabs.settings.title')} / ${t(settingsLink.labelKey)}`
+      : tab
+        ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
+        : 'Bokito'
+    recordRecentPage(recentLocationKey(pathname, search), title)
+  }, [pathname, search, t])
 
   // Global Cmd/Ctrl+K opens the command palette.
   useEffect(() => {

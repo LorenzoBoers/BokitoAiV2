@@ -173,7 +173,7 @@ export default function SetupHubPage() {
           automationCount > 0
             ? t('setupGuidePage.automations.done', { count: automationCount })
             : t('setupGuidePage.automations.todo'),
-        actions: [{ label: t('setupGuidePage.automations.openAgenda'), to: '/agenda', primary: automationCount === 0 }],
+        actions: [{ label: t('setupGuidePage.automations.openAgenda'), to: '/agenda?view=automations', primary: automationCount === 0 }],
       },
       {
         id: 'branding',
@@ -197,7 +197,10 @@ export default function SetupHubPage() {
           metricCount > 0
             ? t('setupGuidePage.kpis.done', { count: metricCount })
             : t('setupGuidePage.kpis.todo'),
-        actions: [{ label: t('setupGuidePage.kpis.openCockpit'), to: '/cockpit?addMetric=1', primary: metricCount === 0 }],
+        actions: [
+          { label: t('setupGuidePage.kpis.openCockpit'), to: '/cockpit?addMetric=1', primary: metricCount === 0 },
+          { label: t('setupGuidePage.kpis.openUsage'), to: '/cockpit/usage' },
+        ],
       },
     ]
   }, [stepDone, agentCount, automationCount, brandingDone, metricCount, t, assistantPrompt])

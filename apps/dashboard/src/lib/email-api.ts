@@ -10,6 +10,8 @@ import type { ConnectionStatus, OAuthProvider, Provider } from './email-oauth'
 
 export type EmailConnection = {
   id: number
+  /** ChannelAccount UUID backing this mailbox (used for agent bindings). */
+  uuid: string | null
   provider: Extract<Provider, 'outlook' | 'gmail' | 'bokito'>
   mailboxEmail: string
   displayName: string
@@ -149,6 +151,7 @@ function normalizeConnection(row: unknown): EmailConnection | null {
   const isPrimary = rawPrimary === true
   return {
     id,
+    uuid: asNullableString(raw.uuid),
     provider,
     mailboxEmail: asString(raw.mailbox_email ?? raw.mailboxEmail),
     displayName: asString(raw.display_name ?? raw.displayName, asString(raw.mailbox_email ?? raw.mailboxEmail)),

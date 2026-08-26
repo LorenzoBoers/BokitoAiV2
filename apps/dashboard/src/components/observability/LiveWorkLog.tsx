@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   fetchWorkLogEvents,
@@ -7,13 +8,22 @@ import {
 } from '../../lib/work-logs-api'
 import { fetchRunEvents } from '../../lib/orchestration-api'
 import { onGatewayEvent } from '../../lib/gateway'
+import {
+  activityEventMessage,
+  activityEventTypeLabel,
+  isCockpitHeadlineEvent,
+} from '../../lib/activity-labels'
+import { formatWorkLogSubject } from '../../lib/work-log-labels'
+import { humanizeModelId } from '../../lib/model-label'
+import { workLogStatusLabel } from '../../lib/status-labels'
+import { agentRunsPath } from '../../lib/messages-paths'
 
 type Props = {
   workLogId: string
 }
 
 export function LiveWorkLog({ workLogId }: Props) {
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'communication'])
   const [events, setEvents] = useState<WorkLogEvent[]>([])
   const [status, setStatus] = useState<WorkLogStatus | null>(null)
   const [taskSubject, setTaskSubject] = useState<string | null>(null)
@@ -124,14 +134,21 @@ export function LiveWorkLog({ workLogId }: Props) {
     }
   }, [workLogId, t])
 
+  const headlineEvents = events.filter((ev) =>
+    isCockpitHeadlineEvent({ event_type: ev.type, message: ev.title || ev.body }),
+  )
+  const visibleEvents = headlineEvents.length > 0 ? headlineEvents : events
+
   return (
     <div className="space-y-3">
-      <div className="rounded border border-border/60 bg-bg-elevated px-3 py-2 text-sm">
-        <p className="font-medium text-text-primary">{taskSubject || t('workforce.runLog.title')}</p>
-        <p className="text-text-muted">
-          {t('workforce.runLog.status')}: {status || t('workforce.runLog.unknown')}
-          {runtimeModel ? ` | ${t('workforce.runLog.model')}: ${runtimeModel}` : null}
-          {tokensUsed != null ? ` | ${t('workforce.runLog.tokens')}: ${tokensUsed}` : null}
+      <div className="rounded-xl border border-border/60 bg-bg-surface px-4 py-3 shadow-card">
+        <p className="text-[15px] font-semibold text-text-heading">
+          {formatWorkLogSubject(taskSubject, t, t('workforce.runLog.title'))}
+        </p>
+        <p className="mt-1 text-[13px] text-text-muted">
+          {workLogStatusLabel(status, t) || t('workforce.runLog.unknown')}
+          {runtimeModel ? ` · ${humanizeModelId(runtimeModel)}` : null}
+          {tokensUsed != null ? ` · ${tokensUsed} ${t('workforce.runLog.tokens').toLowerCase()}` : null}
         </p>
         {contextPct != null ? (
           <div className="mt-2">
@@ -139,34 +156,44 @@ export function LiveWorkLog({ workLogId }: Props) {
               <span>{t('workforce.runLog.contextWindow')}</span>
               <span>{contextPct}%</span>
             </div>
-            <div className="mt-0.5 h-1.5 rounded-full bg-bg-surface overflow-hidden">
+            <div className="mt-0.5 h-1.5 rounded-full bg-bg-elevated overflow-hidden">
               <div className="h-full bg-accent" style={{ width: `${contextPct}%` }} />
             </div>
           </div>
         ) : null}
+        <div className="mt-3 flex flex-wrap gap-3">
+          <Link to={agentRunsPath('all')} className="text-[12.5px] font-medium text-accent hover:underline">
+            {t('workforce.runLog.openConversation')}
+          </Link>
+          <Link to="/agenda" className="text-[12.5px] font-medium text-accent hover:underline">
+            {t('workforce.runLog.backToAgenda')}
+          </Link>
+        </div>
       </div>
 
-      <div className="max-h-96 space-y-2 overflow-y-auto rounded border border-border/60 bg-bg-surface p-3 font-mono text-xs">
+      <div className="max-h-96 space-y-1.5 overflow-y-auto rounded-xl border border-border/60 bg-bg-surface p-3">
+        <p className="mb-2 text-[11px] text-text-muted">{t('workforce.runLog.stepsHint')}</p>
         {loading && events.length === 0 && !error ? (
-          <p className="text-text-muted">{t('workforce.runLog.loadingEvents')}</p>
+          <p className="text-[13px] text-text-muted">{t('workforce.runLog.loadingEvents')}</p>
         ) : error ? (
-          <p className="text-destructive">{error}</p>
-        ) : events.length === 0 ? (
-          <p className="text-text-muted">{t('workforce.runLog.waiting')}</p>
+          <p className="text-[13px] text-status-error">{error}</p>
+        ) : visibleEvents.length === 0 ? (
+          <p className="text-[13px] text-text-muted">{t('workforce.runLog.waiting')}</p>
         ) : (
-          events.map((ev, i) => (
-            <details key={i} className="rounded bg-bg-elevated p-2">
-              <summary className="cursor-pointer text-text-primary">
-                [{ev.type}] {ev.title || t('workforce.runLog.eventFallback')}
-              </summary>
-              {ev.body ? <pre className="mt-1 whitespace-pre-wrap text-text-muted">{ev.body}</pre> : null}
-              {ev.payload ? (
-                <pre className="mt-1 whitespace-pre-wrap text-text-muted">
-                  {JSON.stringify(ev.payload, null, 2)}
-                </pre>
-              ) : null}
-            </details>
-          ))
+          visibleEvents.map((ev, i) => {
+            const label =
+              activityEventMessage(ev.title || ev.body, t) ||
+              activityEventTypeLabel(ev.type, t) ||
+              t('workforce.runLog.eventFallback')
+            return (
+              <details key={i} className="rounded-lg bg-bg-elevated px-2.5 py-2">
+                <summary className="cursor-pointer text-[13px] text-text-primary">{label}</summary>
+                {ev.body && ev.body !== ev.title ? (
+                  <p className="mt-1 whitespace-pre-wrap text-[12px] text-text-muted">{ev.body}</p>
+                ) : null}
+              </details>
+            )
+          })
         )}
       </div>
     </div>

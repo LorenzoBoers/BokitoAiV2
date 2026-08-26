@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft } from 'lucide-react'
-import type { IntegrationApplication, IntegrationOffer } from '../../lib/integration-applications'
+import {
+  localizeApplication,
+  localizeOfferDescription,
+  type IntegrationApplication,
+  type IntegrationOffer,
+} from '../../lib/integration-applications'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { IntegrationSetupPanel } from './IntegrationSetupPanel'
 import { IntegrationDetailPanel } from './IntegrationDetailPanel'
@@ -60,12 +65,13 @@ export function ApplicationHubDialog({
 
   if (!application) return null
 
+  const localized = localizeApplication(application, t)
   const title =
     step === 'offer-setup'
-      ? t('integrations.hub.setup.title', { name: activeOffer?.integration.name ?? application.name })
+      ? t('integrations.hub.setup.title', { name: activeOffer?.integration.name ?? localized.name })
       : step === 'offer-detail'
-        ? (activeOffer?.integration.name ?? application.name)
-        : application.name
+        ? (activeOffer?.integration.name ?? localized.name)
+        : localized.name
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,7 +98,7 @@ export function ApplicationHubDialog({
               logoDarkUrl={application.brand.logoDarkUrl}
               initials={application.brand.initials}
               color={application.brand.color}
-              name={application.name}
+              name={localized.name}
               hostSlug={application.brand.hostSlug}
               size="md"
             />
@@ -124,7 +130,7 @@ export function ApplicationHubDialog({
                 {banner.message}
               </p>
             ) : null}
-            <p className="text-sm text-text-secondary leading-relaxed">{application.description}</p>
+            <p className="text-sm text-text-secondary leading-relaxed">{localized.description}</p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
               {t('integrations.application.connectionTypes')}
             </p>
@@ -150,7 +156,11 @@ export function ApplicationHubDialog({
                           </Badge>
                         </div>
                         <p className="text-xs text-text-muted mt-1 line-clamp-2">
-                          {offer.integration.description}
+                          {localizeOfferDescription(
+                            application.hostSlug,
+                            offer.integration.description,
+                            t,
+                          )}
                         </p>
                       </div>
                       {offer.connectionCount > 0 ? (

@@ -26,6 +26,8 @@ When `VITE_API_MODE=bokito`, the Vite dev server proxies `/api/*` to the local F
 | Cockpit | `lib/bokito-api.ts` | `/api/cockpit` |
 | Settings (providers/models) | `lib/models-api.ts` | `/api/settings` |
 | Livechat | widget + `LIVECHAT_API_BASE` | `/api/livechat` |
+| Product help / docs site | `lib/product-help-api.ts` | `/api/docs` (index+nav, `/search`, `/{slug}`, `/{slug}.md`, `/openapi.json`, `/sitemap.xml`) |
+| Tenant help center | `lib/help-api.ts` | `/api/help` |
 
 ### Govern routes
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bot, CalendarDays, MessageSquare, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
@@ -13,7 +13,12 @@ import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
-import { agentChatPath, inboxPath } from '../lib/messages-paths'
+import { agentRoleLabel } from '../lib/agent-role-label'
+import { formatAgentModelLine } from '../lib/model-label'
+import { agentChatPath, agentRunsPath, attentionThreadPath, inboxPath } from '../lib/messages-paths'
+import { useOptionalNavBadges } from '../context/NavBadgeContext'
+import { useAuth } from '../context/AuthContext'
+import { listThreads } from '../lib/inbox-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import {
@@ -77,12 +82,16 @@ export default function AiAgents() {
   const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
+  const { counts } = useOptionalNavBadges()
+  const { token } = useAuth()
+  const [attentionHref, setAttentionHref] = useState(agentRunsPath('awaiting-decision'))
   const [poAgents, setPoAgents] = useState<RuntimeAgent[]>([])
   const [workerAgents, setWorkerAgents] = useState<RuntimeAgent[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showNewAgent, setShowNewAgent] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -106,6 +115,33 @@ export default function AiAgents() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (!token || counts.agentsAttention <= 0) {
+      setAttentionHref(agentRunsPath('awaiting-decision'))
+      return
+    }
+    let cancelled = false
+    void listThreads(token, { view: 'awaiting_decision', perPage: 1 })
+      .then((result) => {
+        const first = result.items[0]
+        if (!cancelled && first) setAttentionHref(attentionThreadPath(first))
+      })
+      .catch(() => {
+        if (!cancelled) setAttentionHref(agentRunsPath('awaiting-decision'))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, counts.agentsAttention])
+
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return
+    setShowNewAgent(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('new')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
   const askAdminEmpty = (
     <EmptyState
       icon={Bot}
@@ -113,7 +149,7 @@ export default function AiAgents() {
       description={t('workforce.agents.askAdminHint')}
       action={
         <Button size="sm" asChild>
-          <Link to={inboxPath('all')}>{t('workforce.agents.openCommunication')}</Link>
+          <Link to={inboxPath('open')}>{t('workforce.agents.openCommunication')}</Link>
         </Button>
       }
     />
@@ -122,6 +158,24 @@ export default function AiAgents() {
   return (
     <PageContent width="xl" className="space-y-4 py-1">
       <PageGuideBanner page="agents" />
+      {counts.agentsAttention > 0 ? (
+        <Link
+          to={attentionHref}
+          className="flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 hover:border-accent/50"
+        >
+          <span>
+            <span className="block text-sm font-medium text-text-heading">
+              {t('workforce.agents.attentionTitle', { count: counts.agentsAttention })}
+            </span>
+            <span className="mt-0.5 block text-xs text-text-muted">
+              {t('workforce.agents.attentionHint')}
+            </span>
+          </span>
+          <span className="shrink-0 text-xs font-medium text-accent">
+            {t('workforce.agents.attentionAction')}
+          </span>
+        </Link>
+      ) : null}
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-text-heading">{t('workforce.agents.title')}</h1>
@@ -232,11 +286,17 @@ export default function AiAgents() {
                           <Badge variant="secondary" className="text-[10px]">
                             {t(`workforce.agents.types.${agentType(agent)}`)}
                           </Badge>
+                          {agent.is_lead ? (
+                            <Badge className="text-[10px]" title={t('workforce.agents.leadHint')}>
+                              {t('workforce.agents.leadBadge')}
+                            </Badge>
+                          ) : null}
                           {(() => {
-                            const roleLabel =
-                              agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown')
+                            const roleLabel = agentRoleLabel(agent.role_name || agent.role_slug, t)
+                            const typeLabel = t(`workforce.agents.types.${agentType(agent)}`)
                             const showRole =
-                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase()
+                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase() &&
+                              roleLabel.trim().toLowerCase() !== typeLabel.trim().toLowerCase()
                             return showRole ? (
                               <p className="text-xs text-text-muted">{roleLabel}</p>
                             ) : null
@@ -269,7 +329,7 @@ export default function AiAgents() {
                       </span>
                       {agent.model ? (
                         <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[10px] text-text-muted">
-                          {agent.model}
+                          {formatAgentModelLine(agent.model, agent.provider, t)}
                         </span>
                       ) : null}
                     </span>
@@ -301,11 +361,17 @@ export default function AiAgents() {
                           <Badge variant="secondary" className="text-[10px]">
                             {t(`workforce.agents.types.${agentType(agent)}`)}
                           </Badge>
+                          {agent.is_lead ? (
+                            <Badge className="text-[10px]" title={t('workforce.agents.leadHint')}>
+                              {t('workforce.agents.leadBadge')}
+                            </Badge>
+                          ) : null}
                           {(() => {
-                            const roleLabel =
-                              agent.role_name || agent.role_slug || t('workforce.agents.roleUnknown')
+                            const roleLabel = agentRoleLabel(agent.role_name || agent.role_slug, t)
+                            const typeLabel = t(`workforce.agents.types.${agentType(agent)}`)
                             const showRole =
-                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase()
+                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase() &&
+                              roleLabel.trim().toLowerCase() !== typeLabel.trim().toLowerCase()
                             return showRole ? (
                               <p className="text-xs text-text-muted">{roleLabel}</p>
                             ) : null
@@ -329,7 +395,7 @@ export default function AiAgents() {
                       </span>
                       {agent.model ? (
                         <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[10px] text-text-muted">
-                          {agent.model}
+                          {formatAgentModelLine(agent.model, agent.provider, t)}
                         </span>
                       ) : null}
                     </span>

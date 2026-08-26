@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, Slack, Trash2 } from 'lucide-react'
+import { Check, Copy, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -13,6 +13,9 @@ import {
   type ChannelAccountRow,
 } from '../../lib/channel-accounts-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import AgentBindingPicker from '../settings/AgentBindingPicker'
+import ChannelVisibilityPicker from '../settings/ChannelVisibilityPicker'
+import { BrandMark, BrandTile } from '../integrations/BrandMark'
 
 /**
  * Connect a Slack workspace so decision cards can be delivered as DMs with
@@ -114,10 +117,11 @@ export default function SlackConnectCard() {
     <SettingsSection
       title={t('slackCard.title')}
       description={t('slackCard.description')}
+      icon={<BrandTile slug="slack" />}
       actions={
         accounts.length === 0 && !formOpen ? (
           <Button variant="secondary" size="sm" onClick={() => setFormOpen(true)}>
-            <Slack size={14} className="mr-1.5" aria-hidden />
+            <BrandMark slug="slack" className="mr-1.5" />
             {t('slackCard.connect')}
           </Button>
         ) : null
@@ -138,13 +142,18 @@ export default function SlackConnectCard() {
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Slack size={14} className="shrink-0 text-text-muted" aria-hidden />
+              <BrandMark slug="slack" />
               <span className="truncate text-sm font-medium text-text-primary">
                 {account.displayName || t('slackCard.workspace')}
               </span>
               <Badge variant={account.isEnabled ? 'success' : 'neutral'}>
                 {account.isEnabled ? t('slackCard.connected') : t('slackCard.disabled')}
               </Badge>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-text-muted">{t('bindingPicker.ariaLabel')}</span>
+              <AgentBindingPicker channel="slack" channelAccountId={account.id} />
+              <ChannelVisibilityPicker accountId={account.id} visibility={account.visibility} />
             </div>
             {connectedAccountId === account.id ? (
               <div className="mt-2 space-y-1 text-xs text-text-muted">

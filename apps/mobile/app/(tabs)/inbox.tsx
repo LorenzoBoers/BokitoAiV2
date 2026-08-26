@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -9,44 +11,23 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import {
-  useBadgeCounts,
-  useThreadsInfinite,
-} from '../../src/hooks/useMessagingQueries'
+import { ChannelBadge } from '../../src/components/ChannelGlyph'
+import EmptyState from '../../src/components/EmptyState'
+import { LiveBanner, StatusBanner } from '../../src/components/StatusBanner'
+import { useCopy } from '../../src/context/LocaleContext'
+import { useTheme, useThemedStyles } from '../../src/context/ThemeContext'
+import { useBadgeCounts, useThreadsInfinite } from '../../src/hooks/useMessagingQueries'
 import type { Thread } from '../../src/lib/api'
-import { colors, spacing } from '../../src/theme'
+import { channelLabel } from '../../src/lib/channel'
+import { WEB_APP_URL } from '../../src/lib/config'
+import { agentRoleLabel, categoryLabel, displayThreadPreview, displayThreadTitle, relativeTime, urgencyLabel, urgencyTier } from '../../src/lib/format'
+import { coerceInboxView, inboxFolderParam, viewsForFolder, type InboxViewId } from '../../src/lib/inbox-views'
+import { radius, spacing, type ColorTokens } from '../../src/theme'
 
-const VIEWS = [
-  { id: 'all_open', label: 'Open', countKey: 'all' as const },
-  { id: 'mine', label: 'Mine', countKey: 'my' as const },
-  { id: 'unassigned', label: 'Unassigned', countKey: 'unassigned' as const },
-  { id: 'awaiting_decision', label: 'Decisions', countKey: null },
-] as const
-
-const CHANNELS = [
-  { id: '', label: 'All channels' },
-  { id: 'email', label: 'Email' },
-  { id: 'widget', label: 'Widget' },
-  { id: 'chat', label: 'Chat' },
-  { id: 'internal', label: 'Internal' },
-] as const
-
-const FOLDERS = [
-  { id: '', label: 'All folders' },
-  { id: 'external', label: 'External' },
-  { id: 'internal', label: 'Internal' },
-] as const
-
-function timeLabel(iso: string | null): string {
-  if (!iso) return ''
-  const date = new Date(iso)
-  const now = new Date()
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
-}
+const CHANNELS = ['', 'email', 'widget', 'whatsapp', 'slack', 'internal'] as const
+const FOLDERS = ['', 'external', 'internal'] as const
 
 function badgeLabel(count: number): string {
   if (count <= 0) return ''
@@ -54,69 +35,173 @@ function badgeLabel(count: number): string {
 }
 
 export default function InboxScreen() {
-  const [view, setView] = useState<(typeof VIEWS)[number]['id']>('all_open')
+  const { t, locale } = useCopy()
+  const { colors } = useTheme()
+  const styles = useThemedStyles(inboxStyles)
+  const [view, setView] = useState<InboxViewId>('all_open')
   const [search, setSearch] = useState('')
   const [searchDraft, setSearchDraft] = useState('')
   const [channel, setChannel] = useState('')
-  const [folder, setFolder] = useState('')
+  const [folder, setFolder] = useState('external')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchDraft.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [searchDraft])
 
   const filters = useMemo(
     () => ({
       view,
       search: search || undefined,
       channel: channel || undefined,
-      folder: folder || undefined,
+      folder: inboxFolderParam(view, folder),
       per_page: 30,
     }),
     [view, search, channel, folder],
   )
 
-  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, isRefetching } =
+  const { data, isLoading, isError, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, isRefetching } =
     useThreadsInfinite(filters)
   const { data: badges } = useBadgeCounts()
 
-  const threads = useMemo(
-    () => data?.pages.flatMap((page) => page.items) ?? [],
-    [data],
-  )
+  const threads = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
+  const filtersActive = Boolean(channel)
 
-  const applySearch = () => setSearch(searchDraft.trim())
+  const views = viewsForFolder(folder)
+
+  const viewLabel = (id: InboxViewId) => {
+    if (id === 'all_open') return t('inbox.open')
+    if (id === 'mine') return t('inbox.mine')
+    if (id === 'unassigned') return t('inbox.unassigned')
+    if (id === 'closed') return t('inbox.closed')
+    if (id === 'snoozed') return t('inbox.snoozed')
+    if (id === 'spam') return t('inbox.spam')
+    if (id === 'updates') return t('inbox.updates')
+    if (id === 'results') return t('inbox.results')
+    if (id === 'pinned') return t('inbox.pinned')
+    return t('inbox.decisions')
+  }
+
+  const viewCount = (id: InboxViewId): number => {
+    if (id === view) return data?.pages[0]?.itemsTotal ?? 0
+    if (id === 'awaiting_decision') return badges?.agents_attention ?? 0
+    if (folder === 'internal') return 0
+    if (id === 'mine') return badges?.inbox_by_queue.my ?? 0
+    if (id === 'unassigned') return badges?.inbox_by_queue.unassigned ?? 0
+    return 0
+  }
+
+  const emptyTitle = () => {
+    if (isError) return t('inbox.error')
+    if (view === 'awaiting_decision') return t('inbox.emptyDecisions')
+    if (view === 'snoozed') return t('inbox.emptySnoozed')
+    if (view === 'spam') return t('inbox.emptySpam')
+    if (view === 'updates') return t('inbox.emptyUpdates')
+    if (view === 'results') return t('inbox.emptyResults')
+    if (view === 'pinned') return t('inbox.emptyPinned')
+    if (folder === 'external') return t('inbox.emptyCustomers')
+    if (folder === 'internal') return t('inbox.emptyTeam')
+    return t('inbox.empty')
+  }
+
+  const emptyBody = () => {
+    if (isError) return undefined
+    if (view === 'awaiting_decision') return t('inbox.emptyDecisionsHint')
+    if (view === 'snoozed') return t('inbox.emptySnoozedHint')
+    if (view === 'updates') return t('inbox.emptyUpdatesHint')
+    if (view === 'results') return t('inbox.emptyResultsHint')
+    if (folder === 'external') return t('inbox.emptyCustomersHint')
+    if (folder === 'internal') return t('inbox.emptyTeamHint')
+    return t('inbox.emptyHint')
+  }
+
+  const openCompose = () => {
+    Alert.alert(t('inbox.compose'), t('inbox.composeHint'), [
+      {
+        text: t('inbox.newCustomer'),
+        onPress: () => void Linking.openURL(`${WEB_APP_URL}/communication/new`),
+      },
+      { text: t('inbox.newChat'), onPress: () => router.push('/(tabs)/assistant') },
+      { text: t('common.cancel'), style: 'cancel' },
+    ])
+  }
+
+  const selectFolder = (next: string) => {
+    setFolder(next)
+    setView(coerceInboxView(next, view))
+  }
+
+  const labelForChannel = (id: string) => (id ? channelLabel(id, locale) : t('inbox.allChannels'))
 
   return (
     <View style={styles.root}>
+      <LiveBanner />
       <View style={styles.searchRow}>
+        <Ionicons name="search-outline" size={16} color={colors.textMuted} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search threads"
+          placeholder={t('inbox.search')}
           placeholderTextColor={colors.textMuted}
           value={searchDraft}
           onChangeText={setSearchDraft}
-          onSubmitEditing={applySearch}
           returnKeyType="search"
         />
-        <Pressable style={styles.searchButton} onPress={applySearch}>
-          <Text style={styles.searchButtonText}>Search</Text>
+        <Pressable
+          style={styles.filterToggle}
+          onPress={openCompose}
+          accessibilityLabel={t('inbox.compose')}
+        >
+          <Ionicons name="create-outline" size={16} color={colors.textMuted} />
+        </Pressable>
+        <Pressable
+          style={[styles.filterToggle, (filtersOpen || filtersActive) && styles.filterToggleOn]}
+          onPress={() => setFiltersOpen((v) => !v)}
+        >
+          <Ionicons name="options-outline" size={16} color={filtersOpen || filtersActive ? colors.accentInk : colors.textMuted} />
         </Pressable>
       </View>
 
+      {view === 'awaiting_decision' ? null : (
+      <FlatList
+        horizontal
+        data={FOLDERS}
+        keyExtractor={(item) => item || 'all-folders'}
+        style={styles.chipsScroll}
+        contentContainerStyle={styles.chips}
+        showsHorizontalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <Pressable
+            style={[styles.chip, folder === item && styles.chipActive]}
+            onPress={() => selectFolder(item)}
+          >
+            <Text style={[styles.chipText, folder === item && styles.chipTextActive]}>
+              {item === '' ? t('inbox.allFolders') : item === 'external' ? t('inbox.external') : t('inbox.internal')}
+            </Text>
+          </Pressable>
+        )}
+      />
+      )}
+
+      {isError && threads.length > 0 ? (
+        <StatusBanner
+          tone="error"
+          message={t('inbox.refreshFailed')}
+          actionLabel={t('common.retry')}
+          onAction={() => void refetch()}
+        />
+      ) : null}
+
       <View style={styles.tabs}>
-        {VIEWS.map((option) => {
-          const count =
-            option.countKey && badges
-              ? badges.inbox_by_queue[option.countKey]
-              : option.id === 'awaiting_decision'
-                ? badges?.agents_attention ?? 0
-                : 0
-          const badge = badgeLabel(count)
+        {views.map((id) => {
+          const badge = badgeLabel(viewCount(id))
           return (
             <Pressable
-              key={option.id}
-              style={[styles.tab, view === option.id && styles.tabActive]}
-              onPress={() => setView(option.id)}
+              key={id}
+              style={[styles.tab, view === id && styles.tabActive]}
+              onPress={() => setView(id)}
             >
-              <Text style={[styles.tabText, view === option.id && styles.tabTextActive]}>
-                {option.label}
-              </Text>
+              <Text style={[styles.tabText, view === id && styles.tabTextActive]}>{viewLabel(id)}</Text>
               {badge ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{badge}</Text>
@@ -127,43 +212,36 @@ export default function InboxScreen() {
         })}
       </View>
 
-      <FlatList
-        horizontal
-        data={CHANNELS}
-        keyExtractor={(item) => item.id || 'all-channels'}
-        style={styles.chipsScroll}
-        contentContainerStyle={styles.chips}
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <Pressable
-            style={[styles.chip, channel === item.id && styles.chipActive]}
-            onPress={() => setChannel(item.id)}
-          >
-            <Text style={[styles.chipText, channel === item.id && styles.chipTextActive]}>
-              {item.label}
-            </Text>
-          </Pressable>
-        )}
-      />
+      {!filtersOpen && filtersActive ? (
+        <Pressable style={styles.activeFilters} onPress={() => setFiltersOpen(true)}>
+          <Text style={styles.activeFiltersText}>
+            {channel ? channelLabel(channel, locale) : ''}
+          </Text>
+        </Pressable>
+      ) : null}
 
-      <FlatList
-        horizontal
-        data={FOLDERS}
-        keyExtractor={(item) => item.id || 'all-folders'}
-        style={styles.chipsScroll}
-        contentContainerStyle={styles.chips}
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <Pressable
-            style={[styles.chip, folder === item.id && styles.chipActive]}
-            onPress={() => setFolder(item.id)}
-          >
-            <Text style={[styles.chipText, folder === item.id && styles.chipTextActive]}>
-              {item.label}
-            </Text>
-          </Pressable>
-        )}
-      />
+      {filtersOpen ? (
+        <View>
+          <FlatList
+            horizontal
+            data={CHANNELS}
+            keyExtractor={(item) => item || 'all-channels'}
+            style={styles.chipsScroll}
+            contentContainerStyle={styles.chips}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.chip, channel === item && styles.chipActive]}
+                onPress={() => setChannel(item)}
+              >
+                <Text style={[styles.chipText, channel === item && styles.chipTextActive]}>
+                  {labelForChannel(item)}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </View>
+      ) : null}
 
       {isLoading ? (
         <View style={styles.center}>
@@ -180,71 +258,114 @@ export default function InboxScreen() {
             if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
           }}
           onEndReachedThreshold={0.4}
-          renderItem={({ item }) => <ThreadRow thread={item} />}
+          renderItem={({ item }) => <ThreadRow thread={item} styles={styles} />}
           ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={colors.accent} style={styles.footerLoader} />
-            ) : null
+            isFetchingNextPage ? <ActivityIndicator color={colors.accent} style={styles.footerLoader} /> : null
           }
-          ListEmptyComponent={<Text style={styles.empty}>No threads in this view.</Text>}
+          ListEmptyComponent={
+            <EmptyState
+              title={emptyTitle()}
+              body={emptyBody()}
+              actionLabel={
+                isError
+                  ? t('common.retry')
+                  : folder === 'external'
+                    ? t('inbox.openChannels')
+                    : t('inbox.openAssistant')
+              }
+              onAction={() =>
+                isError
+                  ? void refetch()
+                  : folder === 'external'
+                    ? void Linking.openURL(`${WEB_APP_URL}/settings/channels`)
+                    : router.push('/(tabs)/assistant')
+              }
+            />
+          }
         />
       )}
     </View>
   )
 }
 
-function ThreadRow({ thread }: { thread: Thread }) {
+function ThreadRow({ thread, styles }: { thread: Thread; styles: ReturnType<typeof StyleSheet.create> }) {
+  const { t, locale } = useCopy()
+  const { colors } = useTheme()
+  const title = displayThreadTitle(thread, locale, {
+    visitor: t('inbox.visitor'),
+    noSubject: t('inbox.noSubject'),
+    unknownSender: t('inbox.unknownSender'),
+  })
+  const preview = displayThreadPreview(thread, locale)
+
   return (
     <Pressable style={styles.row} onPress={() => router.push(`/thread/${thread.id}`)}>
       <View style={styles.rowHeader}>
+        {thread.is_pinned ? <Ionicons name="pin" size={12} color={colors.accentInk} /> : null}
         <Text style={[styles.subject, thread.has_unread && styles.subjectUnread]} numberOfLines={1}>
-          {thread.is_pinned ? '[Pinned] ' : ''}
-          {thread.email_subject || '(no subject)'}
+          {title}
         </Text>
-        <Text style={styles.time}>{timeLabel(thread.last_message_at)}</Text>
+        <Text style={styles.time}>{relativeTime(thread.last_message_at, locale)}</Text>
       </View>
-      <View style={styles.rowMeta}>
-        <Text style={styles.contact} numberOfLines={1}>
-          {thread.contact_name || thread.contact_email || thread.channel}
+      {preview ? (
+        <Text style={styles.preview} numberOfLines={1}>
+          {preview}
         </Text>
-        <View style={styles.channelBadge}>
-          <Text style={styles.channelText}>{thread.channel}</Text>
-        </View>
+      ) : null}
+      <View style={styles.rowMeta}>
+        <ChannelBadge channel={thread.channel} />
+        {urgencyTier(thread.urgency) === 'urgent' || urgencyTier(thread.urgency) === 'high' ? (
+          <Text style={styles.urgency}>{urgencyLabel(thread.urgency, locale)}</Text>
+        ) : null}
+        {thread.category ? (
+          <Text style={styles.agent} numberOfLines={1}>
+            {categoryLabel(thread.category, locale)}
+          </Text>
+        ) : null}
+        {thread.agent_name ? (
+          <Text style={styles.agent} numberOfLines={1}>
+            {thread.agent_name}
+          </Text>
+        ) : thread.agent_kind ? (
+          <Text style={styles.agent} numberOfLines={1}>
+            {agentRoleLabel(thread.agent_kind, locale)}
+          </Text>
+        ) : null}
         {thread.has_unread ? <View style={styles.unreadDot} /> : null}
       </View>
     </Pressable>
   )
 }
 
-const styles = StyleSheet.create({
+function inboxStyles(colors: ColorTokens) {
+  return {
   root: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   searchRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  searchInput: {
-    flex: 1,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 9,
     color: colors.textPrimary,
     fontSize: 14,
   },
-  searchButton: {
+  filterToggle: { padding: 4 },
+  filterToggleOn: {
     backgroundColor: colors.accentMuted,
-    borderColor: colors.accent,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: spacing.md,
-    justifyContent: 'center',
+    borderRadius: radius.sm,
   },
-  searchButtonText: { color: colors.accent, fontWeight: '600', fontSize: 13 },
+  activeFilters: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  activeFiltersText: { color: colors.accentInk, fontSize: 12, fontWeight: '600' },
   tabs: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -256,7 +377,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderColor: colors.border,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
@@ -264,7 +385,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: colors.accentMuted, borderColor: colors.accent },
   tabText: { color: colors.textSecondary, fontSize: 13 },
-  tabTextActive: { color: colors.accent, fontWeight: '600' },
+  tabTextActive: { color: colors.accentInk, fontWeight: '600' },
   badge: {
     minWidth: 18,
     height: 18,
@@ -274,19 +395,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  badgeText: { color: colors.accentFg, fontSize: 10, fontWeight: '700' },
   chipsScroll: { maxHeight: 40, marginBottom: spacing.sm },
   chips: { paddingHorizontal: spacing.lg, gap: spacing.sm },
   chip: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderColor: colors.border,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
   },
-  chipActive: { backgroundColor: colors.elevated, borderColor: colors.textMuted },
+  chipActive: { backgroundColor: colors.accentMuted, borderColor: colors.accent },
   chipText: { color: colors.textMuted, fontSize: 12 },
-  chipTextActive: { color: colors.textPrimary, fontWeight: '600' },
+  chipTextActive: { color: colors.accentInk, fontWeight: '600' },
   row: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -298,15 +419,10 @@ const styles = StyleSheet.create({
   subject: { flex: 1, color: colors.textPrimary, fontSize: 15 },
   subjectUnread: { color: colors.textHeading, fontWeight: '700' },
   time: { color: colors.textMuted, fontSize: 12 },
+  preview: { color: colors.textSecondary, fontSize: 13 },
   rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  contact: { color: colors.textSecondary, fontSize: 13, flexShrink: 1 },
-  channelBadge: {
-    borderRadius: 6,
-    backgroundColor: colors.elevated,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  channelText: { color: colors.textMuted, fontSize: 11 },
+  agent: { color: colors.textMuted, fontSize: 12, flexShrink: 1 },
+  urgency: { color: colors.warning, fontSize: 11, fontWeight: '700' },
   unreadDot: {
     width: 8,
     height: 8,
@@ -314,6 +430,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     marginLeft: 'auto',
   },
-  empty: { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl * 2 },
   footerLoader: { marginVertical: spacing.lg },
-})
+  }
+}
