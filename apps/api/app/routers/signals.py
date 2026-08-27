@@ -362,6 +362,9 @@ async def list_signal_threads(
     email_connection_id: int | None = Query(None),
     project_id: str | None = Query(None),
     agent_id: str | None = Query(None),
+    unread: bool = Query(False),
+    needs_reply: bool = Query(False),
+    pinned: bool = Query(False),
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=1, le=100),
 ):
@@ -380,6 +383,9 @@ async def list_signal_threads(
         email_connection_id=email_connection_id,
         project_id=project_id,
         agent_id=agent_id,
+        unread=unread,
+        needs_reply=needs_reply,
+        pinned_only=pinned,
         page=page,
         per_page=per_page,
         visible_account_ids=await visible_channel_account_ids(
@@ -571,8 +577,8 @@ async def draft_reply(
 
     history = await signal_chat_history(session, signal.id)
     instruction = (
-        "Draft a concise, professional reply to the latest customer message in this thread. "
-        "Return only the reply body text (no meta-commentary)."
+        "Draft a concise, professional reply to the latest customer message. "
+        "Output only the customer-facing body. Do not repeat these instructions."
     )
     extra = (body.instruction or "").strip()
     if extra:
@@ -589,11 +595,14 @@ async def draft_reply(
     draft_text, tokens = await loop.run_chat(
         [*history, {"role": "user", "content": instruction}]
     )
-    return {"draft": (draft_text or "").strip(), "usage": tokens}
+    from app.services.suggestion_format import split_suggestion
+
+    cleaned = split_suggestion(draft_text or "").body
+    return {"draft": cleaned or (draft_text or "").strip(), "usage": tokens}
 
 
 class InvokeAgentBody(BaseModel):
-    agent_id: UUID
+    agent_id: UUID | None = None
     instruction: str = ""
     output: str = "note"  # note | reply_suggestion
 
@@ -628,10 +637,15 @@ async def invoke_agent(
     if not signal:
         raise HTTPException(status_code=404, detail="Signal not found")
 
-    agent_result = await session.execute(
-        select(Agent).where(Agent.id == body.agent_id, Agent.tenant_id == auth.tenant.id)
-    )
-    agent = agent_result.scalar_one_or_none()
+    from app.services.lead_agent import get_lead_agent
+
+    if body.agent_id:
+        agent_result = await session.execute(
+            select(Agent).where(Agent.id == body.agent_id, Agent.tenant_id == auth.tenant.id)
+        )
+        agent = agent_result.scalar_one_or_none()
+    else:
+        agent = await get_lead_agent(session, auth.tenant.id)
     if not agent or not agent.is_active:
         raise HTTPException(status_code=404, detail="Agent not found or inactive")
 
@@ -639,14 +653,15 @@ async def invoke_agent(
     operator = (body.instruction or "").strip()
     if body.output == "reply_suggestion":
         instruction = (
-            "A teammate asked you to draft a reply to the customer in this thread. "
-            "Return only the reply body text (no meta-commentary)."
+            "Draft a concise, professional reply to the latest customer message. "
+            "Output only the customer-facing body. Do not repeat these instructions."
         )
     else:
         instruction = (
-            "A teammate invoked you on this conversation. Help them: answer their "
-            "question, look things up, or propose next steps. Reply as a concise "
-            "internal note for the team (the customer will not see it)."
+            "Help a teammate on this conversation: answer their question, look "
+            "things up, or propose next steps. Reply as a concise internal note "
+            "for the team (the customer will not see it). Do not repeat these "
+            "instructions."
         )
     if operator:
         instruction += f"\nTeammate's request: {operator}"
@@ -662,6 +677,10 @@ async def invoke_agent(
         [*history, {"role": "user", "content": instruction}]
     )
     text = (reply_text or "").strip() or "No output produced."
+    if body.output == "reply_suggestion":
+        from app.services.suggestion_format import split_suggestion
+
+        text = split_suggestion(text).body or text
 
     if body.output == "reply_suggestion":
         from app.services.inbound_agent import create_reply_suggestion

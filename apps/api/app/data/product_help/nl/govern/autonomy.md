@@ -1,32 +1,42 @@
 ---
 title: Autonomiehouding instellen
-intro: Bepaal hoeveel agents zelf mogen doen, van volledig toezicht tot alleen uitzonderingen.
-description: Bepaal hoe zelfstandig agents werken met de autonomy posture: manual, assisted of autonomous.
-keywords: autonomy, posture, manual, assisted, autonomous, apply modes
+intro: Zet hoeveel agents zelf mogen doen, van volledig toezicht tot alleen uitzonderingen.
+description: Zet hoe zelfstandig agents werken met de autonomiehouding: handmatig, ondersteund of autonoom.
+keywords: autonomie, houding, handmatig, ondersteund, autonoom, apply-modi
 sort: 20
-related: govern,agents
+related: govern,agents,inbox-ai
 ---
 
 # Autonomiehouding instellen
 
-Autonomiehouding is de vertrouwensknop van de workspace. Die staat op Govern. Kies een preset en overschrijf daarna individuele tools als dat nodig is.
+Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Govern](/docs/govern/govern). Kies een preset en overschrijf daarna individuele tools als dat nodig is.
 
-## Handmatig
+## Kies een preset
 
-Agents onderzoeken en maken concepten. Blijvende wijzigingen en uitgaande klantmail wachten op een mens. Gebruik dit terwijl je nog leert hoe de workspace zich gedraagt.
+![Autonomiehouding-presets](/api/docs/assets/autonomy/presets.png)
+*Het preset staat op Govern.*
 
-## Ondersteund
+1. Open **Instellingen**, daarna **Govern**, daarna **Beleid**. De kaart heet **Hoeveel agents mogen doen**.
+2. Kies **Handmatig** (agents concepten, jij past toe), **Ondersteund** (laag risico gaat door, de rest vraagt), of **Autonoom** (agents handelen binnen toestemmingen).
+3. De instelling slaat op zodra je kiest. Overrides per resource op dezelfde pagina winnen nog steeds.
 
-Agents mogen laag-risico-acties uitvoeren en vragen voor de rest. Inline keuzes in Communicatie blijven de dagelijkse poort. Govern houdt structurele concepten vast.
+## Stem de schuiven na het preset
 
-## Autonoom
+1. Blijf op Govern, daarna **Beleid**.
+2. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Berichten, Integraties en Overdracht zijn wat operators het eerst wijzigen.
+3. Overschrijf één tool als de categorie te breed is. Uitzonderingen per agent op de agentpagina winnen nog steeds.
+4. **Eerst vragen** maakt de [beslissingskaart](/docs/ai/decisions) in het gesprek.
 
-Agents handelen binnen de toolrechten die jij zet. Mensen blijven op de uitzonderingslaag: afgewezen uitkomsten, vergrendelde tools en alles wat het platform zou wijzigen.
+## Begin voorzichtig
+
+1. Gebruik **Handmatig** of **Ondersteund** terwijl je leert hoe de workspace zich gedraagt.
+2. Kijk welke beslissingen je altijd goedkeurt.
+3. Verruim één toolcategorie in plaats van meteen naar **Autonoom** te springen.
 
 ## Externe sessies blijven veilig
 
-Websitebezoekers en andere externe sessies muteren de workspace nooit automatisch, ongeacht de houding.
+Websitebezoekers muteren de workspace nooit automatisch, ongeacht de houding. [Inbox AI](/docs/inbox/inbox-ai) bepaalt nog steeds wanneer een klantconcept verschijnt.
 
 ## Wat nu
 
-Begin op Handmatig of Ondersteund. Na een week schone beslissingen verruim je één toolcategorie op Govern in plaats van meteen naar Autonoom te springen.
+Vergrendel tools op [Govern](/docs/govern/govern). Controleer of elke [agent](/docs/ai/agents) de houding erfde.

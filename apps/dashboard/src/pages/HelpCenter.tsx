@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, FileText, Search } from 'lucide-react'
 import MarkdownView from '../components/docs/MarkdownView'
+import DocsScrollShell from '../components/docs/DocsScrollShell'
 import { formatAppDate } from '../lib/app-locale'
 import {
   getHelpArticle,
@@ -10,6 +11,7 @@ import {
   type HelpArticle,
   type HelpCenterIndex,
 } from '../lib/help-api'
+import { parseHelpSearch } from '../lib/help-search-url'
 
 function formatDate(iso: string, language?: string | null): string {
   try {
@@ -32,9 +34,11 @@ export default function HelpCenter() {
   }>()
   const [index, setIndex] = useState<HelpCenterIndex | null>(null)
   const [article, setArticle] = useState<HelpArticle | null>(null)
-  const [query, setQuery] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = parseHelpSearch(searchParams.get('q'))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
 
   useEffect(() => {
     if (!tenantSlug) return
@@ -77,7 +81,7 @@ export default function HelpCenter() {
     return () => {
       cancelled = true
     }
-  }, [tenantSlug, articleSlug, t])
+  }, [tenantSlug, articleSlug, t, reloadNonce])
 
   const filtered = (index?.articles ?? []).filter((item) => {
     const q = query.trim().toLowerCase()
@@ -88,35 +92,53 @@ export default function HelpCenter() {
   })
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-muted/30">
-        <div className="mx-auto max-w-3xl px-6 py-8">
-          <Link
-            to={`/help/${tenantSlug}`}
-            className="flex items-center gap-2 text-lg font-semibold tracking-tight"
-          >
-            <BookOpen className="h-5 w-5" />
-            {index ? t('helpPublic.titleNamed', { name: index.tenant.name }) : t('helpPublic.title')}
-          </Link>
-          {!articleSlug ? (
-            <div className="relative mt-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('helpPublic.search')}
-                className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
-              />
-            </div>
-          ) : null}
-        </div>
-      </header>
-
+    <DocsScrollShell
+      header={
+        <header className="border-b bg-muted/30">
+          <div className="mx-auto max-w-3xl px-6 py-8">
+            <Link
+              to={`/help/${tenantSlug}`}
+              className="flex items-center gap-2 text-lg font-semibold tracking-tight"
+            >
+              <BookOpen className="h-5 w-5" />
+              {index ? t('helpPublic.titleNamed', { name: index.tenant.name }) : t('helpPublic.title')}
+            </Link>
+            {!articleSlug ? (
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    const params = new URLSearchParams(searchParams)
+                    if (next.trim()) params.set('q', next)
+                    else params.delete('q')
+                    setSearchParams(params, { replace: true })
+                  }}
+                  placeholder={t('helpPublic.search')}
+                  className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">{t('helpPublic.searchHint')}</p>
+              </div>
+            ) : null}
+          </div>
+        </header>
+      }
+    >
       <main className="mx-auto max-w-3xl px-6 py-8">
         {loading ? (
           <p className="text-sm text-muted-foreground">{t('helpPublic.loading')}</p>
         ) : error ? (
-          <p className="text-sm text-destructive">{error}</p>
+          <div className="space-y-3">
+            <p className="text-sm text-destructive">{error}</p>
+            <button
+              type="button"
+              onClick={() => setReloadNonce((n) => n + 1)}
+              className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+            >
+              {t('helpPublic.retry')}
+            </button>
+          </div>
         ) : articleSlug && article ? (
           <article>
             <Link
@@ -160,6 +182,6 @@ export default function HelpCenter() {
           </div>
         )}
       </main>
-    </div>
+    </DocsScrollShell>
   )
 }

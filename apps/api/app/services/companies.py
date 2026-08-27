@@ -44,6 +44,14 @@ FREE_EMAIL_DOMAINS = frozenset(
         "xs4all.nl",
         "telenet.be",
         "skynet.be",
+        # Reserved / fixture domains — never a real company.
+        "example.com",
+        "example.net",
+        "example.org",
+        "example.edu",
+        "test.com",
+        "localhost",
+        "invalid",
     }
 )
 

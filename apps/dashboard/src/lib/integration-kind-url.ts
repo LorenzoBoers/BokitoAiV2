@@ -26,3 +26,29 @@ export function connectedPathWithKind(kind: IntegrationKindFilter): string {
   const param = kindFilterToParam(kind)
   return param ? `${base}?kind=${param}` : base
 }
+
+export type MarketplaceStatusFilter = 'all' | 'connected' | 'available'
+
+export function parseStatusFilter(value: string | null): MarketplaceStatusFilter {
+  if (value === 'connected' || value === 'available') return value
+  return 'all'
+}
+
+const LAST_KIND_KEY = 'bokito.lastIntegrationKind'
+
+export function readLastIntegrationKind(): IntegrationKindFilter {
+  try {
+    return parseKindFilter(window.localStorage.getItem(LAST_KIND_KEY))
+  } catch {
+    return 'all'
+  }
+}
+
+export function writeLastIntegrationKind(kind: IntegrationKindFilter): void {
+  try {
+    if (kind === 'all') window.localStorage.removeItem(LAST_KIND_KEY)
+    else window.localStorage.setItem(LAST_KIND_KEY, kind)
+  } catch {
+    // Private mode or quota — URL still carries the filter.
+  }
+}

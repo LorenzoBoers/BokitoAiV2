@@ -21,9 +21,14 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
-import { assistantPath, inboxPath } from '../../lib/messages-paths'
+import { agentRunsPath, assistantPath, inboxPath } from '../../lib/messages-paths'
+import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
+import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
+import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import { threadHubPath } from '../../lib/message-composer'
 import { composeEmailPath, newAgentPath, newContactPath } from '../../lib/compose-intent'
+import { talkToAssistantPath } from '../../lib/talk-to-assistant'
+import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { listRecentPages } from '../../lib/recent-pages'
 import { listSignalThreads } from '../../lib/signals-api'
 import { listContacts, type ContactRow } from '../../lib/contacts-api'
@@ -53,6 +58,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const { token } = useAuth()
   const { toggleMode, isDark } = useTheme()
   const { conversations, startNewChat } = useChatSessions()
+  const inboxComm = useOptionalInboxCommunication()
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [threadResults, setThreadResults] = useState<InboxThread[]>([])
@@ -65,7 +71,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   // Remote search: threads and contacts matching the typed query (debounced).
   useEffect(() => {
     const q = query.trim()
-    if (!token || q.length < 2) {
+    if (!token || (q.length < 2 && !looksLikeThreadQuery(q))) {
       setThreadResults([])
       setContactResults([])
       setDocResults([])
@@ -73,7 +79,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
     let cancelled = false
     const timer = window.setTimeout(() => {
-      void listSignalThreads(token, { search: q, perPage: 5 })
+      void listSignalThreads(token, { search: q, perPage: 12 })
         .then((res) => {
           if (!cancelled) setThreadResults(res.items)
         })
@@ -115,18 +121,47 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const inboxQueues: PaletteItem[] = (
       [
         { id: 'inbox-all', queue: 'all' as const, labelKey: 'support.inbox.all' },
-        { id: 'inbox-open', queue: 'open' as const, labelKey: 'support.inbox.open' },
+        { id: 'inbox-open', queue: 'open' as const, labelKey: 'support.inbox.open', hintKey: 'palette.inboxOpenHint' },
         { id: 'inbox-mine', queue: 'mine' as const, labelKey: 'support.inbox.mine' },
         { id: 'inbox-unassigned', queue: 'unassigned' as const, labelKey: 'support.inbox.unassigned' },
         { id: 'inbox-snoozed', queue: 'snoozed' as const, labelKey: 'support.inbox.snoozed' },
+        { id: 'inbox-closed', queue: 'closed' as const, labelKey: 'support.inbox.closed' },
+        { id: 'inbox-spam', queue: 'spam' as const, labelKey: 'support.inbox.spam' },
       ] as const
     ).map((item) => ({
       id: item.id,
       label: t(item.labelKey),
+      hint: 'hintKey' in item ? t(item.hintKey) : undefined,
       group: t('palette.groupInbox'),
       icon: Inbox,
       run: () => navigate(inboxPath(item.queue)),
-    }))
+    })).concat([
+      {
+        id: 'inbox-needs-reply',
+        label: t('palette.needsReply'),
+        hint: t('palette.inboxOpenHint'),
+        group: t('palette.groupInbox'),
+        icon: Inbox,
+        run: () => {
+          inboxComm?.setQuickFilter('needsReply')
+          navigate(`${inboxPath('open')}?filter=needsReply`)
+        },
+      },
+      {
+        id: 'inbox-assistant',
+        label: t('support.section.assistant'),
+        group: t('palette.groupInbox'),
+        icon: MessageSquare,
+        run: () => navigate(assistantPath()),
+      },
+      {
+        id: 'inbox-agent-runs',
+        label: t('palette.agentRuns'),
+        group: t('palette.groupInbox'),
+        icon: Bot,
+        run: () => navigate(agentRunsPath('all')),
+      },
+    ])
     const settings: PaletteItem[] = SETTINGS_PALETTE_LINKS.map((link) => ({
       id: `settings-${link.to}`,
       label: t(link.labelKey),
@@ -149,6 +184,41 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         group: t('palette.groupActions'),
         icon: Plus,
         run: () => startNewChat(),
+      },
+      {
+        id: 'action-talk-assistant',
+        label: t('palette.talkAssistant'),
+        group: t('palette.groupActions'),
+        icon: MessageSquare,
+        run: () => navigate(talkToAssistantPath(t('palette.talkPrefill'))),
+      },
+      {
+        id: 'action-invite',
+        label: t('palette.inviteTeammate'),
+        group: t('palette.groupActions'),
+        icon: UserPlus,
+        run: () => navigate('/settings/members#member-invite'),
+      },
+      {
+        id: 'action-profile',
+        label: t('palette.openProfile'),
+        group: t('palette.groupActions'),
+        icon: User,
+        run: () => navigate('/settings/profile'),
+      },
+      {
+        id: 'action-notifications',
+        label: t('palette.openNotifications'),
+        group: t('palette.groupActions'),
+        icon: Settings,
+        run: () => navigate('/settings/notifications'),
+      },
+      {
+        id: 'action-my-assistant',
+        label: t('assistantSettings.title'),
+        group: t('palette.groupActions'),
+        icon: Bot,
+        run: () => navigate(MY_ASSISTANT_SETTINGS_PATH),
       },
       {
         id: 'action-new-email',
@@ -225,6 +295,42 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   )
 
   const remoteItems = useMemo<PaletteItem[]>(() => {
+    const q = query.trim()
+    const extras: PaletteItem[] = []
+    if (q.length >= 2) {
+      extras.push({
+        id: 'threads-view-all',
+        label: t('palette.viewAllInbox'),
+        hint: q,
+        group: t('palette.groupThreads'),
+        icon: Inbox,
+        run: () => {
+          inboxComm?.setSearch(q)
+          navigate(lastInboxPath())
+        },
+      })
+    }
+    if (looksLikeThreadQuery(q)) {
+      extras.push({
+        id: 'open-by-id',
+        label: t('palette.openById'),
+        hint: q,
+        group: t('palette.groupThreads'),
+        icon: Inbox,
+        run: () => navigate(lastInboxPath(q)),
+      })
+    }
+    const runPair = q.match(/^([0-9a-f-]{8,})\s+([0-9a-f-]{8,})$/i)
+    if (runPair) {
+      extras.push({
+        id: 'open-run',
+        label: t('palette.openRun'),
+        hint: q,
+        group: t('palette.groupThreads'),
+        icon: Bot,
+        run: () => navigate(agentWorkforceRunUrl(runPair[1]!, runPair[2]!)),
+      })
+    }
     const threads: PaletteItem[] = threadResults.map((thread) => ({
       id: `thread-${thread.id}`,
       label: thread.emailSubject || t('palette.untitledConversation'),
@@ -251,8 +357,8 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         icon: FileText,
         run: () => navigate(`/knowledge/${hit.doc_id}`),
       }))
-    return [...threads, ...contacts, ...docs]
-  }, [threadResults, contactResults, docResults, navigate, t])
+    return [...extras, ...threads, ...contacts, ...docs]
+  }, [threadResults, contactResults, docResults, navigate, t, query, inboxComm])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()

@@ -81,6 +81,8 @@ export interface RuntimeAgent {
   role_slug?: string | null
   parent_agent_id: string | null
   status: 'standby' | 'active' | 'sleeping' | 'error'
+  /** False when the operator paused the agent; idle ready agents stay true. */
+  is_active?: boolean
   model?: string
   provider?: string
   system_prompt?: string

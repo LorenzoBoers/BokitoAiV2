@@ -24,9 +24,15 @@
       "creating": "Aanmaken...",
       "error": "Workspace aanmaken mislukt",
       "openDialogCta": "Start setup",
-      "subdomainPlaceholder": "mijn-bedrijf"
+      "subdomainPlaceholder": "mijn-bedrijf",
+      "subdomainRequired": "Subdomein is verplicht.",
+      "subdomainFormat": "Gebruik 3-63 tekens: a-z, 0-9 en \"-\" (niet beginnen of eindigen met \"-\")."
     }
   },
+  "searchPlaceholder": "Zoek workspaces",
+  "filterEmpty": "Geen workspaces die bij die zoekopdracht passen.",
+  "copySlug": "Slug kopiëren",
+  "copied": "Gekopieerd",
   "empty": {
     "title": "Nog geen workspaces",
     "description": "Maak je eerste workspace aan om te starten."

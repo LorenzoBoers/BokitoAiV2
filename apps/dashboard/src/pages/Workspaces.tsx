@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { ArrowRight, Building2, CirclePlus, Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowRight, Building2, CirclePlus, Copy, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { getAvatarColor } from '../lib/avatar'
 import { useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../context/WorkspaceContext'
@@ -9,6 +10,7 @@ import { Button } from '../components/ui/button'
 import { buildTenantOrigin, isLocalHostname } from '../lib/host-routing'
 import { useAuth } from '../context/AuthContext'
 import { inboxPath } from '../lib/messages-paths'
+import { normalizeWorkspaceSubdomain, validateWorkspaceSubdomain } from '../lib/workspace-subdomain'
 import {
   Dialog,
   DialogContent,
@@ -19,20 +21,6 @@ import {
 } from '../components/ui/dialog'
 
 const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Amsterdam'
-const SUBDOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
-
-function normalizeSubdomainInput(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9-]/g, '')
-}
-
-function validateSubdomain(value: string): string | null {
-  const v = value.trim().toLowerCase()
-  if (!v) return 'Subdomain is required.'
-  if (!SUBDOMAIN_REGEX.test(v)) {
-    return 'Use 3-63 characters: a-z, 0-9 and "-" (must not start or end with "-").'
-  }
-  return null
-}
 
 export default function Workspaces() {
   const { t } = useTranslation('workspaces')
@@ -46,13 +34,16 @@ export default function Workspaces() {
   const [error, setError] = useState<string | null>(null)
   const [subdomainError, setSubdomainError] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [workspaceQuery, setWorkspaceQuery] = useState('')
 
   const handleCreateWorkspace = async () => {
     if (!workspaceName.trim()) return
-    const normalizedSubdomain = workspaceSubdomain.trim().toLowerCase()
-    const validationError = validateSubdomain(normalizedSubdomain)
-    if (validationError) {
-      setSubdomainError(validationError)
+    const normalizedSubdomain = normalizeWorkspaceSubdomain(workspaceSubdomain)
+    const validationCode = validateWorkspaceSubdomain(normalizedSubdomain)
+    if (validationCode) {
+      setSubdomainError(
+        validationCode === 'required' ? t('cards.create.subdomainRequired') : t('cards.create.subdomainFormat'),
+      )
       return
     }
     setCreateLoading(true)
@@ -77,6 +68,15 @@ export default function Workspaces() {
     }
   }
 
+  const visibleWorkspaces = useMemo(() => {
+    const q = workspaceQuery.trim().toLowerCase()
+    if (!q) return workspaces
+    return workspaces.filter((workspace) => {
+      const hay = `${workspace.name} ${workspace.slug ?? ''}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [workspaces, workspaceQuery])
+
   if (workspaceLoading) {
     return (
       <div className="mx-auto w-full max-w-[920px] px-2 py-6">
@@ -94,8 +94,20 @@ export default function Workspaces() {
         </section>
 
         <div className="space-y-4">
+          {workspaces.length > 3 ? (
+            <Input
+              value={workspaceQuery}
+              onChange={(event) => setWorkspaceQuery(event.target.value)}
+              placeholder={t('searchPlaceholder')}
+              className="mx-auto max-w-sm"
+              aria-label={t('searchPlaceholder')}
+            />
+          ) : null}
           <div className={`grid gap-4 ${workspaces.length === 0 ? 'mx-auto max-w-[460px] grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-            {workspaces.map((workspace) => {
+            {visibleWorkspaces.length === 0 && workspaceQuery.trim() ? (
+              <p className="col-span-full text-center text-sm text-text-muted">{t('filterEmpty')}</p>
+            ) : null}
+            {visibleWorkspaces.map((workspace) => {
               const isCurrent = currentWorkspace?.id === workspace.id
               const hasSubdomain = Boolean(workspace.slug && workspace.slug.trim())
               const tenantOrigin = workspace.slug ? buildTenantOrigin(workspace.slug) : null
@@ -148,8 +160,32 @@ export default function Workspaces() {
                       )}
                       <div className="space-y-0.5 min-w-0">
                         <p className="text-[18px] font-semibold text-text-heading leading-tight">{workspace.name}</p>
-                        <p className="text-xs uppercase tracking-[0.08em] text-text-muted">
-                          {workspace.slug || t('cards.workspace.defaultSlug')}
+                        <p className="flex items-center gap-1 text-xs uppercase tracking-[0.08em] text-text-muted">
+                          <span>{workspace.slug || t('cards.workspace.defaultSlug')}</span>
+                          {workspace.slug ? (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="inline-flex rounded p-0.5 text-text-muted hover:text-accent"
+                              title={t('copySlug')}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                void navigator.clipboard.writeText(workspace.slug).then(
+                                  () => toast.success(t('copied')),
+                                  () => toast.error(t('cards.create.error')),
+                                )
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter' && event.key !== ' ') return
+                                event.preventDefault()
+                                event.stopPropagation()
+                                void navigator.clipboard.writeText(workspace.slug)
+                              }}
+                            >
+                              <Copy className="h-3 w-3" aria-hidden />
+                              <span className="sr-only">{t('copySlug')}</span>
+                            </span>
+                          ) : null}
                         </p>
                         {tenantUrl ? (
                           <p className="text-[11px] text-text-secondary truncate">{tenantUrl}</p>
@@ -209,15 +245,36 @@ export default function Workspaces() {
                 autoFocus
                 value={workspaceName}
                 onChange={(event) => setWorkspaceName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    void handleCreateWorkspace()
+                  }
+                }}
                 placeholder={t('cards.create.inputPlaceholder')}
               />
               <div className="flex items-center">
                 <Input
                   value={workspaceSubdomain}
                   onChange={(event) => {
-                    const next = normalizeSubdomainInput(event.target.value)
+                    const next = normalizeWorkspaceSubdomain(event.target.value)
                     setWorkspaceSubdomain(next)
-                    if (subdomainError) setSubdomainError(validateSubdomain(next))
+                    if (subdomainError) {
+                      const code = validateWorkspaceSubdomain(next)
+                      setSubdomainError(
+                        code === 'required'
+                          ? t('cards.create.subdomainRequired')
+                          : code === 'format'
+                            ? t('cards.create.subdomainFormat')
+                            : null,
+                      )
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void handleCreateWorkspace()
+                    }
                   }}
                   placeholder={t('cards.create.subdomainPlaceholder')}
                   className="rounded-r-none"
@@ -235,7 +292,7 @@ export default function Workspaces() {
               </Button>
               <Button
                 onClick={() => void handleCreateWorkspace()}
-                disabled={!workspaceName.trim() || !workspaceSubdomain.trim() || Boolean(validateSubdomain(workspaceSubdomain)) || createLoading}
+                disabled={!workspaceName.trim() || !workspaceSubdomain.trim() || Boolean(validateWorkspaceSubdomain(workspaceSubdomain)) || createLoading}
               >
                 <Plus size={14} />
                 {createLoading ? t('cards.create.creating') : t('cards.create.button')}

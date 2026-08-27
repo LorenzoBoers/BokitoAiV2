@@ -1,6 +1,6 @@
 ---
 title: Welcome to Bokito
-intro: The inbox, the agents, and the approvals - finally in one system.
+intro: The inbox, the agents, and the approvals — finally in one system.
 description: Bokito unifies customer conversations, AI agents and human approvals in one operational flow. Learn what the platform does and where to start.
 keywords: bokito, introduction, overview, ai operations, getting started
 sort: 10
@@ -9,22 +9,25 @@ related: quickstart,tour,setup-guide
 
 # Welcome to Bokito
 
-Bokito is an operations platform for teams that want AI to do real work. Customer messages, AI agents and human approvals live in one system, so nothing falls between tools.
+Bokito is an operations platform for teams that want AI to do real work. Customer messages, agents and approvals live in one system.
 
-## What Bokito does
+## What you use it for
 
-- **Communication** collects every customer conversation - email, website chat, WhatsApp - in one hub. Agents draft or send replies depending on how much freedom you give them.
-- **Agents** are AI coworkers with a role, instructions, knowledge and tools. They handle threads, run scheduled work and execute automations.
-- **Govern** keeps humans in control. Agents ask for approval inside the thread when a step needs judgment, and every change is auditable.
+![Bokito sidebar](/api/docs/assets/welcome/rail.png)
+*One sidebar: Control, AI and Settings.*
 
-## How the pieces fit
+- [Communication](/docs/inbox/communication) collects email, website chat and WhatsApp. [Inbox AI](/docs/inbox/inbox-ai) decides whether the assistant drafts, sends, or stays off. [Govern](/docs/govern/govern) decides which tools an agent may use and when a human must approve.
+- [Agents](/docs/ai/agents) are coworkers with a role, instructions, knowledge and tools.
+- Decision cards appear in the thread when a step needs judgment. Structural changes land as drafts on Govern.
 
-Work lands as a thread in Communication. An agent picks it up, uses your Knowledge to answer, and either replies directly or leaves a draft or decision request for you. The Cockpit shows what happened and what needs attention. Over time you dial autonomy up, and your role shifts from doing the work to handling exceptions.
+## How a day runs
+
+Work lands as a thread. An agent uses [Knowledge](/docs/ai/knowledge), then replies, drafts or asks. [Cockpit](/docs/getting-started/cockpit) shows what needs you. Jump with `Ctrl+K` — search **Invite a teammate**, **Talk to my assistant**, or **Open my profile**. In-app **Learn** and public **Docs** remember the last article you opened. You dial autonomy up over time.
 
 ## Where to start
 
-1. Follow the [quickstart](/docs/getting-started/quickstart) to connect a mailbox and see your first thread.
-2. Take the [product tour](/docs/getting-started/tour) to learn the layout.
-3. Use the [setup guide](/docs/getting-started/setup-guide) to configure the workspace properly.
+1. Follow the [quickstart](/docs/getting-started/quickstart) to connect a mailbox.
+2. Take the [product tour](/docs/getting-started/tour) to learn the rail.
+3. Use the [setup guide](/docs/getting-started/setup-guide) to configure the workspace.
 
-Building an integration instead? Start at the [API overview](/docs/developers/api-overview).
+Building an integration? Start at the [API overview](/docs/developers/api-overview).

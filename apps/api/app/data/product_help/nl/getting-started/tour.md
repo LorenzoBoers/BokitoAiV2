@@ -1,48 +1,51 @@
 ---
 title: Producttour
-intro: Een snelle plattegrond van de interface - waar elk onderdeel voor is en wanneer je het gebruikt.
-description: Een rondleiding door de Bokito-interface: Cockpit, Communication, Agenda, Contacten, Projecten, Knowledge, Agents en Instellingen.
-keywords: tour, interface, navigatie, indeling, zijbalk
+intro: Een snelle kaart van de interface — waar elk gebied voor is en wanneer je het gebruikt.
+description: Een gids van Bokito: de zijbalk, het commandopalet, Cockpit, Communicatie, Agenda, Kennis, Agents en Instellingen.
+keywords: tour, interface, navigatie, commandopalet, zijbalk
 sort: 40
 related: welcome,cockpit,communication
 ---
 
 # Producttour
 
-Bokito heeft een zijbalk en een handvol gebieden. Elk beantwoordt een andere vraag.
+Bokito heeft één zijbalk. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
 
-## Cockpit - wat heeft mij vandaag nodig?
+## Control: de dagelijkse loop
 
-De Cockpit is het dagelijkse startscherm: open gesprekken die aandacht vragen, recente agentactiviteit en openstaande goedkeuringen. Scan hem 's ochtends en na de lunch in plaats van elke pagina open te houden.
+![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
+*Cockpit, Communicatie, Contacten, Agenda en Projecten.*
 
-## Communication - de gesprekken
+- **Cockpit** — wat heeft mij vandaag nodig? Zie [Cockpit](/docs/getting-started/cockpit).
+- **Communicatie** — de gesprekken. Zie [Communicatie](/docs/inbox/communication).
+- **Contacten** — wie schrijft. Zie [Contacten](/docs/inbox/contacts).
+- **Agenda** — wanneer agents wakker worden. Zie [Agenda](/docs/ai/agenda).
+- **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/projects).
 
-Elk klantgesprek over alle kanalen, plus interne gesprekken met je agents. Gesprekken dragen de volledige context: contact, historie, AI-concepten en beslisverzoeken in het gesprek zelf. Hier speelt het grootste deel van de dag zich af.
+## AI: de workforce
 
-## Agenda - de planning
+- **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
+- **Kennis** — waaruit ze antwoorden. Zie [Kennis](/docs/ai/knowledge).
 
-Gepland agentwerk en automatiseringen: terugkerende runs, follow-ups, triggers. Moet iets elke dag om negen uur gebeuren, dan woont het hier.
+## Instellingen: de controleruimte
 
-## Contacten - de mensen
+**E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen**, **Integraties**, **Setupgids** en **Govern** staan hier. Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide).
 
-Iedereen met wie je praat, met gespreksgeschiedenis en notities. Opent vanuit elk gesprek door op het contact te klikken.
+Persoonlijke schermen — **Profiel**, **Notificaties**, **Mijn assistent** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
 
-## Projecten - het langere werk
+## Gebruik het commandopalet
 
-Werk dat dagen of weken beslaat, gedeeld tussen mensen en agents: een takenlijst met context waar agents op kunnen voortbouwen.
+1. Druk `Ctrl+K` (Windows) of `Cmd+K` (Mac) vanaf elke ingelogde pagina.
+2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Inbox-wachtrijen**, **Kennis** en **Instellingen**.
+3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met mijn assistent**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Mijn assistent**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen** en **Hulp openen**.
+4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
-## Knowledge - wat agents weten
+Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen, niet om inboxfilters te zetten.
 
-De documenten waaruit agents antwoorden, en klantgerichte helpartikelen die je publiceert. Betere kennis betekent betere concepten.
+## Twee andere snelkoppelingen
 
-## Agents - de AI-workforce
+Het hulpmenu in de topbalk opent deze artikelen vanaf elke pagina. De openbare site is `/docs` (geen login). In-app **Hulp** is `/learn`.
 
-De rol, instructies, het model en de tools van elke agent, plus de werklogs. Kom hier om een agent toe te voegen of te begrijpen waarom er iets gebeurde.
+## Wat nu
 
-## Instellingen - de controlekamer
-
-Kanalen, leden, modellen, integraties, de widget en Govern (autonomie, goedkeuringen, audit, API-tokens). Owners en admins komen hier vaak; members zelden.
-
-## Twee sneltoetsen die lonen
-
-Het commandopalet (`Ctrl+K` of `Cmd+K`) springt overal naartoe en voert veelgebruikte acties uit. Het helpmenu in de bovenbalk opent deze artikelen vanaf elke pagina.
+Volg de [quickstart](/docs/getting-started/quickstart) als de workspace nog leeg is.

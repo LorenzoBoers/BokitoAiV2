@@ -1,19 +1,25 @@
 {
   "loadingMailboxes": "Loading mailboxes...",
   "missingOrganisation": "Your account does not have an organization context yet. Ask an admin to link your user to an organization, or sign in again if you just accepted an invite.",
+  "signOut": "Sign out",
   "noActiveMailboxTitle": "Connect a channel",
   "noActiveMailboxDescription": "Every workspace has a Bokito address under Channels. Connect it, or add Gmail or Outlook, so customer email lands here.",
   "openEmailSettings": "Open channels",
-  "inboxSearchPlaceholder": "Search conversations...",
+  "inboxSearchPlaceholder": "Search conversations  /",
   "inboxSearchClear": "Clear search",
+  "inboxSearchSave": "Save this search",
+  "inboxSearchForget": "Remove",
   "listFilters": {
     "all": "All",
     "unread": "Unread",
+    "needsReply": "Needs reply",
     "pinned": "Pinned"
   },
   "composer": {
     "hintEmail": "Ctrl+Enter to send, Enter for a new line — drafts are kept per conversation",
-    "hintChat": "Enter to send, Shift+Enter for a new line",
+    "draftRestored": "Draft restored",
+    "discardDraft": "Discard",
+    "hintChat": "Enter to send, Shift+Enter for a new line. Type @ to mention a person or agent.",
     "resize": "Resize composer",
     "resizeHint": "Drag to make more room. Double-click to reset.",
     "expand": "Expand composer",
@@ -29,6 +35,9 @@
     "sendError": "Could not send message.",
     "uploadError": "Could not upload attachment.",
     "tabNote": "Note",
+    "tabHintReply": "The customer sees this",
+    "tabHintNote": "Only your team sees this",
+    "templates": "Templates",
     "notePlaceholder": "Internal note (not visible to the customer)...",
     "placeholders": {
       "messageAgent": "Message {{name}}...",
@@ -49,7 +58,7 @@
     "savedReplies": "Saved replies",
     "saveAsTemplate": "Save current text as template",
     "sendAndClose": "Send and close",
-    "sendAndWait": "Send and wait",
+    "sendAndWait": "Send and snooze",
     "loadingSavedReplies": "Loading...",
     "attachFile": "Attach file",
     "withSignature": "Your signature is added",
@@ -59,6 +68,9 @@
       "chat": "Chat",
       "slack": "Slack",
       "whatsapp": "WhatsApp",
+      "api": "API",
+      "webhook": "Webhook",
+      "integration": "Integration",
       "internal": "Message",
       "assistant": "Chat"
     },
@@ -89,8 +101,11 @@
     "sent": "Email sent",
     "cancel": "Cancel",
     "from": "From",
+    "fromHint": "Customers see this address in their inbox",
     "to": "To",
     "toPlaceholder": "name@example.com, other@example.com",
+    "ccPlaceholder": "name@example.com, other@example.com",
+    "bccPlaceholder": "name@example.com",
     "cc": "CC",
     "bcc": "BCC",
     "subject": "Subject",
@@ -107,6 +122,7 @@
   },
   "runsChips": {
     "heading": "Agent runs",
+    "subtitle": "Background work and items waiting for you.",
     "all": "All",
     "updates": "Updates",
     "results": "Results",
@@ -115,8 +131,11 @@
   "threadList": {
     "loading": "Loading...",
     "empty": "No threads found.",
+    "emptySearch": "No conversations match “{{query}}”.",
     "emptyUnread": "No unread conversations in this list.",
+    "emptyNeedsReply": "Nothing waiting on you. Customers you already answered sit in All.",
     "emptyPinned": "No pinned conversations yet. Pin one to keep it at the top.",
+    "shortcutHint": "Press ? for shortcuts",
     "showAllConversations": "Show all conversations",
     "emptyRuns": "No agent runs yet.",
     "emptySnoozed": "Nothing waiting for later.",
@@ -136,13 +155,24 @@
     "loadMore": "Load more",
     "loadMoreOf": "Load more ({{loaded}} of {{total}})",
     "loadingMore": "Loading more...",
-    "allLoaded": "All {{total}} conversations loaded"
+    "allLoaded": "All {{total}} conversations loaded",
+    "densityCompact": "Compact list",
+    "densityComfortable": "Comfortable list",
+    "markAllRead": "Mark loaded as read",
+    "countsPartial": "Counts are for loaded conversations only",
+    "filterAssignee": "Filter by assignee",
+    "filterAssigneeAll": "Any assignee",
+    "filterPriority": "Filter by priority",
+    "filterPriorityAll": "Any priority",
+    "filterChannel": "Filter by channel",
+    "filterChannelAll": "Any channel"
   },
   "decisionCard": {
     "titleSuggestedReply": "Suggested reply",
     "titleNoReply": "No reply needed",
     "titleDecision": "Decision",
     "resolved": "Resolved",
+    "earlierDraft": "Earlier draft — dismissed",
     "automatedExplainer": "This looks like an automated message, so no reply was drafted.",
     "decisionNeeded": "Decision needed",
     "answerPlaceholder": "Type your answer...",
@@ -151,11 +181,14 @@
     "resolveError": "Could not resolve decision.",
     "closeError": "Could not close the thread.",
     "toastApproved": "Decision approved",
-    "toastDeferred": "Decision deferred",
+    "toastDeferred": "Saved for later",
     "toastRejected": "Decision rejected",
     "toastClosed": "Thread closed",
     "toastTaskCreated": "Task created",
     "toastSent": "Reply sent",
+    "copyId": "Copy decision ID",
+    "idCopied": "Decision ID copied",
+    "copyIdFailed": "Could not copy decision ID",
     "toastEscalated": "Escalated to human",
     "toastAnswerSubmitted": "Answer submitted",
     "internalNote": {
@@ -182,14 +215,14 @@
     "options": {
       "send": "Send",
       "edit": "Edit",
-      "escalate": "Escalate",
+      "escalate": "I'll handle it myself",
       "closeThread": "Close thread",
       "createTask": "Create task",
       "keepOpen": "Keep open",
       "reject": "Reject",
       "later": "Later",
       "approve": "Approve",
-      "defer": "Defer"
+      "defer": "Not now"
     },
     "correctInterpretation": "Correct this",
     "feedbackGood": "Looks right",
@@ -202,6 +235,8 @@
       "poWakeBacklog": "Lead: review platform backlog",
       "leadHeartbeat": "Lead heartbeat",
       "heartbeat": "Check-in",
+      "tryFirstDecision": "Try your first decision",
+      "demoMakesSense": "Does this demo make sense?",
       "assistPrefix": "Help: {{subject}}"
     },
     "knownSummaries": {
@@ -229,10 +264,13 @@
     "thinkingStep": "1 thinking step",
     "thinkingSteps": "{{count}} thinking steps",
     "steps": "{{count}} steps",
-    "tokens": "+{{count}} tokens"
+    "tokens": "+{{count}} tokens",
+    "copyTrace": "Copy trace",
+    "traceCopied": "Trace copied",
+    "copyFailed": "Could not copy trace"
   },
   "mockAgent": {
-    "replyBody": "[mock] I received your message about: {{topic}}. This is the Bokito AI OS assistant running in mock mode."
+    "replyBody": "Placeholder reply about {{topic}}."
   },
   "status": {
     "thread": {
@@ -300,8 +338,8 @@
     }
   },
   "agentSession": {
-    "launcher": "Ask assistant",
-    "pickAgent": "Bring an agent into this thread",
+    "launcher": "Ask about this conversation",
+    "pickAgent": "Choose who to ask",
     "title": "Agent session",
     "internalHint": "Internal - not visible to the customer",
     "endSession": "End session",
@@ -320,6 +358,7 @@
     "closedAt": "Ended {{time}}",
     "transcriptError": "Could not load the session transcript.",
     "replyCopied": "Answer copied to the reply composer",
+    "openAgent": "Open agent",
     "actionsCount": "{{count}} actions"
   },
   "onboarding": {
@@ -335,6 +374,8 @@
     "subtitle": "A few steps and Bokito runs on your organization's knowledge.",
     "progress": "{{done}} of {{total}} completed",
     "dismiss": "Hide setup",
+    "showAgain": "Show setup again",
+    "dismissedHint": "The setup card is hidden. You can bring it back anytime.",
     "loadError": "Could not load your setup checklist.",
     "retry": "Retry",
     "steps": {
@@ -356,7 +397,13 @@
       "first_decision": {
         "title": "Resolve your first decision",
         "description": "Try a demo conversation and see how Bokito asks before acting.",
-        "cta": "Try the demo"
+        "cta": "Try the demo",
+        "error": "Could not start the demo conversation. Try again."
+      },
+      "watching": {
+        "title": "Let the assistant watch",
+        "description": "The hourly check-in wakes the assistant. It only writes in Messages when something needs you.",
+        "cta": "Turn on check-in"
       },
       "team": {
         "title": "Invite your team",
@@ -367,7 +414,9 @@
   },
   "newConversation": {
     "title": "New conversation",
+    "back": "Back to Messages",
     "to": "To:",
+    "toHint": "Pick a person, agent, or type an email address",
     "searchPlaceholder": "Search assistants, agents and people...",
     "loading": "Loading...",
     "companyAgent": "Company agent",
@@ -385,6 +434,8 @@
     "people": "People",
     "emailContact": "Email",
     "writeEmail": "Write an email instead",
+    "emailACustomer": "Email a customer",
+    "chatWithAssistant": "Chat with assistant",
     "messageName": "Message {{name}}...",
     "chooseAndType": "Choose a recipient and start typing...",
     "send": "Send",
@@ -402,9 +453,11 @@
     "creating": "Creating...",
     "emptyTitle": "No messages in this thread yet.",
     "emptyEmail": "New email will appear after the next mailbox sync.",
-    "emptyChat": "Send a message or wait for the agent to post an update.",
+    "emptyChat": "Send a message or ask the assistant about this conversation.",
+    "emptyAsk": "Ask the assistant about this",
+    "emptyAskPrefill": "This conversation is empty. Help me work out what should happen next.",
     "openEmailSettings": "Open Email & messages",
-    "openInboxAi": "Adjust Inbox AI",
+    "openInboxAi": "Adjust AI replies",
     "selectThread": "Select a thread to view.",
     "selectThreadTitle": "Pick a conversation",
     "selectThreadHint": "Choose a thread from the list, start a new chat, or finish setup so customers can reach you.",
@@ -440,6 +493,7 @@
     "customerRatingScore": "Customer rating {{score}} of 5",
     "internalPrefix": "Internal",
     "loadFailed": "Thread #{{id}} could not be loaded.",
+    "threadGone": "This conversation is no longer available.",
     "tryAgain": "Try again",
     "agentsLoadError": "Could not load agents; @agent mentions are unavailable.",
     "teamLoadError": "Could not load team members; @mentions may be incomplete.",
@@ -460,7 +514,44 @@
     "lead": "Lead: {{name}}",
     "noLead": "No lead agent on this project.",
     "openProject": "Open project",
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "copyLink": "Copy conversation link",
+    "linkCopied": "Conversation link copied",
+    "copyThreadId": "Copy thread ID",
+    "threadIdCopied": "Thread ID copied",
+    "copyEmail": "Copy email address",
+    "emailCopied": "Email copied",
+    "copyExternalId": "Copy external conversation ID",
+    "externalIdCopied": "External conversation ID copied",
+    "newMessages": "{{count}} new"
+  },
+  "shortcuts": {
+    "title": "Inbox shortcuts",
+    "closeHelp": "Close",
+    "nextPrev": "Next or previous conversation",
+    "close": "Close conversation",
+    "unread": "Mark unread",
+    "pin": "Pin or unpin",
+    "assign": "Assign to me",
+    "reply": "Focus reply",
+    "compose": "New email",
+    "newChat": "New chat",
+    "search": "Focus search",
+    "thisHelp": "Show this list",
+    "escape": "Back to the list, or leave search",
+    "snooze": "Snooze for one hour",
+    "select": "Select or deselect this conversation",
+    "replyBlocked": "This conversation is closed. Reopen it to reply.",
+    "commandPalette": "Command palette",
+    "send": "Send reply",
+    "assignPicker": "Open assignee picker",
+    "copyLink": "Copy conversation link",
+    "copyId": "Copy thread ID",
+    "quickFilters": "All / Needs reply / Unread / Pinned",
+    "jumpUnread": "Next or previous unread",
+    "markRead": "Mark as read",
+    "selectAll": "Select all loaded conversations",
+    "snoozeCustom": "Snooze until a chosen time"
   },
   "contactPanel": {
     "loading": "Loading contact...",
@@ -485,6 +576,7 @@
     "saving": "Saving...",
     "previous": "Previous conversations",
     "noPrevious": "No other conversations with this contact.",
+    "addContact": "Add to contacts",
     "openContacts": "Open Contacts",
     "noSubject": "(No subject)",
     "loadError": "Could not load contact.",
@@ -530,7 +622,7 @@
     "placeholder": "Message your assistant...",
     "stop": "Stop",
     "send": "Send",
-    "emptyPick": "Pick a conversation from the list or start a new chat.",
+    "emptyPick": "Start a chat with your assistant, or pick a conversation from the list.",
     "newChat": "New chat",
     "decision": "Decision",
     "approved": "Approved",
@@ -560,7 +652,9 @@
     "contact": "Contact",
     "agent": "Agent",
     "internal": "Internal",
-    "snoozed": "Later",
+    "snoozed": "Waiting",
+    "you": "You",
+    "needsReply": "Needs reply",
     "filterBy": "Filter by {{tag}}"
   },
   "snooze": {
@@ -571,7 +665,12 @@
     "untilReply": "Until the customer replies",
     "wakesToday": "Back today {{time}}",
     "wakesTomorrow": "Back tomorrow {{time}}",
-    "wakesOn": "Back {{date}} {{time}}"
+    "wakesOn": "Back {{date}} {{time}}",
+    "custom": "Choose date and time",
+    "customTitle": "Snooze until",
+    "customHint": "This conversation returns to Open at the time you pick.",
+    "customApply": "Snooze",
+    "customInvalid": "Pick a time in the future."
   },
   "bulkActions": {
     "selected": "{{count}} selected",
@@ -582,9 +681,13 @@
     "reopen": "Reopen",
     "markSpam": "Mark as spam",
     "assign": "Assign",
+    "assignToMe": "Assign to me",
+    "pin": "Pin",
+    "unpin": "Unpin",
     "noMembers": "No members",
     "clear": "Clear",
-    "clearSelection": "Clear selection"
+    "clearSelection": "Clear selection",
+    "selectAll": "Select all"
   },
   "priority": {
     "normal": "Normal",
@@ -594,6 +697,16 @@
   "timeline": {
     "today": "Today",
     "yesterday": "Yesterday",
+    "notDelivered": "Not delivered",
+    "sending": "Sending",
+    "copyId": "Copy message ID",
+    "copyBody": "Copy text",
+    "idCopied": "Message ID copied",
+    "bodyCopied": "Message copied",
+    "copyFailed": "Could not copy",
+    "cancelSend": "Cancel send",
+    "sendCancelled": "Scheduled send cancelled",
+    "cancelSendFailed": "Could not cancel send",
     "events": {
       "threadCreated": "Thread created",
       "conversationStarted": "Conversation started",

@@ -1,19 +1,25 @@
 {
   "loadingMailboxes": "Mailboxen laden...",
   "missingOrganisation": "Je account heeft nog geen organisatiecontext. Vraag een beheerder om je gebruiker aan een organisatie te koppelen, of log opnieuw in als je net een uitnodiging hebt geaccepteerd.",
+  "signOut": "Uitloggen",
   "noActiveMailboxTitle": "Koppel een kanaal",
   "noActiveMailboxDescription": "Elke workspace heeft een Bokito-adres onder Kanalen. Koppel dat, of voeg Gmail of Outlook toe, zodat klantmail hier landt.",
   "openEmailSettings": "Open kanalen",
-  "inboxSearchPlaceholder": "Zoek gesprekken...",
+  "inboxSearchPlaceholder": "Zoek gesprekken  /",
   "inboxSearchClear": "Zoekopdracht wissen",
+  "inboxSearchSave": "Deze zoekopdracht bewaren",
+  "inboxSearchForget": "Verwijderen",
   "listFilters": {
     "all": "Alles",
     "unread": "Ongelezen",
+    "needsReply": "Jij aan zet",
     "pinned": "Gepind"
   },
   "composer": {
     "hintEmail": "Ctrl+Enter om te versturen, Enter voor een nieuwe regel — concepten blijven per gesprek bewaard",
-    "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel",
+    "draftRestored": "Concept hersteld",
+    "discardDraft": "Verwerpen",
+    "hintChat": "Enter om te versturen, Shift+Enter voor een nieuwe regel. Typ @ om een persoon of agent te vermelden.",
     "resize": "Composer groter of kleiner maken",
     "resizeHint": "Sleep voor meer ruimte. Dubbelklik zet terug.",
     "expand": "Composer uitklappen",
@@ -29,6 +35,9 @@
     "sendError": "Kon bericht niet versturen.",
     "uploadError": "Kon bijlage niet uploaden.",
     "tabNote": "Notitie",
+    "tabHintReply": "De klant ziet dit",
+    "tabHintNote": "Alleen je team ziet dit",
+    "templates": "Sjablonen",
     "notePlaceholder": "Interne notitie (niet zichtbaar voor de klant)...",
     "placeholders": {
       "messageAgent": "Bericht aan {{name}}...",
@@ -49,7 +58,7 @@
     "savedReplies": "Opgeslagen antwoorden",
     "saveAsTemplate": "Huidige tekst als sjabloon opslaan",
     "sendAndClose": "Versturen en sluiten",
-    "sendAndWait": "Versturen en wachten",
+    "sendAndWait": "Versturen en uitstellen",
     "loadingSavedReplies": "Laden...",
     "attachFile": "Bestand toevoegen",
     "withSignature": "Je handtekening wordt toegevoegd",
@@ -59,6 +68,9 @@
       "chat": "Chat",
       "slack": "Slack",
       "whatsapp": "WhatsApp",
+      "api": "API",
+      "webhook": "Webhook",
+      "integration": "Integratie",
       "internal": "Bericht",
       "assistant": "Chat"
     },
@@ -89,8 +101,11 @@
     "sent": "E-mail verstuurd",
     "cancel": "Annuleren",
     "from": "Van",
+    "fromHint": "Klanten zien dit adres in hun inbox",
     "to": "Aan",
     "toPlaceholder": "naam@voorbeeld.nl, ander@voorbeeld.nl",
+    "ccPlaceholder": "naam@voorbeeld.nl, ander@voorbeeld.nl",
+    "bccPlaceholder": "naam@voorbeeld.nl",
     "cc": "CC",
     "bcc": "BCC",
     "subject": "Onderwerp",
@@ -107,6 +122,7 @@
   },
   "runsChips": {
     "heading": "Agent-runs",
+    "subtitle": "Achtergrondwerk en items die op jou wachten.",
     "all": "Alles",
     "updates": "Updates",
     "results": "Resultaten",
@@ -115,8 +131,11 @@
   "threadList": {
     "loading": "Laden...",
     "empty": "Geen gesprekken gevonden.",
+    "emptySearch": "Geen gesprekken voor “{{query}}”.",
     "emptyUnread": "Geen ongelezen gesprekken in deze lijst.",
+    "emptyNeedsReply": "Niets waar jij aan zet bent. Beantwoorde klanten staan onder Alles.",
     "emptyPinned": "Nog geen vastgezette gesprekken. Zet er een vast om hem bovenaan te houden.",
+    "shortcutHint": "Druk op ? voor sneltoetsen",
     "showAllConversations": "Alle gesprekken tonen",
     "emptyRuns": "Nog geen agent-runs.",
     "emptySnoozed": "Niets uitgesteld tot later.",
@@ -136,13 +155,24 @@
     "loadMore": "Meer laden",
     "loadMoreOf": "Meer laden ({{loaded}} van {{total}})",
     "loadingMore": "Meer laden...",
-    "allLoaded": "Alle {{total}} gesprekken geladen"
+    "allLoaded": "Alle {{total}} gesprekken geladen",
+    "densityCompact": "Compacte lijst",
+    "densityComfortable": "Ruime lijst",
+    "markAllRead": "Geladen als gelezen markeren",
+    "countsPartial": "Aantallen gelden alleen voor geladen gesprekken",
+    "filterAssignee": "Filter op toegewezene",
+    "filterAssigneeAll": "Iedere toegewezene",
+    "filterPriority": "Filter op prioriteit",
+    "filterPriorityAll": "Elke prioriteit",
+    "filterChannel": "Filter op kanaal",
+    "filterChannelAll": "Elk kanaal"
   },
   "decisionCard": {
     "titleSuggestedReply": "Voorgesteld antwoord",
     "titleNoReply": "Geen antwoord nodig",
     "titleDecision": "Beslissing",
     "resolved": "Afgehandeld",
+    "earlierDraft": "Eerder concept — terzijde gelegd",
     "automatedExplainer": "Dit lijkt een automatisch bericht, dus er is geen antwoord opgesteld.",
     "decisionNeeded": "Beslissing nodig",
     "answerPlaceholder": "Typ je antwoord...",
@@ -151,11 +181,14 @@
     "resolveError": "Kon de beslissing niet verwerken.",
     "closeError": "Kon het gesprek niet sluiten.",
     "toastApproved": "Beslissing goedgekeurd",
-    "toastDeferred": "Beslissing uitgesteld",
+    "toastDeferred": "Bewaard voor later",
     "toastRejected": "Beslissing afgewezen",
     "toastClosed": "Gesprek gesloten",
     "toastTaskCreated": "Taak aangemaakt",
     "toastSent": "Antwoord verzonden",
+    "copyId": "Beslissings-ID kopiëren",
+    "idCopied": "Beslissings-ID gekopieerd",
+    "copyIdFailed": "Beslissings-ID kopiëren mislukt",
     "toastEscalated": "Geëscaleerd naar mens",
     "toastAnswerSubmitted": "Antwoord ingediend",
     "internalNote": {
@@ -182,14 +215,14 @@
     "options": {
       "send": "Versturen",
       "edit": "Bewerken",
-      "escalate": "Escaleren",
+      "escalate": "Ik doe het zelf",
       "closeThread": "Gesprek sluiten",
       "createTask": "Taak aanmaken",
       "keepOpen": "Open laten",
       "reject": "Afwijzen",
       "later": "Later",
       "approve": "Goedkeuren",
-      "defer": "Uitstellen"
+      "defer": "Niet nu"
     },
     "correctInterpretation": "Corrigeer",
     "feedbackGood": "Goed",
@@ -202,6 +235,8 @@
       "poWakeBacklog": "Lead: platformbacklog bekijken",
       "leadHeartbeat": "Lead-hartslag",
       "heartbeat": "Check-in",
+      "tryFirstDecision": "Probeer je eerste beslissing",
+      "demoMakesSense": "Is deze demo duidelijk?",
       "assistPrefix": "Hulp: {{subject}}"
     },
     "knownSummaries": {
@@ -229,10 +264,13 @@
     "thinkingStep": "1 denkstap",
     "thinkingSteps": "{{count}} denkstappen",
     "steps": "{{count}} stappen",
-    "tokens": "+{{count}} tokens"
+    "tokens": "+{{count}} tokens",
+    "copyTrace": "Trace kopiëren",
+    "traceCopied": "Trace gekopieerd",
+    "copyFailed": "Trace kopiëren mislukt"
   },
   "mockAgent": {
-    "replyBody": "[mock] Ik heb je bericht ontvangen over: {{topic}}. Dit is de Bokito AI OS-assistent in mock-modus."
+    "replyBody": "Tijdelijk antwoord over {{topic}}."
   },
   "status": {
     "thread": {
@@ -300,8 +338,8 @@
     }
   },
   "agentSession": {
-    "launcher": "Vraag assistent",
-    "pickAgent": "Haal een agent bij dit gesprek",
+    "launcher": "Vraag over dit gesprek",
+    "pickAgent": "Kies wie je vraagt",
     "title": "Agent-sessie",
     "internalHint": "Intern - niet zichtbaar voor de klant",
     "endSession": "Sessie afronden",
@@ -320,6 +358,7 @@
     "closedAt": "Afgerond {{time}}",
     "transcriptError": "Kon het sessietranscript niet laden.",
     "replyCopied": "Antwoord in de composer gezet",
+    "openAgent": "Agent openen",
     "actionsCount": "{{count}} acties"
   },
   "onboarding": {
@@ -335,6 +374,8 @@
     "subtitle": "Een paar stappen en Bokito draait op de kennis van jouw organisatie.",
     "progress": "{{done}} van {{total}} afgerond",
     "dismiss": "Setup verbergen",
+    "showAgain": "Setup opnieuw tonen",
+    "dismissedHint": "De setupkaart is verborgen. Je kunt die altijd terugzetten.",
     "loadError": "Kon je setupchecklist niet laden.",
     "retry": "Opnieuw",
     "steps": {
@@ -356,7 +397,13 @@
       "first_decision": {
         "title": "Los je eerste beslissing op",
         "description": "Probeer een demogesprek en zie hoe Bokito eerst vraagt voordat het handelt.",
-        "cta": "Probeer de demo"
+        "cta": "Probeer de demo",
+        "error": "Kon het demogesprek niet starten. Probeer opnieuw."
+      },
+      "watching": {
+        "title": "Laat de assistent waken",
+        "description": "De uurlijkse check-in wekt de assistent. Die schrijft alleen in Berichten als iets jou nodig heeft.",
+        "cta": "Check-in aanzetten"
       },
       "team": {
         "title": "Nodig je team uit",
@@ -367,7 +414,9 @@
   },
   "newConversation": {
     "title": "Nieuw gesprek",
+    "back": "Terug naar Berichten",
     "to": "Aan:",
+    "toHint": "Kies een persoon, agent of typ een e-mailadres",
     "searchPlaceholder": "Zoek assistenten, agents en mensen...",
     "loading": "Laden...",
     "companyAgent": "Bedrijfsagent",
@@ -385,6 +434,8 @@
     "people": "Mensen",
     "emailContact": "E-mail",
     "writeEmail": "Liever een e-mail schrijven",
+    "emailACustomer": "E-mail een klant",
+    "chatWithAssistant": "Chat met assistent",
     "messageName": "Bericht naar {{name}}...",
     "chooseAndType": "Kies een ontvanger en begin te typen...",
     "send": "Versturen",
@@ -402,9 +453,11 @@
     "creating": "Aanmaken...",
     "emptyTitle": "Nog geen berichten in dit gesprek.",
     "emptyEmail": "Nieuwe e-mail verschijnt na de volgende mailbox-sync.",
-    "emptyChat": "Stuur een bericht of wacht tot de agent een update plaatst.",
+    "emptyChat": "Stuur een bericht of vraag de assistent over dit gesprek.",
+    "emptyAsk": "Vraag de assistent hierover",
+    "emptyAskPrefill": "Dit gesprek is leeg. Help me bedenken wat er nu moet gebeuren.",
     "openEmailSettings": "E-mail en berichten openen",
-    "openInboxAi": "Inbox AI aanpassen",
+    "openInboxAi": "AI-antwoorden aanpassen",
     "selectThread": "Selecteer een gesprek om te bekijken.",
     "selectThreadTitle": "Kies een gesprek",
     "selectThreadHint": "Kies een gesprek in de lijst, start een nieuwe chat, of rond de setup af zodat klanten je kunnen bereiken.",
@@ -440,6 +493,7 @@
     "customerRatingScore": "Klantbeoordeling {{score}} van 5",
     "internalPrefix": "Intern",
     "loadFailed": "Gesprek #{{id}} kon niet worden geladen.",
+    "threadGone": "Dit gesprek is niet meer beschikbaar.",
     "tryAgain": "Opnieuw proberen",
     "agentsLoadError": "Kon agents niet laden; @agent-mentions zijn niet beschikbaar.",
     "teamLoadError": "Kon teamleden niet laden; @mentions kunnen onvolledig zijn.",
@@ -460,7 +514,44 @@
     "lead": "Lead: {{name}}",
     "noLead": "Geen lead-agent op dit project.",
     "openProject": "Project openen",
-    "moreActions": "Meer acties"
+    "moreActions": "Meer acties",
+    "copyLink": "Gesprekslink kopiëren",
+    "linkCopied": "Gesprekslink gekopieerd",
+    "copyThreadId": "Gespreks-ID kopiëren",
+    "threadIdCopied": "Gespreks-ID gekopieerd",
+    "copyEmail": "E-mailadres kopiëren",
+    "emailCopied": "E-mail gekopieerd",
+    "copyExternalId": "Extern gespreks-ID kopiëren",
+    "externalIdCopied": "Extern gespreks-ID gekopieerd",
+    "newMessages": "{{count}} nieuw"
+  },
+  "shortcuts": {
+    "title": "Inbox-sneltoetsen",
+    "closeHelp": "Sluiten",
+    "nextPrev": "Volgend of vorig gesprek",
+    "close": "Gesprek sluiten",
+    "unread": "Markeer ongelezen",
+    "pin": "Vastzetten of losmaken",
+    "assign": "Aan mij toewijzen",
+    "reply": "Antwoord focussen",
+    "compose": "Nieuwe e-mail",
+    "newChat": "Nieuwe chat",
+    "search": "Zoeken focussen",
+    "thisHelp": "Deze lijst tonen",
+    "escape": "Terug naar de lijst, of zoeken verlaten",
+    "snooze": "Een uur uitstellen",
+    "select": "Dit gesprek selecteren of deselecteren",
+    "replyBlocked": "Dit gesprek is gesloten. Heropen het om te antwoorden.",
+    "commandPalette": "Commandopalet",
+    "send": "Antwoord versturen",
+    "assignPicker": "Toewijzer openen",
+    "copyLink": "Gesprekslink kopiëren",
+    "copyId": "Gespreks-ID kopiëren",
+    "quickFilters": "Alles / Jij aan zet / Ongelezen / Gepind",
+    "jumpUnread": "Volgende of vorige ongelezen",
+    "markRead": "Als gelezen markeren",
+    "selectAll": "Alle geladen gesprekken selecteren",
+    "snoozeCustom": "Uitstellen tot een gekozen tijd"
   },
   "contactPanel": {
     "loading": "Contact laden...",
@@ -485,6 +576,7 @@
     "saving": "Opslaan...",
     "previous": "Eerdere gesprekken",
     "noPrevious": "Geen andere gesprekken met dit contact.",
+    "addContact": "Toevoegen aan contacten",
     "openContacts": "Contacten openen",
     "noSubject": "(Geen onderwerp)",
     "loadError": "Kon contact niet laden.",
@@ -530,7 +622,7 @@
     "placeholder": "Bericht naar je assistent...",
     "stop": "Stop",
     "send": "Versturen",
-    "emptyPick": "Kies een gesprek uit de lijst of start een nieuwe chat.",
+    "emptyPick": "Start een chat met je assistent, of kies een gesprek uit de lijst.",
     "newChat": "Nieuwe chat",
     "decision": "Beslissing",
     "approved": "Goedgekeurd",
@@ -560,7 +652,9 @@
     "contact": "Contact",
     "agent": "Agent",
     "internal": "Intern",
-    "snoozed": "Later",
+    "snoozed": "Wacht",
+    "you": "Jij",
+    "needsReply": "Jij aan zet",
     "filterBy": "Filter op {{tag}}"
   },
   "snooze": {
@@ -571,7 +665,12 @@
     "untilReply": "Tot de klant antwoordt",
     "wakesToday": "Terug vandaag {{time}}",
     "wakesTomorrow": "Terug morgen {{time}}",
-    "wakesOn": "Terug {{date}} {{time}}"
+    "wakesOn": "Terug {{date}} {{time}}",
+    "custom": "Kies datum en tijd",
+    "customTitle": "Uitstellen tot",
+    "customHint": "Dit gesprek komt terug in Open op het tijdstip dat je kiest.",
+    "customApply": "Uitstellen",
+    "customInvalid": "Kies een tijdstip in de toekomst."
   },
   "bulkActions": {
     "selected": "{{count}} geselecteerd",
@@ -582,9 +681,13 @@
     "reopen": "Heropenen",
     "markSpam": "Markeer als spam",
     "assign": "Toewijzen",
+    "assignToMe": "Aan mij toewijzen",
+    "pin": "Vastzetten",
+    "unpin": "Losmaken",
     "noMembers": "Geen leden",
     "clear": "Wissen",
-    "clearSelection": "Selectie wissen"
+    "clearSelection": "Selectie wissen",
+    "selectAll": "Alles selecteren"
   },
   "priority": {
     "normal": "Normaal",
@@ -593,6 +696,16 @@
   },
   "timeline": {
     "today": "Vandaag",
+    "notDelivered": "Niet afgeleverd",
+    "sending": "Verzenden",
+    "copyId": "Bericht-ID kopiëren",
+    "copyBody": "Tekst kopiëren",
+    "idCopied": "Bericht-ID gekopieerd",
+    "bodyCopied": "Bericht gekopieerd",
+    "copyFailed": "Kopiëren mislukt",
+    "cancelSend": "Verzenden annuleren",
+    "sendCancelled": "Gepland bericht geannuleerd",
+    "cancelSendFailed": "Annuleren mislukt",
     "yesterday": "Gisteren",
     "events": {
       "threadCreated": "Gesprek aangemaakt",

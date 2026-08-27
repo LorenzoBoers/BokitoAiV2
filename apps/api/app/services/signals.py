@@ -8,7 +8,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_signal_message, publish_thread_update
@@ -281,7 +281,7 @@ async def create_inbound_signal(
     external_id: str = "",
 ) -> Signal:
     channel_account_id = None
-    if channel in ("email", "slack", "widget"):
+    if channel in ("email", "slack", "widget", "whatsapp"):
         channel_account_id = await _primary_channel_account_id(session, tenant_id, channel)
     contact = await get_or_create_contact(
         session,
@@ -290,6 +290,51 @@ async def create_inbound_signal(
         address=contact_email,
         display_name=contact_name,
     )
+    existing = await _open_thread_for_inbound(
+        session,
+        tenant_id,
+        channel=channel,
+        contact_id=contact.id if contact else None,
+        contact_email=contact_email,
+        subject=subject,
+        external_id=external_id,
+    )
+    now = datetime.utcnow()
+    if existing:
+        existing.has_unread = True
+        existing.status = "open"
+        existing.snoozed_until = None
+        existing.last_message_at = now
+        existing.updated_at = now
+        if contact_name and not existing.contact_name:
+            existing.contact_name = contact_name
+        session.add(existing)
+        message = SignalMessage(
+            signal_id=existing.id,
+            tenant_id=tenant_id,
+            kind="user_message",
+            direction="inbound",
+            body_text=body_text,
+            body_preview=body_text[:200],
+            from_address=contact_email,
+            subject=subject,
+            received_at=now,
+        )
+        session.add(message)
+        session.add(
+            SignalEvent(
+                signal_id=existing.id,
+                tenant_id=tenant_id,
+                event_type="message_added",
+                actor_type="system",
+            )
+        )
+        await session.commit()
+        await session.refresh(existing)
+        await session.refresh(message)
+        await publish_signal_message(existing, message)
+        return existing
+
     signal = Signal(
         tenant_id=tenant_id,
         channel=channel,
@@ -303,7 +348,7 @@ async def create_inbound_signal(
         status="open",
         priority="normal",
         has_unread=True,
-        last_message_at=datetime.utcnow(),
+        last_message_at=now,
     )
     session.add(signal)
     await session.flush()
@@ -334,7 +379,44 @@ async def create_inbound_signal(
     from app.services.webhooks import emit_webhook_event, signal_event_data
 
     await emit_webhook_event(session, tenant_id, "signal.created", signal_event_data(signal))
+    if source != "demo" and channel not in ("internal", "assistant"):
+        from app.services.onboarding_demo import remove_demo_threads
+
+        await remove_demo_threads(session, tenant_id)
     return signal
+
+
+async def _open_thread_for_inbound(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    channel: str,
+    contact_id: UUID | None,
+    contact_email: str,
+    subject: str,
+    external_id: str,
+) -> Signal | None:
+    """Continue an open conversation instead of starting a duplicate thread."""
+    query = select(Signal).where(
+        Signal.tenant_id == tenant_id,
+        Signal.channel == channel,
+        Signal.status.in_(("open", "pending")),
+    )
+    if external_id:
+        by_ext = await session.execute(query.where(Signal.external_id == external_id).limit(1))
+        found = by_ext.scalar_one_or_none()
+        if found:
+            return found
+    if contact_id:
+        query = query.where(Signal.contact_id == contact_id)
+    elif contact_email.strip():
+        query = query.where(func.lower(Signal.contact_email) == contact_email.strip().lower())
+    else:
+        return None
+    if channel == "email" and subject.strip():
+        query = query.where(Signal.subject == subject.strip())
+    result = await session.execute(query.order_by(Signal.last_message_at.desc()).limit(1))
+    return result.scalar_one_or_none()
 
 
 async def apply_triage(

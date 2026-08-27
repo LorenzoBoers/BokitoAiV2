@@ -1,28 +1,43 @@
 ---
 title: How Govern works
-intro: Structural change and risk live here. Day-to-day replies stay in Communication; this page is policy.
-description: Review platform changes, audit events and pending approvals in Govern - the control room for agent activity.
-keywords: govern, approvals, audit, changes, oversight
+intro: Structural change and risk live here. Day-to-day replies stay in Communication.
+description: Review pending platform changes, set policy sliders, undo applied edits, and read the audit log in Govern.
+keywords: govern, pending reviews, policy, audit, undo, allowances
 sort: 10
-related: autonomy,agents
+related: autonomy,agents,decisions
 ---
 
 # How Govern works
 
-Set how autonomous agents may be, review drafts, and lock tools that should never run without you.
+Govern is policy. Open **Settings**, then **Govern**. Message-level choices stay in the thread. Lasting workspace edits wait here.
 
-## Set the workspace posture
+## Review a platform change
 
-Manual, assisted or autonomous presets change default apply modes and tool allowances for the whole workspace. Start conservative, then widen trust as outcomes look right.
+![Govern draft queue](/api/docs/assets/govern/drafts.png)
+*Structural drafts wait here. Message decisions stay in the thread.*
 
-## Review drafts and decisions
+1. Open **Pending reviews** (the default tab).
+2. Read what the agent wants to change. Choose **View changes** for the diff.
+3. **Accept** asks **Apply this change to your workspace?** **Reject** asks **Reject this change?** Customer decisions stay in [Communication](/docs/inbox/communication).
 
-Agent-proposed platform changes wait here until someone accepts or rejects them. Inline decisions in threads are for message-level choices. Govern is for lasting policy.
+## Set posture and allowances
 
-## Lock tools
+![Govern policy](/api/docs/assets/govern/posture.png)
+*Pick Manual, Assisted or Autonomous, then fine-tune categories.*
 
-Per-category sliders (deny, ask, allow) plus per-tool overrides. External customer sessions never auto-mutate, regardless of posture.
+1. Open **Policy**. The card is **How much agents can do**.
+2. Pick **Manual**, **Assisted** or **Autonomous**. See [Autonomy](/docs/govern/autonomy).
+3. Under **Allowance sliders**, set each category to **Deny**, **Ask first** or **Allow**. Override one tool when the category is too broad.
+4. Categories include Messaging, Workspace, Agents, Channels, Triggers, Integrations, Govern and Handoff. External visitor sessions never auto-mutate.
+
+Per-agent overrides live on the agent page under Tools and permissions.
+
+## Undo and audit
+
+1. **Version history** lists accepted changes. **Undo** asks you to confirm, then rolls one back when that is still possible.
+2. **Agent access** is a roster of what each agent may do. Choose **Open agent** to change it.
+3. **Recent audit** is the event log. Rows offer **Open thread**, **Open run** or **Open agent**.
 
 ## What to do next
 
-Read Autonomy posture for the three presets, then open Agents to see who inherits those rules.
+Read [Autonomy](/docs/govern/autonomy), then open [Agents](/docs/ai/agents) to see who inherits the rules.

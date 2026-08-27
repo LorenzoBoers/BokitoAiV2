@@ -16,8 +16,10 @@ SIGNAL_CHANNELS = (
     "chat",
     "widget",
     "slack",
+    "whatsapp",
     "webhook",
     "integration",
+    "api",
     "internal",
     "assistant",
 )
@@ -32,7 +34,16 @@ SIGNAL_MESSAGE_KINDS = (
     "system_event",
     "internal_note",
 )
-EXTERNAL_CHANNELS = ("email", "chat", "widget", "slack", "webhook", "integration")
+EXTERNAL_CHANNELS = (
+    "email",
+    "chat",
+    "widget",
+    "slack",
+    "whatsapp",
+    "webhook",
+    "integration",
+    "api",
+)
 
 
 def is_internal_channel(channel: str) -> bool:

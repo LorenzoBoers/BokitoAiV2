@@ -29,6 +29,7 @@
   "language": {
     "title": "Taal",
     "description": "Kies de taal voor je interface.",
+    "deviceHint": "Deze taal blijft op dit apparaat.",
     "dutch": "Nederlands",
     "english": "Engels"
   },
@@ -92,7 +93,8 @@
     "totpStart": "Kon tweestapsverificatie niet starten.",
     "totpDisable": "Kon tweestapsverificatie niet uitschakelen.",
     "verificationSent": "Verificatie-e-mail verstuurd indien van toepassing.",
-    "verificationSentDev": "Verificatie-e-mail verstuurd. Controleer de ontwikkelingslink in de serverlogs."
+    "verificationSentDev": "Verificatie-e-mail verstuurd. Controleer de ontwikkelingslink in de serverlogs.",
+    "changePassword": "Kon het wachtwoord niet wijzigen."
   },
   "links": {
     "openInboxSettings": "Open kanaalinstellingen",

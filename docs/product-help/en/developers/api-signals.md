@@ -52,9 +52,9 @@ curl -X POST -H "Authorization: Bearer bok_..." -H "Content-Type: application/js
   "https://your-bokito-host/api/public/v1/signals"
 ```
 
-Requires `signals:write`. `subject` and `body` are required; `priority` is one of `low`, `normal`, `high`, `urgent` (default `normal`); up to 10 tags.
+Requires `signals:write`. `subject` (max 200 characters) and `body` are required; `priority` is one of `low`, `normal`, `high`, `urgent` (default `normal`); up to 10 `tags` (those become Labels in Communication). Optional `contact_name` and `contact_email` create or match a [contact](/docs/inbox/contacts).
 
-The signal lands in the inbox on the `api` channel, agents and routing rules treat it like any other inbound message, and a `signal.created` webhook fires. This is the standard way to route alerts, form submissions or events from other systems into the same flow as customer mail.
+The signal lands in the inbox on the `api` channel. You cannot pick another channel here. Agents and routing rules treat it like any other inbound message, and a `signal.created` webhook fires. This is the standard way to route alerts, form submissions or events from other systems into the same flow as customer mail.
 
 ## Errors
 

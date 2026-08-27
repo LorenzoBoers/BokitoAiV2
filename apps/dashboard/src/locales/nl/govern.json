@@ -1,6 +1,6 @@
 {
   "title": "Govern",
-  "subtitle": "Beoordeel concepten, kies hoeveel agents zelf mogen doen, en zie wat er veranderde.",
+  "subtitle": "Keur workspace-wijzigingen goed, kies hoeveel agents zonder jou mogen doen, en maak een wijziging ongedaan als dat nodig is.",
   "openCanvas": "Open Agents",
   "loading": "Govern-gegevens laden...",
   "loadError": "Kon govern-gegevens niet laden.",
@@ -8,6 +8,11 @@
   "allowancesError": "Kon toestemmingen niet opslaan.",
   "toolOverrideError": "Kon deze tool-override niet opslaan.",
   "refresh": "Vernieuwen",
+  "refreshedAt": "Bijgewerkt {{time}}",
+  "searchPlaceholder": "Zoek in deze lijst",
+  "filterEmpty": "Geen rijen die bij die zoekopdracht passen.",
+  "showAll": "Alles tonen ({{count}})",
+  "showFewer": "Minder tonen",
   "tabs": {
     "drafts": "Openstaande concepten",
     "policy": "Beleid",
@@ -31,17 +36,27 @@
     "acceptTitle": "Wijziging accepteren",
     "rejectTitle": "Wijziging afwijzen",
     "acceptAction": "Accepteren",
-    "rejectAction": "Afwijzen"
+    "rejectAction": "Afwijzen",
+    "acceptFailed": "Kon deze wijziging niet accepteren.",
+    "rejectFailed": "Kon deze wijziging niet afwijzen.",
+    "copyId": "Wijzigings-id kopiëren",
+    "idCopied": "Wijzigings-id gekopieerd"
   },
   "history": {
     "empty": "Nog geen geaccepteerde wijzigingen.",
+    "talkAssistant": "Vraag de assistent",
+    "talkPrefill": "Help me Govern te begrijpen en wat ik eerst moet goedkeuren.",
     "openDrafts": "Openstaande concepten openen",
     "rollback": "Ongedaan maken",
+    "rollbackTitle": "Deze wijziging ongedaan maken?",
+    "rollbackConfirm": "Dit zet de workspace terug naar hoe die was vóór deze wijziging. Je kunt hem daarna opnieuw beoordelen.",
+    "cancel": "Annuleren",
     "rolledBack": "Wijziging ongedaan gemaakt",
     "rollbackError": "Kon deze wijziging niet ongedaan maken."
   },
   "passports": {
     "empty": "Nog geen agenttoegang. Maak eerst een agent, en stel daarna op de agentpagina in wat die mag doen.",
+    "hint": "Deze lijst is wat elke agent mag doen. Pas rechten aan op de agentpagina onder Tools en rechten.",
     "openAgents": "Agents openen",
     "autonomy": "Hoeveel die mag doen: {{level}}",
     "scopes": "Wat die mag gebruiken: {{scopes}}",
@@ -50,10 +65,17 @@
   },
   "audit": {
     "empty": "Nog geen auditgebeurtenissen. Agentwerk en goedkeuringen verschijnen hier.",
+    "talkAssistant": "Vraag de assistent",
+    "talkPrefill": "Waar moet ik in Govern eerst naar kijken, en hoe komen goedkeuringen in gesprekken terecht?",
     "openCommunication": "Communicatie openen",
     "openThread": "Gesprek openen",
     "openRun": "Run openen",
-    "openAgent": "Agent openen"
+    "openAgent": "Agent openen",
+    "showPayload": "JSON tonen",
+    "hidePayload": "JSON verbergen",
+    "copyPayload": "JSON kopiëren",
+    "copied": "Auditregel gekopieerd",
+    "copyFailed": "Kopiëren mislukt"
   },
   "posture": {
     "title": "Hoeveel agents mogen doen",
@@ -61,17 +83,33 @@
     "perAgentHint": "Uitzonderingen per agent stel je in op de agentpagina onder Tools en toestemmingen.",
     "saved": "Autonomie-instelling bijgewerkt",
     "current": "Huidige instelling",
+    "autonomousConfirm": "Overschakelen naar Autonoom? Agents kunnen dan meer wijzigingen toepassen zonder op jou te wachten. Je kunt altijd terug.",
     "manual": {
       "label": "Handmatig",
-      "summary": "Mensen keuren elke muterende agent-actie goed voordat die wordt toegepast."
+      "summary": "Mensen keuren elke muterende agent-actie goed voordat die wordt toegepast.",
+      "effects": {
+        "inbox": "Antwoorden wachten op jou.",
+        "tools": "Tools vragen altijd.",
+        "structure": "Govern-concepten blijven concepten."
+      }
     },
     "assisted": {
       "label": "Ondersteund",
-      "summary": "Routineberichten en workspace-bewerkingen draaien automatisch; structurele wijzigingen vragen eerst."
+      "summary": "Routineberichten en workspace-bewerkingen draaien automatisch; structurele wijzigingen vragen eerst.",
+      "effects": {
+        "inbox": "Routineantwoorden mogen uit.",
+        "tools": "Alledaagse tools draaien; risicovolle vragen.",
+        "structure": "Structurele wijzigingen wachten op review."
+      }
     },
     "autonomous": {
       "label": "Autonoom",
-      "summary": "AI draait de operatie; integraties en inloggegevens vragen nog steeds een mens."
+      "summary": "AI draait de operatie; integraties en inloggegevens vragen nog steeds een mens.",
+      "effects": {
+        "inbox": "Agents versturen zonder te wachten.",
+        "tools": "De meeste tools draaien zelf.",
+        "structure": "Integraties en inloggegevens vragen nog."
+      }
     }
   },
   "allowances": {
@@ -149,7 +187,7 @@
       "pending_review": "Wacht op review",
       "draft": "Concept",
       "accepted": "Geaccepteerd",
-      "applied_yolo": "Automatisch toegepast",
+      "applied_yolo": "Toegepast zonder review",
       "rejected": "Afgewezen",
       "superseded": "Vervangen"
     }

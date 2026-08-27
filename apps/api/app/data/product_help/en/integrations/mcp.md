@@ -1,28 +1,37 @@
 ---
 title: Connect MCP servers
-intro: Give agents extra tools by connecting external MCP servers to the workspace.
-description: Connect external MCP (Model Context Protocol) servers to Bokito so agents can use their tools, and learn how Bokito exposes its own MCP endpoint.
-keywords: mcp, model context protocol, tools, external tools, integrations
+intro: Give agents extra tools by connecting external MCP servers.
+description: Connect MCP servers under Integrations, Connected tools, then keep risky tools on Ask first in Govern.
+keywords: mcp, model context protocol, connected tools, integrations
 sort: 20
 related: integrations,agents,mcp-endpoint
 ---
 
 # Connect MCP servers
 
-MCP (Model Context Protocol) is an open standard for giving AI agents tools. Bokito speaks it in both directions: you can plug external MCP servers into your workspace, and Bokito exposes its own tools as an MCP server for outside clients.
+MCP is how agents call external tools over a standard protocol. In the product this page is **Connected tools**.
 
-## Add an external server
+## Add a server
 
-Open **Settings, then Integrations** and add an MCP server with its URL and credentials. After connecting, the server's tools become available to your agents alongside the built-in ones. A database MCP server, for example, lets an agent look up order status while answering a customer.
+![MCP servers](/api/docs/assets/mcp/servers.png)
+*Add the server URL and credentials.*
 
-## Governance applies
+1. Open **Settings**, then **Integrations**, then **Connected tools** (the same page as `/settings/mcp`).
+2. Choose **Connect a tool**. The dialog is **Add tool server**. Enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**.
+3. **Save connection**. The row appears under **Configured connections**. Filter the list, copy the endpoint, then **Test connection** — success reads **Connected — N tools found**. Disconnect asks for confirmation.
 
-External tools go through the same policy engine as built-in tools. Apply modes and autonomy posture decide whether an agent may call a tool directly or must raise a decision request first. You can keep a risky external tool on `decision` while the rest runs free.
+Marketplace apps such as Notion or Linear also land here after browser sign-in. A misconfigured server often fails at call time, not at connect time.
 
-## Test before you rely on it
+## Test it once
 
-After connecting, run the tool once from an agent thread and check the result. A misconfigured server fails at call time, not at connect time, so a quick test saves confusion later.
+1. Start a chat with an [agent](/docs/ai/agents).
+2. Ask it to use the new tool.
+3. If the call raises a decision, approve it in the thread.
 
-## Bokito as an MCP server
+## Keep governance on
 
-The reverse direction - using Bokito's tools from Cursor or another MCP client - is a developer feature. See [MCP endpoint](/docs/developers/mcp-endpoint).
+External tools use the same policy as built-in tools. Keep a risky tool on **Ask first** in [Govern](/docs/govern/govern) **Policy**. Using Bokito from Cursor is the [MCP endpoint](/docs/developers/mcp-endpoint).
+
+## What to do next
+
+Install a marketplace app first if you only need a common connector. See [Integrations](/docs/integrations/integrations).

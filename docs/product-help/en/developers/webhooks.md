@@ -1,19 +1,23 @@
 ---
 title: Webhooks
 intro: Receive an HTTP POST when signals or decisions change in the workspace.
-description: Subscribe to Bokito webhook events, verify the X-Bokito-Signature HMAC header, and handle retries correctly.
-keywords: webhooks, events, hmac, signature, callbacks
+description: Create webhook endpoints in Settings, Developers, verify the HMAC signature, test deliveries and handle retries.
+keywords: webhooks, events, hmac, signature, developers, callbacks
 sort: 40
 related: api-overview,api-signals,authentication
 ---
 
 # Webhooks
 
-Webhooks push events to your endpoint the moment they happen, so you do not have to poll the REST API.
+Webhooks push events to your endpoint the moment they happen, so you do not have to poll the REST API. Owners and admins manage them on the same page as tokens.
 
-## Subscribe
+## Subscribe in Developers
 
-Create a webhook endpoint under **Settings, then Developers**: your HTTPS URL plus the events you want. Each endpoint gets a signing secret - store it like a password; you need it to verify deliveries.
+1. Open **Settings**, then **Developers**.
+2. Under **Webhooks**, choose **Add endpoint**. Enter an HTTPS URL (or `http://localhost` for local tests) and an optional description.
+3. Pick events, or leave **All events**. Choose **Add webhook**.
+4. Copy the **Signing secret** once and store it like a password. You need it to verify deliveries.
+5. Use **Test** to send a probe. Open **Recent deliveries** to see event, status, attempts and time. **Enable** or **Disable** without deleting.
 
 ## Events
 
@@ -22,6 +26,10 @@ Create a webhook endpoint under **Settings, then Developers**: your HTTPS URL pl
 | `signal.created` | A new conversation lands in the inbox (any channel, including the REST API) |
 | `signal.closed` | A conversation is closed by a person, an agent or an automation |
 | `decision.created` | An agent raises a decision request that needs human approval |
+| `decision.resolved` | Someone approves or declines that decision |
+| `agent.run_failed` | A scheduled or inbound agent run fails |
+| `platform_change.applied` | A Govern change is applied (Accept, or a yolo apply) |
+| `spend.threshold_reached` | Workspace token or spend use hits the 80% or 100% cap |
 
 The payload contains the event name and the subject's data (signal or decision fields).
 

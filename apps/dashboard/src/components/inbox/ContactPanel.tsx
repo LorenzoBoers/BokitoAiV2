@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Building2, Check, Loader2, Mail, MessageSquare, Phone, ShieldBan, UserRound } from 'lucide-react'
+import { Building2, Check, Loader2, Mail, Phone, ShieldBan, UserRound } from 'lucide-react'
+import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { DomainFavicon } from '../ui/DomainFavicon'
 import { useAuth } from '../../context/AuthContext'
@@ -17,7 +18,7 @@ import {
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
-import { canComposeToAddress, composeEmailPath } from '../../lib/compose-intent'
+import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
 import { threadStatusLabel } from '../../lib/status-labels'
 
 type Props = {
@@ -152,10 +153,18 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
             {t('contactPanel.noContactHint')}
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {readableEmail ? (
+              <Link
+                to={newContactPath(readableEmail)}
+                className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
+              >
+                {t('contactPanel.addContact')}
+              </Link>
+            ) : null}
             {readableEmail && canComposeToAddress('email', readableEmail) ? (
               <Link
                 to={composeEmailPath({ to: readableEmail })}
-                className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
               >
                 {t('contactPanel.writeEmail')}
               </Link>
@@ -310,7 +319,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
                 to={inboxPath('open', String(thread.id))}
                 className="flex items-center gap-2 rounded-lg border border-border/40 bg-bg-elevated/45 px-2.5 py-1.5 transition-colors hover:border-accent/40"
               >
-                <MessageSquare size={12} className="shrink-0 text-text-muted" />
+                <ChannelGlyph channel={thread.channel ?? 'email'} size={12} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[12px] font-medium text-text-primary">
                     {thread.emailSubject || t('contactPanel.noSubject')}

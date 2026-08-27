@@ -21,13 +21,16 @@ export function ProjectOrchestratorSection({
   project,
   agents,
   onChanged,
+  canEdit = true,
 }: {
   project: ProjectRow
   agents: Array<{ id: string; name: string }>
   onChanged: () => Promise<void>
+  canEdit?: boolean
 }) {
   const { t } = useTranslation('nav')
   const [linking, setLinking] = useState(false)
+  const [changing, setChanging] = useState(false)
 
   const linkLead = async (agentId: string) => {
     setLinking(true)
@@ -73,9 +76,21 @@ export function ProjectOrchestratorSection({
             <Copy size={14} className="mr-1" />
             {t('projects.detail.copyIdShort')}
           </Button>
+          {canEdit ? (
+            <Button type="button" size="sm" variant="ghost" onClick={() => setChanging((open) => !open)}>
+              {t('projects.detail.changeLead')}
+            </Button>
+          ) : null}
         </div>
-      ) : (
-        <Select disabled={linking} onValueChange={(value) => void linkLead(value)}>
+      ) : null}
+      {canEdit && (!project.po_agent || changing) ? (
+        <Select
+          disabled={linking}
+          onValueChange={(value) => {
+            setChanging(false)
+            void linkLead(value)
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder={t('projects.detail.leadPlaceholder')} />
           </SelectTrigger>
@@ -88,7 +103,7 @@ export function ProjectOrchestratorSection({
             ))}
           </SelectContent>
         </Select>
-      )}
+      ) : null}
     </div>
   )
 }

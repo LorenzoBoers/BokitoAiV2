@@ -278,11 +278,17 @@ async def _surface_result(
     """Post a non-OK trigger result into an internal Signal thread (Messages)."""
     from app.models.signal import Signal
     from app.services.assistant_threads import append_signal_chat_message
+    from app.services.platform_watch import ensure_operations_thread
     from app.services.signal_decisions import get_or_create_internal_thread
 
     signal: Signal | None = None
+    # Check-in findings always land in the shared operations conversation.
+    if trigger.kind == "heartbeat":
+        ops = await ensure_operations_thread(session, trigger.tenant_id)
+        if ops.tenant_id == trigger.tenant_id:
+            signal = ops
     # 1. Reuse the trigger's own thread so recurring fires land in one place.
-    if trigger.signal_id:
+    if not signal and trigger.signal_id:
         signal = await session.get(Signal, trigger.signal_id)
         if signal and signal.tenant_id != trigger.tenant_id:
             signal = None

@@ -19,15 +19,16 @@ import type { MessageAttachment } from '../../lib/inbox-api'
 import {
   activeMentionQuery,
   filterMentionItems,
-  tokenizeMentions,
   type MentionItem,
   type MentionQuery,
 } from '../../lib/mentions'
 import { applyDisplayEdit, applyMentionAtDisplay, displayFromRaw } from '../../lib/mention-editor'
+import { parseComposerDraft, serializeComposerDraft } from '../../lib/inbox-ops'
 import { SNOOZE_PRESETS } from '../../lib/snooze'
 import { createSavedReply, listSavedReplies, type SavedReplyRow } from '../../lib/signals-api'
 import { uploadAttachment } from '../../lib/uploads-api'
 import MentionPopover from './MentionPopover'
+import { MentionHighlight } from './MentionHighlight'
 import MessageAttachments from './MessageAttachments'
 
 type Props = {
@@ -114,6 +115,7 @@ export default function ReplyComposer({
   const [ccBccOpen, setCcBccOpen] = useState(false)
   const [cc, setCc] = useState('')
   const [bcc, setBcc] = useState('')
+  const [draftRestored, setDraftRestored] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -172,28 +174,32 @@ export default function ReplyComposer({
   useEffect(() => {
     // With replies blocked (e.g. mailbox disconnected) land on Note instead.
     setTab(replyBlocked && surface.tabs.includes('note') ? 'note' : surface.defaultTab)
-    // Restore any unsent draft for this thread instead of dropping typed text.
-    setBody(readStoredDraft(persistKey))
+    const stored = parseComposerDraft(readStoredDraft(persistKey))
+    setBody(stored.body)
+    setCc(stored.cc)
+    setBcc(stored.bcc)
+    setCcBccOpen(Boolean(stored.cc || stored.bcc))
+    setDraftRestored(Boolean(stored.body || stored.cc || stored.bcc))
     setAttachments([])
-    setCc('')
-    setBcc('')
-    setCcBccOpen(false)
   }, [surface.channel, surface.defaultTab, surface.recipientValue, persistKey, replyBlocked, surface.tabs])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {
     if (!persistKey) return
-    const timer = window.setTimeout(() => writeStoredDraft(persistKey, body), 400)
+    const timer = window.setTimeout(
+      () => writeStoredDraft(persistKey, serializeComposerDraft({ body, cc, bcc })),
+      400,
+    )
     return () => window.clearTimeout(timer)
-  }, [persistKey, body])
+  }, [persistKey, body, cc, bcc])
 
   // Flush the draft synchronously when leaving the thread or unmounting, so
   // the debounce above cannot drop the last keystrokes.
-  const bodyRef = useRef(body)
-  bodyRef.current = body
+  const draftRef = useRef({ body, cc, bcc })
+  draftRef.current = { body, cc, bcc }
   useEffect(() => {
     if (!persistKey) return
-    return () => writeStoredDraft(persistKey, bodyRef.current)
+    return () => writeStoredDraft(persistKey, serializeComposerDraft(draftRef.current))
   }, [persistKey])
 
   // Saved replies (canned responses), loaded lazily when the picker opens.
@@ -261,6 +267,7 @@ export default function ReplyComposer({
       setCc('')
       setBcc('')
       setCcBccOpen(false)
+      setDraftRestored(false)
       writeStoredDraft(persistKey, '')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, tab === 'note' ? t('composer.saveNoteError') : t('composer.sendError')))
@@ -374,6 +381,11 @@ export default function ReplyComposer({
           ) : null}
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
+        {showNoteTab || extraActions ? (
+          <p className="px-0.5 text-[10.5px] text-text-muted">
+            {isNote ? t('composer.tabHintNote') : t('composer.tabHintReply')}
+          </p>
+        ) : null}
 
         {!isNote && replyBlocked ? (
           <div className="rounded-xl border border-border/60 bg-bg-elevated/40 px-3 py-2.5 text-[12px] text-text-secondary">
@@ -413,7 +425,7 @@ export default function ReplyComposer({
                     type="text"
                     value={cc}
                     onChange={(e) => setCc(e.target.value)}
-                    placeholder="name@example.com, other@example.com"
+                    placeholder={t('compose.ccPlaceholder')}
                     className="min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none"
                   />
                 </div>
@@ -423,7 +435,7 @@ export default function ReplyComposer({
                     type="text"
                     value={bcc}
                     onChange={(e) => setBcc(e.target.value)}
-                    placeholder="name@example.com"
+                    placeholder={t('compose.bccPlaceholder')}
                     className="min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none"
                   />
                 </div>
@@ -437,9 +449,30 @@ export default function ReplyComposer({
           onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
         />
 
+        {draftRestored && !isNote ? (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-bg-elevated/70 px-2 py-1">
+            <span className="text-[11px] text-text-muted">{t('composer.draftRestored')}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setBody('')
+                setCc('')
+                setBcc('')
+                setCcBccOpen(false)
+                setDraftRestored(false)
+                writeStoredDraft(persistKey, '')
+              }}
+              className="text-[11px] font-medium text-accent hover:underline"
+            >
+              {t('composer.discardDraft')}
+            </button>
+          </div>
+        ) : null}
+
         {!isNote && replyBlocked ? null : (
         <ComposerCard
           ref={textareaRef}
+          id="inbox-reply-composer"
           mode={isNote ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
           value={displayBody}
           onChange={(e) => {
@@ -460,24 +493,7 @@ export default function ReplyComposer({
             refreshMentionState(el.value, el.selectionStart ?? el.value.length)
           }}
           onBlur={() => setMentionQuery(null)}
-          highlighter={
-            <>
-              {tokenizeMentions(body).map((token, index) =>
-                token.kind === 'text' ? (
-                  <span key={index}>{token.text}</span>
-                ) : (
-                  <span
-                    key={index}
-                    className="composer-mention-pill"
-                    data-mention-type={token.targetType}
-                  >
-                    @{token.name}
-                  </span>
-                ),
-              )}
-              {'\n'}
-            </>
-          }
+          highlighter={<MentionHighlight raw={body} />}
           disabled={disabled || saving}
           placeholder={
             isNote
@@ -517,9 +533,10 @@ export default function ReplyComposer({
                   type="button"
                   disabled={saving || disabled}
                   title={t('composer.savedReplies')}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+                  className="flex h-8 shrink-0 items-center gap-1 rounded-xl px-2 text-[11px] font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
                 >
                   <MessageSquareText size={14} />
+                  {t('composer.templates')}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">

@@ -1,33 +1,43 @@
 ---
 title: Beslissingen goedkeuren en afwijzen
-intro: Agents vragen goedkeuring in het gesprek wanneer een stap jouw oordeel vraagt.
-description: Hoe beslisverzoeken in Bokito werken: waar ze verschijnen, hoe je goedkeurt of afwijst, en hoe apply modes en autonomy posture bepalen wanneer agents vragen.
-keywords: beslissingen, goedkeuringen, beslisverzoeken, apply modes, human in the loop
+intro: Agents vragen in het gesprek wanneer een stap jouw oordeel nodig heeft.
+description: Keur keuzekaarten in het gesprek goed, pas ze aan of wijs ze af, vanuit Cockpit of vanuit Slack als die gekoppeld is.
+keywords: beslissingen, goedkeuringen, keuzekaarten, slack, human in the loop
 sort: 20
-related: autonomy,govern,communication
+related: communication,agent-runs,autonomy,govern
 ---
 
 # Beslissingen goedkeuren en afwijzen
 
-Wanneer een agent bij een stap komt die hij niet alleen hoort te zetten - een gevoelig antwoord versturen, configuratie wijzigen, geld uitgeven - plaatst hij een beslisverzoek. Jij keurt goed of wijst af, en de agent gaat verder.
+Een beslisverzoek is een bericht in het gesprek, geen aparte wachtrij. Open Communicatie of Agent-runs wanneer iets op jou wacht.
 
-## Waar beslissingen verschijnen
+## Vind een wachtende beslissing
 
-Beslisverzoeken zijn berichten in het gesprek waar ze bij horen, geen aparte wachtrij om te bewaken. Je ziet de redenering van de agent, de voorgestelde actie en het omliggende gesprek op een plek. Openstaande beslissingen verschijnen ook op de Cockpit en in notificaties, zodat niets ongezien blijft wachten.
+![Een wachtende beslissing in het gesprek](/api/docs/assets/decisions/approve.png)
+*Open het gesprek vanuit Communicatie, Agent-runs of Cockpit.*
 
-## Goedkeuren en afwijzen
+1. Open het gesprek vanuit Communicatie, [Agent-runs](/docs/inbox/agent-runs) **Beslissingen**, of Cockpit **Wacht op beslissing**.
+2. Scroll naar de keuzekaart. Die toont de voorgestelde actie en waarom de agent stopte.
+3. Het belmenu in de topbalk wijst naar dezelfde kaart.
 
-Open het verzoek, lees het voorstel en kies goedkeuren of afwijzen. Bij goedkeuring voert de agent de actie direct uit. Afwijzen stopt de actie; voeg een korte notitie toe zodat de agent (en je collega's) weten waarom. Afwijzingen voeden hoe agents zich gedragen, dus die tien seconden voor een reden zijn het waard.
+## Goedkeuren, aanpassen of afwijzen
+
+1. Lees het voorstel in de context van het gesprek.
+2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Taak aanmaken** of **Open laten**. Conceptkaarten van [Inbox AI](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
+3. Op agentberichten kun je **Goed** of **Niet behulpzaam** zetten, of **Corrigeer** om de agent te leren. Escaleren pauzeert AI op het gesprek en wijst jou toe.
+
+## Antwoord vanuit Slack
+
+1. Koppel Slack onder **Instellingen** en daarna **E-mail en berichten**. Zie [Kanalen](/docs/inbox/channels). Keuzekaarten kunnen daar binnenkomen met **Goedkeuren** en **Weigeren**.
+2. Gebruik die knoppen wanneer je niet in Bokito zit. Het gesprek in Communicatie werkt hetzelfde bij.
+3. Inbox AI-voorstellen hebben nog een menselijke verzending nodig, tenzij autonomie meer toestaat.
 
 ## Wanneer agents vragen
 
-Twee instellingen bepalen dit:
+De workspace-[autonomiehouding](/docs/govern/autonomy) zet de standaard. Op [Govern](/docs/govern/govern) **Beleid** is elke toolcategorie **Weigeren**, **Eerst vragen** of **Toestaan**. **Eerst vragen** maakt de kaart die je in het gesprek ziet. Uitzonderingen per agent op de agentpagina winnen van de categorie.
 
-- **Apply mode** per resource: `draft` (agent bereidt voor, past nooit toe), `decision` (agent vraagt eerst) of `yolo` (agent past direct toe).
-- **Autonomy posture** voor de workspace: `manual`, `assisted` of `autonomous`. De posture zet de standaard; per-resource-overrides in Govern winnen van de posture.
+Begin met **Ondersteund**. Verplaats stappen die je altijd goedkeurt naar **Toestaan**. Houd **Eerst vragen** voor de risicovolle.
 
-In de praktijk: begin met `assisted`, kijk welke verzoeken je altijd goedkeurt, zet die op `yolo` en houd beslissingen voor de echt risicovolle stappen.
+## Wat nu
 
-## Achteraf terugkijken
-
-Elke beslissing - wie vroeg, wie antwoordde, wat er gebeurde - staat in Govern onder audit. Structurele wijzigingen (een agent die configuratie aanpast) verschijnen ook als platformwijzigingen die je kunt beoordelen en terugdraaien.
+Structurele workspace-bewerkingen wachten op Govern **Openstaande concepten**, niet in het gesprek. Audit later onder Govern **Recente audit**.

@@ -22,7 +22,9 @@ import {
   parseKindFilter,
   kindFilterToParam,
   connectedPathWithKind,
+  parseStatusFilter,
   type IntegrationKindFilter,
+  type MarketplaceStatusFilter,
 } from '../lib/integration-kind-url'
 import {
   parseHubConnectParam,
@@ -113,8 +115,8 @@ export default function IntegrationsMarketplace() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFilter = parseKindFilter(searchParams.get('kind'))
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'connected' | 'available'>('all')
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
+  const statusFilter = parseStatusFilter(searchParams.get('status'))
   const [items, setItems] = useState<Integration[]>(INTEGRATIONS)
   const [providers, setProviders] = useState<IntegrationProviderRow[]>([])
   const [connectionCounts, setConnectionCounts] = useState<
@@ -137,6 +139,27 @@ export default function IntegrationsMarketplace() {
       const params = new URLSearchParams(searchParams)
       if (param) params.set('kind', param)
       else params.delete('kind')
+      setSearchParams(params, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  const setStatusFilter = useCallback(
+    (next: MarketplaceStatusFilter) => {
+      const params = new URLSearchParams(searchParams)
+      if (next === 'all') params.delete('status')
+      else params.set('status', next)
+      setSearchParams(params, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  const setSearchQuery = useCallback(
+    (next: string) => {
+      setSearch(next)
+      const params = new URLSearchParams(searchParams)
+      if (next.trim()) params.set('q', next)
+      else params.delete('q')
       setSearchParams(params, { replace: true })
     },
     [searchParams, setSearchParams],
@@ -392,7 +415,7 @@ export default function IntegrationsMarketplace() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <IntegrationKindNav value={kindFilter} onChange={setKindFilter} />
           <div className="flex flex-wrap items-center gap-3">
-            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as MarketplaceStatusFilter)}>
               <TabsList className="h-8">
                 <TabsTrigger value="all" className="text-xs px-2.5">
                   {t('integrations.filters.statusAll', { defaultValue: 'All statuses' })}
@@ -412,7 +435,7 @@ export default function IntegrationsMarketplace() {
               />
               <Input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-9 text-sm"
                 placeholder={t('integrations.marketplace.searchPlaceholder')}
               />

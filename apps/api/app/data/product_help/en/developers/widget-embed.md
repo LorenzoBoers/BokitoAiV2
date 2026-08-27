@@ -13,7 +13,12 @@ The chat widget is a single script tag. It renders a launcher on your site, and 
 
 ## The snippet
 
-Copy the exact snippet from **Settings, then AI Assistant, then Installation** - it is pre-filled for your workspace. The shape:
+Copy the exact snippet from **Settings**, then **Chat widget**, then **Install** — it is pre-filled for your workspace.
+
+![Website chat installation snippet](/api/docs/assets/widget-embed/snippet.png)
+*The Installation tab shows the snippet and a live preview.*
+
+The shape:
 
 ```html
 <script

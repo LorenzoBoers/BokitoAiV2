@@ -1,28 +1,39 @@
 ---
 title: Integraties koppelen
-intro: Geef agents tools buiten Bokito — boekhouding, GitHub, MCP-servers en marketplace-apps.
-description: Koppel externe tools vanuit de marketplace zodat agents kunnen handelen in de systemen die je al gebruikt.
-keywords: integrations, marketplace, github, slack, oauth, mcp
+intro: Geef agents tools buiten Bokito — marketplace-apps en gekoppelde accounts.
+description: Gebruik Verbonden, Marketplace en Gekoppelde tools om apps te installeren, OAuth af te ronden en te sturen wat agents mogen aanroepen.
+keywords: integraties, marketplace, verbonden, github, slack, mcp
 sort: 10
-related: models,channels,govern
+related: mcp,models,channels,govern
 ---
 
 # Integraties koppelen
 
-Integraties zijn de tools die agents mogen aanroepen. Verbonden apps, de marketplace en MCP-servers staan onder Instellingen.
+Integraties zijn de tools die agents mogen aanroepen. Open **Instellingen** en daarna **Integraties**. De pagina heeft drie tabs: **Verbonden**, **Marketplace** en **Gekoppelde tools**.
 
-## Verbonden tools
+## Zie wat gekoppeld is
 
-De pagina Verbonden toont wat deze workspace al gebruikt. Koppel daar los als een tool moet stoppen. Filters per soort (inbox, MCP en andere) houden de lijst kort.
+1. Open **Verbonden**. Dit is de live lijst voor deze workspace.
+2. Filter met **Alle integraties**, **Communicatie**, **Repository** of **Tools voor agents**. Het laatste soort wordt onthouden. Gebruik het zoekveld om koppelingen te filteren.
+3. Kies **Ontkoppelen** wanneer een tool moet stoppen (bevestig **Deze koppeling verwijderen?**). Inbox-achtige apps verschijnen ook als [kanalen](/docs/inbox/channels). Lege lijsten bieden **Naar Marketplace**.
 
-## Marketplace
+## Installeer vanuit de marketplace
 
-Op de marketplace installeer je een nieuwe app. Kies een soort en koppel met OAuth of de setup van de aanbieder. Inbox-apps voegen kanalen toe; MCP-apps voegen tools voor agents toe.
+![Integraties-marketplace](/api/docs/assets/integrations/marketplace.png)
+*Marketplace is waar je een nieuwe app installeert.*
 
-## MCP-servers
+1. Open **Marketplace**. Filter op soort, **Alle statussen** / **Verbonden** / **Beschikbaar**, of zoek. Die filters blijven in de URL zodat je ze kunt delen.
+2. Kies een app en rond OAuth of de providersetup af. Je keert hier terug na de accountprompt.
+3. Communicatie-apps voegen wachtrijen toe (e-mail, Slack, WhatsApp). Repository-apps hangen aan een [project](/docs/ai/projects). Tool-apps landen op **Gekoppelde tools**. Zie [MCP](/docs/integrations/mcp).
 
-MCP is hoe agents externe tools aanroepen via een standaardprotocol. Voeg een server toe, test die, en bepaal in Govern of agents automatisch mogen aanroepen of eerst moeten vragen.
+WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De marketplacekaart wijst je daarheen.
+
+## Zet wat agents mogen aanroepen
+
+1. Open na het koppelen [Govern](/docs/govern/govern) **Beleid**.
+2. Zet Integraties (en Berichten, als die kan versturen) zodat agents je niet verrassen.
+3. Test eenmaal vanuit een agentgesprek.
 
 ## Wat nu
 
-Installeer één tool die je al gebruikt en zet daarna op Govern of agents die automatisch mogen gebruiken.
+Koppel één tool die je al gebruikt. Voeg een [MCP-server](/docs/integrations/mcp) toe op **Gekoppelde tools** wanneer de marketplace-app niet genoeg is.

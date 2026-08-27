@@ -15,6 +15,16 @@ const KNOWN_EVENT_TYPES: Record<string, string> = {
   'run.completed': 'activityPage.eventTypes.runCompleted',
   'decision:execute:approve': 'activityPage.eventTypes.decisionApproved',
   'decision_execute_approve': 'activityPage.eventTypes.decisionApproved',
+  'decision_approve': 'activityPage.eventTypes.decisionApproved',
+  'decision_approved': 'activityPage.eventTypes.decisionApproved',
+  'decision.approve': 'activityPage.eventTypes.decisionApproved',
+  'decision_defer': 'activityPage.eventTypes.decisionDeferred',
+  'decision_deferred': 'activityPage.eventTypes.decisionDeferred',
+  'decision.reject': 'activityPage.eventTypes.decisionRejected',
+  'decision_reject': 'activityPage.eventTypes.decisionRejected',
+  'decision_rejected': 'activityPage.eventTypes.decisionRejected',
+  'thread.updated': 'activityPage.eventTypes.threadUpdated',
+  'thread_updated': 'activityPage.eventTypes.threadUpdated',
 }
 
 function knownEventTypeKey(raw: string): string | undefined {
@@ -93,6 +103,8 @@ const KNOWN_SUBJECTS: Record<string, string> = {
   'PO heartbeat': 'decisionCard.knownSubjects.leadHeartbeat',
   'Orchestrator heartbeat': 'decisionCard.knownSubjects.leadHeartbeat',
   Heartbeat: 'decisionCard.knownSubjects.heartbeat',
+  'Try your first decision': 'decisionCard.knownSubjects.tryFirstDecision',
+  'Does this demo make sense?': 'decisionCard.knownSubjects.demoMakesSense',
 }
 
 const KNOWN_SUMMARIES: Record<string, string> = {
@@ -178,14 +190,41 @@ export function isCockpitHeadlineEvent(event: {
   return true
 }
 
+const OPERATOR_PROMPT_RE =
+  /^(?:A teammate asked you to draft a reply to the customer in this thread\.\s*(?:Return only the reply body text \(no meta-commentary\)\.\s*)?(?:Teammate's request:\s*[^\n]*\n*)?|Draft a concise, professional reply to the latest customer message in this thread\.\s*(?:Return only the reply body text \(no meta-commentary\)\.\s*)?(?:Operator guidance:\s*[^\n]*\n*)?|A teammate invoked you on this conversation\.[^\n]*\n?)/i
+
+/** Strip invoke/draft instructions that leaked into a stored suggestion. */
+export function stripAiScaffolding(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(OPERATOR_PROMPT_RE, '')
+    .replace(/^> Note for the reviewer:.*$/gim, '')
+    .replace(/^\*\*(?:Internal note|Proposed reply|Interne notitie):\*\*\s*/gim, '')
+    .trim()
+}
+
 /** Mock-mode agent replies from the API LLM stub. */
 export function translateMockAgentBody(text: string | null | undefined, t: TFunction): string {
   if (!text) return ''
-  const match = text.match(
-    /^\[mock\] I received your message about:\s*(.+?)\.+\s*This is the Bokito AI OS assistant running in mock mode\.\s*$/s,
-  )
-  if (match) {
-    return t('mockAgent.replyBody', { ns: 'communication', topic: match[1].trim() })
+  // Stored mock drafts sometimes wrap the invoke prompt ("I received your
+  // message about: A teammate asked you…"). Never show that scaffolding.
+  if (/A teammate asked you to draft a reply/i.test(text)) {
+    return (
+      t('decisionCard.knownSummaries.draftForReview', { ns: 'communication', defaultValue: '' }) ||
+      stripAiScaffolding(text) ||
+      text
+    )
   }
-  return text
+  const cleaned = stripAiScaffolding(text)
+  const patterns = [
+    /^\[mock\] I received your message about:\s*(.+?)\.+\s*This is the Bokito AI OS assistant running in mock mode\.\s*$/s,
+    /^I received your message about:\s*(.+?)\.+\s*This is a placeholder reply while the workspace runs without a live model\.\s*$/s,
+  ]
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern)
+    if (match) {
+      return t('mockAgent.replyBody', { ns: 'communication', topic: match[1].trim() })
+    }
+  }
+  return cleaned || text
 }

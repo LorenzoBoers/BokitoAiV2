@@ -10,11 +10,17 @@ import {
   type ChatTarget,
 } from '../lib/bokito-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
+import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, assistantPath } from '../lib/messages-paths'
 import { ComposerCard } from '../components/ui/ComposerCard'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
+import { useMembers } from '../hooks/useMembers'
+import { useMentionDraft } from '../hooks/useMentionDraft'
+import MentionPopover from '../components/inbox/MentionPopover'
+import { MentionHighlight } from '../components/inbox/MentionHighlight'
+import type { MentionItem } from '../lib/mentions'
 
 type PickerFilter = 'all' | 'company' | 'people'
 
@@ -38,14 +44,34 @@ export default function NewConversationPage() {
   const [pickerFilter, setPickerFilter] = useState<PickerFilter>('all')
   // Seed the composer from a ?prefill= query (e.g. "Ask assistant" from a
   // customer thread). Read once on mount so user edits are never overwritten.
-  const [draft, setDraft] = useState(() => searchParams.get('prefill') ?? '')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // ?autosend=1 (first-run tour setup chat): fire the prefilled message as
   // soon as the default recipient is resolved, once.
   const autoSendRequested = useRef(searchParams.get('autosend') === '1')
-
-  const composerRef = useRef<HTMLTextAreaElement>(null)
+  const { members } = useMembers()
+  const mentionItems = useMemo<MentionItem[]>(
+    () => [
+      ...members.map((member) => ({
+        type: 'user' as const,
+        id: String(member.id),
+        name: member.name,
+        email: member.email,
+        avatarUrl: member.avatarUrl,
+      })),
+      ...targets.map((target) => ({
+        type: 'agent' as const,
+        id: target.id,
+        name: target.name,
+      })),
+    ],
+    [members, targets],
+  )
+  const mention = useMentionDraft({
+    initialRaw: searchParams.get('prefill') ?? '',
+    items: mentionItems,
+  })
+  const composerRef = mention.textareaRef
   const pickerInputRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
 
@@ -80,6 +106,21 @@ export default function NewConversationPage() {
   useEffect(() => {
     composerRef.current?.focus()
   }, [loadingTargets])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || pickerOpen) return
+      if (mention.raw.trim()) return
+      const target = event.target
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        if (target.value.trim()) return
+      }
+      event.preventDefault()
+      navigate(lastInboxPath())
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pickerOpen, mention.raw, navigate])
 
   // Close the picker when clicking outside.
   useEffect(() => {
@@ -130,7 +171,7 @@ export default function NewConversationPage() {
   }
 
   const start = useCallback(async () => {
-    const content = draft.trim()
+    const content = mention.raw.trim()
     if (!content || !token || !selected || sending) return
     setSending(true)
     setError(null)
@@ -146,24 +187,27 @@ export default function NewConversationPage() {
       setError(err instanceof Error ? err.message : t('newConversation.startError'))
       setSending(false)
     }
-  }, [draft, token, selected, sending, navigate, refreshSessions, t])
+  }, [mention.raw, token, selected, sending, navigate, refreshSessions, t])
 
   useEffect(() => {
-    if (!autoSendRequested.current || loadingTargets || !selected || !draft.trim()) return
+    if (!autoSendRequested.current || loadingTargets || !selected || !mention.raw.trim()) return
     autoSendRequested.current = false
     void start()
-  }, [loadingTargets, selected, draft, start])
+  }, [loadingTargets, selected, mention.raw, start])
 
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      void start()
-    }
+    mention.onKeyDown(e, () => void start())
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-11 shrink-0 items-center border-b border-border/40 px-4">
+      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/40 px-4">
+        <Link
+          to={lastInboxPath()}
+          className="text-[12px] font-medium text-text-muted hover:text-text-primary"
+        >
+          {t('newConversation.back')}
+        </Link>
         <p className="text-[13px] font-medium text-text-primary">{t('newConversation.title')}</p>
       </div>
 
@@ -172,7 +216,7 @@ export default function NewConversationPage() {
           {/* To: picker */}
           <div ref={pickerRef} className="relative">
             <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
-              <span className="text-[12px] font-medium text-text-muted">{t('newConversation.to')}</span>
+              <span className="text-[12px] font-medium text-text-muted" title={t('newConversation.toHint')}>{t('newConversation.to')}</span>
               {pickerOpen ? (
                 <input
                   ref={pickerInputRef}
@@ -224,6 +268,9 @@ export default function NewConversationPage() {
                 </button>
               )}
             </div>
+            {!pickerOpen && !selected ? (
+              <p className="mt-1.5 px-1 text-[11px] text-text-muted">{t('newConversation.toHint')}</p>
+            ) : null}
 
             {pickerOpen ? (
               <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
@@ -312,8 +359,27 @@ export default function NewConversationPage() {
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <button
               type="button"
+              onClick={() => {
+                const assistant = targets.find((row) => row.kind === 'personal') ?? targets[0] ?? null
+                if (assistant) choose(assistant)
+                composerRef.current?.focus()
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+            >
+              <Bot size={11} />
+              {t('newConversation.chatWithAssistant')}
+            </button>
+            <Link
+              to={composeEmailPath()}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+            >
+              <Mail size={11} />
+              {t('newConversation.emailACustomer')}
+            </Link>
+            <button
+              type="button"
               onClick={() => openPicker('company')}
-              className="inline-flex items-center gap-1.5 rounded-full border border-ai/25 bg-ai/10 px-2.5 py-1 text-[11.5px] text-ai-ink transition-colors hover:border-ai/40 hover:bg-ai/15"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
             >
               <Sparkles size={11} />
               {t('newConversation.messageAnAgent')}
@@ -326,13 +392,6 @@ export default function NewConversationPage() {
               <User size={11} />
               {t('newConversation.writeToPerson')}
             </button>
-            <Link
-              to={composeEmailPath()}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-            >
-              <Mail size={11} />
-              {t('newConversation.writeEmail')}
-            </Link>
           </div>
 
           {/* Composer */}
@@ -341,9 +400,28 @@ export default function NewConversationPage() {
             <ComposerCard
               ref={composerRef}
               mode="chat"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              value={mention.display}
+              onChange={(e) =>
+                mention.onChange(e.currentTarget.value, e.currentTarget.selectionStart ?? e.currentTarget.value.length)
+              }
+              onClick={(e) =>
+                mention.refreshMentionState(
+                  e.currentTarget.value,
+                  e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+                )
+              }
               onKeyDown={onComposerKeyDown}
+              highlighter={<MentionHighlight raw={mention.raw} />}
+              overlay={
+                mention.mentionOpen ? (
+                  <MentionPopover
+                    items={mention.mentionMatches}
+                    activeIndex={mention.mentionIndex}
+                    onSelect={mention.selectMention}
+                    onHover={mention.setMentionIndex}
+                  />
+                ) : null
+              }
               placeholder={
                 selected
                   ? t('newConversation.messageName', { name: selected.name })
@@ -354,7 +432,7 @@ export default function NewConversationPage() {
               <button
                 type="button"
                 onClick={() => void start()}
-                disabled={!draft.trim() || !selected || sending}
+                disabled={!mention.raw.trim() || !selected || sending}
                 title={t('newConversation.send')}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
               >

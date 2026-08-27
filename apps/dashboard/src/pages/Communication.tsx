@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   agentRunsPath,
   inboxPath,
+  newConversationPath,
   leafFromPath,
   leafKey,
   leafPath,
@@ -18,7 +19,16 @@ import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
+import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
 import { parseComposeIntent, stripComposeIntent } from '../lib/compose-intent'
+import { writeLastInboxQueue } from '../lib/inbox-prefs'
+import { nextUnreadId, parseQuickFilterParam, toggleOrRangeSelect } from '../lib/inbox-ops'
+import { snoozeUntilIso, SNOOZE_PRESETS, toLocalDateTimeValue } from '../lib/snooze'
+import {
+  focusInboxReply,
+  scrollActiveThreadIntoView,
+  useInboxListShortcuts,
+} from '../hooks/useInboxListShortcuts'
 import {
   dedicatedInboxQueueForStatus,
   pickRemainingInboxThread,
@@ -30,6 +40,8 @@ import {
   customersOnly,
   isInternalThread,
   pickPreferredInboxThread,
+  threadHubPath,
+  threadNeedsReply,
 } from '../lib/message-composer'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
@@ -46,6 +58,7 @@ import { usePinnedIds } from '../hooks/usePinnedIds'
 import {
   markThreadRead as apiMarkThreadRead,
   markThreadUnread as apiMarkThreadUnread,
+  patchThread as apiPatchThread,
   pinThread as apiPinThread,
   unpinThread as apiUnpinThread,
   deleteThread as apiDeleteThread,
@@ -153,6 +166,8 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
   switch (quickFilter) {
     case 'unread':
       return threads.filter((t) => t.hasUnread)
+    case 'needsReply':
+      return threads.filter((t) => threadNeedsReply(t))
     case 'pinned':
       return threads.filter((t) => t.isPinned)
     default:
@@ -171,7 +186,7 @@ export default function Communication() {
   const location = useLocation()
   const { threadId: threadIdParam } = useParams<{ threadId?: string }>()
   const navigate = useNavigate()
-  const { user, token } = useAuth()
+  const { user, token, logout } = useAuth()
   const { refresh: refreshNavBadges } = useNavBadges()
   const currentUserId = user?.id ?? null
 
@@ -226,21 +241,21 @@ export default function Communication() {
     })
   }, [leaf, navigate, searchParams, threadIdParam])
 
-  const inboxQuery = useMemo(() => {
-    const params = new URLSearchParams()
-    if (projectId) params.set('project_id', projectId)
-    if (agentIdFilter) params.set('agent', agentIdFilter)
-    const query = params.toString()
-    return query ? `?${query}` : ''
-  }, [projectId, agentIdFilter])
-
   useEffect(() => {
     void refreshNavBadges()
   }, [refreshNavBadges])
 
   const selectedThreadId: ThreadId | null = threadIdParam ?? null
 
-  const { search, setSearch, quickFilter, setQuickFilter, resetQuickFilter } = useInboxCommunication()
+  const { search, setSearch, listSearch, quickFilter, setQuickFilter } = useInboxCommunication()
+  const inboxQuery = useMemo(() => {
+    const params = new URLSearchParams()
+    if (projectId) params.set('project_id', projectId)
+    if (agentIdFilter) params.set('agent', agentIdFilter)
+    if (quickFilter !== 'all') params.set('filter', quickFilter)
+    const query = params.toString()
+    return query ? `?${query}` : ''
+  }, [projectId, agentIdFilter, quickFilter])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   const [showContactPanel, setShowContactPanel] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
@@ -282,8 +297,32 @@ export default function Communication() {
   const { pinnedIds, addPin, removePin } = usePinnedIds()
 
   // Label filter: set by clicking a tag chip in the list, cleared via the
-  // filter pill. Server-side (`GET /signals?tag=`).
+  // filter pill. Server-side (`GET /signals?tag=`). Persist across queues.
   const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const [assigneeFilter, setAssigneeFilter] = useState<number | null>(null)
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
+  const [channelFilter, setChannelFilter] = useState<string | null>(null)
+  const [customSnoozeOpen, setCustomSnoozeOpen] = useState(false)
+  const [customSnoozeValue, setCustomSnoozeValue] = useState(toLocalDateTimeValue)
+  const lastBulkAnchorId = useRef<string | null>(null)
+
+  const applyQuickFilterChange = useCallback(
+    (value: InboxListQuickFilter) => {
+      setQuickFilter(value)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (value === 'all') next.delete('filter')
+        else next.set('filter', value)
+        return next
+      }, { replace: true })
+    },
+    [setQuickFilter, setSearchParams],
+  )
+
+  useEffect(() => {
+    const fromUrl = parseQuickFilterParam(searchParams.get('filter'))
+    if (fromUrl && fromUrl !== quickFilter) setQuickFilter(fromUrl)
+  }, [searchParams, quickFilter, setQuickFilter])
 
   const {
     threads,
@@ -298,43 +337,71 @@ export default function Communication() {
     setThreadReadState,
     removeThread,
   } = useThreads(
-    { ...leafFilters, search, projectId, agentId: agentIdFilter, tag: tagFilter ?? undefined },
+    {
+      ...leafFilters,
+      search: listSearch,
+      projectId,
+      agentId: agentIdFilter,
+      tag: tagFilter ?? undefined,
+      unread: quickFilter === 'unread' || undefined,
+      needsReply: quickFilter === 'needsReply' || undefined,
+      pinnedOnly: quickFilter === 'pinned' || undefined,
+      assigneeId: assigneeFilter ?? undefined,
+      channel: channelFilter ?? undefined,
+    },
     pinnedIds,
   )
 
   const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}`
 
   useEffect(() => {
-    setSearch('')
-    resetQuickFilter()
-    setTagFilter(null)
-  }, [listContextKey, setSearch, resetQuickFilter])
+    if (leaf.type === 'inbox') writeLastInboxQueue(leaf.queue)
+  }, [leaf])
 
   // Bulk selection lives per list context; switching leaves clears it.
   const [bulkSelectedIds, setBulkSelectedIds] = useState<ReadonlySet<string>>(new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   useEffect(() => {
     setBulkSelectedIds(new Set())
+    lastBulkAnchorId.current = null
   }, [listContextKey])
 
-  const handleToggleBulkSelect = useCallback((id: ThreadId) => {
-    setBulkSelectedIds((prev) => {
-      const next = new Set(prev)
-      const key = String(id)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+  const handleClearBulkSelection = useCallback(() => {
+    lastBulkAnchorId.current = null
+    setBulkSelectedIds(new Set())
   }, [])
 
-  const handleClearBulkSelection = useCallback(() => setBulkSelectedIds(new Set()), [])
-
   const filteredThreads = useMemo(() => {
-    const next = applyQuickFilter(threads, quickFilter)
+    let next = applyQuickFilter(threads, quickFilter)
+    if (priorityFilter) next = next.filter((thread) => thread.priority === priorityFilter)
     if (leaf.type !== 'inbox') return next
     if (leaf.queue === 'open') return customersOnly(next)
     return customersFirst(next)
-  }, [threads, quickFilter, leaf])
+  }, [threads, quickFilter, priorityFilter, leaf])
+
+  const handleToggleBulkSelect = useCallback(
+    (id: ThreadId, shiftKey = false) => {
+      const orderedIds = filteredThreads.map((thread) => String(thread.id))
+      setBulkSelectedIds((prev) => {
+        const result = toggleOrRangeSelect(
+          orderedIds,
+          prev,
+          String(id),
+          lastBulkAnchorId.current,
+          shiftKey,
+        )
+        lastBulkAnchorId.current = result.anchor
+        return result.next
+      })
+    },
+    [filteredThreads],
+  )
+
+  const handleSelectAllLoaded = useCallback(() => {
+    const ids = filteredThreads.map((thread) => String(thread.id))
+    setBulkSelectedIds(new Set(ids))
+    lastBulkAnchorId.current = ids[ids.length - 1] ?? null
+  }, [filteredThreads])
 
   const {
     detail,
@@ -353,6 +420,13 @@ export default function Communication() {
   } = useThreadDetail(selectedThreadId, pinnedIds)
 
   useEffect(() => {
+    if (!detailError || selectedThreadId == null || detailLoading) return
+    const msg = detailError.toLowerCase()
+    if (!msg.includes('404') && !msg.includes('not found')) return
+    navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
+  }, [detailError, selectedThreadId, detailLoading, leaf, inboxQuery, navigate])
+
+  useEffect(() => {
     if (detail?.thread && !detail.thread.hasUnread) {
       void refreshNavBadges()
     }
@@ -363,6 +437,7 @@ export default function Communication() {
       setThreadReadState(id, false)
       navigate(`${leafPath(leaf, String(id))}${inboxQuery}`, replace ? { replace: true } : undefined)
       void refreshNavBadges()
+      scrollActiveThreadIntoView()
     },
     [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
@@ -372,6 +447,7 @@ export default function Communication() {
   const incomingCompose = parseComposeIntent(searchParams)
   const [composeOpen, setComposeOpen] = useState(() => Boolean(incomingCompose))
   const [composePrefill, setComposePrefill] = useState<ComposePrefill | null>(() => incomingCompose)
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
   const openCompose = useCallback(() => {
     setComposePrefill(null)
     setComposeOpen(true)
@@ -427,6 +503,24 @@ export default function Communication() {
     },
     [token, setThreadReadState, refreshNavBadges],
   )
+
+  const handleMarkAllLoadedRead = useCallback(async () => {
+    const unread = filteredThreads.filter((thread) => thread.hasUnread)
+    if (!token || unread.length === 0) return
+    for (const thread of unread) setThreadReadState(thread.id, false)
+    try {
+      const updated = await bulkUpdateSignalThreads(
+        token,
+        unread.map((thread) => String(thread.id)),
+        'read',
+      )
+      toast.success(t('actions.bulkUpdated', { count: updated }))
+      void refreshNavBadges()
+    } catch (err) {
+      void refreshThreads()
+      toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
+    }
+  }, [filteredThreads, token, setThreadReadState, refreshNavBadges, refreshThreads, t])
 
   const handleListTogglePin = useCallback(
     async (id: ThreadId, currentPinned: boolean) => {
@@ -526,6 +620,9 @@ export default function Communication() {
       const remaining = pickRemainingInboxThread(filteredThreads, fromId)
       if (remaining) {
         handleSelectThread(remaining.id, true)
+        requestAnimationFrame(() => {
+          focusInboxReply()
+        })
       } else {
         navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
       }
@@ -613,17 +710,135 @@ export default function Communication() {
         void refreshThreads()
         void refreshNavBadges()
         if (resolving && fromId != null) {
-          if (input.status === 'closed') toast.success(t('threadResolved.closed'))
-          else if (input.status === 'spam') toast.success(t('threadResolved.spam'))
-          else toast.success(t('threadResolved.snoozed'))
+          const undoReopen = () => {
+            if (!token) return
+            void apiPatchThread(token, fromId, { status: 'open' }).then(() => {
+              navigate(`${leafPath(leaf, String(fromId))}${inboxQuery}`)
+              void refreshThreads()
+              void refreshNavBadges()
+            })
+          }
+          if (input.status === 'closed') {
+            toast.success(t('threadResolved.closed'), {
+              action: { label: t('undoSend.undo'), onClick: undoReopen },
+            })
+          } else if (input.status === 'spam') {
+            toast.success(t('threadResolved.spam'), {
+              action: { label: t('undoSend.undo'), onClick: undoReopen },
+            })
+          } else {
+            toast.success(t('threadResolved.snoozed'), {
+              action: { label: t('undoSend.undo'), onClick: undoReopen },
+            })
+          }
           leaveResolvedThread(fromId, input.status)
         }
       } finally {
         advancingRef.current = false
       }
     },
-    [patch, refreshThreads, refreshNavBadges, selectedThreadId, leaveResolvedThread, t],
+    [
+      patch,
+      refreshThreads,
+      refreshNavBadges,
+      selectedThreadId,
+      leaveResolvedThread,
+      t,
+      token,
+      navigate,
+      leaf,
+      inboxQuery,
+    ],
   )
+
+  useInboxListShortcuts({
+    dialogOpen: composeOpen,
+    helpOpen: shortcutHelpOpen,
+    onCloseHelp: () => setShortcutHelpOpen(false),
+    onOpenHelp: () => setShortcutHelpOpen(true),
+    selectedThreadId,
+    threadIds: filteredThreads.map((thread) => thread.id),
+    onSelect: handleSelectThread,
+    onEscapeList: () => {
+      if (selectedThreadId != null) navigate(`${leafPath(leaf)}${inboxQuery}`)
+    },
+    onClose: () => {
+      void handlePatch({ status: 'closed' })
+    },
+    onUnread: () => {
+      if (selectedThreadId != null) void handleListMarkUnread(selectedThreadId)
+    },
+    onMarkRead: () => {
+      if (selectedThreadId != null) void handleListMarkRead(selectedThreadId)
+    },
+    onJumpUnread: (direction) => {
+      const next = nextUnreadId(filteredThreads, selectedThreadId, direction)
+      if (next != null) handleSelectThread(next)
+    },
+    onSelectAll: mode === 'customer' ? handleSelectAllLoaded : undefined,
+    onAssign: () => {
+      if (!currentUserId) return
+      const current =
+        filteredThreads.find((thread) => String(thread.id) === String(selectedThreadId)) ??
+        detail?.thread
+      if (current?.assignedToUserId === currentUserId) {
+        void handlePatch({ assignedToUserId: 0 })
+      } else {
+        void handlePatch({ assignedToUserId: currentUserId })
+      }
+    },
+    onAssignPicker: () => {
+      document.getElementById('inbox-assignee-trigger')?.click()
+    },
+    onPin: () => {
+      const current = filteredThreads.find((thread) => String(thread.id) === String(selectedThreadId))
+      if (selectedThreadId != null && current) {
+        void handleListTogglePin(selectedThreadId, current.isPinned)
+      }
+    },
+    onReply: () => {
+      const status = detail?.thread.status
+      if (status === 'closed' || status === 'spam') {
+        toast.message(t('shortcuts.replyBlocked'))
+        return
+      }
+      if (!focusInboxReply()) toast.message(t('shortcuts.replyBlocked'))
+    },
+    onCompose: mode === 'customer' ? openCompose : undefined,
+    onNewChat: mode === 'customer' ? () => navigate(newConversationPath()) : undefined,
+    onSnooze: () => {
+      void handlePatch({ status: 'pending', snoozedUntil: snoozeUntilIso(SNOOZE_PRESETS[0]) })
+    },
+    onSnoozeCustom: () => {
+      setCustomSnoozeValue(toLocalDateTimeValue())
+      setCustomSnoozeOpen(true)
+    },
+    onToggleSelect: () => {
+      if (selectedThreadId != null) handleToggleBulkSelect(selectedThreadId)
+    },
+    onCopyLink: () => {
+      const current =
+        filteredThreads.find((thread) => String(thread.id) === String(selectedThreadId)) ??
+        detail?.thread
+      if (!current) return
+      void navigator.clipboard.writeText(`${window.location.origin}${threadHubPath(current)}`).then(
+        () => toast.success(t('threadChrome.linkCopied')),
+        () => toast.error(t('threadChrome.copyLink')),
+      )
+    },
+    onCopyId: () => {
+      if (selectedThreadId == null) return
+      void navigator.clipboard.writeText(String(selectedThreadId)).then(
+        () => toast.success(t('threadChrome.threadIdCopied')),
+        () => toast.error(t('threadChrome.copyThreadId')),
+      )
+    },
+    onDigitFilter: (digit) => {
+      const next =
+        digit === 1 ? 'all' : digit === 2 ? 'needsReply' : digit === 3 ? 'unread' : 'pinned'
+      applyQuickFilterChange(next)
+    },
+  })
 
   const handleBulkAction = useCallback(
     async (action: BulkThreadAction, assigneeId?: number) => {
@@ -647,6 +862,26 @@ export default function Communication() {
       }
     },
     [token, bulkSelectedIds, refreshThreads, refreshNavBadges, t],
+  )
+
+  const handleBulkPin = useCallback(
+    async (nextPinned: boolean) => {
+      if (!token || bulkSelectedIds.size === 0) return
+      setBulkBusy(true)
+      try {
+        await Promise.all(
+          [...bulkSelectedIds].map((id) => (nextPinned ? apiPinThread(token, id) : apiUnpinThread(token, id))),
+        )
+        toast.success(t('actions.bulkUpdated', { count: bulkSelectedIds.size }))
+        setBulkSelectedIds(new Set())
+        void refreshThreads()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
+      } finally {
+        setBulkBusy(false)
+      }
+    },
+    [token, bulkSelectedIds, refreshThreads, t],
   )
 
   const handleReply = useCallback(
@@ -814,13 +1049,40 @@ export default function Communication() {
   }
 
   if (connectionsError) {
-    return <div className="h-full py-6 text-sm text-status-error">{connectionsError}</div>
+    return (
+      <div className="flex h-full flex-col items-start justify-center gap-3 px-4 py-8">
+        <p className="text-sm text-status-error">{connectionsError}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+        >
+          {t('onboarding.retry')}
+        </button>
+      </div>
+    )
   }
 
   if (needsOrganisation) {
     return (
-      <div className="h-full py-6 text-sm text-text-muted max-w-md">
-        {t('missingOrganisation')}
+      <div className="flex h-full max-w-md flex-col items-start justify-center gap-3 px-4 py-8">
+        <p className="text-sm text-text-muted">{t('missingOrganisation')}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+          >
+            {t('onboarding.retry')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+          >
+            {t('signOut')}
+          </button>
+        </div>
       </div>
     )
   }
@@ -829,8 +1091,11 @@ export default function Communication() {
     (leaf.type === 'inbox' || (leaf.type === 'channel' && leaf.channelKey === 'email')) &&
     threadsReady &&
     threads.length === 0 &&
-    // An active search with zero hits is "no results", not a first-run empty.
-    search.trim().length === 0
+    // An active search, a list chip, or an open thread is not a first-run empty.
+    // Needs reply / Unread can empty the list and must not swap in the setup checklist.
+    search.trim().length === 0 &&
+    quickFilter === 'all' &&
+    selectedThreadId == null
 
   if (isInboxEmpty) {
     if (onboardingStatus && !onboardingStatus.completed && !onboardingDismissed) {
@@ -920,15 +1185,20 @@ export default function Communication() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+      {!(onboardingStatus && !onboardingStatus.completed && !onboardingDismissed) ? (
       <PageGuideBanner
         page="communication"
         variant={leaf.type === 'runs' ? 'runs' : undefined}
         className="mx-3 mt-3 shrink-0"
       />
+      ) : null}
       {showActivityChips ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-2">
           <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.06em] text-text-muted">
             {t('runsChips.heading')}
+          </span>
+          <span className="mr-2 hidden text-[11px] font-normal normal-case tracking-normal text-text-muted sm:inline">
+            {t('runsChips.subtitle')}
           </span>
           {ACTIVITY_CHIPS.map((chip) => {
             const active = runsQueue === chip.queue
@@ -967,9 +1237,10 @@ export default function Communication() {
             allThreads={threads}
             loading={threadsLoading}
             error={threadsError}
+            onRetry={() => void refreshThreads()}
             selectedId={selectedThreadId}
             quickFilter={quickFilter}
-            onQuickFilterChange={setQuickFilter}
+            onQuickFilterChange={applyQuickFilterChange}
             onSelectThread={handleSelectThread}
             onMarkRead={handleListMarkRead}
             onMarkUnread={handleListMarkUnread}
@@ -979,9 +1250,19 @@ export default function Communication() {
             variant={variant}
             bulkSelectedIds={mode === 'customer' ? bulkSelectedIds : undefined}
             onToggleBulkSelect={mode === 'customer' ? handleToggleBulkSelect : undefined}
+            onSelectAll={mode === 'customer' ? handleSelectAllLoaded : undefined}
+            onMarkAllRead={mode === 'customer' ? () => void handleMarkAllLoadedRead() : undefined}
             onBulkAction={mode === 'customer' ? (a, uid) => void handleBulkAction(a, uid) : undefined}
+            onBulkPin={mode === 'customer' ? (next) => void handleBulkPin(next) : undefined}
             onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
             bulkBusy={bulkBusy}
+            scrollKey={leafKey(leaf)}
+            assigneeFilter={assigneeFilter}
+            onAssigneeFilter={setAssigneeFilter}
+            priorityFilter={priorityFilter}
+            onPriorityFilter={setPriorityFilter}
+            channelFilter={leaf.type === 'inbox' ? channelFilter : undefined}
+            onChannelFilter={leaf.type === 'inbox' ? setChannelFilter : undefined}
             activeTag={tagFilter}
             onTagSelect={mode === 'customer' ? setTagFilter : undefined}
             scopeLabel={scopeLabel}
@@ -992,7 +1273,9 @@ export default function Communication() {
             onLoadMore={() => void loadMoreThreads()}
             onCompose={mode === 'customer' && enabledConnections.length > 0 ? openCompose : undefined}
             emptyLabel={
-              agentIdFilter || projectId
+              search.trim()
+                ? t('threadList.emptySearch', { query: search.trim() })
+                : agentIdFilter || projectId
                 ? t('threadList.emptyScoped')
                 : leaf.type === 'runs'
                   ? t('threadList.emptyRuns')
@@ -1001,7 +1284,15 @@ export default function Communication() {
                     : undefined
             }
             emptyHint={
-              agentIdFilter || projectId ? (
+              search.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
+                >
+                  {t('inboxSearchClear')}
+                </button>
+              ) : agentIdFilter || projectId ? (
                 <button
                   type="button"
                   onClick={clearScope}
@@ -1021,6 +1312,14 @@ export default function Communication() {
                 </div>
               ) : leaf.type === 'runs' ? (
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                  {runsQueue === 'awaiting-decision' ? (
+                    <Link
+                      to={inboxPath('open')}
+                      className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    >
+                      {t('threadList.openInbox')}
+                    </Link>
+                  ) : null}
                   <Link
                     to="/agents"
                     className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
@@ -1110,6 +1409,54 @@ export default function Communication() {
         onSent={handleComposeSent}
         prefill={composePrefill}
       />
+      <InboxShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
+      {customSnoozeOpen ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('snooze.customTitle')}
+          onClick={() => setCustomSnoozeOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-border/60 bg-bg-surface p-4 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-[13px] font-semibold text-text-heading">{t('snooze.customTitle')}</h2>
+            <p className="mt-1 text-[12px] text-text-muted">{t('snooze.customHint')}</p>
+            <input
+              type="datetime-local"
+              value={customSnoozeValue}
+              onChange={(event) => setCustomSnoozeValue(event.target.value)}
+              className="mt-3 h-9 w-full rounded-md border border-border/60 bg-bg-elevated px-2 text-[13px] text-text-primary"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomSnoozeOpen(false)}
+                className="rounded-md px-2.5 py-1 text-[12px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
+              >
+                {t('decisionCard.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const wake = new Date(customSnoozeValue)
+                  if (Number.isNaN(wake.getTime()) || wake.getTime() <= Date.now()) {
+                    toast.error(t('snooze.customInvalid'))
+                    return
+                  }
+                  setCustomSnoozeOpen(false)
+                  void handlePatch({ status: 'pending', snoozedUntil: wake.toISOString() })
+                }}
+                className="rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-fg"
+              >
+                {t('snooze.customApply')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

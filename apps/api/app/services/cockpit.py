@@ -12,7 +12,7 @@ from app.models.audit import AuditEvent
 from app.models.auth import User
 from app.models.learning import EvalScore, Feedback
 from app.models.notification import DecisionRequest
-from app.models.signal import Signal, SignalMessage
+from app.models.signal import EXTERNAL_CHANNELS, Signal, SignalMessage
 from app.models.usage import UsageLedger
 
 
@@ -25,15 +25,23 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
             select(func.count()).select_from(Signal).where(
                 Signal.tenant_id == tenant_id,
                 Signal.created_at >= since_week,
+                Signal.channel.in_(EXTERNAL_CHANNELS),
+                Signal.source != "demo",
             )
         )
     ).scalar_one()
 
     open_decisions = (
         await session.execute(
-            select(func.count()).select_from(DecisionRequest).where(
+            select(func.count())
+            .select_from(DecisionRequest)
+            .join(Signal, Signal.id == DecisionRequest.signal_id)
+            .where(
                 DecisionRequest.tenant_id == tenant_id,
                 DecisionRequest.status == "awaiting_human",
+                DecisionRequest.signal_id.is_not(None),
+                Signal.channel.in_(EXTERNAL_CHANNELS),
+                Signal.status.notin_(("closed", "spam")),
             )
         )
     ).scalar_one()
@@ -111,7 +119,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         "tokens_month": int(usage_month[0] or 0),
         "cost_cents_month": int(usage_month[1] or 0),
         "time_saved_minutes_week": time_saved_minutes,
-        "learning_autonomy_rate": latest_eval.value if latest_eval else autonomy_rate,
+        "learning_autonomy_rate": autonomy_rate,
         "learning_sample_size": latest_eval.sample_size if latest_eval else 0,
     }
 

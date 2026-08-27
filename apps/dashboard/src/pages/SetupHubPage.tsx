@@ -7,6 +7,7 @@ import {
   Bot,
   CalendarClock,
   Check,
+  FolderKanban,
   Loader2,
   Mail,
   MessageSquare,
@@ -23,8 +24,14 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { appScopedGet } from '../lib/api'
 import { appRoutes } from '../api/routes/app.routes'
 import { listAgents } from '../lib/agents-api'
-import { listTriggers } from '../lib/orchestration-api'
+import { listTriggers, updateTrigger } from '../lib/orchestration-api'
+import {
+  enabledAutomationCount,
+  platformCheckInTrigger,
+  talkToAssistantPath,
+} from '../lib/talk-to-assistant'
 import { listCustomMetrics } from '../lib/metrics-api'
+import { listProjects } from '../lib/projects-api'
 import type { OnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 
 type PillarState = {
@@ -34,7 +41,7 @@ type PillarState = {
   icon: React.ComponentType<{ size?: number; className?: string }>
   done: boolean
   detail: string
-  actions: { label: string; to: string; primary?: boolean }[]
+  actions: { label: string; to?: string; onClick?: () => void; primary?: boolean; busy?: boolean }[]
   logos?: string[]
   knowledge?: boolean
 }
@@ -63,9 +70,9 @@ function ProviderLogoStrip({ providers }: { providers: string[] }) {
 }
 
 /**
- * Guided workspace setup along the five pillars of the platform:
- * communication, intelligence, automations, branding and KPIs. Progress is
- * derived from live workspace data on every visit — nothing is stored.
+ * Guided workspace setup along the six pillars of the platform:
+ * communication, intelligence, automations, branding, KPIs and projects.
+ * Progress is derived from live workspace data on every visit — nothing is stored.
  */
 export default function SetupHubPage() {
   const { t } = useTranslation('nav')
@@ -75,27 +82,45 @@ export default function SetupHubPage() {
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
   const [agentCount, setAgentCount] = useState(0)
   const [automationCount, setAutomationCount] = useState(0)
+  const [checkIn, setCheckIn] = useState<{ id: string; enabled: boolean } | null>(null)
+  const [enablingWatch, setEnablingWatch] = useState(false)
   const [metricCount, setMetricCount] = useState(0)
+  const [projectCount, setProjectCount] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [status, agents, triggers, metrics] = await Promise.all([
+      const [status, agents, triggers, metrics, projects] = await Promise.all([
         token
           ? appScopedGet<OnboardingStatus>(appRoutes.onboarding.status, token).catch(() => null)
           : Promise.resolve(null),
         listAgents().catch(() => []),
         listTriggers().catch(() => []),
         listCustomMetrics().catch(() => []),
+        listProjects().catch(() => []),
       ])
       setOnboarding(status)
       setAgentCount(agents.length)
-      setAutomationCount(triggers.length)
+      setAutomationCount(enabledAutomationCount(triggers))
+      const heartbeat = platformCheckInTrigger(triggers)
+      setCheckIn(heartbeat ? { id: heartbeat.id, enabled: heartbeat.enabled } : null)
       setMetricCount(metrics.length)
+      setProjectCount(projects.length)
     } finally {
       setLoading(false)
     }
   }, [token])
+
+  const enableCheckIn = useCallback(async () => {
+    if (!checkIn || checkIn.enabled) return
+    setEnablingWatch(true)
+    try {
+      await updateTrigger(checkIn.id, { enabled: true })
+      await load()
+    } finally {
+      setEnablingWatch(false)
+    }
+  }, [checkIn, load])
 
   useEffect(() => {
     void load()
@@ -135,9 +160,10 @@ export default function SetupHubPage() {
           { label: t('setupGuidePage.communication.viewAddress'), to: '/settings/channels', primary: !emailDone },
           { label: t('setupGuidePage.communication.connectMailbox'), to: '/settings/channels' },
           { label: t('setupGuidePage.communication.browseChannels'), to: '/settings/marketplace?kind=inbox' },
-          ...(!teamDone
-            ? [{ label: t('setupGuidePage.communication.inviteTeam'), to: '/settings/members' }]
-            : []),
+          { label: t('setupGuidePage.communication.aiReplySettings'), to: '/settings/communication' },
+          ...(teamDone
+            ? []
+            : [{ label: t('setupGuidePage.communication.inviteTeam'), to: '/settings/members' }]),
         ],
       },
       {
@@ -156,11 +182,12 @@ export default function SetupHubPage() {
         actions: [
           {
             label: t('setupGuidePage.intelligence.setupAssistant'),
-            to: `/communication/new?prefill=${encodeURIComponent(assistantPrompt)}`,
+            to: talkToAssistantPath(assistantPrompt),
             primary: !(companyDone && assistantDone),
           },
           { label: t('setupGuidePage.intelligence.openKnowledge'), to: '/knowledge' },
           { label: t('setupGuidePage.intelligence.manageAgents'), to: '/agents' },
+          { label: t('setupGuidePage.intelligence.organizeProjects'), to: '/projects' },
         ],
       },
       {
@@ -170,10 +197,31 @@ export default function SetupHubPage() {
         icon: CalendarClock,
         done: automationCount > 0,
         detail:
-          automationCount > 0
-            ? t('setupGuidePage.automations.done', { count: automationCount })
-            : t('setupGuidePage.automations.todo'),
-        actions: [{ label: t('setupGuidePage.automations.openAgenda'), to: '/agenda?view=automations', primary: automationCount === 0 }],
+          checkIn && !checkIn.enabled
+            ? t('setupGuidePage.automations.checkInOff')
+            : automationCount > 0
+              ? t('setupGuidePage.automations.done', { count: automationCount })
+              : t('setupGuidePage.automations.todo'),
+        actions: [
+          ...(checkIn && !checkIn.enabled
+            ? [
+                {
+                  label: enablingWatch
+                    ? t('setupGuidePage.automations.enablingCheckIn')
+                    : t('setupGuidePage.automations.enableCheckIn'),
+                  onClick: () => void enableCheckIn(),
+                  primary: true,
+                  busy: enablingWatch,
+                },
+              ]
+            : []),
+          {
+            label: t('setupGuidePage.automations.askAssistant'),
+            to: talkToAssistantPath(t('setupGuidePage.automations.assistantPrompt')),
+            primary: !checkIn || checkIn.enabled,
+          },
+          { label: t('setupGuidePage.automations.openAgenda'), to: '/agenda?view=automations' },
+        ],
       },
       {
         id: 'branding',
@@ -202,8 +250,34 @@ export default function SetupHubPage() {
           { label: t('setupGuidePage.kpis.openUsage'), to: '/cockpit/usage' },
         ],
       },
+      {
+        id: 'projects',
+        title: t('setupGuidePage.projects.title'),
+        description: t('setupGuidePage.projects.description'),
+        icon: FolderKanban,
+        done: projectCount > 0,
+        detail:
+          projectCount > 0
+            ? t('setupGuidePage.projects.done', { count: projectCount })
+            : t('setupGuidePage.projects.todo'),
+        actions: [
+          { label: t('setupGuidePage.projects.openProjects'), to: '/projects', primary: projectCount === 0 },
+        ],
+      },
     ]
-  }, [stepDone, agentCount, automationCount, brandingDone, metricCount, t, assistantPrompt])
+  }, [
+    stepDone,
+    agentCount,
+    automationCount,
+    brandingDone,
+    metricCount,
+    projectCount,
+    t,
+    assistantPrompt,
+    checkIn,
+    enablingWatch,
+    enableCheckIn,
+  ])
 
   const doneCount = pillars.filter((p) => p.done).length
 
@@ -232,7 +306,7 @@ export default function SetupHubPage() {
                 </p>
               </div>
               <Link
-                to={`/communication/new?prefill=${encodeURIComponent(assistantPrompt)}`}
+                to={talkToAssistantPath(assistantPrompt)}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
               >
                 <Bot size={13} />
@@ -278,20 +352,37 @@ export default function SetupHubPage() {
                         <p className="mt-0.5 text-[12.5px] text-text-secondary">{pillar.description}</p>
                         <p className="mt-1 text-[11px] text-text-muted">{pillar.detail}</p>
                         <div className="mt-2.5 flex flex-wrap gap-2">
-                          {pillar.actions.map((action) => (
-                            <Link
-                              key={action.to + action.label}
-                              to={action.to}
-                              className={
-                                action.primary
-                                  ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover'
-                                  : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
-                              }
-                            >
-                              {action.label}
-                              <ArrowRight size={11} />
-                            </Link>
-                          ))}
+                          {pillar.actions.map((action) =>
+                            action.onClick ? (
+                              <button
+                                key={action.label}
+                                type="button"
+                                disabled={action.busy}
+                                onClick={action.onClick}
+                                className={
+                                  action.primary
+                                    ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60'
+                                    : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-60'
+                                }
+                              >
+                                {action.busy ? <Loader2 size={11} className="animate-spin" /> : null}
+                                {action.label}
+                              </button>
+                            ) : (
+                              <Link
+                                key={(action.to ?? '') + action.label}
+                                to={action.to ?? '/'}
+                                className={
+                                  action.primary
+                                    ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover'
+                                    : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
+                                }
+                              >
+                                {action.label}
+                                <ArrowRight size={11} />
+                              </Link>
+                            ),
+                          )}
                         </div>
                       </div>
                     </div>

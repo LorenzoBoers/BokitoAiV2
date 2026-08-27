@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Bot,
@@ -166,10 +166,6 @@ export default function ProjectDetail() {
     }
   }
 
-  if (!isAdmin) {
-    return <Navigate to={inboxPath('all')} replace />
-  }
-
   const threadsHref = project
     ? `${inboxPath('all')}?project_id=${encodeURIComponent(project.id)}`
     : inboxPath('all')
@@ -194,7 +190,6 @@ export default function ProjectDetail() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold text-text-heading">{project.name}</h1>
-                <Badge variant="outline">{project.slug}</Badge>
               </div>
               {project.description ? (
                 <p className="mt-1 max-w-2xl text-sm text-text-muted">{project.description}</p>
@@ -213,18 +208,25 @@ export default function ProjectDetail() {
                   {t('projects.detail.openKnowledge')}
                 </Link>
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-status-error hover:text-status-error"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 size={14} className="mr-1" />
-                {t('projects.detail.delete')}
-              </Button>
+              {isAdmin ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-status-error hover:text-status-error"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 size={14} className="mr-1" />
+                  {t('projects.detail.delete')}
+                </Button>
+              ) : null}
             </div>
           </header>
+          {!isAdmin ? (
+            <p className="rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
+              {t('projects.detail.readonlyBanner')}
+            </p>
+          ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -235,7 +237,7 @@ export default function ProjectDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ProjectOrchestratorSection project={project} agents={agents} onChanged={load} />
+                <ProjectOrchestratorSection project={project} agents={agents} onChanged={load} canEdit={isAdmin} />
                 <ProjectAgentsSection projectId={project.id} agents={agents} />
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs text-text-muted">
@@ -243,12 +245,16 @@ export default function ProjectDetail() {
                     {t('projects.detail.flows')}
                   </Label>
                   {workstreams.length === 0 ? (
-                    <p className="text-sm text-text-muted">
-                      {t('projects.detail.noFlows')}{' '}
-                      <Link to={AGENDA_AUTOMATIONS_PATH} className="text-accent hover:underline">
-                        {t('projects.detail.addOnAgenda')}
-                      </Link>
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-text-muted">
+                        {t('projects.detail.noFlows')}
+                      </p>
+                      <Button type="button" size="sm" variant="outline" asChild>
+                        <Link to={`${AGENDA_AUTOMATIONS_PATH}&project=${project.id}`}>
+                          {t('projects.detail.addFirstStep')}
+                        </Link>
+                      </Button>
+                    </div>
                   ) : (
                     <ul className="space-y-1">
                       {workstreams.map((stream) => (
@@ -369,11 +375,11 @@ export default function ProjectDetail() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <GitBranch size={16} className="text-text-muted" />
-                  Repository
+                  {t('projects.detail.repository')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ProjectRepoSection project={project} onChanged={load} />
+                <ProjectRepoSection project={project} onChanged={load} canEdit={isAdmin} />
               </CardContent>
             </Card>
 
@@ -390,15 +396,19 @@ export default function ProjectDetail() {
                     <ProjectBudgetBar budget={budget} />
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <p className="text-xs text-text-muted">{t('projects.detail.remainingToday')}</p>
-                        <p className="font-medium text-text-heading">
-                          {budget.remaining_today.toLocaleString()}
+                        <p className="text-xs text-text-muted" title={t('projects.detail.budgetCapHint')}>
+                          {t('projects.detail.remainingToday')}
+                        </p>
+                        <p className="font-medium text-text-heading" title={t('projects.detail.budgetCapHint')}>
+                          {budget.remaining_today.toLocaleString()} {t('projects.detail.tokensUnit')}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-text-muted">{t('projects.detail.remainingHour')}</p>
-                        <p className="font-medium text-text-heading">
-                          {budget.remaining_hour.toLocaleString()}
+                        <p className="text-xs text-text-muted" title={t('projects.detail.budgetCapHint')}>
+                          {t('projects.detail.remainingHour')}
+                        </p>
+                        <p className="font-medium text-text-heading" title={t('projects.detail.budgetCapHint')}>
+                          {budget.remaining_hour.toLocaleString()} {t('projects.detail.tokensUnit')}
                         </p>
                       </div>
                     </div>
@@ -416,7 +426,7 @@ export default function ProjectDetail() {
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="project-name">{t('projects.detail.name')}</Label>
-                  <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} />
+                  <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!isAdmin} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="project-description">{t('projects.detail.description')}</Label>
@@ -425,6 +435,7 @@ export default function ProjectDetail() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t('projects.detail.descriptionPlaceholder')}
+                    disabled={!isAdmin}
                   />
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -443,10 +454,27 @@ export default function ProjectDetail() {
                     <Copy size={12} />
                     {t('projects.detail.copyId')}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void copyText(
+                        project.slug,
+                        t('projects.detail.copied', { label: t('projects.detail.copySlug') }),
+                        t('projects.detail.copyError', { label: t('projects.detail.copySlug') }),
+                      )
+                    }
+                    className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
+                    title={project.slug}
+                  >
+                    <Copy size={12} />
+                    {t('projects.detail.copySlug')}
+                  </button>
+                  {isAdmin ? (
                   <Button type="button" size="sm" disabled={!dirty || saving || !name.trim()} onClick={() => void saveAbout()}>
                     {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
                     {t('projects.detail.save')}
                   </Button>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>

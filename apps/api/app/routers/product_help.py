@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 
 from app.middleware.rate_limit import rate_limit
 from app.services import product_help as svc
@@ -49,6 +49,15 @@ async def product_help_sitemap():
 @router.get("/openapi.json", dependencies=[_docs_limit], include_in_schema=False)
 async def public_openapi_schema(request: Request):
     return build_public_openapi(request.app)
+
+
+@router.get("/assets/{asset_path:path}", dependencies=[_docs_limit], include_in_schema=False)
+async def product_help_asset(asset_path: str):
+    path = svc.resolve_asset(asset_path)
+    if not path:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    media = "image/webp" if path.suffix.lower() == ".webp" else "image/png"
+    return FileResponse(path, media_type=media)
 
 
 @router.get("/{slug}.md", dependencies=[_docs_limit], include_in_schema=False)

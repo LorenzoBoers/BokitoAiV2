@@ -36,6 +36,7 @@ import {
 import { resetTenantDefaultSendAs } from '../lib/reply-send-as'
 import { WEBSITE_WIDGET_CUSTOMIZE_PATH, WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 
 const MODES: AiMode[] = ['suggest', 'auto', 'off']
 const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
@@ -209,6 +210,7 @@ export default function AiCommunicationSettings() {
   const mailboxDirty = mailboxMode !== savedMailboxMode || mailboxLanguage !== savedMailboxLanguage
   const certaintyDirty = certainty != null && certainty !== savedCertainty
   const isDirty = tenantDirty || mailboxDirty || certaintyDirty
+  useUnsavedChangesGuard(isDirty, t('ai.communication.unsavedLeave'))
 
   const handleSave = useCallback(async () => {
     if (!token) return
@@ -246,6 +248,15 @@ export default function AiCommunicationSettings() {
   return (
     <PageContent width="md" className="space-y-6">
       <PageIntro description={t('ai.pageMeta.communication.description')} />
+      {modes ? (
+        <p className="text-xs text-text-muted">
+          {t('ai.communication.currentSetup', {
+            email: t(`ai.communication.modeOptions.${modes.email}`),
+            widget: t(`ai.communication.modeOptions.${modes.widget}`),
+            other: t(`ai.communication.modeOptions.${modes.whatsapp}`),
+          })}
+        </p>
+      ) : null}
 
       <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
         <p>{t('ai.communication.crossLinks.body')}</p>
@@ -597,7 +608,14 @@ export default function AiCommunicationSettings() {
         )}
       </Card>
 
-      <div className="flex items-center gap-3">
+      <div
+        className={
+          isDirty
+            ? 'sticky bottom-4 z-20 flex items-center gap-3 rounded-xl border border-accent/30 bg-bg-surface px-3 py-2 shadow-overlay'
+            : 'flex items-center gap-3'
+        }
+      >
+        {isDirty ? <p className="text-xs text-text-secondary">{t('ai.communication.unsavedBar')}</p> : null}
         <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
           {saving ? t('ai.communication.saving') : t('ai.communication.save')}
         </Button>

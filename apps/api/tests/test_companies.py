@@ -23,6 +23,7 @@ def test_business_domain_extraction():
     assert business_domain("Jan@ACME.com ") == "acme.com"
     assert business_domain("jan@gmail.com") == ""  # consumer provider
     assert business_domain("jan@hotmail.nl") == ""
+    assert business_domain("lisa.de.vries@example.com") == ""
     assert business_domain("visitor_abc123") == ""  # widget visitor key
     assert business_domain("") == ""
     assert business_domain("broken@") == ""

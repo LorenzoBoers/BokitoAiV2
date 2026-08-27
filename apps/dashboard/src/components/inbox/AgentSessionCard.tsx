@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, ChevronDown, ChevronRight, Loader2, Wrench } from 'lucide-react'
+import { Bot, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, Loader2, Wrench } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import ChatMarkdown from './ChatMarkdown'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -131,6 +132,15 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
             </p>
             <p className="truncate text-[10.5px] text-text-muted">{t('agentSession.internalHint')}</p>
           </div>
+          {session.agentId ? (
+            <Link
+              to={`/agents/${session.agentId}`}
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
+            >
+              <ExternalLink size={11} />
+              {t('agentSession.openAgent')}
+            </Link>
+          ) : null}
           <Button
             size="sm"
             variant="secondary"

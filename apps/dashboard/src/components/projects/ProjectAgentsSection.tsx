@@ -8,6 +8,7 @@ import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import {
   addProjectAgent,
   listProjectAgents,
@@ -95,7 +96,15 @@ export function ProjectAgentsSection({
       {loading ? (
         <p className="text-sm text-text-muted">{t('projects.detail.agentsLoading')}</p>
       ) : roster.length === 0 ? (
-        <p className="text-sm text-text-muted">{t('projects.detail.agentsEmpty')}</p>
+        <div className="space-y-1.5">
+          <p className="text-sm text-text-muted">{t('projects.detail.agentsEmpty')}</p>
+          <Link
+            to={talkToAssistantPath(t('projects.detail.agentsAskPrefill'))}
+            className="text-xs font-medium text-accent hover:underline"
+          >
+            {t('projects.detail.agentsAskAssistant')}
+          </Link>
+        </div>
       ) : (
         <ul className="space-y-1">
           {roster.map((row) => (

@@ -4,33 +4,46 @@ intro: From empty workspace to a working AI inbox in about fifteen minutes.
 description: Connect a mailbox, meet your assistant and handle your first AI-drafted reply. The fastest path to a working Bokito workspace.
 keywords: quickstart, setup, first steps, connect mailbox, onboarding
 sort: 20
-related: setup-guide,channels,tour
+related: setup-guide,channels,tour,inbox-ai
 ---
 
 # Quickstart
 
-This is the shortest path from a fresh workspace to real work happening. Each step builds on the previous one.
+This is the shortest path from a fresh workspace to real work happening.
 
 ## 1. Connect a mailbox
 
-Open **Settings, then Channels** and connect Gmail or Outlook. Inbound mail starts appearing as threads in Communication within a few minutes. One mailbox is enough to start.
+![Connect a mailbox](/api/docs/assets/quickstart/mailbox.png)
+*Open Settings, then Email & messages.*
+
+1. Open **Settings**, then **Email & messages**.
+2. Copy **Your Bokito address** and send a test mail, or connect Gmail or Outlook if replies must leave from your domain.
+3. Inbound mail appears as threads in Communication within a few minutes. See [Channels](/docs/inbox/channels).
 
 ## 2. Open your first thread
 
-Go to **Communication**. Pick a thread and read it the way your assistant does: the contact, the history and the AI context panel are all on one screen. Reply by hand once so you know the composer.
+1. Open **Communication**.
+2. Pick a thread. Read the contact, history and AI context on one screen.
+3. Reply by hand once so you know the composer. See [Communication](/docs/inbox/communication).
 
 ## 3. Let the assistant draft
 
-Under **Settings, then Inbox AI**, choose when the assistant drafts replies. Start with drafts on everything: the assistant writes, you review and send. Nothing goes out without you.
+1. Open **Settings**, then **AI reply settings**.
+2. Set email to **Suggest replies**. The assistant writes; you review and send.
+3. See [Inbox AI](/docs/inbox/inbox-ai).
 
 ## 4. Add knowledge
 
-Open **Knowledge** and add a few documents the assistant should answer from - pricing, policies, product facts. Drafts get noticeably better with even a handful of documents.
+1. Open **Knowledge**.
+2. Add a few documents: pricing, policies, product facts.
+3. See [Knowledge](/docs/ai/knowledge).
 
-## 5. Set the autonomy posture
+## 5. Set autonomy
 
-In **Settings, then Govern**, pick a posture: `manual` (you do everything), `assisted` (agents draft, you approve) or `autonomous` (agents act, you handle exceptions). Start with assisted; you can change it any time.
+1. Open **Settings**, then **Govern**.
+2. Start with **Assisted**.
+3. See [Autonomy](/docs/govern/autonomy).
 
 ## What you have now
 
-Mail flows in, the assistant drafts grounded replies, and you approve them. From here, follow the [setup guide](/docs/getting-started/setup-guide) to add team members, more channels and scheduled agent work.
+Mail flows in, the assistant drafts grounded replies, and you approve them. Continue with the [setup guide](/docs/getting-started/setup-guide).

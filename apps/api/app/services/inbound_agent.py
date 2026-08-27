@@ -236,6 +236,10 @@ async def create_reply_suggestion(
             opt["payload"]["signal_id"] = str(signal.id)
 
     from app.services.notification_mail import decision_bell_status
+    from app.services.signal_threads import _defer_open_reply_suggestions
+
+    # One open suggestion per thread: a newer draft replaces the leftover card.
+    await _defer_open_reply_suggestions(session, tenant_id, signal.id)
 
     notification = Notification(
         tenant_id=tenant_id,

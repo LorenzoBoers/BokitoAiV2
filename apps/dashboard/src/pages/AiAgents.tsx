@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bot, CalendarDays, MessageSquare, Plus, RefreshCw } from 'lucide-react'
+import { Bot, CalendarDays, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -16,17 +16,14 @@ import { listAgents } from '../lib/agents-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { formatAgentModelLine } from '../lib/model-label'
 import { agentChatPath, agentRunsPath, attentionThreadPath, inboxPath } from '../lib/messages-paths'
+import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { useOptionalNavBadges } from '../context/NavBadgeContext'
 import { useAuth } from '../context/AuthContext'
 import { listThreads } from '../lib/inbox-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
-import {
-  agentType,
-  filterOrchestratorAgents,
-  filterUserAgents,
-  sortAgentsByUpdated,
-} from '../lib/workforce-nav-agents'
+import { filterLibraryAgents, sortAgentsForLibrary } from '../lib/workforce-nav-agents'
+import { agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
 import { cn } from '../lib/utils'
 
 function AgentQuickLinks({
@@ -40,7 +37,7 @@ function AgentQuickLinks({
 }) {
   const navigate = useNavigate()
   return (
-    <span className="flex shrink-0 items-center gap-1">
+    <span className="flex items-center gap-1">
       <Button
         size="sm"
         variant="ghost"
@@ -71,11 +68,85 @@ function AgentQuickLinks({
   )
 }
 
-const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
-  active: 'text-status-success',
-  standby: 'text-text-muted',
-  sleeping: 'text-text-muted',
+const STATUS_CLASS: Record<ReturnType<typeof agentWorkState>, string> = {
+  working: 'text-status-success',
+  ready: 'text-text-muted',
+  paused: 'text-text-muted',
   error: 'text-status-error',
+}
+
+function AgentLibraryCard({
+  agent,
+  projectName,
+}: {
+  agent: RuntimeAgent
+  projectName?: string
+}) {
+  const { t } = useTranslation('nav')
+  const roleLabel = agentRoleLabel(agent.role_name || agent.role_slug, t)
+  const genericRole = new Set([
+    t('workforce.agents.types.orchestrator').trim().toLowerCase(),
+    t('workforce.agents.types.po').trim().toLowerCase(),
+    t('workforce.agents.types.worker').trim().toLowerCase(),
+  ])
+  const showRole =
+    roleLabel.trim().length > 0 &&
+    roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase() &&
+    !genericRole.has(roleLabel.trim().toLowerCase())
+
+  return (
+    <Link to={`/agents/${agent.id}`} className="block h-full">
+      <Card interactive className="flex h-full flex-col gap-3 p-4">
+        <div className="flex items-start gap-3">
+          <AiAvatar name={agent.name} seed={agent.id} size={36} className="mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <p className="truncate font-medium text-text-heading">{agent.name}</p>
+              {agent.is_lead ? (
+                <Badge
+                  variant="accent"
+                  className="shrink-0 text-[10px]"
+                  title={t('workforce.agents.leadHint')}
+                >
+                  {t('workforce.agents.leadBadgeShort')}
+                </Badge>
+              ) : null}
+            </div>
+            {agent.is_lead ? (
+              <p className="mt-1 text-[11px] leading-snug text-text-muted">{t('workforce.agents.leadHint')}</p>
+            ) : null}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className={cn('text-xs font-medium', STATUS_CLASS[agentWorkState(agent)])}>
+                {t(agentStatusI18nKey(agentWorkState(agent)))}
+              </span>
+              {showRole ? <span className="text-xs text-text-muted">{roleLabel}</span> : null}
+            </div>
+          </div>
+        </div>
+        {agent.current_activity_summary ? (
+          <p className="line-clamp-2 text-sm text-text-secondary">{agent.current_activity_summary}</p>
+        ) : null}
+        {projectName ? (
+          <p className="text-xs text-text-muted">{t('workforce.agents.projectLink', { name: projectName })}</p>
+        ) : null}
+        <div className="mt-auto flex items-center justify-between gap-2">
+          <AgentQuickLinks
+            agentId={agent.id}
+            chatLabel={t('workforce.agents.chat')}
+            scheduleLabel={t('workforce.agents.schedule')}
+          />
+          {agent.model ? (
+            <span
+              title={agent.model}
+              className="truncate text-[10px] text-text-muted/80"
+            >
+              {formatAgentModelLine(agent.model, agent.provider, t)}
+            </span>
+          ) : null}
+        </div>
+      </Card>
+    </Link>
+  )
 }
 
 export default function AiAgents() {
@@ -85,25 +156,38 @@ export default function AiAgents() {
   const { counts } = useOptionalNavBadges()
   const { token } = useAuth()
   const [attentionHref, setAttentionHref] = useState(agentRunsPath('awaiting-decision'))
-  const [poAgents, setPoAgents] = useState<RuntimeAgent[]>([])
-  const [workerAgents, setWorkerAgents] = useState<RuntimeAgent[]>([])
+  const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'working' | 'paused' | 'lead'>('all')
+  const visibleAgents = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    return agents.filter((agent) => {
+      if (statusFilter === 'lead' && !agent.is_lead) return false
+      if (statusFilter === 'working' && agentWorkState(agent) !== 'working') return false
+      if (statusFilter === 'paused' && agentWorkState(agent) !== 'paused') return false
+      if (!needle) return true
+      const hay = [agent.name, agent.role_name, agent.role_slug, agent.current_activity_summary]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return hay.includes(needle)
+    })
+  }, [agents, query, statusFilter])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const [rows, projectRows] = await Promise.all([listAgents(), listProjects()])
-      setPoAgents(sortAgentsByUpdated(filterOrchestratorAgents(rows)))
-      setWorkerAgents(sortAgentsByUpdated(filterUserAgents(rows)))
+      setAgents(sortAgentsForLibrary(filterLibraryAgents(rows)))
       setProjects(projectRows)
     } catch (e) {
-      setPoAgents([])
-      setWorkerAgents([])
+      setAgents([])
       setProjects([])
       setError(e instanceof Error ? e.message : t('workforce.agents.loadError'))
     } finally {
@@ -200,6 +284,47 @@ export default function AiAgents() {
         </div>
       </header>
 
+      {agents.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative max-w-sm flex-1">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t('workforce.agents.searchPlaceholder')}
+              aria-label={t('workforce.agents.searchPlaceholder')}
+              className="h-9 w-full rounded-lg border border-border/60 bg-bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
+            />
+          </div>
+          {(['all', 'working', 'paused', 'lead'] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setStatusFilter(id)}
+              className={
+                statusFilter === id
+                  ? 'rounded-full bg-accent/15 px-2.5 py-0.5 text-[11px] font-medium text-accent'
+                  : 'rounded-full border border-border/60 px-2.5 py-0.5 text-[11px] text-text-secondary hover:text-text-primary'
+              }
+            >
+              {t(`workforce.agents.filters.${id}`)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="rounded-xl border border-border/60 bg-bg-elevated/40 px-4 py-3">
+        <p className="text-sm font-medium text-text-heading">{t('workforce.agents.routingTitle')}</p>
+        <p className="mt-0.5 text-xs text-text-muted">{t('workforce.agents.routingBody')}</p>
+        <Link
+          to={talkToAssistantPath(t('workforce.agents.routingAskPrefill'))}
+          className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+        >
+          {t('workforce.agents.routingAsk')}
+        </Link>
+      </div>
+
       {loading ? (
         <LoadingBlock label={t('workforce.agents.loading')} />
       ) : error ? (
@@ -213,7 +338,7 @@ export default function AiAgents() {
         ) : (
           askAdminEmpty
         )
-      ) : poAgents.length === 0 && workerAgents.length === 0 ? (
+      ) : agents.length === 0 ? (
         isAdmin ? (
           <EmptyState
             icon={Bot}
@@ -243,168 +368,31 @@ export default function AiAgents() {
           askAdminEmpty
         )
       ) : (
-        <Card className="overflow-hidden divide-y divide-border/60">
-          <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t('workforce.agents.sections.po')}
+        visibleAgents.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center">
+            <p className="text-sm text-text-muted">{t('workforce.agents.emptySearch')}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('')
+                setStatusFilter('all')
+              }}
+              className="mt-3 text-xs font-medium text-accent hover:underline"
+            >
+              {t('workforce.agents.clearSearch')}
+            </button>
           </div>
-          <ul>
-            {poAgents.length === 0 ? (
-              <li className="px-4 py-3">
-                <p className="text-sm text-text-muted">{t('workforce.po.none')}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {isAdmin ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowNewAgent(true)}
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
-                      {t('workforce.agents.newAgent')}
-                    </Button>
-                  ) : null}
-                  <Link
-                    to="/projects"
-                    className="text-[12px] font-medium text-accent hover:underline"
-                  >
-                    {t('workforce.po.openProjects')}
-                  </Link>
-                </div>
-              </li>
-            ) : (
-              poAgents.map((agent) => (
-                <li key={agent.id}>
-                  <Link
-                    to={`/agents/${agent.id}`}
-                    className="row-interactive flex items-start justify-between gap-3 px-4 py-3 hover:bg-bg-hover/50"
-                  >
-                    <div className="flex min-w-0 items-start gap-2.5">
-                      <AiAvatar name={agent.name} seed={agent.id} size={28} className="mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-text-heading">{agent.name}</p>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {t(`workforce.agents.types.${agentType(agent)}`)}
-                          </Badge>
-                          {agent.is_lead ? (
-                            <Badge className="text-[10px]" title={t('workforce.agents.leadHint')}>
-                              {t('workforce.agents.leadBadge')}
-                            </Badge>
-                          ) : null}
-                          {(() => {
-                            const roleLabel = agentRoleLabel(agent.role_name || agent.role_slug, t)
-                            const typeLabel = t(`workforce.agents.types.${agentType(agent)}`)
-                            const showRole =
-                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase() &&
-                              roleLabel.trim().toLowerCase() !== typeLabel.trim().toLowerCase()
-                            return showRole ? (
-                              <p className="text-xs text-text-muted">{roleLabel}</p>
-                            ) : null
-                          })()}
-                        </div>
-                        {agent.current_activity_summary ? (
-                          <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
-                            {agent.current_activity_summary}
-                          </p>
-                        ) : null}
-                        {(() => {
-                          const linkedProject = projects.find((project) => project.po_agent_id === agent.id)
-                          if (!linkedProject) return null
-                          return (
-                            <p className="mt-1 text-xs text-text-muted">
-                              {t('workforce.agents.projectLink', { name: linkedProject.name })}
-                            </p>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                    <span className="flex shrink-0 flex-col items-end gap-1">
-                      <AgentQuickLinks
-                        agentId={agent.id}
-                        chatLabel={t('workforce.agents.chat')}
-                        scheduleLabel={t('workforce.agents.schedule')}
-                      />
-                      <span className={cn('text-xs font-medium capitalize', STATUS_CLASS[agent.status])}>
-                        {t(`workforce.agents.status.${agent.status}`)}
-                      </span>
-                      {agent.model ? (
-                        <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[10px] text-text-muted">
-                          {formatAgentModelLine(agent.model, agent.provider, t)}
-                        </span>
-                      ) : null}
-                    </span>
-                  </Link>
-                </li>
-              ))
-            )}
-          </ul>
-          <div className="border-y border-border/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-            {t('workforce.agents.sections.workers')}
-          </div>
-          <ul>
-            {workerAgents.length === 0 ? (
-              <li className="px-4 py-3 text-sm text-text-muted">
-                {t('workforce.agents.workersEmpty')}
-              </li>
-            ) : (
-              workerAgents.map((agent) => (
-                <li key={agent.id}>
-                  <Link
-                    to={`/agents/${agent.id}`}
-                    className="row-interactive flex items-start justify-between gap-3 px-4 py-3 hover:bg-bg-hover/50"
-                  >
-                    <div className="flex min-w-0 items-start gap-2.5">
-                      <AiAvatar name={agent.name} seed={agent.id} size={28} className="mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-text-heading">{agent.name}</p>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {t(`workforce.agents.types.${agentType(agent)}`)}
-                          </Badge>
-                          {agent.is_lead ? (
-                            <Badge className="text-[10px]" title={t('workforce.agents.leadHint')}>
-                              {t('workforce.agents.leadBadge')}
-                            </Badge>
-                          ) : null}
-                          {(() => {
-                            const roleLabel = agentRoleLabel(agent.role_name || agent.role_slug, t)
-                            const typeLabel = t(`workforce.agents.types.${agentType(agent)}`)
-                            const showRole =
-                              roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase() &&
-                              roleLabel.trim().toLowerCase() !== typeLabel.trim().toLowerCase()
-                            return showRole ? (
-                              <p className="text-xs text-text-muted">{roleLabel}</p>
-                            ) : null
-                          })()}
-                        </div>
-                        {agent.current_activity_summary ? (
-                          <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
-                            {agent.current_activity_summary}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                    <span className="flex shrink-0 flex-col items-end gap-1">
-                      <AgentQuickLinks
-                        agentId={agent.id}
-                        chatLabel={t('workforce.agents.chat')}
-                        scheduleLabel={t('workforce.agents.schedule')}
-                      />
-                      <span className={cn('text-xs font-medium capitalize', STATUS_CLASS[agent.status])}>
-                        {t(`workforce.agents.status.${agent.status}`)}
-                      </span>
-                      {agent.model ? (
-                        <span className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[10px] text-text-muted">
-                          {formatAgentModelLine(agent.model, agent.provider, t)}
-                        </span>
-                      ) : null}
-                    </span>
-                  </Link>
-                </li>
-              ))
-            )}
-          </ul>
-        </Card>
+        ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleAgents.map((agent) => (
+            <AgentLibraryCard
+              key={agent.id}
+              agent={agent}
+              projectName={projects.find((project) => project.po_agent_id === agent.id)?.name}
+            />
+          ))}
+        </div>
+        )
       )}
 
       <NewAgentDialog

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Bell, BellRing, Monitor } from 'lucide-react'
 import { listChannelAccounts } from '../lib/channel-accounts-api'
 import { Switch } from '../components/ui/switch'
@@ -8,6 +9,16 @@ import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import { policyRoutes } from '../api/routes/policy.routes'
+import { APP_API_BASE } from '../lib/api.config'
+import {
+  canonicalizeNotificationRows,
+  DEFAULT_NOTIFICATION_ROWS,
+  desktopEnabledCount,
+  pauseAllDesktop,
+  restoreDefaultNotificationRows,
+  type NotificationChannelKey,
+  type NotificationPrefRow,
+} from '../lib/notification-rows'
 import {
   disableWebPush,
   enableWebPush,
@@ -15,80 +26,15 @@ import {
   isWebPushSupported,
 } from '../lib/web-push'
 
-type ChannelKey = 'desktop' | 'email' | 'slack'
-
-type NotificationRow = {
-  id: string
-  label: string
-  // A missing key means the channel does not apply to this category
-  // (e.g. digests are email-only, Slack only exists on decisions).
-  channels: { desktop?: boolean; email?: boolean; slack?: boolean }
-}
-
-// Only categories the backend actually enforces at the emission point.
-// Mirrors DEFAULT_NOTIFICATION_ROWS in apps/api/app/routers/inbox_settings.py.
-const DEFAULT_ROWS: NotificationRow[] = [
-  {
-    id: 'assigned-to-me',
-    label: 'When a conversation is assigned to you',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'mentions',
-    label: 'When you are mentioned in conversations',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'decisions',
-    label: 'When an agent needs your decision on an assigned conversation',
-    channels: { desktop: true, email: false, slack: false },
-  },
-  {
-    id: 'ops-run-failed',
-    label: 'When an agent run or trigger fails',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'ops-channel-disconnect',
-    label: 'When a connected channel stops syncing',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'billing-alerts',
-    label: 'When LLM spend reaches 80% or 100% of the budget',
-    channels: { desktop: true, email: false },
-  },
-  {
-    id: 'digest-daily',
-    label: 'Daily email digest (open threads, pending decisions, agent activity)',
-    channels: { email: false },
-  },
-  {
-    id: 'digest-weekly',
-    label: 'Weekly email digest',
-    channels: { email: false },
-  },
-]
-
-const KNOWN_ROW_IDS = new Set(DEFAULT_ROWS.map((row) => row.id))
-const DEFAULT_BY_ID = new Map(DEFAULT_ROWS.map((row) => [row.id, row]))
-
-/** Keep persisted labels in English; the UI translates by row id. */
-function canonicalizeRows(incoming: NotificationRow[]): NotificationRow[] {
-  return incoming
-    .filter((row) => KNOWN_ROW_IDS.has(row.id))
-    .map((row) => {
-      const fallback = DEFAULT_BY_ID.get(row.id)!
-      return { ...fallback, channels: { ...fallback.channels, ...row.channels } }
-    })
-}
+type ChannelKey = NotificationChannelKey
+type NotificationRow = NotificationPrefRow
 
 const STORAGE_KEY = 'bokito_notification_settings_v1'
 
 export default function NotificationSettings() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
-  const [rows, setRows] = useState<NotificationRow[]>(DEFAULT_ROWS)
+  const [rows, setRows] = useState<NotificationRow[]>(DEFAULT_NOTIFICATION_ROWS)
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
@@ -116,8 +62,8 @@ export default function NotificationSettings() {
         if (!raw) return
         const parsed = JSON.parse(raw) as NotificationRow[]
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const next = canonicalizeRows(parsed)
-          setRows(next.length > 0 ? next : DEFAULT_ROWS)
+          const next = canonicalizeNotificationRows(parsed)
+          setRows(next.length > 0 ? next : DEFAULT_NOTIFICATION_ROWS)
         }
       } catch {
         // ignore
@@ -126,25 +72,22 @@ export default function NotificationSettings() {
       return
     }
     setLoading(true)
-    fetch(`/api${policyRoutes.notificationPreferences()}`, {
+    fetch(`${APP_API_BASE}${policyRoutes.notificationPreferences()}`, {
       headers: { Authorization: `Bearer ${token}` },
       credentials: 'include',
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(t('notificationsPage.loadFailed')))))
       .then((data: { rows?: NotificationRow[] }) => {
         if (Array.isArray(data.rows) && data.rows.length > 0) {
-          const next = canonicalizeRows(data.rows)
-          setRows(next.length > 0 ? next : DEFAULT_ROWS)
+          const next = canonicalizeNotificationRows(data.rows)
+          setRows(next.length > 0 ? next : DEFAULT_NOTIFICATION_ROWS)
         }
       })
-      .catch(() => setRows(DEFAULT_ROWS))
+      .catch(() => setRows(DEFAULT_NOTIFICATION_ROWS))
       .finally(() => setLoading(false))
   }, [token, t])
 
-  const desktopEnabled = useMemo(
-    () => rows.reduce((acc, row) => acc + (row.channels.desktop ? 1 : 0), 0),
-    [rows],
-  )
+  const desktopEnabled = useMemo(() => desktopEnabledCount(rows), [rows])
 
   // Browser push (web push via the service worker). Reflects the actual
   // browser subscription state rather than a stored preference.
@@ -185,7 +128,7 @@ export default function NotificationSettings() {
     async (next: NotificationRow[]) => {
       if (token) {
         setSaveError(null)
-        const res = await fetch(`/api${policyRoutes.notificationPreferences()}`, {
+        const res = await fetch(`${APP_API_BASE}${policyRoutes.notificationPreferences()}`, {
           method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -210,6 +153,11 @@ export default function NotificationSettings() {
     },
     [token, t],
   )
+
+  function applyRows(next: NotificationRow[]) {
+    setRows(next)
+    void persistRows(next)
+  }
 
   function updateChannel(rowId: string, channel: ChannelKey, checked: boolean) {
     setRows((prev) => {
@@ -250,13 +198,44 @@ export default function NotificationSettings() {
       <p className="text-sm text-text-secondary">
         {t('notificationsPage.intro')}
       </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => applyRows(pauseAllDesktop(rows))}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60"
+        >
+          {t('notificationsPage.pauseInApp')}
+        </button>
+        <button
+          type="button"
+          onClick={() => applyRows(restoreDefaultNotificationRows())}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60"
+        >
+          {t('notificationsPage.restoreDefaults')}
+        </button>
+        <button
+          type="button"
+          onClick={() => toast.message(t('notificationsPage.previewTitle'), { description: t('notificationsPage.previewBody') })}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60"
+        >
+          {t('notificationsPage.preview')}
+        </button>
+      </div>
 
       <Card className="overflow-hidden">
         <div className="grid grid-cols-[1fr_84px_84px_84px] border-b border-border/60 px-5 py-3 text-xs font-semibold uppercase tracking-[0.07em] text-text-muted">
           <span>{t('notificationsPage.notifyMe')}</span>
           <span className="text-center">{t('notificationsPage.inApp')}</span>
           <span className="text-center">{t('notificationsPage.email')}</span>
-          <span className="text-center">{t('notificationsPage.slack')}</span>
+          <span className="text-center">
+            {slackConnected ? (
+              t('notificationsPage.slack')
+            ) : (
+              <Link to="/settings/channels" className="normal-case tracking-normal text-accent hover:underline">
+                {t('notificationsPage.slackColumnHint')}
+              </Link>
+            )}
+          </span>
         </div>
 
         {rows.map((row) => (

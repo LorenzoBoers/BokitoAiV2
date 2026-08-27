@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { OctagonAlert, RefreshCw } from 'lucide-react'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import ContentHeader from '../components/shell/ContentHeader'
@@ -17,26 +18,20 @@ import {
   type UsageBreakdown,
 } from '../lib/bokito-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import { appDateLocale } from '../lib/app-locale'
+import { formatAppTime } from '../lib/app-locale'
+import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
 import { humanizeModelId } from '../lib/model-label'
+import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 
 function isSystemUsageName(name: string): boolean {
   return /system|systeem/i.test(name)
 }
 
-function formatNumber(value: number, language?: string) {
-  return new Intl.NumberFormat(appDateLocale(language), { maximumFractionDigits: 1 }).format(value)
-}
-
-// The usage ledger meters costs in USD (provider pricing); keep the label honest.
-function formatCost(cents: number, language?: string) {
-  return new Intl.NumberFormat(appDateLocale(language), { style: 'currency', currency: 'USD' }).format(cents / 100)
-}
-
 function formatUsd(micros: number, language?: string) {
-  return new Intl.NumberFormat(appDateLocale(language), { style: 'currency', currency: 'USD' }).format(micros / 1_000_000)
+  return formatAppUsdCents(micros / 10_000, language)
 }
 
 function BudgetBar({
@@ -78,14 +73,16 @@ export default function UsagePage() {
   const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
   const locale = i18n.language
-  const num = (value: number) => formatNumber(value, locale)
-  const cost = (value: number) => formatCost(value, locale)
+  const num = (value: number) => formatAppNumber(value, locale)
   const usd = (value: number) => formatUsd(value, locale)
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [breakdown, setBreakdown] = useState<UsageBreakdown | null>(null)
   const [budget, setBudget] = useState<SpendBudget | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const days = parseUsageDays(searchParams.get('days'))
   const [capDraft, setCapDraft] = useState<{ tokens: string; usd: string } | null>(null)
   const [savingCaps, setSavingCaps] = useState(false)
   const [capError, setCapError] = useState<string | null>(null)
@@ -96,17 +93,20 @@ export default function UsagePage() {
     setError(null)
     Promise.all([
       bokitoGetCockpitSummary(token),
-      bokitoGetUsageBreakdown(token, 30),
+      bokitoGetUsageBreakdown(token, days),
       bokitoGetBudget(token),
     ])
       .then(([s, b, bud]) => {
         setSummary(s)
         setBreakdown(b)
         setBudget(bud)
+        setRefreshedAt(new Date())
       })
       .catch((err) => setError(formatApiErrorMessage(err, t('usagePage.couldNotLoad'))))
       .finally(() => setLoading(false))
-  }, [token, t])
+  }, [token, t, days])
+
+  useUnsavedChangesGuard(capDraft !== null, t('usagePage.unsavedLeave'))
 
   useEffect(() => {
     load()
@@ -134,6 +134,12 @@ export default function UsagePage() {
       setSavingCaps(false)
       return
     }
+    if (!tokensCap && !usdCap && (budget?.config.daily_token_cap || budget?.config.monthly_customer_micros_cap)) {
+      if (!window.confirm(t('usagePage.confirmClearCaps'))) {
+        setSavingCaps(false)
+        return
+      }
+    }
     bokitoPatchBudget(token, {
       daily_token_cap: tokensCap ? Math.round(tokensCap) : null,
       monthly_customer_micros_cap: usdCap ? Math.round(usdCap * 1_000_000) : null,
@@ -144,12 +150,22 @@ export default function UsagePage() {
       })
       .catch((err) => setCapError(formatApiErrorMessage(err, t('usagePage.couldNotSave'))))
       .finally(() => setSavingCaps(false))
-  }, [token, capDraft, t])
+  }, [token, capDraft, t, budget])
 
   const stats = summary
     ? [
-        { key: 'tokens', label: t('usagePage.tokens30d'), value: num(summary.tokens_month) },
-        { key: 'cost', label: t('usagePage.cost30d'), value: cost(summary.cost_cents_month) },
+        {
+          key: 'tokens',
+          label: t('usagePage.tokens30d', { days }),
+          value: num(breakdown?.total_tokens ?? summary.tokens_month),
+        },
+        {
+          key: 'cost',
+          label: t('usagePage.cost30d', { days }),
+          value: breakdown
+            ? usd(breakdown.total_customer_cost_micros)
+            : formatAppUsdCents(summary.cost_cents_month, locale),
+        },
         {
           key: 'conversations',
           label: t('usagePage.conversations7d'),
@@ -166,7 +182,14 @@ export default function UsagePage() {
           hintTo: '/settings/govern?tab=policy',
           hintLink: t('usagePage.openGovern'),
         },
-        { key: 'time', label: t('usagePage.timeSaved'), value: `${num(summary.time_saved_minutes_week)} min` },
+        {
+          key: 'time',
+          label: t('usagePage.timeSaved'),
+          value: `${num(summary.time_saved_minutes_week)} min`,
+          hint: summary.time_saved_minutes_week === 0 ? t('usagePage.timeSavedEmptyHint') : null,
+          hintTo: '/agents',
+          hintLink: t('usagePage.openAgents'),
+        },
         {
           key: 'feedback',
           label: t('usagePage.avgFeedback'),
@@ -185,14 +208,58 @@ export default function UsagePage() {
         title={t('tabs.cockpit.title')}
         subtitle={t('pageHeaders.cockpitUsage')}
         meta={
-          <button
-            type="button"
-            onClick={load}
-            className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-            {t('usagePage.refresh')}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-border/60 p-0.5">
+              {([7, 30, 90] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams)
+                    if (value === 30) params.delete('days')
+                    else params.set('days', String(value))
+                    setSearchParams(params, { replace: true })
+                  }}
+                  className={`rounded-md px-2 py-1 text-[11.5px] font-medium ${
+                    days === value ? 'bg-bg-hover text-text-heading' : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  {t(`usagePage.period${value}` as 'usagePage.period7')}
+                </button>
+              ))}
+            </div>
+            {refreshedAt ? (
+              <span className="text-[11px] text-text-muted">
+                {t('usagePage.refreshedAt', { time: formatAppTime(refreshedAt, locale) })}
+              </span>
+            ) : null}
+            {breakdown ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const blob = new Blob([usageBreakdownToCsv(breakdown)], { type: 'text/csv;charset=utf-8' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `bokito-usage-${days}d.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                  toast.success(t('usagePage.exported'))
+                }}
+                className="rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('usagePage.exportCsv')}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={load}
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              {t('usagePage.refresh')}
+            </button>
+          </div>
         }
       />
 
@@ -242,6 +309,12 @@ export default function UsagePage() {
                 <input
                   value={capDraft.tokens}
                   onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      saveCaps()
+                    }
+                  }}
                   placeholder={t('usagePage.noCap')}
                   inputMode="numeric"
                   className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"
@@ -252,6 +325,12 @@ export default function UsagePage() {
                 <input
                   value={capDraft.usd}
                   onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      saveCaps()
+                    }
+                  }}
                   placeholder={t('usagePage.noCap')}
                   inputMode="decimal"
                   className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-[12.5px] text-text-primary outline-none focus:border-accent/60"

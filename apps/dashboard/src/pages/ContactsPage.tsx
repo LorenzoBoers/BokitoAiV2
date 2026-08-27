@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import {
   backfillCompanies,
   createContact,
@@ -116,6 +117,8 @@ function ContactDetail({ contactId }: { contactId: string }) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useUnsavedChangesGuard(dirty, t('contactsPage.unsavedLeave'))
 
   const save = async () => {
     if (!token || !contact || saving) return
@@ -236,6 +239,20 @@ function ContactDetail({ contactId }: { contactId: string }) {
               <ArrowLeft size={12} />
               {t('contactsPage.allContacts')}
             </Link>
+            {threads[0] ? (
+              <Link
+                to={inboxPath('open', String(threads[0].id))}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  canComposeToAddress(contact.channel, contact.address)
+                    ? 'border border-border/60 text-text-secondary hover:bg-bg-hover/60'
+                    : 'bg-accent text-accent-fg hover:bg-accent-hover'
+                }`}
+                title={t('contactsPage.openConversationHint')}
+              >
+                <MessageSquare size={12} />
+                {t('contactsPage.openConversation')}
+              </Link>
+            ) : null}
             {canComposeToAddress(contact.channel, contact.address) ? (
               <Link
                 to={composeEmailPath({ to: contact.address })}
@@ -464,6 +481,8 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
     void load()
   }, [load])
 
+  useUnsavedChangesGuard(dirty, t('contactsPage.unsavedLeave'))
+
   const save = async () => {
     if (!token || !company || saving) return
     setSaving(true)
@@ -691,11 +710,11 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
   )
 }
 
-const STATUS_FILTERS: ReadonlyArray<{ key: ContactStatus | 'all'; labelKey: string }> = [
-  { key: 'all', labelKey: 'contactsPage.statusAll' },
-  { key: 'approved', labelKey: 'contactsPage.statusApproved' },
-  { key: 'pending', labelKey: 'contactsPage.statusPending' },
-  { key: 'blocked', labelKey: 'contactsPage.statusBlocked' },
+const STATUS_FILTERS: ReadonlyArray<{ key: ContactStatus | 'all'; labelKey: string; hintKey: string }> = [
+  { key: 'all', labelKey: 'contactsPage.statusAll', hintKey: 'contactsPage.statusAllHint' },
+  { key: 'approved', labelKey: 'contactsPage.statusApproved', hintKey: 'contactsPage.statusApprovedHint' },
+  { key: 'pending', labelKey: 'contactsPage.statusPending', hintKey: 'contactsPage.statusPendingHint' },
+  { key: 'blocked', labelKey: 'contactsPage.statusBlocked', hintKey: 'contactsPage.statusBlockedHint' },
 ]
 
 function parseContactsView(raw: string | null): 'people' | 'companies' {
@@ -718,7 +737,13 @@ export default function ContactsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
-  const [createDraft, setCreateDraft] = useState({ address: '', displayName: '', company: '' })
+  const [createDraft, setCreateDraft] = useState({
+    channel: 'email',
+    address: searchParams.get('address')?.trim() ?? '',
+    displayName: '',
+    company: '',
+  })
+  const [bulkBusy, setBulkBusy] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [backfilling, setBackfilling] = useState(false)
@@ -743,8 +768,11 @@ export default function ContactsPage() {
   useEffect(() => {
     if (searchParams.get('new') !== '1') return
     setCreateOpen(true)
+    const seeded = searchParams.get('address')?.trim()
+    if (seeded) setCreateDraft((prev) => ({ ...prev, address: seeded }))
     const next = new URLSearchParams(searchParams)
     next.delete('new')
+    next.delete('address')
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams])
 
@@ -801,30 +829,55 @@ export default function ContactsPage() {
     }
   }
 
+  useEffect(() => {
+    if (view !== 'companies' || loading || listError || companies.length > 0 || backfilling) return
+    if (sessionStorage.getItem('bokito.contacts.backfillTried') === '1') return
+    sessionStorage.setItem('bokito.contacts.backfillTried', '1')
+    void handleBackfill()
+    // Run once when the companies view first lands empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, loading, listError, companies.length])
+
   const handleCreate = async () => {
     if (!token || creating) return
     const address = createDraft.address.trim()
     if (!address) {
-      setCreateError(t('contactsPage.emailRequired'))
+      setCreateError(t('contactsPage.addressRequired'))
       return
     }
     setCreating(true)
     setCreateError(null)
     try {
       const created = await createContact(token, {
-        channel: 'email',
+        channel: createDraft.channel,
         address,
         display_name: createDraft.displayName.trim(),
         company: createDraft.company.trim(),
       })
       setCreateOpen(false)
-      setCreateDraft({ address: '', displayName: '', company: '' })
+      setCreateDraft({ channel: 'email', address: '', displayName: '', company: '' })
       toast.success(t('contactsPage.created'))
       if (created) navigate(`/contacts/${created.id}`)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : t('contactsPage.createError'))
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleBulkStatus = async (status: ContactStatus) => {
+    if (!token || bulkBusy) return
+    const pending = contacts.filter((row) => row.status === 'pending')
+    if (pending.length === 0) return
+    setBulkBusy(true)
+    try {
+      await Promise.all(pending.map((row) => updateContact(token, row.id, { status })))
+      toast.success(t('contactsPage.bulkUpdated', { count: pending.length }))
+      await load()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('contactsPage.bulkError')))
+    } finally {
+      setBulkBusy(false)
     }
   }
 
@@ -922,6 +975,7 @@ export default function ContactsPage() {
               <button
                 key={f.key}
                 type="button"
+                title={t(f.hintKey)}
                 onClick={() => setStatusFilter(f.key)}
                 className={
                   statusFilter === f.key
@@ -934,6 +988,31 @@ export default function ContactsPage() {
             ))
           : null}
       </div>
+      {view === 'people' && statusFilter === 'pending' ? (
+        <div className="-mt-2 mb-3 flex flex-wrap items-center gap-2">
+          <p className="text-[11px] text-text-muted">{t('contactsPage.statusPendingHint')}</p>
+          {sorted.length > 0 ? (
+            <>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => void handleBulkStatus('approved')}
+                className="rounded-lg border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:text-text-primary disabled:opacity-50"
+              >
+                {t('contactsPage.approveAll')}
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => void handleBulkStatus('blocked')}
+                className="rounded-lg border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:text-status-error disabled:opacity-50"
+              >
+                {t('contactsPage.blockAll')}
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {createOpen ? (
         <div className="mb-4 rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
@@ -948,11 +1027,31 @@ export default function ContactsPage() {
               <X size={14} />
             </button>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <select
+              aria-label={t('contactsPage.channelLabel')}
+              value={createDraft.channel}
+              onChange={(e) => setCreateDraft((p) => ({ ...p, channel: e.target.value }))}
+              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+            >
+              {(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
+                <option key={channel} value={channel}>
+                  {t(`contactsPage.channels.${channel}`)}
+                </option>
+              ))}
+            </select>
             <input
               value={createDraft.address}
               onChange={(e) => setCreateDraft((p) => ({ ...p, address: e.target.value }))}
-              placeholder={t('contactsPage.emailPlaceholder')}
+              placeholder={t(
+                createDraft.channel === 'whatsapp'
+                  ? 'contactsPage.whatsappPlaceholder'
+                  : createDraft.channel === 'widget'
+                    ? 'contactsPage.widgetPlaceholder'
+                    : createDraft.channel === 'slack'
+                      ? 'contactsPage.slackPlaceholder'
+                      : 'contactsPage.emailPlaceholder',
+              )}
               className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <input
@@ -1089,7 +1188,18 @@ export default function ContactsPage() {
               ? t('contactsPage.clearFilters')
               : t('contactsPage.noContactsHint')}
           </p>
-          {search.trim() || statusFilter !== 'all' ? null : (
+          {search.trim() || statusFilter !== 'all' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('')
+                setStatusFilter('all')
+              }}
+              className="mt-4 rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              {t('contactsPage.clearFiltersAction')}
+            </button>
+          ) : (
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <Link
                 to="/settings/channels"
@@ -1168,13 +1278,34 @@ export default function ContactsPage() {
                           </span>
                         </span>
                       </Link>
+                      {contact.threadCount > 0 ? (
+                        <button
+                          type="button"
+                          title={t('contactsPage.openConversationHint')}
+                          aria-label={t('contactsPage.openConversation')}
+                          onClick={async (event) => {
+                            event.stopPropagation()
+                            if (!token) return
+                            try {
+                              const history = await findThreadsForContact(token, contact)
+                              const latest = history[0]
+                              navigate(latest ? inboxPath('open', String(latest.id)) : `/contacts/${contact.id}`)
+                            } catch {
+                              navigate(`/contacts/${contact.id}`)
+                            }
+                          }}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-accent/10 hover:text-accent"
+                        >
+                          <MessageSquare size={13} />
+                        </button>
+                      ) : null}
                       {canComposeToAddress(contact.channel, contact.address) ? (
                         <Link
                           to={composeEmailPath({ to: contact.address })}
                           onClick={(event) => event.stopPropagation()}
                           title={t('contactsPage.writeEmail')}
                           aria-label={t('contactsPage.writeEmail')}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted opacity-0 transition-opacity hover:bg-accent/10 hover:text-accent group-hover:opacity-100 focus-visible:opacity-100"
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-accent/10 hover:text-accent"
                         >
                           <Mail size={13} />
                         </Link>

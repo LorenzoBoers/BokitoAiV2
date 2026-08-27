@@ -41,14 +41,17 @@ async def test_signup_creates_empty_tenant(client: AsyncClient, session_override
     signals = (
         await session_override.execute(select(Signal).where(Signal.tenant_id == tenant.id))
     ).scalars().all()
-    assert signals == [], "fresh tenant must not have pre-created threads"
+    assert len(signals) == 1, "fresh tenant has one Platform check-in conversation"
+    assert signals[0].channel == "internal"
+    assert signals[0].subject == "Platform check-in"
 
     triggers = (
         await session_override.execute(select(Trigger).where(Trigger.tenant_id == tenant.id))
     ).scalars().all()
     assert len(triggers) == 1
     assert triggers[0].kind == "heartbeat"
-    assert triggers[0].enabled is False
+    assert triggers[0].enabled is True
+    assert triggers[0].name == "Platform check-in"
 
     user = (
         await session_override.execute(select(User).where(User.email == "fresh@example.com"))
@@ -188,10 +191,11 @@ async def test_onboarding_status_endpoint(client: AsyncClient):
     assert resp.status_code == 200
     data = resp.json()
     step_ids = [step["id"] for step in data["steps"]]
-    assert step_ids == ["email", "company", "assistant", "first_decision", "team"]
+    assert step_ids == ["email", "company", "assistant", "watching", "first_decision", "team"]
     assert data["completed"] is False
     by_id = {step["id"]: step["done"] for step in data["steps"]}
-    # The built-in Bokito address is provisioned at bootstrap, so the email
-    # channel works from day one; everything else starts unfinished.
+    # The built-in Bokito address and the hourly check-in are on from day one;
+    # company knowledge, a real assistant chat, a decision, and a teammate remain.
     assert by_id["email"] is True
+    assert by_id["watching"] is True
     assert all(by_id[key] is False for key in ("company", "assistant", "first_decision", "team"))

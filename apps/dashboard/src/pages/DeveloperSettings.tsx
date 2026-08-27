@@ -16,6 +16,8 @@ import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import { buildApiTokenCurl } from '../lib/api-token-curl'
+import { isHttpsUrl } from '../lib/https-url'
 import {
   createApiToken,
   listApiTokens,
@@ -59,6 +61,7 @@ function ApiTokensSection() {
   const [scopes, setScopes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [createdToken, setCreatedToken] = useState<string | null>(null)
+  const [showRevoked, setShowRevoked] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -79,6 +82,25 @@ function ApiTokensSection() {
     setScopes((prev) =>
       prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
     )
+  }
+
+  function toggleGroup(groupScopes: string[]) {
+    setScopes((prev) => {
+      const allOn = groupScopes.every((scope) => prev.includes(scope))
+      if (allOn) return prev.filter((scope) => !groupScopes.includes(scope))
+      return [...new Set([...prev, ...groupScopes])]
+    })
+  }
+
+  function formatLastUsed(iso: string | null): string {
+    if (!iso) return t('developersPage.neverUsed')
+    const then = new Date(iso).getTime()
+    if (!Number.isFinite(then)) return t('developersPage.neverUsed')
+    const delta = Date.now() - then
+    if (delta < 60_000) return t('developersPage.justNow')
+    if (delta < 3_600_000) return t('developersPage.minutesAgo', { count: Math.floor(delta / 60_000) })
+    if (delta < 86_400_000) return t('developersPage.hoursAgo', { count: Math.floor(delta / 3_600_000) })
+    return t('developersPage.daysAgo', { count: Math.floor(delta / 86_400_000) })
   }
 
   async function handleCreate() {
@@ -143,9 +165,20 @@ function ApiTokensSection() {
             <div className="mt-1 space-y-2">
               {TOKEN_SCOPE_GROUPS.map((group) => (
                 <div key={group.labelKey}>
-                  <p className="text-[11px] font-medium text-text-muted">
-                    {t(`developersPage.${group.labelKey}`)}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-medium text-text-muted">
+                      {t(`developersPage.${group.labelKey}`)}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-[11px] font-medium text-accent hover:underline"
+                      onClick={() => toggleGroup(group.scopes)}
+                    >
+                      {group.labelKey === 'restApi'
+                        ? t('developersPage.selectAllRest')
+                        : t('developersPage.selectAllMcp')}
+                    </button>
+                  </div>
                   <div className="mt-1 flex flex-wrap gap-2">
                     {group.scopes.map((scope) => (
                       <button
@@ -165,6 +198,9 @@ function ApiTokensSection() {
                 </div>
               ))}
             </div>
+            {scopes.length === 0 ? (
+              <p className="mt-2 text-[11.5px] text-amber-600">{t('developersPage.fullAccessWarning')}</p>
+            ) : null}
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleCreate} disabled={busy || !name.trim()}>
@@ -195,6 +231,21 @@ function ApiTokensSection() {
               {t('developersPage.copy')}
             </Button>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                void navigator.clipboard.writeText(buildApiTokenCurl(createdToken, window.location.origin))
+                toast.success(t('developersPage.copiedCurl'))
+              }}
+            >
+              {t('developersPage.copyCurl')}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setCreatedToken(null)}>
+              {t('developersPage.dismissToken')}
+            </Button>
+          </div>
         </div>
       ) : null}
 
@@ -219,7 +270,7 @@ function ApiTokensSection() {
         </div>
       ) : (
         <div className="mt-4 space-y-2">
-          {tokens.map((row) => (
+          {tokens.filter((row) => showRevoked || !row.revoked_at).map((row) => (
             <div
               key={row.id}
               className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-bg-surface px-4 py-3 shadow-card"
@@ -237,7 +288,7 @@ function ApiTokensSection() {
                 <p className="mt-0.5 text-[11.5px] text-text-muted">
                   {row.scopes.length ? row.scopes.join(', ') : t('developersPage.fullAccess')}
                   {row.last_used_at
-                    ? ` · ${t('developersPage.lastUsed', { time: formatTime(row.last_used_at) })}`
+                    ? ` · ${t('developersPage.lastUsed', { time: formatLastUsed(row.last_used_at) })}`
                     : ` · ${t('developersPage.neverUsed')}`}
                 </p>
               </div>
@@ -254,6 +305,15 @@ function ApiTokensSection() {
               ) : null}
             </div>
           ))}
+          {tokens.some((row) => row.revoked_at) ? (
+            <button
+              type="button"
+              className="text-[11.5px] font-medium text-accent hover:underline"
+              onClick={() => setShowRevoked((v) => !v)}
+            >
+              {showRevoked ? t('developersPage.hideRevoked') : t('developersPage.showRevoked')}
+            </button>
+          ) : null}
         </div>
       )}
     </section>
@@ -328,6 +388,10 @@ export default function DeveloperSettings() {
   async function handleCreate() {
     const url = newUrl.trim()
     if (!url) return
+    if (!isHttpsUrl(url, { allowLocalHttp: true })) {
+      toast.error(t('developersPage.webhooks.invalidUrl'))
+      return
+    }
     setBusy(true)
     try {
       await createWebhook({ url, description: newDescription.trim(), events: newEvents })
@@ -402,6 +466,7 @@ export default function DeveloperSettings() {
     try {
       await navigator.clipboard.writeText(endpoint.secret)
       setCopiedId(endpoint.id)
+      toast.success(t('developersPage.webhooks.copiedSecret'))
       window.setTimeout(() => setCopiedId(null), 1600)
     } catch {
       toast.error(t('developersPage.webhooks.copyError'))

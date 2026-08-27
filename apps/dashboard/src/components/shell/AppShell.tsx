@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { NavBadgeProvider } from '../../context/NavBadgeContext'
+import { NavBadgeProvider, useNavBadges } from '../../context/NavBadgeContext'
 import { InboxCommunicationProvider } from '../../context/InboxCommunicationContext'
 import { ChatSessionsProvider } from '../../context/ChatSessionsContext'
 import ShellSidebar from './ShellSidebar'
@@ -15,6 +15,25 @@ import TwoFactorBanner from './TwoFactorBanner'
 import { TourProvider } from '../tour/TourContext'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
+
+function WorkspaceDocumentTitle() {
+  const { t } = useTranslation('nav')
+  const { pathname } = useLocation()
+  const { counts } = useNavBadges()
+
+  useEffect(() => {
+    const tab = tabFromPath(pathname)
+    const settingsLink = settingsLinkForPath(pathname)
+    const page = settingsLink
+      ? `${t('tabs.settings.title')} / ${t(settingsLink.labelKey)}`
+      : tab
+        ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
+        : 'Bokito'
+    document.title = counts.inboxUnread > 0 ? `(${counts.inboxUnread}) ${page}` : page
+  }, [pathname, counts.inboxUnread, t])
+
+  return null
+}
 
 function loadNavCollapsed(): boolean {
   try {
@@ -85,6 +104,7 @@ export default function AppShell() {
 
   return (
     <NavBadgeProvider>
+      <WorkspaceDocumentTitle />
       <InboxCommunicationProvider>
         <ChatSessionsProvider>
           <TourProvider>

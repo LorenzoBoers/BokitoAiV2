@@ -1,4 +1,4 @@
-import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
+import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -30,6 +30,7 @@ import {
   isInternalThread,
   resolveComposerSurface,
   threadCounterpartyName,
+  threadHubPath,
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
 import ThinkingTrace from './ThinkingTrace'
@@ -40,7 +41,10 @@ import { bokitoListChatTargets, type ChatTarget } from '../../lib/bokito-api'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, tokenizeMentions, type MentionItem } from '../../lib/mentions'
 import { createAgentTask } from '../../lib/orchestration-api'
-import { SNOOZE_PRESETS, snoozeUntilIso } from '../../lib/snooze'
+import { talkToAssistantPath } from '../../lib/talk-to-assistant'
+import { threadStatusLabel } from '../../lib/status-labels'
+import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
+import { formatAppDateTime } from '../../lib/app-locale'
 import { toast } from 'sonner'
 
 type TimelineEntry =
@@ -523,8 +527,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // open is not enough; a ResizeObserver re-pins on every subsequent growth.
   const anchorToBottomRef = useRef<boolean>(false)
   const programmaticScrollRef = useRef<boolean>(false)
+  const visitedThreadsRef = useRef<Set<string>>(new Set())
   const [membersById, setMembersById] = useState<Record<number, InboxMember>>({})
   const [activeDayLabel, setActiveDayLabel] = useState<string | null>(null)
+  const [unseenNew, setUnseenNew] = useState(0)
   const [composerDraft, setComposerDraft] = useState<{
     body: string
     subject?: string
@@ -665,7 +671,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       return
     }
 
+    const key = String(threadId)
+    const firstVisit = !visitedThreadsRef.current.has(key)
+    visitedThreadsRef.current.add(key)
     previousMessageCountRef.current = messageCount
+    setUnseenNew(0)
+    if (!firstVisit) return
+
     pinToBottom('auto')
 
     const raf = window.requestAnimationFrame(() => pinToBottom('auto'))
@@ -681,7 +693,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       window.clearTimeout(t3)
       window.clearTimeout(t4)
     }
-  }, [loading, threadId, loadedThreadId, groups.length, messageCount, pinToBottom])
+  }, [loading, threadId, loadedThreadId, groups.length, pinToBottom, messageCount])
 
   // Re-pin when timeline content changes while anchored (extra events/messages).
   useLayoutEffect(() => {
@@ -735,7 +747,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       // Re-engage the anchor so iframes growing right after a new message
       // also stay pinned to the bottom.
       anchorToBottomRef.current = true
+      setUnseenNew(0)
       scrollToBottom('smooth')
+    } else {
+      setUnseenNew((n) => n + (messageCount - prev))
     }
   }, [messageCount, loadedThreadId, scrollToBottom])
 
@@ -1049,25 +1064,56 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           <p className="text-[11px] text-text-muted truncate">
             {isInternalThread(thread) ? (
               `${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`
-            ) : thread.contactId ? (
-              <Link to={`/contacts/${thread.contactId}`} className="hover:text-accent hover:underline">
-                {humanizeContactName(
-                  thread.contactName,
-                  thread.contactEmail,
-                  t('contactPanel.widgetVisitor'),
-                ) ||
-                  (isPlaceholderContactAddress(thread.contactEmail)
-                    ? t('contactPanel.widgetVisitor')
-                    : thread.contactEmail || t('listItem.contact'))}
-              </Link>
             ) : (
-              humanizeContactName(
-                thread.contactName,
-                thread.contactEmail,
-                t('contactPanel.widgetVisitor'),
-              ) ||
-              (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
+              <>
+                {thread.contactId ? (
+                  <Link to={`/contacts/${thread.contactId}`} className="hover:text-accent hover:underline">
+                    {humanizeContactName(
+                      thread.contactName,
+                      thread.contactEmail,
+                      t('contactPanel.widgetVisitor'),
+                    ) ||
+                      (isPlaceholderContactAddress(thread.contactEmail)
+                        ? t('contactPanel.widgetVisitor')
+                        : thread.contactEmail || t('listItem.contact'))}
+                  </Link>
+                ) : (
+                  humanizeContactName(
+                    thread.contactName,
+                    thread.contactEmail,
+                    t('contactPanel.widgetVisitor'),
+                  ) ||
+                  (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
+                )}
+                {thread.contactEmail && !isPlaceholderContactAddress(thread.contactEmail) ? (
+                  <>
+                    {' · '}
+                    <button
+                      type="button"
+                      title={t('threadChrome.copyEmail')}
+                      onClick={() => {
+                        void navigator.clipboard.writeText(thread.contactEmail).then(
+                          () => toast.success(t('threadChrome.emailCopied')),
+                          () => toast.error(t('threadChrome.copyEmail')),
+                        )
+                      }}
+                      className="hover:text-accent hover:underline"
+                    >
+                      {thread.contactEmail}
+                    </button>
+                  </>
+                ) : null}
+              </>
             )}
+          </p>
+          <p className="truncate text-[10px] text-text-muted/80">
+            {threadStatusLabel(thread.status, t)}
+            {thread.createdAt
+              ? ` · ${formatAppDateTime(new Date(thread.createdAt), i18n.language)}`
+              : ''}
+            {thread.status === 'pending' && thread.snoozedUntil
+              ? ` · ${formatWakeTime(thread.snoozedUntil, t, i18n.language) ?? ''}`
+              : ''}
           </p>
         </div>
         {!isInternalThread(thread) && (thread.agentId || thread.agentName) ? (
@@ -1168,6 +1214,20 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     {t(preset.labelKey)}
                   </DropdownMenuItem>
                 ))}
+                <DropdownMenuItem
+                  onClick={() => {
+                    const raw = window.prompt(t('snooze.customTitle'), toLocalDateTimeValue())
+                    if (!raw) return
+                    const wake = new Date(raw)
+                    if (Number.isNaN(wake.getTime()) || wake.getTime() <= Date.now()) {
+                      toast.error(t('snooze.customInvalid'))
+                      return
+                    }
+                    void onPatch({ status: 'pending', snoozedUntil: wake.toISOString() })
+                  }}
+                >
+                  {t('snooze.custom')}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
@@ -1191,12 +1251,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {onForward ||
-          !isInternalThread(thread) ||
-          onDelete ||
-          (onMarkUnread && !thread.hasUnread) ||
-          onTogglePin ? (
-            <DropdownMenu>
+          <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
@@ -1213,6 +1268,45 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <TooltipContent side="bottom">{t('threadChrome.moreActions')}</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => {
+                    const url = `${window.location.origin}${threadHubPath(thread)}`
+                    void navigator.clipboard.writeText(url).then(
+                      () => toast.success(t('threadChrome.linkCopied')),
+                      () => toast.error(t('threadChrome.copyLink')),
+                    )
+                  }}
+                >
+                  <Link2 size={13} />
+                  {t('threadChrome.copyLink')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(String(thread.id)).then(
+                      () => toast.success(t('threadChrome.threadIdCopied')),
+                      () => toast.error(t('threadChrome.copyThreadId')),
+                    )
+                  }}
+                >
+                  <Hash size={13} />
+                  {t('threadChrome.copyThreadId')}
+                </DropdownMenuItem>
+                {thread.graphConversationId ? (
+                  <DropdownMenuItem
+                    className="gap-2"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(thread.graphConversationId).then(
+                        () => toast.success(t('threadChrome.externalIdCopied')),
+                        () => toast.error(t('threadChrome.copyExternalId')),
+                      )
+                    }}
+                  >
+                    <Hash size={13} />
+                    {t('threadChrome.copyExternalId')}
+                  </DropdownMenuItem>
+                ) : null}
                 {onForward ? (
                   <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => onForward()}>
                     <Forward size={13} />
@@ -1252,7 +1346,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null}
           {onToggleContact ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1311,6 +1404,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       ) : null}
 
       <div className="relative flex-1 min-h-0">
+        {unseenNew > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              setUnseenNew(0)
+              pinToBottom('smooth')
+            }}
+            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-accent/30 bg-accent px-3 py-1 text-[11px] font-medium text-accent-fg shadow-md"
+          >
+            {t('threadChrome.newMessages', { count: unseenNew })}
+          </button>
+        ) : null}
         <div
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto px-4 py-3"
@@ -1324,6 +1429,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 ? t('threadChrome.emptyEmail')
                 : t('threadChrome.emptyChat')}
             </p>
+            <Link
+              to={talkToAssistantPath(t('threadChrome.emptyAskPrefill'))}
+              className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
+            >
+              {t('threadChrome.emptyAsk')}
+            </Link>
             {thread.channel === 'email' ? (
               <Link
                 to="/settings/channels"
@@ -1358,7 +1469,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 <div key={item.id} className={item.kind === 'events' ? 'mb-1.5' : 'mb-3'}>
                   {showTime ? (
                     <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
-                      <span className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40">
+                      <span
+                        title={formatAppDateTime(new Date(item.time), i18n.language)}
+                        className="rounded-full bg-bg-surface/85 backdrop-blur px-2 py-0.5 text-[10px] text-text-muted shadow-sm border border-border/40"
+                      >
                         {formatHourMinute(item.time, i18n.language)}
                       </span>
                     </div>

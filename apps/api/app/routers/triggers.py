@@ -271,6 +271,38 @@ async def create_binding(
     return _serialize_binding(binding)
 
 
+class BindingUpdateBody(BaseModel):
+    enabled: bool | None = None
+    priority: int | None = None
+    agent_id: UUID | None = None
+    channel_account_id: UUID | None = None
+
+
+@router.patch("/channels/bindings/{binding_id}")
+async def update_binding(
+    binding_id: UUID,
+    body: BindingUpdateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    result = await session.execute(
+        select(ChannelBinding).where(
+            ChannelBinding.id == binding_id, ChannelBinding.tenant_id == auth.tenant.id
+        )
+    )
+    binding = result.scalar_one_or_none()
+    if not binding:
+        raise HTTPException(status_code=404, detail="Binding not found")
+    data = body.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(binding, key, value)
+    session.add(binding)
+    await session.commit()
+    await session.refresh(binding)
+    return _serialize_binding(binding)
+
+
 @router.delete("/channels/bindings/{binding_id}")
 async def delete_binding(
     binding_id: UUID,

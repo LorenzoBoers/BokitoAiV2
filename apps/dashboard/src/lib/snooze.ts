@@ -41,6 +41,12 @@ export const SNOOZE_PRESETS: readonly SnoozePreset[] = [
   { key: 'until-reply', labelKey: 'snooze.untilReply', minutes: () => null },
 ]
 
+/** Local `datetime-local` value, defaulting to one hour from now. */
+export function toLocalDateTimeValue(date = new Date(Date.now() + 60 * 60_000)): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 /** ISO wake time for a preset, or null for "until reply". */
 export function snoozeUntilIso(preset: SnoozePreset): string | null {
   const minutes = preset.minutes()

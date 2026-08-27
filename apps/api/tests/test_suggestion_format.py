@@ -99,3 +99,23 @@ def test_empty_input():
     parts = split_suggestion("")
     assert parts.body == ""
     assert parts.internal_note == ""
+
+
+def test_operator_prompt_prefix_is_stripped():
+    raw = (
+        "A teammate asked you to draft a reply to the customer in this thread. "
+        "Return only the reply body text (no meta-commentary). "
+        "Teammate's request: keep it short\n\n"
+        "Hallo Sanne,\n\nHet bedrag klopt."
+    )
+    parts = split_suggestion(raw)
+    assert parts.body.startswith("Hallo Sanne")
+    assert "teammate" not in parts.body.lower()
+    assert "meta-commentary" not in parts.body.lower()
+
+
+def test_reviewer_note_line_is_stripped():
+    raw = "Hallo Kim,\n\nJe account is geactiveerd.\n\n> Note for the reviewer: check company.md"
+    parts = split_suggestion(raw)
+    assert "Hallo Kim" in parts.body
+    assert "reviewer" not in parts.body.lower()

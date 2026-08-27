@@ -24,10 +24,12 @@ def parse_surface_map_yaml(raw: str) -> dict[str, dict[str, Any]]:
     for lineno, raw_line in enumerate(raw.splitlines(), start=1):
         if (not raw_line.strip()) or raw_line.lstrip().startswith("#"):
             continue
-        if raw_line.startswith("  - "):
+        stripped = raw_line.lstrip(" ")
+        indent = len(raw_line) - len(stripped)
+        if stripped.startswith("- ") and indent >= 2:
             if current is None or list_key is None:
                 raise ValueError(f"line {lineno}: list item outside a list")
-            entries[current].setdefault(list_key, []).append(raw_line[4:].strip())
+            entries[current].setdefault(list_key, []).append(stripped[2:].strip())
             continue
         if raw_line.startswith("  ") and ":" in raw_line:
             list_key = None
@@ -37,11 +39,11 @@ def parse_surface_map_yaml(raw: str) -> dict[str, dict[str, Any]]:
             if current is None:
                 raise ValueError(f"line {lineno}: nested key without an entry")
             if key in _LIST_KEYS:
-                entries[current][key] = []
-                if value:
-                    raise ValueError(f"line {lineno}: list key '{key}' must be empty on its line")
-                list_key = key
-                continue
+                if value in ("", "[]"):
+                    entries[current][key] = []
+                    list_key = None if value == "[]" else key
+                    continue
+                raise ValueError(f"line {lineno}: list key '{key}' must be empty or []")
             if key in _SCALAR_KEYS:
                 entries[current][key] = value
                 continue

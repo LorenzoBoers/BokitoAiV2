@@ -35,8 +35,10 @@ Surfaces:
 - **help-center** — the public, per-tenant help center content API used by the
   chat widget and hosted help pages.
 
-Outbound **webhooks** (signal.created, signal.closed, decision.created) are
-documented in the Webhooks guide; deliveries are signed with
+Outbound **webhooks** (signal.created, signal.closed, decision.created,
+decision.resolved, agent.run_failed, platform_change.applied,
+spend.threshold_reached) are documented in the Webhooks guide; deliveries
+are signed with
 `X-Bokito-Signature: v1=HMAC_SHA256_hex(secret, "{timestamp}.{body}")`.
 
 Rate limits are per client IP per minute and answer `429` with `Retry-After`.

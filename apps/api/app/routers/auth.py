@@ -151,6 +151,7 @@ def _user_dict(user: User, tenant: Tenant, role: str, is_staff: bool = False) ->
 
     return {
         "id": str(user.id),
+        "numeric_id": user_numeric_id(user.id),
         "email": user.email,
         "display_name": user.display_name,
         "role": role,

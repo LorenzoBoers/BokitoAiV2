@@ -1,28 +1,37 @@
 ---
 title: MCP-servers koppelen
-intro: Geef agents extra tools door externe MCP-servers aan de workspace te koppelen.
-description: Koppel externe MCP-servers (Model Context Protocol) aan Bokito zodat agents hun tools kunnen gebruiken, en lees hoe Bokito zelf een MCP-endpoint aanbiedt.
-keywords: mcp, model context protocol, tools, externe tools, integraties
+intro: Geef agents extra tools door externe MCP-servers te koppelen.
+description: Koppel MCP-servers onder Integraties, Gekoppelde tools, en houd risicovolle tools op Eerst vragen in Govern.
+keywords: mcp, model context protocol, gekoppelde tools, integraties
 sort: 20
 related: integrations,agents,mcp-endpoint
 ---
 
 # MCP-servers koppelen
 
-MCP (Model Context Protocol) is een open standaard om AI-agents tools te geven. Bokito spreekt het in beide richtingen: je kunt externe MCP-servers in je workspace pluggen, en Bokito stelt zijn eigen tools beschikbaar als MCP-server voor externe clients.
+MCP is hoe agents externe tools aanroepen via een standaardprotocol. In het product heet deze pagina **Gekoppelde tools**.
 
-## Externe server toevoegen
+## Voeg een server toe
 
-Open **Instellingen, dan Integraties** en voeg een MCP-server toe met URL en inloggegevens. Na het koppelen zijn de tools van die server beschikbaar voor je agents, naast de ingebouwde. Een database-MCP-server laat een agent bijvoorbeeld een orderstatus opzoeken tijdens het beantwoorden van een klant.
+![MCP-servers](/api/docs/assets/mcp/servers.png)
+*Voeg de server-URL en inloggegevens toe.*
 
-## Governance geldt ook hier
+1. Open **Instellingen**, daarna **Integraties**, daarna **Gekoppelde tools** (dezelfde pagina als `/settings/mcp`).
+2. Kies **Tool koppelen**. De dialoog heet **Toolserver toevoegen**. Vul een **Weergavenaam**, **Server-URL** en **Authenticatie** (**API-sleutel** of **Bearer-token**) plus **Geheim / token** in.
+3. **Verbinding opslaan**. De rij verschijnt onder **Geconfigureerde verbindingen**. Filter de lijst, kopieer het endpoint, en gebruik **Verbinding testen** — succes leest **Verbonden — N tools gevonden**. Ontkoppelen vraagt om bevestiging.
 
-Externe tools lopen door dezelfde policy-engine als ingebouwde tools. Apply modes en autonomy posture bepalen of een agent een tool direct mag aanroepen of eerst een beslisverzoek moet indienen. Je kunt een risicovolle externe tool op `decision` houden terwijl de rest vrij draait.
+Marketplace-apps zoals Notion of Linear landen hier ook na inloggen in de browser. Een verkeerd geconfigureerde server faalt vaak pas bij de aanroep, niet bij het koppelen.
 
-## Test voordat je erop leunt
+## Test eenmaal
 
-Draai na het koppelen de tool een keer vanuit een agentgesprek en controleer het resultaat. Een verkeerd geconfigureerde server faalt pas bij de aanroep, niet bij het koppelen, dus een snelle test voorkomt verwarring.
+1. Start een chat met een [agent](/docs/ai/agents).
+2. Vraag die de nieuwe tool te gebruiken.
+3. Als de aanroep een beslissing opwerpt, keur die goed in het gesprek.
 
-## Bokito als MCP-server
+## Houd governance aan
 
-De omgekeerde richting - Bokito's tools gebruiken vanuit Cursor of een andere MCP-client - is een developerfeature. Zie [MCP-endpoint](/docs/developers/mcp-endpoint).
+Externe tools gebruiken hetzelfde beleid als ingebouwde tools. Houd een risicovolle tool op **Eerst vragen** in [Govern](/docs/govern/govern) **Beleid**. Bokito gebruiken vanuit Cursor is het [MCP-endpoint](/docs/developers/mcp-endpoint).
+
+## Wat nu
+
+Installeer eerst een marketplace-app als je alleen een gewone connector nodig hebt. Zie [Integraties](/docs/integrations/integrations).

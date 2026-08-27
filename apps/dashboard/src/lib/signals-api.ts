@@ -67,6 +67,8 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
         : null,
     graphConversationId: asString(raw.graph_conversation_id ?? raw.external_id),
     emailSubject: asString(raw.email_subject ?? raw.subject, '(No subject)'),
+    lastMessagePreview: asString(raw.last_message_preview),
+    lastMessageDirection: asString(raw.last_message_direction) as InboxThread['lastMessageDirection'],
     contactId: typeof raw.contact_id === 'string' && raw.contact_id.length > 0 ? raw.contact_id : null,
     agentId: typeof raw.agent_id === 'string' && raw.agent_id.length > 0 ? raw.agent_id : null,
     agentName: typeof raw.agent_name === 'string' && raw.agent_name.length > 0 ? raw.agent_name : null,
@@ -191,6 +193,9 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.tag) params.set('tag', filters.tag)
   if (filters.assigneeId) params.set('assignee_id', String(filters.assigneeId))
   if (filters.search) params.set('search', filters.search)
+  if (filters.unread) params.set('unread', '1')
+  if (filters.needsReply) params.set('needs_reply', '1')
+  if (filters.pinnedOnly) params.set('pinned', '1')
   params.set('page', String(filters.page ?? 1))
   params.set('per_page', String(filters.perPage ?? 30))
   if (filters.connectionId && filters.connectionId > 0) {

@@ -154,8 +154,10 @@ class MockLLMProvider:
             "content": [
                 {
                     "type": "text",
-                    "text": f"[mock] I received your message about: {last_user[:200]}. "
-                    "This is the Bokito AI OS assistant running in mock mode.",
+                    "text": (
+                        f"I received your message about: {last_user[:200]}. "
+                        "This is a placeholder reply while the workspace runs without a live model."
+                    ),
                 }
             ],
             "usage": {"input_tokens": 10, "output_tokens": 30},

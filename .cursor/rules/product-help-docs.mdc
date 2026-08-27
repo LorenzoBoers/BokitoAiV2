@@ -45,7 +45,8 @@ New public API endpoints also need a `developers` article (or an update) and
 
 - Path: `docs/product-help/assets/{slug}/{usecase}.png`
 - Markdown: `![alt](/api/docs/assets/{slug}/{usecase}.png)` then an italic caption
-- Shared PNG for EN and NL. Recapture when that use-case's UI changed;
+- Shared PNG for EN and NL. Recapture when that use-case's UI changed
+  (`python apps/api/scripts/dev/capture_product_help_screenshots.py`);
   leave the image on a copy-only fix.
 - Crop or blur names, addresses, and message bodies. No customer thread in git.
 - List the usecase name under `screenshots:` in the map. Developer articles

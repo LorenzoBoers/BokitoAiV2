@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Link2, Plus } from 'lucide-react'
@@ -10,8 +10,11 @@ import {
   parseKindFilter,
   kindFilterToParam,
   marketplacePathWithKind,
+  readLastIntegrationKind,
+  writeLastIntegrationKind,
   type IntegrationKindFilter,
 } from '../lib/integration-kind-url'
+import { Input } from '../components/ui/input'
 import type { IntegrationKind } from '../lib/integration-kind'
 import { useIntegrationBrand } from '../context/IntegrationBrandContext'
 import { startGithubOAuth } from '../lib/github-api'
@@ -67,7 +70,9 @@ export default function IntegrationsConnected() {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const kindFilter = parseKindFilter(searchParams.get('kind'))
+  const kindFromUrl = searchParams.get('kind')
+  const kindFilter = kindFromUrl == null ? readLastIntegrationKind() : parseKindFilter(kindFromUrl)
+  const [query, setQuery] = useState('')
 
   const {
     loading,
@@ -86,6 +91,7 @@ export default function IntegrationsConnected() {
 
   const setKindFilter = useCallback(
     (next: IntegrationKindFilter) => {
+      writeLastIntegrationKind(next)
       const param = kindFilterToParam(next)
       const params = new URLSearchParams(searchParams)
       if (param) params.set('kind', param)
@@ -94,6 +100,14 @@ export default function IntegrationsConnected() {
     },
     [searchParams, setSearchParams],
   )
+
+  useEffect(() => {
+    if (kindFromUrl == null && kindFilter !== 'all') {
+      const params = new URLSearchParams(searchParams)
+      params.set('kind', kindFilter)
+      setSearchParams(params, { replace: true })
+    }
+  }, [kindFromUrl, kindFilter, searchParams, setSearchParams])
 
   const kindCounts = useMemo(
     () => ({
@@ -109,6 +123,24 @@ export default function IntegrationsConnected() {
     kindFilter === 'all' || kindFilter === kind
 
   const hasAnyConnection = counts.all > 0
+  const needle = query.trim().toLowerCase()
+  const visibleGithub = useMemo(
+    () => (needle ? github.filter((c) => c.github_login.toLowerCase().includes(needle)) : github),
+    [github, needle],
+  )
+  const visibleMcp = useMemo(
+    () =>
+      needle
+        ? mcpRows.filter((row) =>
+            `${row.displayName} ${row.providerName} ${row.endpoint}`.toLowerCase().includes(needle),
+          )
+        : mcpRows,
+    [mcpRows, needle],
+  )
+  const inboxMatches =
+    !needle ||
+    'outlook microsoft 365 gmail google'.includes(needle) ||
+    t('integrations.kind.inbox').toLowerCase().includes(needle)
 
   async function addGithubAccount() {
     const returnUrl = `${window.location.origin}/settings/integrations`
@@ -160,12 +192,20 @@ export default function IntegrationsConnected() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <IntegrationKindNav value={kindFilter} onChange={setKindFilter} counts={kindCounts} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('integrations.connected.searchPlaceholder')}
+            className="h-8 w-52 text-sm"
+          />
         <Button size="sm" className="shrink-0 gap-1.5" asChild>
           <Link to={marketplacePathWithKind(kindFilter)}>
             <Plus size={14} />
             {t('integrations.connected.addIntegration')}
           </Link>
         </Button>
+        </div>
       </div>
 
       {loadError ? (
@@ -214,7 +254,11 @@ export default function IntegrationsConnected() {
         />
       ) : (
         <div className="space-y-8">
-          {showSection('inbox') ? (
+          {needle && visibleGithub.length === 0 && visibleMcp.length === 0 && !inboxMatches ? (
+            <p className="text-sm text-text-muted">{t('integrations.connected.noSearchMatches')}</p>
+          ) : null}
+
+          {showSection('inbox') && inboxMatches ? (
             <KindSection title={t('integrations.kind.inbox')}>
               {emailOutlook === 0 && emailGmail === 0 ? (
                 <div className="space-y-3">
@@ -314,7 +358,7 @@ export default function IntegrationsConnected() {
                 </div>
               ) : (
                 <ul className="space-y-2">
-                  {github.map((c) => (
+                  {visibleGithub.map((c) => (
                     <li
                       key={c.id}
                       className="flex items-center justify-between rounded-lg border border-border/40 px-3 py-2"
@@ -368,7 +412,7 @@ export default function IntegrationsConnected() {
                 </div>
               ) : (
                 <ul className="space-y-2">
-                  {mcpRows.map((row) => (
+                  {visibleMcp.map((row) => (
                     <li
                       key={row.id}
                       className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"

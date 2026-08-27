@@ -36,6 +36,22 @@ export function filterOrchestratorAgents(agents: RuntimeAgent[]): RuntimeAgent[]
   return agents.filter(isOrchestratorAgent)
 }
 
+/** Company agents shown on the Agents library (not personal or hidden platform roles). */
+export function filterLibraryAgents(agents: RuntimeAgent[]): RuntimeAgent[] {
+  return agents.filter((agent) => {
+    if (agent.kind === 'personal') return false
+    return !PLATFORM_ROLE_SLUGS.has(normalizeRoleSlug(agent))
+  })
+}
+
+/** Lead first, then most recently updated. */
+export function sortAgentsForLibrary(agents: RuntimeAgent[]): RuntimeAgent[] {
+  return [...agents].sort((a, b) => {
+    if (Boolean(a.is_lead) !== Boolean(b.is_lead)) return a.is_lead ? -1 : 1
+    return (b.updated_at ?? 0) - (a.updated_at ?? 0)
+  })
+}
+
 /** Orchestrator sidebar target: single agent detail, multi-agent list page, or null when none. */
 export function resolveOrchestratorNavTarget(agents: RuntimeAgent[]): string | null {
   const orchestrators = filterOrchestratorAgents(agents)

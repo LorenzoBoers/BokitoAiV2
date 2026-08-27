@@ -13,7 +13,12 @@ De chatwidget is een enkele scripttag. Hij toont een launcher op je site, en elk
 
 ## Het snippet
 
-Kopieer het exacte snippet onder **Instellingen, dan AI-assistent, dan Installatie** - het is voorgevuld voor jouw workspace. De vorm:
+Kopieer het exacte snippet onder **Instellingen**, daarna **Chatwidget**, daarna **Installeren** — het is voorgevuld voor jouw workspace.
+
+![Websitechat-installatiesnippet](/api/docs/assets/widget-embed/snippet.png)
+*De tab Installeren toont de snippet en een live preview.*
+
+De vorm:
 
 ```html
 <script

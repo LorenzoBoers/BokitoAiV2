@@ -126,6 +126,11 @@ async def test_kb_collections_documents_and_search(client: AsyncClient):
     removed = await client.delete(f"{API}/kb/documents/{document_id}", headers=headers)
     assert removed.status_code == 200
 
+    gone = await client.delete(f"{API}/kb/collections/{collection_id}", headers=headers)
+    assert gone.status_code == 200
+    collections = await client.get(f"{API}/kb/collections", headers=headers)
+    assert all(c["id"] != collection_id for c in collections.json()["items"])
+
 
 @pytest.mark.asyncio
 async def test_kb_document_real_ingestion(client: AsyncClient, monkeypatch):

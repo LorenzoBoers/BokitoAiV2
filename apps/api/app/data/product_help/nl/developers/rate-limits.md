@@ -18,6 +18,8 @@ Publieke endpoints zijn rate-limited per client-IP over een rollend venster van 
 | REST-API-reads (`GET /api/public/v1/...`) | 120 verzoeken/minuut |
 | REST-API-writes (`POST /api/public/v1/signals`) | 30 verzoeken/minuut |
 | Docs- en helpcontent (`/api/docs`, `/api/help`) | 60 verzoeken/minuut |
+| Agenda inkomende triggers (`POST /api/hooks/{id}`) | 60 verzoeken/minuut |
+| Websitewidget sessiestart | 30 verzoeken/minuut |
 
 ## Het 429-antwoord
 

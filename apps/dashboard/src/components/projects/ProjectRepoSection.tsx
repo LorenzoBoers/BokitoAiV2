@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { GitBranch, Loader2, RefreshCw, Unplug } from 'lucide-react'
 import { toast } from 'sonner'
@@ -14,6 +15,7 @@ import {
   type ProjectRow,
 } from '../../lib/projects-api'
 import { indexStatusLabel } from '../../lib/status-labels'
+import { listGithubConnections } from '../../lib/github-api'
 
 /**
  * GitHub repository connect / status / reindex / disconnect controls for one
@@ -22,14 +24,23 @@ import { indexStatusLabel } from '../../lib/status-labels'
 export function ProjectRepoSection({
   project,
   onChanged,
+  canEdit = true,
 }: {
   project: ProjectRow
   onChanged: () => Promise<void>
+  canEdit?: boolean
 }) {
   const { t } = useTranslation('nav')
   const [repoName, setRepoName] = useState('')
   const [branch, setBranch] = useState('main')
   const [busy, setBusy] = useState(false)
+  const [githubReady, setGithubReady] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    listGithubConnections()
+      .then((rows) => setGithubReady(rows.some((row) => row.status === 'active')))
+      .catch(() => setGithubReady(false))
+  }, [])
 
   const run = async (action: () => Promise<unknown>, successMessage: string, failMessage: string) => {
     setBusy(true)
@@ -45,6 +56,21 @@ export function ProjectRepoSection({
   }
 
   if (!project.github_repo_full_name) {
+    if (!canEdit) {
+      return <p className="text-sm text-text-muted">{t('projects.page.noRepo')}</p>
+    }
+    if (githubReady === false) {
+      return (
+        <div className="space-y-2">
+          <p className="text-sm text-text-muted">{t('project.settings.repo.connectGithubFirst')}</p>
+          <Button type="button" size="sm" variant="outline" asChild>
+            <Link to={`/settings/integrations?return=${encodeURIComponent(`/projects/${project.id}`)}`}>
+              {t('project.settings.repo.openIntegrations')}
+            </Link>
+          </Button>
+        </div>
+      )
+    }
     return (
       <div className="space-y-1.5">
         <Label className="text-xs text-text-muted">{t('project.settings.repo.label')}</Label>

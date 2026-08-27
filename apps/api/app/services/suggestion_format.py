@@ -61,6 +61,25 @@ _CLOSING_RE = re.compile(
 _MAX_SIGNOFF_NAME_LINES = 3
 _MAX_SIGNOFF_NAME_LEN = 64
 
+# Operator / invoke-agent instructions the model sometimes echoes into the draft.
+_OPERATOR_PROMPT_RE = re.compile(
+    r"^(?:"
+    r"A teammate asked you to draft a reply to the customer in this thread\.\s*"
+    r"(?:Return only the reply body text \(no meta-commentary\)\.\s*)?"
+    r"(?:Teammate's request:\s*[^\n]*\n*)?"
+    r"|Draft a concise, professional reply to the latest customer message in this thread\.\s*"
+    r"(?:Return only the reply body text \(no meta-commentary\)\.\s*)?"
+    r"(?:Operator guidance:\s*[^\n]*\n*)?"
+    r"|A teammate invoked you on this conversation\.[^\n]*\n?"
+    r")",
+    re.IGNORECASE | re.DOTALL,
+)
+
+_REVIEWER_NOTE_RE = re.compile(
+    r"^> Note for the reviewer:.*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 @dataclass(frozen=True)
 class SuggestionParts:
@@ -72,6 +91,13 @@ class SuggestionParts:
 
 def _collapse_blank_lines(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def _strip_operator_prompt(text: str) -> str:
+    """Drop echoed invoke/draft instructions and reviewer-note quotes."""
+    cleaned = _OPERATOR_PROMPT_RE.sub("", text).strip()
+    cleaned = _REVIEWER_NOTE_RE.sub("", cleaned).strip()
+    return cleaned
 
 
 def _extract_sentinel_note(text: str) -> tuple[str, str]:
@@ -184,7 +210,8 @@ def split_suggestion(text: str) -> SuggestionParts:
     if not raw:
         return SuggestionParts(body="", internal_note="")
 
-    body, sentinel_note = _extract_sentinel_note(raw)
+    working = _strip_operator_prompt(raw) or raw
+    body, sentinel_note = _extract_sentinel_note(working)
     body, legacy_note = _extract_legacy_note(body)
     body, preamble = _strip_preamble(body)
     body = _strip_dividers(body)

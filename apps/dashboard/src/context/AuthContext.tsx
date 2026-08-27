@@ -305,7 +305,7 @@ function normalizeAuthUser(raw: unknown): User {
   );
 
   return {
-    id: toNumber(payload.id) ?? 0,
+    id: toNumber(payload.numeric_id) ?? toNumber(payload.id) ?? 0,
     name: toString(payload.name, 'Unknown user'),
     email: toString(payload.email),
     jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,

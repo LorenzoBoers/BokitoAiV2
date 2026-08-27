@@ -19,6 +19,9 @@ function buildFilterKey(filters: ThreadFilters): string {
     String(filters.perPage ?? ''),
     String(filters.connectionId ?? ''),
     filters.agentId ?? '',
+    filters.unread ? '1' : '',
+    filters.needsReply ? '1' : '',
+    filters.pinnedOnly ? '1' : '',
   ].join('\0')
 }
 
@@ -41,6 +44,9 @@ export function useThreads(
     filters.perPage,
     filters.connectionId,
     filters.agentId,
+    filters.unread,
+    filters.needsReply,
+    filters.pinnedOnly,
   ])
 
   const [rawThreads, setRawThreads] = useState<InboxThread[]>([])

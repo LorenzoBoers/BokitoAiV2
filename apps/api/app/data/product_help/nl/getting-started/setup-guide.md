@@ -1,44 +1,58 @@
 ---
 title: Workspace-setupgids
-intro: Richt de workspace goed in - branding, team, kanalen, kennis, agents en autonomie.
-description: De complete setupchecklist voor een nieuwe Bokito-workspace, van branding en teamleden tot kanalen, kennis, agents en autonomy posture.
-keywords: setup, configuratie, workspace, checklist, onboarding
+intro: Richt de workspace in — branding, team, kanalen, kennis, agents en autonomie.
+description: De volledige setupchecklist: branding, leden, kanalen, Inbox AI, kennis, agents en autonomiehouding.
+keywords: setup, configuratie, workspace, branding, checklist, onboarding
 sort: 30
-related: quickstart,channels,agents,autonomy
+related: quickstart,channels,members,agents,autonomy
 ---
 
 # Workspace-setupgids
 
-De quickstart zet je aan het werk; deze gids richt je goed in. Werk hem van boven naar beneden af - latere stappen bouwen op eerdere.
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Werk van boven naar beneden. Open **Instellingen** en daarna **Setupgids** voor de live checklist; die blijft staan tot de workspace klaar is.
 
-## Workspace-basis
+## Workspace-basics en branding
 
-Stel onder **Instellingen, dan Workspace** de naam, het logo en de taal in. Branding werkt door in de chatwidget en uitgaande mail, dus doe dit voordat er iets klantgericht live gaat.
+![Algemene workspace-instellingen](/api/docs/assets/setup-guide/workspace.png)
+*Zet eerst naam, logo en taal.*
+
+1. Open **Instellingen** en daarna **Algemeen**. Zet **Workspace naam** en **Tijdzone**. **Jouw taal** is persoonlijk (Nederlands of Engels), geen workspacestandaard. Onder **Beveiliging** kunnen owners **Verplichte 2FA voor alle leden** aanzetten. Kies **Instellingen opslaan**.
+2. Open **Branding**. Zet **Naam**, **Logo**, **Favicon**, **Merkkleur** en **Workspace-subdomein**, en kies **Wijzigingen opslaan**. Die komen terug in de [websitewidget](/docs/inbox/widget) en uitgaande mail.
+3. Doe branding voordat iets klantgericht live gaat, zodat concepten en de launcher al op jullie lijken.
 
 ## Nodig het team uit
 
-Voeg leden toe onder **Instellingen, dan Leden**. Owners en admins beheren configuratie en keuren platformwijzigingen goed; members werken gesprekken af. Nodig eerst de mensen uit die klanten gaan beantwoorden.
+1. Open **Instellingen** en daarna **Leden**.
+2. Nodig de mensen uit die klanten beantwoorden.
+3. Zie [Het team uitnodigen](/docs/getting-started/members).
 
-## Koppel kanalen
+## Koppel kanalen en Inbox AI
 
-Koppel elke mailbox waarmee het team antwoordt onder **Instellingen, dan Kanalen**. Voeg routeringsregels toe zodat mail bij de juiste persoon of wachtrij landt, en stel handtekeningen in voor uitgaande mail. Websitechat en WhatsApp kunnen wachten tot mail soepel loopt. Zie [Kanalen koppelen](/docs/inbox/channels).
+1. Kopieer het Bokito-adres of koppel elke mailbox onder **Instellingen** en daarna **E-mail en berichten**. Zie [Kanalen](/docs/inbox/channels).
+2. Voeg routing, handtekeningen en een paar opgeslagen antwoorden toe.
+3. Open [Inbox AI](/docs/inbox/inbox-ai). Begin e-mail op **Antwoorden voorstellen**. Websitechat kan wachten tot de widget erop staat.
+4. Websitechat en WhatsApp kunnen wachten tot mail loopt.
 
-## Laad kennis
+## Laad kennis en agents
 
-Agents antwoorden vanuit **Knowledge**. Voeg de documenten toe waar je team dagelijks naar grijpt: prijzen, veelgestelde vragen, beleid, productdetails. Publiceer klantgerichte artikelen naar het helpcenter als de widget ze moet tonen. Zie [Knowledge](/docs/ai/knowledge).
-
-## Configureer agents
-
-Bekijk de standaardassistent onder **Agents**: rol, instructies, toon en tools. Voeg gespecialiseerde agents toe wanneer een assistent niet genoeg is - een supportagent en een salesagent kunnen naast elkaar draaien. Zie [Agents](/docs/ai/agents).
-
-## Stel autonomie en vangrails in
-
-Kies de autonomy posture onder **Instellingen, dan Govern** en bekijk wat agents zonder goedkeuring mogen. Begin conservatief: eerst concepten en beslisverzoeken, later autonoom versturen zodra je de output vertrouwt. Zie [Autonomie](/docs/govern/autonomy).
+1. Voeg dagelijkse documenten toe in [Kennis](/docs/ai/knowledge). Begin met Stem en Geheugen.
+2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). **Pauzeer** agents die je nog niet wilt laten draaien.
+3. Zet de houding onder [Autonomie](/docs/govern/autonomy). Begin voorzichtig.
+4. Optioneel: open **Projecten** via de zesde setup-pijler wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/projects).
 
 ## Plan terugkerend werk
 
-Zet routinewerk voor agents op de **Agenda**: dagelijkse inboxrondes, weekoverzichten, follow-uprondes. Zie [Agenda](/docs/ai/agenda).
+Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent wordt wakker, leest de dagelijkse check-in in Kennis, en schrijft alleen in het gesprek **Platform check-in** in Berichten wanneer iets jou nodig heeft. Je zet die aan vanuit de setupgids, de Cockpit, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Cockpit](/docs/getting-started/cockpit) als dagelijkse ingang. Verbruikplafonds staan op Cockpit **Verbruik**.
 
-## Klaar wanneer
+## Volg de live checklist
 
-Mail stroomt binnen en wordt beantwoord, concepten zijn onderbouwd met jouw kennis, het team is aan boord en je weet waar goedkeuringen gebeuren. Houd de [Cockpit](/docs/getting-started/cockpit) als dagelijks startpunt.
+Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde stappen staan onder **Instellingen** en daarna **Setupgids**:
+
+1. **Koppel je kanalen** — Bokito-adres of Gmail/Outlook. Zie [Kanalen](/docs/inbox/channels).
+2. **Voeg bedrijfskennis toe** — Stem en Geheugen. Zie [Kennis](/docs/ai/knowledge).
+3. **Chat met je assistent** — **Nieuwe chat** loopt de rest van de setup. De assistent kan waken vanuit dat gesprek aanzetten.
+4. **Laat de assistent waken** — de uurlijkse check-in staat aan voor nieuwe workspaces. Bestaande workspaces zetten die aan vanuit de setupgids.
+5. **Los je eerste beslissing op** — **Probeer de demo** start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
+6. **Nodig je team uit** — zie [Leden](/docs/getting-started/members).
+
+**Setup verbergen** verbergt alleen de kaart. Op Cockpit biedt de ondertitel daarna **Setupkaart tonen**. De checklist onder Instellingen blijft staan tot die stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, concepten onderbouwd zijn, het team erin zit, en je weet waar goedkeuringen gebeuren.

@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '../lib/api'
 import { formatAppDate } from '../lib/app-locale'
 import { inviteMailFeedback } from '../lib/invite-feedback'
+import { isLikelyEmail } from '../lib/invite-email'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
@@ -222,6 +223,10 @@ export default function MemberManagement() {
   const handleInvite = async () => {
     if (!token || !workspaceId || !inviteEmail.trim()) return
     const email = inviteEmail.trim()
+    if (!isLikelyEmail(email)) {
+      setError(t('membersPage.invalidEmail'))
+      return
+    }
     setInviteLoading(true)
     setError(null)
     try {
@@ -288,6 +293,7 @@ export default function MemberManagement() {
 
   const changeMemberRole = async (member: Member, role: MemberRole) => {
     if (!token || !workspaceId || member.role === role) return
+    if (role === 'owner' && !window.confirm(t('membersPage.ownerConfirm', { name: member.name }))) return
     setRowBusyId(member.id)
     setError(null)
     try {
@@ -379,6 +385,12 @@ export default function MemberManagement() {
             type="email"
             value={inviteEmail}
             onChange={(event) => setInviteEmail(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                void handleInvite()
+              }
+            }}
             placeholder={t('membersPage.emailPlaceholder')}
             disabled={!canInviteMembers || !workspaceId || inviteLoading}
           />
@@ -388,16 +400,50 @@ export default function MemberManagement() {
             </SelectTrigger>
             <SelectContent>
               {INVITE_ROLE_VALUES.map((role) => (
-                <SelectItem key={role} value={role}>
+                <SelectItem key={role} value={role} title={t(`membersPage.roleHint.${role}`)}>
                   {t(`membersPage.roles.${role}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => void handleInvite()} disabled={!canInviteMembers || !workspaceId || !inviteEmail.trim() || inviteLoading}>
+          <Button onClick={() => void handleInvite()} disabled={!canInviteMembers || !workspaceId || !isLikelyEmail(inviteEmail) || inviteLoading}>
             <MailPlus size={14} />
             {inviteLoading ? t('membersPage.sending') : t('membersPage.invite')}
           </Button>
+        </div>
+        <p className="text-xs text-text-muted">{t(`membersPage.roleHint.${inviteRole}`)}</p>
+        <div className="rounded-lg border border-border/60 bg-bg-input/30 px-3 py-2">
+          <p className="text-[11px] font-medium text-text-heading">{t('membersPage.roleMatrixTitle')}</p>
+          <table className="mt-1.5 w-full text-left text-[11px] text-text-muted">
+            <thead>
+              <tr>
+                <th className="py-0.5 font-medium text-text-secondary" />
+                <th className="py-0.5 font-medium text-text-secondary">{t('membersPage.roles.owner')}</th>
+                <th className="py-0.5 font-medium text-text-secondary">{t('membersPage.roles.admin')}</th>
+                <th className="py-0.5 font-medium text-text-secondary">{t('membersPage.roles.member')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-0.5">{t('membersPage.roleMatrix.invite')}</td>
+                <td>{t('membersPage.roleMatrix.owner')}</td>
+                <td>{t('membersPage.roleMatrix.admin')}</td>
+                <td>{t('membersPage.roleMatrix.memberNo')}</td>
+              </tr>
+              <tr>
+                <td className="py-0.5">{t('membersPage.roleMatrix.agents')}</td>
+                <td>{t('membersPage.roleMatrix.owner')}</td>
+                <td>{t('membersPage.roleMatrix.admin')}</td>
+                <td>{t('membersPage.roleMatrix.memberNo')}</td>
+              </tr>
+              <tr>
+                <td className="py-0.5">{t('membersPage.roleMatrix.inbox')}</td>
+                <td>{t('membersPage.roleMatrix.owner')}</td>
+                <td>{t('membersPage.roleMatrix.admin')}</td>
+                <td>{t('membersPage.roleMatrix.owner')}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </Card>
 
@@ -461,9 +507,26 @@ export default function MemberManagement() {
                 <TableCell colSpan={7}>
                   <div className="py-6 text-center">
                     <p className="text-sm text-text-muted">{t('membersPage.empty')}</p>
-                    <p className="mt-1 text-xs text-text-muted">{t('membersPage.emptyHint')}</p>
+                    <p className="mt-1 text-xs text-text-muted">
+                      {search.trim() || filterTab !== 'all'
+                        ? t('membersPage.emptyFiltered')
+                        : canInviteMembers
+                          ? t('membersPage.emptyHint')
+                          : t('membersPage.askAdminEmpty')}
+                    </p>
                     <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                      {canInviteMembers ? (
+                      {search.trim() || filterTab !== 'all' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch('')
+                            setFilterTab('all')
+                          }}
+                          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                        >
+                          {t('membersPage.clearFilters')}
+                        </button>
+                      ) : canInviteMembers ? (
                         <a
                           href="#member-invite"
                           className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"

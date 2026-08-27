@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -284,14 +284,22 @@ export default function CustomMetricsSection() {
         </Button>
       </div>
       {metrics.length === 0 ? (
-        <button
-          type="button"
-          onClick={openCreate}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-4 py-5 text-[12px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary"
-        >
-          <Plus size={13} />
-          {t('cockpitPage.trackKpi')}
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-4 py-5 text-[12px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary"
+          >
+            <Plus size={13} />
+            {t('cockpitPage.trackKpi')}
+          </button>
+          <Link
+            to="/settings/setup"
+            className="block text-center text-[11px] font-medium text-accent hover:underline"
+          >
+            {t('cockpitPage.openSetupMetrics')}
+          </Link>
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
           {metrics.map((metric) => (

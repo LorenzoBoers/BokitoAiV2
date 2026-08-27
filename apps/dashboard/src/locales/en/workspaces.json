@@ -24,9 +24,15 @@
       "creating": "Creating...",
       "error": "Creating workspace failed",
       "openDialogCta": "Set up workspace",
-      "subdomainPlaceholder": "acme"
+      "subdomainPlaceholder": "acme",
+      "subdomainRequired": "Subdomain is required.",
+      "subdomainFormat": "Use 3-63 characters: a-z, 0-9 and \"-\" (must not start or end with \"-\")."
     }
   },
+  "searchPlaceholder": "Search workspaces",
+  "filterEmpty": "No workspaces match that search.",
+  "copySlug": "Copy slug",
+  "copied": "Copied",
   "empty": {
     "title": "No workspaces yet",
     "description": "Create your first workspace to get started."

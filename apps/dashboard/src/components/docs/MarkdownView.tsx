@@ -142,7 +142,7 @@ export default function MarkdownView({ content }: { content: string }) {
             <img
               src={image.src}
               alt={image.alt}
-              className="w-full rounded-lg border border-border/40 bg-bg-elevated"
+              className="max-h-[min(56vh,520px)] w-full rounded-lg border border-border/40 bg-bg-elevated object-contain object-top"
             />
             {caption ? (
               <figcaption className="text-xs leading-5 text-muted-foreground">{caption}</figcaption>

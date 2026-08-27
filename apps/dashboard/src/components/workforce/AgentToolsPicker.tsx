@@ -5,6 +5,7 @@ import { Pencil, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { getAllowances, updateAgentPassport, type GovernToolRow } from '../../lib/govern-api'
 import { toolCategoryLabel } from '../../lib/govern-labels'
+import { humanizeLabel } from '../../lib/labels'
 import { cn } from '../../lib/utils'
 
 type Props = {
@@ -107,9 +108,10 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
             {allowedTools.map((tool) => (
               <span
                 key={tool}
-                className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-[11px] text-text-secondary"
+                title={tool}
+                className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] text-text-secondary"
               >
-                {tool}
+                {humanizeLabel(tool)}
               </span>
             ))}
           </div>
@@ -163,13 +165,13 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
                       title={tool.description}
                       onClick={() => toggle(tool.name)}
                       className={cn(
-                        'rounded-full border px-2 py-0.5 font-mono text-[11px] transition-colors',
+                        'rounded-full border px-2 py-0.5 text-[11px] transition-colors',
                         active
                           ? 'border-accent/50 bg-accent/12 text-accent'
                           : 'border-border/60 bg-bg-elevated/60 text-text-secondary hover:border-border',
                       )}
                     >
-                      {tool.name}
+                      {humanizeLabel(tool.name)}
                     </button>
                   )
                 })}

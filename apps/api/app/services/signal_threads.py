@@ -71,12 +71,69 @@ async def resolve_email_account_by_numeric_id(
     return None
 
 
+def _is_placeholder_preview(text: str) -> bool:
+    low = text.lower()
+    return (
+        low.startswith("[mock]")
+        or low.startswith("i received your message about:")
+        or "placeholder reply while the workspace" in low
+    )
+
+
+def _clean_thread_preview(text: str) -> str:
+    snippet = (text or "").strip().replace("\n", " ")
+    if snippet.startswith("[mock]"):
+        snippet = snippet[len("[mock]") :].strip()
+    return snippet[:140]
+
+
+async def _latest_message_previews(
+    session: AsyncSession, tenant_id: UUID, signal_ids: list[UUID]
+) -> dict[UUID, tuple[str, str]]:
+    if not signal_ids:
+        return {}
+    result = await session.execute(
+        select(
+            SignalMessage.signal_id,
+            SignalMessage.body_preview,
+            SignalMessage.body_text,
+            SignalMessage.kind,
+            SignalMessage.direction,
+        )
+        .where(
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.signal_id.in_(signal_ids),
+            SignalMessage.kind.in_(("user_message", "agent_message")),
+        )
+        .order_by(SignalMessage.created_at.desc())
+    )
+    user_previews: dict[UUID, tuple[str, str]] = {}
+    other_previews: dict[UUID, tuple[str, str]] = {}
+    for signal_id, preview, text, kind, direction in result.all():
+        raw = (preview or text or "").strip()
+        is_placeholder = _is_placeholder_preview(raw)
+        snippet = _clean_thread_preview(raw)
+        if not snippet:
+            continue
+        resolved_dir = direction or ("inbound" if kind == "user_message" else "outbound")
+        if kind == "user_message" and signal_id not in user_previews:
+            user_previews[signal_id] = (snippet, resolved_dir)
+        if not is_placeholder and signal_id not in other_previews:
+            other_previews[signal_id] = (snippet, resolved_dir)
+    out: dict[UUID, tuple[str, str]] = {}
+    for signal_id in signal_ids:
+        out[signal_id] = other_previews.get(signal_id) or user_previews.get(signal_id, ("", ""))
+    return out
+
+
 def serialize_thread(
     signal: Signal,
     *,
     is_pinned: bool = False,
     user_num: int | None = None,
     agent: Agent | None = None,
+    last_preview: str | None = None,
+    last_direction: str | None = None,
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
@@ -88,6 +145,8 @@ def serialize_thread(
         "connection_id": str(signal.connection_id) if signal.connection_id else None,
         "graph_conversation_id": signal.external_id or "",
         "email_subject": signal.subject,
+        "last_message_preview": last_preview or "",
+        "last_message_direction": last_direction or "",
         "contact_id": str(signal.contact_id) if signal.contact_id else None,
         "contact_email": signal.contact_email,
         "contact_name": signal.contact_name,
@@ -266,10 +325,13 @@ async def _pinned_ids(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> 
 
 async def _signals_with_open_decisions(session: AsyncSession, tenant_id: UUID) -> set[UUID]:
     result = await session.execute(
-        select(SignalMessage.signal_id)
+        select(Signal.id)
+        .join(SignalMessage, SignalMessage.signal_id == Signal.id)
         .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
         .where(
-            SignalMessage.tenant_id == tenant_id,
+            Signal.tenant_id == tenant_id,
+            Signal.channel != "assistant",
+            Signal.status.notin_(("closed", "spam")),
             SignalMessage.kind == "decision_request",
             DecisionRequest.status == "awaiting_human",
         )
@@ -307,9 +369,14 @@ async def nav_badge_counts(
             stmt = stmt.where(acl)
         return int((await session.execute(stmt)).scalar_one() or 0)
 
-    my_unread = await _count(open_status, unread, Signal.assigned_user_id == user_id)
-    unassigned_unread = await _count(open_status, unread, Signal.assigned_user_id.is_(None))
-    all_unread = await _count(open_status, unread)
+    customer_inbox = Signal.channel.notin_(("internal", "assistant"))
+    my_unread = await _count(
+        open_status, unread, customer_inbox, Signal.assigned_user_id == user_id
+    )
+    unassigned_unread = await _count(
+        open_status, unread, customer_inbox, Signal.assigned_user_id.is_(None)
+    )
+    all_unread = await _count(open_status, unread, customer_inbox)
 
     agents_attention = 0
     if include_agents_attention:
@@ -363,6 +430,9 @@ async def list_threads(
     email_connection_id: int | None = None,
     project_id: str | None = None,
     agent_id: str | None = None,
+    unread: bool = False,
+    needs_reply: bool = False,
+    pinned_only: bool = False,
     page: int = 1,
     per_page: int = 30,
     visible_account_ids: set[UUID] | None = None,
@@ -378,9 +448,9 @@ async def list_threads(
     elif folder == "internal":
         query = query.where(Signal.channel == "internal")
     elif folder == "inbox":
-        # Assignable conversations across channels; assistant chats live
-        # under the Assistant section, not the shared inbox.
-        query = query.where(Signal.channel != "assistant")
+        # Customer work only. Internal agent runs live under Agent-runs;
+        # assistant chats live under Assistant.
+        query = query.where(Signal.channel.notin_(("internal", "assistant")))
     elif folder == "assistant":
         query = query.where(Signal.channel == "assistant")
         query = query.where(
@@ -478,6 +548,46 @@ async def list_threads(
         except ValueError:
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
 
+    if unread:
+        query = query.where(Signal.has_unread.is_(True))
+    if pinned_only:
+        query = query.where(Signal.id.in_(pinned) if pinned else Signal.id.is_(None))
+    if needs_reply:
+        last_user = (
+            select(SignalMessage.signal_id, func.max(SignalMessage.created_at).label("at"))
+            .where(
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.kind == "user_message",
+                SignalMessage.direction == "inbound",
+            )
+            .group_by(SignalMessage.signal_id)
+            .subquery()
+        )
+        last_agent = (
+            select(SignalMessage.signal_id, func.max(SignalMessage.created_at).label("at"))
+            .where(
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.direction == "outbound",
+                SignalMessage.kind.in_(("user_message", "agent_message")),
+                # Same skip as list previews: mock/placeholder bodies are not a reply.
+                ~func.lower(SignalMessage.body_text).like("[mock]%"),
+                ~func.lower(SignalMessage.body_text).like("i received your message about:%"),
+            )
+            .group_by(SignalMessage.signal_id)
+            .subquery()
+        )
+        inbound_last = (
+            select(last_user.c.signal_id)
+            .select_from(
+                last_user.outerjoin(last_agent, last_user.c.signal_id == last_agent.c.signal_id)
+            )
+            .where(or_(last_agent.c.at.is_(None), last_user.c.at > last_agent.c.at))
+        )
+        query = query.where(
+            Signal.status == "open",
+            or_(Signal.has_unread.is_(True), Signal.id.in_(inbound_last)),
+        )
+
     if search:
         like = f"%{search}%"
         # Message-body predicate: on Postgres use full-text search backed by
@@ -557,17 +667,21 @@ async def list_threads(
                 if project.po_agent_id and project.po_agent_id in po_by_id:
                     project_po_agents[project.id] = po_by_id[project.po_agent_id]
 
+    previews = await _latest_message_previews(session, tenant_id, [t.id for t in threads])
     items = []
     for t in threads:
         agent = agents_by_id.get(t.agent_id) if t.agent_id else None
         if not agent and t.project_id:
             agent = project_po_agents.get(t.project_id)
+        preview, direction = previews.get(t.id, ("", ""))
         items.append(
             serialize_thread(
                 t,
                 is_pinned=t.id in pinned,
                 user_num=user_num,
                 agent=agent,
+                last_preview=preview,
+                last_direction=direction,
             )
         )
     next_page = page + 1 if page * per_page < items_total else None
@@ -812,6 +926,13 @@ async def patch_thread(
                 raise HTTPException(status_code=404, detail="Project not found")
         signal.project_id = project_id
     signal.updated_at = datetime.utcnow()
+    if signal.status != before_status and signal.status in {"pending", "closed", "spam"}:
+        parked = {
+            "pending": "human_snoozed",
+            "closed": "human_closed",
+            "spam": "human_spam",
+        }[signal.status]
+        await _defer_open_reply_suggestions(session, tenant_id, signal_id, reason=parked)
     session.add(signal)
     session.add(
         SignalEvent(
@@ -1169,6 +1290,35 @@ async def set_ai_paused(
     return {"signal_id": str(signal_id), "ai_paused": paused}
 
 
+async def _defer_open_reply_suggestions(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    *,
+    reason: str = "human_replied",
+) -> None:
+    """Clear leftover 'Suggested reply' cards once a human already answered.
+
+    Only reply-suggestion cards are deferred. Platform-change reviews and
+    other awaiting_human decisions stay open.
+    """
+    result = await session.execute(
+        select(DecisionRequest).where(
+            DecisionRequest.tenant_id == tenant_id,
+            DecisionRequest.signal_id == signal_id,
+            DecisionRequest.status == "awaiting_human",
+            DecisionRequest.platform_change_id.is_(None),
+            DecisionRequest.title == "Suggested reply",
+        )
+    )
+    now = datetime.utcnow()
+    for decision in result.scalars().all():
+        decision.status = "deferred"
+        decision.resolved_at = now
+        decision.chosen_option_id = reason
+        session.add(decision)
+
+
 async def reply_to_thread(
     session: AsyncSession,
     tenant_id: UUID,
@@ -1246,6 +1396,10 @@ async def reply_to_thread(
     session.add(message)
     signal.last_message_at = now
     signal.updated_at = now
+    if direction == "outbound":
+        signal.has_unread = False
+    if direction == "outbound":
+        await _defer_open_reply_suggestions(session, tenant_id, signal_id)
     if action == "send_and_close":
         signal.status = "closed"
         signal.snoozed_until = None
@@ -1782,6 +1936,12 @@ async def resolve_message_decision(
     if user_id and action in ("approved", "approve") and option_id in ("close", "create_task"):
         rule_suggestion = await _record_no_reply_outcome(
             session, tenant_id, user_id, signal_id, message.decision_id, option_id
+        )
+
+    # Approving one draft dismisses leftover sibling suggestion cards.
+    if action in ("approve", "approved"):
+        await _defer_open_reply_suggestions(
+            session, tenant_id, signal_id, reason="human_approved_sibling"
         )
 
     await session.commit()

@@ -11,7 +11,7 @@ import {
   type CatalogModel,
   type TenantModelRow,
 } from '../../lib/models-api'
-import { humanizeModelId } from '../../lib/model-label'
+import { humanizeModelId, modelCostBand } from '../../lib/model-label'
 
 type Props = {
   agentId: string
@@ -106,12 +106,21 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
           </span>
         )}
         {current ? (
-          <span className="text-[11px] text-text-muted">
-            {providerLabel ? `${providerLabel} · ` : ''}
-            {t('workforce.agents.modelCost', {
+          <span
+            className="text-[11px] text-text-muted"
+            title={t('workforce.agents.modelCost', {
               input: (current.input_cost_per_mtok_cents / 100).toFixed(2),
               output: (current.output_cost_per_mtok_cents / 100).toFixed(2),
             })}
+          >
+            {providerLabel ? `${providerLabel} · ` : ''}
+            {t(
+              {
+                low: 'workforce.agents.modelCostLow',
+                medium: 'workforce.agents.modelCostMedium',
+                high: 'workforce.agents.modelCostHigh',
+              }[modelCostBand(current.input_cost_per_mtok_cents, current.output_cost_per_mtok_cents)],
+            )}
           </span>
         ) : null}
       </div>

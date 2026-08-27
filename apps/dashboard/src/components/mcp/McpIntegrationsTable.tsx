@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Loader2, Trash2, Zap } from 'lucide-react'
+import { Copy, Loader2, Trash2, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
+import { Input } from '../ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -25,6 +26,13 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
   const { t } = useTranslation('nav')
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; toolCount: number; error?: string }>>({})
+  const [query, setQuery] = useState('')
+  const needle = query.trim().toLowerCase()
+  const visible = needle
+    ? rows.filter((row) =>
+        `${row.displayName} ${row.providerName} ${row.endpoint}`.toLowerCase().includes(needle),
+      )
+    : rows
 
   const statusVariant = (status: McpIntegrationRow['status']) => {
     if (status === 'active') return 'success'
@@ -63,8 +71,16 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="border-b border-border/60 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-5 py-4">
         <h3 className="text-sm font-medium text-text-heading">{t('integrations.mcp.servers.listTitle')}</h3>
+        {rows.length > 0 ? (
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('integrations.mcp.servers.search')}
+            className="h-8 w-56 text-sm"
+          />
+        ) : null}
       </div>
       <Table>
         <TableHeader>
@@ -84,13 +100,19 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                 ...
               </TableCell>
             </TableRow>
-          ) : rows.length === 0 ? (
+          ) : rows.length === 0 || visible.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="py-8 text-center">
-                <p className="text-sm text-text-muted">{t('integrations.mcp.servers.empty')}</p>
+                <p className="text-sm text-text-muted">
+                  {rows.length === 0
+                    ? t('integrations.mcp.servers.empty')
+                    : t('integrations.mcp.servers.noMatches')}
+                </p>
+                {rows.length === 0 ? (
                 <p className="mx-auto mt-1 max-w-md text-xs text-text-muted">
                   {t('integrations.mcp.servers.emptyHint')}
                 </p>
+                ) : null}
                 <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
                   <Link to="/settings/marketplace" className="font-medium text-accent hover:underline">
                     {t('integrations.mcp.servers.openMarketplace')}
@@ -105,7 +127,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((row) => (
+            visible.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>
                   <div className="flex items-center gap-2.5">
@@ -146,6 +168,19 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
+                    {row.endpoint ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(row.endpoint)
+                          toast.success(t('integrations.mcp.servers.copiedEndpoint'))
+                        }}
+                        aria-label={t('integrations.mcp.servers.copyEndpoint')}
+                      >
+                        <Copy size={14} />
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -160,6 +195,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                       size="sm"
                       className="text-text-muted hover:text-status-error"
                       onClick={() => {
+                        if (!window.confirm(t('integrations.mcp.servers.disconnectConfirm'))) return
                         void revokeMcpConnection(row.id).then(onChange)
                       }}
                       aria-label={t('integrations.actions.disconnect')}

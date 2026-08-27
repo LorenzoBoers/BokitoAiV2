@@ -1,19 +1,22 @@
 ---
 title: Authenticatie
 intro: API-tokens, scopes en hoe je inloggegevens meestuurt.
-description: Hoe je Bokito-API-tokens (bok_-prefix) aanmaakt en gebruikt, wat scopes doen op de REST-API en het MCP-endpoint, en hoe intrekken werkt.
-keywords: authenticatie, api-token, bearer, scopes, beveiliging
+description: Maak Bokito-API-tokens aan onder Instellingen, Developers, kies Workspace-API- en agentscopes, en roteer of trek ze in.
+keywords: authenticatie, api-token, bearer, scopes, developers, beveiliging
 sort: 20
 related: api-overview,api-signals,mcp-endpoint
 ---
 
 # Authenticatie
 
-Elk developer-oppervlak authenticeert met workspace-API-tokens. Tokens worden aangemaakt en ingetrokken door owners en admins.
+Elk developer-oppervlak authenticeert met workspace-API-tokens. Owners en admins maken ze aan en trekken ze in onder **Instellingen**, daarna **Developers**.
 
 ## Token aanmaken
 
-Ga naar **Instellingen, dan Developers** en maak een token aan. De platte waarde - hij begint met `bok_` - zie je een keer bij aanmaak. Bewaar hem in een secretmanager; Bokito bewaart alleen een hash.
+1. Open **Instellingen** en daarna **Developers**.
+2. Onder **App-tokens** kies je **Nieuwe token**. Vul een **Tokennaam** in (bijvoorbeeld `staging-crm`).
+3. Onder **Toegang (leeg = alles)** kies je scopes. Laat ze alleen allemaal uit als de integratie écht **Volledige toegang** nodig heeft.
+4. Kies **Token aanmaken**. De platte waarde begint met `bok_` en zie je één keer. Kopieer die, of gebruik **curl-voorbeeld kopiëren** voor `GET /api/public/v1/signals`. Kies **Ik heb hem gekopieerd** als je klaar bent. Bokito bewaart alleen een hash; de lijst toont later een prefix zoals `bok_ab12…` plus **laatst gebruikt** of **nooit gebruikt**. Verberg ingetrokken tokens tenzij je de geschiedenis nodig hebt.
 
 ## Meesturen
 
@@ -27,16 +30,18 @@ Verzoeken zonder geldig token krijgen `401 Unauthorized`.
 
 ## Scopes
 
-Scopes beperken wat een token mag:
+Het aanmaakformulier groepeert scopes:
 
-- **REST-API:** `signals:read` staat lezen van signals en berichten toe, `signals:write` staat aanmaken van signals toe.
-- **MCP-endpoint:** scopes benoemen toolcategorieen; het token kan alleen tools in die categorieen zien en aanroepen.
+- **Workspace-API:** `signals:read` leest gesprekken en berichten. `signals:write` maakt gesprekken aan.
+- **Wat agents en apps mogen doen:** `messaging`, `workspace`, `agents`, `channels`, `triggers`, `integrations`, `govern`. Het token kan alleen tools in de aangevinkte groepen zien en aanroepen.
 
-Een token met lege scopelijst heeft volledige toegang. Kies liever scoped tokens: een token per integratie, met alleen de scopes die het nodig heeft. Een verzoek buiten de scopes van het token krijgt `403 Forbidden`.
+Een lege scopelijst is volledige toegang. Kies liever één token per integratie met alleen de scopes die het nodig heeft. Een verzoek buiten die scopes krijgt `403 Forbidden`.
 
 ## Intrekken en roteren
 
-Trek een token in onder **Instellingen, dan Developers**; het stopt direct met werken. Roteren doe je door eerst het nieuwe token aan te maken, je integratie om te zetten, en dan het oude in te trekken. Elk token toont wanneer het voor het laatst is gebruikt, wat verouderde tokens zichtbaar maakt.
+1. Zoek het token in de Developers-lijst.
+2. Roteren: maak eerst het nieuwe token, zet de integratie om, trek daarna het oude in.
+3. Intrekken stopt het token direct. Laatst-gebruikt maakt verouderde tokens zichtbaar.
 
 ## Vuistregels
 

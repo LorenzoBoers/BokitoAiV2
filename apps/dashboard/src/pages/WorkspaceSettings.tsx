@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe, Paintbrush, ArrowRight, Shield, ListChecks, Mail, Bot } from 'lucide-react';
+import { Globe, Paintbrush, ArrowRight, Shield, ListChecks, Mail, Bot, Puzzle, MessageSquare } from 'lucide-react';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
+import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path';
 import { Switch } from '../components/ui/switch';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -29,6 +31,8 @@ export default function WorkspaceSettings() {
   const [supportSaving, setSupportSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const allowPlatformSupport = currentWorkspace?.allow_platform_support !== false;
+  const nameDirty = workspaceName.trim() !== (currentWorkspace?.name || user?.tenant.name || '').trim();
+  useUnsavedChangesGuard(nameDirty && !saving, t('unsavedLeave'));
 
   useEffect(() => {
     if (currentWorkspace?.name) setWorkspaceName(currentWorkspace.name);
@@ -100,7 +104,7 @@ export default function WorkspaceSettings() {
       <div className="rounded-xl border border-border/60 bg-bg-elevated/40 p-4">
         <p className="text-sm font-medium text-text-heading">{t('startHereTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">{t('startHereBody')}</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             to="/settings/setup"
             className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
@@ -129,6 +133,26 @@ export default function WorkspaceSettings() {
             <span className="min-w-0">
               <span className="block text-sm font-medium text-text-heading">{t('startHereInboxAi')}</span>
               <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.inboxAi')}</span>
+            </span>
+          </Link>
+          <Link
+            to={WEBSITE_WIDGET_PATH}
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+          >
+            <MessageSquare size={14} className="shrink-0 text-accent" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-text-heading">{t('startHereWidget')}</span>
+              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.chatWidget')}</span>
+            </span>
+          </Link>
+          <Link
+            to="/settings/marketplace"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-accent/40 hover:bg-bg-hover/40"
+          >
+            <Puzzle size={14} className="shrink-0 text-accent" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-text-heading">{t('startHereMarketplace')}</span>
+              <span className="block text-[11px] text-text-muted">{t('nav:settings.hints.integrations')}</span>
             </span>
           </Link>
         </div>

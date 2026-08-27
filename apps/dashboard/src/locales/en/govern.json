@@ -1,6 +1,6 @@
 {
   "title": "Govern",
-  "subtitle": "Review drafts, decide how much agents can do on their own, and see what changed.",
+  "subtitle": "Approve workspace changes, choose how much agents can do without you, and undo a change if needed.",
   "openCanvas": "Open Agents",
   "loading": "Loading govern data...",
   "loadError": "Could not load govern data.",
@@ -8,6 +8,11 @@
   "allowancesError": "Could not save allowances.",
   "toolOverrideError": "Could not save this tool override.",
   "refresh": "Refresh",
+  "refreshedAt": "Updated {{time}}",
+  "searchPlaceholder": "Search this list",
+  "filterEmpty": "No rows match that search.",
+  "showAll": "Show all ({{count}})",
+  "showFewer": "Show fewer",
   "tabs": {
     "drafts": "Pending reviews",
     "policy": "Policy",
@@ -31,17 +36,27 @@
     "acceptTitle": "Accept change",
     "rejectTitle": "Reject change",
     "acceptAction": "Accept",
-    "rejectAction": "Reject"
+    "rejectAction": "Reject",
+    "acceptFailed": "Could not accept this change.",
+    "rejectFailed": "Could not reject this change.",
+    "copyId": "Copy change id",
+    "idCopied": "Change id copied"
   },
   "history": {
     "empty": "No accepted changes yet.",
+    "talkAssistant": "Ask the assistant",
+    "talkPrefill": "Help me understand Govern and what I should approve first.",
     "openDrafts": "Open pending reviews",
     "rollback": "Undo",
+    "rollbackTitle": "Undo this change?",
+    "rollbackConfirm": "This puts the workspace back to how it was before this change. You can review it again afterwards.",
+    "cancel": "Cancel",
     "rolledBack": "Change undone",
     "rollbackError": "Could not undo this change."
   },
   "passports": {
     "empty": "No agent access yet. Create an agent first, then set what it may do on the agent page.",
+    "hint": "This list is what each agent may do. Change allowances on the agent page under Tools and permissions.",
     "openAgents": "Open Agents",
     "autonomy": "How much it may do: {{level}}",
     "scopes": "What it may use: {{scopes}}",
@@ -50,10 +65,17 @@
   },
   "audit": {
     "empty": "No audit events yet. Agent work and approvals will show up here.",
+    "talkAssistant": "Ask the assistant",
+    "talkPrefill": "What should I look at in Govern first, and how do approvals show up in conversations?",
     "openCommunication": "Open Communication",
     "openThread": "Open thread",
     "openRun": "Open run",
-    "openAgent": "Open agent"
+    "openAgent": "Open agent",
+    "showPayload": "Show JSON",
+    "hidePayload": "Hide JSON",
+    "copyPayload": "Copy JSON",
+    "copied": "Audit row copied",
+    "copyFailed": "Could not copy"
   },
   "posture": {
     "title": "How much agents can do",
@@ -61,17 +83,33 @@
     "perAgentHint": "Per-agent overrides live on the agent page under Tools and permissions.",
     "saved": "Autonomy setting updated",
     "current": "Current setting",
+    "autonomousConfirm": "Switch to Autonomous? Agents can apply more changes without waiting for you. You can switch back at any time.",
     "manual": {
       "label": "Manual",
-      "summary": "Humans approve every mutating agent action before it applies."
+      "summary": "Humans approve every mutating agent action before it applies.",
+      "effects": {
+        "inbox": "Replies wait for you.",
+        "tools": "Tools always ask.",
+        "structure": "Govern drafts stay drafts."
+      }
     },
     "assisted": {
       "label": "Assisted",
-      "summary": "Routine messaging and workspace edits run automatically; structural changes ask first."
+      "summary": "Routine messaging and workspace edits run automatically; structural changes ask first.",
+      "effects": {
+        "inbox": "Routine replies can send.",
+        "tools": "Everyday tools run; risky ones ask.",
+        "structure": "Structural changes wait for review."
+      }
     },
     "autonomous": {
       "label": "Autonomous",
-      "summary": "AI runs operations; integrations and credentials still ask a human."
+      "summary": "AI runs operations; integrations and credentials still ask a human.",
+      "effects": {
+        "inbox": "Agents send without waiting.",
+        "tools": "Most tools run on their own.",
+        "structure": "Integrations and credentials still ask."
+      }
     }
   },
   "allowances": {
@@ -149,7 +187,7 @@
       "pending_review": "Pending review",
       "draft": "Draft",
       "accepted": "Accepted",
-      "applied_yolo": "Applied automatically",
+      "applied_yolo": "Applied without review",
       "rejected": "Rejected",
       "superseded": "Superseded"
     }

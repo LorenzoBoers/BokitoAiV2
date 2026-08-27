@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ExternalLink, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -9,6 +9,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import {
   createKbCollection,
+  deleteKbCollection,
   deleteKbDocument,
   listKbCollections,
   listKbDocuments,
@@ -17,7 +18,9 @@ import {
   type KbDocument,
 } from '../lib/email-api'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
+import { isFetchableFileUrl } from '../lib/https-url'
 import { indexStatusLabel } from '../lib/status-labels'
+import { useWorkspace } from '../context/WorkspaceContext'
 
 function RowSkeleton() {
   return (
@@ -31,8 +34,14 @@ function RowSkeleton() {
 export default function HelpCentersSettings() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const { currentWorkspace } = useWorkspace()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [kbCollections, setKbCollections] = useState<KbCollection[]>([])
-  const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null)
+  const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(() => {
+    const raw = Number(searchParams.get('collection'))
+    return Number.isFinite(raw) && raw > 0 ? raw : null
+  })
+  const [deletingCollection, setDeletingCollection] = useState(false)
   const [kbDocuments, setKbDocuments] = useState<KbDocument[]>([])
   const [collectionsLoading, setCollectionsLoading] = useState(true)
   const [documentsLoading, setDocumentsLoading] = useState(false)
@@ -82,6 +91,35 @@ export default function HelpCentersSettings() {
     void refreshKbDocuments()
   }, [refreshKbDocuments])
 
+  useEffect(() => {
+    const current = searchParams.get('collection')
+    const next = selectedCollectionId != null ? String(selectedCollectionId) : null
+    if (current === next) return
+    const params = new URLSearchParams(searchParams)
+    if (next) params.set('collection', next)
+    else params.delete('collection')
+    setSearchParams(params, { replace: true })
+  }, [selectedCollectionId, searchParams, setSearchParams])
+
+  const publicHelpPath = currentWorkspace?.slug ? `/help/${currentWorkspace.slug}` : null
+  const selectedCollection = kbCollections.find((row) => row.id === selectedCollectionId) ?? null
+
+  const handleDeleteCollection = async () => {
+    if (!token || !selectedCollection) return
+    if (!window.confirm(t('helpCentersPage.deleteCollectionConfirm', { name: selectedCollection.name }))) return
+    setDeletingCollection(true)
+    try {
+      await deleteKbCollection(token, selectedCollection.id)
+      toast.success(t('helpCentersPage.deletedCollection'))
+      setSelectedCollectionId(null)
+      await refreshKbCollections()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('helpCentersPage.deleteCollectionError'))
+    } finally {
+      setDeletingCollection(false)
+    }
+  }
+
   return (
     <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-4 py-1">
       <p className="text-sm text-text-secondary">
@@ -93,6 +131,21 @@ export default function HelpCentersSettings() {
         <Link to={WEBSITE_WIDGET_PATH} className="font-medium text-accent hover:underline">
           {t('helpCentersPage.openWidget')}
         </Link>
+        {publicHelpPath ? (
+          <>
+            {' · '}
+            <button
+              type="button"
+              className="font-medium text-accent hover:underline"
+              onClick={() => {
+                void navigator.clipboard.writeText(`${window.location.origin}${publicHelpPath}`)
+                toast.success(t('helpCentersPage.copiedPublic'))
+              }}
+            >
+              {t('helpCentersPage.copyPublic')}
+            </button>
+          </>
+        ) : null}
         .
       </p>
 
@@ -177,7 +230,19 @@ export default function HelpCentersSettings() {
           </Card>
 
           <Card className="overflow-y-auto p-3">
-            <div className="mb-2 text-xs text-text-muted">{t('helpCentersPage.documents')}</div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-xs text-text-muted">{t('helpCentersPage.documents')}</div>
+              {selectedCollection ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={deletingCollection}
+                  onClick={() => void handleDeleteCollection()}
+                >
+                  {t('helpCentersPage.deleteCollection')}
+                </Button>
+              ) : null}
+            </div>
             {selectedCollectionId ? (
               <>
                 <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_120px_auto]">
@@ -201,9 +266,9 @@ export default function HelpCentersSettings() {
                     disabled={uploadingDoc}
                     onChange={(event) => setNewDocType(event.target.value as KbDocument['file_type'])}
                   >
-                    {['pdf', 'docx', 'txt', 'md', 'csv'].map((type) => (
+                    {(['pdf', 'docx', 'txt', 'md', 'csv'] as const).map((type) => (
                       <option key={type} value={type}>
-                        {type.toUpperCase()}
+                        {t(`helpCentersPage.fileTypes.${type}`)}
                       </option>
                     ))}
                   </select>
@@ -212,6 +277,10 @@ export default function HelpCentersSettings() {
                     onClick={() =>
                       void (async () => {
                         if (!token || !newDocName.trim() || !newDocUrl.trim()) return
+                        if (!isFetchableFileUrl(newDocUrl)) {
+                          toast.error(t('helpCentersPage.invalidUrl'))
+                          return
+                        }
                         setUploadingDoc(true)
                         try {
                           await uploadKbDocument(token, selectedCollectionId, {
@@ -265,10 +334,25 @@ export default function HelpCentersSettings() {
                           }
                           title={doc.index_error ?? undefined}
                         >
-                          {doc.file_type.toUpperCase()} - {indexStatusLabel(doc.index_status, t)}
+                          {(doc.file_type in { pdf: 1, docx: 1, txt: 1, md: 1, csv: 1 }
+                            ? t(`helpCentersPage.fileTypes.${doc.file_type as 'pdf'}`)
+                            : doc.file_type.toUpperCase())}{' '}
+                          - {indexStatusLabel(doc.index_status, t)}
                           {doc.index_error ? ` (${doc.index_error})` : ''}
                         </div>
                       </div>
+                      <div className="flex items-center gap-1">
+                      {doc.file_url ? (
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-8 w-8 items-center justify-center text-text-muted hover:text-accent"
+                          aria-label={t('helpCentersPage.openFile')}
+                        >
+                          <ExternalLink size={13} />
+                        </a>
+                      ) : null}
                       <Button
                         size="sm"
                         variant="ghost"
@@ -276,6 +360,7 @@ export default function HelpCentersSettings() {
                         onClick={() =>
                           void (async () => {
                             if (!token) return
+                            if (!window.confirm(t('helpCentersPage.removeDocConfirm', { name: doc.filename }))) return
                             setDeletingDocId(doc.id)
                             try {
                               await deleteKbDocument(token, doc.id)
@@ -292,6 +377,7 @@ export default function HelpCentersSettings() {
                       >
                         <Trash2 size={13} />
                       </Button>
+                      </div>
                     </div>
                     ))
                   )}

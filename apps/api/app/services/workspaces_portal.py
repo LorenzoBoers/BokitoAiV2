@@ -800,12 +800,30 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
     ).scalar_one()
     team_done = member_count > 1 or invite_count > 0
 
+    from app.models.trigger import Trigger
+
+    watching_done = bool(
+        (
+            await session.execute(
+                select(Trigger.id)
+                .where(
+                    Trigger.tenant_id == tenant_id,
+                    Trigger.kind == "heartbeat",
+                    Trigger.enabled.is_(True),
+                )
+                .limit(1)
+            )
+        ).first()
+    )
+
     # The generic "channel" step was dropped: the email step already covers
     # the flagship channel, and first_decision measures actual AI value.
+    # Watching is the seeded platform check-in (enabled heartbeat).
     steps = [
         {"id": "email", "done": email_done},
         {"id": "company", "done": company_done},
         {"id": "assistant", "done": assistant_done},
+        {"id": "watching", "done": watching_done},
         {"id": "first_decision", "done": first_decision_done},
         {"id": "team", "done": team_done},
     ]

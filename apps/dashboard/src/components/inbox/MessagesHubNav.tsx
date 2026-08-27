@@ -4,11 +4,8 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
-  Globe,
-  Hash,
   Inbox,
   Mail,
-  MessageCircle,
   MessageSquare,
   Plus,
   Settings,
@@ -37,6 +34,7 @@ import {
   type InboxQueue,
 } from '../../lib/messages-paths'
 import NavCountBadge from '../layout/NavCountBadge'
+import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
 
@@ -79,12 +77,13 @@ type LeafLinkProps = {
   icon: ReactNode
   badgeCount?: number
   activeLeaf: HubLeaf | null
+  title?: string
 }
 
-function LeafLink({ leaf, to, label, icon, badgeCount = 0, activeLeaf }: LeafLinkProps) {
+function LeafLink({ leaf, to, label, icon, badgeCount = 0, activeLeaf, title }: LeafLinkProps) {
   const isActive = isLeafActive(activeLeaf, leaf)
   return (
-    <NavLink to={to} className={() => navLinkClass(isActive)}>
+    <NavLink to={to} title={title || label} className={() => navLinkClass(isActive)}>
       {icon}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <NavCountBadge count={badgeCount} placement="inline" />
@@ -160,13 +159,23 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
       {connectionsLoading ? (
         <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.channels.loading')}</p>
       ) : null}
+      {!connectionsLoading && enabledConnections.length === 0 ? (
+        <Link
+          to="/settings/channels"
+          title={t('support.channels.connectEmail')}
+          className="flex items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-1.5 text-[12px] font-medium text-accent hover:bg-bg-hover/55"
+        >
+          <Mail size={14} className="shrink-0" />
+          <span className="min-w-0 truncate">{t('support.channels.connectEmail')}</span>
+        </Link>
+      ) : null}
       {enabledConnections.map((conn) => (
         <LeafLink
           key={conn.id}
           leaf={{ type: 'channel', channelKey: 'email', connectionId: String(conn.id) }}
           to={channelPath('email', { connectionId: conn.id })}
           label={mailboxDisplayLabel(conn.displayName, conn.mailboxEmail)}
-          icon={<Mail size={14} className="shrink-0 text-text-muted" />}
+          icon={<ChannelGlyph channel="email" size={14} />}
           activeLeaf={activeLeaf}
         />
       ))}
@@ -174,14 +183,15 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
         leaf={{ type: 'channel', channelKey: 'webchat' }}
         to={channelPath('webchat')}
         label={t('support.channels.webchat')}
-        icon={<Globe size={14} className="shrink-0 text-text-muted" />}
+          icon={<ChannelGlyph channel="widget" size={14} />}
         activeLeaf={activeLeaf}
       />
       <LeafLink
         leaf={{ type: 'channel', channelKey: 'internal' }}
         to={channelPath('internal')}
         label={t('support.channels.internal')}
-        icon={<MessageSquare size={14} className="shrink-0 text-text-muted" />}
+        title={t('support.channels.internalHint')}
+          icon={<ChannelGlyph channel="internal" size={14} />}
         activeLeaf={activeLeaf}
       />
       {hasWhatsApp ? (
@@ -189,7 +199,7 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
           leaf={{ type: 'channel', channelKey: 'whatsapp' }}
           to={channelPath('whatsapp')}
           label={t('support.channels.whatsapp')}
-          icon={<MessageCircle size={14} className="shrink-0 text-text-muted" />}
+          icon={<ChannelGlyph channel="whatsapp" size={14} />}
           activeLeaf={activeLeaf}
         />
       ) : null}
@@ -198,7 +208,7 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
           leaf={{ type: 'channel', channelKey: 'slack' }}
           to={channelPath('slack')}
           label={t('support.channels.slack')}
-          icon={<Hash size={14} className="shrink-0 text-text-muted" />}
+          icon={<ChannelGlyph channel="slack" size={14} />}
           activeLeaf={activeLeaf}
         />
       ) : null}
@@ -260,6 +270,7 @@ function AgentsSection({ assistant, agents, loading, activeLeaf, t }: AgentsSect
       ))}
       <NavLink
         to={agentRunsPath('all')}
+        title={t('support.links.activityHint')}
         className={() => navLinkClass(Boolean(activityActive))}
       >
         <Bot size={14} className="shrink-0 text-text-muted" />
@@ -392,6 +403,7 @@ export default function MessagesHubNav() {
               leaf={{ type: 'inbox', queue: item.queue }}
               to={inboxPath(item.queue)}
               label={t(item.labelKey)}
+              title={t(`${item.labelKey}Hint`)}
               icon={
                 item.queue === 'mine' ? (
                   <UserAvatar
@@ -412,6 +424,7 @@ export default function MessagesHubNav() {
             type="button"
             onClick={() => setMoreQueuesOpen((open) => !open)}
             className={navLinkClass(moreQueueActive && !moreQueuesOpen)}
+            title={t('support.moreQueuesHint')}
             aria-expanded={moreQueuesOpen}
           >
             {moreQueuesOpen ? (
@@ -431,6 +444,7 @@ export default function MessagesHubNav() {
                   leaf={{ type: 'inbox', queue: item.queue }}
                   to={inboxPath(item.queue)}
                   label={t(item.labelKey)}
+                  title={t(`${item.labelKey}Hint`)}
                   icon={<Inbox size={14} className="shrink-0 text-text-muted" />}
                   badgeCount={countForInboxQueue(counts, item.queue)}
                   activeLeaf={activeLeaf}

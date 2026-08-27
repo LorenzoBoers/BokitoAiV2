@@ -7,6 +7,7 @@ import { Button } from '../ui/button';
 import { Dropdown } from '../ui/dropdown';
 import { translateDecisionText } from '../../lib/activity-labels';
 import { collapseNotifications } from '../../lib/notification-groups';
+import { activityDayBucket } from '../../lib/activity-day';
 import { pathForNotification } from '../../lib/notification-path';
 import { agentRunsPath, inboxPath } from '../../lib/messages-paths';
 
@@ -85,6 +86,15 @@ export default function NotificationDropdown() {
                 {t('notificationsUi.markAll')}
               </Button>
             ) : null}
+            {notifications.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => navigate(inboxPath('open'))}
+                className="text-xs font-medium text-accent hover:underline"
+              >
+                {t('notificationsUi.openInbox')}
+              </button>
+            ) : null}
             {hasDecisions ? (
               <button
                 type="button"
@@ -127,15 +137,23 @@ export default function NotificationDropdown() {
               </div>
             </div>
           ) : (
-            groupedNotifications.map((notification) => {
+            groupedNotifications.map((notification, index) => {
               const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare;
               const unread = notification.status === 'unread' || notification.ids.some((id) =>
                 notifications.find((item) => item.id === id)?.status === 'unread',
               );
+              const day = activityDayBucket(notification.createdAt)
+              const prevDay = index > 0 ? activityDayBucket(groupedNotifications[index - 1]!.createdAt) : null
+              const showDay = day !== prevDay && (day === 'today' || day === 'older' || prevDay === 'today')
 
               return (
+                <div key={notification.id}>
+                {showDay ? (
+                  <p className="px-1 pt-2 pb-1 text-[11px] font-medium text-text-muted">
+                    {t(day === 'today' ? 'notificationsUi.dayToday' : 'notificationsUi.dayOlder')}
+                  </p>
+                ) : null}
                 <div
-                  key={notification.id}
                   onClick={() => handleNotificationClick(notification, notification.ids)}
                   data-active={unread || undefined}
                   className={`
@@ -165,7 +183,20 @@ export default function NotificationDropdown() {
                           : ''}
                       </p>
                     </div>
+                    {unread ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          for (const id of notification.ids) markAsRead(id)
+                        }}
+                        className="shrink-0 self-start text-[11px] font-medium text-accent hover:underline"
+                      >
+                        {t('notificationsUi.markRead')}
+                      </button>
+                    ) : null}
                   </div>
+                </div>
                 </div>
               );
             })

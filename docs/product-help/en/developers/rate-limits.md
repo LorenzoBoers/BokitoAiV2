@@ -18,6 +18,8 @@ Public endpoints are rate limited per client IP over a rolling 60-second window.
 | REST API reads (`GET /api/public/v1/...`) | 120 requests/minute |
 | REST API writes (`POST /api/public/v1/signals`) | 30 requests/minute |
 | Docs and help content (`/api/docs`, `/api/help`) | 60 requests/minute |
+| Agenda incoming triggers (`POST /api/hooks/{id}`) | 60 requests/minute |
+| Website widget session start | 30 requests/minute |
 
 ## The 429 response
 

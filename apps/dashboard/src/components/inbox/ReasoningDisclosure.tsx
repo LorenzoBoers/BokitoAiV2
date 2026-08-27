@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { AgentStep } from '../../hooks/useSignalStream'
 import {
@@ -102,6 +103,23 @@ export default function ReasoningDisclosure({ thinking, steps, usage, className 
               {reasoning}
             </pre>
           ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              const payload = {
+                reasoning,
+                steps: normalized,
+                usage: usage ?? null,
+              }
+              void navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(
+                () => toast.success(t('agentSteps.traceCopied')),
+                () => toast.error(t('agentSteps.copyFailed')),
+              )
+            }}
+            className="text-[11px] font-medium text-accent hover:underline"
+          >
+            {t('agentSteps.copyTrace')}
+          </button>
           {normalized.length > 0 ? (
             <ul className="space-y-1.5">
               {normalized.map((step) => {

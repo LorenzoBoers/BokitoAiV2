@@ -6,6 +6,7 @@ import {
   pickPreferredInboxThread,
   resolveComposerSurface,
   threadHubPath,
+  threadNeedsReply,
 } from './message-composer'
 
 function thread(overrides: Partial<InboxThread>): InboxThread {
@@ -89,6 +90,14 @@ describe('resolveComposerSurface (whatsapp)', () => {
       thread({ id: 'internal-1', channel: 'internal', folder: 'internal' }),
     ])
     expect(preferred?.id).toBe('internal-1')
+  })
+
+  it('flags open unread or last-inbound threads as needing a reply', () => {
+    expect(threadNeedsReply(thread({ status: 'open', hasUnread: true, lastMessageDirection: 'outbound' }))).toBe(true)
+    expect(threadNeedsReply(thread({ status: 'open', hasUnread: false, lastMessageDirection: 'inbound' }))).toBe(true)
+    expect(threadNeedsReply(thread({ status: 'open', hasUnread: false, lastMessageDirection: 'outbound' }))).toBe(false)
+    expect(threadNeedsReply(thread({ status: 'closed', hasUnread: true, lastMessageDirection: 'inbound' }))).toBe(false)
+    expect(threadNeedsReply(thread({ status: 'pending', hasUnread: false, lastMessageDirection: 'inbound' }))).toBe(false)
   })
 
   it('keeps email threads on the email surface', () => {

@@ -1385,6 +1385,21 @@ async def _get_usage_summary(ctx: ToolContext, tool_input: dict[str, Any]) -> di
     return await usage_breakdown(ctx.session, ctx.tenant_id, days=days)
 
 
+async def _get_platform_watch(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.platform_watch import watch_status
+
+    return await watch_status(ctx.session, ctx.tenant_id)
+
+
+async def _set_platform_watch(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.platform_watch import set_platform_watch
+
+    enabled = tool_input.get("enabled")
+    if not isinstance(enabled, bool):
+        return {"error": "enabled must be true or false"}
+    return await set_platform_watch(ctx.session, ctx.tenant_id, enabled)
+
+
 async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.tenant_introspection import list_threads_summary
 
@@ -1484,6 +1499,42 @@ register_tool(
         },
         handler=_list_threads,
         mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="get_platform_watch",
+        description=(
+            "Show whether the workspace check-in is on. The check-in is the "
+            "assistant waking on a timer, reading heartbeat.md, and posting "
+            "only when something needs attention (Platform check-in in Messages)."
+        ),
+        category="triggers",
+        input_schema={"type": "object", "properties": {}},
+        handler=_get_platform_watch,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="set_platform_watch",
+        description=(
+            "Turn the workspace check-in on or off. This only toggles the "
+            "seeded Platform check-in (not other Agenda items). Use enabled "
+            "true so you watch the workspace yourself; findings land in Messages."
+        ),
+        category="triggers",
+        input_schema={
+            "type": "object",
+            "properties": {"enabled": {"type": "boolean"}},
+            "required": ["enabled"],
+        },
+        handler=_set_platform_watch,
+        mutating=True,
         gated=False,
     )
 )

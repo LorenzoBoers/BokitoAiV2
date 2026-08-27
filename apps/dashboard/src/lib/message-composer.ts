@@ -54,6 +54,15 @@ export function customersOnly<T extends Pick<InboxThread, 'channel' | 'folder'>>
   return threads.filter((thread) => !isInternalThread(thread))
 }
 
+/** Open work where the last real line is inbound, or the row is unread. */
+export function threadNeedsReply(
+  thread: Pick<InboxThread, 'status' | 'hasUnread' | 'lastMessageDirection'>,
+): boolean {
+  if (thread.status !== 'open') return false
+  if (thread.hasUnread) return true
+  return thread.lastMessageDirection === 'inbound'
+}
+
 /** Deep-link a thread to the hub leaf a first-time user expects. */
 export function threadHubPath(thread: Pick<InboxThread, 'id' | 'channel' | 'folder'>): string {
   return isInternalThread(thread)

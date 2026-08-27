@@ -35,8 +35,11 @@ export function composeEmailPath(intent: ComposeIntent = {}): string {
   return `${inboxPath('open')}?${params.toString()}`
 }
 
-export function newContactPath(): string {
-  return '/contacts?new=1'
+export function newContactPath(address?: string): string {
+  const params = new URLSearchParams({ new: '1' })
+  const value = address?.trim()
+  if (value) params.set('address', value)
+  return `/contacts?${params}`
 }
 
 export function newAgentPath(): string {

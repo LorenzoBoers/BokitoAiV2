@@ -83,6 +83,9 @@ Screenshots only when a UI is the task (`widget-embed`).
 - Recapture when the UI of that use-case changed (layout, labels, new primary
   action). A copy-only fix leaves the screenshot in place.
 - Register the usecase name under `screenshots:` in `surface-map.yaml`.
+- Recapture from a local logged-in dashboard with
+  `python apps/api/scripts/dev/capture_product_help_screenshots.py`
+  (override `BOKITO_DOCS_EMAIL` / `BOKITO_DOCS_PASSWORD` if needed).
 
 ## When to add an article vs extend one
 

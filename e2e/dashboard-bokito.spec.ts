@@ -77,7 +77,7 @@ test.describe('Dashboard', () => {
     await page.goto('/triggers')
     await expect(page).toHaveURL(/\/agenda/, { timeout: 20000 })
     await page.goto('/communication')
-    await expect(page).toHaveURL(/\/communication\/inbox\/all/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/inbox\/open/, { timeout: 20000 })
     await page.goto('/govern')
     await expect(page).toHaveURL(/\/settings\/govern/, { timeout: 20000 })
     await page.goto('/os/docs')

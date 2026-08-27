@@ -12,6 +12,7 @@ import {
   createChannelBinding,
   deleteChannelBinding,
   listChannelBindings,
+  updateChannelBinding,
   type ChannelBinding,
 } from '../../lib/channel-bindings-api'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
@@ -33,8 +34,11 @@ export default function ChannelBindingsPanel() {
   const [loading, setLoading] = useState(true)
   const [channel, setChannel] = useState<string>('email')
   const [agentId, setAgentId] = useState('')
+  const [accountId, setAccountId] = useState('')
+  const [priority, setPriority] = useState('10')
   const [saving, setSaving] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -84,8 +88,16 @@ export default function ChannelBindingsPanel() {
     }
     setSaving(true)
     try {
-      await createChannelBinding({ channel, agent_id: agentId, priority: 10, enabled: true })
+      const parsedPriority = Number(priority)
+      await createChannelBinding({
+        channel,
+        agent_id: agentId,
+        channel_account_id: accountId || null,
+        priority: Number.isFinite(parsedPriority) ? parsedPriority : 10,
+        enabled: true,
+      })
       toast.success(t('channelsPage.bindings.created'))
+      setAccountId('')
       await load()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('channelsPage.bindings.createError')))
@@ -94,7 +106,20 @@ export default function ChannelBindingsPanel() {
     }
   }
 
+  const toggleBinding = async (row: ChannelBinding) => {
+    setUpdatingId(row.id)
+    try {
+      const next = await updateChannelBinding(row.id, { enabled: !row.enabled })
+      setBindings((prev) => prev.map((item) => (item.id === row.id ? next : item)))
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('channelsPage.bindings.createError')))
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
   const removeBinding = async (id: string) => {
+    if (!window.confirm(t('channelsPage.bindings.removeConfirm'))) return
     setRemovingId(id)
     try {
       await deleteChannelBinding(id)
@@ -114,6 +139,7 @@ export default function ChannelBindingsPanel() {
         <p className="mt-0.5 text-xs text-text-muted">
           {t('channelsPage.bindings.body')}
         </p>
+        <p className="text-[11px] text-text-muted">{t('channelsPage.bindings.leadHint')}</p>
       </div>
 
       {loading ? (
@@ -135,6 +161,9 @@ export default function ChannelBindingsPanel() {
                 <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">
                   {t('channelsPage.bindings.openCommunication')}
                 </Link>
+                <Link to="/settings/marketplace" className="text-xs font-medium text-accent hover:underline">
+                  {t('channelsPage.bindings.openMarketplace')}
+                </Link>
               </div>
             </div>
           ) : (
@@ -153,16 +182,27 @@ export default function ChannelBindingsPanel() {
                       {!row.enabled ? ` · ${t('channelsPage.bindings.disabled')}` : ''}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={removingId === row.id}
-                    onClick={() => void removeBinding(row.id)}
-                    aria-label={t('channelsPage.bindings.removeAria')}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={updatingId === row.id}
+                      onClick={() => void toggleBinding(row)}
+                    >
+                      {row.enabled ? t('channelsPage.bindings.pause') : t('channelsPage.bindings.enable')}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={removingId === row.id}
+                      onClick={() => void removeBinding(row.id)}
+                      aria-label={t('channelsPage.bindings.removeAria')}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -173,7 +213,10 @@ export default function ChannelBindingsPanel() {
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={channel}
-                onChange={(e) => setChannel(e.target.value)}
+                onChange={(e) => {
+                  setChannel(e.target.value)
+                  setAccountId('')
+                }}
                 className="h-8 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
               >
                 {CHANNELS.map((value) => (
@@ -182,6 +225,30 @@ export default function ChannelBindingsPanel() {
                   </option>
                 ))}
               </select>
+              <select
+                value={accountId}
+                onChange={(e) => setAccountId(e.target.value)}
+                className="h-8 min-w-[10rem] rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
+                aria-label={t('channelsPage.bindings.accountOptional')}
+              >
+                <option value="">{t('channelsPage.bindings.allAccounts')}</option>
+                {accounts
+                  .filter((account) => account.channel === channel)
+                  .map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.address || account.displayName}
+                    </option>
+                  ))}
+              </select>
+              <input
+                type="number"
+                min={0}
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="h-8 w-16 rounded-md border border-border/60 bg-bg-input/80 px-2 text-xs"
+                aria-label={t('channelsPage.bindings.priorityLabel')}
+                title={t('channelsPage.bindings.priorityLabel')}
+              />
               <select
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}

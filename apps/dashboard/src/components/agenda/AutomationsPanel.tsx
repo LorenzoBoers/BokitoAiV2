@@ -84,10 +84,11 @@ function triggerSchedule(
 type AutomationsPanelProps = {
   /** Bump to force a reload (e.g. after the trigger dialog saves). */
   reloadKey?: number
+  onCreateTrigger?: () => void
   onEditTrigger?: (trigger: Trigger) => void
 }
 
-export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: AutomationsPanelProps) {
+export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEditTrigger }: AutomationsPanelProps) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const navigate = useNavigate()
@@ -332,9 +333,16 @@ export default function AutomationsPanel({ reloadKey = 0, onEditTrigger }: Autom
                   <p className="text-sm text-text-muted">
                     {t('agendaPage.noTriggers')}
                   </p>
-                  <Button type="button" size="sm" variant="outline" asChild>
-                    <Link to="/agenda">{t('agendaPage.backToAgenda')}</Link>
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {onCreateTrigger ? (
+                      <Button type="button" size="sm" onClick={onCreateTrigger}>
+                        {t('agendaPage.createAutomation')}
+                      </Button>
+                    ) : null}
+                    <Button type="button" size="sm" variant="outline" asChild>
+                      <Link to="/agenda">{t('agendaPage.backToAgenda')}</Link>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 triggers.map((trigger) => (

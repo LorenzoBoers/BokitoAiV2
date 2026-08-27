@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, CheckCircle2, Image, Loader2, MessageSquare, Upload } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Copy, Image, Loader2, MessageSquare, Upload } from 'lucide-react'
+import { toast } from 'sonner'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
@@ -148,6 +150,18 @@ export default function CompanyConfig() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [subdomainError, setSubdomainError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const savedName = currentWorkspace?.name || 'Bokito AI'
+  const savedSubdomain = currentWorkspace?.slug || user?.tenant?.slug || ''
+  const savedColor = resolveBrandSeed(currentWorkspace?.brand_color)
+  const brandingDirty =
+    name.trim() !== savedName.trim() ||
+    subdomain.trim().toLowerCase() !== savedSubdomain.trim().toLowerCase() ||
+    brandColor.trim().toLowerCase() !== savedColor.trim().toLowerCase() ||
+    logoFile != null ||
+    faviconFile != null ||
+    clearLogo ||
+    clearFavicon
+  useUnsavedChangesGuard(brandingDirty && !saving, t('brandingPage.unsavedLeave'))
 
   useEffect(() => {
     if (!currentWorkspace) return
@@ -356,7 +370,21 @@ export default function CompanyConfig() {
               </SettingRow>
 
               <SettingRow label={t('brandingPage.brandColor')} description={t('brandingPage.brandColorHint')}>
-                <ColorField value={brandColor} onChange={setBrandColor} />
+                <div className="flex items-center gap-2">
+                  <ColorField value={brandColor} onChange={setBrandColor} />
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[12px] text-text-secondary hover:bg-bg-hover"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(brandColor)
+                      toast.success(t('brandingPage.copiedColor'))
+                    }}
+                    aria-label={t('brandingPage.copyColor')}
+                  >
+                    <Copy size={12} />
+                    {t('brandingPage.copyColor')}
+                  </button>
+                </div>
               </SettingRow>
 
               <SettingRow label={t('brandingPage.subdomain')} description={t('brandingPage.subdomainHint')}>

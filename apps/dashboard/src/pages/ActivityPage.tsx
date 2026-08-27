@@ -1,9 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Pause, Play, RefreshCw, Trash2 } from 'lucide-react'
-import { formatAppTime } from '../lib/app-locale'
+import { toast } from 'sonner'
+import { formatAppDateTime, formatAppTime } from '../lib/app-locale'
+import { activityDayBucket } from '../lib/activity-day'
+import {
+  activitySearchParams,
+  parseActivityDetail,
+  parseActivityFollow,
+  parseActivitySource,
+  type ActivityDetail,
+  type ActivitySource,
+} from '../lib/activity-filters'
+import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
+import { threadHubPath } from '../lib/message-composer'
 import { agentRunsPath, inboxPath } from '../lib/messages-paths'
+import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { workLogRunsPath } from '../lib/agenda-thread'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
@@ -90,18 +103,31 @@ function formatTime(iso: string, language?: string | null): string {
 export default function ActivityPage() {
   const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [planned, setPlanned] = useState<AgendaItem[]>([])
   const [runThreads, setRunThreads] = useState<InboxThread[]>([])
-  const [filter, setFilter] = useState('')
-  const [source, setSource] = useState<SourceFilter>('all')
-  const [detail, setDetail] = useState<DetailFilter>('headlines')
-  const [autoFollow, setAutoFollow] = useState(true)
+  const filter = searchParams.get('q') ?? ''
+  const source = parseActivitySource(searchParams.get('source'))
+  const detail = parseActivityDetail(searchParams.get('detail'))
+  const autoFollow = parseActivityFollow(searchParams.get('follow'))
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMoreHistory, setHasMoreHistory] = useState(true)
   const [loadError, setLoadError] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
+  const patchFilters = useCallback(
+    (patch: {
+      source?: ActivitySource
+      detail?: ActivityDetail
+      q?: string
+      follow?: boolean
+    }) => {
+      setSearchParams(activitySearchParams(searchParams, patch), { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   const load = useCallback(async () => {
     if (!token) return
@@ -116,6 +142,7 @@ export default function ActivityPage() {
       setLoadError(t('activityPage.loadError'))
     } finally {
       setLoading(false)
+      setRefreshedAt(new Date())
     }
   }, [token, t])
 
@@ -268,6 +295,11 @@ export default function ActivityPage() {
         meta={
           <>
             <ConnectionStatus />
+            {refreshedAt ? (
+              <span className="text-[11px] text-text-muted">
+                {t('activityPage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={() => void load()}
@@ -317,7 +349,7 @@ export default function ActivityPage() {
             <button
               key={value}
               type="button"
-              onClick={() => setSource(value)}
+              onClick={() => patchFilters({ source: value })}
               className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
                 source === value
                   ? 'bg-accent/12 text-accent'
@@ -338,7 +370,8 @@ export default function ActivityPage() {
             <button
               key={value}
               type="button"
-              onClick={() => setDetail(value)}
+              title={t(value === 'headlines' ? 'activityPage.headlinesHint' : 'activityPage.fullLogHint')}
+              onClick={() => patchFilters({ detail: value })}
               className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
                 detail === value
                   ? 'bg-accent/12 text-accent'
@@ -351,13 +384,13 @@ export default function ActivityPage() {
         </div>
         <input
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(e) => patchFilters({ q: e.target.value })}
           placeholder={t('activityPage.filterPlaceholder')}
           className="h-8 w-full max-w-[280px] rounded-lg border border-border/60 bg-bg-input px-3 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
         <button
           type="button"
-          onClick={() => setAutoFollow((v) => !v)}
+          onClick={() => patchFilters({ follow: !autoFollow })}
           className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
             autoFollow
               ? 'border-accent/45 bg-accent/10 text-accent'
@@ -369,7 +402,17 @@ export default function ActivityPage() {
         </button>
         <button
           type="button"
-          onClick={() => setEntries([])}
+          title={t('activityPage.clearView')}
+          onClick={() => {
+            const snapshot = entries
+            setEntries([])
+            toast(t('activityPage.cleared'), {
+              action: {
+                label: t('activityPage.undoClear'),
+                onClick: () => setEntries(snapshot),
+              },
+            })
+          }}
           className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
         >
           <Trash2 size={12} />
@@ -388,24 +431,44 @@ export default function ActivityPage() {
             <p className="text-[12.5px] text-text-muted">
               {filtered.length > 0 && detail === 'headlines'
                 ? t('activityPage.emptyHeadlines')
-                : t('activityPage.empty')}
+                : entries.length > 0 && (filter.trim() || source !== 'all')
+                  ? t('activityPage.emptyFiltered')
+                  : t('activityPage.empty')}
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
               {filtered.length > 0 && detail === 'headlines' ? (
                 <button
                   type="button"
-                  onClick={() => setDetail('all')}
+                  onClick={() => patchFilters({ detail: 'all' })}
                   className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
                 >
                   {t('activityPage.showFullLog')}
                 </button>
+              ) : entries.length > 0 && (filter.trim() || source !== 'all') ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    patchFilters({ q: '', source: 'all' })
+                  }}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                >
+                  {t('activityPage.clearFilters')}
+                </button>
               ) : (
-              <Link
-                to={inboxPath('open')}
-                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-              >
-                {t('activityPage.openCommunication')}
-              </Link>
+                <>
+                  <Link
+                    to={inboxPath('open')}
+                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                  >
+                    {t('activityPage.openCommunication')}
+                  </Link>
+                  <Link
+                    to={talkToAssistantPath(t('activityPage.talkPrefill'))}
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('activityPage.talkAssistant')}
+                  </Link>
+                </>
               )}
               <Link
                 to="/agents"
@@ -429,13 +492,18 @@ export default function ActivityPage() {
           </div>
         ) : (
           <div className="divide-y divide-border/30">
-            {visible.map((entry) => {
+            {visible.map((entry, index) => {
+              const day = activityDayBucket(entry.createdAt)
+              const prevDay = index > 0 ? activityDayBucket(visible[index - 1]!.createdAt) : null
+              const showDayHeading = day !== prevDay
               const completed = /complet/i.test(`${entry.eventType} ${entry.message}`)
               const href = entry.signalId
                 ? entry.kind === 'audit'
-                  ? inboxPath('all', entry.signalId)
+                  ? threadHubPath({ id: entry.signalId, channel: 'email' })
                   : agentRunsPath(completed ? 'results' : 'all', entry.signalId)
-                : entry.agentId
+                : entry.agentId && entry.runId
+                  ? agentWorkforceRunUrl(entry.agentId, entry.runId)
+                  : entry.agentId
                   ? workLogRunsPath(
                       {
                         task_subject: /^(run |executed )/i.test(entry.message) ? '' : entry.message,
@@ -470,24 +538,97 @@ export default function ActivityPage() {
                           ? `${entry.actorName || t('activityPage.teamMember')} - ${activityEventTypeLabel(entry.eventType, t)}`
                           : `${entry.actorName ? `${entry.actorName} - ` : ''}${activityEventTypeLabel(entry.eventType, t)}`}
                       </span>
+                      {entry.runId ? (
+                        <button
+                          type="button"
+                          title={entry.runId}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            void navigator.clipboard.writeText(entry.runId!).then(
+                              () => toast.success(t('activityPage.idCopied')),
+                              () => toast.error(t('activityPage.copyFailed')),
+                            )
+                          }}
+                          className="font-mono hover:text-accent hover:underline"
+                        >
+                          run
+                        </button>
+                      ) : null}
+                      {entry.signalId ? (
+                        <button
+                          type="button"
+                          title={entry.signalId}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            void navigator.clipboard.writeText(entry.signalId!).then(
+                              () => toast.success(t('activityPage.idCopied')),
+                              () => toast.error(t('activityPage.copyFailed')),
+                            )
+                          }}
+                          className="font-mono hover:text-accent hover:underline"
+                        >
+                          thread
+                        </button>
+                      ) : null}
+                      {entry.agentId ? (
+                        <button
+                          type="button"
+                          title={entry.agentId}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            void navigator.clipboard.writeText(entry.agentId!).then(
+                              () => toast.success(t('activityPage.idCopied')),
+                              () => toast.error(t('activityPage.copyFailed')),
+                            )
+                          }}
+                          className="font-mono hover:text-accent hover:underline"
+                        >
+                          agent
+                        </button>
+                      ) : null}
                     </p>
                   </div>
-                  <span className="shrink-0 font-mono text-[10.5px] text-text-muted">
+                  <span
+                    className="shrink-0 font-mono text-[10.5px] text-text-muted"
+                    title={
+                      entry.createdAt
+                        ? formatAppDateTime(new Date(entry.createdAt), i18n.language)
+                        : undefined
+                    }
+                  >
                     {formatTime(entry.createdAt, i18n.language)}
                   </span>
                 </>
               )
-              return href ? (
+              const row = href ? (
                 <Link
-                  key={entry.id}
                   to={href}
                   className="flex items-start gap-3 px-4 py-2 transition-colors hover:bg-bg-hover/40"
                 >
                   {inner}
                 </Link>
               ) : (
-                <div key={entry.id} className="flex items-start gap-3 px-4 py-2">
+                <div className="flex items-start gap-3 px-4 py-2">
                   {inner}
+                </div>
+              )
+              return (
+                <div key={entry.id}>
+                  {showDayHeading ? (
+                    <p className="sticky top-0 z-10 bg-bg-elevated/95 px-4 py-1.5 text-[11px] font-medium text-text-muted">
+                      {t(
+                        day === 'today'
+                          ? 'activityPage.dayToday'
+                          : day === 'yesterday'
+                            ? 'activityPage.dayYesterday'
+                            : 'activityPage.dayOlder',
+                      )}
+                    </p>
+                  ) : null}
+                  {row}
                 </div>
               )
             })}

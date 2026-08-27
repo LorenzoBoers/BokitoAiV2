@@ -14,6 +14,9 @@ describe('compose intent', () => {
       '/communication/inbox/open?compose=1&to=ada%40example.com',
     )
     expect(newContactPath()).toBe('/contacts?new=1')
+    expect(newContactPath('ada@example.com')).toBe(
+      '/contacts?new=1&address=ada%40example.com',
+    )
     expect(newAgentPath()).toBe('/agents?new=1')
   })
 

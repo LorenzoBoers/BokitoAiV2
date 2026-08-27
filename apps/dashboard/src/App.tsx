@@ -12,6 +12,7 @@ import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
 import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-settings-path'
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
+import { lastInboxPath } from './lib/inbox-prefs'
 import { agentChatPath, agentRunsPath, assistantPath, channelPath, inboxPath } from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
@@ -80,6 +81,10 @@ function RouteFallback() {
   )
 }
 
+function LastInboxRedirect() {
+  return <Navigate to={lastInboxPath()} replace />
+}
+
 function HomeRoute() {
   const { t } = useTranslation('nav')
   const { workspaceLoading, workspaces, currentWorkspace } = useWorkspace()
@@ -91,18 +96,18 @@ function HomeRoute() {
   }
 
   if (tenantSubdomain) {
-    return <Navigate to={inboxPath('open')} replace />
+    return <Navigate to={lastInboxPath()} replace />
   }
 
   // Daily login should resume work, not the workspace picker.
   // Switch workspaces from the user menu → Workspaces (`/workspaces`).
   if (currentWorkspace) {
-    return <Navigate to={inboxPath('open')} replace />
+    return <Navigate to={lastInboxPath()} replace />
   }
 
   const activeMemberships = (user?.memberships ?? []).filter((m) => m.status === 'active')
   if (activeMemberships.length === 1 && workspaces.length <= 1) {
-    return <Navigate to={inboxPath('open')} replace />
+    return <Navigate to={lastInboxPath()} replace />
   }
 
   return (
@@ -207,7 +212,7 @@ function LegacyMessagesRedirect() {
   const rest = location.pathname.replace(/^\/messages\/?/, '')
   const isRuns =
     rest === 'updates' || rest === 'results' || rest.startsWith('updates/') || rest.startsWith('results/')
-  const target = isRuns ? `/communication/agents/${rest}` : rest ? `/communication/customers/${rest}` : inboxPath('all')
+  const target = isRuns ? `/communication/agents/${rest}` : rest ? `/communication/customers/${rest}` : lastInboxPath()
   return <Navigate to={`${target}${location.search}`} replace />
 }
 
@@ -215,7 +220,7 @@ function LegacyMessagesRedirect() {
 function LegacyInboxRedirect() {
   const location = useLocation()
   const rest = location.pathname.replace(/^\/inbox\/?/, '')
-  const target = rest ? `/communication/${rest}` : inboxPath('all')
+  const target = rest ? `/communication/${rest}` : lastInboxPath()
   return <Navigate to={`${target}${location.search}`} replace />
 }
 
@@ -252,11 +257,11 @@ export default function App() {
         <Route element={<AppShell />}>
           {/* Communication hub: chats + customers + agents */}
           <Route element={<MessagesHub />}>
-            <Route path="/communication" element={<Navigate to={inboxPath('open')} replace />} />
+            <Route path="/communication" element={<LastInboxRedirect />} />
             <Route path="/communication/new" element={<NewConversationPage />} />
 
             {/* Inbox queues */}
-            <Route path="/communication/inbox" element={<Navigate to={inboxPath('open')} replace />} />
+            <Route path="/communication/inbox" element={<LastInboxRedirect />} />
             <Route path="/communication/inbox/:queue" element={<Communication />} />
             <Route path="/communication/inbox/:queue/t/:threadId" element={<Communication />} />
 

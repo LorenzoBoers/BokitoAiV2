@@ -66,6 +66,7 @@ export const integrationsRoutes = {
     collections: {
       list: '/kb/collections',
       create: '/kb/collections',
+      byId: (collectionId: number) => `/kb/collections/${collectionId}`,
       documents: (collectionId: number) => `/kb/collections/${collectionId}/documents`,
     },
     documents: {

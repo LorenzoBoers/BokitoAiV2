@@ -1,11 +1,18 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  readQuickFilter,
+  writeQuickFilter,
+  type InboxListQuickFilter,
+} from '../lib/inbox-prefs'
 import { leafFromPath } from '../lib/messages-paths'
 
-export type InboxListQuickFilter = 'all' | 'unread' | 'pinned'
+export type { InboxListQuickFilter }
 
 type InboxCommunicationContextValue = {
   search: string
   setSearch: (value: string) => void
+  /** Debounced copy of `search` used for list fetches. */
+  listSearch: string
   quickFilter: InboxListQuickFilter
   setQuickFilter: (value: InboxListQuickFilter) => void
   resetQuickFilter: () => void
@@ -18,22 +25,44 @@ export function isInboxCommunicationRoute(pathname: string): boolean {
 }
 
 export function InboxCommunicationProvider({ children }: { children: ReactNode }) {
-  const [search, setSearch] = useState('')
-  const [quickFilter, setQuickFilter] = useState<InboxListQuickFilter>('all')
+  const [search, setSearchState] = useState('')
+  const [listSearch, setListSearch] = useState('')
+  const [quickFilter, setQuickFilterState] = useState<InboxListQuickFilter>(readQuickFilter)
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setListSearch('')
+      return
+    }
+    const timer = window.setTimeout(() => setListSearch(search), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const setSearch = useCallback((value: string) => {
+    setSearchState(value)
+    if (!value.trim()) setListSearch('')
+  }, [])
+
+  const setQuickFilter = useCallback((value: InboxListQuickFilter) => {
+    setQuickFilterState(value)
+    writeQuickFilter(value)
+  }, [])
 
   const resetQuickFilter = useCallback(() => {
-    setQuickFilter('all')
+    setQuickFilterState('all')
+    writeQuickFilter('all')
   }, [])
 
   const value = useMemo(
     () => ({
       search,
       setSearch,
+      listSearch,
       quickFilter,
       setQuickFilter,
       resetQuickFilter,
     }),
-    [search, quickFilter, resetQuickFilter],
+    [search, setSearch, listSearch, quickFilter, setQuickFilter, resetQuickFilter],
   )
 
   return (

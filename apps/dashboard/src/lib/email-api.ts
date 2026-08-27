@@ -401,6 +401,10 @@ export async function createKbCollection(token: string, name: string, descriptio
   await apiPost(integrationsRoutes.kb.collections.create, { name, description }, token)
 }
 
+export async function deleteKbCollection(token: string, collectionId: number): Promise<void> {
+  await apiDelete(integrationsRoutes.kb.collections.byId(collectionId), token)
+}
+
 export async function listKbDocuments(token: string, collectionId: number): Promise<KbDocument[]> {
   const payload = await apiGet<unknown>(integrationsRoutes.kb.collections.documents(collectionId), token)
   const source = Array.isArray(payload)

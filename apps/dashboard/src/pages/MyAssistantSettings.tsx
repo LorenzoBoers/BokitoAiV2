@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { assistantPath } from '../lib/messages-paths'
 import { PageContent } from '../components/layout/PageContent'
 import { AgentModelCard } from '../components/workforce/AgentModelCard'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import {
   bokitoGetMyAssistant,
   bokitoListChatTargets,
@@ -13,6 +14,8 @@ import {
   type ChatTarget,
   type MyAssistant,
 } from '../lib/bokito-api'
+
+const TEMPLATE_KEYS = ['Brief', 'Warm', 'Knowledge'] as const
 
 /**
  * Personal assistant settings: every user can rename their assistant, tune
@@ -30,6 +33,14 @@ export default function MyAssistantSettings() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const dirty = Boolean(
+    assistant &&
+      (name !== assistant.agent.name ||
+        instructions !== assistant.agent.instructions ||
+        defaultTarget !== assistant.default_chat_agent_id),
+  )
+  useUnsavedChangesGuard(dirty, t('assistantSettings.unsavedLeave'))
 
   const reload = useCallback(async () => {
     if (!token) return
@@ -79,6 +90,17 @@ export default function MyAssistantSettings() {
     }
   }, [token, saving, name, instructions, defaultTarget, t])
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        if (dirty) void save()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dirty, save])
+
   if (loading) {
     return (
       <PageContent width="lg" className="py-10">
@@ -91,16 +113,24 @@ export default function MyAssistantSettings() {
 
   return (
     <PageContent width="lg" className="space-y-6 py-1">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-bg-surface text-accent shadow-card">
-          <Bot size={18} />
-        </span>
-        <div>
-          <h2 className="text-[15px] font-semibold text-text-heading">{t('assistantSettings.title')}</h2>
-          <p className="text-[12.5px] text-text-muted">
-            {t('assistantSettings.body')}
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-bg-surface text-accent shadow-card">
+            <Bot size={18} />
+          </span>
+          <div>
+            <h2 className="text-[15px] font-semibold text-text-heading">{t('assistantSettings.title')}</h2>
+            <p className="text-[12.5px] text-text-muted">
+              {t('assistantSettings.body')}
+            </p>
+          </div>
         </div>
+        <Link
+          to={assistantPath()}
+          className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg hover:bg-accent-hover"
+        >
+          {t('assistantSettings.talkCta')}
+        </Link>
       </div>
 
       {error ? <p className="text-[12px] text-status-error">{error}</p> : null}
@@ -122,6 +152,19 @@ export default function MyAssistantSettings() {
           <label className="mb-1 block text-[12px] font-medium text-text-secondary" htmlFor="assistant-instructions">
             {t('assistantSettings.instructions')}
           </label>
+          <p className="mb-1.5 text-[11.5px] text-text-muted">{t('assistantSettings.templatesLabel')}</p>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {TEMPLATE_KEYS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setInstructions(t(`assistantSettings.template${key}Text`))}
+                className="rounded-lg border border-border/60 px-2.5 py-1 text-[11.5px] font-medium text-text-secondary hover:bg-bg-hover/60"
+              >
+                {t(`assistantSettings.template${key}`)}
+              </button>
+            ))}
+          </div>
           <textarea
             id="assistant-instructions"
             value={instructions}
@@ -130,6 +173,9 @@ export default function MyAssistantSettings() {
             className="w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-[13px] leading-relaxed text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
             placeholder={t('assistantSettings.instructionsPlaceholder')}
           />
+          <p className="mt-1 text-[11px] text-text-muted">
+            {t('assistantSettings.charCount', { count: instructions.length })}
+          </p>
         </div>
 
         <div>
@@ -156,11 +202,18 @@ export default function MyAssistantSettings() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
+        <div
+          className={
+            dirty
+              ? 'sticky bottom-4 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-accent/30 bg-bg-surface px-3 py-2 shadow-overlay'
+              : 'flex flex-wrap items-center gap-2 pt-1'
+          }
+        >
+          {dirty ? <p className="text-xs text-text-secondary">{t('assistantSettings.unsavedBar')}</p> : null}
           <button
             type="button"
             onClick={() => void save()}
-            disabled={saving}
+            disabled={saving || !dirty}
             className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             {saving ? <Loader2 size={13} className="animate-spin" /> : null}
@@ -171,35 +224,23 @@ export default function MyAssistantSettings() {
               <Check size={13} /> {t('assistantSettings.saved')}
             </span>
           ) : null}
-          <Link
-            to={assistantPath()}
-            className="text-[12px] font-medium text-accent hover:underline"
-          >
+        </div>
+        <p className="text-[11px] font-medium text-text-muted">{t('assistantSettings.moreSettings')}</p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link to={assistantPath()} className="text-[12px] font-medium text-accent hover:underline">
             {t('assistantSettings.openCommunication')}
           </Link>
-          <Link
-            to="/settings/models"
-            className="text-[12px] font-medium text-accent hover:underline"
-          >
-            {t('assistantSettings.openModels')}
-          </Link>
-          <Link
-            to="/knowledge"
-            className="text-[12px] font-medium text-accent hover:underline"
-          >
+          <Link to="/knowledge" className="text-[12px] font-medium text-accent hover:underline">
             {t('assistantSettings.openKnowledge')}
           </Link>
-          <Link
-            to="/settings/communication"
-            className="text-[12px] font-medium text-accent hover:underline"
-          >
-            {t('assistantSettings.openInboxAi')}
-          </Link>
-          <Link
-            to="/settings/notifications"
-            className="text-[12px] font-medium text-accent hover:underline"
-          >
+          <Link to="/settings/notifications" className="text-[12px] font-medium text-accent hover:underline">
             {t('assistantSettings.openNotifications')}
+          </Link>
+          <Link to="/settings/models" className="text-[12px] font-medium text-accent hover:underline">
+            {t('assistantSettings.openModels')}
+          </Link>
+          <Link to="/settings/communication" className="text-[12px] font-medium text-accent hover:underline">
+            {t('assistantSettings.openInboxAi')}
           </Link>
         </div>
       </div>

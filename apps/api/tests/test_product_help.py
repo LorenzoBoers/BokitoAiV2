@@ -11,10 +11,78 @@ from app.services.product_help import (
     get_article,
     keyword_search,
     list_articles,
+    markdown_asset_paths,
     reset_product_help_cache,
+    resolve_asset,
     resolve_product_help_dir,
     search_product_help,
 )
+from app.services.surface_map import (
+    article_entries,
+    load_surface_map,
+    mapped_routes,
+    screenshot_relpaths,
+    skip_routes,
+    validate_surface_map,
+)
+
+REQUIRED_RAIL_ROUTES = {
+    "/cockpit",
+    "/communication/inbox/open",
+    "/contacts",
+    "/agenda",
+    "/agents",
+    "/projects",
+    "/knowledge",
+    "/settings",
+}
+
+REQUIRED_PAGE_GUIDE_ROUTES = {
+    "/cockpit",
+    "/communication/inbox/open",
+    "/contacts",
+    "/agenda",
+    "/agents",
+    "/projects",
+    "/knowledge",
+    "/settings/govern",
+    "/settings/channels",
+    "/settings/integrations",
+    "/settings/models",
+    "/ai/assistant/external/installation",
+}
+
+REQUIRED_SETTINGS_ROUTES = {
+    "/settings/profile",
+    "/settings/assistant",
+    "/settings/notifications",
+    "/settings/setup",
+    "/settings/general",
+    "/settings/branding",
+    "/settings/members",
+    "/settings/channels",
+    "/ai/assistant/external/installation",
+    "/settings/communication",
+    "/settings/help-centers",
+    "/settings/integrations",
+    "/settings/govern",
+    "/settings/developers",
+    "/settings/models",
+}
+
+
+def _route_covers(mapped: str, required: str) -> bool:
+    mapped_path = mapped.split("?", 1)[0].rstrip("/") or "/"
+    required_path = required.split("?", 1)[0].rstrip("/") or "/"
+    if mapped_path == required_path:
+        return True
+    if mapped_path != "/settings" and required_path.startswith(mapped_path + "/"):
+        return True
+    return False
+
+
+def _routes_cover(mapped: set[str], required: str) -> bool:
+    return any(_route_covers(route, required) for route in mapped)
 
 
 def _repo_docs() -> Path:
@@ -89,6 +157,10 @@ def test_resolve_dir_finds_sectioned_articles():
         "mcp-endpoint",
         "widget-embed",
         "rate-limits",
+        "agent-runs",
+        "inbox-ai",
+        "members",
+        "help-centers",
     }
     article = get_article("channels", "nl")
     assert article is not None
@@ -208,3 +280,57 @@ async def test_product_help_search_finds_how_to_tasks():
     slugs = {h["slug"] for h in hits}
     assert "channels" in slugs
     assert all(h["source_type"] == "product_help" for h in hits)
+
+
+def test_surface_map_covers_articles_and_routes():
+    reset_product_help_cache()
+    mapping = load_surface_map()
+    slugs = {item.slug for item in list_articles("en")}
+    errors = validate_surface_map(mapping, slugs)
+    assert not errors, "\n".join(errors)
+    for slug, meta in article_entries(mapping).items():
+        article = get_article(slug, "en")
+        assert article is not None
+        assert article.section == meta.get("section"), slug
+    covered = mapped_routes(mapping)
+    for route in REQUIRED_RAIL_ROUTES | REQUIRED_PAGE_GUIDE_ROUTES | REQUIRED_SETTINGS_ROUTES:
+        assert _routes_cover(covered, route), f"surface-map.yaml does not cover {route}"
+    assert "/settings/profile" in skip_routes(mapping)
+    assert "/settings/notifications" in skip_routes(mapping)
+
+
+def test_surface_map_and_markdown_screenshots_exist():
+    reset_product_help_cache()
+    root = resolve_product_help_dir()
+    mapping = load_surface_map()
+    for slug, meta in article_entries(mapping).items():
+        for rel in screenshot_relpaths(slug, meta.get("screenshots") or []):
+            assert (root / rel).is_file(), f"missing {rel} (listed in surface-map.yaml)"
+    for article in list_articles("en"):
+        for rel in markdown_asset_paths(article.content):
+            assert (root / "assets" / rel).is_file(), f"{article.slug} references missing {rel}"
+
+
+def test_resolve_asset_rejects_escapes():
+    reset_product_help_cache()
+    assert resolve_asset("../en/getting-started/cockpit.md") is None
+    assert resolve_asset("communication/../../surface-map.yaml") is None
+    assert resolve_asset("not-a-real/file.png") is None
+
+
+@pytest.mark.asyncio
+async def test_asset_endpoint_404_on_escape(client: AsyncClient):
+    reset_product_help_cache()
+    res = await client.get("/api/docs/assets/../en/getting-started/cockpit.md")
+    assert res.status_code == 404
+    missing = await client.get("/api/docs/assets/nope/missing.png")
+    assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_asset_endpoint_serves_png(client: AsyncClient):
+    reset_product_help_cache()
+    res = await client.get("/api/docs/assets/cockpit/overview.png")
+    assert res.status_code == 200, res.text
+    assert res.headers["content-type"].startswith("image/png")
+    assert res.content[:8] == b"\x89PNG\r\n\x1a\n"

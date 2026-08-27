@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, Loader2, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
@@ -17,6 +17,11 @@ import {
   type ChatMessage,
 } from '../../lib/bokito-api'
 import { ComposerCard } from '../ui/ComposerCard'
+import { useMembers } from '../../hooks/useMembers'
+import { useMentionDraft } from '../../hooks/useMentionDraft'
+import MentionPopover from './MentionPopover'
+import { MentionHighlight } from './MentionHighlight'
+import type { MentionItem } from '../../lib/mentions'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/button'
 import { AI_CARD_CLASS, AI_ICON_BOX_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
@@ -318,14 +323,26 @@ export default function DirectChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
-  const [draft, setDraft] = useState('')
+  const { members } = useMembers()
+  const mentionItems = useMemo<MentionItem[]>(
+    () =>
+      members.map((member) => ({
+        type: 'user' as const,
+        id: String(member.id),
+        name: member.name,
+        email: member.email,
+        avatarUrl: member.avatarUrl,
+      })),
+    [members],
+  )
+  const mention = useMentionDraft({ items: mentionItems })
   const [stream, setStream] = useState<StreamState>({ text: '', thinking: '', active: false })
   const gatewayStream = useSignalStream(conversationId)
   const [error, setError] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [renameDraft, setRenameDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-  const composerRef = useRef<HTMLTextAreaElement>(null)
+  const composerRef = mention.textareaRef
   const abortRef = useRef<AbortController | null>(null)
   const streamingRef = useRef(false)
   const autoSentRef = useRef(false)
@@ -375,9 +392,9 @@ export default function DirectChatPanel({
 
   const send = useCallback(
     async (contentOverride?: string) => {
-      const content = (contentOverride ?? draft).trim()
+      const content = (contentOverride ?? mention.raw).trim()
       if (!content || !token || !conversationId || streamingRef.current) return
-      setDraft('')
+      mention.setRaw('')
       setError(null)
 
       const optimistic: ChatMessage = {
@@ -425,7 +442,7 @@ export default function DirectChatPanel({
         onRefreshThreads?.()
       }
     },
-    [draft, token, conversationId, refreshSessions, onRefreshThreads],
+    [mention, token, conversationId, refreshSessions, onRefreshThreads],
   )
 
   useEffect(() => {
@@ -449,10 +466,7 @@ export default function DirectChatPanel({
   }
 
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      void send()
-    }
+    mention.onKeyDown(e, () => void send())
   }
 
   const startRename = () => {
@@ -600,10 +614,30 @@ export default function DirectChatPanel({
           {error ? <p className="mb-2 px-1 text-[12px] text-status-error">{error}</p> : null}
           <ComposerCard
             ref={composerRef}
+            id="inbox-reply-composer"
             mode="chat"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            value={mention.display}
+            onChange={(e) =>
+              mention.onChange(e.currentTarget.value, e.currentTarget.selectionStart ?? e.currentTarget.value.length)
+            }
+            onClick={(e) =>
+              mention.refreshMentionState(
+                e.currentTarget.value,
+                e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+              )
+            }
             onKeyDown={onComposerKeyDown}
+            highlighter={<MentionHighlight raw={mention.raw} />}
+            overlay={
+              mention.mentionOpen ? (
+                <MentionPopover
+                  items={mention.mentionMatches}
+                  activeIndex={mention.mentionIndex}
+                  onSelect={mention.selectMention}
+                  onHover={mention.setMentionIndex}
+                />
+              ) : null
+            }
             placeholder={composerPlaceholder ?? t('directChat.placeholder')}
             className="border-border/60 bg-bg-surface"
           >
@@ -615,7 +649,7 @@ export default function DirectChatPanel({
               <button
                 type="button"
                 onClick={() => void send()}
-                disabled={!draft.trim()}
+                disabled={!mention.raw.trim()}
                 title={t('directChat.send')}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
               >

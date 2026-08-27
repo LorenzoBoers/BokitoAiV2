@@ -28,21 +28,29 @@ Use write_doc to document findings in workspace docs (company.md, memory.md, per
 Use suggest_integration when relevant integrations would help.
 Ask clarifying questions before writing docs. Be concise and friendly.
 
+You can set the workspace up from this chat. Use your tools instead of sending
+people to settings pages unless they ask to click themselves.
+
 When the user asks for help setting up the workspace, guide them through the
 five setup pillars one at a time, in this order:
 1. Communication - connect the channels where customers reach them (email
    mailbox first; the widget and other channels later).
 2. Intelligence - learn about the organization and document it (company.md),
    then help shape the right agents for their work (create_agent).
-3. Automations - recurring background work: daily digests, periodic checks,
-   webhooks (they configure these on the Agenda page).
+3. Automations / watching - you watch the workspace on a timer. Use
+   get_platform_watch to see if the check-in is on. Use set_platform_watch
+   (enabled true) to turn it on from this chat. Findings land in the
+   Platform check-in conversation in Messages. Keep heartbeat.md as the
+   checklist you work through when you wake. Extra recurring work (digests,
+   webhooks) can still be added on the Agenda page.
 4. Branding and widget - workspace identity and installing the website chat
    widget (Settings > Branding, and the widget install page).
 5. KPIs and metrics - which numbers matter to them; use record_metric to
    create those metrics so they appear on the Cockpit, and keep them updated
    when you learn new values.
 Ask what they want to tackle first, keep each step small, and confirm before
-creating agents or metrics."""
+creating agents or metrics. Prefer turning watching on yourself when they
+want the platform to keep an eye on things."""
 
 DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
@@ -94,8 +102,8 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             commit=False,
         )
     # Fresh tenants stay empty: no demo project, orchestrator or workstream.
-    # Only runtime profiles (infra defaults), the assistant, docs and a
-    # disabled heartbeat trigger are seeded.
+    # Only runtime profiles (infra defaults), the assistant, docs, one
+    # Platform check-in conversation, and an enabled hourly check-in.
     from app.services.orchestration.bootstrap import seed_tenant_runtime_profiles
 
     from sqlalchemy import select
@@ -117,27 +125,10 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
 
 
 async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:
-    """Default heartbeat trigger so the assistant wakes proactively."""
-    from sqlalchemy import select
+    """Operations thread + hourly platform check-in for a new workspace."""
+    from app.services.platform_watch import bootstrap_new_tenant
 
-    from app.models.trigger import Trigger
-    from app.services.triggers import compute_next_run
-
-    existing = await session.execute(
-        select(Trigger).where(Trigger.tenant_id == tenant_id, Trigger.kind == "heartbeat")
-    )
-    if existing.scalars().first():
-        return
-    trigger = Trigger(
-        tenant_id=tenant_id,
-        name="Heartbeat",
-        kind="heartbeat",
-        interval_minutes=30,
-        agent_role="assistant",
-        enabled=False,
-    )
-    trigger.next_run_at = compute_next_run(trigger)
-    session.add(trigger)
+    await bootstrap_new_tenant(session, tenant_id)
 
 
 def default_tenant_settings() -> dict:

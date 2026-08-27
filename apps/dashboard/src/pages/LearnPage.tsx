@@ -13,6 +13,7 @@ import {
   type ProductHelpIndex,
 } from '../lib/product-help-api'
 import { isPageGuideSlug, PAGE_GUIDE_BACK, PAGE_GUIDE_RELATED, publicDocsPath } from '../lib/page-guides'
+import { readLastLearn, writeLastLearn } from '../lib/docs-continue'
 
 export default function LearnPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -44,6 +45,7 @@ function LearnIndex() {
   const { t } = useTranslation('nav')
   const { index, error } = useLearnIndex()
   const [query, setQuery] = useState('')
+  const lastLearn = useMemo(() => readLastLearn(), [])
 
   const sections = useMemo(() => {
     if (!index) return []
@@ -66,6 +68,18 @@ function LearnIndex() {
   return (
     <PageContent width="md" className="space-y-6 py-1">
       <ContentHeader title={t('pageGuides.indexTitle')} subtitle={t('pageGuides.indexIntro')} />
+
+      {lastLearn ? (
+        <Link
+          to={lastLearn.path}
+          className="block rounded-xl border border-accent/30 bg-accent/5 px-4 py-3"
+        >
+          <p className="text-[12px] font-medium text-accent">{t('pageGuides.continueReading')}</p>
+          <p className="mt-0.5 text-[13px] text-text-heading">
+            {t('pageGuides.continueReadingHint', { title: lastLearn.title })}
+          </p>
+        </Link>
+      ) : null}
 
       <div className="relative">
         <Search
@@ -137,7 +151,10 @@ function LearnArticle({ slug }: { slug: string }) {
     setError(null)
     void getProductHelpArticle(slug, i18n.language)
       .then((row) => {
-        if (!cancelled) setArticle(row)
+        if (!cancelled) {
+          setArticle(row)
+          writeLastLearn(slug, row.title)
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {

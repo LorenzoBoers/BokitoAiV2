@@ -1,19 +1,23 @@
 ---
 title: Webhooks
 intro: Ontvang een HTTP POST wanneer signals of beslissingen in de workspace wijzigen.
-description: Abonneer je op Bokito-webhookevents, verifieer de X-Bokito-Signature-HMAC-header en ga goed om met retries.
-keywords: webhooks, events, hmac, signature, callbacks
+description: Maak webhookendpoints aan onder Instellingen, Developers, verifieer de HMAC-signature, test deliveries en ga goed om met retries.
+keywords: webhooks, events, hmac, signature, developers, callbacks
 sort: 40
 related: api-overview,api-signals,authentication
 ---
 
 # Webhooks
 
-Webhooks duwen events naar jouw endpoint op het moment dat ze gebeuren, zodat je de REST-API niet hoeft te pollen.
+Webhooks duwen events naar jouw endpoint op het moment dat ze gebeuren, zodat je de REST-API niet hoeft te pollen. Owners en admins beheren ze op dezelfde pagina als tokens.
 
-## Abonneren
+## Abonneren onder Developers
 
-Maak een webhookendpoint aan onder **Instellingen, dan Developers**: jouw HTTPS-URL plus de events die je wilt. Elk endpoint krijgt een signing-secret - bewaar het als een wachtwoord; je hebt het nodig om leveringen te verifieren.
+1. Open **Instellingen** en daarna **Developers**.
+2. Onder **Webhooks** kies je **Endpoint toevoegen**. Vul een HTTPS-URL in (of `http://localhost` voor lokale tests) en optioneel een beschrijving.
+3. Kies events, of laat **Alle events** staan. Kies **Webhook toevoegen**.
+4. Kopieer het **Ondertekeningsgeheim** één keer en bewaar het als een wachtwoord. Je hebt het nodig om leveringen te verifieren.
+5. Gebruik **Testen** voor een proef. Open **Recente deliveries** voor event, status, pogingen en tijd. **Aanzetten** of **Pauzeren** zonder te verwijderen.
 
 ## Events
 
@@ -22,6 +26,10 @@ Maak een webhookendpoint aan onder **Instellingen, dan Developers**: jouw HTTPS-
 | `signal.created` | Een nieuw gesprek in de inbox landt (elk kanaal, ook de REST-API) |
 | `signal.closed` | Een gesprek wordt gesloten door een persoon, agent of automatisering |
 | `decision.created` | Een agent een beslisverzoek indient dat menselijke goedkeuring vraagt |
+| `decision.resolved` | Iemand die beslissing goedkeurt of afwijst |
+| `agent.run_failed` | Een geplande of inbound agent-run faalt |
+| `platform_change.applied` | Een Govern-wijziging wordt toegepast (Accepteren, of een yolo-apply) |
+| `spend.threshold_reached` | Workspace-tokens of uitgaven de 80%- of 100%-cap raken |
 
 De payload bevat de eventnaam en de data van het onderwerp (signal- of beslissingsvelden).
 

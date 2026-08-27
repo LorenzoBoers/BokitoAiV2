@@ -90,6 +90,17 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
   }
 
   const canSend = to.trim().length > 0 && body.trim().length > 0 && !sending && !uploading
+  const toInputRef = useRef<HTMLInputElement>(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const focus = window.setTimeout(() => {
+      if (prefill?.to) bodyRef.current?.focus()
+      else toInputRef.current?.focus()
+    }, 30)
+    return () => window.clearTimeout(focus)
+  }, [open, prefill?.to])
 
   const handleSend = async () => {
     if (!token || !canSend) return
@@ -123,32 +134,36 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           </DialogTitle>
         </DialogHeader>
 
-        {enabledConnections.length > 1 ? (
-          <label className="flex items-center gap-2 text-[12px] text-text-secondary">
+        {enabledConnections.length > 0 ? (
+          <label className="flex items-center gap-2 text-[12px] text-text-secondary" title={t('compose.fromHint')}>
             <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
-            <select
-              value={connectionId ?? ''}
-              onChange={(e) => setConnectionId(Number(e.target.value) || null)}
-              className={FIELD}
-            >
-              {enabledConnections.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.mailboxEmail}
-                </option>
-              ))}
-            </select>
+            {enabledConnections.length === 1 ? (
+              <span className="truncate text-[13px] text-text-primary">{enabledConnections[0].mailboxEmail}</span>
+            ) : (
+              <select
+                value={connectionId ?? ''}
+                onChange={(e) => setConnectionId(Number(e.target.value) || null)}
+                className={FIELD}
+              >
+                {enabledConnections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.mailboxEmail}
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
         ) : null}
 
         <div className="flex items-center gap-2 text-[12px]">
           <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.to')}</span>
           <input
+            ref={toInputRef}
             type="text"
             value={to}
             onChange={(e) => setTo(e.target.value)}
             placeholder={t('compose.toPlaceholder')}
             className={FIELD}
-            autoFocus
           />
           <button
             type="button"
@@ -186,8 +201,15 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         </div>
 
         <textarea
+          ref={bodyRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+              event.preventDefault()
+              void handleSend()
+            }
+          }}
           placeholder={t('compose.bodyPlaceholder')}
           rows={10}
           className="max-h-[320px] min-h-[160px] w-full resize-y rounded-md border border-border/60 bg-bg-input px-2.5 py-2 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
@@ -221,7 +243,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={sending}>
               {t('compose.cancel')}
             </Button>
-            <Button type="button" size="sm" disabled={!canSend} onClick={() => void handleSend()} className="gap-1.5">
+            <Button type="button" size="sm" disabled={!canSend} onClick={() => void handleSend()} title={t('composer.hintEmail')} className="gap-1.5">
               <Send size={13} />
               {sending
                 ? t('compose.sending')

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { toast } from 'sonner'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import { cn } from '../../lib/utils'
-import { submitMessageFeedback } from '../../lib/signals-api'
+import { cancelScheduledMessage, submitMessageFeedback } from '../../lib/signals-api'
 import { useCorrectionChat } from '../../lib/correction-chat'
 import { DomainFavicon } from '../ui/DomainFavicon'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -539,8 +539,13 @@ function eventLabel(event: InboxEvent, t: TFunction, memberName?: string): strin
 function EventPill({ event, memberName }: { event: InboxEvent; memberName?: string }) {
   const { t } = useTranslation('communication')
   const { ai, icon } = eventPresentation(event.eventType)
+  const payloadTitle =
+    event.payload && Object.keys(event.payload).length > 0
+      ? JSON.stringify(event.payload)
+      : undefined
   return (
     <span
+      title={payloadTitle}
       className={cn(
         'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] leading-4 whitespace-nowrap',
         ai
@@ -751,7 +756,7 @@ function MessageFeedbackControls({
 
 export function MessageTimelineItem({ message, layout = 'chat', contactName, contactEmail, contactPhone, membersById, noteActions, agentName }: MessageItemProps) {
   const { t } = useTranslation('communication')
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const currentUserId = user?.id ?? null
   const isInternal = message.direction === 'internal'
   const isOutbound = message.direction === 'outbound'
@@ -975,6 +980,20 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
           <span className="text-[10px] font-medium text-status-error">{t('timeline.notDelivered')}</span>
+          {displayBody ? (
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(displayBody).then(
+                  () => toast.success(t('timeline.bodyCopied')),
+                  () => toast.error(t('timeline.copyFailed')),
+                )
+              }}
+              className="text-[10px] font-medium text-accent hover:underline"
+            >
+              {t('timeline.copyBody')}
+            </button>
+          ) : null}
         </div>
       )
     }
@@ -982,6 +1001,20 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
           <span className="text-[10px] font-medium text-text-muted">{t('timeline.sending')}</span>
+          {token && typeof message.id === 'string' ? (
+            <button
+              type="button"
+              onClick={() => {
+                void cancelScheduledMessage(token, String(message.id)).then(
+                  () => toast.success(t('timeline.sendCancelled')),
+                  () => toast.error(t('timeline.cancelSendFailed')),
+                )
+              }}
+              className="text-[10px] font-medium text-accent hover:underline"
+            >
+              {t('timeline.cancelSend')}
+            </button>
+          ) : null}
         </div>
       )
     }
@@ -1024,8 +1057,47 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     <ChatMessageBubble side={side} avatar={avatar} header={header} body={bubbleBody} variant={variant} />
   )
 
+  const inspectRow =
+    typeof message.id === 'string' || displayBody ? (
+      <div className={cn('mt-0.5 flex gap-2', side === 'right' ? 'justify-end' : 'justify-start')}>
+        {typeof message.id === 'string' ? (
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(String(message.id)).then(
+                () => toast.success(t('timeline.idCopied')),
+                () => toast.error(t('timeline.copyFailed')),
+              )
+            }}
+            className="text-[10px] text-text-muted hover:text-accent hover:underline"
+          >
+            {t('timeline.copyId')}
+          </button>
+        ) : null}
+        {displayBody ? (
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(displayBody).then(
+                () => toast.success(t('timeline.bodyCopied')),
+                () => toast.error(t('timeline.copyFailed')),
+              )
+            }}
+            className="text-[10px] text-text-muted hover:text-accent hover:underline"
+          >
+            {t('timeline.copyBody')}
+          </button>
+        ) : null}
+      </div>
+    ) : null
+
   if (!message.agentTrace && !feedbackRow) {
-    return bubble
+    return (
+      <div>
+        {bubble}
+        {inspectRow}
+      </div>
+    )
   }
 
   return (
@@ -1039,6 +1111,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
         />
       ) : null}
       {bubble}
+      {inspectRow}
       {feedbackRow ? <div className={cn(isOwn ? 'mr-9' : 'ml-9')}>{feedbackRow}</div> : null}
     </div>
   )

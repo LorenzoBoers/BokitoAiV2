@@ -163,6 +163,30 @@ async def create_collection(
     }
 
 
+@router.delete("/collections/{collection_id}")
+async def delete_collection(
+    collection_id: int,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    collection = await _get_by_numeric(session, auth.tenant.id, COLLECTION_KIND, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    from sqlalchemy import delete as sa_delete
+
+    from app.models.workspace import DocChunk
+
+    documents = await _list_by_kind(session, auth.tenant.id, DOCUMENT_KIND)
+    for doc in documents:
+        if int(_frontmatter(doc).get("collection_id") or 0) != collection_id:
+            continue
+        await session.execute(sa_delete(DocChunk).where(DocChunk.doc_id == doc.id))
+        await session.delete(doc)
+    await session.delete(collection)
+    await session.commit()
+    return {"ok": True}
+
+
 @router.get("/collections/{collection_id}/documents")
 async def list_documents(
     collection_id: int,

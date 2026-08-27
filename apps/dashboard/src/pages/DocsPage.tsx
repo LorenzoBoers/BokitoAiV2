@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import MarkdownView from '../components/docs/MarkdownView'
 import ArticleFeedback from '../components/docs/ArticleFeedback'
+import DocsScrollShell from '../components/docs/DocsScrollShell'
 import {
   getProductHelpArticle,
   getProductHelpIndex,
@@ -32,6 +33,7 @@ import {
 } from '../lib/product-help-api'
 import { extractToc } from '../lib/docs-toc'
 import { applyDocsMeta } from '../lib/docs-seo'
+import { readLastDocs, writeLastDocs } from '../lib/docs-continue'
 
 const DOCS_LANG_KEY = 'bokito.docs.lang'
 
@@ -96,14 +98,13 @@ export default function DocsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <DocsHeader lang={lang} setLang={setLang} />
+    <DocsScrollShell header={<DocsHeader lang={lang} setLang={setLang} />}>
       {section && slug ? (
         <ArticleView key={`${slug}:${lang}`} slug={slug} section={section} lang={lang} index={index} />
       ) : (
         <Landing index={index} loadFailed={error} />
       )}
-    </div>
+    </DocsScrollShell>
   )
 }
 
@@ -132,7 +133,7 @@ function LegacyRedirect({
 function DocsHeader({ lang, setLang }: { lang: string; setLang: (next: 'en' | 'nl') => void }) {
   const { t } = useTranslation('nav')
   return (
-    <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+    <header className="z-20 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-3.5">
         <Link to="/docs" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <BookOpen className="h-4.5 w-4.5" aria-hidden />
@@ -279,12 +280,22 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
     )
   }
   const popular = index.sections.find((s) => s.id === 'getting-started')?.articles ?? []
+  const lastDocs = readLastDocs()
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-20">
       <section className="py-14 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">{t('docs.heroTitle')}</h1>
         <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">{t('docs.heroBody')}</p>
+        {lastDocs ? (
+          <Link
+            to={lastDocs.path}
+            className="mt-5 inline-flex flex-col items-center rounded-xl border border-primary/30 bg-muted/30 px-4 py-2.5"
+          >
+            <span className="text-xs font-medium text-primary">{t('docs.continueLast')}</span>
+            <span className="text-[13px]">{t('docs.continueLastHint', { title: lastDocs.title })}</span>
+          </Link>
+        ) : null}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -359,7 +370,10 @@ function ArticleView({
     setError(null)
     void getProductHelpArticle(slug, lang)
       .then((row) => {
-        if (!cancelled) setArticle(row)
+        if (!cancelled) {
+          setArticle(row)
+          writeLastDocs(`/docs/${row.path}`, row.title)
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -404,8 +418,8 @@ function ArticleView({
 
   return (
     <main className="mx-auto flex max-w-6xl gap-10 px-6 py-8">
-      <aside className="hidden w-56 shrink-0 lg:block">
-        <nav className="sticky top-20 space-y-5">
+      <aside className="hidden w-56 shrink-0 self-start lg:block">
+        <nav className="sticky top-0 max-h-[calc(100vh-4.5rem)] space-y-5 overflow-y-auto py-1 pr-1">
           {(index?.sections ?? []).map((navSection) => (
             <div key={navSection.id}>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -529,8 +543,8 @@ function ArticleView({
       </article>
 
       {toc.length > 1 ? (
-        <aside className="hidden w-48 shrink-0 xl:block">
-          <nav className="sticky top-20">
+        <aside className="hidden w-48 shrink-0 self-start xl:block">
+          <nav className="sticky top-0 max-h-[calc(100vh-4.5rem)] overflow-y-auto py-1">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {t('docs.onThisPage')}
             </p>

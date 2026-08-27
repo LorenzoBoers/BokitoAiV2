@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Bot,
   FolderKanban,
@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
+  Search,
   Trash2,
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -65,10 +66,12 @@ function ProjectCard({
   project,
   budget,
   onDelete,
+  canManage,
 }: {
   project: ProjectRow
   budget: ProjectBudgetResponse | undefined
   onDelete: () => void
+  canManage: boolean
 }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
@@ -89,7 +92,6 @@ function ProjectCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-medium text-text-heading">{project.name}</p>
-          <p className="mt-0.5 truncate text-xs text-text-muted">{project.slug}</p>
         </div>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
@@ -126,14 +128,18 @@ function ProjectCard({
                   {t('projects.page.openLead')}
                 </DropdownMenu.Item>
               ) : null}
-              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-              <DropdownMenu.Item
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                onSelect={onDelete}
-              >
-                <Trash2 size={14} />
-                {t('projects.page.delete')}
-              </DropdownMenu.Item>
+              {canManage ? (
+                <>
+                  <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                  <DropdownMenu.Item
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                    onSelect={onDelete}
+                  >
+                    <Trash2 size={14} />
+                    {t('projects.page.delete')}
+                  </DropdownMenu.Item>
+                </>
+              ) : null}
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
@@ -221,6 +227,7 @@ function ProjectCard({
 
 export default function ProjectsPage() {
   const { t } = useTranslation('nav')
+  const navigate = useNavigate()
   const isAdmin = useIsAdmin()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [budgets, setBudgets] = useState<Record<string, ProjectBudgetResponse>>({})
@@ -232,6 +239,8 @@ export default function ProjectsPage() {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [description, setDescription] = useState('')
+  const [query, setQuery] = useState('')
+  const [showSlug, setShowSlug] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -264,21 +273,23 @@ export default function ProjectsPage() {
   }, [load])
 
   const create = async () => {
-    if (!name.trim() || !slug.trim()) return
+    const nextSlug = slug.trim() || slugify(name)
+    if (!name.trim() || !nextSlug) return
     setCreating(true)
     try {
-      await createProject({
+      const created = await createProject({
         name: name.trim(),
-        slug: slug.trim(),
+        slug: nextSlug,
         autonomous_scope: 'ops',
         description: description.trim() || undefined,
       })
       setName('')
       setSlug('')
       setDescription('')
+      setShowSlug(false)
       setCreateOpen(false)
       toast.success(t('projects.page.created'))
-      await load()
+      navigate(`/projects/${created.id}`)
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('projects.page.createError')))
     } finally {
@@ -301,9 +312,15 @@ export default function ProjectsPage() {
     }
   }
 
-  if (!isAdmin) {
-    return <Navigate to={inboxPath('all')} replace />
-  }
+  const visibleProjects = projects.filter((project) => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return true
+    const hay = [project.name, project.po_agent?.name, project.description]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return hay.includes(needle)
+  })
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
@@ -320,14 +337,34 @@ export default function ProjectsPage() {
             <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
             {t('projects.page.refresh')}
           </Button>
-          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden />
-            {t('projects.page.new')}
-          </Button>
+          {isAdmin ? (
+            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" aria-hidden />
+              {t('projects.page.new')}
+            </Button>
+          ) : null}
         </div>
       </header>
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
+      {!isAdmin ? (
+        <p className="rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
+          {t('projects.page.readonlyBanner')}
+        </p>
+      ) : null}
+      {projects.length > 0 ? (
+        <div className="relative max-w-sm">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('projects.page.searchPlaceholder')}
+            aria-label={t('projects.page.searchPlaceholder')}
+            className="h-9 w-full rounded-lg border border-border/60 bg-bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
+          />
+        </div>
+      ) : null}
 
       {loading ? (
         <LoadingBlock label={t('projects.page.loading')} />
@@ -338,10 +375,12 @@ export default function ProjectsPage() {
           description={t('projects.page.emptyBody')}
           action={
             <div className="flex flex-wrap justify-center gap-2">
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" aria-hidden />
-                {t('projects.page.new')}
-              </Button>
+              {isAdmin ? (
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-1 h-4 w-4" aria-hidden />
+                  {t('projects.page.new')}
+                </Button>
+              ) : null}
               <Button size="sm" variant="outline" asChild>
                 <Link to="/agents">{t('projects.page.openAgents')}</Link>
               </Button>
@@ -359,11 +398,12 @@ export default function ProjectsPage() {
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project) => (
+          {visibleProjects.map((project) => (
             <ProjectCard
               key={project.id}
               project={project}
               budget={budgets[project.id]}
+              canManage={isAdmin}
               onDelete={() => setDeleteTarget(project)}
             />
           ))}
@@ -392,15 +432,24 @@ export default function ProjectsPage() {
                 placeholder={t('projects.page.namePlaceholder')}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="project-slug">{t('projects.page.slug')}</Label>
-              <Input
-                id="project-slug"
-                value={slug}
-                onChange={(e) => setSlug(slugify(e.target.value))}
-                placeholder={t('projects.page.slugPlaceholder')}
-              />
-            </div>
+            <button
+              type="button"
+              className="text-xs font-medium text-accent hover:underline"
+              onClick={() => setShowSlug((open) => !open)}
+            >
+              {showSlug ? t('projects.page.hideAdvanced') : t('projects.page.advancedSlug')}
+            </button>
+            {showSlug ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="project-slug">{t('projects.page.slug')}</Label>
+                <Input
+                  id="project-slug"
+                  value={slug}
+                  onChange={(e) => setSlug(slugify(e.target.value))}
+                  placeholder={t('projects.page.slugPlaceholder')}
+                />
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="project-description">{t('projects.page.description')}</Label>
               <Input
@@ -417,7 +466,7 @@ export default function ProjectsPage() {
             </Button>
             <Button
               type="button"
-              disabled={creating || !name.trim() || !slug.trim()}
+              disabled={creating || !name.trim() || !(slug.trim() || slugify(name))}
               onClick={() => void create()}
             >
               {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus size={14} className="mr-1.5" />}

@@ -68,9 +68,11 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
     org_id = str(tenant_numeric_id(agent.tenant_id))
     slug = agent.slug or _slugify(agent.name)
     rslug = role_slug(agent)
-    status = agent.runtime_status or ("active" if agent.is_active else "standby")
+    status = agent.runtime_status or ("active" if agent.is_active else "sleeping")
     if status not in ("standby", "active", "sleeping", "error"):
         status = "standby"
+    if agent.is_active is False and status in ("standby", "active"):
+        status = "sleeping"
     summary = agent.current_activity_summary or ""
     session_id = None
     activity_id = None
@@ -96,6 +98,7 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
         "chat_access": agent.chat_access,
         "kind": agent.kind,
         "is_lead": bool(agent.is_lead),
+        "is_active": bool(agent.is_active),
         "email_signature_html": str(
             _parse_json(agent.settings_json).get("email_signature_html") or ""
         ),
@@ -151,7 +154,9 @@ async def update_agent_runtime_status(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     agent.runtime_status = status
-    agent.is_active = status in ("active", "sleeping")
+    # standby = idle/ready; sleeping = operator paused. Runs still flip
+    # runtime_status to active/standby without changing is_active.
+    agent.is_active = status in ("active", "standby")
     agent.updated_at = datetime.utcnow()
     session.add(agent)
     await session.commit()

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft, BookOpen } from 'lucide-react'
 import { publicOpenApiUrl } from '../lib/product-help-api'
 import { applyDocsMeta } from '../lib/docs-seo'
+import DocsScrollShell from '../components/docs/DocsScrollShell'
 
 /**
  * Public API reference at /docs/api: Scalar API Reference rendered against
@@ -40,32 +41,35 @@ export default function DocsApiReference() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
-          <Link to="/docs" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-            <BookOpen className="h-4.5 w-4.5" aria-hidden />
-            {t('docs.title')}
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/docs/developers/api-overview"
-              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted/50"
-            >
-              <ArrowLeft className="h-3 w-3" aria-hidden />
-              {t('docs.apiGuides')}
+    <DocsScrollShell
+      header={
+        <header className="border-b">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
+            <Link to="/docs" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+              <BookOpen className="h-4.5 w-4.5" aria-hidden />
+              {t('docs.title')}
             </Link>
-            <a
-              href={publicOpenApiUrl()}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            >
-              openapi.json
-            </a>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/docs/developers/api-overview"
+                className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted/50"
+              >
+                <ArrowLeft className="h-3 w-3" aria-hidden />
+                {t('docs.apiGuides')}
+              </Link>
+              <a
+                href={publicOpenApiUrl()}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              >
+                openapi.json
+              </a>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      }
+    >
       {failed ? (
         <main className="mx-auto max-w-6xl px-6 py-16">
           <p className="text-sm text-muted-foreground">
@@ -76,8 +80,8 @@ export default function DocsApiReference() {
           </p>
         </main>
       ) : (
-        <div ref={hostRef} />
+        <div ref={hostRef} className="min-h-full" />
       )}
-    </div>
+    </DocsScrollShell>
   )
 }

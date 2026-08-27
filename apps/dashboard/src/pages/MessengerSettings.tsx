@@ -59,6 +59,7 @@ import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
 import { inboxPath } from '../lib/messages-paths'
 import { toast } from 'sonner'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 
 type CustomizationPanel = 'content' | 'styling'
 type PreviewTheme = 'light' | 'dark'
@@ -348,6 +349,7 @@ function MessengerSettingsContent({
     if (widgetFaviconFile) return true
     return !messengerAppearanceEquals(draft, saved)
   }, [draft, saved, widgetFaviconFile])
+  useUnsavedChangesGuard(dirty && !saving, t('messengerPage.unsavedLeave'))
 
   const previewOverridesJson = useMemo(() => {
     const url = faviconPreviewUrl || draft.widget_favicon_url || ''
@@ -932,6 +934,16 @@ function MessengerSettingsContent({
                     </pre>
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border/60 px-4 py-3">
+                    {installSnippetCopied ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(assistantSettingsPath(audience, 'customization'))}
+                        className="text-[12px] font-medium text-accent hover:underline"
+                        title={t('messengerPage.checkInstallationHint')}
+                      >
+                        {t('messengerPage.checkInstallation')}
+                      </button>
+                    ) : null}
                     <Link
                       to={inboxPath('open')}
                       className="text-[12px] font-medium text-accent hover:underline"

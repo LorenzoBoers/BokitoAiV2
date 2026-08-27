@@ -4,9 +4,10 @@ Usage (from the repo root or anywhere):
 
     python apps/api/scripts/dev/sync_product_help.py [--check]
 
-Copies ``docs/product-help/{en,nl}`` to ``apps/api/app/data/product_help``
-(pruning stale files), and validates frontmatter and en/nl slug parity.
-``--check`` validates and diffs without writing (CI-friendly).
+Copies ``docs/product-help/{en,nl}`` and ``assets/`` to
+``apps/api/app/data/product_help`` (pruning stale files), and validates
+frontmatter and en/nl slug parity. ``--check`` validates and diffs without
+writing (CI-friendly).
 """
 
 from __future__ import annotations
@@ -78,17 +79,36 @@ def validate() -> list[str]:
     return errors
 
 
-def tree(root: Path) -> dict[str, str]:
+def tree_markdown(root: Path) -> dict[str, str]:
     if not root.is_dir():
         return {}
     return {
         p.relative_to(root).as_posix(): p.read_text(encoding="utf-8")
         for p in sorted(root.rglob("*.md"))
+        if p.relative_to(root).parts[0] in LANGS
     }
 
 
+def tree_assets(root: Path) -> dict[str, bytes]:
+    folder = root / "assets"
+    if not folder.is_dir():
+        return {}
+    return {
+        p.relative_to(root).as_posix(): p.read_bytes()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file() and p.suffix.lower() in {".png", ".webp"}
+    }
+
+
+def tree(root: Path) -> dict[str, str | bytes]:
+    merged: dict[str, str | bytes] = {}
+    merged.update(tree_markdown(root))
+    merged.update(tree_assets(root))
+    return merged
+
+
 def sync(check_only: bool) -> bool:
-    source_tree = {k: v for k, v in tree(SOURCE).items() if k.split("/")[0] in LANGS}
+    source_tree = tree(SOURCE)
     target_tree = tree(TARGET)
     if source_tree == target_tree:
         print(f"packaged copy up to date ({len(source_tree)} files)")
@@ -108,6 +128,12 @@ def sync(check_only: bool) -> bool:
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(SOURCE / lang, dest)
+    dest_assets = TARGET / "assets"
+    if dest_assets.exists():
+        shutil.rmtree(dest_assets)
+    src_assets = SOURCE / "assets"
+    if src_assets.is_dir():
+        shutil.copytree(src_assets, dest_assets)
     print(f"synced {len(source_tree)} files to {TARGET}")
     return True
 

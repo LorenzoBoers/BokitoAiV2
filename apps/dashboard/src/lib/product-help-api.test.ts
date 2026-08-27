@@ -10,6 +10,7 @@ describe('product help routes', () => {
     expect(docsRoutes.article('how to')).toBe('/how%20to')
     expect(docsRoutes.articleMarkdown('channels')).toBe('/channels.md')
     expect(docsRoutes.search).toBe('/search')
+    expect(docsRoutes.asset('communication/open-queue.png')).toBe('/assets/communication/open-queue.png')
     expect(docsRoutes.openapi).toBe('/openapi.json')
   })
 

@@ -44,3 +44,26 @@ export function formatAgentModelLine(
   }
   return `${pretty} · ${humanizeLabel(provider)}`
 }
+
+const PROVIDER_TYPE_LABELS: Record<string, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  openai_compatible: 'OpenAI-compatible',
+}
+
+/** Human label for a stored provider_type slug. */
+export function providerTypeLabel(providerType: string | null | undefined): string {
+  const key = (providerType ?? '').trim().toLowerCase()
+  return PROVIDER_TYPE_LABELS[key] ?? humanizeLabel(providerType)
+}
+
+/** Cheap / mid / expensive band from catalog cents-per-million-tokens. */
+export function modelCostBand(
+  inputCentsPerMtok: number,
+  outputCentsPerMtok: number,
+): 'low' | 'medium' | 'high' {
+  const avg = (Math.max(0, inputCentsPerMtok) + Math.max(0, outputCentsPerMtok)) / 2
+  if (avg < 80) return 'low'
+  if (avg < 400) return 'medium'
+  return 'high'
+}

@@ -30,6 +30,10 @@ export type InboxThread = {
   emailConnectionId: number | null
   graphConversationId: string
   emailSubject: string
+  /** Latest customer/agent line, for the thread list preview. */
+  lastMessagePreview?: string
+  /** Direction of that preview line (`inbound` = they wrote, `outbound` = you). */
+  lastMessageDirection?: MessageDirection | ''
   contactId: string | null
   contactEmail: string
   contactName: string
@@ -174,6 +178,10 @@ export type ThreadFilters = {
   page?: number
   perPage?: number
   connectionId?: number
+  /** AND flags on top of the current view (not a replacement queue). */
+  unread?: boolean
+  needsReply?: boolean
+  pinnedOnly?: boolean
 }
 
 export type PagedThreadResult = {
@@ -309,6 +317,8 @@ function normalizeThread(row: unknown): InboxThread | null {
     emailConnectionId: raw.email_connection_id == null || raw.email_connection_id === 0 ? null : asNumber(raw.email_connection_id),
     graphConversationId: asString(raw.graph_conversation_id),
     emailSubject: asString(raw.email_subject, '(No subject)'),
+    lastMessagePreview: asString(raw.last_message_preview),
+    lastMessageDirection: asString(raw.last_message_direction) as InboxThread['lastMessageDirection'],
     contactId: asNullableString(raw.contact_id),
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),

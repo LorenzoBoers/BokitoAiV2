@@ -25,6 +25,8 @@ function thread(overrides: Partial<InboxThread> = {}): InboxThread {
     assignedToUserId: null,
     tags: [],
     lastMessageAt: '2026-08-19T10:00:00Z',
+    lastMessagePreview: '',
+    lastMessageDirection: 'inbound',
     hasUnread: true,
     isPinned: false,
     aiPaused: false,
@@ -114,6 +116,27 @@ describe('threadMatchesFilters', () => {
       threadMatchesFilters(thread({ emailConnectionId: 12 }), { connectionId: 12 }, me),
     ).toBe(true)
     expect(threadMatchesFilters(thread(), { connectionId: 12 }, me)).toBe(false)
+  })
+
+  it('ANDs unread / needs-reply / pinned flags on top of the view', () => {
+    expect(threadMatchesFilters(thread({ hasUnread: false }), { view: 'all_open', unread: true }, me)).toBe(false)
+    expect(threadMatchesFilters(thread({ hasUnread: true }), { view: 'all_open', unread: true }, me)).toBe(true)
+    expect(
+      threadMatchesFilters(
+        thread({ hasUnread: false, lastMessageDirection: 'outbound', status: 'open' }),
+        { view: 'all_open', needsReply: true },
+        me,
+      ),
+    ).toBe(false)
+    expect(
+      threadMatchesFilters(
+        thread({ hasUnread: false, lastMessageDirection: 'inbound', status: 'open' }),
+        { view: 'all_open', needsReply: true },
+        me,
+      ),
+    ).toBe(true)
+    expect(threadMatchesFilters(thread({ isPinned: false }), { view: 'all_open', pinnedOnly: true }, me)).toBe(false)
+    expect(threadMatchesFilters(thread({ isPinned: true }), { view: 'all_open', pinnedOnly: true }, me)).toBe(true)
   })
 
   it('falls back (null) for predicates that need the server', () => {

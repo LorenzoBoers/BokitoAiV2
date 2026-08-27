@@ -1,28 +1,43 @@
 ---
 title: Zo werkt Govern
-intro: Structurele wijzigingen en risico horen hier. Dagelijkse antwoorden blijven in Communicatie; deze pagina is beleid.
-description: Beoordeel platformwijzigingen, auditgebeurtenissen en openstaande goedkeuringen in Govern - de controlekamer voor agentactiviteit.
-keywords: govern, approvals, audit, changes, oversight
+intro: Structurele wijziging en risico wonen hier. Dagelijkse antwoorden blijven in Communicatie.
+description: Beoordeel openstaande platformwijzigingen, zet beleidssliders, maak toegepaste edits ongedaan en lees het auditlog in Govern.
+keywords: govern, openstaande concepten, beleid, audit, ongedaan maken, toestemmingen
 sort: 10
-related: autonomy,agents
+related: autonomy,agents,decisions
 ---
 
 # Zo werkt Govern
 
-Bepaal hoe autonoom agents mogen zijn, beoordeel concepten en vergrendel tools die nooit zonder jou mogen lopen.
+Govern is beleid. Open **Instellingen** en daarna **Govern**. Keuzes op berichtniveau blijven in het gesprek. Blijvende workspace-bewerkingen wachten hier.
 
-## Zet de workspace-houding
+## Beoordeel een platformwijziging
 
-Handmatig, ondersteund of autonoom past de standaard apply-modi en toolrechten voor de hele workspace aan. Begin voorzichtig en verruim het vertrouwen als de uitkomsten kloppen.
+![Govern-conceptwachtrij](/api/docs/assets/govern/drafts.png)
+*Structurele concepten wachten hier. Berichtbeslissingen blijven in het gesprek.*
 
-## Beoordeel concepten en keuzes
+1. Open **Openstaande concepten** (de standaardtab).
+2. Lees wat de agent wil wijzigen. Kies **Bekijk wijzigingen** voor de diff.
+3. **Accepteren** vraagt **Deze wijziging toepassen op je workspace?** **Afwijzen** vraagt **Deze wijziging afwijzen?** Klantbeslissingen blijven in [Communicatie](/docs/inbox/communication).
 
-Door agents voorgestelde platformwijzigingen wachten hier tot iemand ze accepteert of afwijst. Inline keuzes in gesprekken zijn voor berichten. Govern is voor blijvend beleid.
+## Zet houding en toestemmingen
 
-## Vergrendel tools
+![Govern-beleid](/api/docs/assets/govern/posture.png)
+*Kies Handmatig, Ondersteund of Autonoom, en stel daarna categorieën bij.*
 
-Sliders per categorie (weigeren, vragen, toestaan) plus overrides per tool. Externe klantsessies muteren nooit automatisch, ongeacht de houding.
+1. Open **Beleid**. De kaart heet **Hoeveel agents mogen doen**.
+2. Kies **Handmatig**, **Ondersteund** of **Autonoom**. Zie [Autonomie](/docs/govern/autonomy).
+3. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Overschrijf één tool wanneer de categorie te breed is.
+4. Categorieën zijn onder meer Berichten, Workspace, Agents, Kanalen, Triggers, Integraties, Govern en Overdracht. Externe bezoekerssessies muteren nooit automatisch.
+
+Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
+
+## Ongedaan maken en audit
+
+1. **Versiegeschiedenis** toont geaccepteerde wijzigingen. **Ongedaan maken** vraagt eerst om bevestiging en draait er daarna één terug wanneer dat nog kan.
+2. **Agenttoegang** is een overzicht van wat elke agent mag. Kies **Agent openen** om dat te wijzigen.
+3. **Recente audit** is het eventlog. Rijen bieden **Gesprek openen**, **Run openen** of **Agent openen**.
 
 ## Wat nu
 
-Lees Autonomiehouding voor de drie presets en open daarna Agents om te zien wie die regels erft.
+Lees [Autonomie](/docs/govern/autonomy) en open daarna [Agents](/docs/ai/agents) om te zien wie de regels erft.

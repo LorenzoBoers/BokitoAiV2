@@ -23,6 +23,8 @@ import {
   type Trigger,
 } from '../lib/orchestration-api'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
+import { clampWeekOffset, parseWeekOffset, weekOffsetParam } from '../lib/agenda-week'
+import { Input } from '../components/ui/input'
 import { agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { resolveAgendaAgentId, resolveAgendaAgentName } from '../lib/agenda-label'
 import { pickClosestThreadBySubject } from '../lib/agenda-thread'
@@ -136,9 +138,11 @@ export default function AgendaPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [view, setView] = useState<ViewTab>(() => parseAgendaView(searchParams.get('view')))
-  const [weekOffset, setWeekOffset] = useState(0)
+  const [weekOffset, setWeekOffset] = useState(() => parseWeekOffset(searchParams.get('week')))
   const [agentFilter, setAgentFilter] = useState(() => searchParams.get('agent') ?? 'all')
-  const [kindFilter, setKindFilter] = useState('all')
+  const [kindFilter, setKindFilter] = useState(() => searchParams.get('kind') ?? 'all')
+  const [listQuery, setListQuery] = useState('')
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [items, setItems] = useState<AgendaItem[]>([])
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [agents, setAgents] = useState<TargetOption[]>([])
@@ -166,13 +170,38 @@ export default function AgendaPage() {
     setView((current) => (current === fromUrl ? current : fromUrl))
     const agentFromUrl = searchParams.get('agent') ?? 'all'
     setAgentFilter((current) => (current === agentFromUrl ? current : agentFromUrl))
+    const kindFromUrl = searchParams.get('kind') ?? 'all'
+    setKindFilter((current) => (current === kindFromUrl ? current : kindFromUrl))
+    const weekFromUrl = parseWeekOffset(searchParams.get('week'))
+    setWeekOffset((current) => (current === weekFromUrl ? current : weekFromUrl))
   }, [searchParams])
+
+  const applyWeekOffset = useCallback(
+    (next: number) => {
+      const value = clampWeekOffset(next)
+      setWeekOffset(value)
+      const params = new URLSearchParams(searchParams)
+      const encoded = weekOffsetParam(value)
+      if (encoded) params.set('week', encoded)
+      else params.delete('week')
+      setSearchParams(params, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   const handleAgentFilterChange = (next: string) => {
     setAgentFilter(next)
     const params = new URLSearchParams(searchParams)
     if (next === 'all') params.delete('agent')
     else params.set('agent', next)
+    setSearchParams(params, { replace: true })
+  }
+
+  const handleKindFilterChange = (next: string) => {
+    setKindFilter(next)
+    const params = new URLSearchParams(searchParams)
+    if (next === 'all') params.delete('kind')
+    else params.set('kind', next)
     setSearchParams(params, { replace: true })
   }
 
@@ -204,6 +233,7 @@ export default function AgendaPage() {
       ])
       setItems(occurrences)
       setTriggers(triggerRows)
+      setRefreshedAt(new Date())
     } catch (err) {
       setError(formatApiErrorMessage(err, t('agendaPage.loadError')))
     } finally {
@@ -214,6 +244,26 @@ export default function AgendaPage() {
   useEffect(() => {
     void load()
   }, [load, reloadKey])
+
+  useEffect(() => {
+    if (view !== 'week') return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) {
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        applyWeekOffset(weekOffset - 1)
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        applyWeekOffset(weekOffset + 1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [view, weekOffset, applyWeekOffset])
 
   useEffect(() => {
     if (!token) return
@@ -234,8 +284,15 @@ export default function AgendaPage() {
   const filtered = useMemo(() => {
     let out = items
     if (kindFilter !== 'all') out = out.filter((i) => i.kind === kindFilter)
+    const q = listQuery.trim().toLowerCase()
+    if (q) {
+      out = out.filter((i) => {
+        const hay = `${i.name} ${i.agent_name ?? ''} ${i.kind} ${i.status}`.toLowerCase()
+        return hay.includes(q)
+      })
+    }
     return [...out].sort((a, b) => parseAt(a.at).getTime() - parseAt(b.at).getTime())
-  }, [items, kindFilter])
+  }, [items, kindFilter, listQuery])
 
   const byDay = useMemo(() => {
     const map = new Map<string, AgendaItem[]>()
@@ -321,6 +378,11 @@ export default function AgendaPage() {
         subtitle={t('tabs.agenda.subtitle')}
         meta={
           <div className="flex flex-wrap items-center gap-2">
+            {refreshedAt ? (
+              <span className="text-[11px] text-text-muted">
+                {t('agendaPage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+              </span>
+            ) : null}
             <Button
               type="button"
               size="sm"
@@ -354,22 +416,46 @@ export default function AgendaPage() {
           <div className="flex flex-wrap items-center gap-2">
             {view === 'week' ? (
               <div className="flex items-center gap-1">
-                <Button type="button" size="sm" variant="ghost" onClick={() => setWeekOffset((w) => w - 1)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  aria-label={t('agendaPage.prevWeek')}
+                  onClick={() => applyWeekOffset(weekOffset - 1)}
+                >
                   <ChevronLeft className="h-4 w-4" aria-hidden />
+                </Button>
+                <span className="min-w-[9rem] px-1 text-center text-xs font-medium text-text-heading">
+                  {weekLabel}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  aria-label={t('agendaPage.nextWeek')}
+                  onClick={() => applyWeekOffset(weekOffset + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden />
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="min-w-[9rem]"
-                  onClick={() => setWeekOffset(0)}
+                  disabled={weekOffset === 0}
+                  onClick={() => applyWeekOffset(0)}
                 >
-                  {weekOffset === 0 ? t('agendaPage.thisWeek') : weekLabel}
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setWeekOffset((w) => w + 1)}>
-                  <ChevronRight className="h-4 w-4" aria-hidden />
+                  {t('agendaPage.thisWeek')}
                 </Button>
               </div>
+            ) : null}
+            {view === 'list' ? (
+              <Input
+                value={listQuery}
+                onChange={(event) => setListQuery(event.target.value)}
+                placeholder={t('agendaPage.listSearch')}
+                className="h-8 w-[180px] text-xs"
+                aria-label={t('agendaPage.listSearch')}
+              />
             ) : null}
             <Select value={agentFilter} onValueChange={handleAgentFilterChange}>
               <SelectTrigger className="h-8 w-[150px] text-xs">
@@ -384,7 +470,7 @@ export default function AgendaPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={kindFilter} onValueChange={setKindFilter}>
+            <Select value={kindFilter} onValueChange={handleKindFilterChange}>
               <SelectTrigger className="h-8 w-[130px] text-xs">
                 <SelectValue placeholder={t('agendaPage.allTypes')} />
               </SelectTrigger>
@@ -404,6 +490,11 @@ export default function AgendaPage() {
       {view === 'automations' ? (
         <AutomationsPanel
           reloadKey={reloadKey}
+          onCreateTrigger={() => {
+            setEditingTrigger(null)
+            setInitialRunAt(null)
+            setDialogOpen(true)
+          }}
           onEditTrigger={(trigger) => {
             setEditingTrigger(trigger)
             setInitialRunAt(null)
@@ -437,12 +528,25 @@ export default function AgendaPage() {
                   <span className={cn('text-xs font-medium', isToday ? 'text-accent' : 'text-text-muted')}>
                     {formatAppDate(day, i18n.language, { weekday: 'short' })}
                   </span>
-                  <span className={cn('text-sm font-semibold', isToday ? 'text-accent' : 'text-text-heading')}>
-                    {day.getDate()}
+                  <span className="flex items-center gap-1">
+                    {isToday ? (
+                      <Badge variant="secondary" className="h-4 px-1 text-[9px]">
+                        {t('agendaPage.today')}
+                      </Badge>
+                    ) : null}
+                    <span className={cn('text-sm font-semibold', isToday ? 'text-accent' : 'text-text-heading')}>
+                      {day.getDate()}
+                    </span>
                   </span>
                 </button>
                 {dayItems.length === 0 ? (
-                  <p className="px-1 text-[11px] text-text-muted/60">—</p>
+                  <button
+                    type="button"
+                    className="px-1 text-left text-[11px] font-medium text-accent hover:underline"
+                    onClick={() => openCreate(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0))}
+                  >
+                    + {t('agendaPage.scheduleEmptyDay')}
+                  </button>
                 ) : (
                   dayItems.map((item) => (
                     <AgendaChip
@@ -459,6 +563,10 @@ export default function AgendaPage() {
             )
           })}
         </div>
+      ) : filtered.length === 0 && listQuery.trim() ? (
+        <p className="rounded-xl border border-dashed border-border/60 p-8 text-center text-sm text-text-muted">
+          {t('agendaPage.listFilterEmpty')}
+        </p>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 p-10 text-center">
           <CalendarDays className="mx-auto h-8 w-8 text-text-muted/50" aria-hidden />

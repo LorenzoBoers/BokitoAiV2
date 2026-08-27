@@ -1,5 +1,5 @@
 import { appRoutes } from '../api/routes/app.routes'
-import { apiDelete, apiGet, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 
 export type ChannelBinding = {
   id: string
@@ -27,6 +27,18 @@ export async function createChannelBinding(body: {
   enabled?: boolean
 }): Promise<ChannelBinding> {
   return apiPost<ChannelBinding>(appRoutes.channelBindings.list, body)
+}
+
+export async function updateChannelBinding(
+  id: string,
+  body: {
+    enabled?: boolean
+    priority?: number
+    agent_id?: string
+    channel_account_id?: string | null
+  },
+): Promise<ChannelBinding> {
+  return apiPatch<ChannelBinding>(appRoutes.channelBindings.byId(id), body)
 }
 
 export async function deleteChannelBinding(id: string): Promise<void> {

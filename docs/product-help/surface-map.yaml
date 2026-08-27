@@ -21,7 +21,8 @@ welcome:
   code_globs:
     - apps/dashboard/src/pages/DocsPage.tsx
     - apps/dashboard/src/pages/LearnPage.tsx
-  screenshots: []
+  screenshots:
+    - rail
 
 quickstart:
   section: getting-started
@@ -30,7 +31,8 @@ quickstart:
   code_globs:
     - apps/dashboard/src/components/onboarding/OnboardingChecklist.tsx
     - apps/dashboard/src/pages/SetupHubPage.tsx
-  screenshots: []
+  screenshots:
+    - mailbox
 
 setup-guide:
   section: getting-started
@@ -44,7 +46,8 @@ setup-guide:
     - apps/dashboard/src/pages/CompanyConfig.tsx
     - apps/dashboard/src/pages/SetupHubPage.tsx
     - apps/dashboard/src/components/shell/SettingsLayout.tsx
-  screenshots: []
+  screenshots:
+    - workspace
 
 tour:
   section: getting-started
@@ -53,7 +56,9 @@ tour:
   code_globs:
     - apps/dashboard/src/components/tour/tour-steps.ts
     - apps/dashboard/src/components/shell/ShellSidebar.tsx
-  screenshots: []
+    - apps/dashboard/src/components/shell/CommandPalette.tsx
+  screenshots:
+    - sidebar
 
 cockpit:
   section: getting-started
@@ -66,7 +71,9 @@ cockpit:
     - apps/dashboard/src/pages/ActivityPage.tsx
     - apps/dashboard/src/pages/UsagePage.tsx
     - apps/dashboard/src/components/cockpit/**
-  screenshots: []
+  screenshots:
+    - awaiting-decision
+    - overview
 
 members:
   section: getting-started
@@ -74,7 +81,8 @@ members:
     - /settings/members
   code_globs:
     - apps/dashboard/src/pages/MemberManagement.tsx
-  screenshots: []
+  screenshots:
+    - invite
 
 communication:
   section: inbox
@@ -86,7 +94,10 @@ communication:
     - apps/dashboard/src/pages/Communication.tsx
     - apps/dashboard/src/components/inbox/**
     - apps/dashboard/src/components/shell/MessagesHub.tsx
-  screenshots: []
+  screenshots:
+    - decision-card
+    - open-queue
+    - thread-composer
 
 agent-runs:
   section: inbox
@@ -96,7 +107,8 @@ agent-runs:
   code_globs:
     - apps/dashboard/src/pages/Communication.tsx
     - apps/dashboard/src/components/inbox/ThreadList.tsx
-  screenshots: []
+  screenshots:
+    - runs-list
 
 channels:
   section: inbox
@@ -105,7 +117,10 @@ channels:
   code_globs:
     - apps/dashboard/src/pages/InboxSettings.tsx
     - apps/dashboard/src/components/settings/ChannelBindingsPanel.tsx
-  screenshots: []
+    - apps/dashboard/src/components/inbox/WhatsAppConnectCard.tsx
+    - apps/dashboard/src/components/inbox/SlackConnectCard.tsx
+  screenshots:
+    - mailbox-status
 
 contacts:
   section: inbox
@@ -114,7 +129,8 @@ contacts:
   code_globs:
     - apps/dashboard/src/pages/ContactsPage.tsx
     - apps/dashboard/src/components/inbox/ContactPanel.tsx
-  screenshots: []
+  screenshots:
+    - contact-card
 
 inbox-ai:
   section: inbox
@@ -122,7 +138,8 @@ inbox-ai:
     - /settings/communication
   code_globs:
     - apps/dashboard/src/pages/AiCommunicationSettings.tsx
-  screenshots: []
+  screenshots:
+    - draft-mode
 
 widget:
   section: inbox
@@ -132,7 +149,8 @@ widget:
   code_globs:
     - apps/dashboard/src/pages/MessengerSettings.tsx
     - apps/chat-widget/src/widget-main.ts
-  screenshots: []
+  screenshots:
+    - installation
 
 help-centers:
   section: inbox
@@ -142,7 +160,8 @@ help-centers:
   code_globs:
     - apps/dashboard/src/pages/HelpCentersSettings.tsx
     - apps/dashboard/src/pages/HelpCenter.tsx
-  screenshots: []
+  screenshots:
+    - publish
 
 agents:
   section: ai
@@ -154,7 +173,9 @@ agents:
     - apps/dashboard/src/pages/AiAgentDetail.tsx
     - apps/dashboard/src/pages/MyAssistantSettings.tsx
     - apps/dashboard/src/components/workforce/**
-  screenshots: []
+  screenshots:
+    - agent-brief
+    - library
 
 decisions:
   section: ai
@@ -163,7 +184,8 @@ decisions:
   code_globs:
     - apps/dashboard/src/components/inbox/DecisionRequestMessage.tsx
     - apps/api/app/services/signal_decisions.py
-  screenshots: []
+  screenshots:
+    - approve
 
 knowledge:
   section: ai
@@ -172,7 +194,8 @@ knowledge:
   code_globs:
     - apps/dashboard/src/pages/WorkspaceDocs.tsx
     - apps/api/app/services/workspace.py
-  screenshots: []
+  screenshots:
+    - add-doc
 
 projects:
   section: ai
@@ -181,7 +204,8 @@ projects:
   code_globs:
     - apps/dashboard/src/pages/ProjectsPage.tsx
     - apps/dashboard/src/pages/ProjectDetail.tsx
-  screenshots: []
+  screenshots:
+    - project
 
 agenda:
   section: ai
@@ -191,7 +215,9 @@ agenda:
   code_globs:
     - apps/dashboard/src/pages/AgendaPage.tsx
     - apps/dashboard/src/components/agenda/**
-  screenshots: []
+  screenshots:
+    - automations
+    - week
 
 govern:
   section: govern
@@ -200,7 +226,9 @@ govern:
   code_globs:
     - apps/dashboard/src/pages/GovernPage.tsx
     - apps/api/app/services/platform_apply.py
-  screenshots: []
+  screenshots:
+    - drafts
+    - posture
 
 autonomy:
   section: govern
@@ -208,7 +236,8 @@ autonomy:
     - /settings/govern
   code_globs:
     - apps/dashboard/src/pages/GovernPage.tsx
-  screenshots: []
+  screenshots:
+    - presets
 
 models:
   section: govern
@@ -217,7 +246,8 @@ models:
   code_globs:
     - apps/dashboard/src/pages/ModelsSettings.tsx
     - apps/dashboard/src/components/workforce/AgentModelCard.tsx
-  screenshots: []
+  screenshots:
+    - catalog
 
 integrations:
   section: integrations
@@ -228,7 +258,9 @@ integrations:
     - apps/dashboard/src/pages/IntegrationsConnected.tsx
     - apps/dashboard/src/pages/IntegrationsMarketplace.tsx
     - apps/dashboard/src/components/integrations/**
-  screenshots: []
+    - apps/dashboard/src/components/shell/IntegrationsTabs.tsx
+  screenshots:
+    - marketplace
 
 mcp:
   section: integrations
@@ -237,7 +269,8 @@ mcp:
   code_globs:
     - apps/dashboard/src/components/mcp/**
     - apps/dashboard/src/pages/IntegrationsMcp.tsx
-  screenshots: []
+  screenshots:
+    - servers
 
 api-overview:
   section: developers
@@ -268,8 +301,10 @@ api-signals:
 webhooks:
   section: developers
   routes:
+    - /settings/developers
     - /docs/developers/webhooks
   code_globs:
+    - apps/dashboard/src/pages/DeveloperSettings.tsx
     - apps/api/app/routers/public_api.py
   screenshots: []
 
@@ -286,7 +321,8 @@ widget-embed:
   code_globs:
     - apps/chat-widget/src/widget-main.ts
     - docs/product-help/en/developers/widget-embed.md
-  screenshots: []
+  screenshots:
+    - snippet
 
 rate-limits:
   section: developers

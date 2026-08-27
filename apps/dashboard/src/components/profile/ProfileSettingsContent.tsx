@@ -107,7 +107,7 @@ function EditableField({
           <button
             type="button"
             onClick={startEdit}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-text-primary hover:bg-bg-hover"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-primary"
           >
             <Pencil size={12} />
           </button>
@@ -124,7 +124,7 @@ function Section({ title, description, children }: { title: string; description?
     <div className="space-y-3">
       <div>
         <h3 className="text-[15px] font-semibold text-text-heading">{title}</h3>
-        {description && <p className="mt-0.5 text-sm text-text-muted">{description}</p>}
+        {description ? <p className="mt-0.5 text-sm text-text-muted">{description}</p> : null}
       </div>
       {children}
     </div>
@@ -375,7 +375,7 @@ export function ProfileSettingsContent() {
       setShowPasswordForm(false)
       setTimeout(() => setPwSaved(false), 3000)
     } catch (err) {
-      setPwError(err instanceof Error ? err.message : 'Change failed')
+      setPwError(err instanceof Error ? err.message : t('profile:errors.changePassword'))
     } finally {
       setPwSaving(false)
     }
@@ -468,6 +468,7 @@ export function ProfileSettingsContent() {
               onChange={(e) => void handleAvatarChange(e)}
             />
           </div>
+          <p className="px-0 pb-3 text-xs text-text-muted">{t('profile:personalInformation.photoHint')}</p>
 
           {/* Email */}
           <EditableField
@@ -553,7 +554,7 @@ export function ProfileSettingsContent() {
       </Section>
 
       {/* ── Language ── */}
-      <Section title={t('profile:language.title')} description={t('profile:language.description')}>
+      <Section title={t('profile:language.title')} description={`${t('profile:language.description')} ${t('profile:language.deviceHint')}`}>
         <div className="flex gap-2">
           {(['nl', 'en'] as const).map((lang) => (
             <button
@@ -619,6 +620,9 @@ export function ProfileSettingsContent() {
                         type="password"
                         value={value}
                         onChange={(e) => set(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void handleChangePassword()
+                        }}
                         className="h-8 rounded-lg text-sm"
                       />
                     </div>

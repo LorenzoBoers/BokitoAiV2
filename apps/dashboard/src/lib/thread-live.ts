@@ -10,6 +10,7 @@
 
 import type { GatewayEvent } from './gateway'
 import type { InboxMessage, InboxThread, ThreadFilters } from './inbox-api'
+import { threadNeedsReply } from './message-composer'
 import { normalizeSignalMessage, normalizeSignalThread } from './signals-api'
 
 /** Mirrors EXTERNAL_CHANNELS in apps/api/app/models/signal.py. */
@@ -73,35 +74,55 @@ export function threadMatchesFilters(
   }
 
   // Mirrors the view predicates in signal_threads.list_threads.
+  let viewMatch: boolean | null
   switch (filters.view ?? 'all_open') {
     case 'all':
       // Closed and spam have dedicated views; closing evicts the row live.
-      return thread.status !== 'closed' && thread.status !== 'spam'
+      viewMatch = thread.status !== 'closed' && thread.status !== 'spam'
+      break
     case 'all_open':
-      return thread.status === 'open'
+      viewMatch = thread.status === 'open'
+      break
     case 'mine':
       if (currentUserId == null) return null
-      return thread.status === 'open' && thread.assignedToUserId === currentUserId
+      viewMatch = thread.status === 'open' && thread.assignedToUserId === currentUserId
+      break
     case 'unassigned':
-      return thread.status === 'open' && thread.assignedToUserId == null
+      viewMatch = thread.status === 'open' && thread.assignedToUserId == null
+      break
     case 'pending':
-      return thread.status === 'pending'
+      viewMatch = thread.status === 'pending'
+      break
     case 'snoozed':
       // Timed wake and "until the customer replies" both live here.
-      return thread.status === 'pending'
+      viewMatch = thread.status === 'pending'
+      break
     case 'closed':
-      return thread.status === 'closed'
+      viewMatch = thread.status === 'closed'
+      break
     case 'spam':
-      return thread.status === 'spam'
+      viewMatch = thread.status === 'spam'
+      break
     case 'external':
-      return EXTERNAL_CHANNELS.has(channel) && thread.status === 'open'
+      viewMatch = EXTERNAL_CHANNELS.has(channel) && thread.status === 'open'
+      break
     case 'internal':
-      return channel === 'internal'
+      viewMatch = channel === 'internal'
+      break
     // pinned / awaiting_decision / updates / results / outbound need
     // server-side joins (pins, open decisions, message kinds).
     default:
       return null
   }
+  return applyAndFlags(thread, filters, viewMatch)
+}
+
+function applyAndFlags(thread: InboxThread, filters: ThreadFilters, viewMatch: boolean | null): boolean | null {
+  if (viewMatch === false) return false
+  if (filters.unread && !thread.hasUnread) return false
+  if (filters.pinnedOnly && !thread.isPinned) return false
+  if (filters.needsReply && !threadNeedsReply(thread)) return false
+  return viewMatch
 }
 
 /**

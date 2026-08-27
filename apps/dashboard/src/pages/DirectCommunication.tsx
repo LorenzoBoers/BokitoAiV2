@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
+import {
+  focusInboxReply,
+  scrollActiveThreadIntoView,
+  useInboxListShortcuts,
+} from '../hooks/useInboxListShortcuts'
+import { nextUnreadId } from '../lib/inbox-ops'
+import { threadNeedsReply } from '../lib/message-composer'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Bot } from 'lucide-react'
@@ -31,6 +39,8 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
   switch (quickFilter) {
     case 'unread':
       return threads.filter((t) => t.hasUnread)
+    case 'needsReply':
+      return threads.filter((t) => threadNeedsReply(t))
     case 'pinned':
       return threads.filter((t) => t.isPinned)
     default:
@@ -53,7 +63,8 @@ export default function DirectCommunication() {
   }>()
   const { token } = useAuth()
   const { refresh: refreshNavBadges } = useNavBadges()
-  const { search, setSearch, quickFilter, setQuickFilter, resetQuickFilter } = useInboxCommunication()
+  const { search, setSearch, listSearch, quickFilter, setQuickFilter } = useInboxCommunication()
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
 
   const leaf = leafFromPath(location.pathname)
   const isAgentScope = leaf?.type === 'agent'
@@ -99,8 +110,7 @@ export default function DirectCommunication() {
 
   useEffect(() => {
     setSearch('')
-    resetQuickFilter()
-  }, [listContextKey, setSearch, resetQuickFilter])
+  }, [listContextKey, setSearch])
 
   const { pinnedIds, addPin, removePin } = usePinnedIds()
   const {
@@ -121,7 +131,10 @@ export default function DirectCommunication() {
       folder: 'assistant',
       agentId: filterAgentId,
       projectId,
-      search,
+      search: listSearch,
+      unread: quickFilter === 'unread' || undefined,
+      needsReply: quickFilter === 'needsReply' || undefined,
+      pinnedOnly: quickFilter === 'pinned' || undefined,
     },
     pinnedIds,
   )
@@ -168,6 +181,7 @@ export default function DirectCommunication() {
       setThreadReadState(id, false)
       navigate(`${basePath}/t/${encodeURIComponent(String(id))}${inboxQuery}`, replace ? { replace: true } : undefined)
       void refreshNavBadges()
+      scrollActiveThreadIntoView()
     },
     [basePath, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
   )
@@ -223,11 +237,54 @@ export default function DirectCommunication() {
     [token, addPin, removePin],
   )
 
+  useInboxListShortcuts({
+    helpOpen: shortcutHelpOpen,
+    onCloseHelp: () => setShortcutHelpOpen(false),
+    onOpenHelp: () => setShortcutHelpOpen(true),
+    selectedThreadId,
+    threadIds: filteredThreads.map((thread) => thread.id),
+    onSelect: handleSelectThread,
+    onEscapeList: () => {
+      if (selectedThreadId != null) navigate(`${basePath}${inboxQuery}`)
+    },
+    onUnread: () => {
+      if (selectedThreadId != null) void handleListMarkUnread(selectedThreadId)
+    },
+    onMarkRead: () => {
+      if (selectedThreadId != null) void handleListMarkRead(selectedThreadId)
+    },
+    onJumpUnread: (direction) => {
+      const next = nextUnreadId(filteredThreads, selectedThreadId, direction)
+      if (next != null) handleSelectThread(next)
+    },
+    onPin: () => {
+      const current = filteredThreads.find((thread) => String(thread.id) === String(selectedThreadId))
+      if (selectedThreadId != null && current) {
+        void handleListTogglePin(selectedThreadId, current.isPinned)
+      }
+    },
+    onReply: () => {
+      focusInboxReply()
+    },
+    onCopyId: () => {
+      if (selectedThreadId == null) return
+      void navigator.clipboard.writeText(String(selectedThreadId)).then(
+        () => toast.success(t('threadChrome.threadIdCopied')),
+        () => toast.error(t('threadChrome.copyThreadId')),
+      )
+    },
+    onDigitFilter: (digit) => {
+      const next =
+        digit === 1 ? 'all' : digit === 2 ? 'needsReply' : digit === 3 ? 'unread' : 'pinned'
+      setQuickFilter(next)
+    },
+  })
+
   const handleDeleteThread = useCallback(
     async (id: ThreadId, subject?: string) => {
       if (!token) return
       const label = subject?.trim() || `thread #${id}`
-      if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return
+      if (!window.confirm(t('actions.deleteConfirm', { label }))) return
 
       setDeletingThreadId(id)
       try {
@@ -245,17 +302,20 @@ export default function DirectCommunication() {
         setDeletingThreadId(null)
       }
     },
-    [token, removeThread, pinnedIds, removePin, selectedThreadId, basePath, navigate, refreshNavBadges, refreshThreads, inboxQuery],
+    [token, removeThread, pinnedIds, removePin, selectedThreadId, basePath, navigate, refreshNavBadges, refreshThreads, inboxQuery, t],
   )
 
-  const agentLabel = activeAgent?.name ?? 'My assistant'
+  const agentLabel = activeAgent?.name ?? t('listItem.assistant')
 
   if (!targetsLoading && !filterAgentId) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
         <Bot size={28} className="text-text-muted" />
         <p className="mt-3 text-sm text-text-secondary">{t('directChat.noAssistantConfigured')}</p>
-        <Link to="/settings/assistant" className="mt-3 text-sm font-medium text-accent hover:underline">
+        <Link
+          to="/settings/assistant"
+          className="mt-4 rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+        >
           {t('directChat.configureAssistant')}
         </Link>
       </div>
@@ -283,6 +343,7 @@ export default function DirectCommunication() {
             allThreads={threads}
             loading={threadsLoading || targetsLoading}
             error={threadsError}
+            onRetry={() => void refreshThreads()}
             selectedId={selectedThreadId}
             quickFilter={quickFilter}
             onQuickFilterChange={setQuickFilter}
@@ -334,6 +395,7 @@ export default function DirectCommunication() {
           </SplitPane>
         ) : null}
       </SplitRow>
+      <InboxShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
     </div>
   )
 }

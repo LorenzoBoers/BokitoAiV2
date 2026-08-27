@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { Archive, CalendarDays, Crown, MessageSquare, Network, Pause, Play, Settings, ShieldCheck } from 'lucide-react'
+import { Archive, CalendarDays, Copy, Crown, MessageSquare, MoreHorizontal, Network, Pause, Play, Settings, ShieldCheck } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { AgentChatAccessCard } from '../components/workforce/AgentChatAccessCard'
@@ -39,11 +41,12 @@ const AGENTS_DEFAULT_PATH = '/agents'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { cn } from '../lib/utils'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
+import { agentPauseToggleStatus, agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
 
-const STATUS_CLASS: Record<RuntimeAgent['status'], string> = {
-  active: 'text-status-success',
-  standby: 'text-text-muted',
-  sleeping: 'text-text-muted',
+const STATUS_CLASS: Record<ReturnType<typeof agentWorkState>, string> = {
+  working: 'text-status-success',
+  ready: 'text-text-muted',
+  paused: 'text-text-muted',
   error: 'text-status-error',
 }
 
@@ -77,6 +80,8 @@ export default function AiAgentDetail() {
   const [leadBusy, setLeadBusy] = useState(false)
   const [autonomyBusy, setAutonomyBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!agentId || workLogId) return
@@ -169,7 +174,7 @@ export default function AiAgentDetail() {
     setStatusBusy(true)
     setActionError(null)
     try {
-      const next = agent.status === 'active' ? 'standby' : 'active'
+      const next = agentPauseToggleStatus(agent)
       const result = await updateAgentStatus(undefined, agent.id, next)
       setAgent(result.agent)
     } catch (e) {
@@ -181,8 +186,6 @@ export default function AiAgentDetail() {
 
   const handleArchive = useCallback(async () => {
     if (!agent || archiveBusy) return
-    const confirmed = window.confirm(t('workforce.agents.archiveConfirm'))
-    if (!confirmed) return
     setArchiveBusy(true)
     setActionError(null)
     try {
@@ -191,6 +194,7 @@ export default function AiAgentDetail() {
     } catch (e) {
       setActionError(e instanceof Error ? e.message : t('workforce.agents.archiveError'))
       setArchiveBusy(false)
+      setArchiveConfirmOpen(false)
     }
   }, [agent, archiveBusy, navigate, t])
 
@@ -226,10 +230,6 @@ export default function AiAgentDetail() {
     },
     [agent, autonomyBusy, t],
   )
-
-  if (!isAdmin) {
-    return <Navigate to={inboxPath('all')} replace />
-  }
 
   if (!agentId) {
     return <Navigate to={AGENTS_DEFAULT_PATH} replace />
@@ -293,9 +293,9 @@ export default function AiAgentDetail() {
                 </div>
               </div>
               <span
-                className={cn('text-sm font-medium capitalize', STATUS_CLASS[agent.status])}
+                className={cn('text-sm font-medium', STATUS_CLASS[agentWorkState(agent)])}
               >
-                {t(`workforce.agents.status.${agent.status}`)}
+                {t(agentStatusI18nKey(agentWorkState(agent)))}
               </span>
             </div>
             {agent.current_activity_summary ? (
@@ -314,20 +314,17 @@ export default function AiAgentDetail() {
                 </Link>
               </div>
             ) : null}
+            {!isAdmin ? (
+              <p className="mt-3 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
+                {t('workforce.agents.readonlyBanner')}
+              </p>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               {agent.kind !== 'personal' ? (
                 <Button type="button" size="sm" variant="outline" asChild>
                   <Link to={agentChatPath(agent.id)}>
                     <MessageSquare size={14} className="mr-1.5" aria-hidden />
                     {t('workforce.agents.chatWith')}
-                  </Link>
-                </Button>
-              ) : null}
-              {(agent.role_slug === 'orchestrator' || agent.role_slug === 'po' || agent.role_slug === 'orchestra') ? (
-                <Button type="button" size="sm" variant="outline" asChild>
-                  <Link to="/settings/govern?tab=policy">
-                    <ShieldCheck size={14} className="mr-1.5" aria-hidden />
-                    {t('workforce.agents.openGovern')}
                   </Link>
                 </Button>
               ) : null}
@@ -343,23 +340,6 @@ export default function AiAgentDetail() {
                   {t('workforce.agents.openThreads')}
                 </Link>
               </Button>
-              <Button type="button" size="sm" variant="outline" asChild>
-                <Link to="/knowledge">
-                  <Network size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.openKnowledge')}
-                </Link>
-              </Button>
-              <Button type="button" size="sm" variant="outline" asChild>
-                <Link to="/settings/communication">
-                  <Settings size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.openInboxAi')}
-                </Link>
-              </Button>
-              <Button type="button" size="sm" variant="outline" asChild>
-                <Link to="/settings/setup">
-                  {t('workforce.agents.openSetup')}
-                </Link>
-              </Button>
               {isAdmin ? (
                 <Button
                   type="button"
@@ -368,14 +348,14 @@ export default function AiAgentDetail() {
                   disabled={statusBusy}
                   onClick={() => void handleToggleStatus()}
                 >
-                  {agent.status === 'active' ? (
-                    <Pause size={14} className="mr-1.5" aria-hidden />
-                  ) : (
+                  {agentWorkState(agent) === 'paused' ? (
                     <Play size={14} className="mr-1.5" aria-hidden />
+                  ) : (
+                    <Pause size={14} className="mr-1.5" aria-hidden />
                   )}
-                  {agent.status === 'active'
-                    ? t('workforce.agents.pause')
-                    : t('workforce.agents.wake')}
+                  {agentWorkState(agent) === 'paused'
+                    ? t('workforce.agents.wake')
+                    : t('workforce.agents.pause')}
                 </Button>
               ) : null}
               {isAdmin && agent.kind !== 'personal' && !agent.is_lead ? (
@@ -390,27 +370,126 @@ export default function AiAgentDetail() {
                   {t('workforce.agents.makeLead')}
                 </Button>
               ) : null}
-              {isAdmin && !agent.is_lead ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={archiveBusy}
-                  className="text-status-error hover:text-status-error"
-                  onClick={() => void handleArchive()}
-                >
-                  <Archive size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.archive')}
-                </Button>
-              ) : null}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button type="button" size="sm" variant="ghost" aria-label={t('workforce.agents.moreActions')}>
+                    <MoreHorizontal size={14} className="mr-1.5" aria-hidden />
+                    {t('workforce.agents.moreActions')}
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={4}
+                    className="z-50 min-w-[200px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
+                  >
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        to="/knowledge"
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                        title={t('workforce.agents.knowledgeHint')}
+                      >
+                        <Network size={14} />
+                        {t('workforce.agents.openKnowledge')}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        to="/settings/communication"
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                      >
+                        <Settings size={14} />
+                        {t('workforce.agents.openInboxAi')}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        to="/settings/setup"
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                      >
+                        {t('workforce.agents.openSetup')}
+                      </Link>
+                    </DropdownMenu.Item>
+                    {(agent.role_slug === 'orchestrator' || agent.role_slug === 'po' || agent.role_slug === 'orchestra') ? (
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          to="/settings/govern?tab=policy"
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                        >
+                          <ShieldCheck size={14} />
+                          {t('workforce.agents.openGovern')}
+                        </Link>
+                      </DropdownMenu.Item>
+                    ) : null}
+                    {isAdmin ? (
+                      <DropdownMenu.Item
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                        onSelect={() => setDuplicateOpen(true)}
+                      >
+                        <Copy size={14} />
+                        {t('workforce.agents.duplicate')}
+                      </DropdownMenu.Item>
+                    ) : null}
+                    {isAdmin && !agent.is_lead ? (
+                      <>
+                        <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                        <DropdownMenu.Item
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                          onSelect={() => setArchiveConfirmOpen(true)}
+                        >
+                          <Archive size={14} />
+                          {t('workforce.agents.archive')}
+                        </DropdownMenu.Item>
+                      </>
+                    ) : null}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
               {isAdmin && agent.is_lead ? (
                 <span className="self-center text-xs text-text-muted">
                   {t('workforce.agents.leadArchiveBlocked')}
                 </span>
               ) : null}
             </div>
+            {archiveConfirmOpen ? (
+              <div className="mt-3 rounded-lg border border-status-error/30 bg-status-error/5 px-3 py-2">
+                <p className="text-sm text-text-heading">{t('workforce.agents.archiveConfirm')}</p>
+                <p className="mt-1 text-xs text-text-muted">{t('workforce.agents.archiveSuggestPause')}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setArchiveConfirmOpen(false)}>
+                    {t('workforce.agents.archiveCancel')}
+                  </Button>
+                  {agentWorkState(agent) !== 'paused' ? (
+                    <Button type="button" size="sm" variant="outline" onClick={() => void handleToggleStatus()}>
+                      {t('workforce.agents.pause')}
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="text-status-error hover:text-status-error"
+                    disabled={archiveBusy}
+                    onClick={() => void handleArchive()}
+                  >
+                    {t('workforce.agents.archiveConfirmAction')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             {actionError ? <p className="mt-2 text-sm text-status-error">{actionError}</p> : null}
           </Card>
+          <NewAgentDialog
+            open={duplicateOpen}
+            onOpenChange={setDuplicateOpen}
+            onCreated={(agentId) => navigate(`/agents/${agentId}`)}
+            prefill={{
+              name: t('workforce.agents.duplicateName', { name: agent.name }),
+              role: agent.role_slug ?? undefined,
+              model: agent.model ?? undefined,
+              systemPrompt: agent.system_prompt ?? undefined,
+            }}
+          />
 
           {agendaItems.length > 0 ? (
             <Card className="px-4 py-3">
@@ -567,6 +646,22 @@ export default function AiAgentDetail() {
                     )}
                   </p>
                 )}
+                <p className="mt-1.5 text-[11px] text-text-muted">
+                  {t(
+                    {
+                      manual: 'workforce.agents.autonomyManualHint',
+                      approval: 'workforce.agents.autonomyApprovalHint',
+                      auto: 'workforce.agents.autonomyAutoHint',
+                    }[
+                      passport?.autonomy_level != null && passport.autonomy_level !== ''
+                        ? String(passport.autonomy_level)
+                        : 'approval'
+                    ] ?? 'workforce.agents.autonomyApprovalHint',
+                  )}{' '}
+                  <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
+                    {t('workforce.agents.autonomyGovernLink')}
+                  </Link>
+                </p>
               </div>
               <div className="sm:col-span-2">
                 <AgentToolsPicker
@@ -616,7 +711,7 @@ export default function AiAgentDetail() {
                       </Button>
                     ) : null}
                     <Button size="sm" variant="outline" asChild>
-                      <Link to={inboxPath('open')}>{t('workforce.agents.openCommunication')}</Link>
+                      <Link to={agentRunsPath('all')}>{t('workforce.agents.openCommunication')}</Link>
                     </Button>
                     <Button size="sm" variant="outline" asChild>
                       <Link to={`/agenda?agent=${agent.id}`}>{t('agendaPage.openAgenda')}</Link>

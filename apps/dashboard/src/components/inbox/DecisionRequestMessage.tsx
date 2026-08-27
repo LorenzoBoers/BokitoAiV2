@@ -387,6 +387,37 @@ export default function DecisionRequestMessage({
     await resolve('approve', option.id)
   }
 
+  if (resolved && !ruleSuggestion) {
+    return (
+      <div className="flex justify-start">
+        <div className="flex w-full max-w-3xl min-w-0 items-center gap-2 rounded-lg border border-border/50 bg-bg-surface/70 px-3 py-1.5">
+          <AiMark size={12} className="shrink-0 text-text-muted" />
+          <span className="min-w-0 truncate text-[11.5px] text-text-muted">
+            {t('decisionCard.earlierDraft')}
+            {excerpt ? ` — ${excerpt}` : ''}
+          </span>
+          {message.decisionId ? (
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(String(message.decisionId)).then(
+                  () => toast.success(t('decisionCard.idCopied')),
+                  () => toast.error(t('decisionCard.copyIdFailed')),
+                )
+              }}
+              className="shrink-0 text-[10px] text-text-muted hover:text-accent hover:underline"
+            >
+              {t('decisionCard.copyId')}
+            </button>
+          ) : null}
+          <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+            {t('decisionCard.resolved')}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex justify-start">
       <div
@@ -419,6 +450,20 @@ export default function DecisionRequestMessage({
             <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
               {t('decisionCard.resolved')}
             </span>
+          ) : null}
+          {message.decisionId ? (
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(String(message.decisionId)).then(
+                  () => toast.success(t('decisionCard.idCopied')),
+                  () => toast.error(t('decisionCard.copyIdFailed')),
+                )
+              }}
+              className="ml-auto text-[10px] text-text-muted hover:text-accent hover:underline"
+            >
+              {t('decisionCard.copyId')}
+            </button>
           ) : null}
         </div>
         {isActionSuggestion ? (
@@ -668,7 +713,9 @@ export default function DecisionRequestMessage({
         ) : null}
         {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
         {/* Learning loop: thumbs feed decision feedback; the correct action
-            opens a grounded chat with the responsible agent. */}
+            opens a grounded chat with the responsible agent. Hide on leftover
+            resolved cards so dismissed drafts do not keep asking for a vote. */}
+        {!resolved ? (
         <div className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2">
           <button
             type="button"
@@ -720,6 +767,7 @@ export default function DecisionRequestMessage({
             {t('decisionCard.correctInterpretation')}
           </button>
         </div>
+        ) : null}
       </div>
     </div>
   )

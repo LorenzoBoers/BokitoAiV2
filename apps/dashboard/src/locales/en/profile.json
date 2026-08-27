@@ -29,6 +29,7 @@
   "language": {
     "title": "Language",
     "description": "Choose the language for your interface.",
+    "deviceHint": "This language stays on this device.",
     "dutch": "Dutch",
     "english": "English"
   },
@@ -92,7 +93,8 @@
     "totpStart": "Could not start two-factor setup.",
     "totpDisable": "Could not turn off two-factor authentication.",
     "verificationSent": "Verification email sent if applicable.",
-    "verificationSentDev": "Verification email sent. Check the development link in the server logs."
+    "verificationSentDev": "Verification email sent. Check the development link in the server logs.",
+    "changePassword": "Could not change the password."
   },
   "links": {
     "openInboxSettings": "Open channel settings",

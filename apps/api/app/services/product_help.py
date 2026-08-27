@@ -492,3 +492,43 @@ def reset_product_help_cache() -> None:
     _catalog.cache_clear()
     _CHUNK_CACHE.clear()
     _KEYWORD_CACHE.clear()
+
+
+ASSET_EXTENSIONS = {".png", ".webp"}
+IMAGE_REF_RE = re.compile(r"!\[[^\]]*\]\((/api/docs/assets/[^)]+)\)")
+ASSET_URL_RE = re.compile(
+    r"^/api/docs/assets/([a-z0-9](?:[a-z0-9._/-]*[a-z0-9])?\.(?:png|webp))$",
+    re.IGNORECASE,
+)
+
+
+def assets_dir() -> Path:
+    return resolve_product_help_dir() / "assets"
+
+
+def resolve_asset(rel: str) -> Path | None:
+    """Resolve a screenshot under assets/. Rejects escapes and unknown types."""
+    clean = (rel or "").strip().replace("\\", "/").lstrip("/")
+    if not clean or ".." in clean.split("/"):
+        return None
+    if not ASSET_URL_RE.match(f"/api/docs/assets/{clean}"):
+        return None
+    root = assets_dir().resolve()
+    path = (root / clean).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return None
+    if path.suffix.lower() not in ASSET_EXTENSIONS or not path.is_file():
+        return None
+    return path
+
+
+def markdown_asset_paths(content: str) -> list[str]:
+    """Relative asset paths referenced from markdown image srcs."""
+    found: list[str] = []
+    for src in IMAGE_REF_RE.findall(content or ""):
+        match = ASSET_URL_RE.match(src)
+        if match:
+            found.append(match.group(1).replace("\\", "/"))
+    return found

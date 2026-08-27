@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowUpRight, Check, Cpu, Loader2, Plus, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { ArrowUpRight, Check, Copy, Cpu, Eye, EyeOff, Loader2, Plus, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
+import { modelCostBand, providerTypeLabel } from '../lib/model-label'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
@@ -63,6 +65,8 @@ export default function ModelsSettings() {
   const [customModelConn, setCustomModelConn] = useState('')
   const [customModelId, setCustomModelId] = useState('')
   const [customDisplayName, setCustomDisplayName] = useState('')
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [modelQuery, setModelQuery] = useState('')
 
   const load = useCallback(async () => {
     if (!token) return
@@ -117,6 +121,7 @@ export default function ModelsSettings() {
 
   const handleEnablePresets = async (connectionId: string) => {
     if (!token || busy) return
+    if (!window.confirm(t('modelsPage.enablePresetsConfirm'))) return
     setBusy(true)
     try {
       await createTenantModel(token, { connection_id: connectionId, enable_presets: true })
@@ -195,8 +200,9 @@ export default function ModelsSettings() {
     }
   }
 
-  const handleDeleteProvider = async (connectionId: string) => {
+  const handleDeleteProvider = async (connectionId: string, label: string) => {
     if (!token || busy) return
+    if (!window.confirm(t('modelsPage.removeConfirm', { name: label }))) return
     setBusy(true)
     try {
       await deleteProvider(token, connectionId)
@@ -237,6 +243,14 @@ export default function ModelsSettings() {
   const chatModels = tenantModels.filter((m) => m.kind === 'chat')
   const embeddingModels = tenantModels.filter((m) => m.kind === 'embedding')
   const isTenantMode = data?.source === 'tenant'
+  const modelNeedle = modelQuery.trim().toLowerCase()
+  const visibleModels = modelNeedle
+    ? tenantModels.filter((m) =>
+        `${m.display_name} ${m.slug} ${m.model_id} ${m.connection_label ?? ''} ${m.provider_type}`
+          .toLowerCase()
+          .includes(modelNeedle),
+      )
+    : tenantModels
 
   return (
     <PageContent width="lg" className="space-y-7 py-1">
@@ -284,7 +298,13 @@ export default function ModelsSettings() {
         </div>
 
         {showAddProvider ? (
-          <div className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated p-4">
+          <form
+            className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated p-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void handleAddProvider()
+            }}
+          >
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1.5">
                 <Label>{t('modelsPage.providerType')}</Label>
@@ -317,23 +337,34 @@ export default function ModelsSettings() {
             ) : null}
             <label className="space-y-1.5">
               <Label>{t('modelsPage.apiKey')}</Label>
-              <Input
-                type="password"
-                autoComplete="off"
-                value={newApiKey}
-                onChange={(e) => setNewApiKey(e.target.value)}
-                placeholder={t('modelsPage.apiKeyPlaceholder')}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  type={showApiKey ? 'text' : 'password'}
+                  autoComplete="off"
+                  value={newApiKey}
+                  onChange={(e) => setNewApiKey(e.target.value)}
+                  placeholder={t('modelsPage.apiKeyPlaceholder')}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  aria-label={showApiKey ? t('modelsPage.hideKey') : t('modelsPage.showKey')}
+                >
+                  {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </Button>
+              </div>
             </label>
             <div className="flex gap-2">
-              <Button type="button" onClick={() => void handleAddProvider()} disabled={busy || !newApiKey.trim()}>
+              <Button type="submit" disabled={busy || !newApiKey.trim()}>
                 {t('modelsPage.saveProvider')}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setShowAddProvider(false)}>
                 {t('modelsPage.cancel')}
               </Button>
             </div>
-          </div>
+          </form>
         ) : null}
 
         {connections.length === 0 ? (
@@ -361,14 +392,24 @@ export default function ModelsSettings() {
                 <div>
                   <p className="text-[13px] font-medium text-text-heading">
                     {conn.label}{' '}
-                    <span className="text-[11px] font-normal text-text-muted">({conn.provider_type})</span>
+                    <span className="text-[11px] font-normal text-text-muted">({providerTypeLabel(conn.provider_type)})</span>
                   </p>
                   <p className="text-[11px] text-text-muted">
                     {conn.is_set ? t('modelsPage.keySet', { last4: conn.last4 }) : t('modelsPage.noKey')}
                     {conn.base_url ? ` · ${conn.base_url}` : ''}
                   </p>
                   {testResults[conn.id] ? (
-                    <p className="text-[11px] text-text-muted">{testResults[conn.id]}</p>
+                    <p
+                      className={`text-[11px] ${
+                        testResults[conn.id] === t('modelsPage.connectionOk')
+                          ? 'text-status-success'
+                          : testResults[conn.id] === t('modelsPage.testing')
+                            ? 'text-text-muted'
+                            : 'text-status-error'
+                      }`}
+                    >
+                      {testResults[conn.id]}
+                    </p>
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -403,7 +444,7 @@ export default function ModelsSettings() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void handleDeleteProvider(conn.id)}
+                    onClick={() => void handleDeleteProvider(conn.id, conn.label)}
                     disabled={busy}
                     className="rounded-full border border-border/60 px-3 py-1 text-[11.5px] text-text-muted hover:text-status-error disabled:opacity-50"
                   >
@@ -506,7 +547,17 @@ export default function ModelsSettings() {
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.modelsTitle')}</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-[13px] font-semibold text-text-heading">{t('modelsPage.modelsTitle')}</h3>
+              {tenantModels.length > 0 ? (
+                <Input
+                  value={modelQuery}
+                  onChange={(e) => setModelQuery(e.target.value)}
+                  placeholder={t('modelsPage.searchModels')}
+                  className="h-8 max-w-xs text-[12.5px]"
+                />
+              ) : null}
+            </div>
             {tenantModels.length === 0 ? (
               <div>
                 <p className="text-[12px] text-text-muted">{t('modelsPage.modelsEmpty')}</p>
@@ -521,23 +572,52 @@ export default function ModelsSettings() {
               </div>
             ) : (
               <div className="space-y-2">
-                {tenantModels.map((m) => (
+                {visibleModels.length === 0 ? (
+                  <div>
+                    <p className="text-[12px] text-text-muted">{t('modelsPage.noModelMatches')}</p>
+                    <button
+                      type="button"
+                      className="mt-1 text-[12px] font-medium text-accent hover:underline"
+                      onClick={() => setModelQuery('')}
+                    >
+                      {t('modelsPage.clearFilter')}
+                    </button>
+                  </div>
+                ) : (
+                  visibleModels.map((m) => {
+                    const band = m.kind === 'chat' ? modelCostBand(m.input_cost_per_mtok_cents, m.output_cost_per_mtok_cents) : null
+                    const priceTitle =
+                      m.kind === 'chat'
+                        ? t('modelsPage.pricingInOut', {
+                            in: pricePerMillion(m.input_cost_per_mtok_cents),
+                            out: pricePerMillion(m.output_cost_per_mtok_cents),
+                          })
+                        : undefined
+                    return (
                   <div
                     key={m.id}
                     className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated px-3.5 py-2.5"
                   >
                     <div>
                       <p className="text-[13px] font-medium text-text-heading">{m.display_name}</p>
-                      <p className="text-[11px] text-text-muted">
-                        {m.connection_label ?? m.provider_type} · {m.slug} · {m.model_id}
-                        {m.kind === 'chat'
-                          ? ` · ${t('modelsPage.pricingInOut', {
-                              in: pricePerMillion(m.input_cost_per_mtok_cents),
-                              out: pricePerMillion(m.output_cost_per_mtok_cents),
-                            })}`
-                          : ''}
+                      <p className="text-[11px] text-text-muted" title={priceTitle}>
+                        {m.connection_label ?? providerTypeLabel(m.provider_type)}
+                        {band ? ` · ${t(`modelsPage.costBand.${band}`)}` : ''}
                       </p>
                     </div>
+                    <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(m.model_id)
+                        toast.success(t('modelsPage.copiedModel'))
+                      }}
+                      className="rounded-full border border-border/60 px-2 py-1 text-text-muted hover:text-accent"
+                      aria-label={t('modelsPage.copyModel')}
+                      title={m.model_id}
+                    >
+                      <Copy size={12} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => void handleToggleModel(m)}
@@ -550,8 +630,11 @@ export default function ModelsSettings() {
                     >
                       {m.enabled ? t('modelsPage.enabled') : t('modelsPage.disabled')}
                     </button>
+                    </div>
                   </div>
-                ))}
+                    )
+                  })
+                )}
               </div>
             )}
           </section>
@@ -607,7 +690,7 @@ function ManagedAiCard({ managed }: { managed: ManagedAiStatus }) {
           <span className="font-medium text-text-primary">{managed.embedding.display_name}</span>
         </span>
         <Link
-          to="/usage"
+          to="/cockpit/usage"
           className="ml-auto inline-flex items-center gap-1 text-[11.5px] font-medium text-accent hover:underline"
         >
           {t('modelsPage.managed.viewUsage')} <ArrowUpRight size={12} />

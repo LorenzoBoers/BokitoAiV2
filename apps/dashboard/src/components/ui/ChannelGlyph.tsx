@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
-import { Bot, Hash, Mail, MessageCircle, MessageSquare, MessagesSquare } from 'lucide-react'
+import { Bot, Globe, Hash, Mail, MessageCircle, MessageSquare, MessagesSquare } from 'lucide-react'
+import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
 import { cn } from '../../lib/utils'
 
 const CHANNEL_ALIASES: Record<string, string> = {
@@ -19,8 +20,19 @@ const CHANNEL_ICONS: Record<string, LucideIcon> = {
   widget: MessageSquare,
   slack: Hash,
   whatsapp: MessageCircle,
+  api: Globe,
+  webhook: Globe,
+  integration: Globe,
   internal: MessagesSquare,
   assistant: Bot,
+  webchat: Globe,
+}
+
+const CHANNEL_BRAND: Record<string, string> = {
+  slack: 'slack',
+  whatsapp: 'whatsapp',
+  email: 'smtp',
+  widget: 'bokito',
 }
 
 type GlyphProps = {
@@ -29,8 +41,41 @@ type GlyphProps = {
   className?: string
 }
 
+function BrandOrIcon({
+  slug,
+  kind,
+  size,
+  className,
+}: {
+  slug: string
+  kind: string
+  size: number
+  className?: string
+}) {
+  const brand = useIntegrationBrand(slug)
+  if (brand.logoUrl) {
+    return (
+      <img
+        src={brand.logoUrl}
+        alt=""
+        title={brand.name}
+        style={{ width: size, height: size }}
+        className={cn('shrink-0 object-contain', className)}
+        loading="lazy"
+      />
+    )
+  }
+  const Icon = CHANNEL_ICONS[kind] ?? Mail
+  return <Icon size={size} className={cn('shrink-0 text-text-muted', className)} />
+}
+
 export function ChannelGlyph({ channel, size = 13, className }: GlyphProps) {
-  const Icon = CHANNEL_ICONS[channelKind(channel)] ?? Mail
+  const kind = channelKind(channel)
+  const slug = CHANNEL_BRAND[kind]
+  if (slug) {
+    return <BrandOrIcon slug={slug} kind={kind} size={size} className={className} />
+  }
+  const Icon = CHANNEL_ICONS[kind] ?? Mail
   return <Icon size={size} className={cn('shrink-0 text-text-muted', className)} />
 }
 

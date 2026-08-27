@@ -1,19 +1,22 @@
 ---
 title: Authentication
 intro: API tokens, scopes and how to send credentials.
-description: How to create and use Bokito API tokens (bok_ prefix), what scopes do on the REST API and MCP endpoint, and how revocation works.
-keywords: authentication, api token, bearer, scopes, security
+description: Create Bokito API tokens in Settings, Developers, choose Workspace API and agent scopes, and rotate or revoke them.
+keywords: authentication, api token, bearer, scopes, developers, security
 sort: 20
 related: api-overview,api-signals,mcp-endpoint
 ---
 
 # Authentication
 
-Every developer surface authenticates with workspace API tokens. Tokens are created and revoked by workspace owners and admins.
+Every developer surface authenticates with workspace API tokens. Owners and admins create and revoke them under **Settings**, then **Developers**.
 
 ## Create a token
 
-Go to **Settings, then Developers** and create a token. The plaintext value - it starts with `bok_` - is shown once at creation. Store it in a secret manager; Bokito only keeps a hash.
+1. Open **Settings**, then **Developers**.
+2. Under **App tokens**, choose **New token**. Enter a **Token name** (for example `staging-crm`).
+3. Under **Access (empty = everything)** pick scopes. Leave them all off only when the integration truly needs **Full access**.
+4. Choose **Create token**. The plaintext value starts with `bok_` and is shown once. Copy it, or use **Copy curl example** for `GET /api/public/v1/signals`. Choose **I have copied it** when you are done. Bokito keeps only a hash; the list later shows a prefix such as `bok_ab12…` plus **last used** or **never used**. Hide revoked tokens unless you need the history.
 
 ## Send it
 
@@ -27,16 +30,18 @@ Requests without a valid token get `401 Unauthorized`.
 
 ## Scopes
 
-Scopes restrict what a token may do:
+The create form groups scopes:
 
-- **REST API:** `signals:read` allows reading signals and messages, `signals:write` allows creating signals.
-- **MCP endpoint:** scopes name tool categories; the token can only list and call tools in those categories.
+- **Workspace API:** `signals:read` reads conversations and messages. `signals:write` creates conversations.
+- **What agents and apps may do:** `messaging`, `workspace`, `agents`, `channels`, `triggers`, `integrations`, `govern`. The token can only list and call tools in the groups you tick.
 
-A token with an empty scope list has full access. Prefer scoped tokens: one token per integration, with only the scopes it needs. A request outside the token's scopes gets `403 Forbidden`.
+An empty scope list is full access. Prefer one token per integration with only the scopes it needs. A request outside those scopes gets `403 Forbidden`.
 
-## Revocation and rotation
+## Revoke and rotate
 
-Revoke a token under **Settings, then Developers**; it stops working immediately. To rotate, create the new token first, switch your integration over, then revoke the old one. Each token shows when it was last used, which makes stale tokens easy to spot.
+1. Find the token in the Developers list.
+2. To rotate, create the new token first, switch the integration, then revoke the old one.
+3. Revoke stops the token immediately. Last-used time makes stale tokens easy to spot.
 
 ## Rules of thumb
 

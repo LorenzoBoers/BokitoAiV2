@@ -1,8 +1,12 @@
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Filter, Tag, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
+import { listScrollStorageKey } from '../../lib/inbox-ops'
+import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
+import { threadNeedsReply } from '../../lib/message-composer'
+import { cn } from '../../lib/utils'
 import { useMembers } from '../../hooks/useMembers'
 import BulkActionsBar from './BulkActionsBar'
 import ThreadListItem from './ThreadListItem'
@@ -25,10 +29,20 @@ type Props = {
   variant?: 'customer' | 'direct'
   /** Bulk selection: omit to hide checkboxes (e.g. direct/assistant lists). */
   bulkSelectedIds?: ReadonlySet<string>
-  onToggleBulkSelect?: (id: ThreadId) => void
+  onToggleBulkSelect?: (id: ThreadId, shiftKey?: boolean) => void
+  onSelectAll?: () => void
+  onMarkAllRead?: () => void
   onBulkAction?: (action: BulkThreadAction, assigneeId?: number) => void
+  onBulkPin?: (nextPinned: boolean) => void
   onClearBulkSelection?: () => void
   bulkBusy?: boolean
+  scrollKey?: string
+  assigneeFilter?: number | null
+  onAssigneeFilter?: (id: number | null) => void
+  priorityFilter?: string | null
+  onPriorityFilter?: (value: string | null) => void
+  channelFilter?: string | null
+  onChannelFilter?: (value: string | null) => void
   /** Active label filter (server-side `?tag=`); null shows all threads. */
   activeTag?: string | null
   /** Set/clear the label filter; omit to make tag chips non-interactive. */
@@ -46,12 +60,14 @@ type Props = {
   onCompose?: () => void
   emptyLabel?: string
   emptyHint?: ReactNode
+  onRetry?: () => void
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
   return {
     all: threads.length,
     unread: threads.filter((t) => t.hasUnread).length,
+    needsReply: threads.filter((t) => threadNeedsReply(t)).length,
     pinned: threads.filter((t) => t.isPinned).length,
   }
 }
@@ -73,9 +89,19 @@ export default function ThreadList({
   variant = 'customer',
   bulkSelectedIds,
   onToggleBulkSelect,
+  onSelectAll,
+  onMarkAllRead,
   onBulkAction,
+  onBulkPin,
   onClearBulkSelection,
   bulkBusy = false,
+  scrollKey,
+  assigneeFilter = null,
+  onAssigneeFilter,
+  priorityFilter = null,
+  onPriorityFilter,
+  channelFilter = null,
+  onChannelFilter,
   activeTag = null,
   onTagSelect,
   scopeLabel = null,
@@ -87,16 +113,68 @@ export default function ThreadList({
   onCompose,
   emptyLabel,
   emptyHint,
+  onRetry,
 }: Props) {
   const { t } = useTranslation('communication')
+  const [density, setDensity] = useState(readInboxDensity)
   const counts = buildFilterCounts(allThreads)
   const selectionActive = (bulkSelectedIds?.size ?? 0) > 0
+  const toggleDensity = () => {
+    const next = density === 'compact' ? 'comfortable' : 'compact'
+    setDensity(next)
+    writeInboxDensity(next)
+  }
   const { members } = useMembers()
   const memberNames = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of members) map.set(String(m.id), m.name || m.email)
     return map
   }, [members])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const channelOptions = useMemo(() => {
+    const values = new Set<string>()
+    for (const thread of allThreads) {
+      if (thread.channel) values.add(thread.channel)
+    }
+    return [...values].sort()
+  }, [allThreads])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !scrollKey) return
+    const key = listScrollStorageKey(scrollKey)
+    try {
+      const saved = sessionStorage.getItem(key)
+      if (saved) el.scrollTop = Number(saved) || 0
+    } catch {
+      // ignore
+    }
+    const onScroll = () => {
+      try {
+        sessionStorage.setItem(key, String(el.scrollTop))
+      } catch {
+        // ignore
+      }
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [scrollKey])
+
+  useEffect(() => {
+    if (!onLoadMore || !hasMore) return
+    const node = sentinelRef.current
+    const root = scrollRef.current
+    if (!node || !root) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !loadingMore) onLoadMore()
+      },
+      { root, rootMargin: '120px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [onLoadMore, hasMore, loadingMore, threads.length])
 
   return (
     <div
@@ -107,16 +185,74 @@ export default function ThreadList({
           count={bulkSelectedIds?.size ?? 0}
           busy={bulkBusy}
           onAction={onBulkAction}
+          onPin={onBulkPin}
           onClear={onClearBulkSelection}
+          onSelectAll={onSelectAll}
         />
       ) : (
         <ThreadListQuickFilters
           value={quickFilter}
           onChange={onQuickFilterChange}
           counts={counts}
+          countsArePartial={Boolean(hasMore)}
           onCompose={onCompose}
+          density={density}
+          onToggleDensity={toggleDensity}
+          onSelectAll={onSelectAll}
+          onMarkAllRead={onMarkAllRead}
+          unreadCount={counts.unread}
         />
       )}
+
+      {variant === 'customer' && (onAssigneeFilter || onPriorityFilter || onChannelFilter) ? (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-1.5">
+          {onAssigneeFilter ? (
+            <select
+              value={assigneeFilter == null ? '' : String(assigneeFilter)}
+              onChange={(event) =>
+                onAssigneeFilter(event.target.value ? Number(event.target.value) : null)
+              }
+              aria-label={t('threadList.filterAssignee')}
+              className="h-6 max-w-[9rem] rounded-md border border-border/60 bg-bg-surface px-1.5 text-[11px] text-text-secondary"
+            >
+              <option value="">{t('threadList.filterAssigneeAll')}</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name || member.email}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          {onPriorityFilter ? (
+            <select
+              value={priorityFilter ?? ''}
+              onChange={(event) => onPriorityFilter(event.target.value || null)}
+              aria-label={t('threadList.filterPriority')}
+              className="h-6 rounded-md border border-border/60 bg-bg-surface px-1.5 text-[11px] text-text-secondary"
+            >
+              <option value="">{t('threadList.filterPriorityAll')}</option>
+              <option value="urgent">{t('priority.urgent')}</option>
+              <option value="high">{t('priority.high')}</option>
+              <option value="normal">{t('priority.normal')}</option>
+            </select>
+          ) : null}
+          {onChannelFilter ? (
+            <select
+              value={channelFilter ?? ''}
+              onChange={(event) => onChannelFilter(event.target.value || null)}
+              aria-label={t('threadList.filterChannel')}
+              className="h-6 rounded-md border border-border/60 bg-bg-surface px-1.5 text-[11px] text-text-secondary"
+            >
+              <option value="">{t('threadList.filterChannelAll')}</option>
+              {channelOptions.map((channel) => (
+                <option key={channel} value={channel}>
+                  {t(`composer.channel.${channel}`, { defaultValue: channel })}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+      ) : null}
 
       {scopeLabel && onClearScope ? (
         <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
@@ -152,20 +288,36 @@ export default function ThreadList({
         </div>
       ) : null}
 
-      <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
+      <div
+        ref={scrollRef}
+        className={cn('flex-1 overflow-y-auto min-h-0 p-1.5', density === 'compact' ? 'space-y-0' : 'space-y-0.5')}
+      >
         {threads.length === 0 ? (
           loading ? (
             <div className="py-8 text-center text-xs text-text-muted">{t('threadList.loading')}</div>
           ) : error ? (
-            <div className="py-4 px-3 text-xs text-status-error">{error}</div>
+            <div className="px-3 py-4 text-center">
+              <p className="text-xs text-status-error">{error}</p>
+              {onRetry ? (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
+                >
+                  {t('onboarding.retry')}
+                </button>
+              ) : null}
+            </div>
           ) : (
             <div className="px-3 py-8 text-center text-xs text-text-muted">
               <p>
                 {quickFilter === 'unread'
                   ? t('threadList.emptyUnread')
-                  : quickFilter === 'pinned'
-                    ? t('threadList.emptyPinned')
-                    : emptyLabel ?? t('threadList.empty')}
+                  : quickFilter === 'needsReply'
+                    ? t('threadList.emptyNeedsReply')
+                    : quickFilter === 'pinned'
+                      ? t('threadList.emptyPinned')
+                      : emptyLabel ?? t('threadList.empty')}
               </p>
               {quickFilter !== 'all' ? (
                 <button
@@ -202,9 +354,11 @@ export default function ThreadList({
                   ? memberNames.get(String(thread.assignedToUserId)) ?? null
                   : null
               }
+              compact={density === 'compact'}
             />
           ))
         )}
+        {hasMore && onLoadMore && threads.length > 0 ? <div ref={sentinelRef} className="h-4" /> : null}
         {hasMore && onLoadMore && threads.length > 0 ? (
           <button
             type="button"
@@ -223,6 +377,9 @@ export default function ThreadList({
           <div className="py-2 text-center text-[10.5px] text-text-muted/70">
             {t('threadList.allLoaded', { total })}
           </div>
+        ) : null}
+        {variant === 'customer' && !loading ? (
+          <p className="px-3 py-2 text-center text-[10px] text-text-muted/55">{t('threadList.shortcutHint')}</p>
         ) : null}
       </div>
     </div>

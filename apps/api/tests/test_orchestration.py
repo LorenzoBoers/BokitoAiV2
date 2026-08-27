@@ -225,5 +225,14 @@ async def test_triggers_crud_and_bindings(client: AsyncClient):
     assert bindings.status_code == 200
     assert any(b["id"] == binding_id for b in bindings.json()["bindings"])
 
+    patched = await client.patch(
+        f"/api/channels/bindings/{binding_id}",
+        headers=headers,
+        json={"enabled": False, "priority": 20},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["enabled"] is False
+    assert patched.json()["priority"] == 20
+
     removed = await client.delete(f"/api/channels/bindings/{binding_id}", headers=headers)
     assert removed.status_code == 200

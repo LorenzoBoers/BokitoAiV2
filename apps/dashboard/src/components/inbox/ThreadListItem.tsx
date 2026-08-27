@@ -3,10 +3,10 @@ import { Bot, Trash2 } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { DomainFavicon } from '../ui/DomainFavicon'
 import { cn } from '../../lib/utils'
-import { translateDecisionText } from '../../lib/activity-labels'
+import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
-import { isInternalThread, threadCounterpartyName, threadSecondaryLine } from '../../lib/message-composer'
-import { formatAppDate } from '../../lib/app-locale'
+import { isInternalThread, threadCounterpartyName, threadNeedsReply, threadSecondaryLine } from '../../lib/message-composer'
+import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import ThreadIndicatorMenu from './ThreadIndicatorMenu'
@@ -23,13 +23,14 @@ type Props = {
   variant?: 'customer' | 'direct'
   /** Bulk selection (checkbox) state; undefined hides the checkbox entirely. */
   checked?: boolean
-  onToggleChecked?: (id: ThreadId) => void
+  onToggleChecked?: (id: ThreadId, shiftKey?: boolean) => void
   /** True while any thread is selected: keeps all checkboxes visible. */
   selectionActive?: boolean
   /** Clicking a tag chip filters the list on that label. */
   onTagClick?: (tag: string) => void
   /** Display name of the assigned member (resolved by the parent list). */
   assigneeName?: string | null
+  compact?: boolean
 }
 
 function formatRelativeTime(iso: string | null, t: (key: string) => string, language?: string | null): string {
@@ -69,6 +70,7 @@ export default function ThreadListItem({
   selectionActive = false,
   onTagClick,
   assigneeName = null,
+  compact = false,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
@@ -82,9 +84,16 @@ export default function ThreadListItem({
     : isAgentThread
       ? threadCounterpartyName(thread)
       : contactLabel || readableEmail || t('listItem.unknownSender')
+  const rawPreview =
+    translateMockAgentBody(thread.lastMessagePreview, t) || translateDecisionText(thread.emailSubject, t)
   const secondaryLabel = isDirect
     ? thread.agentName ?? (thread.agentKind === 'company' ? t('listItem.companyAgent') : t('listItem.assistant'))
-    : translateDecisionText(isAgentThread ? threadSecondaryLine(thread) : thread.emailSubject, t)
+    : isAgentThread
+      ? translateDecisionText(threadSecondaryLine(thread), t)
+      : thread.lastMessageDirection === 'outbound' && rawPreview
+        ? `${t('listItem.you')}: ${rawPreview}`
+        : rawPreview
+  const showNeedsReply = !isDirect && !isAgentThread && threadNeedsReply(thread) && !thread.hasUnread
 
   return (
     <div
@@ -99,7 +108,8 @@ export default function ThreadListItem({
       }}
       data-active={isSelected || undefined}
       className={cn(
-        'row-interactive w-full cursor-pointer text-left px-3 py-2.5 rounded-md group/thread',
+        'row-interactive w-full cursor-pointer text-left px-3 rounded-md group/thread',
+        compact ? 'py-1.5' : 'py-2.5',
         isSelected
           ? 'bg-accent/10 border border-accent/20'
           : 'hover:bg-bg-hover/50 border border-transparent',
@@ -113,7 +123,9 @@ export default function ThreadListItem({
             aria-label={t('threadList.selectThread')}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
-            onChange={() => onToggleChecked(thread.id)}
+            onChange={(event) =>
+              onToggleChecked(thread.id, (event.nativeEvent as MouseEvent).shiftKey)
+            }
             className={cn(
               'mt-1 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border accent-[rgb(var(--color-accent))] transition-opacity',
               selectionActive || checked
@@ -188,7 +200,14 @@ export default function ThreadListItem({
                   <ChannelGlyph channel={thread.channel ?? 'email'} size={11} className="text-text-muted/80" />
                 </span>
               ) : null}
-              <span className="text-xs text-text-muted">
+              <span
+                className="text-xs text-text-muted"
+                title={
+                  thread.lastMessageAt
+                    ? formatAppDateTime(new Date(thread.lastMessageAt), i18n.language)
+                    : undefined
+                }
+              >
                 {thread.status === 'pending'
                   ? formatWakeTime(thread.snoozedUntil, t, i18n.language) ?? t('snooze.untilReply')
                   : formatRelativeTime(thread.lastMessageAt, t, i18n.language)}
@@ -200,6 +219,11 @@ export default function ThreadListItem({
               <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot, thread.priority === 'urgent' && 'pulse-dot')} />
             ) : null}
             <span className="text-xs font-medium text-text-secondary truncate">{secondaryLabel}</span>
+            {showNeedsReply ? (
+              <span className="shrink-0 rounded-full bg-accent/12 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
+                {t('listItem.needsReply')}
+              </span>
+            ) : null}
           </div>
           {thread.assignedToUserId && !isDirect ? (
             <div className="flex items-center gap-1">

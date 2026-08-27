@@ -36,6 +36,7 @@ import {
   type WorkspaceSearchHit,
 } from '../lib/workspace-api'
 import { agentRunsPath } from '../lib/messages-paths'
+import { titleToDocPath } from '../lib/workspace-doc-path'
 import { cn } from '../lib/utils'
 
 const KIND_ORDER: WorkspaceDocKind[] = ['persona', 'memory', 'skill', 'heartbeat', 'doc', 'daily_log']
@@ -98,8 +99,9 @@ export default function WorkspaceDocs() {
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<WorkspaceSearchHit[] | null>(null)
   const [creating, setCreating] = useState(false)
-  const [newPath, setNewPath] = useState('')
+  const [newTitle, setNewTitle] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
@@ -198,12 +200,13 @@ export default function WorkspaceDocs() {
   }, [active, draft, refresh, t])
 
   const handleCreate = useCallback(async () => {
-    const path = newPath.trim()
-    if (!path) return
+    const title = newTitle.trim()
+    const path = titleToDocPath(title) || titleToDocPath('note')
+    if (!title) return
     try {
-      const doc = await createWorkspaceDoc({ path, content: `# ${path.replace(/\.md$/, '')}\n` })
+      const doc = await createWorkspaceDoc({ path, content: `# ${title}\n` })
       setCreating(false)
-      setNewPath('')
+      setNewTitle('')
       setError(null)
       toast.success(t('knowledgePage.created'))
       await refresh()
@@ -213,7 +216,7 @@ export default function WorkspaceDocs() {
       setError(message)
       toast.error(message)
     }
-  }, [navigate, newPath, refresh, t])
+  }, [navigate, newTitle, refresh, t])
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -236,9 +239,18 @@ export default function WorkspaceDocs() {
     [navigate, refresh, t],
   )
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (query.trim()) void runSearch()
+      else setHits(null)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [query, runSearch])
+
   const handlePublishToggle = useCallback(async () => {
     if (!active) return
     const publish = !isPublished(active)
+    if (publish && !window.confirm(t('knowledgePage.publishConfirm'))) return
     setPublishing(true)
     try {
       const updated = await publishWorkspaceDoc(active.id, publish)
@@ -341,31 +353,37 @@ export default function WorkspaceDocs() {
             {creating ? (
               <div className="flex items-center gap-1.5">
                 <Input
-                  value={newPath}
-                  onChange={(e) => setNewPath(e.target.value)}
-                  placeholder={t('knowledgePage.pathPlaceholder')}
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder={t('knowledgePage.titlePlaceholder')}
                   className="h-8 text-xs"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void handleCreate()
                   }}
                   autoFocus
                 />
-                <Button size="sm" className="h-8" onClick={() => void handleCreate()}>
+                <Button size="sm" className="h-8" onClick={() => void handleCreate()} disabled={!newTitle.trim()}>
                   {t('knowledgePage.add')}
                 </Button>
               </div>
             ) : null}
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void runSearch()
-                }}
-                placeholder={t('knowledgePage.searchPlaceholder')}
-                className="h-8 pl-7 text-xs"
-              />
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void runSearch()
+                  }}
+                  placeholder={t('knowledgePage.searchPlaceholder')}
+                  title={t('knowledgePage.searchEnterHint')}
+                  className="h-8 pl-7 text-xs"
+                />
+              </div>
+              <Button size="sm" variant="outline" className="h-8" onClick={() => void runSearch()}>
+                {t('knowledgePage.search')}
+              </Button>
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -437,6 +455,9 @@ export default function WorkspaceDocs() {
                       {kindLabel(kind)}
                       {AI_MAINTAINED_KINDS.has(kind) ? <KnowledgeMark size={11} /> : null}
                     </p>
+                    <p className="px-2 pb-1 text-[10px] leading-4 text-text-muted/80">
+                      {t(`knowledgePage.kindIntros.${kind}`)}
+                    </p>
                     {rows.map((doc) => (
                       <button
                         key={doc.id}
@@ -480,6 +501,27 @@ export default function WorkspaceDocs() {
               </div>
               {!loading && docs.length === 0 ? (
                 <div className="flex flex-col items-center gap-3">
+                  <button
+                    type="button"
+                    onDragOver={(event) => {
+                      event.preventDefault()
+                      setDragOver(true)
+                    }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      setDragOver(false)
+                      const file = event.dataTransfer.files?.[0]
+                      if (file) void handleUpload(file)
+                    }}
+                    onClick={() => uploadInputRef.current?.click()}
+                    className={cn(
+                      'rounded-xl border border-dashed px-6 py-5 text-xs text-text-muted transition-colors',
+                      dragOver ? 'border-accent/50 bg-accent/5 text-text-secondary' : 'border-border/60',
+                    )}
+                  >
+                    {t('knowledgePage.dropHint')}
+                  </button>
                   <Button size="sm" onClick={() => setCreating(true)}>
                     <FilePlus className="mr-1.5 h-3.5 w-3.5" />
                     {t('knowledgePage.createFirst')}
@@ -535,6 +577,11 @@ export default function WorkspaceDocs() {
                       </span>
                     ) : null}
                   </div>
+                  {AI_MAINTAINED_KINDS.has(active.kind) ? (
+                    <p className="mt-2 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-[12px] text-text-muted">
+                      {t('knowledgePage.aiMaintainedBanner')}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-[12px] text-text-muted">
                     {t('knowledgePage.usedByAgents')}{' '}
                     <Link to="/agents" className="font-medium text-accent hover:underline">

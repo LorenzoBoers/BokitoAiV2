@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserRound } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../hooks/useMembers'
 import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
@@ -22,7 +23,13 @@ type Props = {
 
 export default function AssigneeSelector({ currentAssigneeId, onChange, disabled }: Props) {
   const { t } = useTranslation('communication')
+  const { user } = useAuth()
   const { members } = useMembers()
+  const myId =
+    members.find((member) => member.email.toLowerCase() === (user?.email ?? '').toLowerCase())?.id ??
+    user?.id ??
+    null
+  const assignedToMe = myId != null && myId !== 0 && currentAssigneeId === myId
 
   const currentMember = useMemo(
     () => members.find((m) => m.id === currentAssigneeId) ?? null,
@@ -40,6 +47,7 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
           <DropdownMenuTrigger asChild>
             <button
               type="button"
+              id="inbox-assignee-trigger"
               disabled={disabled}
               aria-label={tooltip}
               className={cn(
@@ -62,6 +70,14 @@ export default function AssigneeSelector({ currentAssigneeId, onChange, disabled
           {t('threadChrome.assign')}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {myId != null && !assignedToMe ? (
+          <DropdownMenuItem
+            onSelect={() => onChange(myId)}
+            className="text-xs font-medium"
+          >
+            {t('threadChrome.assignToMe')}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           onSelect={() => onChange(null)}
           className={cn('text-xs', currentAssigneeId == null && 'bg-bg-hover/80')}

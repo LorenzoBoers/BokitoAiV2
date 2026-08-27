@@ -1,33 +1,43 @@
 ---
 title: Approve and decline decisions
-intro: Agents ask for approval inside the thread when a step needs your judgment.
-description: How decision requests work in Bokito: where they appear, how to approve or decline, and how apply modes and autonomy posture decide when agents ask.
-keywords: decisions, approvals, decision requests, apply modes, human in the loop
+intro: Agents ask inside the thread when a step needs your judgment.
+description: Approve, edit or decline decision cards in the thread, from Cockpit, or from Slack when it is connected.
+keywords: decisions, approvals, decision requests, slack, human in the loop
 sort: 20
-related: autonomy,govern,communication
+related: communication,agent-runs,autonomy,govern
 ---
 
 # Approve and decline decisions
 
-When an agent reaches a step it should not take alone - sending a sensitive reply, changing configuration, spending money - it posts a decision request. You approve or decline, and the agent continues.
+A decision request is a message in the thread, not a separate queue. Open Communication or Agent runs when something is waiting on you.
 
-## Where decisions appear
+## Find a waiting decision
 
-Decision requests are messages inside the thread they belong to, not a separate queue to police. You see the agent's reasoning, the proposed action and the surrounding conversation in one place. Pending decisions also surface on the Cockpit and in notifications so nothing waits unseen.
+![A waiting decision in the thread](/api/docs/assets/decisions/approve.png)
+*Open the thread from Communication, Agent runs or Cockpit.*
 
-## Approving and declining
+1. Open the thread from Communication, [Agent runs](/docs/inbox/agent-runs) **Decisions**, or Cockpit **Awaiting decision**.
+2. Scroll to the decision card. It shows the proposed action and why the agent stopped.
+3. The bell menu in the top bar points at the same card.
 
-Open the request, read the proposal and choose approve or decline. Approving lets the agent execute immediately. Declining stops the action; add a short note so the agent (and your colleagues) know why. Declines feed back into how agents behave, so a reason is worth the ten seconds.
+## Approve, edit or decline
+
+1. Read the proposal in context of the conversation.
+2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Create task** or **Keep open**. Suggested-reply cards from [Inbox AI](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
+3. On agent messages you can mark **Looks right** or **Not helpful**, or choose **Correct this** to teach the agent. Escalate pauses AI on the thread and assigns you.
+
+## Answer from Slack
+
+1. Connect Slack under **Settings**, then **Email & messages**. See [Channels](/docs/inbox/channels). Decision cards can arrive there with **Approve** and **Deny**.
+2. Use those buttons when you are not in Bokito. The thread in Communication updates the same way.
+3. Inbox AI suggestions still need a human send unless autonomy allows more.
 
 ## When agents ask
 
-Two settings control this:
+Workspace [autonomy posture](/docs/govern/autonomy) sets the default. On [Govern](/docs/govern/govern) **Policy**, each tool category is **Deny**, **Ask first** or **Allow**. **Ask first** creates the card you see in the thread. Per-agent overrides on the agent page win over the category.
 
-- **Apply mode** per resource: `draft` (agent prepares, never applies), `decision` (agent asks first), or `yolo` (agent applies directly).
-- **Autonomy posture** for the workspace: `manual`, `assisted` or `autonomous`. The posture sets the default; per-resource overrides in Govern win over the posture.
+Start with **Assisted**. Move steps you always approve toward **Allow**. Keep **Ask first** for the risky ones.
 
-In practice: start with `assisted`, watch which requests you always approve, then move those to `yolo` and keep decisions for the genuinely risky steps.
+## What to do next
 
-## Reviewing afterwards
-
-Every decision - who asked, who answered, what happened - is recorded in Govern under audit. Structural changes (an agent editing configuration) also appear as platform changes you can review and roll back.
+Structural workspace edits wait on Govern **Pending reviews**, not in the thread. Audit later under Govern **Recent audit**.
