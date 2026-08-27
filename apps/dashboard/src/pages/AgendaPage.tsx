@@ -207,7 +207,7 @@ export default function AgendaPage() {
 
   const weekStart = useMemo(() => addDays(startOfWeek(new Date()), weekOffset * 7), [weekOffset])
 
-  const window = useMemo(() => {
+  const dateWindow = useMemo(() => {
     if (view === 'week') return { from: weekStart, to: addDays(weekStart, 7) }
     return { from: addDays(startOfDay(new Date()), -1), to: addDays(startOfDay(new Date()), 21) }
   }, [view, weekStart])
@@ -225,8 +225,8 @@ export default function AgendaPage() {
     try {
       const [occurrences, triggerRows] = await Promise.all([
         listAgendaOccurrences({
-          from: window.from.toISOString(),
-          to: window.to.toISOString(),
+          from: dateWindow.from.toISOString(),
+          to: dateWindow.to.toISOString(),
           agentId: agentFilter !== 'all' ? agentFilter : undefined,
         }),
         listTriggers(),
@@ -239,7 +239,7 @@ export default function AgendaPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, view, window, agentFilter, t])
+  }, [token, view, dateWindow, agentFilter, t])
 
   useEffect(() => {
     void load()
