@@ -92,6 +92,8 @@ async def connection_counts(session: AsyncSession, tenant_id: UUID) -> dict[str,
 
 
 async def list_providers(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    from app.modules.catalog import serialize_modules_for_tenant
+
     counts = await connection_counts(session, tenant_id)
     hosts = []
     seen_hosts: set[str] = set()
@@ -104,6 +106,7 @@ async def list_providers(session: AsyncSession, tenant_id: UUID) -> dict[str, An
         "providers": sorted(PROVIDERS, key=lambda p: p.get("sort_order", 0)),
         "hosts": hosts,
         "connection_counts": counts,
+        "modules": await serialize_modules_for_tenant(session, tenant_id),
     }
 
 

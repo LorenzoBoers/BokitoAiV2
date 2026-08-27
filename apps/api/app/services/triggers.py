@@ -253,7 +253,12 @@ async def _heartbeat_checklist(session: AsyncSession, tenant_id: UUID) -> str:
     from app.services.workspace import list_docs
 
     docs = await list_docs(session, tenant_id, kind="heartbeat")
-    return "\n\n".join(d.content for d in docs if d.content.strip())
+    from app.modules.catalog import with_heartbeat_module_hint
+
+    parts = [d.content for d in docs if d.content.strip()]
+    if not parts:
+        return with_heartbeat_module_hint("")
+    return "\n\n".join(with_heartbeat_module_hint(part) for part in parts)
 
 
 async def _operations_signal_id(session: AsyncSession, tenant_id: UUID) -> UUID | None:

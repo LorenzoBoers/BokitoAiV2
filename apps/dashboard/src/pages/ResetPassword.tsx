@@ -18,14 +18,9 @@ export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(3);
 
   const token = searchParams.get('token');
-
-  useEffect(() => {
-    if (!token) {
-      navigate('/login');
-    }
-  }, [token, navigate]);
 
   const validation = useFormValidation(
     { password, passwordConfirmation },
@@ -52,11 +47,7 @@ export default function ResetPassword() {
     try {
       await resetPassword(token, password);
       setIsSuccess(true);
-      
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
+      setSecondsLeft(3);
     } catch (err) {
       const message = err instanceof Error ? err.message : t('resetPage.failed');
       setError(message);
@@ -64,6 +55,59 @@ export default function ResetPassword() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isSuccess) return;
+    const id = window.setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          window.clearInterval(id);
+          navigate('/login');
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [isSuccess, navigate]);
+
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
+        </div>
+        <div className="relative w-full max-w-sm">
+          <div className="flex flex-col items-center mb-8">
+            <img
+              src="/bokito-logo-in-circel.svg"
+              alt="Bokito.ai"
+              className="w-12 h-12 mb-3"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
+          </div>
+          <div className="bg-bg-surface border border-border/60 rounded-xl p-8 shadow-overlay animate-page-enter text-center">
+            <AlertCircle className="w-16 h-16 text-status-error mx-auto mb-4" />
+            <h1 className="text-xl font-semibold text-text-heading mb-2">{t('resetPage.missingTitle')}</h1>
+            <p className="text-text-secondary mb-6">{t('resetPage.missingBody')}</p>
+            <Link
+              to="/forgot-password"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-accent-fg rounded-md transition-colors"
+            >
+              {t('resetPage.requestNew')}
+            </Link>
+            <div className="mt-4">
+              <Link to="/login" className="inline-flex items-center gap-2 text-sm text-accent hover:text-accent-hover">
+                <ArrowLeft className="w-4 h-4" />
+                {t('loginPage.backToSignIn')}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (
@@ -92,7 +136,7 @@ export default function ResetPassword() {
               {t('resetPage.successTitle')}
             </h1>
             <p className="text-text-secondary mb-6">
-              {t('resetPage.successBody')}
+              {t('resetPage.redirectIn', { seconds: secondsLeft })}
             </p>
             
             <Link

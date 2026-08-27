@@ -43,6 +43,7 @@ import {
   threadHubPath,
   threadNeedsReply,
 } from '../lib/message-composer'
+import { InboxSplitSkeleton } from '../components/ui/skeleton'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
@@ -1045,7 +1046,7 @@ export default function Communication() {
   }, [detail, navigate])
 
   if (connectionsLoading) {
-    return <div className="h-full py-6 text-sm text-text-muted">{t('loadingMailboxes')}</div>
+    return <InboxSplitSkeleton />
   }
 
   if (connectionsError) {

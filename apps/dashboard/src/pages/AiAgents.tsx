@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { AiAvatar } from '../components/ui/AiAvatar'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
@@ -326,7 +326,7 @@ export default function AiAgents() {
       </div>
 
       {loading ? (
-        <LoadingBlock label={t('workforce.agents.loading')} />
+        <CardGridSkeleton />
       ) : error ? (
         isAdmin ? (
           <Card className="p-4">

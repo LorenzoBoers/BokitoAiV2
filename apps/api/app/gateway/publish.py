@@ -177,6 +177,9 @@ async def publish_thread_update(signal: "Signal") -> None:
                 "audience": "all",
                 "signal_id": str(signal.id),
                 "status": signal.status,
+                # Visitor-safe takeover flag: the widget shows/hides its
+                # "team member is handling this" banner live on this bit.
+                "ai_paused": bool(signal.ai_paused),
             },
         )
 

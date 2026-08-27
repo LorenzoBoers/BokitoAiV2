@@ -121,6 +121,7 @@ export function normalizeSignalMessage(row: unknown): InboxMessage | null {
     direction,
     fromAddress: asString(raw.from_address),
     toAddresses: asString(raw.to_addresses),
+    cc: typeof raw.cc === 'string' && raw.cc ? raw.cc : null,
     subject: asString(raw.subject),
     bodyPreview: asString(raw.body_preview ?? raw.body_text),
     bodyText: asString(raw.body_text),
@@ -289,12 +290,21 @@ export async function getSignalThread(token: string, threadId: string): Promise<
     messages?: unknown[]
     events?: unknown[]
     sessions?: unknown[]
+    csat?: { score?: unknown; comment?: unknown; created_at?: unknown } | null
   }>(
     appRoutes.signals.thread(threadId),
     token,
   )
   const thread = normalizeSignalThread(payload.thread)
   if (!thread) return null
+  const csat =
+    payload.csat && typeof payload.csat.score === 'number'
+      ? {
+          score: payload.csat.score,
+          comment: typeof payload.csat.comment === 'string' ? payload.csat.comment : '',
+          created_at: typeof payload.csat.created_at === 'string' ? payload.csat.created_at : '',
+        }
+      : null
   return {
     thread,
     messages: (payload.messages ?? []).map(normalizeSignalMessage).filter((m): m is InboxMessage => m !== null),
@@ -302,6 +312,7 @@ export async function getSignalThread(token: string, threadId: string): Promise<
     sessions: (payload.sessions ?? [])
       .map(normalizeThreadSession)
       .filter((s): s is ThreadSession => s !== null),
+    csat,
   }
 }
 

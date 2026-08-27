@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, FileText, Search } from 'lucide-react'
+import { ArrowLeft, BookOpen, Copy, FileText, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import MarkdownView from '../components/docs/MarkdownView'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
 import { formatAppDate } from '../lib/app-locale'
@@ -104,20 +105,35 @@ export default function HelpCenter() {
               {index ? t('helpPublic.titleNamed', { name: index.tenant.name }) : t('helpPublic.title')}
             </Link>
             {!articleSlug ? (
-              <div className="relative mt-4">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  value={query}
-                  onChange={(e) => {
-                    const next = e.target.value
-                    const params = new URLSearchParams(searchParams)
-                    if (next.trim()) params.set('q', next)
-                    else params.delete('q')
-                    setSearchParams(params, { replace: true })
-                  }}
-                  placeholder={t('helpPublic.search')}
-                  className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
-                />
+              <div className="mt-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={query}
+                    onChange={(e) => {
+                      const next = e.target.value
+                      const params = new URLSearchParams(searchParams)
+                      if (next.trim()) params.set('q', next)
+                      else params.delete('q')
+                      setSearchParams(params, { replace: true })
+                    }}
+                    placeholder={t('helpPublic.search')}
+                    className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-20 text-sm outline-none focus:border-primary"
+                  />
+                  {query.trim() ? (
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-accent hover:underline"
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams)
+                        params.delete('q')
+                        setSearchParams(params, { replace: true })
+                      }}
+                    >
+                      {t('helpPublic.clearSearch')}
+                    </button>
+                  ) : null}
+                </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">{t('helpPublic.searchHint')}</p>
               </div>
             ) : null}
@@ -149,15 +165,45 @@ export default function HelpCenter() {
               {t('helpPublic.allArticles')}
             </Link>
             <h1 className="text-2xl font-semibold tracking-tight">{article.title}</h1>
-            <p className="mt-1 mb-6 text-xs text-muted-foreground">
-              {t('helpPublic.updated', { date: formatDate(article.updated_at, i18n.language) })}
-            </p>
+            <div className="mt-1 mb-6 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <span>{t('helpPublic.updated', { date: formatDate(article.updated_at, i18n.language) })}</span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+                onClick={() => {
+                  void navigator.clipboard.writeText(window.location.href).then(
+                    () => toast.success(t('helpPublic.copiedUrl')),
+                    () => toast.error(t('helpPublic.copyFailed')),
+                  )
+                }}
+              >
+                <Copy className="h-3 w-3" />
+                {t('helpPublic.copyUrl')}
+              </button>
+            </div>
             <MarkdownView content={article.content} />
           </article>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {query.trim() ? t('helpPublic.emptySearch') : t('helpPublic.empty')}
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              {query.trim() ? t('helpPublic.emptySearch') : t('helpPublic.empty')}
+            </p>
+            {query.trim() ? (
+              <button
+                type="button"
+                className="text-sm font-medium text-accent hover:underline"
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams)
+                  params.delete('q')
+                  setSearchParams(params, { replace: true })
+                }}
+              >
+                {t('helpPublic.clearSearch')}
+              </button>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t('helpPublic.emptyIndexHint')}</p>
+            )}
+          </div>
         ) : (
           <div className="space-y-2">
             {filtered.map((item) => (

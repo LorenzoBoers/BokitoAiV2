@@ -18,7 +18,7 @@ Iedereen die binnenkomt landt hier. Open Contacten om iemand te herkennen, of op
 
 1. Open een gesprek in [Communicatie](/docs/inbox/communication).
 2. Klik de contactnaam in het contextpaneel.
-3. Lees geschiedenis, laatst gezien en andere gesprekken, en spring terug naar het open werk.
+3. Lees geschiedenis, laatst gezien en andere gesprekken, en spring terug naar het open werk. De lijst omvat alle kanalen: iemand die op de website chat en ook mailt vanaf hetzelfde adres toont één gecombineerde geschiedenis, elke rij met een kanaalicoon.
 
 Websitebezoekers zonder naam tonen als **Websitebezoeker** tot ze het [vooraf-formulier](/docs/inbox/widget) van de widget invullen.
 

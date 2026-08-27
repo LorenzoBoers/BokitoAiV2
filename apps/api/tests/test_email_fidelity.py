@@ -389,6 +389,41 @@ def test_gmail_parser_captures_rfc_id():
     assert parsed["references"] == "<earlier@x>"
 
 
+def test_parsers_capture_cc_recipients():
+    """CC lists survive sync so the timeline and reply-all can use them."""
+    from app.services.email_sync import _parse_gmail_message, _parse_graph_message
+
+    gmail = _parse_gmail_message(
+        {
+            "id": "g-cc",
+            "threadId": "t-cc",
+            "payload": {
+                "headers": [
+                    {"name": "From", "value": "Klant <k@x.nl>"},
+                    {"name": "Subject", "value": "Vraag"},
+                    {"name": "Cc", "value": "Collega <c@x.nl>, extern@y.nl"},
+                ]
+            },
+        }
+    )
+    assert gmail["cc"] == "Collega <c@x.nl>, extern@y.nl"
+
+    graph = _parse_graph_message(
+        {
+            "id": "m-cc",
+            "subject": "Vraag",
+            "from": {"emailAddress": {"address": "k@x.nl", "name": "Klant"}},
+            "body": {"contentType": "text", "content": "Hoi"},
+            "ccRecipients": [
+                {"emailAddress": {"address": "c@x.nl", "name": "Collega"}},
+                {"emailAddress": {"address": "extern@y.nl"}},
+            ],
+        }
+    )
+    assert graph is not None
+    assert graph["cc"] == "c@x.nl, extern@y.nl"
+
+
 # --- Received time fidelity ----------------------------------------------------
 
 

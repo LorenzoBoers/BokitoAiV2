@@ -252,18 +252,22 @@ async def test_bjorn_lunden_install_discovers_accounting_tools(
     assert any(t.get("name") == "get_invoice" for t in cached)
     assert server.tools_synced_at is not None
 
-    # Tenant snapshot exposes the tools to agent prompts.
+    # Tenant snapshot surfaces the server as accounting-module capacity:
+    # agents get accounting_* guidance, not vendor tool names.
     from app.services.tenant_introspection import (
         collect_tenant_snapshot,
         format_tenant_snapshot_prompt,
     )
 
     snapshot = await collect_tenant_snapshot(session_override, tenant.id)
-    mcp_entry = next(m for m in snapshot["mcp_servers"] if "Lund" in m["name"])
-    assert "list_invoices" in mcp_entry["tools"]
+    assert not any("Lund" in m["name"] for m in snapshot["mcp_servers"])
+    acc_entry = next(
+        c for c in snapshot["accounting_connections"] if "Lund" in c["name"]
+    )
+    assert acc_entry["server_url"].startswith("native://bjorn-lunden")
     prompt = format_tenant_snapshot_prompt(snapshot)
-    assert "call_mcp_tool" in prompt
-    assert "list_invoices" in prompt
+    assert "accounting_list_companies" in prompt
+    assert "list_invoices" not in prompt
 
     # Servers listing includes cached tools.
     servers = await client.get("/api/integrations/mcp/servers", headers=headers)

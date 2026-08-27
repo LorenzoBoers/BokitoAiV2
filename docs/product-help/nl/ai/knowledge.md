@@ -29,9 +29,9 @@ Geheugen, check-ins en dagnotities onderhoudt de AI. Bewerk ze als een feit fout
 
 ## Voeg een document toe
 
-1. Open **Kennis**. Een lege bibliotheek biedt **Eerste document maken** en een dropzone voor een PDF of Word-bestand. Gebruik **Zoek in kennis** (Enter of **Zoeken**) als de lijst lang is, of **Zoekopdracht wissen** om weer te bladeren.
+1. Open **Kennis**. Een lege bibliotheek biedt **Eerste document maken** en een dropzone voor een PDF of Word-bestand. Gebruik **Zoek in kennis** (Enter of **Zoeken**) als de lijst lang is, of **Zoekopdracht wissen** om weer te bladeren. Soortchips filteren Stem, Geheugen, Skills, Docs, Check-ins en Dagnotities.
 2. Kies **Nieuw document**, typ een titel (het pad wordt automatisch gemaakt) en daarna **Toevoegen**. Of gebruik **Document uploaden (PDF, Word, tekst)**.
-3. **Opslaan**. De volgende agentrun kan ernaar zoeken. Geheugen, Check-ins en Dagnotities tonen **Door agents bijgehouden**. **Document verwijderen** haalt een pagina weg die je niet meer wilt.
+3. **Opslaan** of druk op Ctrl/Cmd+S. Weggaan met niet-opgeslagen wijzigingen vraagt om bevestiging. Klik het documentpad om het te kopiëren. Geheugen, Check-ins en Dagnotities tonen **Door agents bijgehouden**. **Document verwijderen** haalt een pagina weg die je niet meer wilt.
 
 ## Onderbouw een concept
 

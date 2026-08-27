@@ -20,6 +20,7 @@ from app.config import get_settings
 GITHUB = "github"
 GOOGLE = "gmail"
 MICROSOFT = "outlook"
+MONEYBIRD = "moneybird"
 
 _GOOGLE_SCOPES = [
     "openid",
@@ -45,6 +46,8 @@ MICROSOFT_SSO_SCOPES = [
     "https://graph.microsoft.com/User.Read",
 ]
 _GITHUB_SCOPES = ["repo", "read:user", "user:email"]
+# Read-heavy scopes; writes stay behind DecisionRequests in the accounting module.
+_MONEYBIRD_SCOPES = ["sales_invoices", "documents", "estimates", "bank", "settings"]
 
 
 def _credentials(provider: str) -> tuple[str, str]:
@@ -55,6 +58,8 @@ def _credentials(provider: str) -> tuple[str, str]:
         return s.google_oauth_client_id, s.google_oauth_client_secret
     if provider == MICROSOFT:
         return s.microsoft_oauth_client_id, s.microsoft_oauth_client_secret
+    if provider == MONEYBIRD:
+        return s.moneybird_oauth_client_id, s.moneybird_oauth_client_secret
     return "", ""
 
 
@@ -71,6 +76,8 @@ def _authorize_endpoint(provider: str) -> str:
     if provider == MICROSOFT:
         tenant = get_settings().microsoft_oauth_tenant or "common"
         return f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
+    if provider == MONEYBIRD:
+        return "https://moneybird.com/oauth/authorize"
     raise ValueError(f"Unsupported OAuth provider: {provider}")
 
 
@@ -82,6 +89,8 @@ def _token_endpoint(provider: str) -> str:
     if provider == MICROSOFT:
         tenant = get_settings().microsoft_oauth_tenant or "common"
         return f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+    if provider == MONEYBIRD:
+        return "https://moneybird.com/oauth/token"
     raise ValueError(f"Unsupported OAuth provider: {provider}")
 
 
@@ -92,6 +101,8 @@ def _scopes(provider: str) -> list[str]:
         return _GOOGLE_SCOPES
     if provider == MICROSOFT:
         return _MICROSOFT_SCOPES
+    if provider == MONEYBIRD:
+        return _MONEYBIRD_SCOPES
     return []
 
 

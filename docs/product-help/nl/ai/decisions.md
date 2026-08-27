@@ -24,7 +24,7 @@ Een beslisverzoek is een bericht in het gesprek, geen aparte wachtrij. Open Comm
 
 1. Lees het voorstel in de context van het gesprek.
 2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Taak aanmaken** of **Open laten**. Conceptkaarten van [Inbox AI](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
-3. Op agentberichten kun je **Goed** of **Niet behulpzaam** zetten, of **Corrigeer** om de agent te leren. Escaleren pauzeert AI op het gesprek en wijst jou toe.
+3. Onder agentberichten markeren kleine pictogrammen **Goed** of **Niet behulpzaam**, en het spraakballon-pictogram (**Corrigeer**) leert de agent — beweeg over een pictogram om het label te zien. Escaleren pauzeert AI op het gesprek en wijst jou toe.
 
 ## Antwoord vanuit Slack
 

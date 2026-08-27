@@ -218,6 +218,16 @@ async def ingest_inbound(
     )
     session.add(message)
     signal.has_unread = True
+    if (
+        not created
+        and signal.status in ("closed", "pending")
+        and (signal.last_message_at is None or received >= signal.last_message_at)
+    ):
+        # A fresh customer message must surface the thread again: reopen a
+        # closed conversation and wake a snoozed one (snooze-until-reply).
+        # Spam stays parked, and backfilled older mail never reopens a thread.
+        signal.status = "open"
+        signal.snoozed_until = None
     # Backfill can ingest older mail after newer mail: never move the thread
     # back in time in the list ordering.
     if signal.last_message_at is None or received > signal.last_message_at:

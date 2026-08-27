@@ -170,6 +170,9 @@ export default function Signup() {
                   className={`${inputClass} pr-10`}
                   placeholder={t('signupPage.passwordPlaceholder')}
                 />
+                <p className="mt-1 text-[11px] text-text-muted">
+                  {t('signupPage.passwordHint', { count: password.length })}
+                </p>
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
@@ -214,7 +217,9 @@ export default function Signup() {
                 placeholder={t('signupPage.slugPlaceholder')}
               />
               <p className="mt-1 text-[11px] text-text-muted">
-                {t('signupPage.slugHint')}
+                {effectiveSlug
+                  ? t('signupPage.slugPreview', { slug: effectiveSlug })
+                  : t('signupPage.slugHint')}
               </p>
             </div>
 

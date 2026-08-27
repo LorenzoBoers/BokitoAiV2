@@ -15,6 +15,12 @@ describe('talkToAssistantPath', () => {
   it('returns the bare path when empty', () => {
     expect(talkToAssistantPath('  ')).toBe('/communication/new')
   })
+
+  it('targets the company assistant when requested', () => {
+    expect(talkToAssistantPath('Help me set up', { kind: 'company' })).toBe(
+      '/communication/new?prefill=Help%20me%20set%20up&kind=company',
+    )
+  })
 })
 
 describe('enabledAutomationCount', () => {

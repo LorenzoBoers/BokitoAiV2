@@ -63,6 +63,7 @@
     "widgetVoice": "Stem en uren",
     "widgetLook": "Uiterlijk",
     "marketplace": "Marketplace",
+    "moduleSetup": "Module-setup",
     "connectedTools": "Gekoppelde tools",
     "myAssistant": "Mijn assistent"
   },
@@ -381,6 +382,8 @@
     "nextWeek": "Volgende week",
     "searchTriggers": "Zoek triggers",
     "triggerFilterEmpty": "Geen triggers die bij die zoekopdracht passen.",
+    "profileCreated": "Uitvoerinstellingen toegevoegd",
+    "removeTriggerConfirm": "Dit schema verwijderen?",
     "allAgents": "Alle agents",
     "allTypes": "Alle types",
     "emptyTitle": "Niets gepland",
@@ -683,7 +686,9 @@
       "setupAssistant": "Inrichten met de assistent",
       "openKnowledge": "Kennis openen",
       "manageAgents": "Agents beheren",
-      "organizeProjects": "Werk organiseren per project"
+      "organizeProjects": "Werk organiseren per project",
+      "modulesFit": "Modules die bij dit werk passen",
+      "modulesLine": "Koppel een bedrijfsmodule wanneer facturen, bank of bestanden ter sprake komen"
     },
     "projects": {
       "title": "6. Projecten",
@@ -763,6 +768,9 @@
     "emailPlaceholder": "jij@bedrijf.nl",
     "passwordPlaceholder": "Wachtwoord",
     "totpPlaceholder": "000000",
+    "lastEmailHint": "Laatst gebruikt op dit apparaat",
+    "languageNl": "Nederlands",
+    "languageEn": "English",
     "sso": {
       "no_email": "Microsoft deelde geen e-mailadres voor dit account. Gebruik een account met een geverifieerd e-mailadres.",
       "provisioning_failed": "Je account kon na Microsoft-inloggen niet worden ingesteld. Probeer het opnieuw of neem contact op met support.",
@@ -792,7 +800,9 @@
     "slugTaken": "Die workspace-URL is al in gebruik. Kies een andere.",
     "emailTaken": "Er bestaat al een account met dit e-mailadres. Log in.",
     "emailPlaceholder": "jij@bedrijf.nl",
-    "slugPlaceholder": "acme"
+    "slugPlaceholder": "acme",
+    "passwordHint": "{{count}} van 8 tekens",
+    "slugPreview": "Je workspace wordt {{slug}}.bokito.ai"
   },
   "forgotPage": {
     "subtitle": "Wachtwoord vergeten",
@@ -807,7 +817,10 @@
     "failed": "Wachtwoordreset aanvragen mislukt",
     "emailRequired": "E-mail is verplicht",
     "emailInvalid": "Voer een geldig e-mailadres in",
-    "emailPlaceholder": "jij@bedrijf.nl"
+    "emailPlaceholder": "jij@bedrijf.nl",
+    "copyLink": "Link kopiëren",
+    "copied": "Resetlink gekopieerd",
+    "tryDifferent": "Ander e-mailadres proberen"
   },
   "resetPage": {
     "subtitle": "Stel een nieuw wachtwoord in",
@@ -824,7 +837,11 @@
     "passwordRequired": "Wachtwoord is verplicht",
     "passwordMin": "Wachtwoord moet minstens 8 tekens zijn",
     "confirmRequired": "Bevestig je wachtwoord",
-    "mismatch": "Wachtwoorden komen niet overeen"
+    "mismatch": "Wachtwoorden komen niet overeen",
+    "missingTitle": "Deze resetlink is onvolledig",
+    "missingBody": "Vraag een nieuwe reset-e-mail aan en open daarna de link uit dat bericht.",
+    "requestNew": "Nieuwe reset-e-mail aanvragen",
+    "redirectIn": "Je kunt nu inloggen. Doorsturen over {{seconds}}s."
   },
   "verifyEmailPage": {
     "pendingTitle": "E-mail verifiëren",
@@ -843,7 +860,10 @@
     "sentToast": "Verificatie-e-mail verstuurd indien van toepassing.",
     "resendFailed": "Verificatie-e-mail kon niet opnieuw worden verstuurd",
     "devTitle": "Lokale dev-verificatielink",
-    "emailPlaceholder": "jij@bedrijf.nl"
+    "emailPlaceholder": "jij@bedrijf.nl",
+    "copyLink": "Link kopiëren",
+    "copied": "Verificatielink gekopieerd",
+    "copyFailed": "Kon de link niet kopiëren"
   },
   "activityPage": {
     "all": "Alles",
@@ -1136,7 +1156,8 @@
     "sent": "Verstuurd",
     "sentToast": "Verificatie-e-mail verstuurd naar {{email}}.",
     "sentDev": "Verificatie-e-mail verstuurd. Dev-link staat in de serverlogs.",
-    "failed": "Verificatie-e-mail kon niet worden verstuurd."
+    "failed": "Verificatie-e-mail kon niet worden verstuurd.",
+    "resendIn": "Opnieuw in {{seconds}}s"
   },
   "notificationsUi": {
     "aria": "Notificaties",
@@ -1598,6 +1619,7 @@
     "newEmail": "Nieuwe e-mail",
     "newContact": "Nieuw contact",
     "newAgent": "Nieuwe agent",
+    "newProject": "Nieuw project",
     "connectMailbox": "Mailbox koppelen",
     "openSetupGuide": "Setupgids openen",
     "openHelp": "Hulp openen",
@@ -2293,6 +2315,50 @@
       "whatsapp": {
         "name": "WhatsApp",
         "description": "WhatsApp Business-berichten in de inbox via de Cloud API."
+      },
+      "moneybird": {
+        "name": "Moneybird",
+        "description": "Contacten, facturen, inkoop en bankmutaties via de Moneybird API."
+      },
+      "exact": {
+        "name": "Exact Online",
+        "description": "Volledige boekhouding via de Exact Online REST API."
+      },
+      "snelstart": {
+        "name": "SnelStart",
+        "description": "Relaties, facturen en grootboek via de SnelStart B2B API."
+      }
+    },
+    "modules": {
+      "comingSoon": "Binnenkort",
+      "sectionOther": "Overige integraties",
+      "planned": "Geplande koppelingen: {{providers}}",
+      "moduleBadge": "Module",
+      "companies": "Administraties ({{count}})",
+      "singleCompany": "Administratie: {{name}}",
+      "setupCta": "{{name}} inrichten",
+      "verbsTitle": "Wat agents hierna kunnen",
+      "writesNote": "Schrijven wordt altijd een beslissing die jij goedkeurt.",
+      "setupSteps": "Inrichting",
+      "connectors": "Pakketten",
+      "backToMarketplace": "Terug naar Marketplace",
+      "connectedBadge": "Gekoppeld",
+      "notFound": "Deze module staat niet in de catalogus.",
+      "accounting": {
+        "name": "Boekhouding",
+        "description": "Eén boekhoudcontract voor agents: administraties, relaties, facturen, grootboek en openstaande posten over elk gekoppeld pakket."
+      },
+      "banking": {
+        "name": "Bankieren",
+        "description": "PSD2 / open-banking reads (rekeningen, saldi, transacties); betalingen alleen als voorstel dat een mens goedkeurt."
+      },
+      "investing": {
+        "name": "Beleggen",
+        "description": "Marktdata, posities en watchlists; TradingView-alerts komen binnen als Signalen. Orders alleen als voorstel dat een mens goedkeurt."
+      },
+      "documents": {
+        "name": "Documenten",
+        "description": "Brug naar externe documentopslag. Gelezen content stroomt de workspace-kennis in; uploads alleen als voorstel."
       }
     },
     "marketplace": {
@@ -2888,7 +2954,11 @@
       "searchPlaceholder": "Zoek op naam of lead",
       "advancedSlug": "Geavanceerd: URL-slug",
       "hideAdvanced": "Slug verbergen",
-      "readonlyBanner": "Je kunt projecten bekijken. Vraag een beheerder om ze aan te maken of te wijzigen."
+      "readonlyBanner": "Je kunt projecten bekijken. Vraag een beheerder om ze aan te maken of te wijzigen.",
+      "emptyFiltered": "Geen projecten die bij deze zoekopdracht passen.",
+      "emptyFilteredHint": "Wis de zoekopdracht om alle projecten weer te zien.",
+      "clearSearch": "Zoekopdracht wissen",
+      "refreshedAt": "Bijgewerkt {{time}}"
     },
     "header": {
       "new": "Project aanmaken",
@@ -2995,7 +3065,10 @@
       "agentRemoveError": "Kon agent niet verwijderen.",
       "agentMakeDefault": "Standaard maken voor projectgesprekken",
       "agentDefaultError": "Kon standaardagent niet bijwerken.",
-      "agentDefaultBadge": "Standaard"
+      "agentDefaultBadge": "Standaard",
+      "unsavedLeave": "Je hebt niet-opgeslagen projectwijzigingen. Deze pagina verlaten?",
+      "refreshedAt": "Bijgewerkt {{time}}",
+      "refresh": "Vernieuwen"
     }
   },
   "project": {
@@ -3517,6 +3590,10 @@
     "publicLink": "Publieke help-link",
     "copiedPublic": "Publieke link gekopieerd",
     "copyPublic": "Publieke link kopiëren",
+    "refreshedAt": "Bijgewerkt {{time}}",
+    "searchDocuments": "Zoek documenten",
+    "emptyFiltered": "Geen documenten die bij deze zoekopdracht passen.",
+    "collectionItem": "de collectie",
     "fileTypes": {
       "pdf": "PDF",
       "docx": "Word",
@@ -3588,6 +3665,12 @@
     "save": "Opslaan",
     "saving": "Opslaan...",
     "delete": "Document verwijderen",
+    "unsavedLeave": "Je hebt niet-opgeslagen kenniswijzigingen. Deze pagina verlaten?",
+    "copyPath": "Documentpad kopiëren",
+    "pathCopied": "Documentpad gekopieerd",
+    "copyFailed": "Kon het pad niet kopiëren",
+    "refreshedAt": "Bijgewerkt {{time}}",
+    "filterAll": "Alle soorten",
     "viewHelp": "Bekijk op helpcentrum: {{path}}",
     "kinds": {
       "persona": "Stem",
@@ -4023,6 +4106,11 @@
     "emptyCta": "Helpcentra openen",
     "retry": "Opnieuw",
     "notFound": "Dit helpcentrum is niet gevonden.",
-    "searchHint": "De zoekopdracht blijft in de link, zodat je die kunt delen."
+    "searchHint": "De zoekopdracht blijft in de link, zodat je die kunt delen.",
+    "clearSearch": "Zoekopdracht wissen",
+    "emptyIndexHint": "Publiceer een document vanuit Kennis om hier artikelen te tonen.",
+    "copyUrl": "Artikellink kopiëren",
+    "copiedUrl": "Artikellink gekopieerd",
+    "copyFailed": "Kon de link niet kopiëren"
   }
 }

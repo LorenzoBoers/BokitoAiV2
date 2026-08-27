@@ -307,6 +307,8 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
         # RFC 5322 Message-ID — required for In-Reply-To/References on replies
         # (the provider id above is API-internal and useless for threading).
         "rfc_message_id": headers.get("message-id", ""),
+        # Who else was copied — shown in the timeline and used for reply-all.
+        "cc": headers.get("cc", ""),
         "references": headers.get("references", ""),
         "auto_headers": {k: headers[k] for k in _AUTO_HEADER_KEYS if headers.get(k)},
     }
@@ -405,6 +407,12 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
         "rfc_message_id": msg.get("internetMessageId", ""),
         "received_at": _parse_iso_utc(msg.get("receivedDateTime")),
         "auto_headers": auto_headers,
+        # Who else was copied — shown in the timeline and used for reply-all.
+        "cc": ", ".join(
+            addr
+            for r in (msg.get("ccRecipients") or [])
+            if (addr := ((r.get("emailAddress") or {}).get("address") or ""))
+        ),
     }
 
 
@@ -829,6 +837,7 @@ async def _ingest_items(
                 "references": item.get("references", ""),
                 "auto_headers": item.get("auto_headers") or {},
                 "folder": folder_id,
+                "cc": item.get("cc", ""),
             },
         )
         try:

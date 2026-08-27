@@ -38,6 +38,9 @@ HOSTS: list[dict[str, Any]] = [
     {"id": host_id("shopify"), "slug": "shopify", "name": "Shopify", "brand_color": "#96bf48", "initials": "SH"},
     {"id": host_id("higgsfield"), "slug": "higgsfield", "name": "Higgsfield", "brand_color": "#111111", "initials": "HF"},
     {"id": host_id("whatsapp"), "slug": "whatsapp", "name": "WhatsApp", "brand_color": "#25d366", "initials": "WA"},
+    {"id": host_id("moneybird"), "slug": "moneybird", "name": "Moneybird", "brand_color": "#0e5b99", "initials": "MB"},
+    {"id": host_id("exact"), "slug": "exact", "name": "Exact Online", "brand_color": "#e2001a", "initials": "EX"},
+    {"id": host_id("snelstart"), "slug": "snelstart", "name": "SnelStart", "brand_color": "#f39200", "initials": "SS"},
 ]
 
 HOST_BY_SLUG = {h["slug"]: h for h in HOSTS}
@@ -56,6 +59,7 @@ def _provider(
     sort_order: int = 0,
     mcp_remote_url: str | None = None,
     mcp_transport: str | None = None,
+    module: str | None = None,
 ) -> dict[str, Any]:
     host = HOST_BY_SLUG.get(host_slug, HOST_BY_SLUG["custom"])
     return {
@@ -74,6 +78,7 @@ def _provider(
         "mcp_remote_url": mcp_remote_url,
         "mcp_transport": mcp_transport,
         "oauth_profile": None,
+        "module": module,
     }
 
 
@@ -120,27 +125,64 @@ PROVIDERS: list[dict[str, Any]] = [
     ),
     _provider(
         "bjorn_lunden_mcp",
-        "Bjorn Lunden MCP",
-        "Accounting tools via the native Bjorn Lunden (BLA) API integration.",
-        "Productiviteit",
+        "Bjorn Lunden",
+        "Boekhouding via de Bjorn Lunden (BLA) API, aangestuurd door de Accounting-module.",
+        "Boekhouding",
         "api_key",
         host_slug="bjorn_lunden",
-        capabilities={"mcp_tools": True},
+        capabilities={"mcp_tools": True, "accounting": True},
         sort_order=10,
         # BJORN_LUNDEN_MCP_URL optionally points at an external MCP server;
         # unset means the built-in native BLA API integration is used.
         mcp_remote_url=get_settings().bjorn_lunden_mcp_url or None,
         mcp_transport="streamable_http",
+        module="accounting",
     ),
     _provider(
         "king_accountancy",
         "KING Accountancy",
-        "Read-only tools for KING Accountancy / KING Finance client administraties via Cloudswitch.",
-        "Productiviteit",
+        "Read-only toegang tot KING Accountancy administraties via Cloudswitch, onder de Accounting-module.",
+        "Boekhouding",
         "api_key",
         host_slug="king",
-        capabilities={"mcp_tools": True},
+        capabilities={"mcp_tools": True, "accounting": True},
         sort_order=9,
+        module="accounting",
+    ),
+    _provider(
+        "moneybird",
+        "Moneybird",
+        "Contacten, verkoopfacturen, inkoopdocumenten en bankmutaties via de Moneybird API.",
+        "Boekhouding",
+        "oauth2",
+        host_slug="moneybird",
+        capabilities={"accounting": True},
+        sort_order=8,
+        module="accounting",
+    ),
+    _provider(
+        "exact_online",
+        "Exact Online",
+        "Volledige boekhouding via de Exact Online REST API (App Center-partnertraject).",
+        "Boekhouding",
+        "oauth2",
+        host_slug="exact",
+        capabilities={"accounting": True},
+        status="coming_soon",
+        sort_order=13,
+        module="accounting",
+    ),
+    _provider(
+        "snelstart",
+        "SnelStart",
+        "Relaties, facturen en grootboek via de SnelStart B2B API (certificering vereist).",
+        "Boekhouding",
+        "api_key",
+        host_slug="snelstart",
+        capabilities={"accounting": True},
+        status="coming_soon",
+        sort_order=14,
+        module="accounting",
     ),
     _provider(
         "custom_mcp",

@@ -237,6 +237,12 @@ export default function AcceptInvite() {
                     type="text"
                     value={welcomeName}
                     onChange={(e) => setWelcomeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void completeOnboarding(false);
+                      }
+                    }}
                     className={inputClass}
                     placeholder={t('acceptInvitePage.namePlaceholder')}
                   />
@@ -391,11 +397,14 @@ export default function AcceptInvite() {
           )}
 
           {step !== 'welcome' ? (
-            <div className="mt-4 text-center">
-              <span className="text-sm text-text-muted">{t('acceptInvitePage.alreadyHaveAccess')} </span>
-              <Link to="/login" className="text-sm text-accent hover:text-accent-hover transition-colors">
-                {t('acceptInvitePage.signIn')}
+            <div className="mt-6 text-center">
+              <Link
+                to="/login"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border/60 px-4 py-2.5 text-sm font-medium text-text-heading hover:bg-bg-hover transition-colors"
+              >
+                {t('loginPage.backToSignIn')}
               </Link>
+              <p className="mt-2 text-sm text-text-muted">{t('acceptInvitePage.alreadyHaveAccess')}</p>
             </div>
           ) : null}
         </div>

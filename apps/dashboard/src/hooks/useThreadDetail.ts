@@ -270,7 +270,13 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
       try {
         const msg = await addNoteToThread(token, threadId, bodyText, attachments)
         if (msg) {
-          setRawDetail((prev) => (prev ? { ...prev, messages: [...prev.messages, msg] } : prev))
+          setRawDetail((prev) => {
+            if (!prev) return prev
+            // Gateway may have already delivered this note while the HTTP
+            // request was in flight — never append a duplicate.
+            const already = prev.messages.some((m) => String(m.id) === String(msg.id))
+            return already ? prev : { ...prev, messages: [...prev.messages, msg] }
+          })
         }
       } catch (err) {
         throw err instanceof Error ? err : new Error('Could not save note.')

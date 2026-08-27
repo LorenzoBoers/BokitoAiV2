@@ -1,22 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
-import {
-  INTEGRATIONS,
-  isPlatformProviderSlug,
-  type Integration,
-  type IntegrationStatus,
-} from '../data/integrations-data'
-import {
-  connectionCountForProvider,
-  listIntegrationProviders,
-  type IntegrationProviderRow,
-  type ProvidersListResponse,
-} from '../lib/integrations-api'
 import { parseIntegrationCallback } from '../lib/integrations-oauth'
 import { parseOAuthCallback, describeOAuthCallbackSummary } from '../lib/email-oauth'
-import { listGithubConnections } from '../lib/github-api'
 import { resolveIntegrationKind } from '../lib/integration-kind'
 import {
   parseKindFilter,
@@ -31,14 +18,10 @@ import {
   stripOAuthCallbackParams,
   type IntegrationHubStep,
 } from '../lib/integration-setup-url'
-import { integrationIdToPlatformSlug } from '../lib/integration-setup'
+import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
+import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
+import { moduleHomePath, plannedProviderLabel } from '../lib/integration-modules'
 import {
-  getRegistryEntryByStaticId,
-  SLUG_TO_STATIC_ID,
-} from '../lib/integrations/registry'
-import { applyBrandToIntegration, resolveProviderBrand } from '../lib/integration-brand'
-import {
-  buildIntegrationApplications,
   localizeApplication,
   resolveApplicationConnectTarget,
   type IntegrationApplication,
@@ -58,53 +41,6 @@ import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 
-function providerToIntegration(
-  p: IntegrationProviderRow,
-  count: number,
-  staticRow?: Integration,
-): Integration {
-  const status: IntegrationStatus =
-    p.status === 'coming_soon' ? 'coming_soon' : count > 0 ? 'connected' : 'available'
-  const id = staticRow?.id ?? p.slug
-  const brand = resolveProviderBrand(p.slug, p.host ?? null, p.logo_meta, p.name)
-  const base: Integration = {
-    id,
-    name: p.name,
-    description: p.description || staticRow?.description || '',
-    category: staticRow?.category ?? 'Productivity',
-    status,
-    kind: staticRow?.kind ?? resolveIntegrationKind(p.slug, p.capabilities),
-    color: brand.color,
-    initials: brand.initials,
-    logoUrl: brand.logoUrl,
-    logoDarkUrl: brand.logoDarkUrl,
-    hostSlug: brand.hostSlug,
-    popular: staticRow?.popular,
-    connectedSince: count > 0 ? new Date().toISOString().slice(0, 10) : undefined,
-  }
-  return staticRow ? applyBrandToIntegration({ ...staticRow, ...base }, brand) : base
-}
-
-function connectionCountForItem(
-  integration: Integration,
-  counts: ProvidersListResponse['connection_counts'] | null,
-  providers: IntegrationProviderRow[],
-  githubLen: number,
-): number {
-  const entry = getRegistryEntryByStaticId(integration.id)
-  if (entry?.connectionCountSource === 'github_api') return Math.max(githubLen, 0)
-  if (entry?.connectionCountSource === 'email_outlook' && counts) return counts.email_outlook ?? 0
-  if (entry?.connectionCountSource === 'email_gmail' && counts) return counts.email_gmail ?? 0
-  const provider = providers.find(
-    (p) => p.slug === integration.id || SLUG_TO_STATIC_ID[p.slug] === integration.id,
-  )
-  if (!provider || !counts) {
-    if (integration.status === 'connected') return 1
-    return 0
-  }
-  return connectionCountForProvider(provider, counts)
-}
-
 function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): ApplicationHubStep {
   if (!offer) return 'app'
   return step === 'setup' ? 'offer-setup' : 'offer-detail'
@@ -117,15 +53,7 @@ export default function IntegrationsMarketplace() {
   const kindFilter = parseKindFilter(searchParams.get('kind'))
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const statusFilter = parseStatusFilter(searchParams.get('status'))
-  const [items, setItems] = useState<Integration[]>(INTEGRATIONS)
-  const [providers, setProviders] = useState<IntegrationProviderRow[]>([])
-  const [connectionCounts, setConnectionCounts] = useState<
-    ProvidersListResponse['connection_counts'] | null
-  >(null)
-  const [githubConnections, setGithubConnections] = useState<{ id: string; github_login: string }[]>(
-    [],
-  )
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { applications, modules, loadError, refreshCatalog } = useIntegrationCatalog()
 
   const [hubOpen, setHubOpen] = useState(false)
   const [hubApplication, setHubApplication] = useState<IntegrationApplication | null>(null)
@@ -165,33 +93,6 @@ export default function IntegrationsMarketplace() {
     [searchParams, setSearchParams],
   )
 
-  const findProviderForIntegration = useCallback(
-    (integration: Integration): IntegrationProviderRow | undefined => {
-      const slug = integrationIdToPlatformSlug(integration.id)
-      return providers.find((p) => p.slug === slug || SLUG_TO_STATIC_ID[p.slug] === integration.id)
-    },
-    [providers],
-  )
-
-  const catalogRows = useMemo(
-    () =>
-      items.map((integration) => ({
-        integration,
-        connectionCount: connectionCountForItem(
-          integration,
-          connectionCounts,
-          providers,
-          githubConnections.length,
-        ),
-      })),
-    [items, connectionCounts, providers, githubConnections.length],
-  )
-
-  const applications = useMemo(
-    () => buildIntegrationApplications(catalogRows, findProviderForIntegration),
-    [catalogRows, findProviderForIntegration],
-  )
-
   const openApplicationHub = useCallback(
     (
       app: IntegrationApplication,
@@ -205,53 +106,6 @@ export default function IntegrationsMarketplace() {
     },
     [],
   )
-
-  const refreshCatalog = useCallback(async () => {
-    setLoadError(null)
-    try {
-      const { providers: p, connection_counts } = await listIntegrationProviders()
-      setProviders(p)
-      setConnectionCounts(connection_counts)
-      const staticById = new Map(INTEGRATIONS.map((i) => [i.id, i]))
-      const liveProviders = p.filter((row) => isPlatformProviderSlug(row.slug))
-      const fromApi: Integration[] = liveProviders.map((row) => {
-        const count = connectionCountForProvider(row, connection_counts)
-        const staticId = SLUG_TO_STATIC_ID[row.slug] ?? row.slug
-        return providerToIntegration(row, count, staticById.get(staticId))
-      })
-      const coveredStaticIds = new Set(
-        liveProviders.map((row) => SLUG_TO_STATIC_ID[row.slug] ?? row.slug),
-      )
-      const missingStatic = INTEGRATIONS.filter((i) => !coveredStaticIds.has(i.id)).map((i) => ({
-        ...i,
-        kind: i.kind ?? resolveIntegrationKind(i.id),
-      }))
-      setItems([...fromApi, ...missingStatic])
-    } catch {
-      setLoadError(t('integrations.marketplace.catalogFallback', { defaultValue: 'Catalog API unavailable; using local list.' }))
-      setProviders([])
-      setConnectionCounts(null)
-      setItems(
-        INTEGRATIONS.map((i) => {
-          const brand = resolveProviderBrand(
-            i.id,
-            null,
-            { initials: i.initials, color: i.color },
-            i.name,
-          )
-          return applyBrandToIntegration(
-            { ...i, kind: i.kind ?? resolveIntegrationKind(i.id) },
-            brand,
-          )
-        }),
-      )
-    }
-    try {
-      setGithubConnections(await listGithubConnections())
-    } catch {
-      setGithubConnections([])
-    }
-  }, [t])
 
   const applyCallbackBanner = useCallback(
     (params: URLSearchParams, connectParam: string | null) => {
@@ -309,10 +163,6 @@ export default function IntegrationsMarketplace() {
     },
     [applications, openApplicationHub, t],
   )
-
-  useEffect(() => {
-    void refreshCatalog()
-  }, [refreshCatalog])
 
   useEffect(() => {
     if (applications.length === 0) return
@@ -391,6 +241,34 @@ export default function IntegrationsMarketplace() {
     [applications],
   )
 
+  const moduleSlugs = useMemo(() => new Set(modules.map((m) => m.slug)), [modules])
+
+  const moduleSections = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return modules
+      .map((module) => {
+        const apps = filtered.filter((app) => app.module === module.slug)
+        const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
+        const description = t(`integrations.modules.${module.slug}.description`, {
+          defaultValue: module.description,
+        })
+        const searchMatch =
+          !q || name.toLowerCase().includes(q) || description.toLowerCase().includes(q)
+        const showEmptyModule =
+          apps.length === 0 &&
+          statusFilter !== 'connected' &&
+          searchMatch &&
+          (module.status === 'coming_soon' || module.status === 'available')
+        return { module, name, description, apps, showEmptyModule }
+      })
+      .filter((s) => s.apps.length > 0 || s.showEmptyModule)
+  }, [modules, filtered, search, statusFilter, t])
+
+  const ungrouped = useMemo(
+    () => filtered.filter((app) => !app.module || !moduleSlugs.has(app.module)),
+    [filtered, moduleSlugs],
+  )
+
   return (
     <PageContent width="xl">
       <IntegrationsTabs />
@@ -444,7 +322,7 @@ export default function IntegrationsMarketplace() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && moduleSections.length === 0 ? (
         <EmptyState
           icon={Search}
           title={
@@ -454,14 +332,75 @@ export default function IntegrationsMarketplace() {
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((application) => (
-            <ApplicationCard
-              key={application.hostSlug}
-              application={application}
-              onOpenDetail={() => openApplicationHub(application, 'app')}
-            />
+        <div className="space-y-8">
+          {moduleSections.map((section) => (
+            <section key={section.module.slug}>
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <Link
+                  to={moduleHomePath(section.module)}
+                  className="text-sm font-semibold text-text-primary hover:text-accent"
+                >
+                  {section.name}
+                </Link>
+                {section.module.status === 'coming_soon' ? (
+                  <span className="rounded-full border border-border-default px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">
+                    {t('integrations.modules.comingSoon', { defaultValue: 'Coming soon' })}
+                  </span>
+                ) : (
+                  <Link
+                    to={moduleHomePath(section.module)}
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    {t('integrations.modules.setupCta', {
+                      defaultValue: 'Set up {{name}}',
+                      name: section.name,
+                    })}
+                  </Link>
+                )}
+              </div>
+              <p className="mb-3 max-w-2xl text-xs text-text-muted">{section.description}</p>
+              {section.apps.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {section.apps.map((application) => (
+                    <ApplicationCard
+                      key={application.hostSlug}
+                      application={application}
+                      onOpenDetail={() => openApplicationHub(application, 'app')}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border-default p-4">
+                  <p className="text-xs text-text-muted">
+                    {t('integrations.modules.planned', {
+                      defaultValue: 'Planned connectors: {{providers}}',
+                      providers: section.module.planned_provider_slugs
+                        .map(plannedProviderLabel)
+                        .join(', '),
+                    })}
+                  </p>
+                </div>
+              )}
+            </section>
           ))}
+          {ungrouped.length > 0 ? (
+            <section>
+              {moduleSections.length > 0 ? (
+                <h2 className="mb-3 text-sm font-semibold text-text-primary">
+                  {t('integrations.modules.sectionOther', { defaultValue: 'More integrations' })}
+                </h2>
+              ) : null}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {ungrouped.map((application) => (
+                  <ApplicationCard
+                    key={application.hostSlug}
+                    application={application}
+                    onOpenDetail={() => openApplicationHub(application, 'app')}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
 

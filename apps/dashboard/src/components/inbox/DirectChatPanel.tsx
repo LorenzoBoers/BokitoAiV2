@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, Loader2, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { agentChatPath, assistantPath } from '../../lib/messages-paths'
@@ -17,6 +17,7 @@ import {
   type ChatMessage,
 } from '../../lib/bokito-api'
 import { ComposerCard } from '../ui/ComposerCard'
+import { ChatTranscriptSkeleton } from '../ui/skeleton'
 import { useMembers } from '../../hooks/useMembers'
 import { useMentionDraft } from '../../hooks/useMentionDraft'
 import MentionPopover from './MentionPopover'
@@ -27,6 +28,7 @@ import { Button } from '../ui/button'
 import { AI_CARD_CLASS, AI_ICON_BOX_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
+import { setupIntegrationHref } from '../../lib/integration-setup-url'
 import ChatMarkdown from './ChatMarkdown'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import ThinkingTrace from './ThinkingTrace'
@@ -219,8 +221,8 @@ function ChatDecisionCard({
         optionId: option.id,
       })
       onResolved()
-      if (option.action_type === 'setup_integration' && option.provider) {
-        navigate(`/settings/marketplace?connect=${encodeURIComponent(option.provider)}`)
+      if (option.action_type === 'setup_integration') {
+        navigate(setupIntegrationHref({ module: option.module, provider: option.provider }))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('directChat.resolveError'))
@@ -573,9 +575,7 @@ export default function DirectChatPanel({
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[820px] px-4 py-6">
           {loadingMessages && messages.length === 0 ? (
-            <div className="flex justify-center pt-16 text-text-muted">
-              <Loader2 size={18} className="animate-spin" />
-            </div>
+            <ChatTranscriptSkeleton />
           ) : (
             <div className="space-y-4">
               {messages.map((m) => (
@@ -592,17 +592,12 @@ export default function DirectChatPanel({
                 />
               ))}
               {showStreamBubble ? (
-                <div className="flex items-start gap-2.5">
-                  <span className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
-                    <Bot size={14} />
-                  </span>
-                  <ThinkingTrace
-                    steps={agentSteps}
-                    active={stream.active || gatewayStream.streaming}
-                    streamText={activeStreamText}
-                    thinkingText={activeThinkingText}
-                  />
-                </div>
+                <ThinkingTrace
+                  steps={agentSteps}
+                  active={stream.active || gatewayStream.streaming}
+                  streamText={activeStreamText}
+                  thinkingText={activeThinkingText}
+                />
               ) : null}
             </div>
           )}
@@ -650,14 +645,13 @@ export default function DirectChatPanel({
                 type="button"
                 onClick={() => void send()}
                 disabled={!mention.raw.trim()}
-                title={t('directChat.send')}
+                title={`${t('directChat.send')} — ${t('composer.hintChat')}`}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
               >
                 <ArrowUp size={14} />
               </button>
             )}
           </ComposerCard>
-          <p className="mt-1.5 px-1 text-[10.5px] text-text-muted">{t('composer.hintChat')}</p>
         </div>
       </div>
     </div>

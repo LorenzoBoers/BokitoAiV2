@@ -7,6 +7,7 @@ import {
   Clock,
   CornerDownLeft,
   FileText,
+  FolderKanban,
   Inbox,
   Mail,
   MessageSquare,
@@ -128,7 +129,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         { id: 'inbox-closed', queue: 'closed' as const, labelKey: 'support.inbox.closed' },
         { id: 'inbox-spam', queue: 'spam' as const, labelKey: 'support.inbox.spam' },
       ] as const
-    ).map((item) => ({
+    ).map((item): PaletteItem => ({
       id: item.id,
       label: t(item.labelKey),
       hint: 'hintKey' in item ? t(item.hintKey) : undefined,
@@ -240,6 +241,13 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         group: t('palette.groupActions'),
         icon: Bot,
         run: () => navigate(newAgentPath()),
+      },
+      {
+        id: 'action-new-project',
+        label: t('palette.newProject'),
+        group: t('palette.groupActions'),
+        icon: FolderKanban,
+        run: () => navigate('/projects?new=1'),
       },
       {
         id: 'action-connect-mailbox',

@@ -24,7 +24,7 @@ A decision request is a message in the thread, not a separate queue. Open Commun
 
 1. Read the proposal in context of the conversation.
 2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Create task** or **Keep open**. Suggested-reply cards from [Inbox AI](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
-3. On agent messages you can mark **Looks right** or **Not helpful**, or choose **Correct this** to teach the agent. Escalate pauses AI on the thread and assigns you.
+3. Under agent messages, small icons mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent — hover an icon to see its label. Escalate pauses AI on the thread and assigns you.
 
 ## Answer from Slack
 

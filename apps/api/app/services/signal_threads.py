@@ -18,7 +18,7 @@ from app.gateway.publish import publish_signal_message, publish_thread_update
 from app.models.agent import Agent
 from app.models.auth import Membership, User, user_numeric_id
 from app.models.channel import ChannelAccount
-from app.models.notification import DecisionRequest
+from app.models.notification import DecisionRequest, Notification
 from app.models.signal import (
     EXTERNAL_CHANNELS,
     Signal,
@@ -805,6 +805,8 @@ async def update_note(
     message_id: UUID,
     *,
     body_text: str,
+    author_user_id: UUID | None = None,
+    author_name: str = "",
 ) -> dict[str, Any] | None:
     result = await session.execute(
         select(SignalMessage).where(
@@ -817,6 +819,7 @@ async def update_note(
     message = result.scalar_one_or_none()
     if not message:
         return None
+    prev_mentions = {int(num) for _, num in MENTION_PATTERN.findall(message.body_text or "")}
     message.body_text = body_text
     message.body_preview = body_text[:200]
     # Notes are created with a body_html mirror (see reply_to_thread); keep it
@@ -824,6 +827,25 @@ async def update_note(
     message.body_html = f"<p>{body_text}</p>"
     session.add(message)
     await session.commit()
+    # A mention added during the edit must still ping the teammate; mentions
+    # that were already in the note stay silent (no duplicate notifications).
+    new_mentions = {int(num) for _, num in MENTION_PATTERN.findall(body_text or "")}
+    added = new_mentions - prev_mentions
+    if added:
+        signal = await _get_signal_row(session, tenant_id, signal_id)
+        if signal:
+            added_only = MENTION_PATTERN.sub(
+                lambda m: m.group(0) if int(m.group(2)) in added else f"@{m.group(1)}",
+                body_text or "",
+            )
+            await notify_mentions(
+                session,
+                tenant_id,
+                signal,
+                body_text=added_only,
+                author_user_id=author_user_id,
+                author_name=author_name,
+            )
     return serialize_message(message)
 
 
@@ -1138,7 +1160,17 @@ async def bulk_update_threads(
             signal.assigned_user_id = assignee_uuid
         signal.updated_at = now
         session.add(signal)
+        if action in ("close", "spam"):
+            # A closed/spam thread must not keep a pending reply card in the
+            # decision queue: nobody is going to send that draft anymore.
+            await _defer_open_reply_suggestions(
+                session, tenant_id, signal.id, reason="thread_closed"
+            )
         if action in ("close", "reopen", "spam", "assign"):
+            event_payload: dict[str, Any] = {"bulk": action}
+            if action == "assign" and assignee_id is not None:
+                # The timeline chip names the assignee from this field.
+                event_payload["assigned_to"] = assignee_id
             session.add(
                 SignalEvent(
                     signal_id=signal.id,
@@ -1146,7 +1178,7 @@ async def bulk_update_threads(
                     event_type="thread_updated",
                     actor_type="user",
                     actor_id=str(user_id),
-                    payload_json=json.dumps({"bulk": action}),
+                    payload_json=json.dumps(event_payload),
                 )
             )
     # One audit event per bulk action with the before-states; mark-read noise
@@ -1308,7 +1340,7 @@ async def _defer_open_reply_suggestions(
             DecisionRequest.signal_id == signal_id,
             DecisionRequest.status == "awaiting_human",
             DecisionRequest.platform_change_id.is_(None),
-            DecisionRequest.title == "Suggested reply",
+            DecisionRequest.title.in_(("Suggested reply", "Reply to customer message")),
         )
     )
     now = datetime.utcnow()
@@ -1317,6 +1349,16 @@ async def _defer_open_reply_suggestions(
         decision.resolved_at = now
         decision.chosen_option_id = reason
         session.add(decision)
+        if decision.notification_id:
+            # Clear the paired bell item too: the card no longer needs anyone.
+            notif = (
+                await session.execute(
+                    select(Notification).where(Notification.id == decision.notification_id)
+                )
+            ).scalar_one_or_none()
+            if notif and notif.status == "unread":
+                notif.status = "read"
+                session.add(notif)
 
 
 async def reply_to_thread(

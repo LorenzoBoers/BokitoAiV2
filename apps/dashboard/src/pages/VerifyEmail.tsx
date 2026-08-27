@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, AlertCircle, Mail } from 'lucide-react'
+import { ArrowLeft, CheckCircle, AlertCircle, Mail, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { resendVerificationEmail, verifyEmail } from '../lib/api'
 
@@ -14,7 +14,7 @@ export default function VerifyEmail() {
   const token = searchParams.get('token')
   const [state, setState] = useState<VerifyState>(token ? 'pending' : 'missing')
   const [error, setError] = useState('')
-  const [resendEmail, setResendEmail] = useState('')
+  const [resendEmail, setResendEmail] = useState(() => searchParams.get('email') ?? '')
   const [resending, setResending] = useState(false)
   const [devLink, setDevLink] = useState<string | null>(null)
 
@@ -56,7 +56,10 @@ export default function VerifyEmail() {
   if (state === 'pending') {
     return (
       <AuthShell title={t('verifyEmailPage.pendingTitle')} subtitle={t('verifyEmailPage.pendingSubtitle')}>
-        <p className="text-sm text-text-secondary text-center">{t('verifyEmailPage.pending')}</p>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden />
+          <p className="text-sm text-text-secondary">{t('verifyEmailPage.pending')}</p>
+        </div>
       </AuthShell>
     )
   }
@@ -125,6 +128,18 @@ export default function VerifyEmail() {
           <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
             {devLink}
           </Link>
+          <button
+            type="button"
+            className="mt-2 block text-xs font-medium text-accent hover:underline"
+            onClick={() => {
+              void navigator.clipboard.writeText(devLink).then(
+                () => toast.success(t('verifyEmailPage.copied')),
+                () => toast.error(t('verifyEmailPage.copyFailed')),
+              )
+            }}
+          >
+            {t('verifyEmailPage.copyLink')}
+          </button>
         </div>
       ) : null}
 

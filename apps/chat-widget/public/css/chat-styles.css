@@ -975,58 +975,77 @@
   animation: bk-cursor-blink 0.8s ease-in-out infinite;
 }
 
-/* ── Thinking Panel ──────────────────────────────────────────── */
-.bk-thinking {
+/* ── Live agent status (same class names as dashboard AgentLiveStatus) ─ */
+.bk-thinking,
+.agent-live-status {
   margin: 4px 0;
   align-self: flex-start;
   max-width: 90%;
-  animation: bk-slide-up 0.25s ease both;
 }
 
-.bk-thinking-dots {
+.bk-thinking-dots,
+.agent-live-line {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 12px 14px;
-  background: var(--bk-bg-surface);
-  border-radius: 18px;
-  border-bottom-left-radius: 4px;
-  border: 1px solid var(--bk-border-light);
-  cursor: pointer;
+  gap: 8px;
+  padding: 2px 0;
+  background: none;
+  border: 0;
 }
 
-.bk-thinking-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--bk-text-muted);
-  animation: bk-thinking-pulse 1.2s ease-in-out infinite;
+.agent-live-line.is-current {
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--bk-ai, #8B5CF6) 38%, transparent));
 }
 
-.bk-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-.bk-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+.agent-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bk-ai, #8B5CF6);
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--bk-ai, #8B5CF6) 55%, transparent);
+  animation: agent-live-dot 1.35s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.thinking-shimmer-text {
+  color: transparent;
+  background-image: linear-gradient(
+    110deg,
+    var(--bk-text-muted) 0%,
+    var(--bk-text-muted) 38%,
+    var(--bk-ai-ink, #C4B5FD) 50%,
+    var(--bk-text-muted) 62%,
+    var(--bk-text-muted) 100%
+  );
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: thinking-shimmer 2.1s linear infinite;
+}
 
 .bk-thinking-label {
-  font-size: 13px;
-  color: var(--bk-text-muted);
-  margin-left: 4px;
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-left: 0;
 }
 
 .bk-thinking-steps {
   margin-top: 6px;
-  border-radius: var(--bk-radius-sm);
-  background: var(--bk-bg-surface);
-  border: 1px solid var(--bk-border);
-  overflow: hidden;
+  background: none;
+  border: 0;
+  overflow: visible;
 }
 
-.bk-thinking-step {
+.bk-thinking-step,
+.agent-live-line.is-past {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 2px 0;
   font-size: 13px;
-  border-bottom: 1px solid var(--bk-border-light);
+  color: color-mix(in srgb, var(--bk-ai-ink, #C4B5FD) 55%, transparent);
+  border: 0;
   animation: bk-tool-stagger 0.25s ease both;
 }
 
@@ -1066,7 +1085,6 @@
 
 .bk-step-name {
   flex: 1;
-  color: var(--bk-text);
   font-weight: 500;
 }
 

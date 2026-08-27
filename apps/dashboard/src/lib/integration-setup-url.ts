@@ -6,6 +6,23 @@ export {
 
 export type IntegrationHubStep = 'detail' | 'setup'
 
+export function moduleSetupPath(slug: string, connect?: string | null): string {
+  const base = `/settings/modules/${encodeURIComponent(slug)}`
+  const packageSlug = connect?.trim()
+  return packageSlug ? `${base}?connect=${encodeURIComponent(packageSlug)}` : base
+}
+
+export function setupIntegrationHref(input: {
+  module?: string | null
+  provider?: string | null
+}): string {
+  const moduleSlug = input.module?.trim()
+  const provider = input.provider?.trim()
+  if (moduleSlug) return moduleSetupPath(moduleSlug, provider)
+  if (provider) return `/settings/marketplace?connect=${encodeURIComponent(provider)}`
+  return '/settings/marketplace'
+}
+
 export function buildIntegrationSetupReturnUrl(integrationId: string): string {
   const params = new URLSearchParams({
     connect: integrationId,

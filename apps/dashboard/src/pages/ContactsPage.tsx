@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { ChannelGlyph, ChannelLabel, channelKind } from '../components/ui/ChannelGlyph'
 import { DomainFavicon } from '../components/ui/DomainFavicon'
 import { useAuth } from '../context/AuthContext'
@@ -178,9 +179,9 @@ function ContactDetail({ contactId }: { contactId: string }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center pt-16 text-text-muted">
-        <Loader2 size={18} className="animate-spin" />
-      </div>
+      <PageContent width="xl">
+        <TableRowsSkeleton rows={5} className="pt-4" />
+      </PageContent>
     )
   }
 
@@ -518,9 +519,9 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center pt-16 text-text-muted">
-        <Loader2 size={18} className="animate-spin" />
-      </div>
+      <PageContent width="xl">
+        <TableRowsSkeleton rows={5} className="pt-4" />
+      </PageContent>
     )
   }
 
@@ -1083,9 +1084,7 @@ export default function ContactsPage() {
       ) : null}
 
       {loading && (view === 'companies' ? companies.length === 0 : contacts.length === 0) ? (
-        <div className="flex justify-center pt-16 text-text-muted">
-          <Loader2 size={18} className="animate-spin" />
-        </div>
+        <TableRowsSkeleton rows={8} />
       ) : listError ? (
         <div className="rounded-xl border border-dashed border-status-error/40 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />

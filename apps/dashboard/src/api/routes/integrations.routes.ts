@@ -7,6 +7,7 @@ import { withQuery } from '../url'
 export const integrationsRoutes = {
   platform: {
     providers: '/integrations/providers',
+    accountingCompanies: '/integrations/modules/accounting/companies',
     connections: (provider?: string) => {
       const params = new URLSearchParams()
       if (provider) params.set('provider', provider)

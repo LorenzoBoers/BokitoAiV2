@@ -1,17 +1,19 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { BookmarkPlus, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
+import { BookmarkPlus, ChevronDown, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ComposerCard } from '../ui/ComposerCard'
 import { useMembers } from '../../hooks/useMembers'
-import { Button } from '../ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import type { ComposerSurface, ComposerTab } from '../../lib/message-composer'
@@ -56,6 +58,9 @@ type Props = {
   /** When set, outbound replies are blocked (e.g. mailbox disconnected) and
    * this notice is rendered in place of the reply input. Notes still work. */
   replyDisabledNotice?: ReactNode
+  /** CC list of the customer's last email; seeds the CC field when the
+   * operator opens CC/BCC so reply-all is one click, never auto-applied. */
+  suggestedCc?: string | null
 }
 
 function tabIcon(surface: ComposerSurface, tab: ComposerTab) {
@@ -98,6 +103,7 @@ export default function ReplyComposer({
   onMentionInserted,
   persistKey,
   replyDisabledNotice,
+  suggestedCc,
 }: Props) {
   const { t } = useTranslation('communication')
   const navigate = useNavigate()
@@ -355,6 +361,7 @@ export default function ReplyComposer({
             <button
               type="button"
               onClick={() => setTab('reply')}
+              title={t('composer.tabHintReply')}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 !isNote
                   ? 'bg-accent/15 text-accent font-semibold ring-1 ring-accent/20'
@@ -369,6 +376,7 @@ export default function ReplyComposer({
             <button
               type="button"
               onClick={() => setTab('note')}
+              title={t('composer.tabHintNote')}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 isNote
                   ? 'bg-yellow-100 text-yellow-800 font-semibold ring-1 ring-yellow-300/60 dark:bg-yellow-900/30 dark:text-yellow-200 dark:ring-yellow-700/40'
@@ -381,11 +389,6 @@ export default function ReplyComposer({
           ) : null}
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
-        {showNoteTab || extraActions ? (
-          <p className="px-0.5 text-[10.5px] text-text-muted">
-            {isNote ? t('composer.tabHintNote') : t('composer.tabHintReply')}
-          </p>
-        ) : null}
 
         {!isNote && replyBlocked ? (
           <div className="rounded-xl border border-border/60 bg-bg-elevated/40 px-3 py-2.5 text-[12px] text-text-secondary">
@@ -394,28 +397,33 @@ export default function ReplyComposer({
         ) : null}
 
         {!isNote && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
-          <div className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]">
+          <div
+            className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-[11.5px]"
+            title={surface.includeSignature ? t('composer.withSignature') : undefined}
+          >
             <div className="flex items-center gap-2">
               <span className="shrink-0 font-medium text-text-muted">{recipientLabel}</span>
               <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
-              <span className="ml-auto flex shrink-0 items-center gap-2">
-                {surface.channel === 'email' ? (
-                  <button
-                    type="button"
-                    onClick={() => setCcBccOpen((open) => !open)}
-                    className={`text-[10px] font-medium transition-colors ${
-                      ccBccOpen || cc || bcc
-                        ? 'text-accent'
-                        : 'text-text-muted hover:text-text-primary'
-                    }`}
-                  >
-                    {t('composer.ccBcc')}
-                  </button>
-                ) : null}
-                {surface.includeSignature ? (
-                  <span className="text-[10px] text-text-muted">{t('composer.withSignature')}</span>
-                ) : null}
-              </span>
+              {surface.channel === 'email' ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCcBccOpen((open) => {
+                      // Opening for the first time seeds the customer's CC
+                      // list so reply-all does not require retyping addresses.
+                      if (!open && !cc.trim() && suggestedCc?.trim()) setCc(suggestedCc.trim())
+                      return !open
+                    })
+                  }
+                  className={`ml-auto shrink-0 text-[10px] font-medium transition-colors ${
+                    ccBccOpen || cc || bcc
+                      ? 'text-accent'
+                      : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  {t('composer.ccBcc')}
+                </button>
+              ) : null}
             </div>
             {surface.channel === 'email' && ccBccOpen ? (
               <div className="mt-1.5 space-y-1 border-t border-border/40 pt-1.5">
@@ -587,68 +595,66 @@ export default function ReplyComposer({
           >
             <Paperclip size={14} />
           </button>
-          <button
-            type="button"
-            disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
-            onClick={() => void handleSubmit('send')}
-            title={isNote ? t('composer.addNoteTitle') : t('composer.sendTitle')}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
-              isNote
-                ? 'bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600'
-                : 'bg-accent text-accent-fg hover:bg-accent-hover'
-            }`}
-          >
-            {isNote ? <StickyNote size={13} /> : <Send size={13} />}
-          </button>
-        </ComposerCard>
-        )}
-
-        {!isNote && replyBlocked ? null : (
-        <div className="mt-1.5 flex items-center justify-between px-1">
-          <p className="text-[10.5px] text-text-muted">
-            {surface.channel === 'email' && !isNote
-              ? t('composer.hintEmail')
-              : t('composer.hintChat')}
-          </p>
-          {!isNote && showCustomerActions ? (
-            <div className="flex items-center gap-0.5">
+          <div className="flex h-8 shrink-0 overflow-hidden rounded-xl">
+            <button
+              type="button"
+              disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
+              onClick={() => void handleSubmit('send')}
+              title={
+                isNote
+                  ? t('composer.addNoteTitle')
+                  : surface.channel === 'email'
+                    ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
+                    : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
+              }
+              className={`flex h-8 w-8 items-center justify-center transition-colors disabled:opacity-40 ${
+                isNote
+                  ? 'bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600'
+                  : 'bg-accent text-accent-fg hover:bg-accent-hover'
+              } ${!isNote && showCustomerActions ? 'rounded-none' : 'rounded-xl'}`}
+            >
+              {isNote ? <StickyNote size={13} /> : <Send size={13} />}
+            </button>
+            {!isNote && showCustomerActions ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
+                  <button
+                    type="button"
                     disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
-                    className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
+                    title={t('composer.sendMore')}
+                    aria-label={t('composer.sendMore')}
+                    className="flex h-8 w-6 items-center justify-center border-l border-accent-fg/20 bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
                   >
-                    <Clock size={11} className="mr-1" />
-                    {t('composer.sendAndWait')}
-                  </Button>
+                    <ChevronDown size={12} />
+                  </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-44">
-                  {SNOOZE_PRESETS.map((preset) => (
-                    <DropdownMenuItem
-                      key={preset.key}
-                      onClick={() =>
-                        void handleSubmit('send_and_pending', preset.minutes() ?? undefined)
-                      }
-                    >
-                      {t(preset.labelKey)}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuItem onClick={() => void handleSubmit('send_and_close')}>
+                    {t('composer.sendAndClose')}
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="gap-1.5">
+                      <Clock size={13} />
+                      {t('composer.sendAndWait')}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="min-w-44">
+                      {SNOOZE_PRESETS.map((preset) => (
+                        <DropdownMenuItem
+                          key={preset.key}
+                          onClick={() =>
+                            void handleSubmit('send_and_pending', preset.minutes() ?? undefined)
+                          }
+                        >
+                          {t(preset.labelKey)}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={(!body.trim() && attachments.length === 0) || saving || disabled || uploading}
-                onClick={() => void handleSubmit('send_and_close')}
-                className="h-6 px-2 text-[11px] text-text-muted hover:text-text-primary"
-              >
-                {t('composer.sendAndClose')}
-              </Button>
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+        </ComposerCard>
         )}
       </div>
     </div>

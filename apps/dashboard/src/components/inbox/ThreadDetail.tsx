@@ -16,7 +16,7 @@ import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
 import AssigneeSelector from './AssigneeSelector'
 import { Button } from '../ui/button'
-import { AI_ICON_BOX_CLASS } from '../ai/AiMark'
+import { InboxThreadSkeleton } from '../ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -618,7 +618,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             e.eventType !== 'reply_sent' &&
             // The session card itself represents these lifecycle moments.
             e.eventType !== 'agent_session_started' &&
-            e.eventType !== 'agent_session_closed',
+            e.eventType !== 'agent_session_closed' &&
+            // Decision / suggestion cards already sit in the timeline.
+            e.eventType !== 'decision_created' &&
+            e.eventType !== 'suggestion_created',
         )
         .map((e) => ({
           kind: 'event' as const,
@@ -805,6 +808,17 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [detail],
   )
 
+  // CC list of the customer's most recent email; the composer offers it as a
+  // reply-all seed when the operator opens the CC/BCC fields.
+  const suggestedCc = useMemo(() => {
+    if (!detail || detail.thread.channel !== 'email') return null
+    for (let i = detail.messages.length - 1; i >= 0; i--) {
+      const m = detail.messages[i]
+      if (m.direction === 'inbound' && m.cc?.trim()) return m.cc
+    }
+    return null
+  }, [detail])
+
   // Email thread whose mailbox was removed: history stays readable, but
   // outbound replies are impossible and must not pretend to work.
   const mailboxDisconnected = Boolean(
@@ -984,11 +998,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     detail != null && threadId != null && String(detail.thread.id) === String(threadId)
 
   if (loading || (threadId != null && detail != null && !detailMatchesRoute)) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <RefreshCw size={18} className="animate-spin text-text-muted" />
-      </div>
-    )
+    return <InboxThreadSkeleton />
   }
 
   // The detail fetch failed. Surface the actual error to the user instead
@@ -1042,6 +1052,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   const { thread } = detail
   const hasActiveSession = (detail.sessions ?? []).some((s) => s.state === 'active')
+  // What the header's name slot shows; the " · email" suffix is skipped when
+  // this already is the email address (no name known), to avoid "x@y · x@y".
+  const contactDisplayName =
+    humanizeContactName(thread.contactName, thread.contactEmail, t('contactPanel.widgetVisitor')) ||
+    (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -1085,7 +1100,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   ) ||
                   (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
                 )}
-                {thread.contactEmail && !isPlaceholderContactAddress(thread.contactEmail) ? (
+                {thread.contactEmail &&
+                !isPlaceholderContactAddress(thread.contactEmail) &&
+                contactDisplayName !== thread.contactEmail ? (
                   <>
                     {' · '}
                     <button
@@ -1111,8 +1128,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             {thread.createdAt
               ? ` · ${formatAppDateTime(new Date(thread.createdAt), i18n.language)}`
               : ''}
-            {thread.status === 'pending' && thread.snoozedUntil
-              ? ` · ${formatWakeTime(thread.snoozedUntil, t, i18n.language) ?? ''}`
+            {thread.status === 'pending'
+              ? ` · ${
+                  (thread.snoozedUntil
+                    ? formatWakeTime(thread.snoozedUntil, t, i18n.language)
+                    : null) ?? t('snooze.wakesOnReply')
+                }`
               : ''}
           </p>
         </div>
@@ -1388,9 +1409,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       thread.status !== 'pending' &&
       thread.suggestedActions?.includes('create_task') ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated px-3 py-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-            {t('threadChrome.next')}
-          </span>
           <button
             type="button"
             disabled={creatingTask}
@@ -1536,10 +1554,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           ))
         )}
         {gatewayStream.streaming ? (
-          <div className="mb-3 flex items-start gap-2.5">
-            <span className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}>
-              <Bot size={14} />
-            </span>
+          <div className="mb-3">
             <ThinkingTrace
               steps={gatewayStream.steps}
               active
@@ -1584,6 +1599,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           draftBody={composerDraft?.body ?? null}
           draftKey={composerDraft?.key ?? null}
           persistKey={String(thread.id)}
+          suggestedCc={suggestedCc}
           mentionExtras={mentionAgents}
           extraActions={
             onAskAssistant && isInternalThread(thread) ? (

@@ -37,6 +37,56 @@ async def test_signals_api_list_and_inbound(client: AsyncClient, session_overrid
 
 
 @pytest.mark.asyncio
+async def test_reply_subject_threads_into_existing_email_thread(client: AsyncClient, session_override):
+    """"Re: X" from the same address must continue the thread for "X"."""
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    from app.services.signals import create_inbound_signal
+
+    first = await create_inbound_signal(
+        session_override,
+        tenant.id,
+        channel="email",
+        source="mock",
+        subject="Quote maintenance contract",
+        body_text="Please send the quote.",
+        contact_email="jan@example.com",
+    )
+    reply = await create_inbound_signal(
+        session_override,
+        tenant.id,
+        channel="email",
+        source="mock",
+        subject="Re: Quote maintenance contract",
+        body_text="Thanks, one more question about the quote.",
+        contact_email="jan@example.com",
+    )
+    assert reply.id == first.id
+
+    # A genuinely different subject still starts its own thread.
+    other = await create_inbound_signal(
+        session_override,
+        tenant.id,
+        channel="email",
+        source="mock",
+        subject="Invoice question",
+        body_text="Different topic entirely.",
+        contact_email="jan@example.com",
+    )
+    assert other.id != first.id
+
+
+def test_normalize_email_subject():
+    from app.services.signals import normalize_email_subject
+
+    assert normalize_email_subject("Re: Hello") == "hello"
+    assert normalize_email_subject("RE: FW: Fwd: Hello") == "hello"
+    assert normalize_email_subject("Antw: Offerte 2026") == "offerte 2026"
+    assert normalize_email_subject("Re[2]: Hello") == "hello"
+    assert normalize_email_subject("Regarding the offer") == "regarding the offer"
+    assert normalize_email_subject("  Hello  ") == "hello"
+
+
+@pytest.mark.asyncio
 async def test_triage_signal_mock_llm(client: AsyncClient, session_override):
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     from app.services.signals import create_inbound_signal

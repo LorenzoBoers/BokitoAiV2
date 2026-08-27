@@ -7,6 +7,7 @@ import { appendDevLocalhostCrossHostAccessHash, needsDevLocalhostCrossHostHandof
 import { APP_VERSION } from '../lib/app-version';
 import { startMicrosoftSso } from '../lib/api';
 import { MicrosoftSignInButton, describeSsoError } from '../components/auth/MicrosoftSignInButton';
+import { readLastLoginEmail, writeLastLoginEmail } from '../lib/last-login-email';
 
 function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
   if (!rawReturnTo) return '/';
@@ -20,12 +21,12 @@ function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
 }
 
 export default function Login() {
-  const { t } = useTranslation('nav');
+  const { t, i18n } = useTranslation('nav');
   const { login, verifyTotp, setupAcceptInvite, setupCreateWorkspace, user, token, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => readLastLoginEmail());
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -45,8 +46,11 @@ export default function Login() {
   useEffect(() => {
     if (ssoError) {
       setError(t(`loginPage.sso.${ssoError}`, { defaultValue: describeSsoError(ssoError) }));
+      const next = new URLSearchParams(searchParams);
+      next.delete('sso_error');
+      setSearchParams(next, { replace: true });
     }
-  }, [ssoError, t]);
+  }, [ssoError, t, searchParams, setSearchParams]);
 
   function resolvePostLoginTarget(): string {
     if (absoluteReturnTo) return absoluteReturnTo;
@@ -98,6 +102,7 @@ export default function Login() {
     setIsLoading(true);
     try {
       const accessToken = await login(email, password);
+      writeLastLoginEmail(email);
       const target = resolvePostLoginTarget();
       await redirectToTarget(target, accessToken);
     } catch (err: unknown) {
@@ -130,6 +135,7 @@ export default function Login() {
     setIsLoading(true);
     try {
       const accessToken = await verifyTotp(twoFactorChallenge, totpCode);
+      writeLastLoginEmail(email);
       const target = resolvePostLoginTarget();
       await redirectToTarget(target, accessToken);
     } catch (err: unknown) {
@@ -308,7 +314,13 @@ export default function Login() {
                 maxLength={6}
                 required
                 value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => {
+                  const next = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setTotpCode(next);
+                  if (next.length === 6 && !isLoading) {
+                    e.target.form?.requestSubmit();
+                  }
+                }}
                 className="w-full rounded-md border border-border bg-bg-input px-4 py-2.5 text-center font-mono text-lg tracking-[0.4em] text-text-primary placeholder-text-muted focus:outline-none focus:border-border-focus transition"
                 placeholder={t('loginPage.totpPlaceholder')}
               />
@@ -361,6 +373,9 @@ export default function Login() {
                 className="w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
                 placeholder={t('loginPage.emailPlaceholder')}
               />
+              {email && email === readLastLoginEmail() ? (
+                <p className="mt-1 text-[11px] text-text-muted">{t('loginPage.lastEmailHint')}</p>
+              ) : null}
             </div>
 
             {/* Password */}
@@ -443,7 +458,31 @@ export default function Login() {
           )}
         </div>
 
-        <p className="text-center text-xs text-text-muted mt-6">
+        <div className="mt-5 flex items-center justify-center gap-2 text-xs">
+          {(['nl', 'en'] as const).map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => {
+                void i18n.changeLanguage(lang);
+                document.documentElement.lang = lang;
+                try {
+                  window.localStorage.setItem('bokito-language', lang);
+                } catch {
+                  /* private mode */
+                }
+              }}
+              className={`rounded-md px-2 py-1 ${
+                (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
+                  ? 'bg-bg-hover font-medium text-text-heading'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              {lang === 'nl' ? t('loginPage.languageNl') : t('loginPage.languageEn')}
+            </button>
+          ))}
+        </div>
+        <p className="text-center text-xs text-text-muted mt-3">
           © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
         </p>
         <p className="text-center text-[10px] text-text-muted/80 mt-1">

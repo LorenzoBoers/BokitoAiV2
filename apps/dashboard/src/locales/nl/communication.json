@@ -49,6 +49,7 @@
     },
     "addNoteTitle": "Notitie toevoegen",
     "sendTitle": "Versturen",
+    "sendMore": "Meer verstuur-opties",
     "draftWithAi": "Concept met AI",
     "drafting": "Concept maken...",
     "guidanceTitle": "Richtlijn (optioneel)",
@@ -135,7 +136,6 @@
     "emptyUnread": "Geen ongelezen gesprekken in deze lijst.",
     "emptyNeedsReply": "Niets waar jij aan zet bent. Beantwoorde klanten staan onder Alles.",
     "emptyPinned": "Nog geen vastgezette gesprekken. Zet er een vast om hem bovenaan te houden.",
-    "shortcutHint": "Druk op ? voor sneltoetsen",
     "showAllConversations": "Alle gesprekken tonen",
     "emptyRuns": "Nog geen agent-runs.",
     "emptySnoozed": "Niets uitgesteld tot later.",
@@ -276,7 +276,7 @@
     "thread": {
       "open": "Open",
       "closed": "Gesloten",
-      "pending": "Gesnoozed",
+      "pending": "Uitgesteld",
       "spam": "Spam"
     },
     "contact": {
@@ -435,18 +435,21 @@
     "emailContact": "E-mail",
     "writeEmail": "Liever een e-mail schrijven",
     "emailACustomer": "E-mail een klant",
+    "emailAddressDirect": "E-mail {{address}}",
+    "emailAddressDirectHint": "Start een nieuwe e-mail naar dit adres",
     "chatWithAssistant": "Chat met assistent",
     "messageName": "Bericht naar {{name}}...",
     "chooseAndType": "Kies een ontvanger en begin te typen...",
     "send": "Versturen",
     "loadError": "Kon niet laden met wie je kunt chatten.",
-    "startError": "Kon het gesprek niet starten."
+    "startError": "Kon het gesprek niet starten.",
+    "retry": "Opnieuw",
+    "openContacts": "Contacten openen"
   },
   "threadChrome": {
     "hideDetails": "Details verbergen",
     "showDetails": "Details tonen",
     "askAssistant": "Vraag assistent",
-    "next": "Volgende",
     "closeThread": "Gesprek sluiten",
     "assignToMe": "Aan mij toewijzen",
     "createTask": "Taak aanmaken",
@@ -544,6 +547,7 @@
     "replyBlocked": "Dit gesprek is gesloten. Heropen het om te antwoorden.",
     "commandPalette": "Commandopalet",
     "send": "Antwoord versturen",
+    "sendChat": "Chat versturen (Shift+Enter voor een nieuwe regel)",
     "assignPicker": "Toewijzer openen",
     "copyLink": "Gesprekslink kopiëren",
     "copyId": "Gespreks-ID kopiëren",
@@ -640,7 +644,10 @@
     "noAssistantConfigured": "Geen assistent geconfigureerd voor deze workspace.",
     "configureAssistant": "Assistent instellen",
     "deleteFailed": "Kon het gesprek niet verwijderen.",
-    "messageFailed": "Bericht mislukt."
+    "messageFailed": "Bericht mislukt.",
+    "emptyHint": "Start een chat, of rond de setup af zodat een assistent klaarstaat.",
+    "loadTargetsError": "Kon niet laden met wie je kunt chatten.",
+    "retry": "Opnieuw"
   },
   "listItem": {
     "untitled": "Naamloze chat",
@@ -666,6 +673,7 @@
     "wakesToday": "Terug vandaag {{time}}",
     "wakesTomorrow": "Terug morgen {{time}}",
     "wakesOn": "Terug {{date}} {{time}}",
+    "wakesOnReply": "Terug zodra de klant antwoordt",
     "custom": "Kies datum en tijd",
     "customTitle": "Uitstellen tot",
     "customHint": "Dit gesprek komt terug in Open op het tijdstip dat je kiest.",
@@ -695,8 +703,16 @@
     "urgent": "Urgent"
   },
   "timeline": {
+    "internalNote": "Interne notitie",
+    "ccLine": "CC: {{recipients}}",
     "today": "Vandaag",
     "notDelivered": "Niet afgeleverd",
+    "deliveryFail": {
+      "authExpired": "mailboxkoppeling verlopen, verbind deze opnieuw via Kanalen",
+      "noMailbox": "geen gekoppelde mailbox voor dit kanaal",
+      "network": "netwerkfout tijdens verzenden",
+      "noRecipient": "geen ontvangeradres op dit gesprek"
+    },
     "sending": "Verzenden",
     "copyId": "Bericht-ID kopiëren",
     "copyBody": "Tekst kopiëren",
@@ -728,7 +744,8 @@
       "labels": "Labels: {{tags}}",
       "labelsCleared": "Labels gewist",
       "threadUpdated": "Gesprek bijgewerkt",
-      "snoozeExpired": "Snooze verlopen",
+      "snoozeExpired": "Uitstel verlopen",
+      "widgetSeen": "Gezien door de klant",
       "agentReviewed": "AI heeft dit bericht beoordeeld",
       "agentInvoked": "Agent aangeroepen",
       "agentReplied": "AI heeft geantwoord",

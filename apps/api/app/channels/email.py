@@ -42,6 +42,10 @@ def normalize_inbound(payload: dict[str, Any], account: ChannelAccount) -> Inbou
         metadata["rfc_message_id"] = payload["rfc_message_id"]
     if payload.get("references"):
         metadata["references"] = payload["references"]
+    # Keep the CC list: the timeline shows who was copied and the reply
+    # composer can offer reply-all with these addresses.
+    if payload.get("cc") or payload.get("cc_addresses"):
+        metadata["cc"] = str(payload.get("cc") or payload.get("cc_addresses") or "")
     return InboundMessage(
         channel="email",
         source=account.provider,

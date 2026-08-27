@@ -79,9 +79,30 @@ export default function ForgotPassword() {
                 <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
                   {devLink}
                 </Link>
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-medium text-accent hover:underline"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(devLink).then(
+                      () => toast.success(t('forgotPage.copied')),
+                      () => toast.error(t('forgotPage.failed')),
+                    )
+                  }}
+                >
+                  {t('forgotPage.copyLink')}
+                </button>
               </div>
             ) : null}
-            
+            <button
+              type="button"
+              className="mb-4 block w-full text-sm font-medium text-accent hover:underline"
+              onClick={() => {
+                setIsSuccess(false)
+                setDevLink(null)
+              }}
+            >
+              {t('forgotPage.tryDifferent')}
+            </button>
             <Link
               to="/login"
               className="inline-flex items-center gap-2 text-accent hover:text-accent-hover transition-colors"

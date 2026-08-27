@@ -16,9 +16,9 @@ Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis mo
 ![Projectenlijst](/api/docs/assets/projects/project.png)
 *Elke kaart toont de lead-agent en het budget.*
 
-1. Open **Projecten**. Kies **Nieuw project** en geef het doel een naam. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
-2. Lees de kaart: lead-agent, repo-status, resterend budget. Zoek op naam of lead als de lijst groeit.
-3. Open die. De kaart **Wie dit uitvoert** toont de lead. Gebruik **Lead wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
+1. Open **Projecten**. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
+2. Lees de kaart: lead-agent, repo-status, resterend budget. Zoek op naam of lead als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
+3. Open die. De kaart **Wie dit uitvoert** toont de lead. Gebruik **Lead wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen. **Vernieuwen** toont wanneer de pagina het laatst laadde.
 
 Status op een kaart kan werkend, inactief, gepauzeerd of geblokkeerd zijn (heeft jou nodig).
 

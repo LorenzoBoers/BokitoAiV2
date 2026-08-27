@@ -80,6 +80,26 @@ export function currentActivityHeadline(
     : t('agentSteps.thought', { ns: 'communication' })
 }
 
+/** Consecutive unique headlines so live status can stack like Cursor. */
+export function activityStatusLines(
+  steps: AgentStep[],
+  active: boolean,
+  t: TFunction,
+  opts?: { thinkingText?: string; streamText?: string },
+): string[] {
+  const lines: string[] = []
+  for (const step of steps) {
+    const line = stepHeadline(step, t)
+    if (line && lines[lines.length - 1] !== line) lines.push(line)
+  }
+  const current = currentActivityHeadline(steps, active, t, opts)
+  if (current && lines[lines.length - 1] !== current) lines.push(current)
+  if (lines.length === 0 && active) {
+    lines.push(t('agentSteps.thinkingActive', { ns: 'communication' }))
+  }
+  return lines.slice(-5)
+}
+
 export function formatThinkingDuration(ms?: number | null): string | null {
   if (ms == null || ms <= 0) return null
   const seconds = ms / 1000

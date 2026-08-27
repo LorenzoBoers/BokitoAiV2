@@ -27,6 +27,8 @@ export type IntegrationApplication = {
   /** Worst-case status for the app card CTA. */
   status: Integration['status']
   kinds: IntegrationKind[]
+  /** Module slug (accounting, banking, ...) when the app belongs to a module. */
+  module: string | null
 }
 
 const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
@@ -74,6 +76,18 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
     name: 'Bjorn Lunden',
     description: 'Accounting and ERP tools via the Swedish Bjorn Lunden BLA API.',
   },
+  moneybird: {
+    name: 'Moneybird',
+    description: 'Contacts, invoices, purchases and bank mutations via the Moneybird API.',
+  },
+  exact: {
+    name: 'Exact Online',
+    description: 'Full accounting via the Exact Online REST API.',
+  },
+  snelstart: {
+    name: 'SnelStart',
+    description: 'Relations, invoices and general ledger via the SnelStart B2B API.',
+  },
   custom: {
     name: 'Custom tool',
     description: 'Any external tool by URL with API key or bearer token.',
@@ -86,6 +100,32 @@ const HOST_DISPLAY: Record<string, { name: string; description: string }> = {
     name: 'WhatsApp',
     description: 'WhatsApp Business messages in the inbox via the Cloud API.',
   },
+}
+
+/** Provider slug -> module slug, for rows that only carry a provider slug. */
+export const MODULE_BY_PROVIDER_SLUG: Record<string, string> = {
+  king_accountancy: 'accounting',
+  bjorn_lunden_mcp: 'accounting',
+  moneybird: 'accounting',
+  exact_online: 'accounting',
+  snelstart: 'accounting',
+}
+
+/** Static fallback when the API provider row does not carry a module field. */
+const MODULE_BY_HOST: Record<string, string> = {
+  king: 'accounting',
+  bjorn_lunden: 'accounting',
+  moneybird: 'accounting',
+  exact: 'accounting',
+  snelstart: 'accounting',
+}
+
+export function moduleForApplication(hostSlug: string, offers: IntegrationOffer[]): string | null {
+  for (const offer of offers) {
+    const fromProvider = offer.provider?.module
+    if (fromProvider) return fromProvider
+  }
+  return MODULE_BY_HOST[hostSlug] ?? null
 }
 
 export function hostSlugForOffer(integration: Integration, provider?: IntegrationProviderRow): string {
@@ -156,6 +196,7 @@ export function buildIntegrationApplications(
       connectionCount,
       status: appStatusFromOffers(offers),
       kinds,
+      module: moduleForApplication(hostSlug, offers),
     })
   }
 

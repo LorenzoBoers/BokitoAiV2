@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { EmptyState } from '../components/ui/empty-state'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import {
@@ -399,7 +399,7 @@ export default function GovernPage() {
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
 
       {loading ? (
-        <LoadingBlock label={t('loading')} />
+        <TableRowsSkeleton rows={8} />
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="flex h-auto flex-wrap gap-1">
@@ -505,6 +505,7 @@ export default function GovernPage() {
                       </div>
                     </div>
                   ))
+                  )
                 )}
               </CardContent>
             </Card>

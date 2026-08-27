@@ -115,4 +115,6 @@ def _ensure_builtin_loaded() -> None:
     if _builtin_loaded:
         return
     _builtin_loaded = True
+    import app.tools.accounting  # noqa: F401 — registers accounting module tools
+    import app.tools.modules  # noqa: F401 — registers list_modules / recommend_module
     import app.tools.builtin  # noqa: F401 — registers built-in tools

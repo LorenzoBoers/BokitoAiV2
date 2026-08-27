@@ -18,13 +18,18 @@ import { Input } from '../components/ui/input'
 import type { IntegrationKind } from '../lib/integration-kind'
 import { useIntegrationBrand } from '../context/IntegrationBrandContext'
 import { startGithubOAuth } from '../lib/github-api'
-import { revokeIntegrationConnection } from '../lib/integrations-api'
-import { revokeMcpConnection } from '../lib/mcp-integrations'
+import {
+  listAccountingCompanies,
+  revokeIntegrationConnection,
+  type AccountingCompanyRow,
+} from '../lib/integrations-api'
+import { MODULE_BY_PROVIDER_SLUG } from '../lib/integration-applications'
+import { revokeMcpConnection, type McpIntegrationRow } from '../lib/mcp-integrations'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { CardGridSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideBanner } from '../components/layout/PageGuideBanner'
 import IntegrationsTabs from '../components/shell/IntegrationsTabs'
@@ -63,6 +68,45 @@ function SummaryCard({
       <span className="text-xs text-text-muted">{label}</span>
       <span className="text-2xl font-semibold text-text-heading tabular-nums mt-1">{count}</span>
     </button>
+  )
+}
+
+function McpRowList({
+  rows,
+  onDisconnect,
+}: {
+  rows: McpIntegrationRow[]
+  onDisconnect: (connectionId: string) => Promise<void>
+}) {
+  const { t } = useTranslation('nav')
+  return (
+    <ul className="space-y-2">
+      {rows.map((row) => (
+        <li
+          key={row.id}
+          className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <IntegrationHostLogo
+              logoUrl={row.logoUrl}
+              logoDarkUrl={row.logoDarkUrl}
+              initials={row.initials}
+              color={row.brandColor}
+              name={row.providerName}
+              hostSlug={row.hostSlug}
+              size="sm"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{row.displayName}</p>
+              <p className="text-[11px] text-text-muted truncate">{row.endpoint}</p>
+            </div>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => void onDisconnect(row.id)}>
+            {t('integrations.actions.disconnect')}
+          </Button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -137,6 +181,33 @@ export default function IntegrationsConnected() {
         : mcpRows,
     [mcpRows, needle],
   )
+  const accountingMcp = useMemo(
+    () => visibleMcp.filter((row) => MODULE_BY_PROVIDER_SLUG[row.providerSlug] === 'accounting'),
+    [visibleMcp],
+  )
+  const otherMcp = useMemo(
+    () => visibleMcp.filter((row) => MODULE_BY_PROVIDER_SLUG[row.providerSlug] !== 'accounting'),
+    [visibleMcp],
+  )
+
+  const [accountingCompanies, setAccountingCompanies] = useState<AccountingCompanyRow[]>([])
+  useEffect(() => {
+    if (accountingMcp.length === 0) {
+      setAccountingCompanies([])
+      return
+    }
+    let cancelled = false
+    void listAccountingCompanies()
+      .then((res) => {
+        if (!cancelled) setAccountingCompanies(res.companies ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setAccountingCompanies([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [accountingMcp.length])
   const inboxMatches =
     !needle ||
     'outlook microsoft 365 gmail google'.includes(needle) ||
@@ -233,7 +304,7 @@ export default function IntegrationsConnected() {
       ) : null}
 
       {loading ? (
-        <LoadingBlock label={t('integrations.connected.loading')} />
+        <CardGridSkeleton />
       ) : !hasAnyConnection && kindFilter === 'all' ? (
         <EmptyState
           icon={Link2}
@@ -411,37 +482,62 @@ export default function IntegrationsConnected() {
                   </div>
                 </div>
               ) : (
-                <ul className="space-y-2">
-                  {visibleMcp.map((row) => (
-                    <li
-                      key={row.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <IntegrationHostLogo
-                          logoUrl={row.logoUrl}
-                          logoDarkUrl={row.logoDarkUrl}
-                          initials={row.initials}
-                          color={row.brandColor}
-                          name={row.providerName}
-                          hostSlug={row.hostSlug}
-                          size="sm"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{row.displayName}</p>
-                          <p className="text-[11px] text-text-muted truncate">{row.endpoint}</p>
-                        </div>
+                <div className="space-y-4">
+                  {accountingMcp.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to="/settings/modules/accounting"
+                          className="text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-accent"
+                        >
+                          {t('integrations.modules.accounting.name')}
+                        </Link>
+                        <Badge variant="neutral">
+                          {t('integrations.modules.moduleBadge', { defaultValue: 'Module' })}
+                        </Badge>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void handleDisconnectMcp(row.id)}
-                      >
-                        {t('integrations.actions.disconnect')}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
+                      <McpRowList rows={accountingMcp} onDisconnect={handleDisconnectMcp} />
+                      {accountingCompanies.length > 1 ? (
+                        <div className="rounded-lg border border-border/40 px-3 py-2">
+                          <p className="text-[11px] font-medium text-text-muted">
+                            {t('integrations.modules.companies', {
+                              defaultValue: 'Administrations ({{count}})',
+                              count: accountingCompanies.length,
+                            })}
+                          </p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {accountingCompanies.map((c) => (
+                              <span
+                                key={`${c.connection_id ?? ''}-${c.id}`}
+                                className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-text-secondary"
+                                title={c.vendor ?? undefined}
+                              >
+                                {c.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : accountingCompanies.length === 1 ? (
+                        <p className="px-1 text-[11px] text-text-muted">
+                          {t('integrations.modules.singleCompany', {
+                            defaultValue: 'Administration: {{name}}',
+                            name: accountingCompanies[0].name,
+                          })}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {otherMcp.length > 0 ? (
+                    <div className="space-y-2">
+                      {accountingMcp.length > 0 ? (
+                        <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                          {t('integrations.modules.sectionOther')}
+                        </p>
+                      ) : null}
+                      <McpRowList rows={otherMcp} onDisconnect={handleDisconnectMcp} />
+                    </div>
+                  ) : null}
+                </div>
               )}
             </KindSection>
           ) : null}

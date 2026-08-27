@@ -24,6 +24,7 @@ from app.services.integrations_platform import (
     create_api_key_connection,
     ensure_email_account,
     ensure_github_connection,
+    ensure_oauth_connection,
     install_mcp,
     list_connections as list_platform_connections,
     list_mcp_bindings,
@@ -64,6 +65,21 @@ async def get_providers(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await list_providers(session, auth.tenant.id)
+
+
+@router.get("/modules/accounting/companies")
+async def get_accounting_companies(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Companies/administrations across all accounting connections.
+
+    Used by the Connected page to show module capacity and to hide the
+    company picker when the tenant has exactly one company.
+    """
+    from app.modules.accounting.router import call_accounting_verb
+
+    return await call_accounting_verb(session, auth.tenant.id, "list_companies")
 
 
 @router.get("/connections")
@@ -207,6 +223,14 @@ async def platform_oauth_start(
         )
         authorize_url = mock_authorize_url(
             return_url, {"oauth_provider": "gmail", "oauth_status": "connected"}
+        )
+    elif provider == "moneybird":
+        # Dev sandbox: a credential-less connection is served by the accounting
+        # module mocks, so the flow stays demo-able before a Moneybird OAuth
+        # app is registered.
+        await ensure_oauth_connection(session, auth.tenant.id, "moneybird")
+        authorize_url = mock_authorize_url(
+            return_url, {"integration": "connected", "provider": "moneybird"}
         )
     else:
         # No mock success for generic integrations: a "connected" state must

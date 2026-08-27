@@ -23,6 +23,7 @@ const ROWS: Array<{ keys: string; labelKey: string }> = [
   { keys: '/', labelKey: 'shortcuts.search' },
   { keys: 'Cmd+K', labelKey: 'shortcuts.commandPalette' },
   { keys: 'Cmd+Enter', labelKey: 'shortcuts.send' },
+  { keys: 'Enter', labelKey: 'shortcuts.sendChat' },
   { keys: '?', labelKey: 'shortcuts.thisHelp' },
   { keys: 'Esc', labelKey: 'shortcuts.escape' },
 ]

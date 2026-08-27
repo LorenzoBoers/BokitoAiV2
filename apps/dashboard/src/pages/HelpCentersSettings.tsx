@@ -5,6 +5,8 @@ import { ExternalLink, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
+import { formatAppTime } from '../lib/app-locale'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -32,7 +34,7 @@ function RowSkeleton() {
 }
 
 export default function HelpCentersSettings() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
   const { currentWorkspace } = useWorkspace()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -53,12 +55,16 @@ export default function HelpCentersSettings() {
   const [newDocName, setNewDocName] = useState('')
   const [newDocUrl, setNewDocUrl] = useState('')
   const [newDocType, setNewDocType] = useState<KbDocument['file_type']>('pdf')
+  const [docQuery, setDocQuery] = useState('')
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
+  const [deleteCollectionOpen, setDeleteCollectionOpen] = useState(false)
 
   const refreshKbCollections = useCallback(async () => {
     if (!token) return
     try {
       const rows = await listKbCollections(token)
       setKbCollections(rows)
+      setRefreshedAt(new Date())
       setSelectedCollectionId((prev) => {
         if (prev != null && rows.some((row) => row.id === prev)) return prev
         return rows[0]?.id ?? null
@@ -104,14 +110,30 @@ export default function HelpCentersSettings() {
   const publicHelpPath = currentWorkspace?.slug ? `/help/${currentWorkspace.slug}` : null
   const selectedCollection = kbCollections.find((row) => row.id === selectedCollectionId) ?? null
 
+  const createCollection = async () => {
+    if (!token || !newCollectionName.trim()) return
+    setCreatingCollection(true)
+    try {
+      await createKbCollection(token, newCollectionName.trim(), newCollectionDescription.trim() || undefined)
+      setNewCollectionName('')
+      setNewCollectionDescription('')
+      await refreshKbCollections()
+      toast.success(t('helpCentersPage.created'))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('helpCentersPage.createError'))
+    } finally {
+      setCreatingCollection(false)
+    }
+  }
+
   const handleDeleteCollection = async () => {
     if (!token || !selectedCollection) return
-    if (!window.confirm(t('helpCentersPage.deleteCollectionConfirm', { name: selectedCollection.name }))) return
     setDeletingCollection(true)
     try {
       await deleteKbCollection(token, selectedCollection.id)
       toast.success(t('helpCentersPage.deletedCollection'))
       setSelectedCollectionId(null)
+      setDeleteCollectionOpen(false)
       await refreshKbCollections()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('helpCentersPage.deleteCollectionError'))
@@ -119,6 +141,12 @@ export default function HelpCentersSettings() {
       setDeletingCollection(false)
     }
   }
+
+  const visibleDocuments = kbDocuments.filter((doc) => {
+    const q = docQuery.trim().toLowerCase()
+    if (!q) return true
+    return doc.filename.toLowerCase().includes(q)
+  })
 
   return (
     <PageContent width="xl" className="flex h-full min-h-0 flex-col gap-4 py-1">
@@ -148,6 +176,11 @@ export default function HelpCentersSettings() {
         ) : null}
         .
       </p>
+      {refreshedAt ? (
+        <p className="text-xs text-text-muted">
+          {t('helpCentersPage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+        </p>
+      ) : null}
 
       <Card className="p-4">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto]">
@@ -157,6 +190,12 @@ export default function HelpCentersSettings() {
               value={newCollectionName}
               disabled={creatingCollection}
               onChange={(event) => setNewCollectionName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && newCollectionName.trim()) {
+                  event.preventDefault()
+                  void createCollection()
+                }
+              }}
             />
             <input
               className="rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
@@ -167,23 +206,7 @@ export default function HelpCentersSettings() {
             />
             <Button
               disabled={creatingCollection || !newCollectionName.trim()}
-              onClick={() =>
-                void (async () => {
-                  if (!token || !newCollectionName.trim()) return
-                  setCreatingCollection(true)
-                  try {
-                    await createKbCollection(token, newCollectionName.trim(), newCollectionDescription.trim() || undefined)
-                    setNewCollectionName('')
-                    setNewCollectionDescription('')
-                    await refreshKbCollections()
-                    toast.success(t('helpCentersPage.created'))
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : t('helpCentersPage.createError'))
-                  } finally {
-                    setCreatingCollection(false)
-                  }
-                })()
-              }
+              onClick={() => void createCollection()}
             >
               {creatingCollection ? t('helpCentersPage.adding') : t('helpCentersPage.add')}
             </Button>
@@ -237,7 +260,7 @@ export default function HelpCentersSettings() {
                   size="sm"
                   variant="ghost"
                   disabled={deletingCollection}
-                  onClick={() => void handleDeleteCollection()}
+                  onClick={() => setDeleteCollectionOpen(true)}
                 >
                   {t('helpCentersPage.deleteCollection')}
                 </Button>
@@ -305,6 +328,15 @@ export default function HelpCentersSettings() {
                   </Button>
                 </div>
 
+                {kbDocuments.length > 3 ? (
+                  <input
+                    className="mb-3 w-full rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
+                    placeholder={t('helpCentersPage.searchDocuments')}
+                    value={docQuery}
+                    onChange={(event) => setDocQuery(event.target.value)}
+                  />
+                ) : null}
+
                 <div className="space-y-2">
                   {documentsLoading ? (
                     <>
@@ -322,7 +354,10 @@ export default function HelpCentersSettings() {
                       </Link>
                     </div>
                   ) : (
-                    kbDocuments.map((doc) => (
+                    visibleDocuments.length === 0 ? (
+                    <p className="px-1 py-2 text-sm text-text-muted">{t('helpCentersPage.emptyFiltered')}</p>
+                  ) : (
+                    visibleDocuments.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-input/45 px-3 py-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm text-text-primary">{doc.filename}</div>
@@ -380,6 +415,7 @@ export default function HelpCentersSettings() {
                       </div>
                     </div>
                     ))
+                  )
                   )}
                 </div>
               </>
@@ -395,6 +431,17 @@ export default function HelpCentersSettings() {
             )}
         </Card>
       </div>
+      {deleteCollectionOpen && selectedCollection ? (
+        <ConfirmDeleteDialog
+          title={t('helpCentersPage.deleteCollection')}
+          itemLabel={t('helpCentersPage.collectionItem')}
+          itemName={selectedCollection.name}
+          impactText={t('helpCentersPage.deleteCollectionConfirm', { name: selectedCollection.name })}
+          isDeleting={deletingCollection}
+          onCancel={() => setDeleteCollectionOpen(false)}
+          onConfirm={() => void handleDeleteCollection()}
+        />
+      ) : null}
     </PageContent>
   )
 }

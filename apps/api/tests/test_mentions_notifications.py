@@ -81,6 +81,44 @@ async def test_mention_in_note_notifies_target(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_mention_added_on_note_edit_notifies_target(client: AsyncClient):
+    """Editing a note to add a mention pings the teammate exactly once."""
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    teammate = await _add_teammate(client, owner, "edited-in@example.com")
+    signal_id = await _create_thread(client, owner)
+    num = await _member_num(client, owner, "edited-in@example.com")
+
+    r = await client.post(
+        f"/api/signals/{signal_id}/notes",
+        headers=owner,
+        json={"body_text": "Plain note without any mention."},
+    )
+    assert r.status_code == 200, r.text
+    note_id = r.json()["id"]
+    assert [n for n in await _notifications(client, teammate) if n["kind"] == "mention"] == []
+
+    r = await client.patch(
+        f"/api/signals/{signal_id}/notes/{note_id}",
+        headers=owner,
+        json={"body_text": f"Forgot to ping you @[Teammate](user:{num})"},
+    )
+    assert r.status_code == 200, r.text
+    rows = [n for n in await _notifications(client, teammate) if n["kind"] == "mention"]
+    assert len(rows) == 1
+    assert rows[0]["payload"]["signal_id"] == signal_id
+
+    # Editing again without changing the mention does not re-notify.
+    r = await client.patch(
+        f"/api/signals/{signal_id}/notes/{note_id}",
+        headers=owner,
+        json={"body_text": f"Still yours @[Teammate](user:{num}) - updated wording"},
+    )
+    assert r.status_code == 200
+    rows = [n for n in await _notifications(client, teammate) if n["kind"] == "mention"]
+    assert len(rows) == 1
+
+
+@pytest.mark.asyncio
 async def test_self_mention_is_ignored(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     signal_id = await _create_thread(client, owner)

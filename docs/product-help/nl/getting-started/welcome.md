@@ -22,7 +22,7 @@ Bokito is een operations-platform voor teams die AI echt werk willen laten doen.
 
 ## Hoe een dag loopt
 
-Werk landt als gesprek. Een agent gebruikt [Kennis](/docs/ai/knowledge) en antwoordt, concept of vraagt. [Cockpit](/docs/getting-started/cockpit) toont wat jou nodig heeft. Spring met `Ctrl+K` — zoek **Nodig een teammate uit**, **Praat met mijn assistent**, of **Open mijn profiel**. In-app **Hulp** en publieke **Docs** onthouden het laatste artikel dat je opende. Autonomie schroef je in de tijd op.
+Werk landt als gesprek. Een agent gebruikt [Kennis](/docs/ai/knowledge) en antwoordt, concept of vraagt. [Cockpit](/docs/getting-started/cockpit) toont wat jou nodig heeft. Inloggen onthoudt het laatste e-mailadres op dit apparaat. Spring met `Ctrl+K` — zoek **Nodig een teammate uit**, **Praat met mijn assistent**, **Nieuw project**, of **Open mijn profiel**. In-app **Hulp** en publieke **Docs** onthouden het laatste artikel dat je opende. Autonomie schroef je in de tijd op.
 
 ## Waar je begint
 

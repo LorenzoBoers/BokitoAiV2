@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Bot,
   FolderKanban,
@@ -33,7 +33,7 @@ import {
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { EmptyState } from '../components/ui/empty-state'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { inboxPath } from '../lib/messages-paths'
@@ -46,6 +46,7 @@ import {
   type ProjectRow,
 } from '../lib/projects-api'
 import { indexStatusLabel } from '../lib/status-labels'
+import { formatAppTime } from '../lib/app-locale'
 
 function slugify(value: string): string {
   return value
@@ -226,15 +227,17 @@ function ProjectCard({
 }
 
 export default function ProjectsPage() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = useIsAdmin()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [budgets, setBudgets] = useState<Record<string, ProjectBudgetResponse>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
-  const [createOpen, setCreateOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -261,6 +264,7 @@ export default function ProjectsPage() {
         }),
       )
       setBudgets(Object.fromEntries(budgetEntries.filter((e): e is [string, ProjectBudgetResponse] => e !== null)))
+      setRefreshedAt(new Date())
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.page.loadError')))
     } finally {
@@ -271,6 +275,15 @@ export default function ProjectsPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return
+    if (!isAdmin) return
+    setCreateOpen(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('new')
+    setSearchParams(next, { replace: true })
+  }, [isAdmin, searchParams, setSearchParams])
 
   const create = async () => {
     const nextSlug = slug.trim() || slugify(name)
@@ -331,6 +344,11 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-text-muted">
             {t('projects.page.subtitle')}
           </p>
+          {refreshedAt ? (
+            <p className="mt-1 text-xs text-text-muted">
+              {t('projects.page.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
@@ -367,7 +385,7 @@ export default function ProjectsPage() {
       ) : null}
 
       {loading ? (
-        <LoadingBlock label={t('projects.page.loading')} />
+        <CardGridSkeleton />
       ) : projects.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
@@ -394,6 +412,17 @@ export default function ProjectsPage() {
                 <Link to="/settings/setup">{t('projects.page.openSetup')}</Link>
               </Button>
             </div>
+          }
+        />
+      ) : visibleProjects.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title={t('projects.page.emptyFiltered')}
+          description={t('projects.page.emptyFilteredHint')}
+          action={
+            <Button size="sm" variant="outline" onClick={() => setQuery('')}>
+              {t('projects.page.clearSearch')}
+            </Button>
           }
         />
       ) : (
@@ -430,6 +459,12 @@ export default function ProjectsPage() {
                   if (!slug || slug === slugify(name)) setSlug(slugify(e.target.value))
                 }}
                 placeholder={t('projects.page.namePlaceholder')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && name.trim()) {
+                    e.preventDefault()
+                    void create()
+                  }
+                }}
               />
             </div>
             <button

@@ -78,6 +78,9 @@
     "noWorkspace": "No active workspace or session found.",
     "svgUploadFailed": "SVG upload failed",
     "invalidFileType": "Invalid file type. Use PNG, JPG, JPEG, GIF, WebP or SVG.",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "copyUrl": "Copy workspace URL",
+    "copiedUrl": "Workspace URL copied",
+    "helpPreview": "Preview public help"
   }
 }

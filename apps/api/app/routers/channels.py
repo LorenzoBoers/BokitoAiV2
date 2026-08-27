@@ -372,9 +372,17 @@ async def list_contact_threads(
 ):
     contact = await _contact_or_404(session, auth.tenant.id, contact_id)
     conditions = [Signal.contact_id == contact_id]
-    # Older threads may predate the contact link; match on denormalized email too.
-    if contact.channel == "email" and contact.address:
+    if contact.address and "@" in contact.address:
+        # Older threads may predate the contact link; match denormalized email.
         conditions.append(Signal.contact_email == contact.address)
+        # Cross-channel history: the same person may exist as a per-channel
+        # contact row (e.g. widget visitor who also emails). Pull in threads
+        # linked to any sibling contact with the same address.
+        sibling_ids = select(Contact.id).where(
+            Contact.tenant_id == auth.tenant.id,
+            Contact.address == contact.address,
+        )
+        conditions.append(Signal.contact_id.in_(sibling_ids))
     result = await session.execute(
         select(Signal)
         .where(Signal.tenant_id == auth.tenant.id, or_(*conditions))

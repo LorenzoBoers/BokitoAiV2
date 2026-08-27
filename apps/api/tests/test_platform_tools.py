@@ -89,6 +89,68 @@ async def test_propose_integration_routes_to_decision(client: AsyncClient, sessi
 
 
 @pytest.mark.asyncio
+async def test_newer_decision_supersedes_stale_card_on_same_thread(
+    client: AsyncClient, session_override
+):
+    """A re-drafted ask on the same signal defers the older pending card."""
+    from app.models.notification import DecisionRequest
+    from app.models.signal import Signal
+    from app.tools.builtin import _create_decision_request
+    from app.tools.registry import ToolContext
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="mock",
+        subject="Quote follow-up",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    ctx = ToolContext(
+        session=session_override, tenant_id=tenant.id, user_id=None, signal_id=signal.id
+    )
+    payload = {
+        "title": "Reply to customer message",
+        "summary": "Draft ready for review.",
+        "options": [{"id": "approve", "label": "Approve"}],
+        "signal_id": str(signal.id),
+    }
+    first = await _create_decision_request(ctx, dict(payload))
+    second = await _create_decision_request(ctx, dict(payload))
+    assert first["decision_request_id"] != second["decision_request_id"]
+
+    rows = (
+        (
+            await session_override.execute(
+                select(DecisionRequest).where(DecisionRequest.signal_id == signal.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_id = {str(r.id): r for r in rows}
+    stale = by_id[first["decision_request_id"]]
+    assert stale.status == "deferred"
+    assert stale.chosen_option_id == "superseded"
+    assert by_id[second["decision_request_id"]].status == "awaiting_human"
+
+    # The superseded card's bell notification must not stay unread.
+    from app.models.notification import Notification
+
+    stale_notif = (
+        await session_override.execute(
+            select(Notification).where(Notification.id == stale.notification_id)
+        )
+    ).scalar_one_or_none()
+    assert stale_notif is not None
+    assert stale_notif.status == "read"
+
+
+@pytest.mark.asyncio
 async def test_govern_rollback_change_listing(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     listed = await client.get("/api/govern/changes?status=accepted", headers=headers)

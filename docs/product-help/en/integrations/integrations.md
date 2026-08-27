@@ -2,7 +2,7 @@
 title: Connect integrations
 intro: Give agents tools outside Bokito — marketplace apps and connected accounts.
 description: Use Connected, Marketplace and Connected tools to install apps, finish OAuth, and govern what agents may call.
-keywords: integrations, marketplace, connected, github, slack, mcp
+keywords: integrations, marketplace, connected, github, slack, mcp, modules, accounting, moneybird
 sort: 10
 related: mcp,models,channels,govern
 ---
@@ -27,6 +27,24 @@ Integrations are the tools agents may call. Open **Settings**, then **Integratio
 3. Communication apps add queues (email, Slack, WhatsApp). Repository apps attach to a [project](/docs/ai/projects). Tool apps land on **Connected tools**. See [MCP](/docs/integrations/mcp).
 
 WhatsApp itself is configured on **Email & messages**, not only here. The marketplace card points you there.
+
+## Connect an accounting package
+
+1. Open **Marketplace** and find the **Accounting** section at the top. It groups KING Accountancy, Bjorn Lunden and Moneybird; **Exact Online** and **SnelStart** show as **Coming soon**.
+2. Pick a package and finish the setup (OAuth for Moneybird, an API key for KING and Bjorn Lunden). You can connect more than one package in the same workspace.
+3. Agents then use one shared set of accounting actions — companies, contacts, invoices, ledger, outstanding balances — no matter which package is behind it. Changes agents want to make always arrive as a [decision](/docs/ai/decisions) you approve first.
+4. On **Connected**, the **Tools for agents** list shows an **Accounting** group with your administrations. With a single administration agents pick it automatically; with more you see them listed.
+
+The **Banking**, **Investing** and **Documents** sections in the marketplace are modules that are prepared but not yet connectable; their cards list the planned connectors.
+
+## Walk through a module setup
+
+A module is the business capability (accounting, later banking). A package is the connector underneath (KING, Moneybird). You or the assistant can start the same setup.
+
+1. Open **Marketplace** and choose a module title or **Set up Accounting**. That opens the module page at **Settings > Integrations > Module setup**.
+2. Read what agents can do after connect. Writes always become a [decision](/docs/ai/decisions) you approve.
+3. Choose a package and finish OAuth or the API key in the same hub used on Marketplace. `?connect=` still opens that package.
+4. Or ask the company assistant to set the workspace up. After Communication, if the work touches invoices or VAT, it can recommend the module and put **Connect now** on a decision card that opens this same page.
 
 ## Set what agents may call
 

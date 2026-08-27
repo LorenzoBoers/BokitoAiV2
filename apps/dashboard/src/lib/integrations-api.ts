@@ -36,6 +36,26 @@ export interface IntegrationProviderRow {
   mcp_remote_url?: string | null
   mcp_transport?: string | null
   oauth_profile?: Record<string, unknown> | null
+  /** Integration module this provider connects under (e.g. `accounting`). */
+  module?: string | null
+}
+
+export interface IntegrationModuleRow {
+  slug: string
+  name: string
+  description: string
+  status: 'available' | 'coming_soon'
+  provider_slugs: string[]
+  planned_provider_slugs: string[]
+  verbs?: string[]
+  propose_verbs?: string[]
+  verb_labels?: string[]
+  needs_when?: string
+  setup_steps?: string[]
+  capability_summary?: string
+  setup_path?: string
+  connected?: boolean
+  tenant_status?: 'connected' | 'available' | 'coming_soon'
 }
 
 export interface IntegrationConnectionRow {
@@ -59,6 +79,32 @@ export interface ProvidersListResponse {
     email_outlook: number
     email_gmail: number
   }
+  modules?: IntegrationModuleRow[]
+}
+
+export interface AccountingCompanyRow {
+  id: string
+  name: string
+  vendor?: string
+  connection_id?: string
+  external_id?: string
+}
+
+export interface AccountingCompaniesResponse {
+  ok: boolean
+  code?: string
+  message?: string
+  companies?: AccountingCompanyRow[]
+  connections?: Array<{
+    connection_id: string
+    vendor: string
+    name: string
+    ready: boolean
+  }>
+}
+
+export async function listAccountingCompanies(): Promise<AccountingCompaniesResponse> {
+  return apiGet<AccountingCompaniesResponse>(integrationsRoutes.platform.accountingCompanies)
 }
 
 export interface ConnectionsListResponse {

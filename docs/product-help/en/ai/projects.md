@@ -16,9 +16,9 @@ A project is work that spans days. Open **Projects** when a goal should have a h
 ![Projects list](/api/docs/assets/projects/project.png)
 *Each card shows the lead agent and budget.*
 
-1. Open **Projects**. Choose **New project** and name the goal. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
-2. Read the card: lead agent, repo status, remaining budget. Search by name or lead when the list grows.
-3. Open it. The **Who runs this** card shows the lead. Use **Change lead** to pick another agent or create one. Members can read a project; they cannot delete it or edit the name.
+1. Open **Projects**. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
+2. Read the card: lead agent, repo status, remaining budget. Search by name or lead when the list grows. If nothing matches, **Clear search** shows every project again.
+3. Open it. The **Who runs this** card shows the lead. Use **Change lead** to pick another agent or create one. Members can read a project; they cannot delete it or edit the name. **Refresh** shows when the page last loaded.
 
 Status on a card can be working, idle, paused, or blocked (needs you).
 

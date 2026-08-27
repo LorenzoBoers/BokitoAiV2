@@ -96,6 +96,7 @@ export function activityEventMessage(message: string | null | undefined, t: TFun
 }
 
 const KNOWN_SUBJECTS: Record<string, string> = {
+  'Suggested reply': 'decisionCard.titleSuggestedReply',
   'Reply to customer message': 'decisionCard.knownSubjects.replyToCustomer',
   'Daily platform scan': 'decisionCard.knownSubjects.dailyPlatformScan',
   'Agent passport update': 'decisionCard.knownSubjects.agentPassportUpdate',

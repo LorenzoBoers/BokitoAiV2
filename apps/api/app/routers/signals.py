@@ -857,6 +857,8 @@ async def update_note(
         signal_id,
         message_id,
         body_text=body.body_text,
+        author_user_id=auth.user.id,
+        author_name=auth.user.display_name or auth.user.email,
     )
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")

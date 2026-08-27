@@ -7,6 +7,7 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  Copy,
   Loader2,
   MessageSquareWarning,
   PenLine,
@@ -17,6 +18,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
+import { setupIntegrationHref } from '../../lib/integration-setup-url'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
@@ -37,6 +39,7 @@ import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib
 import { useAuth } from '../../context/AuthContext'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { AI_CARD_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 
 type DecisionOption = {
@@ -345,8 +348,10 @@ export default function DecisionRequestMessage({
     if (option.action_type === 'setup_integration') {
       const provider =
         typeof option.payload?.provider === 'string' ? option.payload.provider.trim() : ''
+      const moduleSlug =
+        typeof option.payload?.module === 'string' ? option.payload.module.trim() : ''
       await resolve('approve', option.id)
-      if (provider) navigate(`/settings/marketplace?connect=${encodeURIComponent(provider)}`)
+      navigate(setupIntegrationHref({ module: moduleSlug, provider }))
       return
     }
     if (option.action_type === 'close_thread') {
@@ -392,24 +397,10 @@ export default function DecisionRequestMessage({
       <div className="flex justify-start">
         <div className="flex w-full max-w-3xl min-w-0 items-center gap-2 rounded-lg border border-border/50 bg-bg-surface/70 px-3 py-1.5">
           <AiMark size={12} className="shrink-0 text-text-muted" />
-          <span className="min-w-0 truncate text-[11.5px] text-text-muted">
+          <span className="min-w-0 flex-1 truncate text-[11.5px] text-text-muted">
             {t('decisionCard.earlierDraft')}
             {excerpt ? ` — ${excerpt}` : ''}
           </span>
-          {message.decisionId ? (
-            <button
-              type="button"
-              onClick={() => {
-                void navigator.clipboard.writeText(String(message.decisionId)).then(
-                  () => toast.success(t('decisionCard.idCopied')),
-                  () => toast.error(t('decisionCard.copyIdFailed')),
-                )
-              }}
-              className="shrink-0 text-[10px] text-text-muted hover:text-accent hover:underline"
-            >
-              {t('decisionCard.copyId')}
-            </button>
-          ) : null}
           <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
             {t('decisionCard.resolved')}
           </span>
@@ -454,15 +445,17 @@ export default function DecisionRequestMessage({
           {message.decisionId ? (
             <button
               type="button"
+              aria-label={t('decisionCard.copyId')}
+              title={t('decisionCard.copyId')}
               onClick={() => {
                 void navigator.clipboard.writeText(String(message.decisionId)).then(
                   () => toast.success(t('decisionCard.idCopied')),
                   () => toast.error(t('decisionCard.copyIdFailed')),
                 )
               }}
-              className="ml-auto text-[10px] text-text-muted hover:text-accent hover:underline"
+              className="ml-auto flex h-5 w-5 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body"
             >
-              {t('decisionCard.copyId')}
+              <Copy size={11} />
             </button>
           ) : null}
         </div>
@@ -743,29 +736,34 @@ export default function DecisionRequestMessage({
           >
             <ThumbsDown size={11} />
           </button>
-          <button
-            type="button"
-            disabled={correctionStarting}
-            className="ml-1 flex h-5 items-center gap-1 rounded px-1 text-[10.5px] text-text-muted/70 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
-            onClick={() =>
-              void startCorrection({
-                threadId: String(threadId),
-                agentId:
-                  typeof message.payload?.agent_id === 'string' ? message.payload.agent_id : null,
-                agentName,
-                subjectType: 'decision',
-                subjectId: decisionSubjectId,
-                summary: draftBody || summary,
-              })
-            }
-          >
-            {correctionStarting ? (
-              <Loader2 size={11} className="animate-spin" />
-            ) : (
-              <MessageSquareWarning size={11} />
-            )}
-            {t('decisionCard.correctInterpretation')}
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={t('decisionCard.correctInterpretation')}
+                disabled={correctionStarting}
+                className="ml-1 flex h-5 w-5 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
+                onClick={() =>
+                  void startCorrection({
+                    threadId: String(threadId),
+                    agentId:
+                      typeof message.payload?.agent_id === 'string' ? message.payload.agent_id : null,
+                    agentName,
+                    subjectType: 'decision',
+                    subjectId: decisionSubjectId,
+                    summary: draftBody || summary,
+                  })
+                }
+              >
+                {correctionStarting ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <MessageSquareWarning size={11} />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{t('decisionCard.correctInterpretation')}</TooltipContent>
+          </Tooltip>
         </div>
         ) : null}
       </div>

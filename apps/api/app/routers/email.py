@@ -261,11 +261,19 @@ async def send_email(
         account = await _resolve_email_account(session, auth.tenant.id, body.connection_id)
         if account is None:
             raise HTTPException(status_code=400, detail="No email account configured")
+        # Link the recipient as a contact right away: the contact panel and
+        # future inbound replies then match on contact_id, not just the address.
+        from app.services.signals import get_or_create_contact
+
+        contact = await get_or_create_contact(
+            session, auth.tenant.id, channel="email", address=to_addresses[0]
+        )
         signal = Signal(
             tenant_id=auth.tenant.id,
             channel="email",
             source=account.provider,
             subject=body.subject or "(No subject)",
+            contact_id=contact.id if contact else None,
             contact_email=to_addresses[0],
             contact_name="",
             channel_account_id=account.id,

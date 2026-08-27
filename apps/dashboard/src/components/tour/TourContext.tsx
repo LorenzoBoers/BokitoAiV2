@@ -26,6 +26,7 @@ import { useAuth } from '../../context/AuthContext'
 import { appScopedGet } from '../../lib/api'
 import { appRoutes } from '../../api/routes/app.routes'
 import { getTourState, patchTourState } from '../../lib/tour-api'
+import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { TOUR_STEPS, TOUR_VERSION, WELCOME_PILLARS } from './tour-steps'
 
 type TourPhase = 'idle' | 'welcome' | 'steps' | 'finish'
@@ -151,7 +152,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
     persist({ completed: true })
     setPhase('idle')
     const prompt = t('setupPrompt', { lng: i18n.resolvedLanguage })
-    navigate(`/communication/new?prefill=${encodeURIComponent(prompt)}&autosend=1`)
+    const dest = talkToAssistantPath(prompt, { kind: 'company' })
+    navigate(`${dest}${dest.includes('?') ? '&' : '?'}autosend=1`)
   }, [persist, navigate, t, i18n.resolvedLanguage])
 
   const finishWithSetupGuide = useCallback(() => {

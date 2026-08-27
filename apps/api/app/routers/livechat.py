@@ -425,6 +425,43 @@ async def _get_owned_conversation(
     raise HTTPException(status_code=404, detail="Conversation not found")
 
 
+class HandoffBody(BaseModel):
+    reason: str = ""
+
+
+@router.post(
+    "/conversation/{conversation_id}/handoff",
+    dependencies=[Depends(rate_limit("livechat-handoff", limit=10))],
+)
+async def request_conversation_handoff(
+    conversation_id: str,
+    body: HandoffBody,
+    ctx: Annotated[tuple[Tenant, User | None, str], Depends(_optional_widget_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Visitor-initiated human takeover for a widget conversation.
+
+    Same escalation path as the agent's ``handoff_to_human`` tool: AI replies
+    pause on the thread and owners/admins are alerted so a team member can
+    take over in the same conversation.
+    """
+    from app.services.handoff import request_human_handoff
+
+    tenant, user, token = ctx
+    signal = await _get_owned_conversation(session, tenant, user, token, conversation_id)
+    await request_human_handoff(
+        session,
+        tenant.id,
+        signal,
+        reason=body.reason.strip()[:500],
+        via="visitor_request",
+        actor_type="user",
+        actor_id=str(user.id) if user else "",
+    )
+    await session.commit()
+    return {"ok": True, "ai_paused": True}
+
+
 class CsatBody(BaseModel):
     score: int
     comment: str = ""
@@ -502,6 +539,10 @@ async def get_conversation(
         "id": str(signal.id),
         "conversation_id": str(signal.id),
         "title": signal.subject,
+        # Widget shows the "a team member is helping you" banner on reload.
+        "ai_paused": bool(signal.ai_paused),
+        # Widget offers the rating prompt when reopening a closed conversation.
+        "status": signal.status,
         "updated_at": signal.updated_at.isoformat() if signal.updated_at else None,
     }
 
@@ -539,10 +580,18 @@ async def conversation_messages(
         except Exception:
             attachments = []
         created = m.received_at or m.created_at
+        if m.direction == "inbound":
+            sender_type = "customer"
+        elif m.role == "user":
+            # Human operator replies keep their team identity on reload,
+            # matching the realtime `sender_type: "agent"` events.
+            sender_type = "agent"
+        else:
+            sender_type = "ai"
         items.append(
             {
                 "id": str(m.id),
-                "sender_type": "customer" if m.direction == "inbound" else "ai",
+                "sender_type": sender_type,
                 "message_content": m.body_text or "",
                 "created_at": created.isoformat() if created else None,
                 "attachments": attachments,

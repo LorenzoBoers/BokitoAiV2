@@ -49,6 +49,7 @@
     },
     "addNoteTitle": "Add note",
     "sendTitle": "Send",
+    "sendMore": "More send options",
     "draftWithAi": "Draft with AI",
     "drafting": "Drafting...",
     "guidanceTitle": "Guidance (optional)",
@@ -135,7 +136,6 @@
     "emptyUnread": "No unread conversations in this list.",
     "emptyNeedsReply": "Nothing waiting on you. Customers you already answered sit in All.",
     "emptyPinned": "No pinned conversations yet. Pin one to keep it at the top.",
-    "shortcutHint": "Press ? for shortcuts",
     "showAllConversations": "Show all conversations",
     "emptyRuns": "No agent runs yet.",
     "emptySnoozed": "Nothing waiting for later.",
@@ -435,18 +435,21 @@
     "emailContact": "Email",
     "writeEmail": "Write an email instead",
     "emailACustomer": "Email a customer",
+    "emailAddressDirect": "Email {{address}}",
+    "emailAddressDirectHint": "Start a new email to this address",
     "chatWithAssistant": "Chat with assistant",
     "messageName": "Message {{name}}...",
     "chooseAndType": "Choose a recipient and start typing...",
     "send": "Send",
     "loadError": "Could not load who you can chat with.",
-    "startError": "Could not start the conversation."
+    "startError": "Could not start the conversation.",
+    "retry": "Try again",
+    "openContacts": "Open Contacts"
   },
   "threadChrome": {
     "hideDetails": "Hide details",
     "showDetails": "Show details",
     "askAssistant": "Ask assistant",
-    "next": "Next",
     "closeThread": "Close thread",
     "assignToMe": "Assign to me",
     "createTask": "Create task",
@@ -544,6 +547,7 @@
     "replyBlocked": "This conversation is closed. Reopen it to reply.",
     "commandPalette": "Command palette",
     "send": "Send reply",
+    "sendChat": "Send chat (Shift+Enter for a new line)",
     "assignPicker": "Open assignee picker",
     "copyLink": "Copy conversation link",
     "copyId": "Copy thread ID",
@@ -640,7 +644,10 @@
     "noAssistantConfigured": "No assistant configured for this workspace.",
     "configureAssistant": "Configure assistant",
     "deleteFailed": "Could not delete the conversation.",
-    "messageFailed": "Message failed."
+    "messageFailed": "Message failed.",
+    "emptyHint": "Start a chat, or finish setup so an assistant is ready.",
+    "loadTargetsError": "Could not load who you can chat with.",
+    "retry": "Try again"
   },
   "listItem": {
     "untitled": "Untitled chat",
@@ -666,6 +673,7 @@
     "wakesToday": "Back today {{time}}",
     "wakesTomorrow": "Back tomorrow {{time}}",
     "wakesOn": "Back {{date}} {{time}}",
+    "wakesOnReply": "Back when the customer replies",
     "custom": "Choose date and time",
     "customTitle": "Snooze until",
     "customHint": "This conversation returns to Open at the time you pick.",
@@ -695,9 +703,17 @@
     "urgent": "Urgent"
   },
   "timeline": {
+    "internalNote": "Internal note",
+    "ccLine": "CC: {{recipients}}",
     "today": "Today",
     "yesterday": "Yesterday",
     "notDelivered": "Not delivered",
+    "deliveryFail": {
+      "authExpired": "mailbox connection expired, reconnect it under Channels",
+      "noMailbox": "no connected mailbox for this channel",
+      "network": "network error while sending",
+      "noRecipient": "no recipient address on this thread"
+    },
     "sending": "Sending",
     "copyId": "Copy message ID",
     "copyBody": "Copy text",
@@ -729,6 +745,7 @@
       "labelsCleared": "Labels cleared",
       "threadUpdated": "Thread updated",
       "snoozeExpired": "Snooze expired",
+      "widgetSeen": "Seen by the customer",
       "agentReviewed": "AI reviewed this message",
       "agentInvoked": "Agent invoked",
       "agentReplied": "AI replied",

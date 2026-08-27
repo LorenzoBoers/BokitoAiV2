@@ -113,6 +113,55 @@ async def test_email_inbound_webhook_creates_signal(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_reply_in_same_provider_thread_reopens_closed_signal(client: AsyncClient):
+    """A follow-up in the same email thread reopens the closed conversation."""
+    headers = await _login(client)
+    account = await client.post(
+        "/api/channels/accounts",
+        json={"channel": "email", "provider": "mock", "address": "reopen@test.local"},
+        headers=headers,
+    )
+    account_id = account.json()["id"]
+    secret = account.json()["inbound_secret"]
+
+    res = await client.post(
+        f"/api/channels/email/inbound/{account_id}",
+        json={
+            "from_address": "returning@example.com",
+            "subject": "Order status",
+            "body_text": "Where is my order?",
+            "message_id": "reopen-1",
+            "thread_id": "thr-reopen",
+        },
+        headers={"X-Bokito-Secret": secret},
+    )
+    signal_id = res.json()["signal_id"]
+
+    closed = await client.patch(
+        f"/api/signals/{signal_id}", headers=headers, json={"status": "closed"}
+    )
+    assert closed.status_code == 200, closed.text
+
+    res2 = await client.post(
+        f"/api/channels/email/inbound/{account_id}",
+        json={
+            "from_address": "returning@example.com",
+            "subject": "Re: Order status",
+            "body_text": "It arrived, thanks!",
+            "message_id": "reopen-2",
+            "thread_id": "thr-reopen",
+        },
+        headers={"X-Bokito-Secret": secret},
+    )
+    assert res2.json()["signal_id"] == signal_id
+
+    detail = await client.get(f"/api/signals/{signal_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["thread"]["status"] == "open"
+    assert len(detail.json()["messages"]) == 2
+
+
+@pytest.mark.asyncio
 async def test_contact_pairing_flow(client: AsyncClient):
     headers = await _login(client)
 
@@ -184,6 +233,83 @@ async def test_contact_pairing_flow(client: AsyncClient):
         headers={"X-Bokito-Secret": secret},
     )
     assert res3.json().get("dropped") == "blocked_contact"
+
+
+@pytest.mark.asyncio
+async def test_contact_threads_include_cross_channel_history(client: AsyncClient, session_override):
+    """A widget contact with the same email shares one thread history."""
+    from datetime import datetime
+
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.models.channel import Contact
+    from app.models.signal import Signal
+
+    headers = await _login(client)
+
+    account = await client.post(
+        "/api/channels/accounts",
+        json={"channel": "email", "provider": "mock", "address": "cross@test.local"},
+        headers=headers,
+    )
+    secret = account.json()["inbound_secret"]
+    res = await client.post(
+        f"/api/channels/email/inbound/{account.json()['id']}",
+        json={
+            "from_address": "sam@example.com",
+            "from_name": "Sam",
+            "subject": "Email question",
+            "body_text": "Hi via email",
+            "message_id": "cross-1",
+        },
+        headers={"X-Bokito-Secret": secret},
+    )
+    email_signal_id = res.json()["signal_id"]
+
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    widget_contact = Contact(
+        tenant_id=tenant.id,
+        channel="widget",
+        address="sam@example.com",
+        display_name="Sam",
+        status="approved",
+        last_seen_at=datetime.utcnow(),
+    )
+    session_override.add(widget_contact)
+    await session_override.flush()
+    widget_signal = Signal(
+        tenant_id=tenant.id,
+        channel="widget",
+        source="widget",
+        subject="Chat conversation",
+        contact_id=widget_contact.id,
+        contact_email="sam@example.com",
+        contact_name="Sam",
+        status="open",
+        priority="normal",
+        last_message_at=datetime.utcnow(),
+    )
+    session_override.add(widget_signal)
+    await session_override.commit()
+
+    email_contact = (
+        await session_override.execute(
+            select(Contact).where(
+                Contact.tenant_id == tenant.id,
+                Contact.channel == "email",
+                Contact.address == "sam@example.com",
+            )
+        )
+    ).scalar_one()
+
+    r = await client.get(f"/api/channels/contacts/{email_contact.id}/threads", headers=headers)
+    assert r.status_code == 200, r.text
+    thread_ids = {t["id"] for t in r.json()["threads"]}
+    assert email_signal_id in thread_ids
+    assert str(widget_signal.id) in thread_ids
 
 
 @pytest.mark.asyncio

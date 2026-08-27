@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
+  Copy,
   ExternalLink,
   FilePlus,
   FileText,
@@ -15,6 +16,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -38,6 +40,8 @@ import {
 import { agentRunsPath } from '../lib/messages-paths'
 import { titleToDocPath } from '../lib/workspace-doc-path'
 import { cn } from '../lib/utils'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
+import { formatAppTime } from '../lib/app-locale'
 
 const KIND_ORDER: WorkspaceDocKind[] = ['persona', 'memory', 'skill', 'heartbeat', 'doc', 'daily_log']
 
@@ -78,7 +82,7 @@ function stripDuplicateTitle(content: string, titles: string[]): string {
 }
 
 export default function WorkspaceDocs() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { docId } = useParams<{ docId?: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -102,7 +106,11 @@ export default function WorkspaceDocs() {
   const [newTitle, setNewTitle] = useState('')
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [kindFilter, setKindFilter] = useState<WorkspaceDocKind | 'all'>('all')
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const uploadInputRef = useRef<HTMLInputElement>(null)
+  const knowledgeDirty = Boolean(editing && active && draft !== (active.content ?? ''))
+  useUnsavedChangesGuard(knowledgeDirty && !saving, t('knowledgePage.unsavedLeave'))
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -110,6 +118,7 @@ export default function WorkspaceDocs() {
     try {
       const rows = await listWorkspaceDocs()
       setDocs(rows)
+      setRefreshedAt(new Date())
     } catch (err) {
       setError(err instanceof Error ? err.message : t('knowledgePage.loadError'))
     } finally {
@@ -198,6 +207,17 @@ export default function WorkspaceDocs() {
       setSaving(false)
     }
   }, [active, draft, refresh, t])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return
+      if (!editing || !active || draft === (active.content ?? '')) return
+      event.preventDefault()
+      void handleSave()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editing, active, draft, handleSave])
 
   const handleCreate = useCallback(async () => {
     const title = newTitle.trim()
@@ -385,6 +405,42 @@ export default function WorkspaceDocs() {
                 {t('knowledgePage.search')}
               </Button>
             </div>
+            {docs.length > 0 && hits === null ? (
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={() => setKindFilter('all')}
+                  className={cn(
+                    'rounded-full border px-2 py-0.5 text-[10px]',
+                    kindFilter === 'all'
+                      ? 'border-accent/40 bg-accent/10 text-accent'
+                      : 'border-border/60 text-text-muted hover:text-text-secondary',
+                  )}
+                >
+                  {t('knowledgePage.filterAll')}
+                </button>
+                {KIND_ORDER.map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => setKindFilter(kind)}
+                    className={cn(
+                      'rounded-full border px-2 py-0.5 text-[10px]',
+                      kindFilter === kind
+                        ? 'border-accent/40 bg-accent/10 text-accent'
+                        : 'border-border/60 text-text-muted hover:text-text-secondary',
+                    )}
+                  >
+                    {kindLabel(kind)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {refreshedAt ? (
+              <p className="text-[10px] text-text-muted">
+                {t('knowledgePage.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+              </p>
+            ) : null}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {hits !== null ? (
@@ -422,7 +478,7 @@ export default function WorkspaceDocs() {
                 )}
               </div>
             ) : loading ? (
-              <p className="px-2 py-4 text-xs text-text-muted">{t('knowledgePage.loading')}</p>
+              <TableRowsSkeleton rows={7} className="px-1 py-2" />
             ) : error ? (
               <p className="px-2 py-4 text-xs text-status-error">{error}</p>
             ) : docs.length === 0 ? (
@@ -447,6 +503,7 @@ export default function WorkspaceDocs() {
               </div>
             ) : (
               KIND_ORDER.map((kind) => {
+                if (kindFilter !== 'all' && kind !== kindFilter) return null
                 const rows = grouped.get(kind) ?? []
                 if (rows.length === 0) return null
                 return (
@@ -564,9 +621,20 @@ export default function WorkspaceDocs() {
                     <span className="inline-flex items-center rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] font-medium text-text-secondary">
                       {kindLabel(active.kind)}
                     </span>
-                    <span className="inline-flex items-center rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-[11px] text-text-muted">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(active.path).then(
+                          () => toast.success(t('knowledgePage.pathCopied')),
+                          () => toast.error(t('knowledgePage.copyFailed')),
+                        )
+                      }}
+                      title={t('knowledgePage.copyPath')}
+                      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-[11px] text-text-muted hover:text-text-secondary"
+                    >
+                      <Copy size={10} />
                       {active.path}
-                    </span>
+                    </button>
                     {AI_MAINTAINED_KINDS.has(active.kind) ? (
                       <LearnedChip label={t('knowledgePage.aiMaintained')} />
                     ) : null}

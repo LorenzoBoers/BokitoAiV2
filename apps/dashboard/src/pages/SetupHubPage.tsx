@@ -177,17 +177,19 @@ export default function SetupHubPage() {
           agentCount > 0
             ? t('setupGuidePage.intelligence.agentsCount', { count: agentCount })
             : t('setupGuidePage.intelligence.noAgents'),
+          t('setupGuidePage.intelligence.modulesLine'),
         ].join(' - '),
         knowledge: true,
         actions: [
           {
             label: t('setupGuidePage.intelligence.setupAssistant'),
-            to: talkToAssistantPath(assistantPrompt),
+            to: talkToAssistantPath(assistantPrompt, { kind: 'company' }),
             primary: !(companyDone && assistantDone),
           },
           { label: t('setupGuidePage.intelligence.openKnowledge'), to: '/knowledge' },
           { label: t('setupGuidePage.intelligence.manageAgents'), to: '/agents' },
           { label: t('setupGuidePage.intelligence.organizeProjects'), to: '/projects' },
+          { label: t('setupGuidePage.intelligence.modulesFit'), to: '/settings/marketplace' },
         ],
       },
       {
@@ -217,7 +219,7 @@ export default function SetupHubPage() {
             : []),
           {
             label: t('setupGuidePage.automations.askAssistant'),
-            to: talkToAssistantPath(t('setupGuidePage.automations.assistantPrompt')),
+            to: talkToAssistantPath(t('setupGuidePage.automations.assistantPrompt'), { kind: 'company' }),
             primary: !checkIn || checkIn.enabled,
           },
           { label: t('setupGuidePage.automations.openAgenda'), to: '/agenda?view=automations' },
@@ -306,7 +308,7 @@ export default function SetupHubPage() {
                 </p>
               </div>
               <Link
-                to={talkToAssistantPath(assistantPrompt)}
+                to={talkToAssistantPath(assistantPrompt, { kind: 'company' })}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
               >
                 <Bot size={13} />

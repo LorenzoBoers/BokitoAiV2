@@ -74,6 +74,8 @@ export type InboxMessage = {
   direction: MessageDirection
   fromAddress: string
   toAddresses: string
+  /** Comma-separated CC recipients on outbound email, if any. */
+  cc?: string | null
   subject: string
   bodyPreview: string
   bodyText?: string

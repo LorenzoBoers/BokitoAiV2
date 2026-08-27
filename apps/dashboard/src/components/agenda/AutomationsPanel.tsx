@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
-import { LoadingBlock } from '../ui/loading-block'
+import { TableRowsSkeleton } from '../ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -35,14 +35,16 @@ import {
   type WorkstreamStep,
 } from '../../lib/orchestration-api'
 import { translateDecisionText } from '../../lib/activity-labels'
+import { formatAppDateTime } from '../../lib/app-locale'
+import { Input } from '../ui/input'
 import { WebhookTriggerPanel } from './WebhookTriggerPanel'
 
 type RuntimeProfileItem = { id: string; name: string; model: string; role_tag: string }
 type AgentOption = { id: string; name: string }
 
-function formatWhen(value: string) {
+function formatWhen(value: string, language?: string | null) {
   const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString()
+  return Number.isNaN(d.getTime()) ? value : formatAppDateTime(d, language)
 }
 
 function runStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -56,12 +58,13 @@ function runStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
 function triggerSchedule(
   trigger: Trigger,
   t: (key: string, opts?: { count?: number }) => string,
+  language?: string | null,
 ): string {
   if (trigger.kind === 'cron') return trigger.cron_expr
   if (trigger.kind === 'webhook') return t('agendaPage.schedule.webhook')
   if (trigger.kind === 'once' || trigger.kind === 'event') {
     const at = trigger.next_run_at ?? trigger.last_run_at
-    return at ? formatWhen(at) : t('agendaPage.schedule.unscheduled')
+    return at ? formatWhen(at, language) : t('agendaPage.schedule.unscheduled')
   }
   const minutes = trigger.interval_minutes || 60
   if (minutes % 1440 === 0) {
@@ -89,7 +92,7 @@ type AutomationsPanelProps = {
 }
 
 export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEditTrigger }: AutomationsPanelProps) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState('triggers')
@@ -114,6 +117,7 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
   const [newProfileModel, setNewProfileModel] = useState('')
   const [newProfileRole, setNewProfileRole] = useState('executor')
   const [creatingProfile, setCreatingProfile] = useState(false)
+  const [triggerQuery, setTriggerQuery] = useState('')
 
   const loadSteps = useCallback(async (workstreamId: string) => {
     try {
@@ -191,6 +195,7 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
   }
 
   const removeTrigger = async (triggerId: string) => {
+    if (!window.confirm(t('agendaPage.removeTriggerConfirm'))) return
     setRunningId(triggerId)
     try {
       await deleteTrigger(triggerId)
@@ -308,7 +313,38 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
     }
   }
 
-  if (loading) return <LoadingBlock label={t('agendaPage.loadingAutomations')} />
+  const visibleTriggers = useMemo(() => {
+    const q = triggerQuery.trim().toLowerCase()
+    if (!q) return triggers
+    return triggers.filter((trigger) => {
+      const hay = `${trigger.name} ${trigger.kind} ${trigger.cron_expr ?? ''}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [triggers, triggerQuery])
+
+  const addProfile = () => {
+    if (!newProfileName.trim() || creatingProfile) return
+    void (async () => {
+      setCreatingProfile(true)
+      try {
+        await createRuntimeProfile({
+          name: newProfileName.trim(),
+          role_tag: newProfileRole,
+          ...(newProfileModel.trim() ? { model: newProfileModel.trim() } : {}),
+        })
+        setNewProfileName('')
+        setNewProfileModel('')
+        toast.success(t('agendaPage.profileCreated'))
+        await load()
+      } catch (err) {
+        toast.error(formatApiErrorMessage(err, t('agendaPage.createProfileError')))
+      } finally {
+        setCreatingProfile(false)
+      }
+    })()
+  }
+
+  if (loading) return <TableRowsSkeleton rows={6} />
 
   return (
     <div className="space-y-4">
@@ -328,6 +364,15 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
               <CardTitle>{t('agendaPage.allTriggers')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              {triggers.length > 3 ? (
+                <Input
+                  value={triggerQuery}
+                  onChange={(event) => setTriggerQuery(event.target.value)}
+                  placeholder={t('agendaPage.searchTriggers')}
+                  className="h-8 text-xs"
+                  aria-label={t('agendaPage.searchTriggers')}
+                />
+              ) : null}
               {triggers.length === 0 ? (
                 <div className="space-y-2">
                   <p className="text-sm text-text-muted">
@@ -345,7 +390,10 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
                   </div>
                 </div>
               ) : (
-                triggers.map((trigger) => (
+                visibleTriggers.length === 0 ? (
+                  <p className="text-sm text-text-muted">{t('agendaPage.triggerFilterEmpty')}</p>
+                ) : (
+                visibleTriggers.map((trigger) => (
                   <div key={trigger.id} className="row-interactive rounded-lg border-b border-border px-1 py-2 last:border-0">
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <div className="flex min-w-0 items-center gap-2.5">
@@ -377,7 +425,7 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
                               const hideKind =
                                 name === kindLabel.toLowerCase() ||
                                 name === String(trigger.kind).toLowerCase()
-                              const schedule = triggerSchedule(trigger, t)
+                              const schedule = triggerSchedule(trigger, t, i18n.language)
                               return hideKind
                                 ? ` · ${schedule}`
                                 : ` · ${kindLabel} · ${schedule}`
@@ -441,6 +489,7 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
                     ) : null}
                   </div>
                 ))
+                )
               )}
             </CardContent>
           </Card>
@@ -456,6 +505,12 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
                 <input
                   value={newProfileName}
                   onChange={(e) => setNewProfileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addProfile()
+                    }
+                  }}
                   placeholder={t('agendaPage.profileName')}
                   className="h-8 min-w-[10rem] flex-1 rounded-md border border-border/60 bg-bg-input/80 px-3 text-sm"
                 />
@@ -478,26 +533,7 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
                   type="button"
                   size="sm"
                   disabled={creatingProfile || !newProfileName.trim()}
-                  onClick={() => {
-                    void (async () => {
-                      setCreatingProfile(true)
-                      try {
-                        await createRuntimeProfile({
-                          name: newProfileName.trim(),
-                          role_tag: newProfileRole,
-                          ...(newProfileModel.trim() ? { model: newProfileModel.trim() } : {}),
-                        })
-                        setNewProfileName('')
-                        setNewProfileModel('')
-                        toast.success('Runtime profile created')
-                        await load()
-                      } catch (err) {
-                        toast.error(formatApiErrorMessage(err, t('agendaPage.createProfileError')))
-                      } finally {
-                        setCreatingProfile(false)
-                      }
-                    })()
-                  }}
+                  onClick={addProfile}
                 >
                   {creatingProfile ? t('agendaPage.creating') : t('agendaPage.addProfile')}
                 </Button>

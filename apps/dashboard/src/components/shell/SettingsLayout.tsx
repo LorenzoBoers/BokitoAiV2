@@ -41,7 +41,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         labelKey: 'settings.links.integrations',
         to: '/settings/integrations',
-        match: ['/settings/integrations', '/settings/marketplace', '/settings/mcp'],
+        match: ['/settings/integrations', '/settings/marketplace', '/settings/mcp', '/settings/modules'],
         hintKey: 'settings.hints.integrations',
       },
     ],

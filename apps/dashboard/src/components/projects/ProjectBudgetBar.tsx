@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ProjectBudgetResponse } from '../../lib/projects-api'
+import { formatAppNumber } from '../../lib/app-number'
 import { cn } from '../../lib/utils'
 
 /**
@@ -14,7 +15,7 @@ export function ProjectBudgetBar({
   budget: ProjectBudgetResponse
   className?: string
 }) {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const limit = Math.max(budget.token_budget_daily, 0)
   const used = Math.max(budget.token_used_today, 0)
   const ratio = limit > 0 ? Math.min(used / limit, 1) : 0
@@ -31,7 +32,7 @@ export function ProjectBudgetBar({
           {t('projects.detail.budgetBar.tokensToday')}
         </span>
         <span>
-          {used.toLocaleString()} / {limit.toLocaleString()}
+          {formatAppNumber(used, i18n.language)} / {formatAppNumber(limit, i18n.language)}
           {budget.blocked ? (
             <span className="ml-1.5 font-medium text-status-error">
               {t('projects.detail.budgetBar.capReached')}

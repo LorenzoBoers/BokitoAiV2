@@ -18,7 +18,7 @@ Everyone who writes in lands here. Open Contacts to recognize a person, or open 
 
 1. Open a thread in [Communication](/docs/inbox/communication).
 2. Click the contact name in the context panel.
-3. Read their history, last-seen and other conversations, then jump back to the open work.
+3. Read their history, last-seen and other conversations, then jump back to the open work. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
 
 Website visitors without a name show as **Website visitor** until they fill the widget [pre-chat form](/docs/inbox/widget).
 

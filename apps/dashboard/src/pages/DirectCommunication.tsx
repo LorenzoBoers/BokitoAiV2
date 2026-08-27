@@ -70,6 +70,7 @@ export default function DirectCommunication() {
   const isAgentScope = leaf?.type === 'agent'
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
+  const [targetsError, setTargetsError] = useState<string | null>(null)
 
   const projectId = searchParams.get('project_id')?.trim() || undefined
   const inboxQuery = useMemo(() => {
@@ -79,22 +80,24 @@ export default function DirectCommunication() {
     return query ? `?${query}` : ''
   }, [projectId])
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      if (!token) return
-      setTargetsLoading(true)
-      try {
-        const data = await bokitoListChatTargets(token)
-        if (!cancelled) setTargets(data.items)
-      } catch {
-        if (!cancelled) setTargets([])
-      } finally {
-        if (!cancelled) setTargetsLoading(false)
-      }
+  const loadTargets = useCallback(async () => {
+    if (!token) return
+    setTargetsLoading(true)
+    setTargetsError(null)
+    try {
+      const data = await bokitoListChatTargets(token)
+      setTargets(data.items)
+    } catch (err) {
+      setTargets([])
+      setTargetsError(err instanceof Error ? err.message : t('directChat.loadTargetsError'))
+    } finally {
+      setTargetsLoading(false)
     }
-    void load()
-  }, [token])
+  }, [token, t])
+
+  useEffect(() => {
+    void loadTargets()
+  }, [loadTargets])
 
   const personalAgent = targets.find((t) => t.kind === 'personal') ?? null
   const activeAgent: ChatTarget | null = useMemo(() => {
@@ -307,17 +310,43 @@ export default function DirectCommunication() {
 
   const agentLabel = activeAgent?.name ?? t('listItem.assistant')
 
+  if (!targetsLoading && targetsError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+        <Bot size={28} className="text-text-muted" />
+        <p className="mt-3 text-sm text-text-secondary">{t('directChat.emptyHint')}</p>
+        <p className="mt-1 text-sm text-status-error">{targetsError}</p>
+        <button
+          type="button"
+          onClick={() => void loadTargets()}
+          className="mt-4 rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+        >
+          {t('directChat.retry')}
+        </button>
+      </div>
+    )
+  }
+
   if (!targetsLoading && !filterAgentId) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
         <Bot size={28} className="text-text-muted" />
-        <p className="mt-3 text-sm text-text-secondary">{t('directChat.noAssistantConfigured')}</p>
-        <Link
-          to="/settings/assistant"
-          className="mt-4 rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-        >
-          {t('directChat.configureAssistant')}
-        </Link>
+        <p className="mt-3 text-sm text-text-secondary">{t('directChat.emptyHint')}</p>
+        <p className="mt-1 text-sm text-text-muted">{t('directChat.noAssistantConfigured')}</p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <Link
+            to="/communication/new"
+            className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+          >
+            {t('directChat.newChat')}
+          </Link>
+          <Link
+            to="/settings/assistant"
+            className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-semibold text-text-heading hover:bg-bg-hover"
+          >
+            {t('directChat.configureAssistant')}
+          </Link>
+        </div>
       </div>
     )
   }

@@ -162,7 +162,13 @@ async def collect_tenant_snapshot(session: AsyncSession, tenant_id: UUID) -> dic
         )
     ).scalars().all()
     mcp_servers = []
+    accounting_connections: list[dict[str, Any]] = []
     for m in mcp_rows:
+        # Accounting-module connections are surfaced as module capacity, not as
+        # MCP servers with vendor tool names (agents use accounting_* tools).
+        if m.server_url.startswith(("native://king-accountancy", "native://bjorn-lunden")):
+            accounting_connections.append({"name": m.name, "server_url": m.server_url})
+            continue
         try:
             cached_tools = json.loads(m.tools_json or "[]")
         except (json.JSONDecodeError, TypeError):
@@ -175,6 +181,11 @@ async def collect_tenant_snapshot(session: AsyncSession, tenant_id: UUID) -> dic
         mcp_servers.append(
             {"name": m.name, "server_url": m.server_url, "tools": tool_names[:40]}
         )
+    for c in integrations_rows:
+        if c.provider == "moneybird":
+            accounting_connections.append(
+                {"name": c.display_name or "Moneybird", "server_url": "native://moneybird"}
+            )
 
     recent_runs_count = (
         await session.execute(
@@ -183,6 +194,10 @@ async def collect_tenant_snapshot(session: AsyncSession, tenant_id: UUID) -> dic
             .where(AgentRun.tenant_id == tenant_id)
         )
     ).scalar_one()
+
+    from app.modules.catalog import serialize_modules_for_tenant
+
+    modules = await serialize_modules_for_tenant(session, tenant_id)
 
     return {
         "agents": agents,
@@ -193,11 +208,13 @@ async def collect_tenant_snapshot(session: AsyncSession, tenant_id: UUID) -> dic
         "open_internal_threads": int(open_internal_threads or 0),
         "integrations": integrations,
         "mcp_servers": mcp_servers,
+        "accounting_connections": accounting_connections,
+        "modules": modules,
         "agent_runs_total": int(recent_runs_count or 0),
     }
 
 
-def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 1600) -> str:
+def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 2000) -> str:
     """Compact markdown for the agent system prompt."""
     lines: list[str] = ["## Tenant snapshot"]
 
@@ -247,6 +264,42 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
     mcp = [m.get("name") for m in (snapshot.get("mcp_servers") or [])]
     connected = [n for n in [*integ, *mcp] if n]
     lines.append("Connected: " + (", ".join(connected[:12]) if connected else "none"))
+
+    accounting = snapshot.get("accounting_connections") or []
+    if accounting:
+        names = ", ".join(str(c.get("name") or "") for c in accounting[:4])
+        lines.append(
+            f"Accounting: {len(accounting)} connection(s) ({names}) — use the "
+            "accounting_* tools; start with accounting_list_companies."
+        )
+
+    modules = snapshot.get("modules") or []
+    if modules:
+        lines.append("Modules:")
+        coming: list[str] = []
+        for module in modules:
+            slug = str(module.get("slug") or "")
+            status = str(module.get("tenant_status") or module.get("status") or "")
+            setup = str(module.get("setup_path") or f"/settings/modules/{slug}")
+            when = str(module.get("needs_when") or "").strip()
+            if status == "coming_soon":
+                coming.append(slug)
+                continue
+            if status == "connected":
+                lines.append(
+                    f"- {slug} — connected — use {slug}_* tools"
+                    + ("; start with accounting_list_companies" if slug == "accounting" else "")
+                    + "."
+                )
+            else:
+                lines.append(
+                    f"- {slug} — not connected — use when {when or 'this work comes up'}. "
+                    f"Setup: {setup}"
+                )
+        if coming:
+            lines.append(
+                "- prepared, not connectable: " + ", ".join(coming)
+            )
 
     mcp_servers = snapshot.get("mcp_servers") or []
     mcp_with_tools = [m for m in mcp_servers if m.get("tools")]

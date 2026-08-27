@@ -14,7 +14,7 @@ import { AgentInstructionsCard } from '../components/workforce/AgentInstructions
 import { AgentSignatureCard } from '../components/workforce/AgentSignatureCard'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
@@ -256,7 +256,7 @@ export default function AiAgentDetail() {
       </Link>
 
       {loading ? (
-        <LoadingBlock label={t('workforce.agents.loading')} />
+        <CardGridSkeleton cards={4} className="lg:grid-cols-2" />
       ) : !agent ? (
         <Card className="p-4">
           <p className="text-sm text-status-error">

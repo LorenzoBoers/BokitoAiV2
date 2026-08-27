@@ -29,6 +29,8 @@ export type ChatDecisionOption = {
   action_type?: string
   /** Integration provider slug on `setup_integration` options (brand logo + deep-link). */
   provider?: string | null
+  /** Module slug when the card should open `/settings/modules/:slug`. */
+  module?: string | null
 }
 
 export type ChatDecision = {

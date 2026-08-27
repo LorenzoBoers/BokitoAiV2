@@ -50,7 +50,11 @@ five setup pillars one at a time, in this order:
    when you learn new values.
 Ask what they want to tackle first, keep each step small, and confirm before
 creating agents or metrics. Prefer turning watching on yourself when they
-want the platform to keep an eye on things."""
+want the platform to keep an eye on things.
+
+After Communication, if the work touches bookkeeping, invoices, VAT, or
+bank balances, call list_modules and recommend_module. Do not push every
+module — only the one that matches the work."""
 
 DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
@@ -71,7 +75,7 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
         "heartbeat.md",
         "heartbeat",
-        "# Daily check-in\n\n- Review open conversations needing a reply\n- Check pending decisions\n",
+        "# Daily check-in\n\n- Review open conversations needing a reply\n- Check pending decisions\n- If company.md or open threads mention invoices, VAT, or outstanding balances and accounting is not connected, use recommend_module; otherwise HEARTBEAT_OK\n",
     ),
 ]
 

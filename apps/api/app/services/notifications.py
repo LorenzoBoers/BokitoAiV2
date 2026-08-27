@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,20 @@ from app.models.signal import Signal, SignalMessage
 from app.services.audit import record_audit
 from app.services.platform_changes import accept_platform_change
 from app.tools.policy import set_tool_override
+
+
+class DecisionActionError(HTTPException):
+    """Approving succeeded formally but the underlying action failed.
+
+    The decision is put back to awaiting_human so the operator can retry;
+    callers surface the 422 detail (e.g. as a toast).
+    """
+
+    def __init__(self, action_type: str, detail: str):
+        super().__init__(
+            status_code=422,
+            detail=detail or f"Approved action '{action_type}' could not be executed",
+        )
 
 
 async def resolve_decision(
@@ -105,6 +120,7 @@ async def resolve_decision(
                 signal_id=decision.signal_id,
                 approved=True,
             )
+            failed = isinstance(tool_result, dict) and bool(tool_result.get("error"))
             await record_audit(
                 session,
                 tenant_id,
@@ -113,11 +129,20 @@ async def resolve_decision(
                 actor_id=str(user_id) if user_id else "",
                 resource_type="decision",
                 resource_id=str(decision.id),
-                outcome="executed" if not tool_result.get("error") else "error",
+                outcome="error" if failed else "executed",
                 summary=f"Executed approved action {action_type}",
                 payload=payload,
                 after=tool_result if isinstance(tool_result, dict) else None,
             )
+            if failed:
+                # The action never happened: reopen the card so the operator
+                # can retry, and tell the caller why instead of pretending
+                # the reply was sent.
+                decision.status = "awaiting_human"
+                decision.chosen_option_id = None
+                decision.resolved_at = None
+                await session.commit()
+                raise DecisionActionError(action_type, str(tool_result.get("error")))
 
     # Resolution is reflected on the decision itself (status + chosen option) and
     # via the `decision_{action}` SignalEvent written by the resolve endpoint; no

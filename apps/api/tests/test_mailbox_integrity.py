@@ -94,6 +94,37 @@ async def test_disconnect_then_reply_blocked(client: AsyncClient, session_overri
 
 
 @pytest.mark.asyncio
+async def test_new_outbound_email_links_contact(client: AsyncClient, session_override: AsyncSession):
+    """Composing a new email must create/link a Contact for the recipient."""
+    from uuid import UUID
+
+    from app.models.channel import Contact
+
+    headers = await _login(client)
+    r = await client.post(
+        "/api/email/send",
+        headers=headers,
+        json={
+            "to_addresses": "nieuw.contact@example.com",
+            "subject": "Offerte",
+            "body_text": "Bijgaand de offerte.",
+        },
+    )
+    assert r.status_code == 200, r.text
+    thread_id = r.json()["thread_id"]
+
+    signal = (
+        await session_override.execute(select(Signal).where(Signal.id == UUID(thread_id)))
+    ).scalar_one()
+    assert signal.contact_id is not None
+    contact = (
+        await session_override.execute(select(Contact).where(Contact.id == signal.contact_id))
+    ).scalar_one()
+    assert contact.address == "nieuw.contact@example.com"
+    assert contact.channel == "email"
+
+
+@pytest.mark.asyncio
 async def test_explicit_mailbox_choice_rebinds_orphaned_thread(
     client: AsyncClient, session_override: AsyncSession
 ):

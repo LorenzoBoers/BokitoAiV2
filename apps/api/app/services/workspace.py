@@ -452,6 +452,15 @@ async def build_workspace_context(session: AsyncSession, tenant_id: UUID) -> str
             "## Skills (read the full doc with the read_doc tool before using one)\n" + skills
         )
     try:
+        from app.modules.catalog import active_module_skill_prompt
+
+        module_skills = await active_module_skill_prompt(session, tenant_id)
+        if module_skills:
+            parts.append(module_skills)
+    except Exception:
+        # Module skills must never break prompt assembly.
+        pass
+    try:
         from app.services.tenant_introspection import build_tenant_snapshot_prompt
 
         snapshot = await build_tenant_snapshot_prompt(session, tenant_id)

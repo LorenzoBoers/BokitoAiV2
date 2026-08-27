@@ -29,9 +29,9 @@ Memory, check-ins and daily notes are AI-maintained. Edit them when a fact is wr
 
 ## Add a document
 
-1. Open **Knowledge**. An empty library offers **Create first document** and a drop zone for a PDF or Word file. Use **Search knowledge** (Enter or **Search**) when the list is long, or **Clear search** to browse again.
+1. Open **Knowledge**. An empty library offers **Create first document** and a drop zone for a PDF or Word file. Use **Search knowledge** (Enter or **Search**) when the list is long, or **Clear search** to browse again. Kind chips filter Voice, Memory, Skills, Docs, Check-ins and Daily notes.
 2. Choose **New document**, type a title (the path is generated), then **Add**. Or use **Upload a document (PDF, Word, text)**.
-3. **Save**. The next agent run can search it. Memory, Check-ins and Daily notes show **Kept up to date by agents** and a banner that agents update them. **Publish** asks if the article should appear on the public help site. **Delete document** removes a page you no longer want.
+3. **Save** or press Ctrl/Cmd+S. Leaving with unsaved edits asks you to confirm. Click the document path to copy it. Memory, Check-ins and Daily notes show **Kept up to date by agents**. **Publish** asks if the article should appear on the public help site. **Delete document** removes a page you no longer want.
 
 ## Ground a draft
 

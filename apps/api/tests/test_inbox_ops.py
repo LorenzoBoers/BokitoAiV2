@@ -267,6 +267,53 @@ async def test_bulk_assign_and_read(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_bulk_close_defers_open_reply_suggestions(client: AsyncClient, session_override):
+    """Closing threads in bulk must clear their pending reply-suggestion cards."""
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.models.notification import DecisionRequest, Notification
+    from app.models.signal import Signal
+
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    thread_id = await _create_thread(client, owner, subject="Bulk close with pending card")
+
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    signal = (
+        await session_override.execute(select(Signal).where(Signal.id == UUID(thread_id)))
+    ).scalar_one()
+    notification = Notification(
+        tenant_id=tenant.id, kind="decision_request", title="Suggested reply", body=""
+    )
+    session_override.add(notification)
+    await session_override.flush()
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        notification_id=notification.id,
+        signal_id=signal.id,
+        title="Suggested reply",
+        summary="Draft",
+        options_json="[]",
+        status="awaiting_human",
+    )
+    session_override.add(decision)
+    await session_override.commit()
+
+    r = await client.post(
+        "/api/signals/bulk", headers=owner, json={"signal_ids": [thread_id], "action": "close"}
+    )
+    assert r.status_code == 200, r.text
+
+    await session_override.refresh(decision)
+    assert decision.status == "deferred"
+    assert decision.chosen_option_id == "thread_closed"
+
+
+@pytest.mark.asyncio
 async def test_bulk_rejects_unknown_action(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     a = await _create_thread(client, owner)

@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Play,
   Plus,
+  RefreshCw,
   Trash2,
   Wallet,
   Workflow,
@@ -25,14 +26,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectAgentsSection } from '../components/projects/ProjectAgentsSection'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { ProjectOrchestratorSection } from '../components/projects/ProjectOrchestratorSection'
 import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { useIsAdmin } from '../hooks/useIsAdmin'
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { useAuth } from '../context/AuthContext'
+import { formatAppTime } from '../lib/app-locale'
+import { formatAppNumber } from '../lib/app-number'
 import { listAgents } from '../lib/agents-api'
 import { workLogRunsPath } from '../lib/agenda-thread'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
@@ -65,7 +69,7 @@ async function copyText(value: string, copied: string, copyError: string) {
 }
 
 export default function ProjectDetail() {
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
@@ -90,6 +94,7 @@ export default function ProjectDetail() {
   const [newStreamName, setNewStreamName] = useState('')
   const [creatingStream, setCreatingStream] = useState(false)
   const [runningStreamId, setRunningStreamId] = useState<string | null>(null)
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -117,6 +122,7 @@ export default function ProjectDetail() {
           ? agentsResult.value.map((a) => ({ id: a.id, name: a.name }))
           : [],
       )
+      setRefreshedAt(new Date())
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.detail.loadError')))
     } finally {
@@ -132,8 +138,9 @@ export default function ProjectDetail() {
     if (!project) return false
     return name.trim() !== project.name || description.trim() !== (project.description ?? '')
   }, [project, name, description])
+  useUnsavedChangesGuard(dirty && !saving, t('projects.detail.unsavedLeave'))
 
-  const saveAbout = async () => {
+  const saveAbout = useCallback(async () => {
     if (!project || !name.trim()) return
     setSaving(true)
     try {
@@ -150,7 +157,18 @@ export default function ProjectDetail() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [project, name, description, t])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return
+      if (!dirty || saving || !name.trim()) return
+      event.preventDefault()
+      void saveAbout()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dirty, saving, name, saveAbout])
 
   const confirmDelete = async () => {
     if (!project) return
@@ -181,7 +199,7 @@ export default function ProjectDetail() {
       </Link>
 
       {loading ? (
-        <LoadingBlock label={t('projects.detail.loading')} />
+        <CardGridSkeleton cards={4} className="lg:grid-cols-2" />
       ) : error || !project ? (
         <ApiErrorBanner message={error ?? t('projects.detail.notFound')} onRetry={() => void load()} />
       ) : (
@@ -196,6 +214,15 @@ export default function ProjectDetail() {
               ) : null}
             </div>
             <div className="flex items-center gap-2">
+              {refreshedAt ? (
+                <span className="text-xs text-text-muted">
+                  {t('projects.detail.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+                </span>
+              ) : null}
+              <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+                <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+                {t('projects.detail.refresh')}
+              </Button>
               <Button asChild type="button" size="sm" variant="outline">
                 <Link to={threadsHref}>
                   <MessageSquare size={14} className="mr-1" />
@@ -326,6 +353,33 @@ export default function ProjectDetail() {
                       <Input
                         value={newStreamName}
                         onChange={(e) => setNewStreamName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newStreamName.trim() && projectId) {
+                            e.preventDefault()
+                            void (async () => {
+                              setCreatingStream(true)
+                              try {
+                                await createProjectWorkstream(projectId, { name: newStreamName.trim() })
+                                setNewStreamName('')
+                                toast.success(
+                                  <span>
+                                    {t('projects.detail.created')}{' '}
+                                    <Link to={AGENDA_AUTOMATIONS_PATH} className="font-medium underline">
+                                      {t('projects.detail.addOnAgenda')}
+                                    </Link>
+                                  </span>,
+                                )
+                                void load()
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error ? err.message : t('projects.detail.createError'),
+                                )
+                              } finally {
+                                setCreatingStream(false)
+                              }
+                            })()
+                          }
+                        }}
                         placeholder={t('projects.detail.newFlowName')}
                         className="h-8 text-sm"
                       />
@@ -400,7 +454,7 @@ export default function ProjectDetail() {
                           {t('projects.detail.remainingToday')}
                         </p>
                         <p className="font-medium text-text-heading" title={t('projects.detail.budgetCapHint')}>
-                          {budget.remaining_today.toLocaleString()} {t('projects.detail.tokensUnit')}
+                          {formatAppNumber(budget.remaining_today, i18n.language)} {t('projects.detail.tokensUnit')}
                         </p>
                       </div>
                       <div>
@@ -408,7 +462,7 @@ export default function ProjectDetail() {
                           {t('projects.detail.remainingHour')}
                         </p>
                         <p className="font-medium text-text-heading" title={t('projects.detail.budgetCapHint')}>
-                          {budget.remaining_hour.toLocaleString()} {t('projects.detail.tokensUnit')}
+                          {formatAppNumber(budget.remaining_hour, i18n.language)} {t('projects.detail.tokensUnit')}
                         </p>
                       </div>
                     </div>

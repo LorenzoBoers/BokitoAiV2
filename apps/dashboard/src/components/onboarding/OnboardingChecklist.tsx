@@ -81,7 +81,7 @@ export function useOnboardingStatus(): {
 const STEP_META: Record<OnboardingStepId, { to: string }> = {
   email: { to: '/settings/channels' },
   company: { to: '/knowledge' },
-  assistant: { to: talkToAssistantPath('Help me set up this workspace. Walk me through it step by step.') },
+  assistant: { to: talkToAssistantPath('Help me set up this workspace. Walk me through it step by step.', { kind: 'company' }) },
   watching: { to: '/settings/setup' },
   first_decision: { to: inboxPath('open') },
   team: { to: '/settings/members#member-invite' },
@@ -113,6 +113,7 @@ export function useDemoThread(): { start: () => void; starting: boolean } {
 
 const ASSISTANT_SETUP_TO = talkToAssistantPath(
   'Help me set up this workspace. Walk me through it step by step.',
+  { kind: 'company' },
 )
 
 const nextStepCtaClass =

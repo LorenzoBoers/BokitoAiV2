@@ -136,7 +136,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
 
         {enabledConnections.length > 0 ? (
           <label className="flex items-center gap-2 text-[12px] text-text-secondary" title={t('compose.fromHint')}>
-            <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
+            <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
             {enabledConnections.length === 1 ? (
               <span className="truncate text-[13px] text-text-primary">{enabledConnections[0].mailboxEmail}</span>
             ) : (
@@ -156,7 +156,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         ) : null}
 
         <div className="flex items-center gap-2 text-[12px]">
-          <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.to')}</span>
+          <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.to')}</span>
           <input
             ref={toInputRef}
             type="text"
@@ -179,18 +179,18 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         {ccBccOpen ? (
           <>
             <div className="flex items-center gap-2 text-[12px]">
-              <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.cc')}</span>
+              <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.cc')}</span>
               <input type="text" value={cc} onChange={(e) => setCc(e.target.value)} className={FIELD} />
             </div>
             <div className="flex items-center gap-2 text-[12px]">
-              <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.bcc')}</span>
+              <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.bcc')}</span>
               <input type="text" value={bcc} onChange={(e) => setBcc(e.target.value)} className={FIELD} />
             </div>
           </>
         ) : null}
 
         <div className="flex items-center gap-2 text-[12px]">
-          <span className="w-12 shrink-0 font-medium text-text-muted">{t('compose.subject')}</span>
+          <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.subject')}</span>
           <input
             type="text"
             value={subject}

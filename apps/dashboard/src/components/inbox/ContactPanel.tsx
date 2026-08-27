@@ -198,6 +198,8 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13.5px] font-semibold text-text-heading">
               {humanizeContactName(contact.displayName, contact.address, t('contactPanel.widgetVisitor')) ||
+                // A real address is a better headline than "unknown contact".
+                (!isPlaceholderContactAddress(contact.address) && contact.address) ||
                 t('contactPanel.unknown')}
             </p>
             {contact.title || contact.company ? (

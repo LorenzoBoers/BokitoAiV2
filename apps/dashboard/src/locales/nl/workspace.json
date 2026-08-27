@@ -78,6 +78,9 @@
     "noWorkspace": "Geen actieve workspace of sessie gevonden.",
     "svgUploadFailed": "SVG-upload mislukt",
     "invalidFileType": "Ongeldig bestandstype. Gebruik PNG, JPG, JPEG, GIF, WebP of SVG.",
-    "saving": "Opslaan..."
+    "saving": "Opslaan...",
+    "copyUrl": "Workspace-URL kopiëren",
+    "copiedUrl": "Workspace-URL gekopieerd",
+    "helpPreview": "Publieke help bekijken"
   }
 }

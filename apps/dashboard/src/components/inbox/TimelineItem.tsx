@@ -1,4 +1,4 @@
-import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, StickyNote, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Copy, Loader2, Mail, MessageSquareWarning, Pencil, Phone, StickyNote, Text, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { translateMockAgentBody } from '../../lib/activity-labels'
@@ -43,6 +43,7 @@ type MessageItemProps = {
 type EventItemProps = {
   event: InboxEvent
   memberName?: string
+  memberNameFor?: (userId: number | null | undefined) => string | undefined
 }
 
 export function formatHourMinute(iso: string | null, language?: string | null): string {
@@ -433,7 +434,14 @@ function MessageHtmlBody({ html }: { html: string }) {
   return <EmailHtmlFrame html={html} isDark={isDark} />
 }
 
-type EventLabelFn = (t: TFunction, payload: Record<string, unknown>, memberName?: string) => string
+type MemberNameResolver = (userId: number | null | undefined) => string | undefined
+
+type EventLabelFn = (
+  t: TFunction,
+  payload: Record<string, unknown>,
+  memberName?: string,
+  memberNameFor?: MemberNameResolver,
+) => string
 
 function ruleTargetSuffix(payload: Record<string, unknown>): string {
   return typeof payload.match_value === 'string' && payload.match_value ? ` (${payload.match_value})` : ''
@@ -458,7 +466,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   reply_sent: (t) => t('timeline.events.replySent'),
   note_added: (t) => t('timeline.events.noteAdded'),
   reopened: (t) => t('timeline.events.reopened'),
-  thread_updated: (t, p) => {
+  thread_updated: (t, p, _name, memberNameFor) => {
     const status = typeof p.status === 'string' ? p.status : null
     const bulk = typeof p.bulk === 'string' ? p.bulk : null
     if (status === 'closed' || bulk === 'close') return t('timeline.events.threadClosed')
@@ -466,7 +474,15 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     if (status === 'pending') return t('timeline.events.threadSnoozed')
     if (status === 'open' || bulk === 'reopen') return t('timeline.events.threadReopened')
     if (p.assigned_to === 0) return t('timeline.events.unassigned')
-    if (bulk === 'assign' || p.assigned_to != null) return t('timeline.events.threadAssigned')
+    if (bulk === 'assign' || p.assigned_to != null) {
+      // Name the assignee when the member list knows them; the bare label
+      // otherwise ("assigned to whom?" is the first thing a reader asks).
+      const assignee =
+        typeof p.assigned_to === 'number' ? memberNameFor?.(p.assigned_to) : undefined
+      return assignee
+        ? t('timeline.events.assigned', { name: assignee })
+        : t('timeline.events.threadAssigned')
+    }
     if (typeof p.priority === 'string' && p.priority) return t('timeline.events.priority', { priority: p.priority })
     if (Array.isArray(p.tags)) {
       return p.tags.length > 0
@@ -476,6 +492,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     return t('timeline.events.threadUpdated')
   },
   snooze_expired: (t) => t('timeline.events.snoozeExpired'),
+  widget_seen: (t) => t('timeline.events.widgetSeen'),
   agent_processed: (t) => t('timeline.events.agentReviewed'),
   agent_invoked: (t) => t('timeline.events.agentInvoked'),
   agent_replied: (t) => t('timeline.events.agentReplied'),
@@ -529,14 +546,29 @@ function humanizeEventType(eventType: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-function eventLabel(event: InboxEvent, t: TFunction, memberName?: string): string {
+function eventLabel(
+  event: InboxEvent,
+  t: TFunction,
+  memberName?: string,
+  memberNameFor?: MemberNameResolver,
+): string {
   const labelFn = EVENT_LABELS[event.eventType]
-  return labelFn ? labelFn(t, event.payload, memberName) : humanizeEventType(event.eventType)
+  return labelFn
+    ? labelFn(t, event.payload, memberName, memberNameFor)
+    : humanizeEventType(event.eventType)
 }
 
 // Compact centered pill for a single timeline event. AI-flow events share one
 // accent-tinted style (purple + sparkles); plain system events stay muted.
-function EventPill({ event, memberName }: { event: InboxEvent; memberName?: string }) {
+function EventPill({
+  event,
+  memberName,
+  memberNameFor,
+}: {
+  event: InboxEvent
+  memberName?: string
+  memberNameFor?: MemberNameResolver
+}) {
   const { t } = useTranslation('communication')
   const { ai, icon } = eventPresentation(event.eventType)
   const payloadTitle =
@@ -554,7 +586,7 @@ function EventPill({ event, memberName }: { event: InboxEvent; memberName?: stri
       )}
     >
       {icon}
-      {eventLabel(event, t, memberName)}
+      {eventLabel(event, t, memberName, memberNameFor)}
     </span>
   )
 }
@@ -731,7 +763,7 @@ function MessageFeedbackControls({
               type="button"
               aria-label={correctLabel}
               disabled={starting}
-              className="ml-0.5 flex h-5 items-center gap-1 rounded px-1 text-[10px] text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
+              className="ml-0.5 flex h-5 w-5 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
               onClick={() =>
                 void startCorrection({
                   threadId,
@@ -744,7 +776,6 @@ function MessageFeedbackControls({
               }
             >
               {starting ? <Loader2 size={11} className="animate-spin" /> : <MessageSquareWarning size={11} />}
-              {correctLabel}
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">{correctLabel}</TooltipContent>
@@ -977,9 +1008,26 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     // self: no name header — only a delivery error when sending failed, or a
     // pending marker while the soft-undo window is open.
     if (sendFailed) {
+      // Translate known failure codes so the operator knows what to do
+      // (reconnect the mailbox vs just retry) instead of a bare label.
+      const failCode = String(message.sendStatus).replace(/^failed:/, '')
+      const failReasonKey: Record<string, string> = {
+        auth_expired: 'timeline.deliveryFail.authExpired',
+        no_credentials: 'timeline.deliveryFail.noMailbox',
+        no_account: 'timeline.deliveryFail.noMailbox',
+        network: 'timeline.deliveryFail.network',
+        no_recipient: 'timeline.deliveryFail.noRecipient',
+      }
+      const failReason = failReasonKey[failCode] ? t(failReasonKey[failCode]) : failCode
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
-          <span className="text-[10px] font-medium text-status-error">{t('timeline.notDelivered')}</span>
+          <span
+            className="truncate text-[10px] font-medium text-status-error"
+            title={String(message.sendStatus)}
+          >
+            {t('timeline.notDelivered')}
+            {failReason ? ` - ${failReason}` : ''}
+          </span>
           {displayBody ? (
             <button
               type="button"
@@ -1051,41 +1099,68 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   // your own replies land on the right there too.
   const useFullWidthEmailCard = layout === 'email' && authorKind === 'external' && !isInternal
 
-  const bubble = useFullWidthEmailCard ? (
-    <EmailMessageBlock avatar={contactAvatar} header={inboundHeader} body={bubbleBody} />
+  // Outbound email: show CC recipients so the sender can verify who was copied.
+  const ccLine =
+    layout === 'email' && isOutbound && message.cc ? (
+      <div className="mb-1 truncate text-[10px] text-text-muted" title={message.cc}>
+        {t('timeline.ccLine', { recipients: message.cc })}
+      </div>
+    ) : null
+  const bubbleBodyWithMeta = ccLine ? (
+    <div>
+      {ccLine}
+      {bubbleBody}
+    </div>
   ) : (
-    <ChatMessageBubble side={side} avatar={avatar} header={header} body={bubbleBody} variant={variant} />
+    bubbleBody
+  )
+
+  const bubble = useFullWidthEmailCard ? (
+    <EmailMessageBlock avatar={contactAvatar} header={inboundHeader} body={bubbleBodyWithMeta} />
+  ) : (
+    <ChatMessageBubble side={side} avatar={avatar} header={header} body={bubbleBodyWithMeta} variant={variant} />
   )
 
   const inspectRow =
-    typeof message.id === 'string' || displayBody ? (
-      <div className={cn('mt-0.5 flex gap-2', side === 'right' ? 'justify-end' : 'justify-start')}>
+    typeof message.id === 'string' || (displayBody && !sendFailed) ? (
+      <div
+        className={cn(
+          'mt-0.5 flex gap-0.5 opacity-0 pointer-events-none transition-opacity',
+          'group-hover/msg:opacity-100 group-hover/msg:pointer-events-auto',
+          'focus-within:opacity-100 focus-within:pointer-events-auto',
+          side === 'right' ? 'justify-end' : 'justify-start',
+        )}
+      >
         {typeof message.id === 'string' ? (
           <button
             type="button"
+            aria-label={t('timeline.copyId')}
+            title={t('timeline.copyId')}
             onClick={() => {
               void navigator.clipboard.writeText(String(message.id)).then(
                 () => toast.success(t('timeline.idCopied')),
                 () => toast.error(t('timeline.copyFailed')),
               )
             }}
-            className="text-[10px] text-text-muted hover:text-accent hover:underline"
+            className="flex h-5 w-5 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-accent"
           >
-            {t('timeline.copyId')}
+            <Copy size={11} />
           </button>
         ) : null}
-        {displayBody ? (
+        {displayBody && !sendFailed ? (
           <button
             type="button"
+            aria-label={t('timeline.copyBody')}
+            title={t('timeline.copyBody')}
             onClick={() => {
               void navigator.clipboard.writeText(displayBody).then(
                 () => toast.success(t('timeline.bodyCopied')),
                 () => toast.error(t('timeline.copyFailed')),
               )
             }}
-            className="text-[10px] text-text-muted hover:text-accent hover:underline"
+            className="flex h-5 w-5 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-accent"
           >
-            {t('timeline.copyBody')}
+            <Text size={11} />
           </button>
         ) : null}
       </div>
@@ -1093,7 +1168,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
 
   if (!message.agentTrace && !feedbackRow) {
     return (
-      <div>
+      <div className="group/msg">
         {bubble}
         {inspectRow}
       </div>
@@ -1101,7 +1176,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   }
 
   return (
-    <div className={cn('flex flex-col space-y-0.5', isOwn ? 'items-end' : 'items-start')}>
+    <div className={cn('group/msg flex flex-col space-y-0.5', isOwn ? 'items-end' : 'items-start')}>
       {message.agentTrace ? (
         <ReasoningDisclosure
           thinking={message.agentTrace.thinking}
@@ -1117,10 +1192,10 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   )
 }
 
-export function EventTimelineItem({ event, memberName }: EventItemProps) {
+export function EventTimelineItem({ event, memberName, memberNameFor }: EventItemProps) {
   return (
     <div className="flex justify-center py-0.5 px-2">
-      <EventPill event={event} memberName={memberName} />
+      <EventPill event={event} memberName={memberName} memberNameFor={memberNameFor} />
     </div>
   )
 }
@@ -1132,16 +1207,27 @@ export function EventClusterTimelineItem({
   memberNameFor,
 }: {
   events: InboxEvent[]
-  memberNameFor: (userId: number | null | undefined) => string | undefined
+  memberNameFor: MemberNameResolver
 }) {
   if (events.length === 0) return null
   if (events.length === 1) {
-    return <EventTimelineItem event={events[0]} memberName={memberNameFor(events[0].actorUserId)} />
+    return (
+      <EventTimelineItem
+        event={events[0]}
+        memberName={memberNameFor(events[0].actorUserId)}
+        memberNameFor={memberNameFor}
+      />
+    )
   }
   return (
     <div className="flex flex-wrap items-center justify-center gap-1 py-0.5 px-2">
       {events.map((event) => (
-        <EventPill key={event.id} event={event} memberName={memberNameFor(event.actorUserId)} />
+        <EventPill
+          key={event.id}
+          event={event}
+          memberName={memberNameFor(event.actorUserId)}
+          memberNameFor={memberNameFor}
+        />
       ))}
     </div>
   )

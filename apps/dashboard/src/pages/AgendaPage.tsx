@@ -9,7 +9,7 @@ import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import TriggerDialog, { type TargetOption } from '../components/agenda/TriggerDialog'
 import AutomationsPanel from '../components/agenda/AutomationsPanel'
@@ -504,7 +504,7 @@ export default function AgendaPage() {
       ) : error ? (
         <ApiErrorBanner message={error} onRetry={() => void load()} />
       ) : loading ? (
-        <LoadingBlock label={t('agendaPage.loading')} />
+        <CardGridSkeleton cards={7} className="sm:grid-cols-2 lg:grid-cols-7" />
       ) : view === 'week' ? (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-7">
           {weekDays.map((day) => {

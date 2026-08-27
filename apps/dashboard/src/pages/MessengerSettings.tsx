@@ -203,6 +203,8 @@ function MessengerSettingsContent({
   const [personaTone, setPersonaTone] = useState('')
   const [personaDo, setPersonaDo] = useState('')
   const [personaDont, setPersonaDont] = useState('')
+  const [savedPersona, setSavedPersona] = useState({ tone: '', do: '', dont: '' })
+  const [savedWidgetBehaviour, setSavedWidgetBehaviour] = useState<WidgetSettings | null>(null)
   const [installSnippetCopied, setInstallSnippetCopied] = useState(false)
 
   const [widgetBehaviour, setWidgetBehaviour] = useState<WidgetSettings | null>(null)
@@ -292,9 +294,15 @@ function MessengerSettingsContent({
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('persona load failed'))))
       .then((data: { tone?: string; do_text?: string; dont_text?: string }) => {
-        setPersonaTone(data.tone ?? '')
-        setPersonaDo(data.do_text ?? '')
-        setPersonaDont(data.dont_text ?? '')
+        const next = {
+          tone: data.tone ?? '',
+          do: data.do_text ?? '',
+          dont: data.dont_text ?? '',
+        }
+        setPersonaTone(next.tone)
+        setPersonaDo(next.do)
+        setPersonaDont(next.dont)
+        setSavedPersona(next)
       })
       .catch(() => {
         // keep defaults
@@ -304,7 +312,10 @@ function MessengerSettingsContent({
   useEffect(() => {
     if (!token) return
     getWidgetSettings(token)
-      .then(setWidgetBehaviour)
+      .then((settings) => {
+        setWidgetBehaviour(settings)
+        setSavedWidgetBehaviour(settings)
+      })
       .catch(() => {
         // keep defaults; the section shows a loading placeholder
       })
@@ -337,6 +348,7 @@ function MessengerSettingsContent({
         officeHours: widgetBehaviour.officeHours,
       })
       setWidgetBehaviour(next)
+      setSavedWidgetBehaviour(next)
       toast.success(t('messengerPage.availabilitySaved'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('messengerPage.availabilityError'))
@@ -347,9 +359,15 @@ function MessengerSettingsContent({
 
   const dirty = useMemo(() => {
     if (widgetFaviconFile) return true
-    return !messengerAppearanceEquals(draft, saved)
-  }, [draft, saved, widgetFaviconFile])
-  useUnsavedChangesGuard(dirty && !saving, t('messengerPage.unsavedLeave'))
+    const personaDirty =
+      personaTone !== savedPersona.tone || personaDo !== savedPersona.do || personaDont !== savedPersona.dont
+    const behaviourDirty =
+      widgetBehaviour != null &&
+      savedWidgetBehaviour != null &&
+      JSON.stringify(widgetBehaviour) !== JSON.stringify(savedWidgetBehaviour)
+    return !messengerAppearanceEquals(draft, saved) || personaDirty || behaviourDirty
+  }, [draft, saved, widgetFaviconFile, personaTone, personaDo, personaDont, savedPersona, widgetBehaviour, savedWidgetBehaviour])
+  useUnsavedChangesGuard(dirty && !saving && !widgetBehaviourSaving, t('messengerPage.unsavedLeave'))
 
   const previewOverridesJson = useMemo(() => {
     const url = faviconPreviewUrl || draft.widget_favicon_url || ''
@@ -495,6 +513,7 @@ function MessengerSettingsContent({
       if (!personaRes.ok) {
         throw new Error(t('messengerPage.personaError'))
       }
+      setSavedPersona({ tone: personaTone, do: personaDo, dont: personaDont })
 
       setSaveOk(true)
       window.setTimeout(() => setSaveOk(false), 2200)
@@ -504,6 +523,17 @@ function MessengerSettingsContent({
       setSaving(false)
     }
   }
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return
+      if (!dirty || saving) return
+      event.preventDefault()
+      void handleSave()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dirty, saving, handleSave])
 
   const mainOptions: { value: AssistantSection; label: string }[] = [
     { value: 'customization', label: t('messengerPage.customization') },

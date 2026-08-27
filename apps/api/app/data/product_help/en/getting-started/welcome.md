@@ -22,7 +22,7 @@ Bokito is an operations platform for teams that want AI to do real work. Custome
 
 ## How a day runs
 
-Work lands as a thread. An agent uses [Knowledge](/docs/ai/knowledge), then replies, drafts or asks. [Cockpit](/docs/getting-started/cockpit) shows what needs you. Jump with `Ctrl+K` — search **Invite a teammate**, **Talk to my assistant**, or **Open my profile**. In-app **Learn** and public **Docs** remember the last article you opened. You dial autonomy up over time.
+Work lands as a thread. An agent uses [Knowledge](/docs/ai/knowledge), then replies, drafts or asks. [Cockpit](/docs/getting-started/cockpit) shows what needs you. Sign-in remembers the last email on this device. Jump with `Ctrl+K` — search **Invite a teammate**, **Talk to my assistant**, **New project**, or **Open my profile**. In-app **Learn** and public **Docs** remember the last article you opened. You dial autonomy up over time.
 
 ## Where to start
 

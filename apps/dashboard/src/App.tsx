@@ -13,6 +13,7 @@ import { resolveTenantSubdomainFromHost } from './lib/host-routing'
 import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-settings-path'
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
+import { CardGridSkeleton } from './components/ui/skeleton'
 import { agentChatPath, agentRunsPath, assistantPath, channelPath, inboxPath } from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
@@ -61,6 +62,7 @@ const HelpCentersSettings = lazy(() => import('./pages/HelpCentersSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected'))
 const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
+const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const IntegrationsMcp = lazy(() => import('./pages/IntegrationsMcp'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
@@ -72,11 +74,8 @@ const WorkspaceAccount = lazy(() => import('./pages/WorkspaceAccount'))
 function RouteFallback() {
   const { t } = useTranslation('nav')
   return (
-    <div className="flex min-h-[40vh] items-center justify-center">
-      <span
-        className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent"
-        aria-label={t('app.loading')}
-      />
+    <div className="px-5 py-6" role="status" aria-busy="true" aria-label={t('app.loading')}>
+      <CardGridSkeleton cards={3} />
     </div>
   )
 }
@@ -342,6 +341,7 @@ export default function App() {
             <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
             <Route path="/settings/integrations/docs" element={<Navigate to="/settings/marketplace" replace />} />
             <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
+            <Route path="/settings/modules/:slug" element={<ModuleSetupPage />} />
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />

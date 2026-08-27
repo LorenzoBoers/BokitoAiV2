@@ -3,6 +3,10 @@ export type IntegrationKind = 'inbox' | 'repository' | 'mcp'
 const MCP_SLUGS = new Set([
   'king_accountancy',
   'bjorn_lunden_mcp',
+  // Accounting-module connections surface in the agent-tools lane.
+  'moneybird',
+  'exact_online',
+  'snelstart',
   'custom_mcp',
   'notion_mcp',
   'linear_mcp',
@@ -39,7 +43,7 @@ export function resolveIntegrationKind(
   capabilities?: Record<string, boolean>,
 ): IntegrationKind {
   const slug = normalizeSlug(slugOrId)
-  if (capabilities?.mcp_tools || capabilities?.remote_mcp) return 'mcp'
+  if (capabilities?.mcp_tools || capabilities?.remote_mcp || capabilities?.accounting) return 'mcp'
   if (capabilities?.inbox_sync) return 'inbox'
   if (capabilities?.repo_index) return 'repository'
   if (MCP_SLUGS.has(slug) || slug.includes('mcp')) return 'mcp'

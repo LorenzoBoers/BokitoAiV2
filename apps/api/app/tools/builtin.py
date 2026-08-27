@@ -319,11 +319,8 @@ async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     The visitor keeps chatting in the same thread; a team member takes over
     from the inbox (``Signal.ai_paused`` silences the agent until released).
     """
-    from datetime import datetime
-
-    from app.gateway.publish import publish_thread_update
-    from app.models.signal import Signal, SignalEvent
-    from app.services.ops_alerts import notify_tenant_admins
+    from app.models.signal import Signal
+    from app.services.handoff import request_human_handoff
 
     signal_id = ctx.signal_id
     raw_signal = tool_input.get("signal_id")
@@ -343,36 +340,14 @@ async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         return {"error": "Signal not found"}
 
     reason = str(tool_input.get("reason") or "").strip()
-    if not signal.ai_paused:
-        signal.ai_paused = True
-        signal.has_unread = True
-        signal.updated_at = datetime.utcnow()
-        ctx.session.add(signal)
-        ctx.session.add(
-            SignalEvent(
-                signal_id=signal.id,
-                tenant_id=ctx.tenant_id,
-                event_type="ai_paused",
-                actor_type="agent" if ctx.agent else "user",
-                actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
-                payload_json=json.dumps(
-                    {"ai_paused": True, "via": "handoff_to_human", "reason": reason}
-                ),
-            )
-        )
-        await ctx.session.flush()
-        await publish_thread_update(signal)
-
-    who = signal.contact_name or "A visitor"
-    await notify_tenant_admins(
+    await request_human_handoff(
         ctx.session,
         ctx.tenant_id,
-        category="handoff",
-        title=f"Human takeover requested: {signal.subject or who}"[:200],
-        body=reason
-        or f"{who} asked for a human. AI replies are paused until someone takes over the thread.",
-        payload={"signal_id": str(signal.id), "channel": signal.channel},
-        cooldown_minutes=30,
+        signal,
+        reason=reason,
+        via="handoff_to_human",
+        actor_type="agent" if ctx.agent else "user",
+        actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
     )
     return {
         "ok": True,
@@ -401,6 +376,36 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
             target_signal_id = UUID(str(raw_signal))
         except ValueError:
             target_signal_id = None
+    if target_signal_id:
+        # A newer identical ask supersedes the stale card: without this the
+        # thread stacks duplicate pending decisions every time the customer
+        # writes again before anyone resolved the previous draft.
+        from datetime import datetime
+
+        stale_result = await ctx.session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.tenant_id == ctx.tenant_id,
+                DecisionRequest.signal_id == target_signal_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.platform_change_id.is_(None),
+                DecisionRequest.title == tool_input["title"],
+            )
+        )
+        for stale in stale_result.scalars().all():
+            stale.status = "deferred"
+            stale.resolved_at = datetime.utcnow()
+            stale.chosen_option_id = "superseded"
+            ctx.session.add(stale)
+            if stale.notification_id:
+                # The bell must not keep counting a card nobody can act on.
+                stale_notif = (
+                    await ctx.session.execute(
+                        select(Notification).where(Notification.id == stale.notification_id)
+                    )
+                ).scalar_one_or_none()
+                if stale_notif and stale_notif.status == "unread":
+                    stale_notif.status = "read"
+                    ctx.session.add(stale_notif)
     from app.services.notification_mail import decision_bell_status
 
     bell_status = await decision_bell_status(ctx.session, ctx.tenant_id, ctx.user_id)

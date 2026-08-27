@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight, CheckCircle2, Copy, Image, Loader2, MessageSquare, Upload } from 'lucide-react'
@@ -220,7 +220,7 @@ export default function CompanyConfig() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!token || !currentWorkspace?.id) {
       setSaveError(t('brandingPage.noWorkspace'))
       return
@@ -279,7 +279,31 @@ export default function CompanyConfig() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [
+    token,
+    currentWorkspace?.id,
+    subdomain,
+    name,
+    brandColor,
+    logoFile,
+    faviconFile,
+    clearLogo,
+    clearFavicon,
+    refreshWorkspaces,
+    refreshUser,
+    t,
+  ])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return
+      if (!brandingDirty || saving) return
+      event.preventDefault()
+      void handleSave()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [brandingDirty, saving, handleSave])
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -397,12 +421,40 @@ export default function CompanyConfig() {
                       setSubdomain(next)
                       if (subdomainError) setSubdomainError(validateSubdomain(next, t))
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && brandingDirty) {
+                        e.preventDefault()
+                        void handleSave()
+                      }
+                    }}
                     className="flex-1 bg-bg-input border border-border/60 rounded-l-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                   />
                   <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 rounded-r-lg text-[12px] text-text-muted whitespace-nowrap">.bokito.ai</span>
                 </div>
                 {subdomainError ? (
                   <p className="mt-2 text-xs text-status-error">{subdomainError}</p>
+                ) : null}
+                {subdomain.trim() ? (
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    <button
+                      type="button"
+                      className="text-[12px] font-medium text-accent hover:underline"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(`https://${subdomain.trim().toLowerCase()}.bokito.ai`).then(
+                          () => toast.success(t('brandingPage.copiedUrl')),
+                          () => toast.error(t('brandingPage.saveFailed')),
+                        )
+                      }}
+                    >
+                      {t('brandingPage.copyUrl')}
+                    </button>
+                    <Link
+                      to={`/help/${subdomain.trim().toLowerCase()}`}
+                      className="text-[12px] font-medium text-accent hover:underline"
+                    >
+                      {t('brandingPage.helpPreview')}
+                    </Link>
+                  </div>
                 ) : null}
               </SettingRow>
             </div>
@@ -443,7 +495,7 @@ export default function CompanyConfig() {
             <button
               type="button"
               onClick={() => void handleSave()}
-              disabled={saving}
+              disabled={saving || !brandingDirty}
               className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-[13px] font-semibold transition-all ${
                 saved
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'

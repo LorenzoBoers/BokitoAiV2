@@ -39,6 +39,7 @@
     "widgetVoice": "Voice and hours",
     "widgetLook": "Appearance",
     "marketplace": "Marketplace",
+    "moduleSetup": "Module setup",
     "connectedTools": "Connected tools",
     "myAssistant": "My assistant"
   },
@@ -357,6 +358,8 @@
     "nextWeek": "Next week",
     "searchTriggers": "Search triggers",
     "triggerFilterEmpty": "No triggers match that search.",
+    "profileCreated": "Run settings added",
+    "removeTriggerConfirm": "Delete this schedule?",
     "allAgents": "All agents",
     "allTypes": "All types",
     "emptyTitle": "Nothing scheduled",
@@ -659,7 +662,9 @@
       "setupAssistant": "Set up with the assistant",
       "openKnowledge": "Open Knowledge",
       "manageAgents": "Manage agents",
-      "organizeProjects": "Organize work by project"
+      "organizeProjects": "Organize work by project",
+      "modulesFit": "Modules that fit this work",
+      "modulesLine": "Connect a business module when invoices, banking, or files come up"
     },
     "projects": {
       "title": "6. Projects",
@@ -739,6 +744,9 @@
     "emailPlaceholder": "you@company.com",
     "passwordPlaceholder": "Password",
     "totpPlaceholder": "000000",
+    "lastEmailHint": "Last used on this device",
+    "languageNl": "Nederlands",
+    "languageEn": "English",
     "sso": {
       "no_email": "Microsoft did not share an email address for this account. Use an account with a verified email.",
       "provisioning_failed": "We could not set up your account after Microsoft sign-in. Please try again or contact support.",
@@ -768,7 +776,9 @@
     "slugTaken": "That workspace URL is already taken. Pick another one.",
     "emailTaken": "An account with this email already exists. Sign in instead.",
     "emailPlaceholder": "you@company.com",
-    "slugPlaceholder": "acme"
+    "slugPlaceholder": "acme",
+    "passwordHint": "{{count}} of 8 characters",
+    "slugPreview": "Your workspace will be {{slug}}.bokito.ai"
   },
   "forgotPage": {
     "subtitle": "Forgot password",
@@ -783,7 +793,10 @@
     "failed": "Password reset request failed",
     "emailRequired": "Email is required",
     "emailInvalid": "Enter a valid email address",
-    "emailPlaceholder": "you@company.com"
+    "emailPlaceholder": "you@company.com",
+    "copyLink": "Copy link",
+    "copied": "Reset link copied",
+    "tryDifferent": "Try a different email"
   },
   "resetPage": {
     "subtitle": "Set a new password",
@@ -800,7 +813,11 @@
     "passwordRequired": "Password is required",
     "passwordMin": "Password must be at least 8 characters",
     "confirmRequired": "Password confirmation is required",
-    "mismatch": "Passwords do not match"
+    "mismatch": "Passwords do not match",
+    "missingTitle": "This reset link is incomplete",
+    "missingBody": "Ask for a new reset email, then open the link from that message.",
+    "requestNew": "Request a new reset email",
+    "redirectIn": "You can sign in now. Redirecting in {{seconds}}s."
   },
   "verifyEmailPage": {
     "pendingTitle": "Verifying email",
@@ -819,7 +836,10 @@
     "sentToast": "Verification email sent if applicable.",
     "resendFailed": "Could not resend verification email",
     "devTitle": "Local dev verification link",
-    "emailPlaceholder": "you@company.com"
+    "emailPlaceholder": "you@company.com",
+    "copyLink": "Copy link",
+    "copied": "Verification link copied",
+    "copyFailed": "Could not copy the link"
   },
   "activityPage": {
     "all": "All",
@@ -1112,7 +1132,8 @@
     "sent": "Sent",
     "sentToast": "Verification email sent to {{email}}.",
     "sentDev": "Verification email sent. Dev link available in the server logs.",
-    "failed": "Could not send the verification email."
+    "failed": "Could not send the verification email.",
+    "resendIn": "Resend in {{seconds}}s"
   },
   "notificationsUi": {
     "aria": "Notifications",
@@ -1574,6 +1595,7 @@
     "newEmail": "New email",
     "newContact": "New contact",
     "newAgent": "New agent",
+    "newProject": "New project",
     "connectMailbox": "Connect mailbox",
     "openSetupGuide": "Open setup guide",
     "openHelp": "Open help",
@@ -2269,6 +2291,50 @@
       "whatsapp": {
         "name": "WhatsApp",
         "description": "WhatsApp Business messages in the inbox via the Cloud API."
+      },
+      "moneybird": {
+        "name": "Moneybird",
+        "description": "Contacts, invoices, purchases and bank mutations via the Moneybird API."
+      },
+      "exact": {
+        "name": "Exact Online",
+        "description": "Full accounting via the Exact Online REST API."
+      },
+      "snelstart": {
+        "name": "SnelStart",
+        "description": "Relations, invoices and general ledger via the SnelStart B2B API."
+      }
+    },
+    "modules": {
+      "comingSoon": "Coming soon",
+      "sectionOther": "More integrations",
+      "planned": "Planned connectors: {{providers}}",
+      "moduleBadge": "Module",
+      "companies": "Administrations ({{count}})",
+      "singleCompany": "Administration: {{name}}",
+      "setupCta": "Set up {{name}}",
+      "verbsTitle": "What agents can do",
+      "writesNote": "Writes always become a decision you approve.",
+      "setupSteps": "Setup",
+      "connectors": "Packages",
+      "backToMarketplace": "Back to Marketplace",
+      "connectedBadge": "Connected",
+      "notFound": "This module is not in the catalog.",
+      "accounting": {
+        "name": "Accounting",
+        "description": "One accounting contract for agents: companies, parties, invoices, ledger, and outstanding balances across every connected package."
+      },
+      "banking": {
+        "name": "Banking",
+        "description": "PSD2 / open-banking reads (accounts, balances, transactions); payments only as a proposal that a human approves."
+      },
+      "investing": {
+        "name": "Investing",
+        "description": "Market data, positions, and watchlists; TradingView alerts land as Signals. Orders only as a proposal that a human approves."
+      },
+      "documents": {
+        "name": "Documents",
+        "description": "Bridge to external document storage. Read content flows into workspace knowledge; uploads only as a proposal."
       }
     },
     "marketplace": {
@@ -2877,7 +2943,11 @@
       "searchPlaceholder": "Search by name or lead",
       "advancedSlug": "Advanced: URL slug",
       "hideAdvanced": "Hide slug",
-      "readonlyBanner": "You can browse projects. Ask an admin to create or change them."
+      "readonlyBanner": "You can browse projects. Ask an admin to create or change them.",
+      "emptyFiltered": "No projects match this search.",
+      "emptyFilteredHint": "Clear the search to see every project again.",
+      "clearSearch": "Clear search",
+      "refreshedAt": "Updated {{time}}"
     },
     "header": {
       "new": "Create project",
@@ -2984,7 +3054,10 @@
       "agentRemoveError": "Could not remove agent.",
       "agentMakeDefault": "Make default for project threads",
       "agentDefaultError": "Could not update default agent.",
-      "agentDefaultBadge": "Default"
+      "agentDefaultBadge": "Default",
+      "unsavedLeave": "You have unsaved project changes. Leave this page?",
+      "refreshedAt": "Updated {{time}}",
+      "refresh": "Refresh"
     }
   },
   "project": {
@@ -3427,6 +3500,10 @@
     "publicLink": "Public help link",
     "copiedPublic": "Public link copied",
     "copyPublic": "Copy public link",
+    "refreshedAt": "Updated {{time}}",
+    "searchDocuments": "Search documents",
+    "emptyFiltered": "No documents match this search.",
+    "collectionItem": "the collection",
     "fileTypes": {
       "pdf": "PDF",
       "docx": "Word",
@@ -3498,6 +3575,12 @@
     "save": "Save",
     "saving": "Saving...",
     "delete": "Delete document",
+    "unsavedLeave": "You have unsaved knowledge changes. Leave this page?",
+    "copyPath": "Copy document path",
+    "pathCopied": "Document path copied",
+    "copyFailed": "Could not copy the path",
+    "refreshedAt": "Updated {{time}}",
+    "filterAll": "All kinds",
     "viewHelp": "View on help center: {{path}}",
     "kinds": {
       "persona": "Voice",
@@ -3933,6 +4016,11 @@
     "emptyCta": "Open Help centers",
     "retry": "Try again",
     "notFound": "This help center was not found.",
-    "searchHint": "Search stays in the link so you can share it."
+    "searchHint": "Search stays in the link so you can share it.",
+    "clearSearch": "Clear search",
+    "emptyIndexHint": "Publish a document from Knowledge to show articles here.",
+    "copyUrl": "Copy article link",
+    "copiedUrl": "Article link copied",
+    "copyFailed": "Could not copy the link"
   }
 }

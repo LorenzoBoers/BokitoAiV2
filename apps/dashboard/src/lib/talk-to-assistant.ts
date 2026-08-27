@@ -1,11 +1,17 @@
 import { newConversationPath } from './messages-paths'
 
+export type TalkToAssistantOpts = {
+  kind?: 'company' | 'personal'
+}
+
 /** Open New conversation with a message already in the composer. */
-export function talkToAssistantPath(prefill: string): string {
+export function talkToAssistantPath(prefill: string, opts?: TalkToAssistantOpts): string {
   const path = newConversationPath()
+  const parts: string[] = []
   const text = prefill.trim()
-  if (!text) return path
-  return `${path}?prefill=${encodeURIComponent(text)}`
+  if (text) parts.push(`prefill=${encodeURIComponent(text)}`)
+  if (opts?.kind) parts.push(`kind=${encodeURIComponent(opts.kind)}`)
+  return parts.length ? `${path}?${parts.join('&')}` : path
 }
 
 export function isEnabledTrigger(row: { enabled?: boolean }): boolean {

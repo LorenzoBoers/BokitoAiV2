@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_signal_message
-from app.models.signal import Signal, SignalMessage
+from app.models.signal import Signal, SignalEvent, SignalMessage
 
 
 def serialize_decision_for_chat(decision: Any) -> dict[str, Any]:
@@ -34,6 +34,11 @@ def serialize_decision_for_chat(decision: Any) -> dict[str, Any]:
                 # logo on connect suggestions and deep-link into setup.
                 "provider": (
                     (o.get("payload") or {}).get("provider")
+                    if isinstance(o.get("payload"), dict)
+                    else None
+                ),
+                "module": (
+                    (o.get("payload") or {}).get("module")
                     if isinstance(o.get("payload"), dict)
                     else None
                 ),
@@ -110,6 +115,23 @@ async def append_signal_chat_message(
     session.add(message)
     signal.last_message_at = now
     signal.updated_at = now
+    if role == "user" and signal.channel != "assistant" and signal.status in ("pending", "closed"):
+        # A customer reply wakes a snoozed thread and reopens a closed one,
+        # matching the email inbound path in services/signals.py. Personal
+        # assistant threads are excluded: there the "user" is the operator.
+        signal.status = "open"
+        signal.snoozed_until = None
+        signal.has_unread = True
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=signal.tenant_id,
+                event_type="reopened",
+                actor_type="system",
+                actor_id="",
+                payload_json=json.dumps({"reopened_by": "customer_reply"}),
+            )
+        )
     session.add(signal)
     await session.flush()
     await publish_signal_message(signal, message)

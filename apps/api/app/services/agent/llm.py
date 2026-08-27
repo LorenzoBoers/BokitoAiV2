@@ -1,4 +1,5 @@
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 from app.config import get_settings
@@ -21,6 +22,24 @@ def _last_user_text(messages: list[dict[str, Any]]) -> str:
                 if isinstance(block, dict) and block.get("type") == "text":
                     return str(block.get("text", ""))
     return ""
+
+
+_SCAFFOLD_MARKERS = (
+    "a teammate asked you to draft a reply",
+    "new inbound widget message",
+    "new inbound message from",
+    "reply directly to the customer",
+)
+
+
+def _mock_topic(last_user: str) -> str:
+    """Short human topic for the mock echo: prefer the mail subject line."""
+    subject_match = re.search(r"^Subject:\s*(.+)$", last_user, re.MULTILINE)
+    if subject_match:
+        return subject_match.group(1).strip()[:120]
+    stripped = last_user.strip()
+    first_line = stripped.splitlines()[0] if stripped else ""
+    return first_line[:120]
 
 
 def _resolve_max_tokens(max_tokens: int | None, thinking_budget: int) -> int:
@@ -112,8 +131,26 @@ class MockLLMProvider:
                             "input": {
                                 "title": "Reply to customer message",
                                 "summary": "Draft reply prepared for review.",
+                                # Same option shape as the real reply-suggestion
+                                # flow: approving must actually send the draft.
                                 "options": [
-                                    {"id": "approve", "label": "Approve", "action_type": "approve"},
+                                    {
+                                        "id": "send",
+                                        "label": "Send",
+                                        "action_type": "send_reply",
+                                        "payload": {
+                                            "body": (
+                                                "Thank you for your message. We have "
+                                                "received your request and will follow "
+                                                "up shortly."
+                                            ),
+                                            "body_text": (
+                                                "Thank you for your message. We have "
+                                                "received your request and will follow "
+                                                "up shortly."
+                                            ),
+                                        },
+                                    },
                                     {"id": "later", "label": "Defer", "action_type": "defer"},
                                     {"id": "reject", "label": "Reject", "action_type": "reject"},
                                 ],
@@ -149,13 +186,52 @@ class MockLLMProvider:
                 ],
                 "usage": {"input_tokens": 10, "output_tokens": 25},
             }
+        lowered_user = last_user.lower()
+        if "reply with json only" in lowered_user and '"category"' in last_user:
+            # Triage/classification prompts expect machine-readable JSON.
+            topic = _mock_topic(last_user) or "Inbound signal"
+            return {
+                "stop_reason": "end_turn",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(
+                            {
+                                "category": "support",
+                                "urgency": 55,
+                                "impact": 40,
+                                "summary": topic,
+                                "certainty": 70,
+                                "priority": "normal",
+                            }
+                        ),
+                    }
+                ],
+                "usage": {"input_tokens": 10, "output_tokens": 30},
+            }
+        if any(marker in lowered_user for marker in _SCAFFOLD_MARKERS):
+            # Internal routing/draft scaffolding must never leak into a body
+            # that an operator may approve and send to a customer.
+            return {
+                "stop_reason": "end_turn",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Thank you for your message. We have received your request "
+                            "and will follow up shortly."
+                        ),
+                    }
+                ],
+                "usage": {"input_tokens": 10, "output_tokens": 20},
+            }
         return {
             "stop_reason": "end_turn",
             "content": [
                 {
                     "type": "text",
                     "text": (
-                        f"I received your message about: {last_user[:200]}. "
+                        f"I received your message about: {_mock_topic(last_user)}. "
                         "This is a placeholder reply while the workspace runs without a live model."
                     ),
                 }

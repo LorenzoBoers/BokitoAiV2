@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
@@ -308,6 +309,9 @@ async def create_inbound_signal(
         existing.updated_at = now
         if contact_name and not existing.contact_name:
             existing.contact_name = contact_name
+        if contact and not existing.contact_id:
+            # Threads started as outbound compose may predate the contact link.
+            existing.contact_id = contact.id
         session.add(existing)
         message = SignalMessage(
             signal_id=existing.id,
@@ -386,6 +390,22 @@ async def create_inbound_signal(
     return signal
 
 
+# Reply/forward prefixes mail clients prepend, incl. Dutch (Antw) and
+# German (AW) localizations and counted forms like "Re[2]:".
+_SUBJECT_PREFIX_RE = re.compile(r"^\s*(re|fw|fwd|aw|antw)\s*(\[\d+\])?\s*:\s*", re.IGNORECASE)
+
+
+def normalize_email_subject(subject: str) -> str:
+    """Subject without reply/forward prefixes, lowercased, for thread matching."""
+    text = subject.strip()
+    while True:
+        stripped = _SUBJECT_PREFIX_RE.sub("", text, count=1)
+        if stripped == text:
+            break
+        text = stripped
+    return text.lower()
+
+
 async def _open_thread_for_inbound(
     session: AsyncSession,
     tenant_id: UUID,
@@ -403,18 +423,46 @@ async def _open_thread_for_inbound(
         Signal.status.in_(("open", "pending")),
     )
     if external_id:
-        by_ext = await session.execute(query.where(Signal.external_id == external_id).limit(1))
+        # Provider thread ids are authoritative: a reply in the same email
+        # thread reopens a closed conversation instead of starting a duplicate
+        # Signal with the same external_id. Spam stays parked.
+        by_ext = await session.execute(
+            select(Signal)
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.channel == channel,
+                Signal.external_id == external_id,
+                Signal.status != "spam",
+            )
+            .order_by(Signal.last_message_at.desc())
+            .limit(1)
+        )
         found = by_ext.scalar_one_or_none()
         if found:
             return found
-    if contact_id:
+    email_lower = contact_email.strip().lower()
+    if contact_id and email_lower:
+        # Also match on the bare address: threads started as outbound compose
+        # carry contact_email but often no linked contact yet.
+        query = query.where(
+            (Signal.contact_id == contact_id)
+            | (func.lower(Signal.contact_email) == email_lower)
+        )
+    elif contact_id:
         query = query.where(Signal.contact_id == contact_id)
-    elif contact_email.strip():
-        query = query.where(func.lower(Signal.contact_email) == contact_email.strip().lower())
+    elif email_lower:
+        query = query.where(func.lower(Signal.contact_email) == email_lower)
     else:
         return None
     if channel == "email" and subject.strip():
-        query = query.where(Signal.subject == subject.strip())
+        # "Re: X" / "Fwd: X" must land in the thread for "X": compare
+        # normalized subjects instead of requiring an exact match.
+        wanted = normalize_email_subject(subject)
+        result = await session.execute(query.order_by(Signal.last_message_at.desc()).limit(20))
+        for candidate in result.scalars():
+            if normalize_email_subject(candidate.subject or "") == wanted:
+                return candidate
+        return None
     result = await session.execute(query.order_by(Signal.last_message_at.desc()).limit(1))
     return result.scalar_one_or_none()
 

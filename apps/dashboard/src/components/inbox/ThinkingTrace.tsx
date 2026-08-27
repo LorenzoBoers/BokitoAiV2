@@ -1,17 +1,15 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { AgentStep } from '../../hooks/useSignalStream'
 import {
-  currentActivityHeadline,
+  activityStatusLines,
   formatStepDetail,
   isKnowledgeStep,
   stepHeadline,
-  stepLabel,
 } from '../../lib/agentSteps'
 import { cn } from '../../lib/utils'
 import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
-import { AiMark } from '../ai/AiMark'
+import { AI_ICON_BOX_CLASS, AiMark } from '../ai/AiMark'
 import { KnowledgeMark } from '../knowledge/KnowledgeMark'
 import ChatMarkdown from './ChatMarkdown'
 
@@ -20,120 +18,154 @@ type Props = {
   active?: boolean
   streamText?: string
   thinkingText?: string
+  /** When false, skip the speech bubble (parent already shows the persisted reply). */
+  showSpeechBubble?: boolean
 }
 
-function ShimmerHeadline({ text, active }: { text: string; active: boolean }) {
-  if (!active) {
-    return <span className="text-[13.5px] font-medium text-text-secondary">{text}</span>
-  }
+function StatusLine({
+  text,
+  current,
+  onToggle,
+  expanded,
+  canExpand,
+}: {
+  text: string
+  current: boolean
+  onToggle?: () => void
+  expanded?: boolean
+  canExpand?: boolean
+}) {
+  const Tag = canExpand && current ? 'button' : 'div'
   return (
-    <span className="thinking-shimmer-text text-[13.5px] font-medium">{text}</span>
+    <Tag
+      type={canExpand && current ? 'button' : undefined}
+      className={cn(
+        'agent-live-line flex w-full min-w-0 items-center gap-2 text-left',
+        current ? 'is-current' : 'is-past',
+      )}
+      onClick={canExpand && current ? onToggle : undefined}
+      aria-expanded={canExpand && current ? expanded : undefined}
+    >
+      {current ? (
+        <span aria-hidden className="agent-live-dot shrink-0" />
+      ) : (
+        <AiMark size={11} className="shrink-0 opacity-50" />
+      )}
+      <span
+        className={cn(
+          'min-w-0 truncate text-[13.5px] font-medium',
+          current ? 'thinking-shimmer-text agent-live-ink' : 'text-ai-ink/55',
+        )}
+      >
+        {text}
+      </span>
+    </Tag>
   )
 }
 
+/** Loose purple live lines — not a bubble. Used while an agent is working. */
+export function AgentLiveStatus({
+  steps,
+  active = false,
+  thinkingText = '',
+  streamText = '',
+}: Omit<Props, 'showSpeechBubble'>) {
+  const { t } = useTranslation('communication')
+  const [expanded, setExpanded] = useState(false)
+  const lines = activityStatusLines(steps, active, t, { thinkingText, streamText })
+  const trimmedThinking = thinkingText.trim()
+  const canExpand = steps.length > 0 || Boolean(trimmedThinking)
+
+  if (lines.length === 0 && !active) return null
+
+  return (
+    <div
+      className={cn('agent-live-status min-w-0 max-w-[82%]', active && 'is-active')}
+      role="status"
+      aria-live="polite"
+      aria-busy={active}
+    >
+      <div className="space-y-1">
+        {lines.map((line, index) => {
+          const current = active && index === lines.length - 1
+          return (
+            <StatusLine
+              key={`${index}-${line}`}
+              text={line}
+              current={current}
+              canExpand={canExpand && current}
+              expanded={expanded}
+              onToggle={() => setExpanded((v) => !v)}
+            />
+          )
+        })}
+      </div>
+      {expanded ? (
+        <div className="mt-1.5 space-y-1.5 pl-5 text-[12px] leading-relaxed text-text-muted">
+          {trimmedThinking ? (
+            <p className="whitespace-pre-wrap break-words line-clamp-6">{trimmedThinking}</p>
+          ) : null}
+          {steps.map((step) => {
+            const detail = formatStepDetail(step)
+            return (
+              <p key={step.id} className="flex min-w-0 items-start gap-1.5">
+                {isKnowledgeStep(step) ? <KnowledgeMark size={11} /> : null}
+                <span className="min-w-0">
+                  {stepHeadline(step, t)}
+                  {detail ? <span className="block truncate text-[11px] opacity-70">{detail}</span> : null}
+                </span>
+              </p>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** Real speech while tokens stream — a normal agent bubble, not a status card. */
+export function AgentStreamBubble({ streamText, active = false }: { streamText: string; active?: boolean }) {
+  const smooth = useSmoothStreamText(streamText, active)
+  const trimmed = smooth.trim()
+  if (!trimmed) return null
+  return (
+    <div className="flex items-start gap-2.5">
+      <span
+        className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}
+      >
+        <AiMark size={13} />
+      </span>
+      <div className="min-w-0 max-w-[82%] rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface px-4 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
+        <ChatMarkdown content={trimmed} />
+        {active ? <span aria-hidden className="stream-caret" /> : null}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Live agent turn: status lines (always, while active) plus a speech bubble
+ * only when the agent has started writing.
+ */
 export default function ThinkingTrace({
   steps,
   active = false,
   streamText = '',
   thinkingText = '',
+  showSpeechBubble = true,
 }: Props) {
-  const { t } = useTranslation('communication')
-  const [expanded, setExpanded] = useState(false)
-  const smoothStream = useSmoothStreamText(streamText, active)
-
-  if (steps.length === 0 && !active && !streamText && !thinkingText) return null
-
-  const headline = currentActivityHeadline(steps, active, t, { thinkingText, streamText })
-  const canExpand = steps.length > 0 || Boolean(thinkingText.trim())
-  const trimmedStream = smoothStream.trim()
-  const trimmedThinking = thinkingText.trim()
-  const showLiveThinking = active && trimmedThinking && !trimmedStream
-
+  if (!active && !streamText && steps.length === 0 && !thinkingText) return null
   return (
-    <div
-      className={cn(
-        'relative min-w-0 max-w-[82%] overflow-hidden rounded-2xl rounded-tl-md border border-border/60 bg-bg-surface',
-        active && 'ring-1 ring-ai/25',
-      )}
-    >
-      {active ? (
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden">
-          <div className="thinking-wave-bar h-full w-[42%] rounded-full bg-ai/75" />
-        </div>
+    <div className="space-y-3">
+      {active || steps.length > 0 ? (
+        <AgentLiveStatus
+          steps={steps}
+          active={active}
+          thinkingText={thinkingText}
+          streamText={streamText}
+        />
       ) : null}
-
-      <button
-        type="button"
-        className={cn(
-          'flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left',
-          !canExpand && 'cursor-default',
-        )}
-        onClick={() => canExpand && setExpanded((v) => !v)}
-        disabled={!canExpand}
-        aria-expanded={canExpand ? expanded : undefined}
-      >
-        <span className="inline-flex min-w-0 items-center gap-2">
-          {active ? (
-            <Loader2 size={13} className="shrink-0 animate-spin text-ai-ink" />
-          ) : (
-            <AiMark size={13} />
-          )}
-          <ShimmerHeadline text={headline} active={active} />
-        </span>
-        {canExpand ? (
-          expanded ? (
-            <ChevronUp size={14} className="shrink-0 text-text-muted" />
-          ) : (
-            <ChevronDown size={14} className="shrink-0 text-text-muted" />
-          )
-        ) : null}
-      </button>
-
-      {expanded ? (
-        <div className="space-y-2 border-t border-border/40 px-3.5 py-2.5">
-          {trimmedThinking ? (
-            <pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words text-[12px] leading-relaxed text-text-secondary">
-              {trimmedThinking}
-            </pre>
-          ) : null}
-          {steps.length > 0 ? (
-            <ul className="space-y-1.5">
-              {steps.map((step) => {
-                const detail = formatStepDetail(step)
-                return (
-                  <li key={step.id} className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-text-muted">
-                      {stepLabel(step, t)}
-                    </p>
-                    <p className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-                      {isKnowledgeStep(step) ? <KnowledgeMark size={12} /> : null}
-                      {stepHeadline(step, t)}
-                    </p>
-                    {detail ? (
-                      <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-[11px] text-text-muted">
-                        {detail}
-                      </pre>
-                    ) : null}
-                  </li>
-                )
-              })}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-
-      {showLiveThinking && !expanded ? (
-        <div className="border-t border-border/40 px-3.5 py-2 text-[12px] leading-relaxed text-text-muted whitespace-pre-wrap break-words line-clamp-4">
-          {trimmedThinking}
-        </div>
-      ) : null}
-
-      {trimmedStream ? (
-        <div className="border-t border-border/40 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-text-primary">
-          <ChatMarkdown content={trimmedStream} />
-          {active ? <span aria-hidden className="stream-caret" /> : null}
-        </div>
-      ) : null}
+      {showSpeechBubble ? <AgentStreamBubble streamText={streamText} active={active} /> : null}
     </div>
   )
 }

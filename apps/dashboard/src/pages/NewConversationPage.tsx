@@ -14,6 +14,7 @@ import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, assistantPath } from '../lib/messages-paths'
 import { ComposerCard } from '../components/ui/ComposerCard'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
 import { useMembers } from '../hooks/useMembers'
@@ -38,6 +39,7 @@ export default function NewConversationPage() {
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [contacts, setContacts] = useState<ContactRow[]>([])
   const [loadingTargets, setLoadingTargets] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [selected, setSelected] = useState<ChatTarget | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerQuery, setPickerQuery] = useState('')
@@ -75,33 +77,47 @@ export default function NewConversationPage() {
   const pickerInputRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
 
+  const loadTargets = useCallback(async () => {
+    if (!token) return
+    setLoadingTargets(true)
+    setLoadFailed(false)
+    setError(null)
+    try {
+      const [data, people] = await Promise.all([
+        bokitoListChatTargets(token),
+        listContacts(token).catch(() => [] as ContactRow[]),
+      ])
+      setTargets(data.items)
+      setContacts(people)
+      const agentParam = searchParams.get('agent')?.trim()
+      const kindParam = searchParams.get('kind')
+      const last = readLastChatTarget()
+      const preselect =
+        data.items.find((row) => row.id === agentParam) ??
+        (kindParam === 'company' ? data.items.find((row) => row.kind === 'company') : undefined) ??
+        data.items.find((row) => row.id === last) ??
+        data.items.find((row) => row.id === data.default_agent_id) ??
+        data.items[0] ??
+        null
+      setSelected(preselect)
+    } catch {
+      setLoadFailed(true)
+      setError(t('newConversation.loadError'))
+    } finally {
+      setLoadingTargets(false)
+    }
+  }, [token, t, searchParams])
+
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      if (!token) return
-      setLoadingTargets(true)
-      try {
-        const [data, people] = await Promise.all([
-          bokitoListChatTargets(token),
-          listContacts(token).catch(() => [] as ContactRow[]),
-        ])
-        if (cancelled) return
-        setTargets(data.items)
-        setContacts(people)
-        const preselect =
-          data.items.find((t) => t.id === data.default_agent_id) ?? data.items[0] ?? null
-        setSelected(preselect)
-      } catch {
-        if (!cancelled) setError(t('newConversation.loadError'))
-      } finally {
-        if (!cancelled) setLoadingTargets(false)
-      }
+    void loadTargets()
+  }, [loadTargets])
+
+  useEffect(() => {
+    const to = searchParams.get('to')?.trim()
+    if (to && canComposeToAddress('email', to)) {
+      navigate(composeEmailPath({ to }), { replace: true })
     }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [token, t])
+  }, [searchParams, navigate])
 
   useEffect(() => {
     composerRef.current?.focus()
@@ -144,7 +160,7 @@ export default function NewConversationPage() {
     })
   }, [targets, pickerQuery, pickerFilter])
 
-  const filteredContacts = useMemo(() => {
+  const matchingContacts = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase()
     return contacts
       .filter((contact) => canComposeToAddress(contact.channel, contact.address))
@@ -154,8 +170,18 @@ export default function NewConversationPage() {
         const name = `${contact.displayName} ${contact.address}`.toLowerCase()
         return name.includes(q)
       })
-      .slice(0, 8)
   }, [contacts, pickerQuery, pickerFilter])
+  const filteredContacts = matchingContacts.slice(0, 8)
+
+  // Typing a full address that is not a contact yet must not dead-end in
+  // "no matches": offer starting an email to that address directly.
+  const directEmailQuery = useMemo(() => {
+    const q = pickerQuery.trim()
+    if (pickerFilter === 'company') return null
+    if (!canComposeToAddress('email', q)) return null
+    const exists = contacts.some((c) => c.address.trim().toLowerCase() === q.toLowerCase())
+    return exists ? null : q
+  }, [pickerQuery, pickerFilter, contacts])
 
   const openPicker = (filter: PickerFilter = 'all') => {
     setPickerFilter(filter)
@@ -165,6 +191,7 @@ export default function NewConversationPage() {
   }
 
   const choose = (target: ChatTarget) => {
+    writeLastChatTarget(target.id)
     setSelected(target)
     setPickerOpen(false)
     composerRef.current?.focus()
@@ -223,11 +250,13 @@ export default function NewConversationPage() {
                   value={pickerQuery}
                   onChange={(e) => setPickerQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (filteredTargets[0] || filteredContacts[0])) {
+                    if (e.key === 'Enter' && (filteredTargets[0] || filteredContacts[0] || directEmailQuery)) {
                       e.preventDefault()
                       if (filteredTargets[0]) choose(filteredTargets[0])
                       else if (filteredContacts[0]) {
                         navigate(composeEmailPath({ to: filteredContacts[0].address }))
+                      } else if (directEmailQuery) {
+                        navigate(composeEmailPath({ to: directEmailQuery }))
                       }
                     }
                     if (e.key === 'Escape') setPickerOpen(false)
@@ -275,7 +304,7 @@ export default function NewConversationPage() {
             {pickerOpen ? (
               <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-xl">
                 <div className="max-h-[300px] overflow-y-auto p-1">
-                  {filteredTargets.length === 0 && filteredContacts.length === 0 ? (
+                  {filteredTargets.length === 0 && filteredContacts.length === 0 && !directEmailQuery ? (
                     <div className="px-3 py-2.5">
                       <p className="text-[12px] text-text-muted">
                         {targets.length === 0 && contacts.length === 0
@@ -348,6 +377,33 @@ export default function NewConversationPage() {
                           </span>
                         </button>
                       ))}
+                      {directEmailQuery ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(composeEmailPath({ to: directEmailQuery }))}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-bg-hover/60"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-bg-elevated text-text-muted">
+                            <Mail size={12} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12.5px] text-text-primary">
+                              {t('newConversation.emailAddressDirect', { address: directEmailQuery })}
+                            </span>
+                            <span className="block text-[10.5px] text-text-muted">
+                              {t('newConversation.emailAddressDirectHint')}
+                            </span>
+                          </span>
+                        </button>
+                      ) : null}
+                      {matchingContacts.length > 8 ? (
+                        <Link
+                          to="/contacts"
+                          className="mt-1 block px-2.5 pb-2 text-[11px] font-medium text-accent hover:underline"
+                        >
+                          {t('newConversation.openContacts')}
+                        </Link>
+                      ) : null}
                     </>
                   )}
                 </div>
@@ -396,7 +452,20 @@ export default function NewConversationPage() {
 
           {/* Composer */}
           <div className="mt-6">
-            {error ? <p className="mb-2 px-1 text-[12px] text-status-error">{error}</p> : null}
+            {error ? (
+              <div className="mb-2 flex items-center gap-2 px-1">
+                <p className="text-[12px] text-status-error">{error}</p>
+                {loadFailed ? (
+                  <button
+                    type="button"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                    onClick={() => void loadTargets()}
+                  >
+                    {t('newConversation.retry')}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <ComposerCard
               ref={composerRef}
               mode="chat"
@@ -433,15 +502,12 @@ export default function NewConversationPage() {
                 type="button"
                 onClick={() => void start()}
                 disabled={!mention.raw.trim() || !selected || sending}
-                title={t('newConversation.send')}
+                title={`${t('newConversation.send')} — ${t('composer.hintChat')}`}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
               >
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
               </button>
             </ComposerCard>
-            <p className="mt-1.5 px-1 text-[10.5px] text-text-muted">
-              {t('composer.hintChat')}
-            </p>
           </div>
         </div>
       </div>

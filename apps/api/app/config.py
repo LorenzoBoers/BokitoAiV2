@@ -121,6 +121,10 @@ class Settings(BaseSettings):
     microsoft_oauth_client_id: str = ""
     microsoft_oauth_client_secret: str = ""
     microsoft_oauth_tenant: str = "common"
+    # Moneybird OAuth app (https://moneybird.com/user/applications). Empty in
+    # dev = the connect flow creates a pending connection served by mocks.
+    moneybird_oauth_client_id: str = ""
+    moneybird_oauth_client_secret: str = ""
 
     # WhatsApp Business Cloud API (Meta). One app-level webhook serves all
     # tenants: {public_api_url}/api/channels/whatsapp/webhook. When empty the

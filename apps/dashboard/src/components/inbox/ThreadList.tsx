@@ -8,6 +8,7 @@ import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
 import { threadNeedsReply } from '../../lib/message-composer'
 import { cn } from '../../lib/utils'
 import { useMembers } from '../../hooks/useMembers'
+import { InboxListSkeleton } from '../ui/skeleton'
 import BulkActionsBar from './BulkActionsBar'
 import ThreadListItem from './ThreadListItem'
 import ThreadListQuickFilters from './ThreadListQuickFilters'
@@ -290,11 +291,16 @@ export default function ThreadList({
 
       <div
         ref={scrollRef}
+        title={
+          !hasMore && total != null && total > 0 && threads.length > 0 && allThreads.length >= total
+            ? t('threadList.allLoaded', { total })
+            : undefined
+        }
         className={cn('flex-1 overflow-y-auto min-h-0 p-1.5', density === 'compact' ? 'space-y-0' : 'space-y-0.5')}
       >
         {threads.length === 0 ? (
           loading ? (
-            <div className="py-8 text-center text-xs text-text-muted">{t('threadList.loading')}</div>
+            <InboxListSkeleton />
           ) : error ? (
             <div className="px-3 py-4 text-center">
               <p className="text-xs text-status-error">{error}</p>
@@ -372,14 +378,6 @@ export default function ThreadList({
                 ? t('threadList.loadMoreOf', { loaded: allThreads.length, total })
                 : t('threadList.loadMore')}
           </button>
-        ) : null}
-        {!hasMore && total != null && total > 0 && threads.length > 0 && allThreads.length >= total ? (
-          <div className="py-2 text-center text-[10.5px] text-text-muted/70">
-            {t('threadList.allLoaded', { total })}
-          </div>
-        ) : null}
-        {variant === 'customer' && !loading ? (
-          <p className="px-3 py-2 text-center text-[10px] text-text-muted/55">{t('threadList.shortcutHint')}</p>
         ) : null}
       </div>
     </div>
