@@ -83,11 +83,11 @@ def _sales_document(row: dict[str, Any]) -> dict[str, Any]:
         due_date=_s(row, "due_date"),
         lines=[
             DocumentLine(
-                description=_s(l, "description"),
-                amount=_f(l.get("total_price_excl_tax_with_discount") or l.get("price")),
+                description=_s(line, "description"),
+                amount=_f(line.get("total_price_excl_tax_with_discount") or line.get("price")),
             )
-            for l in (row.get("details") or [])
-            if isinstance(l, dict)
+            for line in (row.get("details") or [])
+            if isinstance(line, dict)
         ],
     ).model_dump()
 

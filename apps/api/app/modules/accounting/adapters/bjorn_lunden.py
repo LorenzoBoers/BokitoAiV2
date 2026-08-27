@@ -76,9 +76,9 @@ def _document(row: dict[str, Any], kind: str) -> dict[str, Any]:
         date=_s(row, "invoiceDate", "date"),
         due_date=_s(row, "dueDate"),
         lines=[
-            DocumentLine(description=_s(l, "text", "description"), amount=_f(l.get("amount")))
-            for l in (row.get("rows") or row.get("lines") or [])
-            if isinstance(l, dict)
+            DocumentLine(description=_s(line, "text", "description"), amount=_f(line.get("amount")))
+            for line in (row.get("rows") or row.get("lines") or [])
+            if isinstance(line, dict)
         ],
     ).model_dump()
 
