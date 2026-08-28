@@ -759,6 +759,7 @@
     "snoozed": "Waiting",
     "you": "You",
     "needsReply": "Needs reply",
+    "theirTurn": "Waiting on them",
     "needsDecision": "Needs decision",
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}h",

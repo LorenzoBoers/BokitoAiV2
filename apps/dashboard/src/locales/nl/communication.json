@@ -759,6 +759,7 @@
     "snoozed": "Wacht",
     "you": "Jij",
     "needsReply": "Jij aan zet",
+    "theirTurn": "Wacht op antwoord",
     "needsDecision": "Wacht op beslissing",
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}u",

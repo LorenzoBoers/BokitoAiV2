@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Bot, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bot, Trash2 } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { cn } from '../../lib/utils'
@@ -105,7 +105,14 @@ export default function ThreadListItem({
       : thread.lastMessageDirection === 'outbound' && rawPreview
         ? `${t('listItem.you')}: ${rawPreview}`
         : rawPreview
-  const showNeedsReply = !isDirect && !isAgentThread && threadNeedsReply(thread) && !thread.hasUnread
+  const showNeedsReply = !isDirect && !isAgentThread && threadNeedsReply(thread)
+  // Answered and waiting on them: open thread whose last line was ours.
+  const showTheirTurn =
+    !isDirect &&
+    !isAgentThread &&
+    !showNeedsReply &&
+    thread.status === 'open' &&
+    thread.lastMessageDirection === 'outbound'
 
   return (
     <div
@@ -227,32 +234,15 @@ export default function ThreadListItem({
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1 mb-1">
-            {priorityDot && !isDirect ? (
-              <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot, thread.priority === 'urgent' && 'pulse-dot')} />
-            ) : null}
-            <span className="text-xs font-medium text-text-secondary truncate">{secondaryLabel}</span>
-            {showNeedsReply ? (
-              <span className="shrink-0 rounded-full bg-accent/12 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
-                {t('listItem.needsReply')}
-              </span>
-            ) : null}
-            {!isDirect && thread.hasOpenDecision ? (
-              <span className="shrink-0 rounded-full bg-status-warning/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-status-warning">
-                {t('listItem.needsDecision')}
-              </span>
-            ) : null}
-          </div>
-          {thread.assignedToUserId && !isDirect ? (
-            <div className="flex items-center gap-1">
-              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent/15 text-[8px] font-semibold uppercase text-accent">
-                {(assigneeName ?? '?').slice(0, 1)}
-              </span>
-              <span className="truncate text-xs text-text-muted">{assigneeName ?? t('listItem.assigned')}</span>
-            </div>
-          ) : null}
-          {thread.tags.length > 0 ? (
-            <div className="flex gap-1 flex-wrap mt-1">
+
+          {/* Tags under the title so the preview line stays readable. */}
+          {!isDirect && (thread.tags.length > 0 || thread.hasOpenDecision) ? (
+            <div className="mb-1 flex flex-wrap items-center gap-1">
+              {!isAgentThread && thread.hasOpenDecision ? (
+                <span className="shrink-0 rounded-full bg-status-warning/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-status-warning">
+                  {t('listItem.needsDecision')}
+                </span>
+              ) : null}
               {thread.tags.slice(0, 3).map((tag) =>
                 onTagClick ? (
                   <button
@@ -265,7 +255,7 @@ export default function ThreadListItem({
                     onKeyDown={(e) => e.stopPropagation()}
                     title={t('listItem.openTagFolder', { tag })}
                     className={cn(
-                      'inline-block rounded px-1.5 py-0.5 text-xs transition-colors',
+                      'inline-block rounded px-1.5 py-0.5 text-[11px] transition-colors',
                       tag === activeTag
                         ? 'bg-accent/15 text-accent'
                         : 'bg-bg-surface-hover text-text-secondary hover:bg-accent/10 hover:text-accent',
@@ -274,11 +264,49 @@ export default function ThreadListItem({
                     {tag}
                   </button>
                 ) : (
-                  <span key={tag} className="inline-block rounded px-1.5 py-0.5 text-xs bg-bg-surface-hover text-text-secondary">
+                  <span
+                    key={tag}
+                    className="inline-block rounded px-1.5 py-0.5 text-[11px] bg-bg-surface-hover text-text-secondary"
+                  >
                     {tag}
                   </span>
                 ),
               )}
+            </div>
+          ) : null}
+
+          <div className="flex items-center gap-1.5">
+            {priorityDot && !isDirect ? (
+              <span className={cn('shrink-0 h-1.5 w-1.5 rounded-full', priorityDot, thread.priority === 'urgent' && 'pulse-dot')} />
+            ) : null}
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-secondary">
+              {secondaryLabel}
+            </span>
+            {showNeedsReply ? (
+              <span
+                title={t('listItem.needsReply')}
+                aria-label={t('listItem.needsReply')}
+                className="ml-auto inline-flex shrink-0 text-accent"
+              >
+                <ArrowLeft size={13} strokeWidth={2.25} aria-hidden />
+              </span>
+            ) : showTheirTurn ? (
+              <span
+                title={t('listItem.theirTurn')}
+                aria-label={t('listItem.theirTurn')}
+                className="ml-auto inline-flex shrink-0 text-text-muted"
+              >
+                <ArrowRight size={13} strokeWidth={2} aria-hidden />
+              </span>
+            ) : null}
+          </div>
+
+          {thread.assignedToUserId && !isDirect ? (
+            <div className="mt-1 flex items-center gap-1">
+              <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent/15 text-[8px] font-semibold uppercase text-accent">
+                {(assigneeName ?? '?').slice(0, 1)}
+              </span>
+              <span className="truncate text-xs text-text-muted">{assigneeName ?? t('listItem.assigned')}</span>
             </div>
           ) : null}
         </div>

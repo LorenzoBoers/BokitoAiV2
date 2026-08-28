@@ -92,6 +92,17 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         else []
     )
 
+    category = str(parsed.get("category", "other"))
+    # Category "billing" is a real tag, not a display-only badge: register it
+    # when missing so invoice threads land under Tags → billing.
+    if category == "billing":
+        from app.services.signal_tags import ensure_tags, normalize_tag
+
+        billing = normalize_tag("billing")
+        await ensure_tags(session, tenant_id, [billing])
+        if billing not in proposed_tags:
+            proposed_tags = [*proposed_tags, billing]
+
     intent = str(parsed.get("intent") or "")
     if intent not in (
         "question",
@@ -110,7 +121,7 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         session,
         tenant_id,
         signal_id,
-        category=str(parsed.get("category", "other")),
+        category=category,
         urgency=int(parsed.get("urgency", 50)),
         impact=int(parsed.get("impact", 40)),
         summary=strip_emoji(str(parsed.get("summary", "")))[:500],
