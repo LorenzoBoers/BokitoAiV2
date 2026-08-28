@@ -900,7 +900,7 @@ async def _project_work_context(
             linked = links.get(section.id, [])
             linked_txt = (
                 " | linked items: "
-                + ", ".join(f"{l['title']} [{l['status']}]" for l in linked[:5])
+                + ", ".join(f"{link['title']} [{link['status']}]" for link in linked[:5])
                 if linked
                 else ""
             )
@@ -1013,8 +1013,8 @@ async def start_queue_item_verification(
     context = await _project_work_context(session, tenant_id, item.project_id)
     links = await _links_for_items(session, tenant_id, [item.id])
     linked_txt = "\n".join(
-        f"- section_id={l['section_id']} [{l['section_status']}] {l['heading']} ({l['relation']})"
-        for l in links.get(item.id, [])
+        f"- section_id={link['section_id']} [{link['section_status']}] {link['heading']} ({link['relation']})"
+        for link in links.get(item.id, [])
     ) or "(no linked sections — link them first or verify against the docs)"
     description = (
         f"{VERIFY_INSTRUCTIONS}\n\n"

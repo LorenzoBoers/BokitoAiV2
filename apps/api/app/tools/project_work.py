@@ -169,7 +169,7 @@ async def _list_queue_items(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
             "status": i["status"],
             "priority": i["priority"],
             "impact_summary": i["impact_summary"][:300],
-            "links": [f"{l['heading']} [{l['section_status']}]" for l in i["links"]],
+            "links": [f"{link['heading']} [{link['section_status']}]" for link in i["links"]],
         }
         for i in items
     ]
@@ -263,7 +263,7 @@ async def _list_project_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> di
                         "heading": s.heading,
                         "status": s.status,
                         "linked_items": [
-                            f"{l['title']} [{l['status']}]" for l in links.get(s.id, [])
+                            f"{link['title']} [{link['status']}]" for link in links.get(s.id, [])
                         ],
                     }
                     for s in by_doc.get(doc.id, [])
