@@ -753,7 +753,7 @@ export default function GovernPage() {
                         <p className="font-medium text-text-heading">{row.summary}</p>
                         <p className="text-xs text-text-muted mt-0.5">
                           {formatChangeMeta(row.resource_type, row.change_kind, row.status, t)} · v{row.version} ·{' '}
-                          {formatGovernTimestamp(row.resolved_at ?? row.created_at)}
+                          {formatGovernTimestamp(row.resolved_at ?? row.created_at, i18n.language)}
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
@@ -904,7 +904,7 @@ export default function GovernPage() {
                         <p className="font-medium text-text-heading">{event.summary || event.action}</p>
                         <p className="text-xs text-text-muted mt-0.5">
                           {event.actor_type} · {event.outcome}
-                          {event.created_at ? ` · ${formatGovernTimestamp(event.created_at)}` : null}
+                          {event.created_at ? ` · ${formatGovernTimestamp(event.created_at, i18n.language)}` : null}
                           {target ? (
                             <>
                               {' · '}

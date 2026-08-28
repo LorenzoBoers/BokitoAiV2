@@ -127,7 +127,7 @@ type ChannelsSectionProps = {
 
 function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
   const { token } = useAuth()
-  const { connections, loading: connectionsLoading } = useMailboxConnections()
+  const { activeConnections: connections, loading: connectionsLoading } = useMailboxConnections()
   const [accounts, setAccounts] = useState<ChannelAccountRow[]>([])
 
   useEffect(() => {
@@ -147,10 +147,7 @@ function ChannelsSection({ activeLeaf, t }: ChannelsSectionProps) {
     }
   }, [token])
 
-  const enabledConnections = useMemo(
-    () => connections.filter((c) => c.status !== 'revoked' && c.isEnabled !== false),
-    [connections],
-  )
+  const enabledConnections = connections
   const hasSlack = accounts.some((a) => a.channel === 'slack' && a.isEnabled)
   const hasWhatsApp = accounts.some((a) => a.channel === 'whatsapp' && a.isEnabled)
 
@@ -235,7 +232,8 @@ function AgentsSection({ assistant, agents, loading, activeLeaf, t }: AgentsSect
         <LeafLink
           leaf={{ type: 'assistant' }}
           to={assistantPath()}
-          label={assistant.name}
+          label={t('crumbs.myAssistant')}
+          title={assistant.name}
           icon={<Sparkles size={14} className="shrink-0 text-ai-ink" />}
           activeLeaf={activeLeaf}
         />
@@ -406,12 +404,15 @@ export default function MessagesHubNav() {
               title={t(`${item.labelKey}Hint`)}
               icon={
                 item.queue === 'mine' ? (
-                  <UserAvatar
-                    name={user?.name ?? '?'}
-                    email={user?.email ?? ''}
-                    avatarUrl={user?.avatarUrl}
-                    size={14}
-                  />
+                  <span aria-hidden>
+                    <UserAvatar
+                      name={user?.name ?? '?'}
+                      email={user?.email ?? ''}
+                      avatarUrl={user?.avatarUrl}
+                      size={14}
+                      decorative
+                    />
+                  </span>
                 ) : (
                   <Inbox size={14} className="shrink-0 text-text-muted" />
                 )

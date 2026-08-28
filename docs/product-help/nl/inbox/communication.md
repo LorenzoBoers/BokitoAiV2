@@ -30,8 +30,9 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 ## Start een nieuwe chat of e-mail
 
 1. Kies **Nieuwe chat** voor een composer. **Terug naar Berichten** brengt je naar Open. Het veld Aan staat standaard op je persoonlijke assistent — kies een persoon, agent of typ een e-mail. Enter start het gesprek.
-2. Kies **Nieuwe e-mail** voor uitgaande mail. Kies Van (een gekoppelde mailbox), Aan, onderwerp en bijlagen.
+2. Kies **Nieuwe e-mail** voor uitgaande mail. Kies Van (een gekoppelde mailbox), Aan, onderwerp en bijlagen. Het ingebouwde Bokito-adres telt als mailbox waarvan je kunt versturen.
 3. Je kunt mail ook starten vanaf een contactkaart of het commandopalet.
+4. Een lege inbox biedt nog steeds **Nieuwe chat**, **Widget installeren** en de setupgids — websitechat wacht niet op e-mail.
 
 ## Antwoord, notitie of sjabloon
 
@@ -40,15 +41,16 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 
 1. Selecteer een gesprek. Geschiedenis, contact en AI-context staan op één scherm.
 2. De composer verstuurt via hetzelfde kanaal als de klant (E-mail, Chat, WhatsApp). **Ctrl+Enter** verstuurt e-mail; Enter verstuurt chat — beweeg over de knop **Versturen** om de sneltoets te zien. Het pijltje naast **Versturen** bevat **Versturen en sluiten** en **Versturen en uitstellen**. **Versturen als:** **Jij** of de agent bepaalt welke handtekening erbij komt.
-3. Wissel naar **Notitie** voor een intern commentaar dat de klant nooit ziet (beweeg over het tabblad voor de herinnering). Notities werken nog als de mailbox is ontkoppeld.
+3. Wissel naar **Notitie** voor een intern commentaar dat de klant nooit ziet (beweeg over het tabblad voor de herinnering). Notities werken nog als er geen mailbox kan versturen. Gesloten of spamgesprekken houden notities ook — **Heropenen** staat op de composer.
 4. Open **Sjablonen** in de composer om een opgeslagen antwoord in te voegen, of sla de huidige tekst op als sjabloon. Beheer de bibliotheek onder **Instellingen**, daarna **E-mail en berichten** (Opgeslagen antwoorden).
-5. E-mailantwoorden kunnen CC/BCC toevoegen en je mailboxhandtekening meenemen. Zette de klant collega's in de CC, dan vult **CC/BCC** openen hun CC-lijst alvast in zodat allen-beantwoorden één klik is. Als je dezelfde afzender meerdere keren sluit of een taak maakt, kan Bokito vragen dat voortaan te doen — **Doe dit voortaan** of **Niet nu**. Die regels staan onder E-mail en berichten.
+5. E-mailantwoorden kunnen CC/BCC toevoegen en je mailboxhandtekening meenemen. Zette de klant collega's in de CC, dan vult **Allen beantwoorden** hun CC-lijst alvast in. **Citeren** voegt de laatste inboundregels in. Als je dezelfde afzender meerdere keren sluit of een taak maakt, kan Bokito vragen dat voortaan te doen — **Doe dit voortaan** of **Niet nu**. Die regels staan onder E-mail en berichten.
+6. Factuur- of offertegesprekken tonen **Boekhouding openen** en kunnen het label **Facturatie** toevoegen. Na versturen biedt een toast Boekhouding, zodat je het bedrag checkt voordat je iets belooft.
 
 ## Gebruik een AI-concept
 
 1. Als [Inbox AI](/docs/inbox/inbox-ai) op **Antwoorden voorstellen** staat, verschijnt een conceptkaart in het gesprek.
 2. Pas de tekst aan en verstuur — of kies **Niet nu** / **Ik doe het zelf**. Versturen of goedkeuren van één concept legt overgebleven conceptkaarten terzijde. Oudere afgewezen concepten klappen in tot één regel (**Eerder concept — terzijde gelegd**).
-3. **Concept met AI** in de composer vraagt een eenmalig concept zonder te wachten op inbound mail. Optionele sturing bepaalt de toon.
+3. **Concept met AI** in de composer vraagt een eenmalig concept zonder te wachten op inbound mail. Optionele sturing bepaalt de toon. Zonder toegewezen agent biedt de fout **Agents openen**.
 4. **Overnemen van AI** pauzeert de assistent op dat gesprek zodat jij met de hand afrondt. **Geef terug aan AI** hervat die. Op **Automatisch antwoorden** is overnemen hoe je een live verzending stopt. In websitechat ziet de bezoeker bij overnemen direct een banner "een medewerker helpt je verder", die bij teruggeven of sluiten weer verdwijnt.
 
 ## Beslis in het gesprek

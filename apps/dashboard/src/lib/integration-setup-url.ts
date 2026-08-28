@@ -6,10 +6,21 @@ export {
 
 export type IntegrationHubStep = 'detail' | 'setup'
 
-export function moduleSetupPath(slug: string, connect?: string | null): string {
+export function moduleSetupPath(
+  slug: string,
+  connect?: string | null,
+  step?: IntegrationHubStep,
+): string {
   const base = `/settings/modules/${encodeURIComponent(slug)}`
   const packageSlug = connect?.trim()
-  return packageSlug ? `${base}?connect=${encodeURIComponent(packageSlug)}` : base
+  if (!packageSlug) return base
+  const params = new URLSearchParams({ connect: packageSlug })
+  if (step === 'setup') params.set('step', 'setup')
+  return `${base}?${params.toString()}`
+}
+
+export function isModuleSetupAction(actionType?: string | null): boolean {
+  return actionType === 'setup_integration' || actionType === 'enable_module'
 }
 
 export function setupIntegrationHref(input: {
@@ -18,7 +29,7 @@ export function setupIntegrationHref(input: {
 }): string {
   const moduleSlug = input.module?.trim()
   const provider = input.provider?.trim()
-  if (moduleSlug) return moduleSetupPath(moduleSlug, provider)
+  if (moduleSlug) return moduleSetupPath(moduleSlug, provider, provider ? 'setup' : undefined)
   if (provider) return `/settings/marketplace?connect=${encodeURIComponent(provider)}`
   return '/settings/marketplace'
 }
@@ -28,7 +39,9 @@ export function buildIntegrationSetupReturnUrl(integrationId: string): string {
     connect: integrationId,
     step: 'detail',
   })
-  return `${window.location.origin}/settings/marketplace?${params.toString()}`
+  const path = window.location.pathname
+  const base = path.startsWith('/settings/modules/') ? path : '/settings/marketplace'
+  return `${window.location.origin}${base}?${params.toString()}`
 }
 
 export function parseHubConnectParam(searchParams: URLSearchParams): {

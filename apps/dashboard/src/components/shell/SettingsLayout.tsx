@@ -1,4 +1,4 @@
-import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ContentHeader from './ContentHeader'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
@@ -39,9 +39,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     labelKey: 'settings.groups.integrations',
     links: [
       {
+        labelKey: 'settings.links.modules',
+        to: '/settings/modules',
+        hintKey: 'settings.hints.modules',
+      },
+      {
         labelKey: 'settings.links.integrations',
         to: '/settings/integrations',
-        match: ['/settings/integrations', '/settings/marketplace', '/settings/mcp', '/settings/modules'],
+        match: ['/settings/integrations', '/settings/marketplace', '/settings/mcp'],
         hintKey: 'settings.hints.integrations',
       },
     ],
@@ -96,24 +101,12 @@ export function SettingsHomeRedirect() {
 export default function SettingsLayout() {
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
-  const { status } = useOnboardingStatus()
-  const setupIncomplete = Boolean(status && !status.completed)
   const activeLink = SETTINGS_GROUPS.flatMap((group) => group.links).find((link) =>
     linkIsActive(pathname, link),
   )
   const activeLabel = activeLink ? t(activeLink.labelKey) : t('tabs.settings.subtitle')
 
-  const subtitle = setupIncomplete ? (
-    <span>
-      {activeLabel}
-      {' — '}
-      <Link to="/settings/setup" className="text-accent hover:underline">
-        {t('settings.finishGuide')}
-      </Link>
-    </span>
-  ) : (
-    activeLabel
-  )
+  const subtitle = activeLabel
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">

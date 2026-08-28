@@ -13,7 +13,7 @@
     "cockpit": { "title": "Cockpit", "subtitle": "Overview, activity and usage" },
     "communication": { "title": "Communication", "subtitle": "Chats, customer and agent threads" },
     "contacts": { "title": "Contacts", "subtitle": "People across your channels" },
-    "agenda": { "title": "Agenda", "subtitle": "Scheduled wakes, tasks and events" },
+    "agenda": { "title": "Agenda", "subtitle": "Scheduled check-ins, tasks and appointments" },
     "agents": { "title": "Agents", "subtitle": "People and agents you can chat with" },
     "projects": { "title": "Projects", "subtitle": "Shared goals for agents and threads" },
     "knowledge": { "title": "Knowledge", "subtitle": "Docs, skills and memory" },
@@ -39,6 +39,7 @@
     "widgetVoice": "Voice and hours",
     "widgetLook": "Appearance",
     "marketplace": "Marketplace",
+    "modules": "Modules",
     "moduleSetup": "Module setup",
     "connectedTools": "Connected tools",
     "myAssistant": "My assistant"
@@ -351,6 +352,7 @@
     "list": "List",
     "automations": "Automations",
     "thisWeek": "This week",
+    "refresh": "Refresh",
     "refreshedAt": "Updated {{time}}",
     "listSearch": "Search the list",
     "listFilterEmpty": "No scheduled items match that search.",
@@ -664,7 +666,10 @@
       "manageAgents": "Manage agents",
       "organizeProjects": "Organize work by project",
       "modulesFit": "Modules that fit this work",
-      "modulesLine": "Connect a business module when invoices, banking, or files come up"
+      "manageModules": "Manage modules",
+      "modulesLine": "Turn on a business module when invoices, banking, or files come up",
+      "modulesOn": "{{count}} module on",
+      "modulesOn_other": "{{count}} modules on"
     },
     "projects": {
       "title": "6. Projects",
@@ -925,7 +930,9 @@
       "invite_accepted": "Invite accepted",
       "user_password_changed": "Password changed",
       "workspace_settings_updated": "Workspace settings updated",
-      "agent_passport_update": "Agent access updated"
+      "agent_passport_update": "Agent access updated",
+      "module_enabled": "Module turned on",
+      "Module_enabled": "Module turned on"
     },
     "knownMessages": {
       "agentPassportUpdate": "Agent access updated"
@@ -937,6 +944,9 @@
     "greetingMorning": "Good morning, {{name}}",
     "greetingAfternoon": "Good afternoon, {{name}}",
     "greetingEvening": "Good evening, {{name}}",
+    "greetingMorningPlain": "Good morning",
+    "greetingAfternoonPlain": "Good afternoon",
+    "greetingEveningPlain": "Good evening",
     "greetingFallback": "there",
     "showSetupAgain": "Show setup card",
     "loadError": "Could not load overview.",
@@ -946,7 +956,7 @@
     "conversationsEmptyHint": "None this week — older conversations are still in the inbox",
     "awaitingDecision": "Awaiting decision",
     "autonomyRate": "Handled without you",
-    "posture": "How much agents can do",
+    "posture": "Agent freedom",
     "timeSaved": "Time saved 7d (est.)",
     "timeSavedEmptyHint": "Shows up after agents handle work for you",
     "openFirst": "Open first",
@@ -966,9 +976,10 @@
     "autonomyHint": "Share of replies sent without you clicking Send.",
     "autonomyEmptyHint": "Shows up after agents handle customer work on their own",
     "usage": "AI usage this month",
-    "postureManual": "Manual",
-    "postureAssisted": "Assisted",
-    "postureAutonomous": "Autonomous",
+    "usageEmptyHint": "No bill yet this month",
+    "postureManual": "You decide",
+    "postureAssisted": "Ask first",
+    "postureAutonomous": "Act first",
     "needsAttention": "Needs attention",
     "needsAttentionHint": "Things waiting for you: a reply, a yes/no, or a draft to approve",
     "nothingAttention": "Nothing needs your attention right now.",
@@ -988,7 +999,7 @@
     "noEvents": "No recent events. Agent runs will show up here.",
     "openAgents": "Open Agents",
     "todayAgenda": "Today on the agenda",
-    "todayAgendaHint": "Upcoming agent wakes, tasks and events",
+    "todayAgendaHint": "Upcoming check-ins, tasks and appointments",
     "openAgenda": "Open Agenda",
     "nothingScheduled": "Nothing scheduled for the next 24 hours.",
     "planAutomation": "Plan a scheduled run",
@@ -1609,6 +1620,7 @@
     "inviteTeammate": "Invite a teammate",
     "openProfile": "Open my profile",
     "openNotifications": "Open notifications",
+    "openBookkeeping": "Open bookkeeping",
     "talkAssistant": "Talk to my assistant",
     "talkPrefill": "Help me with today's work. What needs attention?"
   },
@@ -1638,9 +1650,16 @@
     "workspaces": "Workspaces",
     "resumeSetup": "Resume setup guide",
     "setup": "Setup",
+    "language": "Language",
+    "languageNl": "Nederlands",
+    "languageEn": "English",
     "emailMessages": "Email & messages",
     "inboxAi": "Inbox AI",
     "signOut": "Sign out"
+  },
+  "theme": {
+    "dark": "Dark",
+    "light": "Light"
   },
   "rail": {
     "home": "Cockpit",
@@ -2201,7 +2220,7 @@
         "back": "Back",
         "oauthHint": "You will be redirected to the provider to sign in securely, then return to Bokito.",
         "oauthStepSignIn": "Sign in to {{name}} and grant access.",
-        "oauthStepReturn": "You will return to the Marketplace.",
+        "oauthStepReturn": "You will return here after you grant access.",
         "oauthContinue": "Continue to sign in",
         "oauthContinuing": "Redirecting…",
         "oauthLoginRequired": "Sign in to Bokito first to continue.",
@@ -2220,6 +2239,7 @@
       "offerCount_one": "{{count}} connection type",
       "manage": "Manage",
       "hubSubtitle": "Choose how you want to connect ({{count}} options).",
+      "hubSubtitle_one": "Connect this package.",
       "connectionTypes": "Connection types",
       "connectedShort": "Connected"
     },
@@ -2318,23 +2338,90 @@
       "setupSteps": "Setup",
       "connectors": "Packages",
       "backToMarketplace": "Back to Marketplace",
+      "backToModules": "Back to Modules",
       "connectedBadge": "Connected",
+      "onBadge": "On",
+      "offBadge": "Off",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "switchOn": "On",
+      "switchOff": "Off",
+      "toggleHint": "Turning a module off hides it from agents. Connected packages stay in place.",
+      "enableToUseHint": "Turn this module on so agents can use it. Connecting a package also turns it on.",
+      "toggleError": "Could not update this module.",
+      "turnOffTitle": "Turn {{name}} off?",
+      "turnOffConfirm": "Agents stop using it. Connected packages stay in place.",
+      "turnedOn": "{{name}} is on.",
+      "turnedOff": "{{name}} is off.",
+      "nextConnect": "{{name}} is on. Connect a package so agents can use it.",
+      "connectCta": "Connect a package",
+      "connectPackage": "Connect {{name}}",
+      "laterTitle": "Coming later",
+      "readyCount": "{{on}} of {{total}} ready modules are on",
+      "readyCount_one": "{{on}} of {{total}} ready module is on",
+      "pageIntro": "Turn a business module on so agents can use it. Then connect the package you already use.",
+      "manageCta": "Manage {{name}}",
+      "openSetup": "Open {{name}}",
+      "browseMarketplace": "Browse packages on Marketplace",
+      "helpLink": "How modules work",
+      "plannedEmpty": "Connectors for this module are not listed yet.",
       "notFound": "This module is not in the catalog.",
+      "verbs": {
+        "administrations": "Administrations",
+        "contacts": "Contacts",
+        "invoices_and_bills": "Invoices and bills",
+        "chart_of_accounts": "Chart of accounts",
+        "ledger": "Ledger",
+        "outstanding_balances": "Outstanding balances",
+        "bank_mutations": "Bank mutations",
+        "summary": "Summary",
+        "accounts": "Accounts",
+        "balances": "Balances",
+        "transactions": "Transactions",
+        "positions": "Positions",
+        "quotes": "Quotes",
+        "watchlists": "Watchlists",
+        "search_files": "Search files",
+        "list_files": "List files",
+        "read_content": "Read content"
+      },
       "accounting": {
         "name": "Accounting",
-        "description": "One accounting contract for agents: companies, parties, invoices, ledger, and outstanding balances across every connected package."
+        "description": "One accounting contract for agents: companies, parties, invoices, ledger, and outstanding balances across every connected package.",
+        "capability": "Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances. Writes always become a decision you approve.",
+        "setup": [
+          "Turn Accounting on under Settings > Modules.",
+          "Choose a package (KING, Bjorn Lunden, or Moneybird).",
+          "Connect with OAuth or an API key.",
+          "If more than one administration appears, pick which one agents should use."
+        ]
       },
       "banking": {
         "name": "Banking",
-        "description": "PSD2 / open-banking reads (accounts, balances, transactions); payments only as a proposal that a human approves."
+        "description": "Read bank accounts, balances, and transactions. Payments stay a proposal you approve.",
+        "capability": "Later: read accounts, balances, and transactions. Payments stay a human-approved proposal.",
+        "setup": [
+          "This module is prepared but not connectable yet.",
+          "When a bank connector ships, you will pick it here and approve payments as decisions."
+        ]
       },
       "investing": {
         "name": "Investing",
-        "description": "Market data, positions, and watchlists; TradingView alerts land as Signals. Orders only as a proposal that a human approves."
+        "description": "Market data, positions, and watchlists. Trade orders stay a proposal you approve.",
+        "capability": "Later: positions, quotes, and watchlists. Orders stay a human-approved proposal.",
+        "setup": [
+          "This module is prepared but not connectable yet.",
+          "When a broker or market-data connector ships, orders will land as decisions."
+        ]
       },
       "documents": {
         "name": "Documents",
-        "description": "Bridge to external document storage. Read content flows into workspace knowledge; uploads only as a proposal."
+        "description": "Read files from Drive, SharePoint, or Dropbox into Knowledge. Uploads stay a proposal you approve.",
+        "capability": "Later: search and read external files into Knowledge. Uploads stay a human-approved proposal.",
+        "setup": [
+          "This module is prepared but not connectable yet.",
+          "When a storage connector ships, reads feed Knowledge and uploads stay decisions."
+        ]
       }
     },
     "marketplace": {
@@ -2378,7 +2465,8 @@
       },
       "marketplace": {
         "title": "Marketplace",
-        "description": "Discover and connect email, repositories, and tools your agents can use."
+        "description": "Discover and connect email, repositories, and tools your agents can use.",
+        "modulesHint": "Business modules are turned on under Settings > Modules. Packages below show which connectors belong to each module."
       },
       "connections": {
         "title": "Connected",
@@ -2632,7 +2720,7 @@
       "modelCostHigh": "High cost",
       "routingTitle": "Who handles what",
       "routingBody": "A mailbox, channel or project can have its own agent. Everything else goes to the lead agent. You can also @mention an agent in a conversation.",
-      "routingAsk": "Ask the assistant to set routing",
+      "routingAsk": "Ask the assistant who should handle mail",
       "routingAskPrefill": "Explain who handles which conversations, and help me set the lead agent and mailbox routes.",
       "loading": "Loading agents…",
       "loadError": "Could not load agents.",
@@ -2756,7 +2844,7 @@
       "autonomyAuto": "Auto — act independently",
       "autonomyDefault": "Workspace default",
       "allowedTools": "Allowed tools",
-      "allToolsByPolicy": "All tools, gated by workspace allowances.",
+      "allToolsByPolicy": "This agent can use every tool the workspace allows.",
       "permissionScopes": "What this agent may do",
       "modelCost": "in ${{input}} / million tokens · out ${{output}} / million tokens",
       "wake": "Wake",
@@ -3395,6 +3483,7 @@
       "members": "Members",
       "membersTeams": "Members and teams",
       "integrations": "Integrations",
+      "modules": "Modules",
       "govern": "Govern",
       "developers": "Developers",
       "models": "Providers & models",
@@ -3418,6 +3507,7 @@
       "inboxAi": "How agents reply to customers",
       "helpCenters": "Public help articles",
       "integrations": "Connect other tools",
+      "modules": "Turn business modules on or off — accounting, invoices, VAT",
       "marketplace": "Browse marketplace apps and tools your agents can use",
       "connectedTools": "Tools connected for agents",
       "govern": "Approvals and how much agents may do",

@@ -25,6 +25,8 @@ import {
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { translateDecisionText } from '../../lib/activity-labels'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { suggestedBillingTag, threadLooksFinancial } from '../../lib/thread-intent'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import {
   isInternalThread,
@@ -123,6 +125,8 @@ type Props = {
   onTogglePin?: () => void | Promise<void>
   /** Human takeover toggle for AI-handled channels (email/widget/chat/assistant). */
   onToggleTakeover?: () => void | Promise<void>
+  /** Workspace has at least one mailbox that can send (Bokito / Gmail / Outlook). */
+  canSendEmail?: boolean
   onDelete?: () => void | Promise<void>
   deleting?: boolean
   /** Mobile stacked navigation: return to the thread list (hidden on md+). */
@@ -150,10 +154,12 @@ const HEADER_ICON =
 function DraftWithAiButton({
   drafting,
   disabled,
+  disabledReason,
   onDraft,
 }: {
   drafting: boolean
   disabled: boolean
+  disabledReason?: string
   onDraft: (instruction: string) => void
 }) {
   const { t } = useTranslation('communication')
@@ -184,6 +190,7 @@ function DraftWithAiButton({
         size="sm"
         variant="secondary"
         disabled={drafting || disabled}
+        title={disabled && disabledReason ? disabledReason : undefined}
         onClick={() => setOpen((v) => !v)}
         className="gap-1.5 border-ai/25 bg-ai/10 text-ai-ink shadow-[var(--shadow-btn)] hover:bg-ai/15"
       >
@@ -301,8 +308,20 @@ function AgentSessionLauncher({
             onSelect={() => void start(target.id)}
           >
             <Bot size={12} className="text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">{target.name}</span>
-            {target.is_default ? <span className="text-accent">•</span> : null}
+            <span className="min-w-0 flex-1 truncate">
+              {target.kind === 'personal'
+                ? t('newConversation.myAssistant')
+                : target.name}
+            </span>
+            {target.kind === 'personal' ? (
+              <span className="shrink-0 text-[10px] text-text-muted">
+                {t('agentSession.personalHint', { defaultValue: 'Personal' })}
+              </span>
+            ) : (
+              <span className="shrink-0 text-[10px] text-text-muted">
+                {t('newChat.companyAgent', { defaultValue: 'Company agent' })}
+              </span>
+            )}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -326,12 +345,14 @@ function ThreadMetaRow({
   saving,
   onPatch,
   triage,
+  suggestBilling,
 }: {
   tags: string[]
   priority: string
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
   triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
+  suggestBilling?: boolean
 }) {
   const { t } = useTranslation('communication')
   const [addingTag, setAddingTag] = useState(false)
@@ -349,6 +370,8 @@ function ThreadMetaRow({
     if (!value || tags.includes(value)) return
     void onPatch({ tags: [...tags, value] })
   }
+
+  const billingTag = suggestBilling ? suggestedBillingTag(tags) : null
 
   const removeTag = (tag: string) => {
     void onPatch({ tags: tags.filter((t) => t !== tag) })
@@ -412,6 +435,18 @@ function ThreadMetaRow({
       ) : null}
 
       <span className="mx-0.5 h-3 w-px bg-border/50" aria-hidden />
+
+      {billingTag ? (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void onPatch({ tags: [...tags, billingTag] })}
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-accent/40 px-2 py-0.5 text-[11px] text-accent transition-colors hover:bg-accent/10 disabled:opacity-40"
+        >
+          <Tag size={9} />
+          {t('tags.suggestBilling')}
+        </button>
+      ) : null}
 
       {tags.map((tag) => (
         <span
@@ -513,7 +548,7 @@ function groupByDay(
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, canSendEmail = false }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
@@ -819,13 +854,29 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return null
   }, [detail])
 
+  const lastInboundText = useMemo(() => {
+    if (!detail) return ''
+    for (let i = detail.messages.length - 1; i >= 0; i--) {
+      const message = detail.messages[i]
+      if (message.direction === 'inbound' && message.bodyText?.trim()) {
+        return message.bodyText.trim()
+      }
+    }
+    return ''
+  }, [detail])
+
+  const financialThread = threadLooksFinancial(
+    detail?.thread.emailSubject,
+    lastInboundText || detail?.thread.lastMessagePreview,
+  )
+
   // Email thread whose mailbox was removed: history stays readable, but
   // outbound replies are impossible and must not pretend to work.
   const mailboxDisconnected = Boolean(
     detail &&
       composerSurface?.channel === 'email' &&
       detail.thread.channel === 'email' &&
-      detail.thread.emailConnectionId == null,
+      !canSendEmail,
   )
 
   useEffect(() => {
@@ -876,7 +927,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         setDraftError(t('actions.draftEmpty'))
       }
     } catch (err) {
-      setDraftError(err instanceof Error ? err.message : t('actions.draftError'))
+      const raw = formatApiErrorMessage(err, '')
+      setDraftError(/no active agent/i.test(raw) ? t('actions.draftNoAgent') : raw || t('actions.draftError'))
     } finally {
       setDrafting(false)
     }
@@ -1165,6 +1217,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             </TooltipContent>
           </Tooltip>
         ) : null}
+        {financialThread ? (
+          <Link
+            to="/settings/modules/accounting"
+            className="shrink-0 rounded-full border border-border/60 px-2 py-0.5 text-[11px] font-medium text-accent hover:bg-accent/10"
+          >
+            {t('threadChrome.openBookkeeping')}
+          </Link>
+        ) : null}
         <div
           className="flex items-center shrink-0 rounded-lg border border-border/60 bg-bg-surface-hover/30 p-0.5"
           role="toolbar"
@@ -1394,6 +1454,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           priority={thread.priority}
           saving={saving}
           onPatch={onPatch}
+          suggestBilling={financialThread}
           triage={{
             category: thread.category,
             urgency: thread.urgency,
@@ -1565,10 +1626,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         ) : null}
         </div>
         </div>
-        {/* Fade overlay tegen de bovenzijde van het thread inhoud venster.
-            Full width, color from the theme (light/dark via --color-bg).
-            z-[5] zit onder de dagpil (z-20) en tijdpil (z-10), maar boven de
-            statische berichtinhoud, zodat berichten vervagen naar boven toe. */}
+        {/* Fade at the top of the timeline so messages recede under the day pill. */}
         <div
           aria-hidden
           className="pointer-events-none absolute top-0 left-0 right-0 h-10 z-[5] bg-gradient-to-b from-bg via-bg/85 to-transparent"
@@ -1581,18 +1639,30 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onReply={handleReply}
           onNote={handleNote}
           saving={saving}
-          disabled={thread.status === 'closed' || thread.status === 'spam'}
+          lastInboundText={lastInboundText}
           replyDisabledNotice={
             mailboxDisconnected ? (
               <span className="flex flex-wrap items-center gap-1.5">
                 <AlertCircle size={13} className="shrink-0 text-status-warning" />
                 {t('composer.mailboxDisconnected')}
-                <a
-                  href="/settings/channels"
+                <Link
+                  to="/settings/channels"
                   className="font-medium text-accent hover:underline"
                 >
                   {t('composer.reconnectMailbox')}
-                </a>
+                </Link>
+              </span>
+            ) : thread.status === 'closed' || thread.status === 'spam' ? (
+              <span className="flex flex-wrap items-center gap-1.5">
+                <AlertCircle size={13} className="shrink-0 text-status-warning" />
+                {thread.status === 'spam' ? t('composer.spamBlocked') : t('shortcuts.replyBlocked')}
+                <button
+                  type="button"
+                  className="font-medium text-accent hover:underline"
+                  onClick={() => void onPatch({ status: 'open' })}
+                >
+                  {t('threadChrome.reopen')}
+                </button>
               </span>
             ) : undefined
           }
@@ -1610,7 +1680,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             ) : !isInternalThread(thread) ? (
               <div className="flex items-center gap-2">
                 {draftError ? (
-                  <span className="text-[11px] text-status-error">{draftError}</span>
+                  <span className="text-[11px] text-status-error">
+                    {draftError}{' '}
+                    {/agent/i.test(draftError) ? (
+                      <Link to="/agents" className="font-medium text-accent hover:underline">
+                        {t('actions.openAgents')}
+                      </Link>
+                    ) : null}
+                  </span>
                 ) : null}
                 {!hasActiveSession ? (
                   <AgentSessionLauncher
@@ -1629,6 +1706,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     thread.status === 'closed' ||
                     thread.status === 'spam' ||
                     mailboxDisconnected
+                  }
+                  disabledReason={
+                    mailboxDisconnected
+                      ? t('composer.draftNeedsMailbox')
+                      : thread.status === 'closed' || thread.status === 'spam'
+                        ? t('composer.draftUnavailable')
+                        : undefined
                   }
                   onDraft={(instruction) => void handleDraftWithAi(instruction)}
                 />

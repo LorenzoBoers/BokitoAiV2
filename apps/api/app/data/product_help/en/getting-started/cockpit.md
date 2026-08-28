@@ -17,7 +17,7 @@ Cockpit is the morning scan. Open it to see open work, waiting decisions and wha
 *Overview shows open work, decisions and recent runs.*
 
 1. Open **Cockpit**. You land on **Overview**. The subtitle greets you and shows today's date. **Updated** next to **Refresh** is the last successful load.
-2. Read the built-in cards: **Conversations 7d**, **Awaiting decision**, **Handled without you**, **How much agents can do**, **Needs attention**, **Today on the agenda**, **Recent events** and **Recent contacts**. Each number has a short hint. Empty time-saved and handled-without-you cards explain when numbers appear. If the hourly scan is off, Overview says **Hourly inbox scan is off**.
+2. Read the built-in cards: **Conversations 7d**, **Awaiting decision**, **Handled without you**, **Agent freedom**, **Needs attention**, **Today on the agenda**, **Recent events** and **Recent contacts**. **Agent freedom** shows **You decide**, **Ask first** or **Act first**. Each number has a short hint. Empty time-saved, handled-without-you and AI-usage cards explain when numbers appear. If the hourly scan is off, Overview says **Hourly inbox scan is off**.
 3. Click a card to open Communication, [Agent runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) or [Contacts](/docs/inbox/contacts). On **Needs attention**, choose **Open first** to jump to the oldest waiting thread.
 
 On a new workspace, Overview may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).

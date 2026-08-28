@@ -45,6 +45,10 @@ class ApiKeyConnectionCreate(BaseModel):
     display_name: str | None = None
 
 
+class ModuleEnableBody(BaseModel):
+    enabled: bool
+
+
 class McpInstallBody(BaseModel):
     provider: str = "custom_mcp"
     api_key: str = ""
@@ -65,6 +69,31 @@ async def get_providers(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     return await list_providers(session, auth.tenant.id)
+
+
+@router.patch("/modules/{slug}")
+async def patch_module(
+    slug: str,
+    body: ModuleEnableBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Turn a business module on or off for this workspace."""
+    from app.modules.catalog import get_module, set_module_enabled
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    try:
+        row = await set_module_enabled(
+            session,
+            auth.tenant.id,
+            slug,
+            body.enabled,
+            actor_id=auth.user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"module": row}
 
 
 @router.get("/modules/accounting/companies")

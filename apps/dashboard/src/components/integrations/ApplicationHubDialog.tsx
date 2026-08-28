@@ -54,13 +54,14 @@ export function ApplicationHubDialog({
 
   useEffect(() => {
     if (!open || !application) return
-    setStep(initialStep)
-    if (initialOfferId) {
-      const offer = application.offers.find((o) => o.integration.id === initialOfferId)
-      setActiveOffer(offer ?? null)
-    } else {
-      setActiveOffer(null)
-    }
+    const fromId = initialOfferId
+      ? application.offers.find((o) => o.integration.id === initialOfferId) ?? null
+      : null
+    const onlyOffer = application.offers.length === 1 ? application.offers[0] : null
+    const offer = fromId ?? onlyOffer
+    const skipChooser = !fromId && onlyOffer && initialStep === 'app'
+    setActiveOffer(offer)
+    setStep(skipChooser ? 'offer-detail' : initialStep)
   }, [open, application, initialStep, initialOfferId])
 
   if (!application) return null

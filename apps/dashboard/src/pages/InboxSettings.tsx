@@ -1011,7 +1011,7 @@ export default function InboxSettings() {
                         </div>
                         {folder.lastSyncAt ? (
                           <span className="text-xs text-text-muted shrink-0 ml-2">
-                            {new Date(folder.lastSyncAt).toLocaleDateString()}
+                            {formatLastSync(folder.lastSyncAt, t('channelsPage.neverSynced'), i18n.language)}
                           </span>
                         ) : null}
                       </label>

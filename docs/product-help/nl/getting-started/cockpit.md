@@ -17,7 +17,7 @@ Cockpit is de ochtendscan. Open die om open werk, wachtende beslissingen en wat 
 *Overzicht toont open werk, beslissingen en recente runs.*
 
 1. Open **Cockpit**. Je landt op **Overzicht**. De ondertitel begroet je en toont de datum van vandaag. **Bijgewerkt** naast **Vernieuwen** is de laatste geslaagde load.
-2. Lees de ingebouwde kaarten: **Gesprekken 7d**, **Wacht op beslissing**, **Afgehandeld zonder jou**, **Hoeveel agents mogen doen**, **Vraagt aandacht**, **Vandaag op de agenda**, **Recente events** en **Recente contacten**. Elk cijfer heeft een korte hint. Lege tijd-bespaard- en afgehandeld-zonder-jou-kaarten leggen uit wanneer cijfers verschijnen. Als de uurlijkse scan uitstaat, zegt Overview **Uurlijkse inboxscan staat uit**.
+2. Lees de ingebouwde kaarten: **Gesprekken 7d**, **Wacht op beslissing**, **Afgehandeld zonder jou**, **Vrijheid van agents**, **Vraagt aandacht**, **Vandaag op de agenda**, **Recente gebeurtenissen** en **Recente contacten**. **Vrijheid van agents** toont **Jij beslist**, **Vraagt eerst** of **Doet het zelf**. Elk cijfer heeft een korte hint. Lege tijd-bespaard-, afgehandeld-zonder-jou- en AI-verbruikkaarten leggen uit wanneer cijfers verschijnen. Als de uurlijkse scan uitstaat, zegt Overzicht **Uurlijkse inboxscan staat uit**.
 3. Klik een kaart om Communicatie, [Agent-runs](/docs/inbox/agent-runs), [Agenda](/docs/ai/agenda) of [Contacten](/docs/inbox/contacts) te openen. Bij **Vraagt aandacht** kies je **Open de eerste** om naar het oudste wachtende gesprek te springen.
 
 In een nieuwe workspace kan Overzicht nog setupvoortgang tonen. Rond die af via de [setupgids](/docs/getting-started/setup-guide).
@@ -53,4 +53,4 @@ Autonome runs groeperen onder Agents / systeem. Chats die jij start, worden aan 
 
 ## Wat nu
 
-Klantmail staat in [Communicatie](/docs/inbox/communication). Terugkerende wakes staan op de [Agenda](/docs/ai/agenda).
+Klantmail staat in [Communicatie](/docs/inbox/communication). Terugkerende check-ins staan op de [Agenda](/docs/ai/agenda).

@@ -18,6 +18,7 @@ import {
 import {
   connectionCountForProvider,
   listIntegrationProviders,
+  patchIntegrationModule,
   type IntegrationModuleRow,
   type IntegrationProviderRow,
   type ProvidersListResponse,
@@ -167,10 +168,21 @@ export function useIntegrationCatalog() {
     void refreshCatalog()
   }, [refreshCatalog])
 
+  const setModuleEnabled = useCallback(
+    async (slug: string, enabled: boolean) => {
+      const row = await patchIntegrationModule(slug, enabled)
+      setModules((current) => current.map((module) => (module.slug === slug ? { ...module, ...row } : module)))
+      await refreshCatalog()
+      return row
+    },
+    [refreshCatalog],
+  )
+
   return {
     applications,
     modules,
     loadError,
     refreshCatalog,
+    setModuleEnabled,
   }
 }

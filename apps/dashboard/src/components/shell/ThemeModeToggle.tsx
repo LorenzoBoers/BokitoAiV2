@@ -1,16 +1,18 @@
 import { Moon, Sun } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useTheme } from '../../context/ThemeContext'
 
 export default function ThemeModeToggle({ compact = false }: { compact?: boolean }) {
   const { isDark, toggleMode } = useTheme()
+  const { t } = useTranslation('nav')
 
   if (compact) {
     return (
       <button
         type="button"
         onClick={toggleMode}
-        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={isDark ? t('palette.switchToLight') : t('palette.switchToDark')}
+        aria-label={isDark ? t('palette.switchToLight') : t('palette.switchToDark')}
         className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-[color,background-color,transform] duration-200 hover:bg-bg-hover/60 hover:text-text-primary active:scale-95"
       >
         {isDark ? <Moon size={14} /> : <Sun size={14} />}
@@ -35,7 +37,7 @@ export default function ThemeModeToggle({ compact = false }: { compact?: boolean
         aria-pressed={isDark}
       >
         <Moon size={11} />
-        Dark
+        {t('theme.dark', { defaultValue: 'Dark' })}
       </button>
       <button
         type="button"
@@ -46,7 +48,7 @@ export default function ThemeModeToggle({ compact = false }: { compact?: boolean
         aria-pressed={!isDark}
       >
         <Sun size={11} />
-        Light
+        {t('theme.light', { defaultValue: 'Light' })}
       </button>
     </div>
   )

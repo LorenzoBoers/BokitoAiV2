@@ -254,10 +254,12 @@ integrations:
   routes:
     - /settings/integrations
     - /settings/marketplace
+    - /settings/modules
     - /settings/modules/:slug
   code_globs:
     - apps/dashboard/src/pages/IntegrationsConnected.tsx
     - apps/dashboard/src/pages/IntegrationsMarketplace.tsx
+    - apps/dashboard/src/pages/ModulesPage.tsx
     - apps/dashboard/src/pages/ModuleSetupPage.tsx
     - apps/dashboard/src/components/integrations/**
     - apps/dashboard/src/components/shell/IntegrationsTabs.tsx

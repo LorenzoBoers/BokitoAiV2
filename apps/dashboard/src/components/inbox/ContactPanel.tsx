@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Building2, Check, Loader2, Mail, Phone, ShieldBan, UserRound } from 'lucide-react'
+import { BookOpen, Building2, Check, Loader2, Mail, Phone, ShieldBan, UserRound } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { DomainFavicon } from '../ui/DomainFavicon'
@@ -19,6 +19,8 @@ import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/cont
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
+import { threadLooksFinancial } from '../../lib/thread-intent'
+import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { threadStatusLabel } from '../../lib/status-labels'
 
 type Props = {
@@ -27,6 +29,8 @@ type Props = {
   fallbackName?: string
   fallbackEmail?: string
   currentThreadId?: ThreadId | null
+  threadSubject?: string | null
+  threadPreview?: string | null
 }
 
 function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -50,9 +54,18 @@ function FieldRow({ icon: Icon, value }: { icon: typeof Mail; value?: string | n
   )
 }
 
-export default function ContactPanel({ contactId, fallbackName, fallbackEmail, currentThreadId }: Props) {
+export default function ContactPanel({
+  contactId,
+  fallbackName,
+  fallbackEmail,
+  currentThreadId,
+  threadSubject,
+  threadPreview,
+}: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
+  const { activeConnections } = useMailboxConnections()
+  const canSendEmail = activeConnections.length > 0
   const [contact, setContact] = useState<ContactRow | null>(null)
   const [threads, setThreads] = useState<InboxThread[]>([])
   const [loading, setLoading] = useState(true)
@@ -161,7 +174,7 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
                 {t('contactPanel.addContact')}
               </Link>
             ) : null}
-            {readableEmail && canComposeToAddress('email', readableEmail) ? (
+            {readableEmail && canSendEmail && canComposeToAddress('email', readableEmail) ? (
               <Link
                 to={composeEmailPath({ to: readableEmail })}
                 className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60"
@@ -219,7 +232,15 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
             }
           />
           <FieldRow icon={Phone} value={contact.phone} />
-          <FieldRow icon={Building2} value={contact.company} />
+          {contact.company ? (
+            <Link
+              to={`/contacts?q=${encodeURIComponent(contact.company)}`}
+              className="flex items-center gap-2 text-[12.5px] text-text-primary hover:text-accent"
+            >
+              <Building2 size={13} className="shrink-0 text-text-muted" />
+              <span className="min-w-0 truncate">{contact.company}</span>
+            </Link>
+          ) : null}
         </div>
         {contact.lastSeenAt || latestThreadActivityAt(threads) ? (
           <p className="mt-2 text-[11px] text-text-muted">
@@ -227,6 +248,9 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
               time: timeAgo(contact.lastSeenAt || latestThreadActivityAt(threads), t),
             })}
           </p>
+        ) : null}
+        {isPlaceholderContactAddress(contact.address) ? (
+          <p className="mt-2 text-[11px] text-text-muted">{t('contactPanel.askForEmail')}</p>
         ) : null}
         <div className="mt-3 flex gap-1.5">
           {contact.status !== 'blocked' ? (
@@ -245,9 +269,14 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
               {t('contactPanel.block')}
             </button>
           ) : null}
-          {canComposeToAddress(contact.channel, contact.address) ? (
+          {canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
             <Link
-              to={composeEmailPath({ to: contact.address })}
+              to={composeEmailPath({
+                to: contact.address,
+                subject: threadSubject?.trim()
+                  ? /^re:/i.test(threadSubject) ? threadSubject : `Re: ${threadSubject}`
+                  : undefined,
+              })}
               className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <Mail size={11} />
@@ -262,6 +291,19 @@ export default function ContactPanel({ contactId, fallbackName, fallbackEmail, c
           </Link>
         </div>
       </div>
+
+      {threadLooksFinancial(threadSubject, threadPreview) ? (
+        <div className="border-b border-border/40 px-4 py-3">
+          <Link
+            to="/settings/modules/accounting"
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
+          >
+            <BookOpen size={12} />
+            {t('contactPanel.openBookkeeping')}
+          </Link>
+          <p className="mt-1 text-[11px] text-text-muted">{t('contactPanel.openBookkeepingHint')}</p>
+        </div>
+      ) : null}
 
       {/* Notes */}
       <div className="border-b border-border/40 px-4 py-3">

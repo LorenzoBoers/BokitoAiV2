@@ -1,4 +1,4 @@
-import { Check, Copy, Loader2, Mail, MessageSquareWarning, Pencil, Phone, StickyNote, Text, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Loader2, Mail, MessageSquareWarning, Pencil, Phone, StickyNote, Text, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { translateMockAgentBody } from '../../lib/activity-labels'
@@ -1122,7 +1122,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   )
 
   const inspectRow =
-    typeof message.id === 'string' || (displayBody && !sendFailed) ? (
+    displayBody && !sendFailed ? (
       <div
         className={cn(
           'mt-0.5 flex gap-0.5 opacity-0 pointer-events-none transition-opacity',
@@ -1131,22 +1131,6 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
           side === 'right' ? 'justify-end' : 'justify-start',
         )}
       >
-        {typeof message.id === 'string' ? (
-          <button
-            type="button"
-            aria-label={t('timeline.copyId')}
-            title={t('timeline.copyId')}
-            onClick={() => {
-              void navigator.clipboard.writeText(String(message.id)).then(
-                () => toast.success(t('timeline.idCopied')),
-                () => toast.error(t('timeline.copyFailed')),
-              )
-            }}
-            className="flex h-5 w-5 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-accent"
-          >
-            <Copy size={11} />
-          </button>
-        ) : null}
         {displayBody && !sendFailed ? (
           <button
             type="button"

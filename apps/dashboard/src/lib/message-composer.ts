@@ -95,7 +95,9 @@ function mapSignalChannel(thread: InboxThread): ComposerChannel {
   if (raw === 'internal') return 'internal'
   if (raw === 'slack') return 'slack'
   if (raw === 'whatsapp') return 'whatsapp'
-  if (raw === 'widget' || raw === 'chat') return 'chat'
+  if (raw === 'widget' || raw === 'chat' || raw === 'webchat' || raw === 'livechat' || raw === 'website') {
+    return 'chat'
+  }
   if (isInternalThread(thread)) return 'internal'
   if (thread.contactEmail?.trim()) return 'email'
   return 'chat'

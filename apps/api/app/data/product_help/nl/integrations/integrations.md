@@ -9,7 +9,7 @@ related: mcp,models,channels,govern
 
 # Integraties koppelen
 
-Integraties zijn de tools die agents mogen aanroepen. Open **Instellingen** en daarna **Integraties**. De pagina heeft drie tabs: **Verbonden**, **Marketplace** en **Gekoppelde tools**.
+Integraties zijn de tools die agents mogen aanroepen. Open **Instellingen** en daarna **Modules** om een bedrijfsfunctie aan te zetten, of **Integraties** voor pakketten. Integraties heeft drie tabs: **Verbonden**, **Marketplace** en **Gekoppelde tools**.
 
 ## Zie wat gekoppeld is
 
@@ -22,7 +22,7 @@ Integraties zijn de tools die agents mogen aanroepen. Open **Instellingen** en d
 ![Integraties-marketplace](/api/docs/assets/integrations/marketplace.png)
 *Marketplace is waar je een nieuwe app installeert.*
 
-1. Open **Marketplace**. Filter op soort, **Alle statussen** / **Verbonden** / **Beschikbaar**, of zoek. Die filters blijven in de URL zodat je ze kunt delen.
+1. Open **Marketplace**. Hij opent op **Beschikbaar** (klaar om te koppelen), zodat coming-soon-kaarten niet in de weg zitten. Filter op soort, **Alle statussen** / **Verbonden** / **Beschikbaar**, of zoek. Die filters blijven in de URL zodat je ze kunt delen.
 2. Kies een app en rond OAuth of de providersetup af. Je keert hier terug na de accountprompt.
 3. Communicatie-apps voegen wachtrijen toe (e-mail, Slack, WhatsApp). Repository-apps hangen aan een [project](/docs/ai/projects). Tool-apps landen op **Gekoppelde tools**. Zie [MCP](/docs/integrations/mcp).
 
@@ -30,21 +30,30 @@ WhatsApp zelf configureer je op **E-mail en berichten**, niet alleen hier. De ma
 
 ## Koppel een boekhoudpakket
 
-1. Open **Marketplace** en vind bovenaan de sectie **Boekhouding**. Die groepeert KING Accountancy, Bjorn Lunden en Moneybird; **Exact Online** en **SnelStart** staan als **Binnenkort**.
+1. Open **Marketplace** en vind bovenaan de sectie **Boekhouding**. Die groepeert KING Accountancy, Bjorn Lunden en Moneybird. **Exact Online** en **SnelStart** staan als geplande koppelingen onder die sectie.
 2. Kies een pakket en rond de setup af (OAuth voor Moneybird, een API-sleutel voor KING en Bjorn Lunden). Je kunt meerdere pakketten in dezelfde workspace koppelen.
 3. Agents gebruiken daarna één gedeelde set boekhoudacties — administraties, relaties, facturen, grootboek, openstaande posten — welk pakket er ook achter zit. Wijzigingen die agents willen doen komen altijd als [beslissing](/docs/ai/decisions) binnen die jij eerst goedkeurt.
 4. Op **Verbonden** toont de lijst **Tools voor agents** een groep **Boekhouding** met je administraties. Bij één administratie kiezen agents die automatisch; bij meer zie je ze op een rij.
 
 De secties **Bankieren**, **Beleggen** en **Documenten** in de marketplace zijn modules die klaargezet zijn maar nog niet koppelbaar; hun kaarten tonen de geplande koppelingen.
 
+## Zet een module aan
+
+Een module is een schakelaar voor de workspace. Agents zien die functie pas nadat je hem aanzet. Pakketten blijven zichtbaar zodat je ziet welke koppelingen bij de module horen.
+
+1. Open **Instellingen** en daarna **Modules**.
+2. Zoek **Boekhouding** (of een andere live module) en zet de schakelaar op **Aan**. Het badge verandert van **Uit** naar **Aan**.
+3. Agents kunnen de module nu gebruiken. Een pakket koppelen zet de module later ook aan. **Uit** verbergt de module voor agents; gekoppelde pakketten blijven staan.
+4. Of keur **Aanzetten** goed op een keuzekaart van de bedrijfsassistent. Die landt op dezelfde Modules-pagina.
+
 ## Loop een module-setup
 
 Een module is de bedrijfsfunctie (boekhouden, later bankieren). Een pakket is de connector eronder (KING, Moneybird). Jij of de assistent starten dezelfde setup.
 
-1. Open **Marketplace** en kies een moduletitel of **Boekhouding inrichten**. Dat opent de modulepagina onder **Instellingen > Integraties > Module-setup**.
-2. Lees wat agents na het koppelen kunnen. Schrijven wordt altijd een [beslissing](/docs/ai/decisions) die jij goedkeurt.
-3. Kies een pakket en rond OAuth of de API-sleutel af in dezelfde hub als op Marketplace. `?connect=` opent nog steeds dat pakket.
-4. Of vraag de bedrijfsassistent om de workspace in te richten. Na Communicatie, als het werk facturen of btw raakt, kan die de module aanbevelen en **Nu koppelen** op een keuzekaart zetten die dezezelfde pagina opent.
+1. Open **Instellingen**, daarna **Modules**. Nadat je **Boekhouding** aanzet, kies **Pakket koppelen** of een pakketchip zoals Moneybird.
+2. De volgende-stapbanner vraagt je te koppelen. Pakketten staan eerst als de module al aan staat. Schrijven wordt altijd een [beslissing](/docs/ai/decisions) die jij goedkeurt.
+3. Rond OAuth of de API-sleutel af in dezelfde hub als op Marketplace. Een pakket koppelen zet de module ook aan.
+4. Of vraag de bedrijfsassistent om de workspace in te richten. Na Communicatie, als het werk facturen of btw raakt, kan die de module aanbevelen en **Aanzetten** of **Pakket koppelen** op een keuzekaart zetten die dezezelfde pagina opent.
 
 ## Zet wat agents mogen aanroepen
 

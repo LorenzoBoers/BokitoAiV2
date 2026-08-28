@@ -106,6 +106,8 @@ const KNOWN_SUBJECTS: Record<string, string> = {
   Heartbeat: 'decisionCard.knownSubjects.heartbeat',
   'Try your first decision': 'decisionCard.knownSubjects.tryFirstDecision',
   'Does this demo make sense?': 'decisionCard.knownSubjects.demoMakesSense',
+  'inbox routing rule': 'decisionCard.knownSubjects.inboxRoutingRule',
+  'Inbox routing rule': 'decisionCard.knownSubjects.inboxRoutingRule',
 }
 
 const KNOWN_SUMMARIES: Record<string, string> = {
@@ -125,10 +127,17 @@ export function translateDecisionText(text: string | null | undefined, t: TFunct
   if (!text) return ''
   const trimmed = text.trim()
   const assistMatch = trimmed.match(/^Assist:\s*(.+)$/i)
-  const body = assistMatch ? assistMatch[1].trim() : trimmed
+  const approvalMatch = trimmed.match(/^(?:Approval|Goedkeuring):\s*(.+)$/i)
+  const body = assistMatch ? assistMatch[1].trim() : approvalMatch ? approvalMatch[1].trim() : trimmed
   const mapped = translateKnownSubject(body, t)
   if (assistMatch) {
     return t('decisionCard.knownSubjects.assistPrefix', {
+      ns: 'communication',
+      subject: mapped ?? body,
+    })
+  }
+  if (approvalMatch) {
+    return t('decisionCard.knownSubjects.approvalPrefix', {
       ns: 'communication',
       subject: mapped ?? body,
     })

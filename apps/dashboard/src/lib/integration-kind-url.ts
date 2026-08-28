@@ -30,8 +30,8 @@ export function connectedPathWithKind(kind: IntegrationKindFilter): string {
 export type MarketplaceStatusFilter = 'all' | 'connected' | 'available'
 
 export function parseStatusFilter(value: string | null): MarketplaceStatusFilter {
-  if (value === 'connected' || value === 'available') return value
-  return 'all'
+  if (value === 'all' || value === 'connected') return value
+  return 'available'
 }
 
 const LAST_KIND_KEY = 'bokito.lastIntegrationKind'

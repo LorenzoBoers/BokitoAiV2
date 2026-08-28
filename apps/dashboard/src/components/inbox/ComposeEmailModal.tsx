@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Paperclip, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
-import { listEmailConnections, sendNewEmail, type EmailConnection } from '../../lib/email-api'
+import { isSendableMailbox, listEmailConnections, sendNewEmail, type EmailConnection } from '../../lib/email-api'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { uploadAttachment } from '../../lib/uploads-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -46,7 +47,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const enabledConnections = useMemo(
-    () => (connections ?? []).filter((c) => c.isEnabled && c.status === 'connected'),
+    () => (connections ?? []).filter(isSendableMailbox),
     [connections],
   )
 
@@ -89,7 +90,14 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
     }
   }
 
-  const canSend = to.trim().length > 0 && body.trim().length > 0 && !sending && !uploading
+  const noMailbox = connections !== null && enabledConnections.length === 0
+  const canSend =
+    to.trim().length > 0 &&
+    body.trim().length > 0 &&
+    !sending &&
+    !uploading &&
+    !noMailbox &&
+    connectionId != null
   const toInputRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
 
@@ -134,6 +142,19 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           </DialogTitle>
         </DialogHeader>
 
+        {noMailbox ? (
+          <div className="rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[13px] text-text-secondary">
+            <p>{t('compose.noMailbox')}</p>
+            <Link
+              to="/settings/channels"
+              onClick={onClose}
+              className="mt-1.5 inline-flex font-medium text-accent hover:underline"
+            >
+              {t('compose.connectMailbox')}
+            </Link>
+          </div>
+        ) : null}
+
         {enabledConnections.length > 0 ? (
           <label className="flex items-center gap-2 text-[12px] text-text-secondary" title={t('compose.fromHint')}>
             <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
@@ -172,7 +193,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
               ccBccOpen || cc || bcc ? 'text-accent' : 'text-text-muted hover:text-text-primary'
             }`}
           >
-            CC/BCC
+            {t('composer.ccBcc')}
           </button>
         </div>
 

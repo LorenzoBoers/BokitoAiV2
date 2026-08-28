@@ -12,6 +12,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import SignatureEditor from '../inbox/SignatureEditor'
 import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
+import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
 
 // ── inline editable field ────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ function EditableField({
             type="button"
             onClick={() => void save()}
             disabled={saving}
+            aria-label={t('personalInformation.saveField', { label })}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg hover:bg-accent/90 disabled:opacity-50"
           >
             <Check size={13} />
@@ -93,6 +95,7 @@ function EditableField({
           <button
             type="button"
             onClick={cancel}
+            aria-label={t('personalInformation.cancelEdit')}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 text-text-muted hover:text-text-primary"
           >
             <X size={13} />
@@ -107,6 +110,7 @@ function EditableField({
           <button
             type="button"
             onClick={startEdit}
+            aria-label={t('personalInformation.editField', { label })}
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-primary"
           >
             <Pencil size={12} />
@@ -452,6 +456,7 @@ export function ProfileSettingsContent() {
               disabled={avatarUploading}
               className="group relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full transition-opacity hover:opacity-80 disabled:cursor-wait"
               title={t('profile:personalInformation.uploadPhoto')}
+              aria-label={t('profile:personalInformation.uploadPhoto')}
             >
               <UserAvatar name={user?.name ?? '?'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={40} />
               <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
@@ -560,9 +565,15 @@ export function ProfileSettingsContent() {
             <button
               key={lang}
               type="button"
-              onClick={() => void i18n.changeLanguage(lang)}
+              onClick={() => {
+                applyUiLanguageLocally(i18n, lang)
+                if (!token) return
+                void persistUiLanguage(token, lang).catch(() => {
+                  toast.error(t('profile:language.saveError'))
+                })
+              }}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                i18n.language === lang
+                (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
                   ? 'border-accent bg-accent/10 text-accent'
                   : 'border-border/60 text-text-secondary hover:border-border hover:text-text-primary'
               }`}

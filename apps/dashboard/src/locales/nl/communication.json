@@ -5,7 +5,7 @@
   "noActiveMailboxTitle": "Koppel een kanaal",
   "noActiveMailboxDescription": "Elke workspace heeft een Bokito-adres onder Kanalen. Koppel dat, of voeg Gmail of Outlook toe, zodat klantmail hier landt.",
   "openEmailSettings": "Open kanalen",
-  "inboxSearchPlaceholder": "Zoek gesprekken  /",
+  "inboxSearchPlaceholder": "Zoek gesprekken, facturen, namen",
   "inboxSearchClear": "Zoekopdracht wissen",
   "inboxSearchSave": "Deze zoekopdracht bewaren",
   "inboxSearchForget": "Verwijderen",
@@ -24,8 +24,13 @@
     "resizeHint": "Sleep voor meer ruimte. Dubbelklik zet terug.",
     "expand": "Composer uitklappen",
     "collapse": "Composer inklappen",
-    "mailboxDisconnected": "De mailbox van dit gesprek is losgekoppeld; antwoorden kunnen niet worden verstuurd. Interne notities werken nog wel.",
-    "reconnectMailbox": "Mailbox opnieuw koppelen",
+    "mailboxDisconnected": "Dit gesprek heeft geen mailbox om vanaf te sturen. Koppel e-mail om te antwoorden. Notities werken nog wel.",
+    "reconnectMailbox": "Mailbox koppelen",
+    "draftNeedsMailbox": "Koppel een mailbox om een klantantwoord te laten opstellen.",
+    "draftUnavailable": "Opstellen kan niet bij een gesloten of spam-gesprek.",
+    "spamBlocked": "Dit gesprek staat op spam. Heropen het om te antwoorden. Notities werken nog wel.",
+    "quote": "Citeren",
+    "replyAll": "Allen beantwoorden",
     "noSavedReplies": "Nog geen opgeslagen antwoorden",
     "manageSavedReplies": "Opgeslagen antwoorden beheren",
     "loadSavedRepliesError": "Kon opgeslagen antwoorden niet laden.",
@@ -73,7 +78,8 @@
       "webhook": "Webhook",
       "integration": "Integratie",
       "internal": "Bericht",
-      "assistant": "Chat"
+      "assistant": "Chat",
+      "widget": "Websitechat"
     },
     "recipient": {
       "to": "Aan",
@@ -114,7 +120,9 @@
     "uploading": "Uploaden...",
     "uploadError": "Kon bijlage niet uploaden.",
     "sendError": "Kon e-mail niet versturen.",
-    "noSubject": "(Geen onderwerp)"
+    "noSubject": "(Geen onderwerp)",
+    "noMailbox": "Er is nog geen mailbox gekoppeld. Koppel e-mail voordat je verstuurt.",
+    "connectMailbox": "Koppel een mailbox"
   },
   "threadResolved": {
     "closed": "Gesprek gesloten",
@@ -158,10 +166,10 @@
     "allLoaded": "Alle {{total}} gesprekken geladen",
     "densityCompact": "Compacte lijst",
     "densityComfortable": "Ruime lijst",
-    "markAllRead": "Geladen als gelezen markeren",
+    "markAllRead": "Als gelezen markeren",
     "countsPartial": "Aantallen gelden alleen voor geladen gesprekken",
     "filterAssignee": "Filter op toegewezene",
-    "filterAssigneeAll": "Iedere toegewezene",
+    "filterAssigneeAll": "Iedereen",
     "filterPriority": "Filter op prioriteit",
     "filterPriorityAll": "Elke prioriteit",
     "filterChannel": "Filter op kanaal",
@@ -222,7 +230,9 @@
       "reject": "Afwijzen",
       "later": "Later",
       "approve": "Goedkeuren",
-      "defer": "Niet nu"
+      "defer": "Niet nu",
+      "turnOn": "Aanzetten",
+      "connectPackage": "Pakket koppelen"
     },
     "correctInterpretation": "Corrigeer",
     "feedbackGood": "Goed",
@@ -237,7 +247,9 @@
       "heartbeat": "Check-in",
       "tryFirstDecision": "Probeer je eerste beslissing",
       "demoMakesSense": "Is deze demo duidelijk?",
-      "assistPrefix": "Hulp: {{subject}}"
+      "assistPrefix": "Hulp: {{subject}}",
+      "approvalPrefix": "Goedkeuring: {{subject}}",
+      "inboxRoutingRule": "Inbox-doorstuurregel"
     },
     "knownSummaries": {
       "draftForReview": "Conceptantwoord klaar ter beoordeling."
@@ -340,6 +352,7 @@
   "agentSession": {
     "launcher": "Vraag over dit gesprek",
     "pickAgent": "Kies wie je vraagt",
+    "personalHint": "Persoonlijk",
     "title": "Agent-sessie",
     "internalHint": "Intern - niet zichtbaar voor de klant",
     "endSession": "Sessie afronden",
@@ -435,6 +448,8 @@
     "emailContact": "E-mail",
     "writeEmail": "Liever een e-mail schrijven",
     "emailACustomer": "E-mail een klant",
+    "connectMailbox": "Koppel een mailbox",
+    "connectMailboxHint": "Koppel eerst e-mail, daarna kun je naar mensen schrijven.",
     "emailAddressDirect": "E-mail {{address}}",
     "emailAddressDirectHint": "Start een nieuwe e-mail naar dit adres",
     "chatWithAssistant": "Chat met assistent",
@@ -479,6 +494,7 @@
     "snooze": "Uitstellen",
     "resumeNow": "Nu hervatten",
     "reopen": "Heropenen",
+    "openBookkeeping": "Boekhouding openen",
     "markSpam": "Markeer als spam",
     "notSpam": "Geen spam",
     "delete": "Verwijderen",
@@ -560,7 +576,7 @@
   "contactPanel": {
     "loading": "Contact laden...",
     "noContact": "Geen contact gekoppeld",
-    "noContactHint": "We konden dit gesprek nog niet koppelen aan een opgeslagen persoon. Open Contacten om ze toe te voegen, of stuur een e-mail.",
+    "noContactHint": "We konden dit gesprek nog niet koppelen aan een opgeslagen persoon. Open Contacten om ze toe te voegen.",
     "widgetVisitor": "Websitebezoeker",
     "unknown": "Onbekend contact",
     "lastSeen": "Laatst gezien {{time}}",
@@ -573,6 +589,9 @@
     "thisContact": "dit contact",
     "fullProfile": "Volledig profiel",
     "writeEmail": "E-mail schrijven",
+    "openBookkeeping": "Deze factuur opzoeken",
+    "openBookkeepingHint": "In Boekhouding controleer je het bedrag voordat je antwoordt.",
+    "askForEmail": "Vraag in de chat om hun e-mail, zodat je later kunt opvolgen.",
     "notes": "Notities",
     "notesPlaceholder": "Interne notities over dit contact...",
     "notesSaved": "Notities opgeslagen",
@@ -662,6 +681,7 @@
     "snoozed": "Wacht",
     "you": "Jij",
     "needsReply": "Jij aan zet",
+    "billing": "Factuur",
     "filterBy": "Filter op {{tag}}"
   },
   "snooze": {
@@ -776,6 +796,7 @@
   },
   "tags": {
     "addLabel": "Label toevoegen",
+    "suggestBilling": "Facturatie toevoegen",
     "placeholder": "Label…",
     "removeLabel": "Label {{tag}} verwijderen"
   },
@@ -803,7 +824,10 @@
     "unpinError": "Kon het gesprek niet losmaken.",
     "resumeError": "Kon Inbox AI niet hervatten.",
     "draftError": "Kon geen conceptantwoord maken.",
+    "draftNoAgent": "Er is geen agent om dit antwoord op te stellen.",
+    "openAgents": "Agents openen",
     "draftEmpty": "De AI gaf een leeg concept terug. Probeer opnieuw.",
+    "sentCheckBookkeeping": "Controleer het bedrag in Boekhouding voordat je iets belooft.",
     "correctionStartError": "Kon de correctiechat niet starten."
   },
   "signatureEditor": {
@@ -835,6 +859,7 @@
   "split": {
     "list": "Gesprekkenlijst verslepen",
     "context": "Zijpaneel verslepen",
+    "closeContext": "Contactpaneel sluiten",
     "nav": "Communicatiebalk verslepen",
     "resetHint": "Sleep om te verdelen. Dubbelklik of Enter zet terug."
   }

@@ -10,11 +10,12 @@ import {
 } from '../components/integrations/ApplicationHubDialog'
 import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
 import { PageContent } from '../components/layout/PageContent'
-import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
-import { plannedProviderLabel } from '../lib/integration-modules'
+import { ModulePowerSwitch } from '../components/integrations/ModulePowerSwitch'
+import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
+import { moduleIsOn, plannedProviderLabel, verbLabelKey } from '../lib/integration-modules'
 import {
   parseHubConnectParam,
   stripOAuthCallbackParams,
@@ -41,7 +42,8 @@ export default function ModuleSetupPage() {
   const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { applications, modules, loadError, refreshCatalog } = useIntegrationCatalog()
+  const { applications, modules, loadError, refreshCatalog, setModuleEnabled } =
+    useIntegrationCatalog()
 
   const [hubOpen, setHubOpen] = useState(false)
   const [hubApplication, setHubApplication] = useState<IntegrationApplication | null>(null)
@@ -60,13 +62,30 @@ export default function ModuleSetupPage() {
     ? t(`integrations.modules.${module.slug}.description`, { defaultValue: module.description })
     : ''
   const apps = useMemo(
-    () => applications.filter((app) => app.module === slug),
+    () =>
+      applications.filter((app) => app.module === slug && app.status !== 'coming_soon'),
+    [applications, slug],
+  )
+  const comingSoonApps = useMemo(
+    () => applications.filter((app) => app.module === slug && app.status === 'coming_soon'),
     [applications, slug],
   )
   const verbLabels = module?.verb_labels ?? []
-  const setupSteps = module?.setup_steps ?? []
+  const setupSteps = (module?.setup_steps ?? []).map((step, index) =>
+    t(`integrations.modules.${module?.slug}.setup.${index}`, { defaultValue: step }),
+  )
+  const capability = module
+    ? t(`integrations.modules.${module.slug}.capability`, {
+        defaultValue: module.capability_summary || '',
+      })
+    : ''
   const planned = module?.planned_provider_slugs ?? []
   const canConnect = module?.status === 'available'
+  const comingSoon = module?.status === 'coming_soon'
+  const on = module ? moduleIsOn(module) : false
+  const visibleSteps = on
+    ? setupSteps.filter((step) => !/^(turn |zet )/i.test(step))
+    : setupSteps
 
   const openApplicationHub = useCallback(
     (
@@ -141,9 +160,12 @@ export default function ModuleSetupPage() {
       if (!hadCallback && connectParam) {
         const target = resolveApplicationConnectTarget(applications, connectParam)
         if (target) {
+          const preferSetup = step === 'setup' || (module ? moduleIsOn(module) : false)
           openApplicationHub(
             target.app,
-            hubStepFromLegacy(step, target.offer),
+            preferSetup && target.offer
+              ? 'offer-setup'
+              : hubStepFromLegacy(step, target.offer),
             target.offer ?? null,
           )
         }
@@ -154,7 +176,7 @@ export default function ModuleSetupPage() {
       }
       setSearchParams(cleaned, { replace: true })
     }
-  }, [applications, applyCallbackBanner, openApplicationHub, setSearchParams])
+  }, [applications, applyCallbackBanner, module, openApplicationHub, setSearchParams])
 
   const handleViewConnected = (offer: IntegrationOffer) => {
     const kind = offer.kind ?? resolveIntegrationKind(offer.integration.id)
@@ -163,28 +185,48 @@ export default function ModuleSetupPage() {
 
   return (
     <PageContent width="lg">
-      <IntegrationsTabs />
       <div className="mb-6">
         <Link
-          to="/settings/marketplace"
+          to="/settings/modules"
           className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
         >
           <ArrowLeft size={12} />
-          {t('integrations.modules.backToMarketplace', { defaultValue: 'Back to Marketplace' })}
+          {t('integrations.modules.backToModules', { defaultValue: 'Back to Modules' })}
         </Link>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold text-text-heading">{name}</h2>
-          {module?.status === 'coming_soon' ? (
-            <span className="rounded-full border border-border-default px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">
-              {t('integrations.modules.comingSoon', { defaultValue: 'Coming soon' })}
-            </span>
-          ) : module?.tenant_status === 'connected' || module?.connected ? (
-            <span className="rounded-full border border-border-default px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">
-              {t('integrations.modules.connectedBadge', { defaultValue: 'Connected' })}
-            </span>
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-text-heading">{name}</h2>
+              {module ? <ModuleStatusBadge module={module} /> : null}
+            </div>
+            {description ? (
+              <p className="mt-1 max-w-2xl text-sm text-text-secondary">{description}</p>
+            ) : null}
+          </div>
+          {module && !comingSoon ? (
+            <ModulePowerSwitch module={module} onToggle={setModuleEnabled} />
           ) : null}
         </div>
-        {description ? <p className="mt-1 max-w-2xl text-sm text-text-secondary">{description}</p> : null}
+        {module && !comingSoon && on && !(module.tenant_status === 'connected' || module.connected) ? (
+          <p className="mt-3 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-sm text-text-primary">
+            {t('integrations.modules.nextConnect', {
+              defaultValue: '{{name}} is on. Connect a package so agents can use it.',
+              name,
+            })}
+          </p>
+        ) : module && !comingSoon ? (
+          <p className="mt-2 text-xs text-text-muted">
+            {on
+              ? t('integrations.modules.toggleHint', {
+                  defaultValue:
+                    'Turning a module off hides it from agents. Connected packages stay in place.',
+                })
+              : t('integrations.modules.enableToUseHint', {
+                  defaultValue:
+                    'Turn this module on so agents can use it. Connecting a package also turns it on.',
+                })}
+          </p>
+        ) : null}
         {loadError ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <p className="text-xs text-text-muted">{loadError}</p>
@@ -205,74 +247,88 @@ export default function ModuleSetupPage() {
         )
       ) : (
         <div className="space-y-8">
-          {module.capability_summary ? (
-            <p className="max-w-2xl text-sm text-text-secondary">{module.capability_summary}</p>
-          ) : null}
-
-          {verbLabels.length > 0 ? (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                {t('integrations.modules.verbsTitle', { defaultValue: 'What agents can do' })}
-              </h3>
-              <ul className="flex flex-wrap gap-1.5">
-                {verbLabels.map((label) => (
-                  <li
-                    key={label}
-                    className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-text-secondary"
-                  >
-                    {label}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-text-muted">
-                {t('integrations.modules.writesNote', {
-                  defaultValue: 'Writes always become a decision you approve.',
-                })}
-              </p>
-            </section>
-          ) : null}
-
-          <section>
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">
-              {t('integrations.modules.connectors', { defaultValue: 'Packages' })}
-            </h3>
-            {apps.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {apps.map((application) => (
-                  <ApplicationCard
-                    key={application.hostSlug}
-                    application={application}
-                    onOpenDetail={() => {
-                      if (canConnect) openApplicationHub(application, 'app')
-                    }}
-                  />
-                ))}
-              </div>
-            ) : null}
-            {planned.length > 0 ? (
-              <div className={`${apps.length > 0 ? 'mt-3' : ''} rounded-lg border border-dashed border-border-default p-4`}>
-                <p className="text-xs text-text-muted">
-                  {t('integrations.modules.planned', {
-                    defaultValue: 'Planned connectors: {{providers}}',
-                    providers: planned.map(plannedProviderLabel).join(', '),
+          {(() => {
+            const verbs = verbLabels.length > 0 ? (
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                  {t('integrations.modules.verbsTitle', { defaultValue: 'What agents can do' })}
+                </h3>
+                <ul className="flex flex-wrap gap-1.5">
+                  {verbLabels.map((label) => (
+                    <li
+                      key={label}
+                      className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-text-secondary"
+                    >
+                      {t(`integrations.modules.verbs.${verbLabelKey(label)}`, { defaultValue: label })}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-text-muted">
+                  {t('integrations.modules.writesNote', {
+                    defaultValue: 'Writes always become a decision you approve.',
                   })}
                 </p>
-              </div>
-            ) : null}
-          </section>
-
-          {setupSteps.length > 0 ? (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                {t('integrations.modules.setupSteps', { defaultValue: 'Setup' })}
-              </h3>
-              <ol className="list-decimal space-y-1.5 pl-5 text-sm text-text-secondary">
-                {setupSteps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
+              </section>
+            ) : null
+            const packages = (
+              <section>
+                <h3 className="mb-3 text-sm font-semibold text-text-primary">
+                  {t('integrations.modules.connectors', { defaultValue: 'Packages' })}
+                </h3>
+                {apps.length > 0 ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {apps.map((application) => (
+                      <ApplicationCard
+                        key={application.hostSlug}
+                        application={application}
+                        onOpenDetail={() => {
+                          if (!canConnect) return
+                          const offer = application.offers[0] ?? null
+                          openApplicationHub(application, on && offer ? 'offer-setup' : 'app', offer)
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                {planned.length > 0 || comingSoonApps.length > 0 ? (
+                  <div className={`${apps.length > 0 ? 'mt-3' : ''} rounded-lg border border-dashed border-border-default p-4`}>
+                    <p className="text-xs text-text-muted">
+                      {t('integrations.modules.planned', {
+                        defaultValue: 'Planned connectors: {{providers}}',
+                        providers: [
+                          ...new Set([
+                            ...planned.map(plannedProviderLabel),
+                            ...comingSoonApps.map((app) => app.name),
+                          ]),
+                        ].join(', '),
+                      })}
+                    </p>
+                  </div>
+                ) : null}
+              </section>
+            )
+            return (
+              <>
+                {capability ? (
+                  <p className="max-w-2xl text-sm text-text-secondary">{capability}</p>
+                ) : null}
+                {on ? packages : verbs}
+                {on ? verbs : packages}
+                {visibleSteps.length > 0 ? (
+                  <section>
+                    <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                      {t('integrations.modules.setupSteps', { defaultValue: 'Setup' })}
+                    </h3>
+                    <ol className="list-decimal space-y-1.5 pl-5 text-sm text-text-secondary">
+                      {visibleSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </section>
+                ) : null}
+              </>
+            )
+          })()}
         </div>
       )}
 

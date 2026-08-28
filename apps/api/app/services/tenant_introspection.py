@@ -291,10 +291,16 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
                     + ("; start with accounting_list_companies" if slug == "accounting" else "")
                     + "."
                 )
+            elif status == "on":
+                lines.append(
+                    f"- {slug} — on, no package — use when {when or 'this work comes up'}. "
+                    f"Setup: {setup}"
+                )
             else:
                 lines.append(
-                    f"- {slug} — not connected — use when {when or 'this work comes up'}. "
-                    f"Setup: {setup}"
+                    f"- {slug} — off — enable at {setup}"
+                    + (f" when {when}" if when else "")
+                    + "."
                 )
         if coming:
             lines.append(

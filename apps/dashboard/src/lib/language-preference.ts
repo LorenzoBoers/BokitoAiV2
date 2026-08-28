@@ -61,6 +61,22 @@ export function useOnboardingLanguageFromUrl() {
   }, [params, i18n])
 }
 
+/** Switch the UI language immediately, then persist when signed in. */
+export function applyUiLanguageLocally(
+  i18n: { changeLanguage: (lang: string) => Promise<unknown> },
+  language: string,
+): 'en' | 'nl' {
+  const lang = parseUiLanguage(language)
+  void i18n.changeLanguage(lang)
+  document.documentElement.lang = lang
+  try {
+    window.localStorage.setItem('bokito-language', lang)
+  } catch {
+    // Ignore private-mode storage failures.
+  }
+  return lang
+}
+
 export async function persistUiLanguage(token: string, language: string): Promise<void> {
   const lang = parseUiLanguage(language)
   const res = await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {

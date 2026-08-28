@@ -308,6 +308,12 @@ class AgentLoop:
         from app.services.model_resolution import resolve_model_call
 
         model_slug = self.agent.model if self.agent else None
+        if not getattr(self, "_module_tools_applied", False):
+            from app.modules.catalog import enabled_module_slugs, filter_tools_for_modules
+
+            enabled = await enabled_module_slugs(self.session, self.tenant_id)
+            self.tools = filter_tools_for_modules(self.tools, enabled)
+            self._module_tools_applied = True
         self.resolved_call = await resolve_model_call(
             self.session, self.tenant_id, kind="chat", model_slug=model_slug
         )

@@ -33,6 +33,8 @@ import {
 import { listCustomMetrics } from '../lib/metrics-api'
 import { listProjects } from '../lib/projects-api'
 import type { OnboardingStatus } from '../components/onboarding/OnboardingChecklist'
+import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
+import { moduleIsOn } from '../lib/integration-modules'
 
 type PillarState = {
   id: string
@@ -78,6 +80,8 @@ export default function SetupHubPage() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const { currentWorkspace } = useWorkspace()
+  const { modules } = useIntegrationCatalog()
+  const modulesOn = modules.filter((row) => row.status !== 'coming_soon' && moduleIsOn(row)).length
   const [loading, setLoading] = useState(true)
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
   const [agentCount, setAgentCount] = useState(0)
@@ -177,7 +181,9 @@ export default function SetupHubPage() {
           agentCount > 0
             ? t('setupGuidePage.intelligence.agentsCount', { count: agentCount })
             : t('setupGuidePage.intelligence.noAgents'),
-          t('setupGuidePage.intelligence.modulesLine'),
+          modulesOn > 0
+            ? t('setupGuidePage.intelligence.modulesOn', { count: modulesOn })
+            : t('setupGuidePage.intelligence.modulesLine'),
         ].join(' - '),
         knowledge: true,
         actions: [
@@ -189,7 +195,15 @@ export default function SetupHubPage() {
           { label: t('setupGuidePage.intelligence.openKnowledge'), to: '/knowledge' },
           { label: t('setupGuidePage.intelligence.manageAgents'), to: '/agents' },
           { label: t('setupGuidePage.intelligence.organizeProjects'), to: '/projects' },
-          { label: t('setupGuidePage.intelligence.modulesFit'), to: '/settings/marketplace' },
+          {
+            label:
+              modulesOn > 0
+                ? t('setupGuidePage.intelligence.manageModules', {
+                    defaultValue: 'Manage modules',
+                  })
+                : t('setupGuidePage.intelligence.modulesFit'),
+            to: '/settings/modules',
+          },
         ],
       },
       {
@@ -279,6 +293,7 @@ export default function SetupHubPage() {
     checkIn,
     enablingWatch,
     enableCheckIn,
+    modulesOn,
   ])
 
   const doneCount = pillars.filter((p) => p.done).length

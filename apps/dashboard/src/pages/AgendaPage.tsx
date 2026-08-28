@@ -387,6 +387,7 @@ export default function AgendaPage() {
               type="button"
               size="sm"
               variant="outline"
+              aria-label={t('agendaPage.refresh')}
               onClick={() => {
                 if (view === 'automations') setReloadKey((k) => k + 1)
                 else void load()

@@ -39,8 +39,8 @@ export function ApplicationCard({ application, onOpenDetail }: Props) {
               <Badge variant="neutral" className="text-[10px] font-medium">
                 {t('integrations.application.offerCount', { count: offerCount })}
               </Badge>
-            ) : (
-              <Badge variant="neutral" className="text-[10px] font-medium uppercase tracking-wide">
+            ) : application.module ? null : (
+              <Badge variant="neutral" className="text-[10px] font-medium">
                 {t(`integrations.kind.${offers[0].kind}`)}
               </Badge>
             )}

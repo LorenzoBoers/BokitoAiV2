@@ -89,8 +89,8 @@ function InitialsBadge({
       style={{ backgroundColor: color }}
       title={name}
     >
-      <span className="sr-only">{name}</span>
-      {initials}
+      {name ? <span className="sr-only">{name}</span> : null}
+      <span aria-hidden>{initials}</span>
     </span>
   )
 }

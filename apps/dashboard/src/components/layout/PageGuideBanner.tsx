@@ -56,35 +56,33 @@ export function PageGuideBanner({ page, variant, className }: PageGuideBannerPro
   return (
     <aside
       className={cn(
-        'flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/[0.06] px-3.5 py-3 animate-page-enter',
+        'flex items-center gap-2.5 rounded-lg border border-accent/20 bg-accent/[0.06] px-3 py-2 animate-page-enter',
         className,
       )}
     >
-      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent">
-        <CircleHelp size={15} aria-hidden />
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent/12 text-accent">
+        <CircleHelp size={13} aria-hidden />
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-medium text-text-heading">{t(titleKey)}</p>
-        <p className="mt-0.5 text-[12.5px] leading-relaxed text-text-muted">
-          {t(bodyKey)}
-        </p>
+      <p className="min-w-0 flex-1 truncate text-[12.5px] text-text-heading">
+        <span className="font-medium">{t(titleKey)}</span>
         <Link
           to={pageGuidePath(page)}
-          className="link-draw mt-1.5 inline-flex text-[12.5px] font-medium text-accent"
+          className="ml-2 font-medium text-accent hover:underline"
         >
           {t('pageGuides.learnMore')}
         </Link>
-      </div>
+      </p>
+      <span className="sr-only">{t(bodyKey)}</span>
       <button
         type="button"
         onClick={() => {
           dismissVariant(page, variant)
           setDismissed(true)
         }}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading"
         aria-label={t('pageGuides.dismiss')}
       >
-        <X size={14} aria-hidden />
+        <X size={13} aria-hidden />
       </button>
     </aside>
   )

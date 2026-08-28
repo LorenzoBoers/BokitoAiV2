@@ -53,6 +53,27 @@ async def _reply_context(
     return rfc_id, references, provider_id
 
 
+async def _workspace_email_account(
+    session: AsyncSession, tenant_id
+) -> ChannelAccount | None:
+    """First sendable mailbox when a thread was never bound to one."""
+    result = await session.execute(
+        select(ChannelAccount).where(
+            ChannelAccount.tenant_id == tenant_id,
+            ChannelAccount.channel == "email",
+            ChannelAccount.is_enabled.is_(True),
+        )
+    )
+    accounts = list(result.scalars().all())
+    if not accounts:
+        return None
+    for preferred in ("bokito", "gmail", "outlook", "mock"):
+        match = next((account for account in accounts if account.provider == preferred), None)
+        if match:
+            return match
+    return accounts[0]
+
+
 async def deliver_outbound(
     session: AsyncSession,
     signal: Signal,
@@ -76,6 +97,13 @@ async def deliver_outbound(
     """
     if signal.channel not in ("email", "slack", "whatsapp"):
         return "skipped"
+    if signal.channel == "email" and not signal.channel_account_id:
+        fallback = await _workspace_email_account(session, signal.tenant_id)
+        if fallback:
+            signal.channel_account_id = fallback.id
+            session.add(signal)
+        else:
+            return "skipped"
     if not signal.channel_account_id:
         return "skipped"
     result = await session.execute(

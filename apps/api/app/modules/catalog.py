@@ -7,6 +7,7 @@ unless the tenant has more than one package connected.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -18,7 +19,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 MODULE_SKILL_DIR = Path(__file__).resolve().parent.parent / "data" / "module_skills"
 
 ModuleStatus = Literal["available", "coming_soon"]
-TenantModuleStatus = Literal["connected", "available", "coming_soon"]
+TenantModuleStatus = Literal["off", "on", "connected", "coming_soon"]
+MODULE_SETTINGS_KEY = "modules"
+MODULE_TOOL_PREFIXES: dict[str, str] = {
+    "accounting": "accounting_",
+    "banking": "banking_",
+    "investing": "investing_",
+    "documents": "documents_",
+}
 
 SETUP_PATH_PREFIX = "/settings/modules"
 
@@ -42,12 +50,15 @@ class ModuleSpec:
     def setup_path(self) -> str:
         return f"{SETUP_PATH_PREFIX}/{self.slug}"
 
-    def tenant_status(self, *, connected: bool) -> TenantModuleStatus:
+    def tenant_status(self, *, connected: bool, enabled: bool = False) -> TenantModuleStatus:
         if self.status == "coming_soon":
             return "coming_soon"
-        return "connected" if connected else "available"
+        if not enabled:
+            return "off"
+        return "connected" if connected else "on"
 
-    def serialize(self, *, connected: bool = False) -> dict[str, Any]:
+    def serialize(self, *, connected: bool = False, enabled: bool = False) -> dict[str, Any]:
+        live = connected if self.status == "available" else False
         return {
             "slug": self.slug,
             "name": self.name,
@@ -62,8 +73,9 @@ class ModuleSpec:
             "setup_steps": list(self.setup_steps),
             "capability_summary": self.capability_summary,
             "setup_path": self.setup_path,
-            "connected": connected if self.status == "available" else False,
-            "tenant_status": self.tenant_status(connected=connected),
+            "enabled": enabled,
+            "connected": live,
+            "tenant_status": self.tenant_status(connected=live, enabled=enabled),
         }
 
 
@@ -111,7 +123,7 @@ MODULES: list[ModuleSpec] = [
         ),
         needs_when="invoices, VAT, ledgers, outstanding balances, or bookkeeping",
         setup_steps=(
-            "Open the Accounting module page.",
+            "Turn Accounting on under Settings > Modules.",
             "Choose a package (KING, Bjorn Lunden, or Moneybird).",
             "Connect with OAuth or an API key.",
             "If more than one administration appears, pick which one agents should use.",
@@ -200,7 +212,8 @@ for module in MODULES:
 
 HEARTBEAT_MODULE_LINE = (
     "- If company.md or open threads mention invoices, VAT, or outstanding balances "
-    "and accounting is not connected, use recommend_module; otherwise HEARTBEAT_OK"
+    "and accounting is off, use recommend_module so the operator can turn it on; "
+    "otherwise HEARTBEAT_OK"
 )
 
 
@@ -212,10 +225,59 @@ def get_module(slug: str) -> ModuleSpec | None:
     return MODULE_BY_SLUG.get(slug)
 
 
-def serialize_modules(*, connected_slugs: set[str] | None = None) -> list[dict[str, Any]]:
+def parse_module_flags(settings: dict[str, Any] | None) -> dict[str, bool]:
+    """Read Tenant.settings_json.modules into {slug: enabled}."""
+    raw = (settings or {}).get(MODULE_SETTINGS_KEY)
+    if not isinstance(raw, dict):
+        return {}
+    flags: dict[str, bool] = {}
+    for slug, row in raw.items():
+        if isinstance(row, bool):
+            flags[str(slug)] = row
+        elif isinstance(row, dict) and "enabled" in row:
+            flags[str(slug)] = bool(row["enabled"])
+    return flags
+
+
+def module_is_enabled(
+    spec: ModuleSpec, *, connected: bool, flags: dict[str, bool]
+) -> bool:
+    """Explicit flag wins; a live connector keeps a module on for existing tenants."""
+    if spec.slug in flags:
+        return flags[spec.slug]
+    return connected
+
+
+def serialize_modules(
+    *,
+    connected_slugs: set[str] | None = None,
+    enabled_slugs: set[str] | None = None,
+) -> list[dict[str, Any]]:
     """Public module rows for the marketplace API and agent tools."""
     connected = connected_slugs or set()
-    return [m.serialize(connected=m.slug in connected) for m in MODULES]
+    enabled = enabled_slugs if enabled_slugs is not None else set()
+    return [
+        m.serialize(connected=m.slug in connected, enabled=m.slug in enabled)
+        for m in MODULES
+    ]
+
+
+def filter_tools_for_modules(
+    tools: list[dict[str, Any]], enabled_slugs: set[str]
+) -> list[dict[str, Any]]:
+    """Hide module verb tools until the operator turns that module on."""
+    blocked = [
+        prefix
+        for slug, prefix in MODULE_TOOL_PREFIXES.items()
+        if slug not in enabled_slugs
+    ]
+    if not blocked:
+        return tools
+    return [
+        tool
+        for tool in tools
+        if not any(str(tool.get("name") or "").startswith(prefix) for prefix in blocked)
+    ]
 
 
 async def active_module_connections(
@@ -248,11 +310,109 @@ async def connected_module_slugs(session: AsyncSession, tenant_id: UUID) -> set[
     return slugs
 
 
+async def _tenant_settings(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    from app.models.auth import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        return {}
+    try:
+        data = json.loads(tenant.settings_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+async def tenant_module_flags(session: AsyncSession, tenant_id: UUID) -> dict[str, bool]:
+    return parse_module_flags(await _tenant_settings(session, tenant_id))
+
+
+async def tenant_module_sets(
+    session: AsyncSession, tenant_id: UUID
+) -> tuple[set[str], set[str]]:
+    """Return (enabled_slugs, connected_slugs) for a tenant."""
+    connected = await connected_module_slugs(session, tenant_id)
+    flags = await tenant_module_flags(session, tenant_id)
+    enabled = {
+        module.slug
+        for module in MODULES
+        if module_is_enabled(module, connected=module.slug in connected, flags=flags)
+    }
+    return enabled, connected
+
+
+async def enabled_module_slugs(session: AsyncSession, tenant_id: UUID) -> set[str]:
+    enabled, _ = await tenant_module_sets(session, tenant_id)
+    return enabled
+
+
+async def module_is_on(session: AsyncSession, tenant_id: UUID, slug: str) -> bool:
+    enabled, _ = await tenant_module_sets(session, tenant_id)
+    return slug in enabled
+
+
 async def serialize_modules_for_tenant(
     session: AsyncSession, tenant_id: UUID
 ) -> list[dict[str, Any]]:
-    connected = await connected_module_slugs(session, tenant_id)
-    return serialize_modules(connected_slugs=connected)
+    enabled, connected = await tenant_module_sets(session, tenant_id)
+    return serialize_modules(connected_slugs=connected, enabled_slugs=enabled)
+
+
+async def set_module_enabled(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    enabled: bool,
+    *,
+    actor_id: Any = None,
+) -> dict[str, Any]:
+    """Persist an operator on/off switch. Does not revoke connections."""
+    spec = MODULE_BY_SLUG.get(slug)
+    if spec is None:
+        raise ValueError(f"Unknown module '{slug}'")
+    from app.models.auth import Tenant
+    from app.services.audit import record_audit
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError("Tenant not found")
+    settings = await _tenant_settings(session, tenant_id)
+    raw = settings.get(MODULE_SETTINGS_KEY)
+    modules = dict(raw) if isinstance(raw, dict) else {}
+    current = modules.get(slug)
+    row = dict(current) if isinstance(current, dict) else {}
+    row["enabled"] = bool(enabled)
+    modules[slug] = row
+    settings[MODULE_SETTINGS_KEY] = modules
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    await session.commit()
+    await record_audit(
+        session,
+        tenant_id,
+        action="module:enabled" if enabled else "module:disabled",
+        actor_type="user" if actor_id else "system",
+        actor_id=str(actor_id) if actor_id else "",
+        resource_type="module",
+        resource_id=slug,
+        summary=f"{spec.name} {'on' if enabled else 'off'}",
+        after={"slug": slug, "enabled": bool(enabled)},
+    )
+    rows = {m["slug"]: m for m in await serialize_modules_for_tenant(session, tenant_id)}
+    return rows[slug]
+
+
+async def enable_module_for_provider(
+    session: AsyncSession, tenant_id: UUID, provider_slug: str
+) -> None:
+    """Turn the parent module on when a package is connected."""
+    slug = module_for_provider(provider_slug)
+    if not slug:
+        return
+    flags = await tenant_module_flags(session, tenant_id)
+    if flags.get(slug) is True:
+        return
+    await set_module_enabled(session, tenant_id, slug, True)
 
 
 def module_skill_text(module_slug: str) -> str:
@@ -268,7 +428,7 @@ def module_setup_playbook(module: ModuleSpec) -> str:
     """Short setup instructions for an available module that is not connected yet."""
     steps = "\n".join(f"{i}. {step}" for i, step in enumerate(module.setup_steps, start=1))
     return (
-        f"## {module.name} module (not connected)\n"
+        f"## {module.name} module (on, no package)\n"
         f"Use when: {module.needs_when}.\n"
         f"Setup: {module.setup_path}\n"
         f"If this work comes up, call recommend_module with slug `{module.slug}` "
@@ -285,10 +445,11 @@ def with_heartbeat_module_hint(content: str) -> str:
 
 
 async def active_module_skill_prompt(session: AsyncSession, tenant_id: UUID) -> str:
-    """Connected skills plus unconnected setup playbooks for available modules."""
+    """Skills for on+connected modules; setup playbooks for on but unconnected."""
+    enabled, _ = await tenant_module_sets(session, tenant_id)
     sections: list[str] = []
     for module in MODULES:
-        if module.status != "available":
+        if module.status != "available" or module.slug not in enabled:
             continue
         connections = await active_module_connections(session, tenant_id, module.slug)
         if connections:

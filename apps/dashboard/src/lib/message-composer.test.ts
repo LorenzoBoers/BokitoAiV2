@@ -107,4 +107,21 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.channel).toBe('email')
     expect(surface.includeSignature).toBe(true)
   })
+
+  it('keeps website chat on chat even when the visitor left an email', () => {
+    const surface = resolveComposerSurface(
+      thread({
+        channel: 'widget',
+        contactEmail: 'sanne@klant.nl',
+        contactName: 'Sanne de Vries',
+      }),
+    )
+    expect(surface.channel).toBe('chat')
+    expect(surface.includeSignature).toBe(false)
+  })
+
+  it('treats live-chat aliases as chat', () => {
+    expect(resolveComposerSurface(thread({ channel: 'webchat' })).channel).toBe('chat')
+    expect(resolveComposerSurface(thread({ channel: 'livechat' })).channel).toBe('chat')
+  })
 })

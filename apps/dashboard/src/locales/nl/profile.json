@@ -14,7 +14,10 @@
     "descriptionPlaceholder": "Een korte bio of omschrijving",
     "saveChanges": "Wijzigingen opslaan",
     "saving": "Opslaan...",
-    "savedSuccess": "Profiel opgeslagen"
+    "savedSuccess": "Profiel opgeslagen",
+    "editField": "{{label}} bewerken",
+    "saveField": "{{label}} opslaan",
+    "cancelEdit": "Annuleren"
   },
   "signature": {
     "title": "E-mailhandtekening",
@@ -29,9 +32,10 @@
   "language": {
     "title": "Taal",
     "description": "Kies de taal voor je interface.",
-    "deviceHint": "Deze taal blijft op dit apparaat.",
+    "deviceHint": "Deze taal blijft op je account.",
     "dutch": "Nederlands",
-    "english": "Engels"
+    "english": "Engels",
+    "saveError": "Taal is voor deze sessie gewijzigd, maar kon niet op je account worden opgeslagen."
   },
   "theme": {
     "title": "Weergave",

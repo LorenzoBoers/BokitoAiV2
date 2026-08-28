@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import { isInternalThread, threadCounterpartyName, threadNeedsReply, threadSecondaryLine } from '../../lib/message-composer'
+import { threadLooksFinancial } from '../../lib/thread-intent'
 import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
@@ -222,6 +223,11 @@ export default function ThreadListItem({
             {showNeedsReply ? (
               <span className="shrink-0 rounded-full bg-accent/12 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
                 {t('listItem.needsReply')}
+              </span>
+            ) : null}
+            {!isDirect && threadLooksFinancial(thread.emailSubject, thread.lastMessagePreview) ? (
+              <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-text-muted">
+                {t('listItem.billing')}
               </span>
             ) : null}
           </div>

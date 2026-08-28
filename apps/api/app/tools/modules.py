@@ -7,6 +7,7 @@ from typing import Any
 from app.modules.catalog import (
     MODULES,
     get_module,
+    module_is_on,
     serialize_modules_for_tenant,
 )
 from app.tools.registry import ToolContext, ToolSpec, register_tool
@@ -41,7 +42,23 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     payload: dict[str, Any] = {"module": spec.slug}
     if provider:
         payload["provider"] = provider
-    title = f"Enable {spec.name}?"
+    already_on = await module_is_on(ctx.session, ctx.tenant_id, spec.slug)
+    if already_on:
+        title = f"Connect a package for {spec.name}?"
+        approve = {
+            "id": "connect",
+            "label": "Connect a package",
+            "action_type": "setup_integration",
+            "payload": payload,
+        }
+    else:
+        title = f"Turn on {spec.name}?"
+        approve = {
+            "id": "enable",
+            "label": "Turn on",
+            "action_type": "enable_module",
+            "payload": payload,
+        }
     summary = reason or f"Use when {spec.needs_when}."
     if provider:
         summary = f"{summary} Suggested package: {provider}."
@@ -52,12 +69,7 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
             "summary": summary,
             "signal_id": tool_input.get("signal_id") or (str(ctx.signal_id) if ctx.signal_id else None),
             "options": [
-                {
-                    "id": "connect",
-                    "label": "Connect now",
-                    "action_type": "setup_integration",
-                    "payload": payload,
-                },
+                approve,
                 {"id": "later", "label": "Later", "action_type": "defer"},
             ],
         },
@@ -84,10 +96,10 @@ register_tool(
     ToolSpec(
         name="recommend_module",
         description=(
-            "Propose enabling a business module. Creates a decision card with "
-            "Connect now pointing at the module setup page. Use after list_modules "
-            "when invoices, VAT, ledgers, or similar work comes up and the module "
-            "is not connected. Do not recommend coming_soon modules as connectable."
+            "Propose turning on a business module. Creates a decision card that "
+            "enables the module for this workspace. Use after list_modules when "
+            "invoices, VAT, ledgers, or similar work comes up and the module is "
+            "off. Do not recommend coming_soon modules as connectable."
         ),
         category="integrations",
         input_schema={

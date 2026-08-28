@@ -26,7 +26,7 @@ export function humanizeLabel(value: string | null | undefined): string {
   if (!value) return ''
   const key = String(value).trim().toLowerCase()
   if (OVERRIDES[key]) return OVERRIDES[key]
-  const words = key.replace(/[_\-.]+/g, ' ').trim()
+  const words = key.replace(/[_\-.:]+/g, ' ').trim()
   if (!words) return ''
   return words.charAt(0).toUpperCase() + words.slice(1)
 }

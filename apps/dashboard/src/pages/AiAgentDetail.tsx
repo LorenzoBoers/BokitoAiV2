@@ -442,14 +442,20 @@ export default function AiAgentDetail() {
                         </DropdownMenu.Item>
                       </>
                     ) : null}
+                    {isAdmin && agent.is_lead ? (
+                      <>
+                        <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                        <DropdownMenu.Item
+                          disabled
+                          className="flex cursor-default items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-muted outline-none"
+                        >
+                          {t('workforce.agents.leadArchiveBlocked')}
+                        </DropdownMenu.Item>
+                      </>
+                    ) : null}
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
-              {isAdmin && agent.is_lead ? (
-                <span className="self-center text-xs text-text-muted">
-                  {t('workforce.agents.leadArchiveBlocked')}
-                </span>
-              ) : null}
             </div>
             {archiveConfirmOpen ? (
               <div className="mt-3 rounded-lg border border-status-error/30 bg-status-error/5 px-3 py-2">

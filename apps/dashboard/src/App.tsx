@@ -62,6 +62,7 @@ const HelpCentersSettings = lazy(() => import('./pages/HelpCentersSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected'))
 const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
+const ModulesPage = lazy(() => import('./pages/ModulesPage'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const IntegrationsMcp = lazy(() => import('./pages/IntegrationsMcp'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
@@ -341,6 +342,7 @@ export default function App() {
             <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
             <Route path="/settings/integrations/docs" element={<Navigate to="/settings/marketplace" replace />} />
             <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
+            <Route path="/settings/modules" element={<ModulesPage />} />
             <Route path="/settings/modules/:slug" element={<ModuleSetupPage />} />
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />

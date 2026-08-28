@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { BookmarkPlus, ChevronDown, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Send, StickyNote } from 'lucide-react'
+import { BookmarkPlus, ChevronDown, Clock, Mail, MessageCircle, MessageSquareText, Paperclip, Quote, Send, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -61,6 +61,8 @@ type Props = {
   /** CC list of the customer's last email; seeds the CC field when the
    * operator opens CC/BCC so reply-all is one click, never auto-applied. */
   suggestedCc?: string | null
+  /** Last inbound customer text; Quote inserts it as a cited block. */
+  lastInboundText?: string | null
 }
 
 function tabIcon(surface: ComposerSurface, tab: ComposerTab) {
@@ -104,6 +106,7 @@ export default function ReplyComposer({
   persistKey,
   replyDisabledNotice,
   suggestedCc,
+  lastInboundText,
 }: Props) {
   const { t } = useTranslation('communication')
   const navigate = useNavigate()
@@ -390,8 +393,8 @@ export default function ReplyComposer({
           {extraActions ? <div className="ml-auto flex items-center gap-1.5">{extraActions}</div> : null}
         </div>
 
-        {!isNote && replyBlocked ? (
-          <div className="rounded-xl border border-border/60 bg-bg-elevated/40 px-3 py-2.5 text-[12px] text-text-secondary">
+        {replyBlocked ? (
+          <div className="rounded-xl border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[12px] text-text-secondary">
             {replyDisabledNotice}
           </div>
         ) : null}
@@ -404,31 +407,52 @@ export default function ReplyComposer({
             <div className="flex items-center gap-2">
               <span className="shrink-0 font-medium text-text-muted">{recipientLabel}</span>
               <span className="min-w-0 truncate text-text-primary">{surface.recipientValue}</span>
-              {surface.channel === 'email' ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCcBccOpen((open) => {
-                      // Opening for the first time seeds the customer's CC
-                      // list so reply-all does not require retyping addresses.
-                      if (!open && !cc.trim() && suggestedCc?.trim()) setCc(suggestedCc.trim())
-                      return !open
-                    })
-                  }
-                  className={`ml-auto shrink-0 text-[10px] font-medium transition-colors ${
-                    ccBccOpen || cc || bcc
-                      ? 'text-accent'
-                      : 'text-text-muted hover:text-text-primary'
-                  }`}
-                >
-                  {t('composer.ccBcc')}
-                </button>
-              ) : null}
+              <span className="ml-auto flex items-center gap-2">
+                  {lastInboundText?.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const quoted = lastInboundText
+                          .trim()
+                          .split('\n')
+                          .slice(0, 8)
+                          .map((line) => `> ${line}`)
+                          .join('\n')
+                        setBody((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${quoted}` : quoted))
+                        requestAnimationFrame(() => textareaRef.current?.focus())
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-text-muted hover:text-text-primary"
+                    >
+                      <Quote size={10} />
+                      {t('composer.quote')}
+                    </button>
+                  ) : null}
+                  {surface.channel === 'email' ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCcBccOpen((open) => {
+                        // Opening for the first time seeds the customer's CC
+                        // list so reply-all does not require retyping addresses.
+                        if (!open && !cc.trim() && suggestedCc?.trim()) setCc(suggestedCc.trim())
+                        return !open
+                      })
+                    }
+                    className={`shrink-0 text-[10px] font-medium transition-colors ${
+                      ccBccOpen || cc || bcc
+                        ? 'text-accent'
+                        : 'text-text-muted hover:text-text-primary'
+                    }`}
+                  >
+                    {suggestedCc?.trim() ? t('composer.replyAll') : t('composer.ccBcc')}
+                  </button>
+                  ) : null}
+                </span>
             </div>
             {surface.channel === 'email' && ccBccOpen ? (
               <div className="mt-1.5 space-y-1 border-t border-border/40 pt-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="w-7 shrink-0 font-medium text-text-muted">CC</span>
+                  <span className="w-7 shrink-0 font-medium text-text-muted">{t('compose.cc')}</span>
                   <input
                     type="text"
                     value={cc}
@@ -438,7 +462,7 @@ export default function ReplyComposer({
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-7 shrink-0 font-medium text-text-muted">BCC</span>
+                  <span className="w-7 shrink-0 font-medium text-text-muted">{t('compose.bcc')}</span>
                   <input
                     type="text"
                     value={bcc}

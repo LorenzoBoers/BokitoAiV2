@@ -52,10 +52,11 @@ import { DomainFavicon } from '../components/ui/DomainFavicon'
 import { ChannelGlyph, channelKind } from '../components/ui/ChannelGlyph'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
 import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
-import { firstName, greetingBucket } from '../lib/cockpit-greeting'
+import { greetingBucket, greetingFirstName } from '../lib/cockpit-greeting'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
-import { humanizeContactName } from '../lib/contact-label'
+import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../lib/contact-label'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { humanizeLabel } from '../lib/labels'
 import { agendaKindLabel } from '../lib/status-labels'
 
@@ -262,6 +263,8 @@ function StatCard({
 export default function CockpitPage() {
   const { t, i18n } = useTranslation(['nav', 'communication'])
   const { token, user } = useAuth()
+  const { activeConnections } = useMailboxConnections()
+  const mailboxReady = activeConnections.length > 0
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [posture, setPosture] = useState<AutonomyPostureId | null>(null)
   const [pendingChanges, setPendingChanges] = useState(0)
@@ -279,13 +282,19 @@ export default function CockpitPage() {
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const { status: onboardingStatus, dismissed: onboardingDismissed, undismiss } = useOnboardingStatus()
   const onboardingVisible = Boolean(onboardingStatus && !onboardingStatus.completed && !onboardingDismissed)
-  const greetingName = firstName(user?.name) || t('cockpitPage.greetingFallback')
-  const greetingKey =
-    greetingBucket() === 'morning'
+  const greetingName = greetingFirstName(user?.name)
+  const greetingBucketId = greetingBucket()
+  const greetingKey = greetingName
+    ? greetingBucketId === 'morning'
       ? 'cockpitPage.greetingMorning'
-      : greetingBucket() === 'afternoon'
+      : greetingBucketId === 'afternoon'
         ? 'cockpitPage.greetingAfternoon'
         : 'cockpitPage.greetingEvening'
+    : greetingBucketId === 'morning'
+      ? 'cockpitPage.greetingMorningPlain'
+      : greetingBucketId === 'afternoon'
+        ? 'cockpitPage.greetingAfternoonPlain'
+        : 'cockpitPage.greetingEveningPlain'
 
   const load = useCallback(() => {
     if (!token) return
@@ -340,6 +349,11 @@ export default function CockpitPage() {
         )
         setRecentContacts(
           [...enrichContactsFromThreads(contacts, inboxThreads)]
+            .filter(
+              (contact) =>
+                !isPlaceholderContactAddress(contact.address) &&
+                !isGenericVisitorName(contact.displayName),
+            )
             .sort(
               (a, b) =>
                 new Date(b.lastSeenAt ?? b.createdAt).getTime() -
@@ -537,7 +551,13 @@ export default function CockpitPage() {
           index={6}
           label={t('cockpitPage.usage')}
           value={summary ? formatAppNumber(summary.tokens_month, i18n.language) : '-'}
-          sub={summary ? formatAppUsdCents(summary.cost_cents_month, i18n.language) : undefined}
+          sub={
+            summary
+              ? summary.cost_cents_month === 0
+                ? t('cockpitPage.usageEmptyHint')
+                : formatAppUsdCents(summary.cost_cents_month, i18n.language)
+              : undefined
+          }
           icon={Sparkles}
           to="/cockpit/usage"
         />
@@ -861,7 +881,7 @@ export default function CockpitPage() {
                       </span>
                     </span>
                   </Link>
-                  {canComposeToAddress(contact.channel, contact.address) ? (
+                  {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
                     <Link
                       to={composeEmailPath({ to: contact.address })}
                       title={t('cockpitPage.writeEmail')}

@@ -9,9 +9,11 @@ describe('appDateLocale', () => {
     expect(appDateLocale('')).toBeUndefined()
   })
 
-  it('formats Dutch times in 24-hour clock', () => {
+  it('formats times in 24-hour clock for both workspace languages', () => {
     const date = new Date('2026-08-26T14:57:00')
     expect(formatAppTime(date, 'nl')).toMatch(/14:57/)
+    expect(formatAppTime(date, 'en')).toMatch(/14:57/)
+    expect(formatAppTime(date, 'en')).not.toMatch(/PM/)
   })
 
   it('formats upcoming agenda rows in the workspace language', () => {

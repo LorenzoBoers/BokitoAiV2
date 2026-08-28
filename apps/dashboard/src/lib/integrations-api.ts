@@ -3,6 +3,7 @@ import { attachHostsToProviders } from './integration-brand'
 import {
   apiDelete,
   apiGet,
+  apiPatch,
   apiPost,
 } from './api'
 
@@ -54,8 +55,9 @@ export interface IntegrationModuleRow {
   setup_steps?: string[]
   capability_summary?: string
   setup_path?: string
+  enabled?: boolean
   connected?: boolean
-  tenant_status?: 'connected' | 'available' | 'coming_soon'
+  tenant_status?: 'off' | 'on' | 'connected' | 'coming_soon' | 'available'
 }
 
 export interface IntegrationConnectionRow {
@@ -131,6 +133,17 @@ export async function listIntegrationProviders(): Promise<ProvidersListResponse>
   )
   const providers = attachHostsToProviders(data.providers ?? [], data.hosts ?? [])
   return { ...data, providers }
+}
+
+export async function patchIntegrationModule(
+  slug: string,
+  enabled: boolean,
+): Promise<IntegrationModuleRow> {
+  const data = await apiPatch<{ module: IntegrationModuleRow }>(
+    integrationsRoutes.platform.moduleBySlug(slug),
+    { enabled },
+  )
+  return data.module
 }
 
 export async function listIntegrationConnections(

@@ -22,7 +22,7 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     ],
     needs_when: 'invoices, VAT, ledgers, outstanding balances, or bookkeeping',
     setup_steps: [
-      'Open the Accounting module page.',
+      'Turn Accounting on under Settings > Modules.',
       'Choose a package (KING, Bjorn Lunden, or Moneybird).',
       'Connect with OAuth or an API key.',
       'If more than one administration appears, pick which one agents should use.',
@@ -30,7 +30,8 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     capability_summary:
       'Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances. Writes always become a decision you approve.',
     setup_path: '/settings/modules/accounting',
-    tenant_status: 'available',
+    enabled: false,
+    tenant_status: 'off',
   },
   {
     slug: 'banking',
@@ -49,6 +50,7 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     capability_summary:
       'Later: read accounts, balances, and transactions. Payments stay a human-approved proposal.',
     setup_path: '/settings/modules/banking',
+    enabled: false,
     tenant_status: 'coming_soon',
   },
   {
@@ -68,6 +70,7 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     capability_summary:
       'Later: positions, quotes, and watchlists. Orders stay a human-approved proposal.',
     setup_path: '/settings/modules/investing',
+    enabled: false,
     tenant_status: 'coming_soon',
   },
   {
@@ -87,6 +90,7 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     capability_summary:
       'Later: search and read external files into Knowledge. Uploads stay a human-approved proposal.',
     setup_path: '/settings/modules/documents',
+    enabled: false,
     tenant_status: 'coming_soon',
   },
 ]
@@ -111,6 +115,28 @@ export function plannedProviderLabel(slug: string): string {
   return PLANNED_PROVIDER_LABELS[slug] ?? slug.replace(/_/g, ' ')
 }
 
+/** i18n key fragment for a catalog verb label, e.g. "Invoices and bills" → "invoices_and_bills". */
+export function verbLabelKey(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
 export function moduleHomePath(module: Pick<IntegrationModuleRow, 'slug' | 'setup_path'>): string {
   return module.setup_path?.trim() || `/settings/modules/${encodeURIComponent(module.slug)}`
+}
+
+export function moduleIsOn(module: Pick<IntegrationModuleRow, 'enabled' | 'tenant_status'>): boolean {
+  if (typeof module.enabled === 'boolean') return module.enabled
+  return module.tenant_status === 'on' || module.tenant_status === 'connected'
+}
+
+export function moduleStatusLabelKey(
+  module: Pick<IntegrationModuleRow, 'status' | 'tenant_status' | 'connected' | 'enabled'>,
+): 'comingSoon' | 'connectedBadge' | 'onBadge' | 'offBadge' {
+  if (module.status === 'coming_soon') return 'comingSoon'
+  if (module.tenant_status === 'connected' || module.connected) return 'connectedBadge'
+  if (moduleIsOn(module)) return 'onBadge'
+  return 'offBadge'
 }

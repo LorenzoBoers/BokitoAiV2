@@ -284,18 +284,11 @@ export default function CustomMetricsSection() {
         </Button>
       </div>
       {metrics.length === 0 ? (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-4 py-5 text-[12px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary"
-          >
-            <Plus size={13} />
-            {t('cockpitPage.trackKpi')}
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/50 bg-bg-surface/60 px-3 py-2">
+          <p className="text-[12px] text-text-muted">{t('cockpitPage.trackKpi')}</p>
           <Link
             to="/settings/setup"
-            className="block text-center text-[11px] font-medium text-accent hover:underline"
+            className="text-[11px] font-medium text-accent hover:underline"
           >
             {t('cockpitPage.openSetupMetrics')}
           </Link>

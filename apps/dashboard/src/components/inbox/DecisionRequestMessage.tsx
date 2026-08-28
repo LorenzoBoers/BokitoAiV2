@@ -18,7 +18,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
-import { setupIntegrationHref } from '../../lib/integration-setup-url'
+import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
@@ -114,7 +114,7 @@ function extractOptions(message: InboxMessage): DecisionOption[] {
  */
 function integrationProviderFromOptions(options: DecisionOption[]): string | null {
   for (const option of options) {
-    if (option.action_type !== 'setup_integration') continue
+    if (!isModuleSetupAction(option.action_type)) continue
     const provider = option.payload?.provider
     if (typeof provider === 'string' && provider.trim()) return provider.trim()
   }
@@ -160,6 +160,8 @@ function optionLabelKey(option: DecisionOption): string | null {
     reject: 'reject',
     later: 'later',
     defer: 'defer',
+    enable: 'turnOn',
+    connect: 'connectPackage',
   }
   if (byId[option.id]) return byId[option.id]
   const byAction: Record<string, string> = {
@@ -172,6 +174,8 @@ function optionLabelKey(option: DecisionOption): string | null {
     approve: 'approve',
     defer: 'keepOpen',
     reject: 'reject',
+    enable_module: 'turnOn',
+    setup_integration: 'connectPackage',
   }
   if (option.action_type && byAction[option.action_type]) return byAction[option.action_type]
   return null
@@ -345,7 +349,7 @@ export default function DecisionRequestMessage({
       setTextOptionId((current) => (current === option.id ? null : option.id))
       return
     }
-    if (option.action_type === 'setup_integration') {
+    if (isModuleSetupAction(option.action_type)) {
       const provider =
         typeof option.payload?.provider === 'string' ? option.payload.provider.trim() : ''
       const moduleSlug =
@@ -569,7 +573,8 @@ export default function DecisionRequestMessage({
                     option.action_type === 'send_reply' ||
                     option.action_type === 'send_email' ||
                     option.action_type === 'close_thread' ||
-                    option.action_type === 'approve'
+                    option.action_type === 'approve' ||
+                    isModuleSetupAction(option.action_type)
                   const quiet = option.action_type === 'defer' && isActionSuggestion
                   const activeText = option.input_type === 'text' && textOptionId === option.id
                   const labelKey = optionLabelKey(option)

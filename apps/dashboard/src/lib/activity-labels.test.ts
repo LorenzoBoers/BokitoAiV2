@@ -21,6 +21,8 @@ const t = (key: string, opts?: { subject?: string; action?: string; topic?: stri
     'decisionCard.knownSubjects.tryFirstDecision': 'Probeer je eerste beslissing',
     'decisionCard.knownSubjects.demoMakesSense': 'Is deze demo duidelijk?',
     'decisionCard.knownSubjects.assistPrefix': `Hulp: ${opts?.subject ?? ''}`,
+    'decisionCard.knownSubjects.approvalPrefix': `Goedkeuring: ${opts?.subject ?? ''}`,
+    'decisionCard.knownSubjects.inboxRoutingRule': 'Inbox-doorstuurregel',
     'activityPage.executedApprovedAction': `Goedgekeurde actie uitgevoerd: ${opts?.action ?? ''}`,
     'activityPage.approvedActions.approve': 'goedkeuren',
     'activityPage.eventTypes.runStarted': 'Run gestart',
@@ -46,6 +48,15 @@ describe('activity labels', () => {
 
   it('strips the Assist prefix and translates the inner subject', () => {
     expect(translateDecisionText('Assist: Daily platform scan', t)).toBe('Hulp: Dagelijkse platformscan')
+  })
+
+  it('translates approval subjects for inbox routing', () => {
+    expect(translateDecisionText('Goedkeuring: inbox routing rule', t)).toBe(
+      'Goedkeuring: Inbox-doorstuurregel',
+    )
+    expect(translateDecisionText('Approval: inbox routing rule', t)).toBe(
+      'Goedkeuring: Inbox-doorstuurregel',
+    )
   })
 
   it('strips leaked invoke-agent instructions from drafts', () => {

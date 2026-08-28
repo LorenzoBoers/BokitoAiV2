@@ -164,6 +164,9 @@ async def create_api_key_connection(
     session.add(conn)
     await session.commit()
     await session.refresh(conn)
+    from app.modules.catalog import enable_module_for_provider
+
+    await enable_module_for_provider(session, tenant_id, provider)
     return serialize_connection(conn)
 
 
@@ -260,6 +263,9 @@ async def install_mcp(
         discovery = await test_mcp_server(session, tenant_id, server.id)
     except Exception:
         discovery = None
+    from app.modules.catalog import enable_module_for_provider
+
+    await enable_module_for_provider(session, tenant_id, provider)
     return {
         "connection": serialize_connection(conn),
         "binding": {"id": str(binding.id), "config": _parse_json(binding.config_json)},
@@ -296,6 +302,9 @@ async def ensure_oauth_connection(
     session.add(conn)
     await session.commit()
     await session.refresh(conn)
+    from app.modules.catalog import enable_module_for_provider
+
+    await enable_module_for_provider(session, tenant_id, provider)
     return serialize_connection(conn)
 
 

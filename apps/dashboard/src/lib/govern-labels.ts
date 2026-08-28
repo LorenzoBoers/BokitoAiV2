@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { formatAppDateTime } from './app-locale'
 import { humanizeLabel } from './labels'
 
 export const RESOURCE_TYPE_LABELS: Record<string, string> = {
@@ -119,10 +120,10 @@ export function formatChangeMeta(
   return `${rt} · ${ck} · ${status.replace(/_/g, ' ')}`
 }
 
-export function formatGovernTimestamp(value?: string | null): string {
+export function formatGovernTimestamp(value?: string | null, language?: string | null): string {
   if (!value) return '-'
   const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString()
+  return Number.isNaN(d.getTime()) ? value : formatAppDateTime(d, language)
 }
 
 function diffFieldLabel(key: string, t?: TFunction): string {

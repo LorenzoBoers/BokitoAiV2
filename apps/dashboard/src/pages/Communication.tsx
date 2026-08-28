@@ -73,6 +73,7 @@ import {
 import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
 import { listAgents } from '../lib/agents-api'
 import { listProjects } from '../lib/projects-api'
+import { threadLooksFinancial } from '../lib/thread-intent'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
@@ -277,7 +278,7 @@ export default function Communication() {
   }, [])
 
   const {
-    connections,
+    activeConnections,
     loading: connectionsLoading,
     error: connectionsError,
     needsOrganisation,
@@ -291,9 +292,7 @@ export default function Communication() {
     dismiss: dismissOnboarding,
   } = useOnboardingStatus()
 
-  const enabledConnections = connections.filter(
-    (c) => c.status !== 'revoked' && c.isEnabled !== false,
-  )
+  const enabledConnections = activeConnections
 
   const { pinnedIds, addPin, removePin } = usePinnedIds()
 
@@ -800,7 +799,11 @@ export default function Communication() {
     onReply: () => {
       const status = detail?.thread.status
       if (status === 'closed' || status === 'spam') {
-        toast.message(t('shortcuts.replyBlocked'))
+        void handlePatch({ status: 'open' }).then(() => {
+          window.setTimeout(() => {
+            if (!focusInboxReply()) toast.message(t('shortcuts.replyBlocked'))
+          }, 80)
+        })
         return
       }
       if (!focusInboxReply()) toast.message(t('shortcuts.replyBlocked'))
@@ -945,6 +948,17 @@ export default function Communication() {
             },
           })
         }
+        if (
+          detail &&
+          threadLooksFinancial(detail.thread.emailSubject, detail.thread.lastMessagePreview)
+        ) {
+          toast.message(t('actions.sentCheckBookkeeping'), {
+            action: {
+              label: t('threadChrome.openBookkeeping'),
+              onClick: () => navigate('/settings/modules/accounting'),
+            },
+          })
+        }
       } finally {
         if (resolving) advancingRef.current = false
       }
@@ -952,12 +966,13 @@ export default function Communication() {
     [
       reply,
       refreshThreads,
-      detail?.thread.channel,
+      detail,
       token,
       t,
       refreshDetail,
       selectedThreadId,
       leaveResolvedThread,
+      navigate,
     ],
   )
 
@@ -1122,33 +1137,6 @@ export default function Communication() {
         </div>
       )
     }
-    if (enabledConnections.length === 0) {
-      return (
-        <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
-            <Mail size={28} className="text-accent" />
-          </div>
-          <h2 className="text-lg font-semibold text-text-heading">{t('noActiveMailboxTitle')}</h2>
-          <p className="text-sm text-text-secondary mt-2 max-w-sm">
-            {t('noActiveMailboxDescription')}
-          </p>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <Link
-              to="/settings/channels"
-              className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-            >
-              {t('openEmailSettings')}
-            </Link>
-            <Link
-              to="/settings/setup"
-              className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-            >
-              {t('onboarding.openGuide')}
-            </Link>
-          </div>
-        </div>
-      )
-    }
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
@@ -1164,6 +1152,24 @@ export default function Communication() {
             <Bot size={14} />
             {t('onboarding.startChat')}
           </Link>
+          {enabledConnections.length === 0 ? (
+            <Link
+              to="/settings/channels"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              <Mail size={14} />
+              {t('openEmailSettings')}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={openCompose}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              <Mail size={14} />
+              {t('threadList.compose')}
+            </button>
+          )}
           <Link
             to="/settings/setup"
             className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
@@ -1383,6 +1389,7 @@ export default function Communication() {
             onDecisionResolved={handleDecisionResolved}
             mode={mode}
             onAskAssistant={detail ? handleAskAssistant : undefined}
+            canSendEmail={enabledConnections.length > 0}
             onForward={
               detail && detail.thread.channel === 'email' && enabledConnections.length > 0
                 ? handleForward
@@ -1391,17 +1398,38 @@ export default function Communication() {
           />
         </SplitPane>
         {detail && showContactPanel ? (
-          <SplitPane
-            id="context"
-            defaultWidth={288}
-            minWidth={240}
-            maxWidth={420}
-            label={t('split.context')}
-            className="hidden lg:flex"
-            handleClassName="hidden lg:block"
-          >
-            <AgentThreadPanel thread={detail.thread} onClose={toggleContactPanel} onThreadUpdated={handleThreadUpdated} />
-          </SplitPane>
+          <>
+            <div className="fixed inset-0 z-40 lg:hidden">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/40"
+                aria-label={t('split.closeContext')}
+                onClick={toggleContactPanel}
+              />
+              <div className="absolute inset-y-0 right-0 w-[min(100%,20rem)] overflow-y-auto border-l border-border/60 bg-bg-surface shadow-overlay">
+                <AgentThreadPanel
+                  thread={detail.thread}
+                  onClose={toggleContactPanel}
+                  onThreadUpdated={handleThreadUpdated}
+                />
+              </div>
+            </div>
+            <SplitPane
+              id="context"
+              defaultWidth={288}
+              minWidth={240}
+              maxWidth={420}
+              label={t('split.context')}
+              className="hidden lg:flex"
+              handleClassName="hidden lg:block"
+            >
+              <AgentThreadPanel
+                thread={detail.thread}
+                onClose={toggleContactPanel}
+                onThreadUpdated={handleThreadUpdated}
+              />
+            </SplitPane>
+          </>
         ) : null}
       </SplitRow>
       <ComposeEmailModal

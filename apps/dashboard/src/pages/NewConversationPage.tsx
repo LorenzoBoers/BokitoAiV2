@@ -14,6 +14,7 @@ import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, assistantPath } from '../lib/messages-paths'
 import { ComposerCard } from '../components/ui/ComposerCard'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
@@ -33,6 +34,8 @@ export default function NewConversationPage() {
   const { t } = useTranslation(['communication', 'nav'])
   const { token } = useAuth()
   const navigate = useNavigate()
+  const { activeConnections } = useMailboxConnections()
+  const canSendEmail = activeConnections.length > 0
   const [searchParams] = useSearchParams()
   const { refresh: refreshSessions } = useChatSessions()
 
@@ -161,6 +164,7 @@ export default function NewConversationPage() {
   }, [targets, pickerQuery, pickerFilter])
 
   const matchingContacts = useMemo(() => {
+    if (!canSendEmail) return []
     const q = pickerQuery.trim().toLowerCase()
     return contacts
       .filter((contact) => canComposeToAddress(contact.channel, contact.address))
@@ -170,18 +174,22 @@ export default function NewConversationPage() {
         const name = `${contact.displayName} ${contact.address}`.toLowerCase()
         return name.includes(q)
       })
-  }, [contacts, pickerQuery, pickerFilter])
+  }, [canSendEmail, contacts, pickerQuery, pickerFilter])
   const filteredContacts = matchingContacts.slice(0, 8)
 
   // Typing a full address that is not a contact yet must not dead-end in
   // "no matches": offer starting an email to that address directly.
+  const targetLabel = (target: ChatTarget) =>
+    target.kind === 'personal' ? t('newConversation.myAssistant') : target.name
+
   const directEmailQuery = useMemo(() => {
+    if (!canSendEmail) return null
     const q = pickerQuery.trim()
     if (pickerFilter === 'company') return null
     if (!canComposeToAddress('email', q)) return null
     const exists = contacts.some((c) => c.address.trim().toLowerCase() === q.toLowerCase())
     return exists ? null : q
-  }, [pickerQuery, pickerFilter, contacts])
+  }, [canSendEmail, pickerQuery, pickerFilter, contacts])
 
   const openPicker = (filter: PickerFilter = 'all') => {
     setPickerFilter(filter)
@@ -279,16 +287,12 @@ export default function NewConversationPage() {
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
                         <Bot size={11} />
                       </span>
-                      <span className="truncate text-[13px] text-text-primary">{selected.name}</span>
+                      <span className="truncate text-[13px] text-text-primary">{targetLabel(selected)}</span>
                       {selected.kind === 'company' ? (
                         <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated px-1.5 py-px text-[10px] text-text-muted">
                           {t('newConversation.companyAgent')}
                         </span>
-                      ) : (
-                        <span className="shrink-0 rounded-full border border-ai/25 bg-ai/10 px-1.5 py-px text-[10px] text-ai-ink">
-                          {t('newConversation.myAssistant')}
-                        </span>
-                      )}
+                      ) : null}
                     </>
                   ) : (
                     <span className="text-[13px] text-text-muted">{t('newConversation.chooseRecipient')}</span>
@@ -338,7 +342,7 @@ export default function NewConversationPage() {
                             <Bot size={12} />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[12.5px] text-text-primary">{target.name}</span>
+                            <span className="block truncate text-[12.5px] text-text-primary">{targetLabel(target)}</span>
                             <span className="block text-[10.5px] text-text-muted">
                               {target.kind === 'personal'
                                 ? t('newConversation.personalAssistant')
@@ -426,11 +430,11 @@ export default function NewConversationPage() {
               {t('newConversation.chatWithAssistant')}
             </button>
             <Link
-              to={composeEmailPath()}
+              to={canSendEmail ? composeEmailPath() : '/settings/channels'}
               className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
             >
               <Mail size={11} />
-              {t('newConversation.emailACustomer')}
+              {canSendEmail ? t('newConversation.emailACustomer') : t('newConversation.connectMailbox')}
             </Link>
             <button
               type="button"
@@ -440,14 +444,16 @@ export default function NewConversationPage() {
               <Sparkles size={11} />
               {t('newConversation.messageAnAgent')}
             </button>
-            <button
-              type="button"
-              onClick={() => openPicker('people')}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-            >
-              <User size={11} />
-              {t('newConversation.writeToPerson')}
-            </button>
+            {canSendEmail ? (
+              <button
+                type="button"
+                onClick={() => openPicker('people')}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
+              >
+                <User size={11} />
+                {t('newConversation.writeToPerson')}
+              </button>
+            ) : null}
           </div>
 
           {/* Composer */}
@@ -493,7 +499,7 @@ export default function NewConversationPage() {
               }
               placeholder={
                 selected
-                  ? t('newConversation.messageName', { name: selected.name })
+                  ? t('newConversation.messageName', { name: targetLabel(selected) })
                   : t('newConversation.chooseAndType')
               }
               className="border-border/60 bg-bg-surface"

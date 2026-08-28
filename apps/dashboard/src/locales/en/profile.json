@@ -14,7 +14,10 @@
     "descriptionPlaceholder": "A short bio or role",
     "saveChanges": "Save changes",
     "saving": "Saving...",
-    "savedSuccess": "Profile saved"
+    "savedSuccess": "Profile saved",
+    "editField": "Edit {{label}}",
+    "saveField": "Save {{label}}",
+    "cancelEdit": "Cancel"
   },
   "signature": {
     "title": "Email signature",
@@ -29,9 +32,10 @@
   "language": {
     "title": "Language",
     "description": "Choose the language for your interface.",
-    "deviceHint": "This language stays on this device.",
+    "deviceHint": "This language stays on your account.",
     "dutch": "Dutch",
-    "english": "English"
+    "english": "English",
+    "saveError": "Language changed for this session, but could not be saved to your account."
   },
   "theme": {
     "title": "Appearance",

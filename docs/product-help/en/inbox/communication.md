@@ -30,8 +30,9 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 ## Start a new chat or email
 
 1. Choose **New chat** to open a composer. **Back to Messages** returns to Open. The To field defaults to your personal assistant — pick a person, agent, or type an email. Enter starts the thread.
-2. Choose **New email** to compose outbound mail. Pick From (a connected mailbox), To, subject and attachments.
+2. Choose **New email** to compose outbound mail. Pick From (a connected mailbox), To, subject and attachments. The built-in Bokito address counts as a mailbox you can send from.
 3. You can also start mail from a contact card or the command palette.
+4. An empty inbox still offers **New chat**, **Install widget**, and the setup guide — website chat does not wait for email.
 
 ## Reply, note, or insert a saved reply
 
@@ -40,15 +41,16 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 
 1. Select a thread. History, contact and AI context sit on one screen.
 2. The composer sends on the same channel the customer used (Email, Chat, WhatsApp). **Ctrl+Enter** sends email; Enter sends chat — hover the **Send** button to see the shortcut. The arrow next to **Send** holds **Send and close** and **Send and snooze**. **Send as:** **You** or the agent picks whose signature is appended.
-3. Switch to **Note** for an internal comment the customer never sees (hover the tab for the reminder). Notes still work if the mailbox was disconnected.
+3. Switch to **Note** for an internal comment the customer never sees (hover the tab for the reminder). Notes still work if no mailbox can send. Closed or spam threads keep notes too — **Reopen** sits on the composer so you do not hunt for it.
 4. Open **Templates** in the composer to insert a saved reply, or save the current text as one. Manage the library under **Settings**, then **Email & messages** (Saved replies).
-5. Email replies can add CC/BCC and append your mailbox signature. When the customer copied colleagues on their email, opening **CC/BCC** pre-fills their CC list so reply-all is one click. After you close or task the same sender several times, Bokito can ask to always do that — **Always do this** or **Not now**. Those rules live under Email & messages.
+5. Email replies can add CC/BCC and append your mailbox signature. When the customer copied colleagues on their email, **Reply all** pre-fills their CC list. **Quote** inserts the last inbound lines. After you close or task the same sender several times, Bokito can ask to always do that — **Always do this** or **Not now**. Those rules live under Email & messages.
+6. Invoice or quote threads show **Open bookkeeping** and can add a **Billing** label. After you send, a toast offers Bookkeeping so you check the amount before you promise anything.
 
 ## Use an AI draft
 
 1. When [Inbox AI](/docs/inbox/inbox-ai) is on **Suggest replies**, a draft card sits in the thread.
 2. Edit the wording, then send — or choose **Not now** / **I'll handle it myself**. Sending or approving one draft dismisses leftover suggestion cards. Older dismissed drafts collapse to one line (**Earlier draft — dismissed**).
-3. **Draft with AI** in the composer asks for a one-off draft without waiting for inbound mail. Optional guidance steers the tone.
+3. **Draft with AI** in the composer asks for a one-off draft without waiting for inbound mail. Optional guidance steers the tone. If no agent is assigned, the error offers **Open Agents**.
 4. **Take over from AI** pauses the assistant on that thread so you can finish by hand. **Hand back to AI** resumes it. On **Reply automatically**, take over is how you stop a live send. In website chat the visitor sees a "team member is handling this" banner appear on takeover and disappear again on handback or close.
 
 ## Decide in the thread

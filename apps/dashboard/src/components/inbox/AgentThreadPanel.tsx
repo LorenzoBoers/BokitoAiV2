@@ -143,7 +143,7 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
                     {t('sidePanel.handling', { ns: 'communication' })}
                   </span>
                   <span className="block truncate text-[12px] font-medium text-text-heading">
-                    {thread.agentName || 'Agent'}
+                    {thread.agentName || t('sidePanel.agent', { ns: 'communication' })}
                   </span>
                 </span>
               </Link>
@@ -153,6 +153,8 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
               fallbackName={thread.contactName}
               fallbackEmail={thread.contactEmail}
               currentThreadId={thread.id}
+              threadSubject={thread.emailSubject}
+              threadPreview={thread.lastMessagePreview}
             />
           </>
         ) : (

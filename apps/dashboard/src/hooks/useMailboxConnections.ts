@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { disconnectEmailConnection, listEmailConnections, type EmailConnection } from '../lib/email-api'
+import { disconnectEmailConnection, isSendableMailbox, listEmailConnections, type EmailConnection } from '../lib/email-api'
 
 export function useMailboxConnections() {
   const { token, user, isLoading: authLoading } = useAuth()
@@ -48,11 +48,7 @@ export function useMailboxConnections() {
   }, [refresh])
 
   const activeConnections = useMemo(
-    () =>
-      connections.filter(
-        (item) =>
-          (item.status === 'active' || item.status === 'connected') && item.isEnabled !== false,
-      ),
+    () => connections.filter(isSendableMailbox),
     [connections],
   )
   const loadingState = loading || (Boolean(token) && authLoading)

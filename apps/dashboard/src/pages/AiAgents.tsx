@@ -89,10 +89,13 @@ function AgentLibraryCard({
     t('workforce.agents.types.po').trim().toLowerCase(),
     t('workforce.agents.types.worker').trim().toLowerCase(),
   ])
+  const nameLower = (agent.name ?? '').trim().toLowerCase()
+  const roleLower = roleLabel.trim().toLowerCase()
   const showRole =
     roleLabel.trim().length > 0 &&
-    roleLabel.trim().toLowerCase() !== (agent.name ?? '').trim().toLowerCase() &&
-    !genericRole.has(roleLabel.trim().toLowerCase())
+    roleLower !== nameLower &&
+    !nameLower.includes(roleLower) &&
+    !genericRole.has(roleLower)
 
   return (
     <Link to={`/agents/${agent.id}`} className="block h-full">

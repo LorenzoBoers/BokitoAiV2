@@ -245,7 +245,10 @@ export function resolveApplicationConnectTarget(
   connectParam: string,
 ): { app: IntegrationApplication; offer?: IntegrationOffer } | null {
   const byHost = findApplicationByHostSlug(apps, connectParam)
-  if (byHost) return { app: byHost }
+  if (byHost) {
+    const offer = findOfferInApplication(byHost, connectParam) ?? byHost.offers[0]
+    return { app: byHost, offer }
+  }
 
   for (const app of apps) {
     const offer = findOfferInApplication(app, connectParam)

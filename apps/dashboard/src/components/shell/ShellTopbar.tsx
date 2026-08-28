@@ -1,4 +1,4 @@
-import { Bell, Building2, ChevronDown, CircleHelp, Compass, LogOut, Mail, Menu, Search, Sparkles, UserCircle2 } from 'lucide-react'
+import { Bell, Building2, ChevronDown, CircleHelp, Compass, Languages, LogOut, Mail, Menu, Search, Sparkles, UserCircle2 } from 'lucide-react'
 import { useLocation, useNavigate, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -21,6 +21,7 @@ import { useTour } from '../tour/TourContext'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 import { settingsLinkForPath } from './SettingsLayout'
 import { extraCrumbsForPath } from '../../lib/page-crumbs'
+import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
 
 type ShellTopbarProps = {
   onOpenNavDrawer: () => void
@@ -30,9 +31,9 @@ type ShellTopbarProps = {
 export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTopbarProps) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { t } = useTranslation('nav')
+  const { t, i18n } = useTranslation('nav')
   const { t: tTour } = useTranslation('tour')
-  const { user, logout } = useAuth()
+  const { user, token, logout } = useAuth()
   const { start: startTour } = useTour()
   const { status: onboardingStatus } = useOnboardingStatus()
   const setupIncomplete = Boolean(onboardingStatus && !onboardingStatus.completed)
@@ -232,6 +233,16 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
           <DropdownMenuItem onClick={() => navigate('/settings/profile')}>
             <UserCircle2 size={14} className="mr-2 text-text-muted" />
             {t('topbar.profile')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              const next = i18n.language.startsWith('nl') ? 'en' : 'nl'
+              applyUiLanguageLocally(i18n, next)
+              if (token) void persistUiLanguage(token, next)
+            }}
+          >
+            <Languages size={14} className="mr-2 text-text-muted" />
+            {i18n.language.startsWith('nl') ? t('topbar.languageEn') : t('topbar.languageNl')}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate('/learn')}>
             <CircleHelp size={14} className="mr-2 text-text-muted" />

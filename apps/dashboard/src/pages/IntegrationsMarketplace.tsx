@@ -20,7 +20,9 @@ import {
 } from '../lib/integration-setup-url'
 import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
-import { moduleHomePath, plannedProviderLabel } from '../lib/integration-modules'
+import { ModulePowerSwitch } from '../components/integrations/ModulePowerSwitch'
+import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
+import { moduleHomePath, moduleIsOn, plannedProviderLabel } from '../lib/integration-modules'
 import {
   localizeApplication,
   resolveApplicationConnectTarget,
@@ -53,7 +55,8 @@ export default function IntegrationsMarketplace() {
   const kindFilter = parseKindFilter(searchParams.get('kind'))
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const statusFilter = parseStatusFilter(searchParams.get('status'))
-  const { applications, modules, loadError, refreshCatalog } = useIntegrationCatalog()
+  const { applications, modules, loadError, refreshCatalog, setModuleEnabled } =
+    useIntegrationCatalog()
 
   const [hubOpen, setHubOpen] = useState(false)
   const [hubApplication, setHubApplication] = useState<IntegrationApplication | null>(null)
@@ -75,7 +78,7 @@ export default function IntegrationsMarketplace() {
   const setStatusFilter = useCallback(
     (next: MarketplaceStatusFilter) => {
       const params = new URLSearchParams(searchParams)
-      if (next === 'all') params.delete('status')
+      if (next === 'available') params.delete('status')
       else params.set('status', next)
       setSearchParams(params, { replace: true })
     },
@@ -247,7 +250,7 @@ export default function IntegrationsMarketplace() {
     const q = search.trim().toLowerCase()
     return modules
       .map((module) => {
-        const apps = filtered.filter((app) => app.module === module.slug)
+        const apps = filtered.filter((app) => app.module === module.slug && app.status !== 'coming_soon')
         const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
         const description = t(`integrations.modules.${module.slug}.description`, {
           defaultValue: module.description,
@@ -275,6 +278,12 @@ export default function IntegrationsMarketplace() {
       <div className="mb-6">
         <p className="max-w-2xl text-sm text-text-secondary">
           {t('integrations.pageMeta.marketplace.description')}
+        </p>
+        <p className="mt-1 max-w-2xl text-xs text-text-muted">
+          {t('integrations.pageMeta.marketplace.modulesHint', {
+            defaultValue:
+              'Business modules are turned on under Settings > Modules. Packages below show which connectors belong to each module.',
+          })}
         </p>
         {loadError ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -342,19 +351,24 @@ export default function IntegrationsMarketplace() {
                 >
                   {section.name}
                 </Link>
-                {section.module.status === 'coming_soon' ? (
-                  <span className="rounded-full border border-border-default px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">
-                    {t('integrations.modules.comingSoon', { defaultValue: 'Coming soon' })}
-                  </span>
-                ) : (
+                <ModuleStatusBadge module={section.module} />
+                {section.module.status === 'coming_soon' ? null : (
+                  <ModulePowerSwitch module={section.module} onToggle={setModuleEnabled} />
+                )}
+                {section.module.status === 'coming_soon' ? null : (
                   <Link
                     to={moduleHomePath(section.module)}
                     className="text-xs font-medium text-accent hover:underline"
                   >
-                    {t('integrations.modules.setupCta', {
-                      defaultValue: 'Set up {{name}}',
-                      name: section.name,
-                    })}
+                    {moduleIsOn(section.module) &&
+                    !(section.module.tenant_status === 'connected' || section.module.connected)
+                      ? t('integrations.modules.connectCta', {
+                          defaultValue: 'Connect a package',
+                        })
+                      : t('integrations.modules.manageCta', {
+                          defaultValue: 'Manage {{name}}',
+                          name: section.name,
+                        })}
                   </Link>
                 )}
               </div>
@@ -369,8 +383,9 @@ export default function IntegrationsMarketplace() {
                     />
                   ))}
                 </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-border-default p-4">
+              ) : null}
+              {section.module.planned_provider_slugs.length > 0 ? (
+                <div className={`${section.apps.length > 0 ? 'mt-3' : ''} rounded-lg border border-dashed border-border-default p-4`}>
                   <p className="text-xs text-text-muted">
                     {t('integrations.modules.planned', {
                       defaultValue: 'Planned connectors: {{providers}}',
@@ -380,7 +395,15 @@ export default function IntegrationsMarketplace() {
                     })}
                   </p>
                 </div>
-              )}
+              ) : section.apps.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border-default p-4">
+                  <p className="text-xs text-text-muted">
+                    {t('integrations.modules.plannedEmpty', {
+                      defaultValue: 'Connectors for this module are not listed yet.',
+                    })}
+                  </p>
+                </div>
+              ) : null}
             </section>
           ))}
           {ungrouped.length > 0 ? (

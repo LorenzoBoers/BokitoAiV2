@@ -9,7 +9,7 @@ related: mcp,models,channels,govern
 
 # Connect integrations
 
-Integrations are the tools agents may call. Open **Settings**, then **Integrations**. The page has three tabs: **Connected**, **Marketplace** and **Connected tools**.
+Integrations are the tools agents may call. Open **Settings**, then **Modules** to turn a business capability on, or **Integrations** for packages. Integrations has three tabs: **Connected**, **Marketplace** and **Connected tools**.
 
 ## See what is connected
 
@@ -22,7 +22,7 @@ Integrations are the tools agents may call. Open **Settings**, then **Integratio
 ![Integrations marketplace](/api/docs/assets/integrations/marketplace.png)
 *Marketplace is where you install a new app.*
 
-1. Open **Marketplace**. Filter by kind, **All statuses** / **Connected** / **Available**, or search. Those filters stay in the URL so you can share them.
+1. Open **Marketplace**. It opens on **Available** (ready to connect), so coming-soon cards stay out of the way. Filter by kind, **All statuses** / **Connected** / **Available**, or search. Those filters stay in the URL so you can share them.
 2. Pick an app and finish OAuth or the provider setup. You return here after the account prompt.
 3. Communication apps add queues (email, Slack, WhatsApp). Repository apps attach to a [project](/docs/ai/projects). Tool apps land on **Connected tools**. See [MCP](/docs/integrations/mcp).
 
@@ -30,21 +30,30 @@ WhatsApp itself is configured on **Email & messages**, not only here. The market
 
 ## Connect an accounting package
 
-1. Open **Marketplace** and find the **Accounting** section at the top. It groups KING Accountancy, Bjorn Lunden and Moneybird; **Exact Online** and **SnelStart** show as **Coming soon**.
+1. Open **Marketplace** and find the **Accounting** section at the top. It groups KING Accountancy, Bjorn Lunden and Moneybird. **Exact Online** and **SnelStart** are listed as planned connectors under that section.
 2. Pick a package and finish the setup (OAuth for Moneybird, an API key for KING and Bjorn Lunden). You can connect more than one package in the same workspace.
 3. Agents then use one shared set of accounting actions — companies, contacts, invoices, ledger, outstanding balances — no matter which package is behind it. Changes agents want to make always arrive as a [decision](/docs/ai/decisions) you approve first.
 4. On **Connected**, the **Tools for agents** list shows an **Accounting** group with your administrations. With a single administration agents pick it automatically; with more you see them listed.
 
 The **Banking**, **Investing** and **Documents** sections in the marketplace are modules that are prepared but not yet connectable; their cards list the planned connectors.
 
+## Turn a module on
+
+A module is a workspace switch. Agents only see that capability after you turn it on. Packages stay listed so you can see which connectors belong to the module.
+
+1. Open **Settings**, then **Modules**.
+2. Find **Accounting** (or another live module) and turn the switch **On**. The badge changes from **Off** to **On**.
+3. Agents can now use the module. Connecting a package later also turns the module on. Turning it **Off** hides it from agents; connected packages stay in place.
+4. Or approve **Turn on** on a decision card from the company assistant. That lands on the same Modules page.
+
 ## Walk through a module setup
 
 A module is the business capability (accounting, later banking). A package is the connector underneath (KING, Moneybird). You or the assistant can start the same setup.
 
-1. Open **Marketplace** and choose a module title or **Set up Accounting**. That opens the module page at **Settings > Integrations > Module setup**.
-2. Read what agents can do after connect. Writes always become a [decision](/docs/ai/decisions) you approve.
-3. Choose a package and finish OAuth or the API key in the same hub used on Marketplace. `?connect=` still opens that package.
-4. Or ask the company assistant to set the workspace up. After Communication, if the work touches invoices or VAT, it can recommend the module and put **Connect now** on a decision card that opens this same page.
+1. Open **Settings**, then **Modules**. After you turn **Accounting** on, choose **Connect a package** or a package chip such as Moneybird.
+2. The next-step banner tells you to connect. Packages sit first when the module is already on. Writes always become a [decision](/docs/ai/decisions) you approve.
+3. Finish OAuth or the API key in the same hub used on Marketplace. Connecting a package also turns the module on.
+4. Or ask the company assistant to set the workspace up. After Communication, if the work touches invoices or VAT, it can recommend the module and put **Turn on** or **Connect a package** on a decision card that opens this same page.
 
 ## Set what agents may call
 

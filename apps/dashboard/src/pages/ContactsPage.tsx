@@ -50,6 +50,7 @@ import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../lib/contact-label'
 import { inboxPath } from '../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
+import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import type { InboxThread } from '../lib/inbox-api'
 import { listSignalThreads } from '../lib/signals-api'
 
@@ -73,6 +74,8 @@ function timeAgo(iso: string | null, t: (key: string, opts?: { count: number }) 
 function ContactDetail({ contactId }: { contactId: string }) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const { activeConnections } = useMailboxConnections()
+  const mailboxReady = activeConnections.length > 0
   const navigate = useNavigate()
   const [contact, setContact] = useState<ContactRow | null>(null)
   const [threads, setThreads] = useState<InboxThread[]>([])
@@ -254,7 +257,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 {t('contactsPage.openConversation')}
               </Link>
             ) : null}
-            {canComposeToAddress(contact.channel, contact.address) ? (
+            {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
               <Link
                 to={composeEmailPath({ to: contact.address })}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover"
@@ -402,7 +405,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 <p className="text-[12px] text-text-muted">{t('contactsPage.noConversations')}</p>
                 <p className="mt-1 text-[11px] text-text-muted">{t('contactsPage.noConversationsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  {canComposeToAddress(contact.channel, contact.address) ? (
+                  {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
                     <Link
                       to={composeEmailPath({ to: contact.address })}
                       className="rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-accent-fg hover:bg-accent-hover"
@@ -726,6 +729,8 @@ export default function ContactsPage() {
   const { t } = useTranslation('nav')
   const { contactId, companyId } = useParams<{ contactId?: string; companyId?: string }>()
   const { token } = useAuth()
+  const { activeConnections } = useMailboxConnections()
+  const mailboxReady = activeConnections.length > 0
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [view, setView] = useState<'people' | 'companies'>(() =>
@@ -735,7 +740,7 @@ export default function ContactsPage() {
   const [companies, setCompanies] = useState<CompanyRow[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('q')?.trim() ?? '')
   const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
   const [createDraft, setCreateDraft] = useState({
@@ -764,6 +769,8 @@ export default function ContactsPage() {
     if (companyId) return
     const fromUrl = parseContactsView(searchParams.get('view'))
     setView((current) => (current === fromUrl ? current : fromUrl))
+    const query = searchParams.get('q')?.trim() ?? ''
+    setSearch((current) => (current === query ? current : query))
   }, [searchParams, companyId])
 
   useEffect(() => {
@@ -1298,7 +1305,7 @@ export default function ContactsPage() {
                           <MessageSquare size={13} />
                         </button>
                       ) : null}
-                      {canComposeToAddress(contact.channel, contact.address) ? (
+                      {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
                         <Link
                           to={composeEmailPath({ to: contact.address })}
                           onClick={(event) => event.stopPropagation()}
@@ -1349,7 +1356,7 @@ export default function ContactsPage() {
                       >
                         {contact.threadCount}
                       </button>
-                    ) : canComposeToAddress(contact.channel, contact.address) ? (
+                    ) : mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
                       <Link
                         to={composeEmailPath({ to: contact.address })}
                         onClick={(event) => event.stopPropagation()}

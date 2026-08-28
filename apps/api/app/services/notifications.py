@@ -84,6 +84,18 @@ async def resolve_decision(
         if always_auto and user_id and action_type:
             await set_tool_override(session, tenant_id, action_type, "allow")
 
+        if action_type == "enable_module":
+            slug = str(payload.get("module") or "").strip()
+            if slug:
+                from app.modules.catalog import set_module_enabled
+
+                try:
+                    await set_module_enabled(
+                        session, tenant_id, slug, True, actor_id=user_id
+                    )
+                except ValueError:
+                    pass
+
         if action_type == "orchestration_continue":
             task_id_raw = payload.get("task_id")
             if task_id_raw:
@@ -103,6 +115,7 @@ async def resolve_decision(
             "draft",
             "escalate",
             "setup_integration",
+            "enable_module",
             "accept_platform_change",
             "orchestration_continue",
         ):

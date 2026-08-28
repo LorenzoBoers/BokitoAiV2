@@ -24,7 +24,7 @@
     },
     "agenda": {
       "title": "Agenda",
-      "subtitle": "Geplande wakes, taken en events"
+      "subtitle": "Geplande check-ins, taken en afspraken"
     },
     "agents": {
       "title": "Agents",
@@ -63,6 +63,7 @@
     "widgetVoice": "Stem en uren",
     "widgetLook": "Uiterlijk",
     "marketplace": "Marketplace",
+    "modules": "Modules",
     "moduleSetup": "Module-setup",
     "connectedTools": "Gekoppelde tools",
     "myAssistant": "Mijn assistent"
@@ -157,7 +158,7 @@
       "agents": "Agents",
       "setup": "Setupgids",
       "channels": "Kanaalinstellingen",
-      "inboxAi": "Inbox AI-instellingen",
+      "inboxAi": "AI-antwoorden",
       "contacts": "Contacten",
       "agenda": "Agenda",
       "projects": "Projecten",
@@ -375,6 +376,7 @@
     "list": "Lijst",
     "automations": "Automatiseringen",
     "thisWeek": "Deze week",
+    "refresh": "Vernieuwen",
     "refreshedAt": "Bijgewerkt {{time}}",
     "listSearch": "Zoek in de lijst",
     "listFilterEmpty": "Geen geplande items die bij die zoekopdracht passen.",
@@ -387,7 +389,7 @@
     "allAgents": "Alle agents",
     "allTypes": "Alle types",
     "emptyTitle": "Niets gepland",
-    "emptyBody": "Plan een check-in, een eenmalige taak of een event met Nieuw.",
+    "emptyBody": "Plan een check-in, een eenmalige taak of een afspraak met Nieuw.",
     "createRun": "Geplande run maken",
     "openSetup": "Setupgids openen",
     "openAgents": "Agents openen",
@@ -405,7 +407,7 @@
     "runs": "Runs",
     "kinds": {
       "once": "Taak",
-      "event": "Event",
+      "event": "Afspraak",
       "cron": "Terugkerend",
       "interval": "Herhalend",
       "heartbeat": "Check-in",
@@ -642,7 +644,7 @@
     "contactCount_one": "{{count}} contact",
     "channels": {
       "email": "E-mail",
-      "widget": "Widget",
+      "widget": "Websitechat",
       "slack": "Slack",
       "whatsapp": "WhatsApp",
       "internal": "Intern"
@@ -688,7 +690,10 @@
       "manageAgents": "Agents beheren",
       "organizeProjects": "Werk organiseren per project",
       "modulesFit": "Modules die bij dit werk passen",
-      "modulesLine": "Koppel een bedrijfsmodule wanneer facturen, bank of bestanden ter sprake komen"
+      "manageModules": "Modules beheren",
+      "modulesLine": "Zet een bedrijfsmodule aan wanneer facturen, bank of bestanden ter sprake komen",
+      "modulesOn": "{{count}} module aan",
+      "modulesOn_other": "{{count}} modules aan"
     },
     "projects": {
       "title": "6. Projecten",
@@ -949,7 +954,9 @@
       "invite_accepted": "Uitnodiging geaccepteerd",
       "user_password_changed": "Wachtwoord gewijzigd",
       "workspace_settings_updated": "Workspace-instellingen bijgewerkt",
-      "agent_passport_update": "Agenttoegang bijgewerkt"
+      "agent_passport_update": "Agenttoegang bijgewerkt",
+      "module_enabled": "Module aangezet",
+      "Module_enabled": "Module aangezet"
     },
     "knownMessages": {
       "agentPassportUpdate": "Agenttoegang bijgewerkt"
@@ -961,6 +968,9 @@
     "greetingMorning": "Goedemorgen, {{name}}",
     "greetingAfternoon": "Goedemiddag, {{name}}",
     "greetingEvening": "Goedenavond, {{name}}",
+    "greetingMorningPlain": "Goedemorgen",
+    "greetingAfternoonPlain": "Goedemiddag",
+    "greetingEveningPlain": "Goedenavond",
     "greetingFallback": "daar",
     "showSetupAgain": "Setupkaart tonen",
     "loadError": "Kon overzicht niet laden.",
@@ -970,7 +980,7 @@
     "conversationsEmptyHint": "Geen deze week — oudere gesprekken staan nog in de inbox",
     "awaitingDecision": "Wacht op beslissing",
     "autonomyRate": "Afgehandeld zonder jou",
-    "posture": "Hoeveel agents mogen doen",
+    "posture": "Vrijheid van agents",
     "timeSaved": "Tijd bespaard 7d (schatting)",
     "timeSavedEmptyHint": "Verschijnt nadat agents werk voor je afhandelen",
     "openFirst": "Open de eerste",
@@ -990,9 +1000,10 @@
     "autonomyHint": "Deel van antwoorden dat is verstuurd zonder dat jij op Versturen klikte.",
     "autonomyEmptyHint": "Verschijnt nadat agents zelf klantwerk afhandelen",
     "usage": "AI-verbruik deze maand",
-    "postureManual": "Handmatig",
-    "postureAssisted": "Ondersteund",
-    "postureAutonomous": "Autonoom",
+    "usageEmptyHint": "Nog geen kosten deze maand",
+    "postureManual": "Jij beslist",
+    "postureAssisted": "Vraagt eerst",
+    "postureAutonomous": "Doet het zelf",
     "needsAttention": "Vraagt aandacht",
     "needsAttentionHint": "Dingen die op jou wachten: een antwoord, een ja/nee, of een concept om goed te keuren",
     "nothingAttention": "Niets vraagt nu je aandacht.",
@@ -1005,14 +1016,14 @@
     "changesAwaiting": "{{count}} platformwijziging wacht op review",
     "changesAwaiting_other": "{{count}} platformwijzigingen wachten op review",
     "reviewGovern": "Bekijk workspace-wijzigingen om goed te keuren",
-    "recentEvents": "Recente events",
+    "recentEvents": "Recente gebeurtenissen",
     "recentEventsHint": "Afgeronde runs, beslissingen en teamacties — denkstappen staan op Activiteit",
     "eventRepeats": "{{count}} vergelijkbaar",
     "openActivity": "Activiteit openen",
-    "noEvents": "Geen recente events. Agent-runs verschijnen hier.",
+    "noEvents": "Nog geen recente gebeurtenissen. Agent-runs verschijnen hier.",
     "openAgents": "Agents openen",
     "todayAgenda": "Vandaag op de agenda",
-    "todayAgendaHint": "Aankomende agent-wakes, taken en events",
+    "todayAgendaHint": "Aankomende check-ins, taken en afspraken",
     "openAgenda": "Agenda openen",
     "nothingScheduled": "Niets gepland in de komende 24 uur.",
     "planAutomation": "Plan een geplande run",
@@ -1238,7 +1249,7 @@
     "close": "Sluiten",
     "crossLinks": {
       "body": "Kanalen, AI-gedrag en de chatwidget werken samen. Pas gerelateerde instellingen aan zonder Communicatie te verlaten.",
-      "inboxAi": "Inbox AI-instellingen",
+      "inboxAi": "AI-antwoorden",
       "widget": "Chatwidget",
       "integrations": "Integraties bekijken"
     },
@@ -1432,7 +1443,7 @@
     "budgetHint": "Budgetwaarschuwingen volgen de uitgavenlimieten op",
     "openUsage": "Verbruik",
     "inAppEnabled": "{{count}} in-app aan",
-    "slackFirst": "Koppel eerst een Slack-workspace (Instellingen > E-mail & berichten)",
+    "slackFirst": "Koppel eerst een Slack-workspace (Instellingen > E-mail en berichten)",
     "loading": "Voorkeuren laden...",
     "saved": "Opgeslagen.",
     "savedHint": "Voorkeuren worden op je account bewaard.",
@@ -1633,6 +1644,7 @@
     "inviteTeammate": "Nodig een teammate uit",
     "openProfile": "Open mijn profiel",
     "openNotifications": "Open meldingen",
+    "openBookkeeping": "Boekhouding openen",
     "talkAssistant": "Praat met mijn assistent",
     "talkPrefill": "Help me met het werk van vandaag. Wat vraagt aandacht?"
   },
@@ -1661,10 +1673,17 @@
     "notifications": "Notificaties",
     "workspaces": "Workspaces",
     "resumeSetup": "Setupgids hervatten",
-    "setup": "Setup",
+    "setup": "Aan de slag",
+    "language": "Taal",
+    "languageNl": "Nederlands",
+    "languageEn": "English",
     "emailMessages": "E-mail en berichten",
-    "inboxAi": "Inbox AI",
+    "inboxAi": "AI-antwoorden",
     "signOut": "Uitloggen"
+  },
+  "theme": {
+    "dark": "Donker",
+    "light": "Licht"
   },
   "rail": {
     "home": "Home",
@@ -1995,7 +2014,7 @@
       "custom": "Eigen labels..."
     },
     "settings": {
-      "channels": "E-mail & berichten",
+      "channels": "E-mail en berichten",
       "assistant": "AI-antwoordinstellingen",
       "widget": "Chatwidget",
       "integrations": "Integraties",
@@ -2062,9 +2081,9 @@
       "assistent": "Assistent"
     },
     "links": {
-      "assistent": "Assistents",
-      "widget": "Widget",
-      "kennis": "AI bronnen",
+      "assistent": "Assistenten",
+      "widget": "Chatwidget",
+      "kennis": "AI-bronnen",
       "communication": "AI-antwoordinstellingen"
     },
     "pageMeta": {
@@ -2126,7 +2145,7 @@
       "mailboxLanguageHint": "Antwoordtaal voor concepten vanuit deze mailbox.",
       "useDefault": "Workspace-standaard",
       "noMailboxTitle": "Geen mailbox gekoppeld",
-      "noMailboxDescription": "Koppel e-mail onder E-mail & berichten voordat je AI-antwoorden per mailbox kunt wijzigen.",
+      "noMailboxDescription": "Koppel e-mail onder E-mail en berichten voordat je AI-antwoorden per mailbox kunt wijzigen.",
       "unsavedLeave": "Je hebt niet-opgeslagen AI-antwoordinstellingen. Deze pagina verlaten?",
       "unsavedBar": "Je hebt niet-opgeslagen AI-antwoordinstellingen.",
       "currentSetup": "E-mail {{email}}, websitechat {{widget}}, overige kanalen {{other}}.",
@@ -2172,7 +2191,7 @@
     },
     "kind": {
       "inbox": "Communicatie",
-      "repository": "Repository",
+      "repository": "Code",
       "mcp": "Tools"
     },
     "actions": {
@@ -2225,7 +2244,7 @@
         "back": "Terug",
         "oauthHint": "Je wordt doorgestuurd naar de provider om veilig in te loggen. Daarna kom je terug in Bokito.",
         "oauthStepSignIn": "Meld je aan bij {{name}} en geef toestemming.",
-        "oauthStepReturn": "Je wordt teruggeleid naar de Marketplace.",
+        "oauthStepReturn": "Je komt hier terug nadat je toegang hebt gegeven.",
         "oauthContinue": "Doorgaan naar inloggen",
         "oauthContinuing": "Doorsturen…",
         "oauthLoginRequired": "Log eerst in op Bokito om door te gaan.",
@@ -2244,6 +2263,7 @@
       "offerCount_one": "{{count}} koppelingstype",
       "manage": "Beheren",
       "hubSubtitle": "Kies hoe je wilt koppelen ({{count}} opties).",
+      "hubSubtitle_one": "Koppel dit pakket.",
       "connectionTypes": "Koppelingstypen",
       "connectedShort": "Verbonden"
     },
@@ -2342,23 +2362,90 @@
       "setupSteps": "Inrichting",
       "connectors": "Pakketten",
       "backToMarketplace": "Terug naar Marketplace",
+      "backToModules": "Terug naar Modules",
       "connectedBadge": "Gekoppeld",
+      "onBadge": "Aan",
+      "offBadge": "Uit",
+      "turnOn": "Aanzetten",
+      "turnOff": "Uitzetten",
+      "switchOn": "Aan",
+      "switchOff": "Uit",
+      "toggleHint": "Een module uitzetten verbergt die voor agents. Gekoppelde pakketten blijven staan.",
+      "enableToUseHint": "Zet deze module aan zodat agents die kunnen gebruiken. Een pakket koppelen zet de module ook aan.",
+      "toggleError": "Deze module kon niet worden bijgewerkt.",
+      "turnOffTitle": "{{name}} uitzetten?",
+      "turnOffConfirm": "Agents stoppen ermee. Gekoppelde pakketten blijven staan.",
+      "turnedOn": "{{name}} staat aan.",
+      "turnedOff": "{{name}} staat uit.",
+      "nextConnect": "{{name}} staat aan. Koppel een pakket zodat agents het kunnen gebruiken.",
+      "connectCta": "Pakket koppelen",
+      "connectPackage": "{{name}} koppelen",
+      "laterTitle": "Komt later",
+      "readyCount": "{{on}} van {{total}} beschikbare modules aan",
+      "readyCount_one": "{{on}} van {{total}} beschikbare module aan",
+      "pageIntro": "Zet een bedrijfsmodule aan zodat agents die kunnen gebruiken. Koppel daarna het pakket dat je al gebruikt.",
+      "manageCta": "{{name}} beheren",
+      "openSetup": "{{name}} openen",
+      "browseMarketplace": "Pakketten bekijken op Marketplace",
+      "helpLink": "Hoe modules werken",
+      "plannedEmpty": "Voor deze module staan nog geen koppelingen klaar.",
       "notFound": "Deze module staat niet in de catalogus.",
+      "verbs": {
+        "administrations": "Administraties",
+        "contacts": "Relaties",
+        "invoices_and_bills": "Facturen en inkoop",
+        "chart_of_accounts": "Grootboekschema",
+        "ledger": "Grootboek",
+        "outstanding_balances": "Openstaande posten",
+        "bank_mutations": "Bankmutaties",
+        "summary": "Samenvatting",
+        "accounts": "Rekeningen",
+        "balances": "Saldi",
+        "transactions": "Transacties",
+        "positions": "Posities",
+        "quotes": "Koersen",
+        "watchlists": "Watchlists",
+        "search_files": "Bestanden zoeken",
+        "list_files": "Bestanden tonen",
+        "read_content": "Inhoud lezen"
+      },
       "accounting": {
         "name": "Boekhouding",
-        "description": "Eén boekhoudcontract voor agents: administraties, relaties, facturen, grootboek en openstaande posten over elk gekoppeld pakket."
+        "description": "Eén boekhoudcontract voor agents: administraties, relaties, facturen, grootboek en openstaande posten over elk gekoppeld pakket.",
+        "capability": "Agents kunnen administraties, relaties, facturen, grootboekregels en openstaande posten ophalen. Schrijven wordt altijd een beslissing die jij goedkeurt.",
+        "setup": [
+          "Zet Boekhouding aan onder Instellingen > Modules.",
+          "Kies een pakket (KING, Bjorn Lunden of Moneybird).",
+          "Koppel met OAuth of een API-sleutel.",
+          "Als er meer dan één administratie verschijnt, kies welke agents moeten gebruiken."
+        ]
       },
       "banking": {
         "name": "Bankieren",
-        "description": "PSD2 / open-banking reads (rekeningen, saldi, transacties); betalingen alleen als voorstel dat een mens goedkeurt."
+        "description": "Lees bankrekeningen, saldi en transacties. Betalingen blijven een voorstel dat jij goedkeurt.",
+        "capability": "Later: rekeningen, saldi en transacties lezen. Betalingen blijven een voorstel dat een mens goedkeurt.",
+        "setup": [
+          "Deze module is voorbereid maar nog niet koppelbaar.",
+          "Als een bankkoppeling live gaat, kies je die hier en keur je betalingen goed als beslissing."
+        ]
       },
       "investing": {
         "name": "Beleggen",
-        "description": "Marktdata, posities en watchlists; TradingView-alerts komen binnen als Signalen. Orders alleen als voorstel dat een mens goedkeurt."
+        "description": "Marktdata, posities en watchlists. Orders blijven een voorstel dat jij goedkeurt.",
+        "capability": "Later: posities, koersen en watchlists. Orders blijven een voorstel dat een mens goedkeurt.",
+        "setup": [
+          "Deze module is voorbereid maar nog niet koppelbaar.",
+          "Als een broker- of koerskoppeling live gaat, komen orders binnen als beslissing."
+        ]
       },
       "documents": {
         "name": "Documenten",
-        "description": "Brug naar externe documentopslag. Gelezen content stroomt de workspace-kennis in; uploads alleen als voorstel."
+        "description": "Lees bestanden uit Drive, SharePoint of Dropbox naar Kennis. Uploads blijven een voorstel dat jij goedkeurt.",
+        "capability": "Later: externe bestanden zoeken en lezen naar Kennis. Uploads blijven een voorstel dat een mens goedkeurt.",
+        "setup": [
+          "Deze module is voorbereid maar nog niet koppelbaar.",
+          "Als een opslagkoppeling live gaat, vullen reads Kennis en blijven uploads beslissingen."
+        ]
       }
     },
     "marketplace": {
@@ -2402,7 +2489,8 @@
       },
       "marketplace": {
         "title": "Marketplace",
-        "description": "Ontdek en koppel e-mail, repositories en tools die je agents kunnen gebruiken."
+        "description": "Ontdek en koppel e-mail, repositories en tools die je agents kunnen gebruiken.",
+        "modulesHint": "Bedrijfsmodules zet je aan onder Instellingen > Modules. De pakketten hieronder tonen welke koppelingen bij elke module horen."
       },
       "connections": {
         "title": "Verbonden",
@@ -2643,7 +2731,7 @@
       "modelCostHigh": "Hoge kosten",
       "routingTitle": "Wie behandelt wat",
       "routingBody": "Een mailbox, kanaal of project kan een eigen agent hebben. De rest gaat naar de lead agent. Je kunt een agent ook @vermelden in een gesprek.",
-      "routingAsk": "Vraag de assistent routing te zetten",
+      "routingAsk": "Vraag de assistent wie de mail behandelt",
       "routingAskPrefill": "Leg uit wie welke gesprekken behandelt, en help me de lead agent en mailboxroutes te zetten.",
       "loading": "Agents laden…",
       "loadError": "Agents laden mislukt.",
@@ -2687,7 +2775,7 @@
       "openIntegrations": "Integraties",
       "openSetup": "Setupgids",
       "agendaTitle": "Binnenkort op de agenda",
-      "agendaDescription": "Geplande wakes en taken voor deze agent in de komende twee weken.",
+      "agendaDescription": "Geplande check-ins en taken voor deze agent in de komende twee weken.",
       "agendaEmptyHint": "Nog niets gepland. Plan een wake op de Agenda via timer of webhook.",
       "openFullAgenda": "Agenda openen",
       "openAgendaAutomations": "Automatiseringen",
@@ -2767,7 +2855,7 @@
       "autonomyAuto": "Automatisch — zelfstandig handelen",
       "autonomyDefault": "Workspace-standaard",
       "allowedTools": "Toegestane tools",
-      "allToolsByPolicy": "Alle tools, begrensd door workspace-regels.",
+      "allToolsByPolicy": "Deze agent mag alle tools gebruiken die de workspace toestaat.",
       "permissionScopes": "Wat deze agent mag",
       "modelCost": "invoer ${{input}} / miljoen tokens · uitvoer ${{output}} / miljoen tokens",
       "wake": "Wekken",
@@ -3396,7 +3484,7 @@
       "inbox": "Mailboxen",
       "emailMessages": "E-mail en berichten",
       "chatWidget": "Chatwidget",
-      "inboxAi": "Inbox AI",
+      "inboxAi": "AI-antwoorden",
       "emailSettings": "E-mailinstellingen",
       "messenger": "Assistent",
       "helpCenters": "Helpcentrum",
@@ -3405,8 +3493,9 @@
       "members": "Leden",
       "membersTeams": "Leden en teams",
       "integrations": "Integraties",
+      "modules": "Modules",
       "govern": "Govern",
-      "developers": "Developers",
+      "developers": "Voor ontwikkelaars",
       "models": "Providers en modellen",
       "billing": "Facturatie",
       "accessSecurity": "Toegang en beveiliging",
@@ -3429,6 +3518,7 @@
       "inboxAi": "Hoe agents klanten beantwoorden",
       "helpCenters": "Openbare helpartikelen",
       "integrations": "Andere tools koppelen",
+      "modules": "Zet bedrijfsmodules aan of uit — boekhouding, facturen, btw",
       "marketplace": "Marketplace-apps en tools die je agents kunnen gebruiken — zoek op markt",
       "connectedTools": "Tools die agents al mogen gebruiken",
       "govern": "Goedkeuringen en hoeveel agents mogen doen",

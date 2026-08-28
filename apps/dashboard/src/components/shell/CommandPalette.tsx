@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  BookOpen,
   Bot,
   CircleHelp,
   Clock,
@@ -28,6 +29,7 @@ import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import { threadHubPath } from '../../lib/message-composer'
 import { composeEmailPath, newAgentPath, newContactPath } from '../../lib/compose-intent'
+import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { listRecentPages } from '../../lib/recent-pages'
@@ -42,6 +44,7 @@ type PaletteItem = {
   id: string
   label: string
   hint?: string
+  href?: string
   group: string
   icon: LucideIcon
   run: () => void
@@ -57,6 +60,8 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const { activeConnections } = useMailboxConnections()
+  const mailboxReady = activeConnections.length > 0
   const { toggleMode, isDark } = useTheme()
   const { conversations, startNewChat } = useChatSessions()
   const inboxComm = useOptionalInboxCommunication()
@@ -116,6 +121,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         hint: t(`tabs.${tab}.subtitle`, { defaultValue: subtitleForTab(tab) }),
         group: t('palette.groupGoTo'),
         icon: iconForTab(tab),
+        href: pathForTab(tab),
         run: () => navigate(pathForTab(tab)),
       })),
     )
@@ -167,6 +173,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       id: `settings-${link.to}`,
       label: t(link.labelKey),
       hint: link.hintKey ? t(link.hintKey) : undefined,
+      href: link.to,
       group: t('palette.groupSettings'),
       icon: Settings,
       run: () => navigate(link.to),
@@ -215,19 +222,30 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => navigate('/settings/notifications'),
       },
       {
+        id: 'action-bookkeeping',
+        label: t('palette.openBookkeeping'),
+        group: t('palette.groupActions'),
+        icon: BookOpen,
+        run: () => navigate('/settings/modules/accounting'),
+      },
+      {
         id: 'action-my-assistant',
         label: t('assistantSettings.title'),
         group: t('palette.groupActions'),
         icon: Bot,
         run: () => navigate(MY_ASSISTANT_SETTINGS_PATH),
       },
-      {
-        id: 'action-new-email',
-        label: t('palette.newEmail'),
-        group: t('palette.groupActions'),
-        icon: Mail,
-        run: () => navigate(composeEmailPath()),
-      },
+      ...(mailboxReady
+        ? [
+            {
+              id: 'action-new-email',
+              label: t('palette.newEmail'),
+              group: t('palette.groupActions'),
+              icon: Mail,
+              run: () => navigate(composeEmailPath()),
+            } satisfies PaletteItem,
+          ]
+        : []),
       {
         id: 'action-new-contact',
         label: t('palette.newContact'),
@@ -279,7 +297,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       },
     ]
     return { nav, inboxQueues, settings, sessions, actions }
-  }, [conversations, navigate, startNewChat, toggleMode, isDark, t])
+  }, [conversations, mailboxReady, navigate, startNewChat, toggleMode, isDark, t])
 
   const recentItems = useMemo<PaletteItem[]>(
     () =>
@@ -297,6 +315,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           label: row.title,
           group: t('palette.groupRecent'),
           icon: Clock,
+          href: row.path.split('?')[0] ?? row.path,
           run: () => navigate(row.path),
         })),
     [recent, pathname, navigate, t],
@@ -374,8 +393,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       const seen = new Set<string>()
       const next: PaletteItem[] = []
       for (const item of items) {
-        if (seen.has(item.id)) continue
+        const key = item.href ? `href:${item.href}` : item.id
+        if (seen.has(item.id) || seen.has(key)) continue
         seen.add(item.id)
+        seen.add(key)
         next.push(item)
       }
       return next

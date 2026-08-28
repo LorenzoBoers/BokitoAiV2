@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstName, greetingBucket } from './cockpit-greeting'
+import { firstName, greetingBucket, greetingFirstName } from './cockpit-greeting'
 
 describe('firstName', () => {
   it('returns the first word', () => {
@@ -11,6 +11,14 @@ describe('firstName', () => {
     expect(firstName('')).toBe('')
     expect(firstName(null)).toBe('')
     expect(firstName(undefined)).toBe('')
+  })
+})
+
+describe('greetingFirstName', () => {
+  it('skips the product or organisation first name', () => {
+    expect(greetingFirstName('Bokito Admin')).toBe('')
+    expect(greetingFirstName('Bokito Admin', 'Bokito')).toBe('')
+    expect(greetingFirstName('Anouk de Vries', 'Bokito')).toBe('Anouk')
   })
 })
 

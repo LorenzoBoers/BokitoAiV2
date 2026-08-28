@@ -1,7 +1,7 @@
 """Accounting module: registry, capability matrix, router, adapters, and prompts."""
 
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -18,8 +18,10 @@ from app.modules.accounting.router import (
 from app.modules.catalog import (
     MODULE_BY_SLUG,
     active_module_skill_prompt,
+    filter_tools_for_modules,
     module_for_provider,
     serialize_modules,
+    set_module_enabled,
 )
 from app.services import moneybird
 from app.services.integrations_platform import install_mcp
@@ -56,7 +58,8 @@ def test_module_catalog_has_prepared_modules():
     modules = {m["slug"]: m for m in serialize_modules()}
     assert modules["accounting"]["status"] == "available"
     assert modules["accounting"]["setup_path"] == "/settings/modules/accounting"
-    assert modules["accounting"]["tenant_status"] == "available"
+    assert modules["accounting"]["enabled"] is False
+    assert modules["accounting"]["tenant_status"] == "off"
     assert "list_companies" in modules["accounting"]["verbs"]
     assert modules["accounting"]["verb_labels"]
     assert modules["accounting"]["needs_when"]
@@ -98,6 +101,11 @@ def test_verbs_map_to_capabilities():
 @pytest.mark.asyncio
 async def test_no_connection_returns_structured_error(session_override: AsyncSession):
     tenant = await _tenant(session_override)
+    result = await call_accounting_verb(session_override, tenant.id, "list_companies")
+    assert result["ok"] is False
+    assert result["code"] == "module_off"
+
+    await set_module_enabled(session_override, tenant.id, "accounting", True)
     result = await call_accounting_verb(session_override, tenant.id, "list_companies")
     assert result["ok"] is False
     assert result["code"] == "no_connection"
@@ -341,7 +349,11 @@ def test_accounting_tools_registered_and_ungated():
 async def test_module_skill_injected_only_with_connection(session_override: AsyncSession):
     tenant = await _tenant(session_override)
     playbook = await active_module_skill_prompt(session_override, tenant.id)
-    assert "not connected" in playbook
+    assert playbook == ""
+
+    await set_module_enabled(session_override, tenant.id, "accounting", True)
+    playbook = await active_module_skill_prompt(session_override, tenant.id)
+    assert "on, no package" in playbook
     assert "recommend_module" in playbook
     assert "/settings/modules/accounting" in playbook
     assert "accounting_list_companies" not in playbook
@@ -350,7 +362,7 @@ async def test_module_skill_injected_only_with_connection(session_override: Asyn
     prompt = await active_module_skill_prompt(session_override, tenant.id)
     assert "Accounting module" in prompt
     assert "accounting_list_companies" in prompt
-    assert "not connected" not in prompt
+    assert "on, no package" not in prompt
 
 
 @pytest.mark.asyncio
@@ -398,7 +410,7 @@ async def test_snapshot_lists_unconnected_modules(session_override: AsyncSession
     assert snapshot["modules"]
     prompt = format_tenant_snapshot_prompt(snapshot)
     assert "Modules:" in prompt
-    assert "accounting — not connected" in prompt
+    assert "accounting — off" in prompt
     assert "/settings/modules/accounting" in prompt
     assert "prepared, not connectable" in prompt
 
@@ -413,7 +425,8 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     assert slugs == {"accounting", "banking", "investing", "documents"}
     accounting = next(row for row in listed["modules"] if row["slug"] == "accounting")
     assert accounting["setup_path"] == "/settings/modules/accounting"
-    assert accounting["tenant_status"] == "available"
+    assert accounting["tenant_status"] == "off"
+    assert accounting["enabled"] is False
 
     coming = await execute_tool(
         session_override,
@@ -434,6 +447,31 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     )
     assert rec.get("status") == "awaiting_human"
     assert rec.get("decision_request_id")
+
+    from app.models.notification import DecisionRequest
+
+    decision = await session_override.get(DecisionRequest, UUID(str(rec["decision_request_id"])))
+    options = json.loads(decision.options_json)
+    assert options[0]["action_type"] == "enable_module"
+    assert options[0]["payload"]["module"] == "accounting"
+
+
+def test_module_tools_hidden_until_enabled():
+    tools = [
+        {"name": "list_modules"},
+        {"name": "accounting_list_companies"},
+        {"name": "accounting_propose_send"},
+        {"name": "create_agent"},
+    ]
+    hidden = filter_tools_for_modules(tools, set())
+    assert [t["name"] for t in hidden] == ["list_modules", "create_agent"]
+    shown = filter_tools_for_modules(tools, {"accounting"})
+    assert [t["name"] for t in shown] == [
+        "list_modules",
+        "accounting_list_companies",
+        "accounting_propose_send",
+        "create_agent",
+    ]
 
 
 def test_modules_listed_in_marketplace_payload():

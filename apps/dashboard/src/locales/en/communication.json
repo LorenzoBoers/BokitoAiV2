@@ -5,7 +5,7 @@
   "noActiveMailboxTitle": "Connect a channel",
   "noActiveMailboxDescription": "Every workspace has a Bokito address under Channels. Connect it, or add Gmail or Outlook, so customer email lands here.",
   "openEmailSettings": "Open channels",
-  "inboxSearchPlaceholder": "Search conversations  /",
+  "inboxSearchPlaceholder": "Search conversations, invoices, names",
   "inboxSearchClear": "Clear search",
   "inboxSearchSave": "Save this search",
   "inboxSearchForget": "Remove",
@@ -24,8 +24,13 @@
     "resizeHint": "Drag to make more room. Double-click to reset.",
     "expand": "Expand composer",
     "collapse": "Compact composer",
-    "mailboxDisconnected": "The mailbox for this conversation was disconnected, so replies cannot be sent. Internal notes still work.",
-    "reconnectMailbox": "Reconnect a mailbox",
+    "mailboxDisconnected": "This conversation has no mailbox to send from. Connect email to reply. Notes still work.",
+    "reconnectMailbox": "Connect a mailbox",
+    "draftNeedsMailbox": "Connect a mailbox to draft a customer reply.",
+    "draftUnavailable": "Drafts are unavailable on a closed or spam conversation.",
+    "spamBlocked": "This conversation is in spam. Reopen it to reply. Notes still work.",
+    "quote": "Quote",
+    "replyAll": "Reply all",
     "noSavedReplies": "No saved replies yet",
     "manageSavedReplies": "Manage saved replies",
     "loadSavedRepliesError": "Could not load saved replies.",
@@ -73,7 +78,8 @@
       "webhook": "Webhook",
       "integration": "Integration",
       "internal": "Message",
-      "assistant": "Chat"
+      "assistant": "Chat",
+      "widget": "Website chat"
     },
     "recipient": {
       "to": "To",
@@ -114,7 +120,9 @@
     "uploading": "Uploading...",
     "uploadError": "Could not upload attachment.",
     "sendError": "Could not send email.",
-    "noSubject": "(No subject)"
+    "noSubject": "(No subject)",
+    "noMailbox": "No mailbox is connected yet. Connect email before you send.",
+    "connectMailbox": "Connect a mailbox"
   },
   "threadResolved": {
     "closed": "Conversation closed",
@@ -158,7 +166,7 @@
     "allLoaded": "All {{total}} conversations loaded",
     "densityCompact": "Compact list",
     "densityComfortable": "Comfortable list",
-    "markAllRead": "Mark loaded as read",
+    "markAllRead": "Mark as read",
     "countsPartial": "Counts are for loaded conversations only",
     "filterAssignee": "Filter by assignee",
     "filterAssigneeAll": "Any assignee",
@@ -222,7 +230,9 @@
       "reject": "Reject",
       "later": "Later",
       "approve": "Approve",
-      "defer": "Not now"
+      "defer": "Not now",
+      "turnOn": "Turn on",
+      "connectPackage": "Connect a package"
     },
     "correctInterpretation": "Correct this",
     "feedbackGood": "Looks right",
@@ -237,7 +247,9 @@
       "heartbeat": "Check-in",
       "tryFirstDecision": "Try your first decision",
       "demoMakesSense": "Does this demo make sense?",
-      "assistPrefix": "Help: {{subject}}"
+      "assistPrefix": "Help: {{subject}}",
+      "approvalPrefix": "Approval: {{subject}}",
+      "inboxRoutingRule": "Inbox routing rule"
     },
     "knownSummaries": {
       "draftForReview": "Draft reply prepared for review."
@@ -340,6 +352,7 @@
   "agentSession": {
     "launcher": "Ask about this conversation",
     "pickAgent": "Choose who to ask",
+    "personalHint": "Personal",
     "title": "Agent session",
     "internalHint": "Internal - not visible to the customer",
     "endSession": "End session",
@@ -435,6 +448,8 @@
     "emailContact": "Email",
     "writeEmail": "Write an email instead",
     "emailACustomer": "Email a customer",
+    "connectMailbox": "Connect a mailbox",
+    "connectMailboxHint": "Connect email first, then you can write to people.",
     "emailAddressDirect": "Email {{address}}",
     "emailAddressDirectHint": "Start a new email to this address",
     "chatWithAssistant": "Chat with assistant",
@@ -479,6 +494,7 @@
     "snooze": "Snooze",
     "resumeNow": "Resume now",
     "reopen": "Reopen",
+    "openBookkeeping": "Open bookkeeping",
     "markSpam": "Mark as spam",
     "notSpam": "Not spam",
     "delete": "Delete",
@@ -560,7 +576,7 @@
   "contactPanel": {
     "loading": "Loading contact...",
     "noContact": "No contact linked",
-    "noContactHint": "We could not match this conversation to a saved person yet. Open Contacts to add them, or write them an email.",
+    "noContactHint": "We could not match this conversation to a saved person yet. Open Contacts to add them.",
     "widgetVisitor": "Website visitor",
     "unknown": "Unknown contact",
     "lastSeen": "Last seen {{time}}",
@@ -573,6 +589,9 @@
     "thisContact": "this contact",
     "fullProfile": "Full profile",
     "writeEmail": "Write email",
+    "openBookkeeping": "Look up this invoice",
+    "openBookkeepingHint": "Bookkeeping is the place to check the amount before you reply.",
+    "askForEmail": "Ask for their email in chat so you can follow up later.",
     "notes": "Notes",
     "notesPlaceholder": "Internal notes about this contact...",
     "notesSaved": "Notes saved",
@@ -662,6 +681,7 @@
     "snoozed": "Waiting",
     "you": "You",
     "needsReply": "Needs reply",
+    "billing": "Invoice",
     "filterBy": "Filter by {{tag}}"
   },
   "snooze": {
@@ -776,6 +796,7 @@
   },
   "tags": {
     "addLabel": "Add label",
+    "suggestBilling": "Add Billing",
     "placeholder": "Label…",
     "removeLabel": "Remove label {{tag}}"
   },
@@ -803,7 +824,10 @@
     "unpinError": "Could not unpin the conversation.",
     "resumeError": "Could not resume Inbox AI.",
     "draftError": "Could not draft a reply.",
+    "draftNoAgent": "No agent is assigned to draft this reply.",
+    "openAgents": "Open Agents",
     "draftEmpty": "The AI returned an empty draft. Try again.",
+    "sentCheckBookkeeping": "Check the amount in Bookkeeping before you promise anything.",
     "correctionStartError": "Could not start the correction chat."
   },
   "signatureEditor": {
@@ -835,6 +859,7 @@
   "split": {
     "list": "Resize conversation list",
     "context": "Resize side panel",
+    "closeContext": "Close contact panel",
     "nav": "Resize communication sidebar",
     "resetHint": "Drag to resize. Double-click or press Enter to reset."
   }

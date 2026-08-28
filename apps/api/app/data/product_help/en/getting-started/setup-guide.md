@@ -39,6 +39,7 @@ The quickstart gets you running. This guide gets you configured. Work top to bot
 2. Review the default assistant under [Agents](/docs/ai/agents). **Pause** agents you are not ready to run.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
 4. Optional: open **Projects** from the sixth setup pillar when work should be grouped around a goal. See [Projects](/docs/ai/projects).
+5. Optional: open **Settings**, then **Modules**, and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
 
 ## Schedule recurring work
 

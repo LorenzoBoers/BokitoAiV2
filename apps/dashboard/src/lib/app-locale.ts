@@ -7,7 +7,11 @@ export function appDateLocale(language?: string | null): string | undefined {
 }
 
 export function formatAppTime(date: Date, language?: string | null): string {
-  return date.toLocaleTimeString(appDateLocale(language), { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString(appDateLocale(language), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 export function formatAppDate(
@@ -19,7 +23,14 @@ export function formatAppDate(
 }
 
 export function formatAppDateTime(date: Date, language?: string | null): string {
-  return date.toLocaleString(appDateLocale(language), { dateStyle: 'short', timeStyle: 'short' })
+  return date.toLocaleString(appDateLocale(language), {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 /** Compact weekday + date + time for upcoming agenda rows. */
@@ -30,5 +41,6 @@ export function formatAppWeekdayDateTime(date: Date, language?: string | null): 
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   })
 }

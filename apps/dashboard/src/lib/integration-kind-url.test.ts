@@ -9,9 +9,10 @@ describe('parseKindFilter', () => {
 })
 
 describe('parseStatusFilter', () => {
-  it('accepts connected and available', () => {
-    expect(parseStatusFilter('connected')).toBe('connected')
+  it('defaults to available so coming-soon cards stay off the first view', () => {
+    expect(parseStatusFilter(null)).toBe('available')
     expect(parseStatusFilter('available')).toBe('available')
-    expect(parseStatusFilter(null)).toBe('all')
+    expect(parseStatusFilter('connected')).toBe('connected')
+    expect(parseStatusFilter('all')).toBe('all')
   })
 })

@@ -33,11 +33,11 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
   }, [allowedTools])
 
   useEffect(() => {
-    if (!editing || available !== null) return
+    if (available !== null) return
     getAllowances()
       .then((res) => setAvailable(res.tools))
       .catch(() => setAvailable([]))
-  }, [editing, available])
+  }, [available])
 
   const byCategory = useMemo(() => {
     const groups = new Map<string, GovernToolRow[]>()
@@ -116,9 +116,23 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
             ))}
           </div>
         ) : (
-          <p className="mt-1 text-sm text-text-muted">
-            {t('workforce.agents.allToolsByPolicy')}
-          </p>
+          <div className="mt-1">
+            <p className="text-sm text-text-muted">
+              {t('workforce.agents.allToolsByPolicy')}
+            </p>
+            {available && available.length > 0 ? (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {[...new Set(available.map((tool) => tool.category))].map((category) => (
+                  <span
+                    key={category}
+                    className="rounded-full border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-[11px] text-text-secondary"
+                  >
+                    {toolCategoryLabel(category, t)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
         )}
       </div>
     )

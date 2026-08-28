@@ -27,6 +27,13 @@ export type EmailConnection = {
   syncWindowDays: number
 }
 
+/** Built-in Bokito addresses can send even when they are not an OAuth "connected" mailbox. */
+export function isSendableMailbox(item: EmailConnection): boolean {
+  if (item.isEnabled === false) return false
+  if (item.provider === 'bokito') return item.status !== 'revoked' && item.status !== 'paused'
+  return item.status === 'active' || item.status === 'connected'
+}
+
 export type RoutingRuleApi = {
   id: number
   mailbox_id: number

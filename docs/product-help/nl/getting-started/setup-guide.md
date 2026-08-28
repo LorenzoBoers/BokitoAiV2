@@ -39,6 +39,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Werk van boven
 2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). **Pauzeer** agents die je nog niet wilt laten draaien.
 3. Zet de houding onder [Autonomie](/docs/govern/autonomy). Begin voorzichtig.
 4. Optioneel: open **Projecten** via de zesde setup-pijler wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/projects).
+5. Optioneel: open **Instellingen**, daarna **Modules**, en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
 
 ## Plan terugkerend werk
 

@@ -28,7 +28,7 @@ import { Button } from '../ui/button'
 import { AI_CARD_CLASS, AI_ICON_BOX_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
-import { setupIntegrationHref } from '../../lib/integration-setup-url'
+import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
 import ChatMarkdown from './ChatMarkdown'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import ThinkingTrace from './ThinkingTrace'
@@ -209,7 +209,7 @@ function ChatDecisionCard({
     : null
   const bodyText = decision?.summary || fallbackText
   const integrationProvider =
-    options.find((o) => o.action_type === 'setup_integration')?.provider?.trim() || null
+    options.find((o) => isModuleSetupAction(o.action_type))?.provider?.trim() || null
   const integrationBrand = integrationProvider ? resolveProviderBrand(integrationProvider) : null
 
   const act = async (option: ChatDecisionOption) => {
@@ -221,7 +221,7 @@ function ChatDecisionCard({
         optionId: option.id,
       })
       onResolved()
-      if (option.action_type === 'setup_integration') {
+      if (isModuleSetupAction(option.action_type)) {
         navigate(setupIntegrationHref({ module: option.module, provider: option.provider }))
       }
     } catch (err) {

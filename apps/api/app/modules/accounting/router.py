@@ -188,6 +188,14 @@ async def call_accounting_verb(
 ) -> dict[str, Any]:
     """Execute one read verb against the right adapter with normalized output."""
     args = dict(args or {})
+    from app.modules.catalog import module_is_on
+
+    if not await module_is_on(session, tenant_id, "accounting"):
+        return module_error(
+            "module_off",
+            "Accounting is off. Turn it on at /settings/modules/accounting "
+            "before agents use accounting tools.",
+        )
     connections = await list_accounting_connections(session, tenant_id)
     if not connections:
         return module_error(
