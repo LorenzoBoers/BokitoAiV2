@@ -1989,7 +1989,10 @@ UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`
 - **Contact-naam eigendom:** op externe threads is `contact_name` altijd van de klant; agent-namen mogen alleen op `channel="internal"` threads als contact_name gezet worden (`signal_decisions.py`).
 - **Composer AI:** `POST /api/signals/{id}/draft` genereert on-demand een concept (niet persistent); "Draft with AI" prefillt de composer. "Ask assistant" opent een inline assistent-paneel naast de thread (eigen assistant-conversatie, "Copy to composer"). "Send & snooze" verstuurt en zet de thread op `pending`.
 - **Next-action chips:** AI-verwerking zet `suggested_actions_json` op de Signal (`close`/`assign`/`create_task`); ThreadDetail toont chips die direct patchen of een agent-taak aanmaken. Let op: `signals-api.ts::normalizeSignalThread` én `inbox-api.ts` moeten `suggested_actions` mappen.
-- **Takeover:** "Take over from AI" pauzeert AI op de thread (widget stream antwoordt dan met `ai_paused: true` zonder reply) en wijst de operator toe; "Hand back to AI" hervat.
+- **Takeover:** "Take over from AI" pauzeert AI op de thread (widget stream antwoordt dan met `ai_paused: true` zonder reply) en wijst de operator toe; "Hand back to AI" hervat. ThreadDetail toont een banner (AI behandelt / jij hebt overgenomen). Een operator-reply pauzeert de AI automatisch (`toggleTakeover(false)` na send).
+- **Visitor email capture (2026-08):** `PATCH /api/channels/contacts/{id}` accepteert `address` (echt e-mailadres). Widget-contacten met `cust_*` krijgen zo een mailbaar adres; gekoppelde Signals syncen `contact_email`/`contact_name`. ContactPanel heeft een inline naam/e-mail-formulier en **Write email** daarna.
+- **Decision create_task:** goedkeuren van `option_id=create_task` maakt echt een `AgentTask` (`trigger_type=decision`, `auto_start=False`) en geeft `task_id` terug; de toast linkt naar Agenda.
+- **Inbox search:** naast subject/contact/body ook `Contact.company` en `SignalMessage.attachments_json` (bestandsnamen).
 - **Dev-gedrag:** mailboxen uit de mock-OAuth-flow (geen `access_token`) versturen store-only in non-production (`channels/email.py`); in prod blijft dat `failed:no_credentials`. De mock-LLM maakt alleen nog een `create_decision_request` tool-call als de gebruikerstekst "decision"/"approval" bevat (max 1×), zodat auto-replies geen spurieuze decisions produceren. Zonder Redis verwerkt `enqueue_signal_processing` signalen inline in-process.
 
 ## 19. Communicatie-UX, user management en inbox-ops (Cycli 8-15, juli 2026)
@@ -2005,7 +2008,7 @@ UI-audit op `https://app.bokito.ai` als `trader@bokito.ai` (tenant `autotrading`
 - **Inline agent-invocatie:** een agent taggen in een thread met instructie levert een note of reply-suggestie in dezelfde thread op; Ask-assistant-conversaties kunnen gegrond worden in het transcript van een klantthread (`context_signal_id` op Signal).
 
 ### Inbox-operaties (Cyclus 12)
-- **Zoeken:** full-text over subject, contact e-mail/naam en message-bodies.
+- **Zoeken:** full-text over subject, contact e-mail/naam, message-bodies, bedrijfsnaam en bijlagenamen.
 - **Snooze:** `snoozed_until` op Signal, `wake_snoozed_threads` scheduler. Communication toont Uitgesteld/Snoozed onder More, een toolbar-klok met presets, en composer **Versturen en wachten** op klantthreads. `view=snoozed` is elke `pending`-thread (getimede wake of tot de klant antwoordt). Hervatten vanuit Uitgesteld opent Open.
 - **Bulk-acties:** `POST /api/signals/bulk` (close/reopen/spam/read/unread/assign) met selectie-checkboxes en `BulkActionsBar` in de threadlijst.
 - **Saved replies:** `SavedReply` model + CRUD, picker in de composer en beheer in Inbox-settings.

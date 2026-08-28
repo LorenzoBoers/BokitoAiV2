@@ -43,15 +43,15 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 2. The composer sends on the same channel the customer used (Email, Chat, WhatsApp). **Ctrl+Enter** sends email; Enter sends chat — hover the **Send** button to see the shortcut. The arrow next to **Send** holds **Send and close** and **Send and snooze**. **Send as:** **You** or the agent picks whose signature is appended.
 3. Switch to **Note** for an internal comment the customer never sees (hover the tab for the reminder). Notes still work if no mailbox can send. Closed or spam threads keep notes too — **Reopen** sits on the composer so you do not hunt for it.
 4. Open **Templates** in the composer to insert a saved reply, or save the current text as one. Manage the library under **Settings**, then **Email & messages** (Saved replies).
-5. Email replies can add CC/BCC and append your mailbox signature. When the customer copied colleagues on their email, **Reply all** pre-fills their CC list. **Quote** inserts the last inbound lines. After you close or task the same sender several times, Bokito can ask to always do that — **Always do this** or **Not now**. Those rules live under Email & messages.
-6. Invoice or quote threads show **Open bookkeeping** and can add a **Billing** label. After you send, a toast offers Bookkeeping so you check the amount before you promise anything.
+5. Email replies can add CC/BCC and append your mailbox signature. When the customer copied colleagues on their email, **Reply all** pre-fills their CC list (and other To recipients, not your mailbox). **Quote** inserts the last inbound lines, including HTML-only mail. **Forward as new email** keeps attachments. After you close or task the same sender several times, Bokito can ask to always do that — **Always do this** or **Not now**. From the thread menu you can also choose **Always close mail from this sender**. Those rules live under Email & messages.
+6. Invoice or quote threads show **Open bookkeeping** and can add a **Billing** label. After you send, a toast offers Bookkeeping so you check the amount before you promise anything. Search also matches company names and attachment filenames.
 
 ## Use an AI draft
 
 1. When [Inbox AI](/docs/inbox/inbox-ai) is on **Suggest replies**, a draft card sits in the thread.
 2. Edit the wording, then send — or choose **Not now** / **I'll handle it myself**. Sending or approving one draft dismisses leftover suggestion cards. Older dismissed drafts collapse to one line (**Earlier draft — dismissed**).
 3. **Draft with AI** in the composer asks for a one-off draft without waiting for inbound mail. Optional guidance steers the tone. If no agent is assigned, the error offers **Open Agents**.
-4. **Take over from AI** pauses the assistant on that thread so you can finish by hand. **Hand back to AI** resumes it. On **Reply automatically**, take over is how you stop a live send. In website chat the visitor sees a "team member is handling this" banner appear on takeover and disappear again on handback or close.
+4. A banner on the thread says when the AI is handling it. **Take over from AI** pauses the assistant so you can finish by hand. Sending a reply also pauses the AI. **Hand back to AI** resumes it. On **Reply automatically**, take over is how you stop a live send. In website chat the visitor sees a "team member is handling this" banner appear on takeover and disappear again on handback or close.
 
 ## Decide in the thread
 
@@ -60,7 +60,13 @@ Snoozed threads sit under **Snoozed** until the timer fires or the customer writ
 
 1. A decision card appears when an agent needs your judgment.
 2. Read the proposal. Approve, edit or decline.
-3. Nothing customer-facing goes out until you answer, unless autonomy allows it. See [Decisions](/docs/ai/decisions).
+3. Nothing customer-facing goes out until you answer, unless autonomy allows it. Approving **Create task** opens a follow-up on [Agenda](/docs/ai/agenda). See [Decisions](/docs/ai/decisions).
+
+## Capture a website visitor
+
+1. Open a website-chat thread. The header can show **+N earlier** when this person already wrote before — that opens the contact panel.
+2. In **Details**, type their name and email, then **Save email**. Write email becomes available once a real address is stored.
+3. Link the conversation to a project, or choose **Follow up tomorrow 9:00** so it returns to Open in the morning.
 
 ## What to do next
 

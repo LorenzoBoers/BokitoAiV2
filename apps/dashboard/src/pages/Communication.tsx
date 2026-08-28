@@ -65,6 +65,7 @@ import {
   deleteThread as apiDeleteThread,
   type BulkThreadAction,
   type InboxThread,
+  asMessageAttachments,
   type MessageAttachment,
   type PatchThreadInput,
   type ThreadFilters,
@@ -948,6 +949,13 @@ export default function Communication() {
             },
           })
         }
+        if (detail && !detail.thread.aiPaused) {
+          try {
+            await toggleTakeover(false)
+          } catch {
+            // Reply already left; takeover is best-effort so AI stops drafting.
+          }
+        }
         if (
           detail &&
           threadLooksFinancial(detail.thread.emailSubject, detail.thread.lastMessagePreview)
@@ -973,6 +981,7 @@ export default function Communication() {
       selectedThreadId,
       leaveResolvedThread,
       navigate,
+      toggleTakeover,
     ],
   )
 
@@ -991,17 +1000,24 @@ export default function Communication() {
     // Quote the latest real message (skip internal notes and decision cards).
     const source = [...detail.messages]
       .reverse()
-      .find((m) => m.direction !== 'internal' && (m.bodyText || m.bodyPreview))
+      .find((m) => m.direction !== 'internal' && (m.bodyText || m.bodyPreview || m.bodyHtml))
     const quoted = (source?.bodyText || source?.bodyPreview || '')
       .split('\n')
       .map((line) => `> ${line}`)
       .join('\n')
     const header = source
-      ? `---------- Forwarded message ----------\nFrom: ${source.fromAddress || 'unknown'}\nSubject: ${subjectRaw}\n\n`
+      ? t('compose.forwardedHeader', {
+          from: source.fromAddress || t('compose.unknownSender'),
+          subject: subjectRaw || t('compose.noSubject'),
+        })
       : ''
-    setComposePrefill({ subject, body: header || quoted ? `\n\n${header}${quoted}` : '' })
+    setComposePrefill({
+      subject,
+      body: header || quoted ? `\n\n${header}${quoted}` : '',
+      attachments: asMessageAttachments(source?.attachments ?? null),
+    })
     setComposeOpen(true)
-  }, [detail])
+  }, [detail, t])
 
   const handleUpdateNote = useCallback(
     async (messageId: string, bodyText: string) => {

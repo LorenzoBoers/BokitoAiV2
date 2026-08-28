@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, Building2, Check, Loader2, Mail, Phone, ShieldBan, UserRound } from 'lucide-react'
+import { BookOpen, Building2, CalendarClock, Check, Loader2, Mail, Phone, ShieldBan, UserRound } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { DomainFavicon } from '../ui/DomainFavicon'
@@ -15,13 +15,16 @@ import {
   type ContactRow,
   type ContactStatus,
 } from '../../lib/contacts-api'
-import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
+import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
 import { threadLooksFinancial } from '../../lib/thread-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { threadStatusLabel } from '../../lib/status-labels'
+import { patchSignalThread } from '../../lib/signals-api'
+import { snoozeUntilIso, SNOOZE_PRESETS } from '../../lib/snooze'
+import { ThreadProjectPicker } from './ThreadProjectPicker'
 
 type Props = {
   contactId: string | null
@@ -31,6 +34,8 @@ type Props = {
   currentThreadId?: ThreadId | null
   threadSubject?: string | null
   threadPreview?: string | null
+  projectId?: string | null
+  onUpdated?: () => void
 }
 
 function timeAgo(iso: string | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
@@ -61,8 +66,11 @@ export default function ContactPanel({
   currentThreadId,
   threadSubject,
   threadPreview,
+  projectId,
+  onUpdated,
 }: Props) {
   const { t } = useTranslation('communication')
+  const navigate = useNavigate()
   const { token } = useAuth()
   const { activeConnections } = useMailboxConnections()
   const canSendEmail = activeConnections.length > 0
@@ -72,6 +80,8 @@ export default function ContactPanel({
   const [notesDraft, setNotesDraft] = useState('')
   const [notesDirty, setNotesDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [captureName, setCaptureName] = useState('')
+  const [captureEmail, setCaptureEmail] = useState('')
 
   const load = useCallback(async () => {
     if (!token) {
@@ -95,9 +105,15 @@ export default function ContactPanel({
           setThreads([])
         }
         setNotesDraft(row.notes ?? '')
+        setCaptureName(isGenericVisitorName(row.displayName) ? '' : row.displayName)
+        setCaptureEmail(isPlaceholderContactAddress(row.address) ? '' : row.address)
       } else {
         setThreads([])
         setNotesDraft('')
+        setCaptureName(fallbackName && !isGenericVisitorName(fallbackName) ? fallbackName : '')
+        setCaptureEmail(
+          fallbackEmail && !isPlaceholderContactAddress(fallbackEmail) ? fallbackEmail : '',
+        )
       }
       setNotesDirty(false)
     } catch (err) {
@@ -123,6 +139,53 @@ export default function ContactPanel({
       toast.success(t('contactPanel.notesSaved'))
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('contactPanel.saveError')))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveIdentity = async () => {
+    if (!token || !contact || saving) return
+    const email = captureEmail.trim().toLowerCase()
+    if (!email || !email.includes('@')) {
+      toast.error(t('contactPanel.emailRequired'))
+      return
+    }
+    setSaving(true)
+    try {
+      const updated = await updateContact(token, contact.id, {
+        address: email,
+        display_name: captureName.trim() || email.split('@')[0] || contact.displayName,
+      })
+      if (updated) setContact(updated)
+      toast.success(t('contactPanel.emailSaved'))
+      onUpdated?.()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('contactPanel.emailSaveError')))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const followUpTomorrow = async () => {
+    if (!token || !currentThreadId || saving) return
+    const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
+    if (!tomorrow) return
+    setSaving(true)
+    try {
+      await patchSignalThread(token, String(currentThreadId), {
+        status: 'pending',
+        snoozedUntil: snoozeUntilIso(tomorrow),
+      })
+      toast.success(t('contactPanel.followUpSet'), {
+        action: {
+          label: t('threadChrome.openAgenda'),
+          onClick: () => navigate('/agenda'),
+        },
+      })
+      onUpdated?.()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('contactPanel.followUpError')))
     } finally {
       setSaving(false)
     }
@@ -250,7 +313,36 @@ export default function ContactPanel({
           </p>
         ) : null}
         {isPlaceholderContactAddress(contact.address) ? (
-          <p className="mt-2 text-[11px] text-text-muted">{t('contactPanel.askForEmail')}</p>
+          <form
+            className="mt-3 space-y-2 rounded-md border border-border/50 bg-bg-elevated/40 px-2.5 py-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void saveIdentity()
+            }}
+          >
+            <p className="text-[11px] text-text-muted">{t('contactPanel.askForEmail')}</p>
+            <input
+              type="text"
+              value={captureName}
+              onChange={(e) => setCaptureName(e.target.value)}
+              placeholder={t('contactPanel.namePlaceholder')}
+              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            <input
+              type="email"
+              value={captureEmail}
+              onChange={(e) => setCaptureEmail(e.target.value)}
+              placeholder={t('contactPanel.emailPlaceholder')}
+              className="w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-[12px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+            >
+              {saving ? t('contactPanel.saving') : t('contactPanel.saveEmail')}
+            </button>
+          </form>
         ) : null}
         <div className="mt-3 flex gap-1.5">
           {contact.status !== 'blocked' ? (
@@ -302,6 +394,25 @@ export default function ContactPanel({
             {t('contactPanel.openBookkeeping')}
           </Link>
           <p className="mt-1 text-[11px] text-text-muted">{t('contactPanel.openBookkeepingHint')}</p>
+        </div>
+      ) : null}
+
+      {currentThreadId ? (
+        <div className="border-b border-border/40 px-4 py-3 space-y-2">
+          <ThreadProjectPicker
+            threadId={currentThreadId}
+            projectId={projectId ?? null}
+            onUpdated={onUpdated}
+          />
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void followUpTomorrow()}
+            className="flex w-full items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-left text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
+          >
+            <CalendarClock size={12} />
+            {t('contactPanel.followUpTomorrow')}
+          </button>
         </div>
       ) : null}
 

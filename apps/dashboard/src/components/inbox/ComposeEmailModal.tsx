@@ -16,6 +16,7 @@ export type ComposePrefill = {
   to?: string
   subject?: string
   body?: string
+  attachments?: MessageAttachment[]
 }
 
 type Props = {
@@ -59,7 +60,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
     setCc('')
     setBcc('')
     setCcBccOpen(false)
-    setAttachments([])
+    setAttachments(prefill?.attachments ?? [])
   }, [open, prefill])
 
   useEffect(() => {

@@ -285,14 +285,21 @@ export default function DecisionRequestMessage({
         responseText: answerText,
         sendAs: sendAsOverride,
       })
-      toast.success(
+      const toastLabel =
         successLabel ??
-          (action === 'approve'
-            ? t('decisionCard.toastApproved')
-            : action === 'defer'
-              ? t('decisionCard.toastDeferred')
-              : t('decisionCard.toastRejected')),
-      )
+        (action === 'approve'
+          ? t('decisionCard.toastApproved')
+          : action === 'defer'
+            ? t('decisionCard.toastDeferred')
+            : t('decisionCard.toastRejected'))
+      toast.success(toastLabel, {
+        action: result.taskId
+          ? {
+              label: t('decisionCard.openAgenda'),
+              onClick: () => navigate('/agenda'),
+            }
+          : undefined,
+      })
       // Learning loop: after repeated identical choices the platform proposes
       // a per-sender rule (or reports it already activated itself).
       const suggestion = result.ruleSuggestion

@@ -43,15 +43,15 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 2. De composer verstuurt via hetzelfde kanaal als de klant (E-mail, Chat, WhatsApp). **Ctrl+Enter** verstuurt e-mail; Enter verstuurt chat — beweeg over de knop **Versturen** om de sneltoets te zien. Het pijltje naast **Versturen** bevat **Versturen en sluiten** en **Versturen en uitstellen**. **Versturen als:** **Jij** of de agent bepaalt welke handtekening erbij komt.
 3. Wissel naar **Notitie** voor een intern commentaar dat de klant nooit ziet (beweeg over het tabblad voor de herinnering). Notities werken nog als er geen mailbox kan versturen. Gesloten of spamgesprekken houden notities ook — **Heropenen** staat op de composer.
 4. Open **Sjablonen** in de composer om een opgeslagen antwoord in te voegen, of sla de huidige tekst op als sjabloon. Beheer de bibliotheek onder **Instellingen**, daarna **E-mail en berichten** (Opgeslagen antwoorden).
-5. E-mailantwoorden kunnen CC/BCC toevoegen en je mailboxhandtekening meenemen. Zette de klant collega's in de CC, dan vult **Allen beantwoorden** hun CC-lijst alvast in. **Citeren** voegt de laatste inboundregels in. Als je dezelfde afzender meerdere keren sluit of een taak maakt, kan Bokito vragen dat voortaan te doen — **Doe dit voortaan** of **Niet nu**. Die regels staan onder E-mail en berichten.
-6. Factuur- of offertegesprekken tonen **Boekhouding openen** en kunnen het label **Facturatie** toevoegen. Na versturen biedt een toast Boekhouding, zodat je het bedrag checkt voordat je iets belooft.
+5. E-mailantwoorden kunnen CC/BCC toevoegen en je mailboxhandtekening meenemen. Zette de klant collega's in de CC, dan vult **Allen beantwoorden** hun CC-lijst alvast in (en andere Aan-adressen, niet jouw mailbox). **Citeren** voegt de laatste inboundregels in, ook bij HTML-only mail. **Doorsturen als nieuwe e-mail** houdt bijlagen vast. Als je dezelfde afzender meerdere keren sluit of een taak maakt, kan Bokito vragen dat voortaan te doen — **Doe dit voortaan** of **Niet nu**. In het gespreksmenu kun je ook **Mail van deze afzender altijd sluiten** kiezen. Die regels staan onder E-mail en berichten.
+6. Factuur- of offertegesprekken tonen **Boekhouding openen** en kunnen het label **Facturatie** toevoegen. Na versturen biedt een toast Boekhouding, zodat je het bedrag checkt voordat je iets belooft. Zoeken vindt ook bedrijfsnamen en bestandsnamen van bijlagen.
 
 ## Gebruik een AI-concept
 
 1. Als [Inbox AI](/docs/inbox/inbox-ai) op **Antwoorden voorstellen** staat, verschijnt een conceptkaart in het gesprek.
 2. Pas de tekst aan en verstuur — of kies **Niet nu** / **Ik doe het zelf**. Versturen of goedkeuren van één concept legt overgebleven conceptkaarten terzijde. Oudere afgewezen concepten klappen in tot één regel (**Eerder concept — terzijde gelegd**).
 3. **Concept met AI** in de composer vraagt een eenmalig concept zonder te wachten op inbound mail. Optionele sturing bepaalt de toon. Zonder toegewezen agent biedt de fout **Agents openen**.
-4. **Overnemen van AI** pauzeert de assistent op dat gesprek zodat jij met de hand afrondt. **Geef terug aan AI** hervat die. Op **Automatisch antwoorden** is overnemen hoe je een live verzending stopt. In websitechat ziet de bezoeker bij overnemen direct een banner "een medewerker helpt je verder", die bij teruggeven of sluiten weer verdwijnt.
+4. Een banner op het gesprek zegt wanneer de AI het behandelt. **Overnemen van AI** pauzeert de assistent zodat jij met de hand afrondt. Zelf antwoorden pauzeert de AI ook. **Geef terug aan AI** hervat die. Op **Automatisch antwoorden** is overnemen hoe je een live verzending stopt. In websitechat ziet de bezoeker bij overnemen direct een banner "een medewerker helpt je verder", die bij teruggeven of sluiten weer verdwijnt.
 
 ## Beslis in het gesprek
 
@@ -60,7 +60,13 @@ Uitgestelde gesprekken staan onder **Uitgesteld** tot de timer afgaat of de klan
 
 1. Een keuzekaart verschijnt wanneer een agent jouw oordeel nodig heeft.
 2. Lees het voorstel. Keur goed, pas aan of wijs af.
-3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. Zie [Beslissingen](/docs/ai/decisions).
+3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Taak aanmaken** goedkeuren opent een opvolging op de [Agenda](/docs/ai/agenda). Zie [Beslissingen](/docs/ai/decisions).
+
+## Vang een websitebezoeker
+
+1. Open een websitechat. De kop kan **+N eerder** tonen als deze persoon al eerder schreef — dat opent het contactpaneel.
+2. Typ in **Details** hun naam en e-mail, daarna **E-mail opslaan**. **E-mail schrijven** wordt beschikbaar zodra er een echt adres staat.
+3. Koppel het gesprek aan een project, of kies **Morgen 9:00 opvolgen** zodat het 's ochtends terugkomt in Open.
 
 ## Wat nu
 

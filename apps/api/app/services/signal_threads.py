@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.gateway.publish import publish_signal_message, publish_thread_update
 from app.models.agent import Agent
 from app.models.auth import Membership, User, user_numeric_id
-from app.models.channel import ChannelAccount
+from app.models.channel import ChannelAccount, Contact
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import (
     EXTERNAL_CHANNELS,
@@ -613,11 +613,31 @@ async def list_threads(
             )
             .exists()
         )
+        company_match = (
+            select(Contact.id)
+            .where(
+                Contact.id == Signal.contact_id,
+                Contact.tenant_id == tenant_id,
+                Contact.company.ilike(like),
+            )
+            .exists()
+        )
+        attachment_match = (
+            select(SignalMessage.id)
+            .where(
+                SignalMessage.signal_id == Signal.id,
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.attachments_json.ilike(like),
+            )
+            .exists()
+        )
         query = query.where(
             Signal.subject.ilike(like)
             | Signal.contact_email.ilike(like)
             | Signal.contact_name.ilike(like)
             | body_match
+            | company_match
+            | attachment_match
         )
 
     count_result = await session.execute(select(func.count()).select_from(query.subquery()))
@@ -1987,11 +2007,37 @@ async def resolve_message_decision(
         )
 
     await session.commit()
+
+    # Approving "create a task" must actually open a follow-up on Agenda,
+    # not only dismiss the card. create_agent_task commits on its own.
+    created_task_id: str | None = None
+    if user_id and action in ("approved", "approve") and option_id == "create_task":
+        from app.services.orchestration.dispatcher import create_agent_task
+
+        sig_result = await session.execute(
+            select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+        )
+        signal = sig_result.scalar_one_or_none()
+        if signal:
+            who = signal.contact_email or signal.contact_name or "conversation"
+            task = await create_agent_task(
+                session,
+                tenant_id,
+                title=f"Follow up: {signal.subject or who}"[:120],
+                description=f"Created from a decision on this conversation ({who}).",
+                signal_id=signal.id,
+                created_by=user_id,
+                trigger_type="decision",
+                auto_start=False,
+            )
+            created_task_id = str(task.id)
+
     return {
         "ok": True,
         "action": action,
         "option_id": option_id,
         "rule_suggestion": rule_suggestion,
+        "task_id": created_task_id,
     }
 
 

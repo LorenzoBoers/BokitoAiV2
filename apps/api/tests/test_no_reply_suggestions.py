@@ -352,3 +352,56 @@ async def test_close_thread_tool(client: AsyncClient, session_override):
     )
     assert again.get("ok") is True
     assert again.get("already_closed") is True
+
+
+@pytest.mark.asyncio
+async def test_create_task_option_opens_agenda_task(client: AsyncClient, session_override):
+    from app.models.orchestration import AgentTask
+    from app.services.inbound_agent import create_action_suggestion
+
+    headers = await _auth_headers(client)
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    from app.models.agent import Agent
+
+    agent = (
+        (
+            await session_override.execute(
+                select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="mock",
+        subject="Payment declined",
+        contact_email="payments@play.google.com",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+
+    result = await create_action_suggestion(
+        session_override,
+        tenant.id,
+        signal,
+        agent,
+        summary="Play Store receipt.",
+        reason="no_reply_address",
+    )
+    resolve = await client.post(
+        f"/api/signals/{signal.id}/messages/{result['message_id']}/resolve",
+        headers=headers,
+        json={"action": "approved", "option_id": "create_task"},
+    )
+    assert resolve.status_code == 200, resolve.text
+    task_id = resolve.json().get("task_id")
+    assert task_id
+    task = await session_override.get(AgentTask, UUID(task_id))
+    assert task is not None
+    assert task.signal_id == signal.id

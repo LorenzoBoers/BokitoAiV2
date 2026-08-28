@@ -1,4 +1,5 @@
 import { FileText, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { MessageAttachment } from '../../lib/inbox-api'
 
 /** Stored chat attachments may omit mime/name (legacy widget `{id, url}`). */
@@ -20,6 +21,7 @@ function isImageAttachment(att: AttachmentLike): boolean {
 }
 
 export default function MessageAttachments({ attachments, onRemove, compact }: Props) {
+  const { t } = useTranslation('communication')
   if (!attachments.length) return null
   return (
     <div className={`flex flex-wrap gap-2 ${compact ? '' : 'mt-2'}`}>
@@ -51,7 +53,7 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
                 type="button"
                 onClick={() => onRemove(att.id)}
                 className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
-                aria-label={`Remove ${name}`}
+                aria-label={t('composer.removeAttachment', { name })}
               >
                 <X size={12} />
               </button>

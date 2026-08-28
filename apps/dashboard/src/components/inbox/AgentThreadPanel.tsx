@@ -155,6 +155,8 @@ export default function AgentThreadPanel({ thread, onClose, onThreadUpdated }: P
               currentThreadId={thread.id}
               threadSubject={thread.emailSubject}
               threadPreview={thread.lastMessagePreview}
+              projectId={thread.projectId ?? null}
+              onUpdated={onThreadUpdated}
             />
           </>
         ) : (

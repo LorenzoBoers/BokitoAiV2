@@ -1101,7 +1101,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
 
   // Outbound email: show CC recipients so the sender can verify who was copied.
   const ccLine =
-    layout === 'email' && isOutbound && message.cc ? (
+    layout === 'email' && message.cc ? (
       <div className="mb-1 truncate text-[10px] text-text-muted" title={message.cc}>
         {t('timeline.ccLine', { recipients: message.cc })}
       </div>

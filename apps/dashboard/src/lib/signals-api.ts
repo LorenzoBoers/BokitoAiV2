@@ -656,6 +656,7 @@ export async function deleteInboxRule(token: string, ruleId: string): Promise<vo
 
 export type ResolveDecisionResult = {
   ruleSuggestion: InboxRuleSuggestion | null
+  taskId?: string | null
 }
 
 export async function resolveSignalDecision(
@@ -696,6 +697,10 @@ export async function resolveSignalDecision(
     ruleSuggestion: normalizeRuleSuggestion(
       response && typeof response === 'object' ? response.rule_suggestion : null,
     ),
+    taskId:
+      response && typeof response === 'object' && typeof response.task_id === 'string'
+        ? response.task_id
+        : null,
   }
 }
 

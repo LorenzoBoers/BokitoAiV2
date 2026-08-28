@@ -2,6 +2,7 @@
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
@@ -71,6 +72,49 @@ async def test_contact_create_rejects_invalid_input(client: AsyncClient):
         json={"channel": "carrier-pigeon", "address": "coo@example.com"},
     )
     assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_contact_address_capture_updates_linked_thread(client: AsyncClient, session_override):
+    from app.models.auth import Tenant
+    from app.models.channel import Contact
+    from app.models.signal import Signal
+
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    contact = Contact(
+        tenant_id=tenant.id,
+        channel="widget",
+        address="cust_visitor_1",
+        display_name="Website visitor",
+        status="approved",
+    )
+    session_override.add(contact)
+    await session_override.flush()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="widget",
+        subject="Website chat",
+        contact_id=contact.id,
+        contact_name="Website visitor",
+        contact_email="cust_visitor_1",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+
+    patched = await client.patch(
+        f"/api/channels/contacts/{contact.id}",
+        headers=owner,
+        json={"address": "visitor@acme.test", "display_name": "Sanne"},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["address"] == "visitor@acme.test"
+    assert patched.json()["display_name"] == "Sanne"
+
+    await session_override.refresh(signal)
+    assert signal.contact_email == "visitor@acme.test"
+    assert signal.contact_name == "Sanne"
 
 
 # ---------------------------------------------------------------------------

@@ -1,9 +1,10 @@
 import { AlertCircle, Archive, ArchiveRestore, ArrowLeft, Bot, Clock, Flag, Forward, Hand, Hash, Link2, ListPlus, Mail, MoreHorizontal, OctagonAlert, PanelRight, Pin, PinOff, Plus, RefreshCw, Sparkles, Star, Tag, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
+  createInboxRule,
   listInboxMembers,
   type ThreadDetail as ThreadDetailType,
   type PatchThreadInput,
@@ -11,6 +12,7 @@ import {
   type ThreadId,
   type MessageAttachment,
 } from '../../lib/inbox-api'
+import { getContactThreads } from '../../lib/contacts-api'
 import { MessageTimelineItem, EventClusterTimelineItem, formatHourMinute } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import ReplyComposer from './ReplyComposer'
@@ -26,7 +28,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
-import { suggestedBillingTag, threadLooksFinancial } from '../../lib/thread-intent'
+import { inboundQuoteText, suggestedBillingTag, suggestedReplyAllRecipients, threadLooksFinancial } from '../../lib/thread-intent'
+import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import {
   isInternalThread,
@@ -550,7 +553,9 @@ function groupByDay(
 
 export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, canSendEmail = false }: Props) {
   const { t, i18n } = useTranslation('communication')
+  const navigate = useNavigate()
   const { token, user } = useAuth()
+  const { connections } = useMailboxConnections()
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -847,19 +852,30 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // reply-all seed when the operator opens the CC/BCC fields.
   const suggestedCc = useMemo(() => {
     if (!detail || detail.thread.channel !== 'email') return null
+    const mailboxEmails = connections.map((row) => row.mailboxEmail)
     for (let i = detail.messages.length - 1; i >= 0; i--) {
       const m = detail.messages[i]
-      if (m.direction === 'inbound' && m.cc?.trim()) return m.cc
+      if (m.direction !== 'inbound') continue
+      const extras = suggestedReplyAllRecipients({
+        cc: m.cc,
+        toAddresses: m.toAddresses,
+        exclude: [
+          ...mailboxEmails,
+          detail.thread.contactEmail,
+        ],
+      })
+      if (extras) return extras
     }
     return null
-  }, [detail])
+  }, [detail, connections])
 
   const lastInboundText = useMemo(() => {
     if (!detail) return ''
     for (let i = detail.messages.length - 1; i >= 0; i--) {
       const message = detail.messages[i]
-      if (message.direction === 'inbound' && message.bodyText?.trim()) {
-        return message.bodyText.trim()
+      if (message.direction === 'inbound') {
+        const quoted = inboundQuoteText(message)
+        if (quoted) return quoted
       }
     }
     return ''
@@ -892,6 +908,51 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [membersById, user?.email])
 
   const [creatingTask, setCreatingTask] = useState(false)
+  const [previousCount, setPreviousCount] = useState(0)
+  const [closingSender, setClosingSender] = useState(false)
+
+  useEffect(() => {
+    if (!token || !detail?.thread.contactId) {
+      setPreviousCount(0)
+      return
+    }
+    const currentId = String(detail.thread.id)
+    const contactId = detail.thread.contactId
+    let cancelled = false
+    void getContactThreads(token, contactId)
+      .then((rows) => {
+        if (!cancelled) {
+          setPreviousCount(rows.filter((row) => String(row.id) !== currentId).length)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPreviousCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, detail?.thread.contactId, detail?.thread.id])
+
+  const handleAlwaysCloseSender = useCallback(async () => {
+    if (!token || !detail) return
+    const sender = detail.thread.contactEmail.trim()
+    if (!sender || isPlaceholderContactAddress(sender)) return
+    if (!window.confirm(t('threadChrome.alwaysCloseConfirm', { sender }))) return
+    setClosingSender(true)
+    try {
+      await createInboxRule(token, {
+        matchType: 'sender',
+        matchValue: sender,
+        action: 'auto_close',
+        label: t('threadChrome.alwaysCloseLabel', { sender }),
+      })
+      toast.success(t('threadChrome.alwaysCloseCreated', { sender }))
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('threadChrome.alwaysCloseError')))
+    } finally {
+      setClosingSender(false)
+    }
+  }, [token, detail, t])
 
   const handleCreateTaskFromThread = useCallback(async () => {
     if (!detail || creatingTask) return
@@ -906,6 +967,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       })
       toast.success(t('threadChrome.taskCreated', { title: task.title }), {
         description: t('threadChrome.taskCreatedHint'),
+        action: {
+          label: t('threadChrome.openAgenda'),
+          onClick: () => navigate('/agenda'),
+        },
       })
       onRefresh()
     } catch (err) {
@@ -913,7 +978,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     } finally {
       setCreatingTask(false)
     }
-  }, [detail, creatingTask, t])
+  }, [detail, creatingTask, t, navigate])
 
   const handleDraftWithAi = useCallback(async (instruction = '') => {
     if (!token || !detail || drafting) return
@@ -1172,6 +1237,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     </button>
                   </>
                 ) : null}
+                {previousCount > 0 && onToggleContact ? (
+                  <>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={onToggleContact}
+                      className="hover:text-accent hover:underline"
+                    >
+                      {t('threadChrome.earlierConversations', { count: previousCount })}
+                    </button>
+                  </>
+                ) : null}
               </>
             )}
           </p>
@@ -1394,6 +1471,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     {t('threadChrome.forwardAsEmail')}
                   </DropdownMenuItem>
                 ) : null}
+                {!isInternalThread(thread) &&
+                thread.contactEmail &&
+                !isPlaceholderContactAddress(thread.contactEmail) ? (
+                  <DropdownMenuItem
+                    className="gap-2"
+                    disabled={closingSender}
+                    onClick={() => void handleAlwaysCloseSender()}
+                  >
+                    <Archive size={13} />
+                    {t('threadChrome.alwaysCloseFromSender')}
+                  </DropdownMenuItem>
+                ) : null}
                 {!isInternalThread(thread) ? (
                   <DropdownMenuItem
                     className="gap-2"
@@ -1447,6 +1536,30 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           ) : null}
         </div>
       </div>
+
+      {onToggleTakeover &&
+      !isInternalThread(thread) &&
+      ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') ? (
+        <div
+          className={`flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5 ${
+            thread.aiPaused
+              ? 'border-accent/25 bg-accent/5'
+              : 'border-border/40 bg-bg-elevated'
+          }`}
+        >
+          <p className="text-[11.5px] text-text-secondary">
+            {thread.aiPaused ? t('threadChrome.youTookOverBanner') : t('threadChrome.aiHandlingBanner')}
+          </p>
+          <button
+            type="button"
+            disabled={saving || loading}
+            onClick={() => void onToggleTakeover()}
+            className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40"
+          >
+            {thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
+          </button>
+        </div>
+      ) : null}
 
       {!isInternalThread(thread) ? (
         <ThreadMetaRow

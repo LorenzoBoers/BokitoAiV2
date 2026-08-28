@@ -581,3 +581,51 @@ async def test_internal_note_keeps_unread(client: AsyncClient):
     listed = await client.get("/api/signals?view=all_open&folder=inbox", headers=headers)
     row = next(item for item in listed.json()["items"] if item["id"] == signal_id)
     assert row["has_unread"] is True
+
+
+@pytest.mark.asyncio
+async def test_list_threads_search_matches_company_and_attachment(client: AsyncClient, session_override):
+    from app.models.channel import Contact
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    contact = Contact(
+        tenant_id=tenant.id,
+        channel="email",
+        address="ap@giraffe.co",
+        display_name="Kim",
+        company="Giraffe Accounting",
+        status="approved",
+    )
+    session_override.add(contact)
+    await session_override.flush()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="Monthly close",
+        contact_id=contact.id,
+        contact_name="Kim",
+        contact_email="ap@giraffe.co",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    session_override.add(
+        SignalMessage(
+            signal_id=signal.id,
+            tenant_id=tenant.id,
+            kind="user_message",
+            direction="inbound",
+            body_text="See attached",
+            attachments_json='[{"name":"invoice-4821.pdf","url":"/files/1"}]',
+        )
+    )
+    await session_override.commit()
+
+    by_company = await client.get("/api/signals?view=all_open&search=Giraffe", headers=headers)
+    assert by_company.status_code == 200
+    assert any(item["id"] == str(signal.id) for item in by_company.json()["items"])
+
+    by_file = await client.get("/api/signals?view=all_open&search=invoice-4821", headers=headers)
+    assert by_file.status_code == 200
+    assert any(item["id"] == str(signal.id) for item in by_file.json()["items"])

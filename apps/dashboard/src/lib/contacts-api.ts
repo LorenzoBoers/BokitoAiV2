@@ -28,6 +28,7 @@ export type ContactRow = {
 export type ContactPatch = {
   status?: ContactStatus
   display_name?: string
+  address?: string
   company?: string
   title?: string
   phone?: string

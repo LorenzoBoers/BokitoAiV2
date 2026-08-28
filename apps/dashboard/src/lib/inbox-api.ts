@@ -201,6 +201,27 @@ export type MessageAttachment = {
   url: string
 }
 
+/** Best-effort normalize of stored / forwarded attachment payloads. */
+export function asMessageAttachments(raw: unknown[] | null | undefined): MessageAttachment[] {
+  if (!Array.isArray(raw)) return []
+  const out: MessageAttachment[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as Record<string, unknown>
+    const id = typeof row.id === 'string' ? row.id : ''
+    const url = typeof row.url === 'string' ? row.url : ''
+    if (!id || !url) continue
+    out.push({
+      id,
+      name: typeof row.name === 'string' && row.name.trim() ? row.name : 'file',
+      mime: typeof row.mime === 'string' ? row.mime : '',
+      size: typeof row.size === 'number' ? row.size : 0,
+      url,
+    })
+  }
+  return out
+}
+
 export type ReplyInput = {
   bodyText: string
   bodyHtml?: string

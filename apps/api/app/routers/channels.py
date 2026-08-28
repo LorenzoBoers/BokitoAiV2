@@ -183,6 +183,7 @@ async def delete_account(
 class ContactUpdateBody(BaseModel):
     status: str | None = None
     display_name: str | None = None
+    address: str | None = None
     company: str | None = None
     title: str | None = None
     phone: str | None = None
@@ -405,10 +406,46 @@ async def update_contact(
         if body.status not in CONTACT_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}")
     contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    previous_name = contact.display_name
+    previous_address = contact.address
     if body.status is not None:
         contact.status = body.status
     if body.display_name is not None:
         contact.display_name = body.display_name
+    if body.address is not None:
+        address = body.address.strip().lower()
+        if not address or "@" not in address:
+            raise HTTPException(status_code=400, detail="A valid email address is required")
+        existing = await session.execute(
+            select(Contact).where(
+                Contact.tenant_id == auth.tenant.id,
+                Contact.channel == contact.channel,
+                Contact.address == address,
+                Contact.id != contact.id,
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail="Contact already exists for this channel")
+        contact.address = address
+        from app.services.companies import link_contact_company
+
+        await link_contact_company(session, contact)
+    if body.address is not None or body.display_name is not None:
+        linked = await session.execute(
+            select(Signal).where(
+                Signal.tenant_id == auth.tenant.id, Signal.contact_id == contact.id
+            )
+        )
+        for signal in linked.scalars().all():
+            if body.address is not None and (
+                not signal.contact_email or signal.contact_email == previous_address
+            ):
+                signal.contact_email = contact.address
+            if body.display_name is not None and (
+                not signal.contact_name or signal.contact_name == previous_name
+            ):
+                signal.contact_name = contact.display_name
+            session.add(signal)
     if body.company is not None:
         contact.company = body.company
     if body.title is not None:
