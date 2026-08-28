@@ -266,6 +266,8 @@ integrations:
   routes:
     - /settings/integrations
     - /settings/marketplace
+    - /modules
+    - /modules/:slug
     - /settings/modules
     - /settings/modules/:slug
   code_globs:
@@ -275,8 +277,13 @@ integrations:
     - apps/dashboard/src/pages/ModuleSetupPage.tsx
     - apps/dashboard/src/components/integrations/**
     - apps/dashboard/src/components/shell/IntegrationsTabs.tsx
+    - apps/api/app/modules/**
+    - apps/api/app/services/module_sources.py
+    - apps/api/app/services/module_connections.py
   screenshots:
     - marketplace
+    - modules-hub
+    - module-home
 
 mcp:
   section: integrations

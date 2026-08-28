@@ -202,7 +202,7 @@ export default function SetupHubPage() {
                     defaultValue: 'Manage modules',
                   })
                 : t('setupGuidePage.intelligence.modulesFit'),
-            to: '/settings/modules',
+            to: '/modules',
           },
         ],
       },

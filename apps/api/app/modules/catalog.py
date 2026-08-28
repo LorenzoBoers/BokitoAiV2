@@ -28,7 +28,7 @@ MODULE_TOOL_PREFIXES: dict[str, str] = {
     "documents": "documents_",
 }
 
-SETUP_PATH_PREFIX = "/settings/modules"
+SETUP_PATH_PREFIX = "/modules"
 
 
 @dataclass(frozen=True)
@@ -398,6 +398,10 @@ async def set_module_enabled(
         summary=f"{spec.name} {'on' if enabled else 'off'}",
         after={"slug": slug, "enabled": bool(enabled)},
     )
+    if enabled:
+        from app.services.module_sources import ensure_platform_seeds
+
+        await ensure_platform_seeds(session, tenant_id, slug)
     rows = {m["slug"]: m for m in await serialize_modules_for_tenant(session, tenant_id)}
     return rows[slug]
 
@@ -413,6 +417,70 @@ async def enable_module_for_provider(
     if flags.get(slug) is True:
         return
     await set_module_enabled(session, tenant_id, slug, True)
+    from app.services.module_sources import ensure_platform_seeds
+
+    await ensure_platform_seeds(session, tenant_id, slug)
+
+
+def module_prefs(settings: dict[str, Any] | None, slug: str) -> dict[str, Any]:
+    raw = (settings or {}).get(MODULE_SETTINGS_KEY)
+    if not isinstance(raw, dict):
+        return {}
+    row = raw.get(slug)
+    return dict(row) if isinstance(row, dict) else {}
+
+
+async def get_module_prefs(
+    session: AsyncSession, tenant_id: UUID, slug: str
+) -> dict[str, Any]:
+    return module_prefs(await _tenant_settings(session, tenant_id), slug)
+
+
+async def update_module_prefs(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    *,
+    default_connection_id: str | None = None,
+    default_company_by_connection: dict[str, str] | None = None,
+    clear_default_connection: bool = False,
+) -> dict[str, Any]:
+    """Persist operator defaults for multi-registration modules."""
+    if MODULE_BY_SLUG.get(slug) is None:
+        raise ValueError(f"Unknown module '{slug}'")
+    from app.models.auth import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError("Tenant not found")
+    settings = await _tenant_settings(session, tenant_id)
+    raw = settings.get(MODULE_SETTINGS_KEY)
+    modules = dict(raw) if isinstance(raw, dict) else {}
+    current = modules.get(slug)
+    row = dict(current) if isinstance(current, dict) else {}
+    if clear_default_connection:
+        row.pop("default_connection_id", None)
+    elif default_connection_id is not None:
+        row["default_connection_id"] = str(default_connection_id).strip()
+    if default_company_by_connection is not None:
+        existing = row.get("default_company_by_connection")
+        merged = dict(existing) if isinstance(existing, dict) else {}
+        for key, value in default_company_by_connection.items():
+            cid = str(key).strip()
+            company = str(value or "").strip()
+            if not cid:
+                continue
+            if company:
+                merged[cid] = company
+            else:
+                merged.pop(cid, None)
+        row["default_company_by_connection"] = merged
+    modules[slug] = row
+    settings[MODULE_SETTINGS_KEY] = modules
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    await session.commit()
+    return row
 
 
 def module_skill_text(module_slug: str) -> str:
@@ -430,7 +498,11 @@ def module_setup_playbook(module: ModuleSpec) -> str:
     return (
         f"## {module.name} module (on, no package)\n"
         f"Use when: {module.needs_when}.\n"
-        f"Setup: {module.setup_path}\n"
+        f"Setup: {module.setup_path} (tabs: Overview, Connections, Sources, Setup)\n"
+        f"Success: module on, at least one healthy registration, defaults set, "
+        f"platform sources indexed (or explicitly skipped).\n"
+        f"Tools: list_module_connections, set_module_default_connection, "
+        f"list_module_sources, propose_module_source.\n"
         f"If this work comes up, call recommend_module with slug `{module.slug}` "
         f"instead of guessing a vendor.\n"
         f"{steps}"

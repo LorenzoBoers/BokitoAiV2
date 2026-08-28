@@ -24,7 +24,10 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
     return [{ labelKey: 'crumbs.widgetLook' }]
   }
   if (pathname.startsWith('/settings/marketplace')) return [{ labelKey: 'crumbs.marketplace' }]
-  if (pathname.startsWith('/settings/modules')) return []
+  if (pathname.startsWith('/modules/') && pathname !== '/modules') {
+    return [{ labelKey: 'crumbs.moduleSetup' }]
+  }
+  if (pathname.startsWith('/modules')) return []
   if (pathname.startsWith('/settings/mcp')) return [{ labelKey: 'crumbs.connectedTools' }]
   if (pathname.startsWith('/learn')) return [{ labelKey: 'crumbs.learn' }]
   if (pathname.startsWith('/docs')) return [{ labelKey: 'crumbs.docs' }]

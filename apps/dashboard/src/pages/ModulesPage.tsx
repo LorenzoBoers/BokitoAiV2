@@ -185,7 +185,7 @@ export default function ModulesPage() {
         <p className="max-w-2xl text-sm text-text-secondary">
           {t('integrations.modules.pageIntro', {
             defaultValue:
-              'Turn a business module on so agents can use it. Then connect the package you already use.',
+              'Turn a business module on so agents can use it. Open a module for packages, connections, sources and AI setup.',
           })}
         </p>
         {live.length > 0 ? (

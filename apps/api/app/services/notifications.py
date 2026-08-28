@@ -96,6 +96,22 @@ async def resolve_decision(
                 except ValueError:
                     pass
 
+        if action_type == "add_module_source":
+            slug = str(payload.get("module") or "").strip()
+            url = str(payload.get("url") or "").strip()
+            title = str(payload.get("title") or "").strip()
+            if slug and url:
+                from app.services.module_sources import create_tenant_source
+                from app.workers.tasks import enqueue_module_source_index
+
+                try:
+                    row = await create_tenant_source(
+                        session, tenant_id, slug, title=title or url, url=url
+                    )
+                    await enqueue_module_source_index(str(row.id))
+                except ValueError:
+                    pass
+
         if action_type == "orchestration_continue":
             task_id_raw = payload.get("task_id")
             if task_id_raw:
@@ -116,6 +132,7 @@ async def resolve_decision(
             "escalate",
             "setup_integration",
             "enable_module",
+            "add_module_source",
             "accept_platform_change",
             "orchestration_continue",
         ):

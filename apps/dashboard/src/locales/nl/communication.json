@@ -255,6 +255,7 @@
       "defer": "Niet nu",
       "turnOn": "Aanzetten",
       "connectPackage": "Pakket koppelen",
+      "addSource": "Bron toevoegen",
       "addToQueue": "Aan queue toevoegen",
       "alwaysAllow": "Altijd toestaan"
     },

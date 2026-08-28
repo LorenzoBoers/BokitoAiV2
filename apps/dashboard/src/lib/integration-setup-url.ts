@@ -10,13 +10,18 @@ export function moduleSetupPath(
   slug: string,
   connect?: string | null,
   step?: IntegrationHubStep,
+  tab?: 'overview' | 'connections' | 'sources' | 'setup' | null,
 ): string {
-  const base = `/settings/modules/${encodeURIComponent(slug)}`
+  const base = `/modules/${encodeURIComponent(slug)}`
+  const params = new URLSearchParams()
+  if (tab && tab !== 'overview') params.set('tab', tab)
   const packageSlug = connect?.trim()
-  if (!packageSlug) return base
-  const params = new URLSearchParams({ connect: packageSlug })
-  if (step === 'setup') params.set('step', 'setup')
-  return `${base}?${params.toString()}`
+  if (packageSlug) {
+    params.set('connect', packageSlug)
+    if (step === 'setup') params.set('step', 'setup')
+  }
+  const qs = params.toString()
+  return qs ? `${base}?${qs}` : base
 }
 
 export function isModuleSetupAction(actionType?: string | null): boolean {
@@ -40,7 +45,7 @@ export function buildIntegrationSetupReturnUrl(integrationId: string): string {
     step: 'detail',
   })
   const path = window.location.pathname
-  const base = path.startsWith('/settings/modules/') ? path : '/settings/marketplace'
+  const base = path.startsWith('/modules/') ? path : '/settings/marketplace'
   return `${window.location.origin}${base}?${params.toString()}`
 }
 

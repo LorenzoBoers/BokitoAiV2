@@ -23,7 +23,6 @@ import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
-  agentRunsPath,
   inboxPath,
   leafFromPath,
   leafKey,
@@ -295,10 +294,6 @@ type AgentsSectionProps = {
 }
 
 function AgentsSection({ assistant, agents, loading, activeLeaf, defaultQueueFor, t }: AgentsSectionProps) {
-  const activityActive =
-    activeLeaf?.type === 'runs' ||
-    (activeLeaf?.type === 'channel' && activeLeaf.channelKey === 'agent')
-
   return (
     <div className="space-y-0.5">
       {assistant ? (
@@ -336,22 +331,12 @@ function AgentsSection({ assistant, agents, loading, activeLeaf, defaultQueueFor
             key={agent.id}
             baseLeaf={baseLeaf}
             label={agent.name}
-            icon={<Bot size={14} className="shrink-0 text-text-muted" />}
+            icon={<Bot size={14} className="shrink-0 text-ai-ink" />}
             activeLeaf={activeLeaf}
             defaultQueue={defaultQueueFor(baseLeaf)}
           />
         )
       })}
-      <NavLink
-        to={agentRunsPath('all')}
-        title={t('support.links.activityHint')}
-        className={() => navLinkClass(Boolean(activityActive))}
-      >
-        <Bot size={14} className="shrink-0 text-text-muted" />
-        <span className="min-w-0 flex-1 truncate">
-          {t('support.links.activity')}
-        </span>
-      </NavLink>
     </div>
   )
 }

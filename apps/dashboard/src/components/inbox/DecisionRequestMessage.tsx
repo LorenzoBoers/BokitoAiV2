@@ -183,6 +183,7 @@ function optionLabelKey(option: DecisionOption): string | null {
     reject: 'reject',
     enable_module: 'turnOn',
     setup_integration: 'connectPackage',
+    add_module_source: 'addSource',
   }
   if (option.action_type && byAction[option.action_type]) return byAction[option.action_type]
   return null

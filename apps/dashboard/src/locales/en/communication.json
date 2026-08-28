@@ -255,6 +255,7 @@
       "defer": "Not now",
       "turnOn": "Turn on",
       "connectPackage": "Connect a package",
+      "addSource": "Add source",
       "addToQueue": "Add to queue",
       "alwaysAllow": "Always allow"
     },

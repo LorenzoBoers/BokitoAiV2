@@ -3,9 +3,9 @@ import { isModuleSetupAction, moduleSetupPath, setupIntegrationHref } from './in
 
 describe('setupIntegrationHref', () => {
   it('opens the module page when a module slug is present', () => {
-    expect(setupIntegrationHref({ module: 'accounting' })).toBe('/settings/modules/accounting')
+    expect(setupIntegrationHref({ module: 'accounting' })).toBe('/modules/accounting')
     expect(setupIntegrationHref({ module: 'accounting', provider: 'moneybird' })).toBe(
-      '/settings/modules/accounting?connect=moneybird&step=setup',
+      '/modules/accounting?connect=moneybird&step=setup',
     )
   })
 
@@ -25,12 +25,18 @@ describe('isModuleSetupAction', () => {
 
 describe('moduleSetupPath', () => {
   it('encodes the slug', () => {
-    expect(moduleSetupPath('accounting')).toBe('/settings/modules/accounting')
+    expect(moduleSetupPath('accounting')).toBe('/modules/accounting')
   })
 
   it('opens the connect step for a package', () => {
     expect(moduleSetupPath('accounting', 'moneybird', 'setup')).toBe(
-      '/settings/modules/accounting?connect=moneybird&step=setup',
+      '/modules/accounting?connect=moneybird&step=setup',
+    )
+  })
+
+  it('supports tab deep-links', () => {
+    expect(moduleSetupPath('accounting', null, undefined, 'sources')).toBe(
+      '/modules/accounting?tab=sources',
     )
   })
 })

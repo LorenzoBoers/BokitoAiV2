@@ -141,13 +141,28 @@ async def _store_integration_credentials(
     provider: str,
     identity: dict[str, Any],
     tokens: dict[str, Any],
+    *,
+    return_url: str = "",
 ) -> None:
     if provider == oauth_providers.GITHUB:
         conn = await ensure_github_connection(
             session, tenant_id, login=identity.get("login") or "github-user"
         )
     else:
-        serialized = await ensure_oauth_connection(session, tenant_id, provider)
+        from app.services.module_connections import (
+            oauth_connection_id_from_return_url,
+            oauth_create_new_from_return_url,
+        )
+
+        connection_id = oauth_connection_id_from_return_url(return_url)
+        create_new = oauth_create_new_from_return_url(return_url)
+        serialized = await ensure_oauth_connection(
+            session,
+            tenant_id,
+            provider,
+            connection_id=connection_id,
+            create_new=create_new and connection_id is None,
+        )
         result = await session.execute(
             select(IntegrationConnection).where(
                 IntegrationConnection.id == UUID(serialized["id"])
@@ -257,7 +272,12 @@ async def complete_oauth(
             await _store_email_credentials(session, tenant_id, provider, email, tokens)
         else:
             await _store_integration_credentials(
-                session, tenant_id, provider, identity, tokens
+                session,
+                tenant_id,
+                provider,
+                identity,
+                tokens,
+                return_url=return_url,
             )
     except Exception:
         logger.exception("OAuth credential storage failed for provider=%s", provider)

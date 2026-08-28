@@ -164,9 +164,14 @@ async def _default_company_id(conn: AccountingConnection) -> str | None:
 
 
 def _resolve_connection(
-    connections: list[AccountingConnection], args: dict[str, Any]
+    connections: list[AccountingConnection],
+    args: dict[str, Any],
+    *,
+    default_connection_id: str | None = None,
 ) -> AccountingConnection | dict[str, Any]:
-    requested = str(args.get("connection_id") or "").strip()
+    requested = str(args.get("connection_id") or "").strip() or (
+        str(default_connection_id or "").strip()
+    )
     if requested:
         match = next((c for c in connections if c.id == requested), None)
         if match is None:
@@ -179,7 +184,7 @@ def _resolve_connection(
     return module_error(
         "ambiguous_connection",
         "Multiple accounting connections are active. Call accounting_list_companies "
-        "first and pass connection_id.",
+        "first and pass connection_id, or set a default connection under Modules.",
     )
 
 
@@ -193,14 +198,14 @@ async def call_accounting_verb(
     if not await module_is_on(session, tenant_id, "accounting"):
         return module_error(
             "module_off",
-            "Accounting is off. Turn it on at /settings/modules/accounting "
+            "Accounting is off. Turn it on at /modules/accounting "
             "before agents use accounting tools.",
         )
     connections = await list_accounting_connections(session, tenant_id)
     if not connections:
         return module_error(
             "no_connection",
-            "No accounting package is connected. Open /settings/modules/accounting "
+            "No accounting package is connected. Open /modules/accounting "
             "and connect KING Accountancy, Bjorn Lunden, or Moneybird.",
         )
 
@@ -229,7 +234,13 @@ async def call_accounting_verb(
             result["errors"] = errors
         return result
 
-    resolved = _resolve_connection(connections, args)
+    from app.modules.catalog import get_module_prefs
+
+    prefs = await get_module_prefs(session, tenant_id, "accounting")
+    default_connection_id = str(prefs.get("default_connection_id") or "").strip() or None
+    resolved = _resolve_connection(
+        connections, args, default_connection_id=default_connection_id
+    )
     if isinstance(resolved, dict):
         return resolved
     conn = resolved
@@ -242,9 +253,15 @@ async def call_accounting_verb(
         return await _summarize(conn, args)
 
     if not str(args.get("company_id") or "").strip():
-        default = await _default_company_id(conn)
-        if default:
-            args["company_id"] = default
+        company_map = prefs.get("default_company_by_connection")
+        if isinstance(company_map, dict):
+            preferred = str(company_map.get(conn.id) or "").strip()
+            if preferred:
+                args["company_id"] = preferred
+        if not str(args.get("company_id") or "").strip():
+            default = await _default_company_id(conn)
+            if default:
+                args["company_id"] = default
 
     return await _dispatch(conn, verb, args)
 

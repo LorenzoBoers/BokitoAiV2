@@ -129,6 +129,13 @@ function RedirectPreserveSearch({ to }: { to: string }) {
   return <Navigate to={`${to}${location.search}`} replace />
 }
 
+/** Legacy Settings path for Modules → first-class `/modules` hub. */
+function RedirectModulesLegacy() {
+  const location = useLocation()
+  const rest = location.pathname.replace(/^\/settings\/modules/, '') || ''
+  return <Navigate to={`/modules${rest}${location.search}`} replace />
+}
+
 /** `/c/:conversationId` → `/communication/assistant/t/:conversationId`. */
 function LegacyConversationRedirect() {
   const { conversationId } = useParams<{ conversationId: string }>()
@@ -336,6 +343,10 @@ export default function App() {
           <Route path="/knowledge" element={<WorkspaceDocs />} />
           <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
 
+          {/* Modules hub (first-class product surface) */}
+          <Route path="/modules" element={<ModulesPage />} />
+          <Route path="/modules/:slug" element={<ModuleSetupPage />} />
+
           {/* Settings */}
           <Route element={<SettingsLayout />}>
             <Route path="/settings" element={<SettingsHomeRedirect />} />
@@ -356,8 +367,8 @@ export default function App() {
             <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/settings/mcp" />} />
             <Route path="/settings/integrations/docs" element={<Navigate to="/settings/marketplace" replace />} />
             <Route path="/settings/marketplace" element={<IntegrationsMarketplace />} />
-            <Route path="/settings/modules" element={<ModulesPage />} />
-            <Route path="/settings/modules/:slug" element={<ModuleSetupPage />} />
+            <Route path="/settings/modules" element={<RedirectModulesLegacy />} />
+            <Route path="/settings/modules/:slug" element={<RedirectModulesLegacy />} />
             <Route path="/settings/mcp" element={<IntegrationsMcp />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />

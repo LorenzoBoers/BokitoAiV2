@@ -279,23 +279,62 @@ async def ensure_oauth_connection(
     provider: str,
     *,
     display_name: str | None = None,
+    connection_id: UUID | None = None,
+    create_new: bool = False,
 ) -> dict[str, Any]:
+    """Ensure an OAuth registration exists.
+
+    By default creates a new registration when ``create_new`` is true or when
+    no active row exists. Pass ``connection_id`` to update a specific row
+    instead of inventing a second account.
+    """
     if provider not in PROVIDER_BY_SLUG:
         raise HTTPException(status_code=400, detail="Unknown provider")
-    result = await session.execute(
-        select(IntegrationConnection).where(
-            IntegrationConnection.tenant_id == tenant_id,
-            IntegrationConnection.provider == provider,
-            IntegrationConnection.status == "active",
-        )
-    )
-    existing = result.scalar_one_or_none()
-    if existing:
+    if connection_id is not None:
+        existing = await session.get(IntegrationConnection, connection_id)
+        if existing is None or existing.tenant_id != tenant_id:
+            raise HTTPException(status_code=404, detail="Connection not found")
+        if display_name:
+            existing.display_name = display_name
+            session.add(existing)
+            await session.commit()
+            await session.refresh(existing)
         return serialize_connection(existing)
+
+    if not create_new:
+        result = await session.execute(
+            select(IntegrationConnection)
+            .where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.provider == provider,
+                IntegrationConnection.status == "active",
+            )
+            .order_by(IntegrationConnection.created_at.asc())
+            .limit(1)
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            return serialize_connection(existing)
+
+    label = display_name or PROVIDER_BY_SLUG[provider]["name"]
+    # Distinguish multiple registrations of the same provider.
+    if create_new:
+        count_result = await session.execute(
+            select(func.count())
+            .select_from(IntegrationConnection)
+            .where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.provider == provider,
+            )
+        )
+        n = int(count_result.scalar_one() or 0)
+        if n > 0 and display_name is None:
+            label = f"{PROVIDER_BY_SLUG[provider]['name']} ({n + 1})"
+
     conn = IntegrationConnection(
         tenant_id=tenant_id,
         provider=provider,
-        display_name=display_name or PROVIDER_BY_SLUG[provider]["name"],
+        display_name=label,
         status="active",
         metadata_json=json.dumps({"auth_type": "oauth2"}),
     )
@@ -513,17 +552,34 @@ async def ensure_github_connection(
 
 
 async def get_provider_access_token(
-    session: AsyncSession, tenant_id: UUID, provider: str
+    session: AsyncSession,
+    tenant_id: UUID,
+    provider: str,
+    *,
+    connection_id: UUID | None = None,
 ) -> str | None:
     """Return a stored OAuth access token for an active connection, if any."""
-    result = await session.execute(
-        select(IntegrationConnection).where(
-            IntegrationConnection.tenant_id == tenant_id,
-            IntegrationConnection.provider == provider,
-            IntegrationConnection.status == "active",
+    if connection_id is not None:
+        conn = await session.get(IntegrationConnection, connection_id)
+        if (
+            conn is None
+            or conn.tenant_id != tenant_id
+            or conn.provider != provider
+            or conn.status != "active"
+        ):
+            return None
+    else:
+        result = await session.execute(
+            select(IntegrationConnection)
+            .where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.provider == provider,
+                IntegrationConnection.status == "active",
+            )
+            .order_by(IntegrationConnection.created_at.asc())
+            .limit(1)
         )
-    )
-    conn = result.scalar_one_or_none()
+        conn = result.scalar_one_or_none()
     if not conn:
         return None
     creds = _parse_json(conn.credentials_json)

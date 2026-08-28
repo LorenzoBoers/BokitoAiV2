@@ -487,7 +487,7 @@ export default function IntegrationsConnected() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Link
-                          to="/settings/modules/accounting"
+                          to="/modules/accounting"
                           className="text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-accent"
                         >
                           {t('integrations.modules.accounting.name')}

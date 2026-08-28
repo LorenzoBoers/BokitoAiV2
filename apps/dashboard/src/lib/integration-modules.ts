@@ -22,14 +22,14 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     ],
     needs_when: 'invoices, VAT, ledgers, outstanding balances, or bookkeeping',
     setup_steps: [
-      'Turn Accounting on under Settings > Modules.',
+      'Turn Accounting on under Modules.',
       'Choose a package (KING, Bjorn Lunden, or Moneybird).',
       'Connect with OAuth or an API key.',
       'If more than one administration appears, pick which one agents should use.',
     ],
     capability_summary:
       'Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances. Writes always become a decision you approve.',
-    setup_path: '/settings/modules/accounting',
+    setup_path: '/modules/accounting',
     enabled: false,
     tenant_status: 'off',
   },
@@ -49,7 +49,7 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     ],
     capability_summary:
       'Later: read accounts, balances, and transactions. Payments stay a human-approved proposal.',
-    setup_path: '/settings/modules/banking',
+    setup_path: '/modules/banking',
     enabled: false,
     tenant_status: 'coming_soon',
   },
@@ -69,7 +69,7 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     ],
     capability_summary:
       'Later: positions, quotes, and watchlists. Orders stay a human-approved proposal.',
-    setup_path: '/settings/modules/investing',
+    setup_path: '/modules/investing',
     enabled: false,
     tenant_status: 'coming_soon',
   },
@@ -89,7 +89,7 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     ],
     capability_summary:
       'Later: search and read external files into Knowledge. Uploads stay a human-approved proposal.',
-    setup_path: '/settings/modules/documents',
+    setup_path: '/modules/documents',
     enabled: false,
     tenant_status: 'coming_soon',
   },
@@ -124,7 +124,12 @@ export function verbLabelKey(label: string): string {
 }
 
 export function moduleHomePath(module: Pick<IntegrationModuleRow, 'slug' | 'setup_path'>): string {
-  return module.setup_path?.trim() || `/settings/modules/${encodeURIComponent(module.slug)}`
+  const path = module.setup_path?.trim()
+  if (path?.startsWith('/modules/')) return path
+  if (path?.startsWith('/settings/modules/')) {
+    return path.replace('/settings/modules/', '/modules/')
+  }
+  return `/modules/${encodeURIComponent(module.slug)}`
 }
 
 export function moduleIsOn(module: Pick<IntegrationModuleRow, 'enabled' | 'tenant_status'>): boolean {

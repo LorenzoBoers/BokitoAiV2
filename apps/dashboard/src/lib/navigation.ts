@@ -44,7 +44,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   agents: '/agents',
   projects: '/projects',
   knowledge: '/knowledge',
-  modules: '/settings/modules',
+  modules: '/modules',
   settings: '/settings',
 }
 
@@ -84,7 +84,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   agents: 'People and agents you can chat with',
   projects: 'Shared goals for agents and threads',
   knowledge: 'Docs, skills and memory',
-  modules: 'Turn business capabilities on or off',
+  modules: 'Business capabilities, packages and sources',
   settings: 'Workspace configuration',
 }
 
@@ -132,8 +132,7 @@ export function tabFromPath(pathname: string): Tab | null {
     pathname.startsWith('/skills')
   )
     return 'knowledge'
-  // Modules lives under /settings/modules — match before the settings catch-all.
-  if (pathname.startsWith('/settings/modules')) return 'modules'
+  if (pathname.startsWith('/modules')) return 'modules'
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
   return null
 }

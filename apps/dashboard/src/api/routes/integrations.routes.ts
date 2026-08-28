@@ -8,6 +8,16 @@ export const integrationsRoutes = {
   platform: {
     providers: '/integrations/providers',
     moduleBySlug: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}`,
+    moduleConnections: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/connections`,
+    modulePrefs: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}/prefs`,
+    moduleConnectionById: (slug: string, connectionId: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/connections/${encodeURIComponent(connectionId)}`,
+    moduleSources: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}/sources`,
+    moduleSourceById: (slug: string, sourceId: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/sources/${encodeURIComponent(sourceId)}`,
+    moduleSourceReindex: (slug: string, sourceId: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/sources/${encodeURIComponent(sourceId)}/reindex`,
     accountingCompanies: '/integrations/modules/accounting/companies',
     connections: (provider?: string) => {
       const params = new URLSearchParams()

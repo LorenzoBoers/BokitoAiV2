@@ -52,6 +52,7 @@ from app.models.os_graph import OsCanvasEdge, OsCanvasNode
 from app.models.secret import TenantSecret
 from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetting
 from app.models.provider import ProviderConnection, TenantModel
+from app.models.module_source import ModuleSource
 
 __all__ = [
     "Tenant",
@@ -127,4 +128,5 @@ __all__ = [
     "PlatformSetting",
     "ProviderConnection",
     "TenantModel",
+    "ModuleSource",
 ]

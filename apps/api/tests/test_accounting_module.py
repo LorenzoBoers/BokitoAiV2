@@ -57,7 +57,7 @@ async def _moneybird_connection(
 def test_module_catalog_has_prepared_modules():
     modules = {m["slug"]: m for m in serialize_modules()}
     assert modules["accounting"]["status"] == "available"
-    assert modules["accounting"]["setup_path"] == "/settings/modules/accounting"
+    assert modules["accounting"]["setup_path"] == "/modules/accounting"
     assert modules["accounting"]["enabled"] is False
     assert modules["accounting"]["tenant_status"] == "off"
     assert "list_companies" in modules["accounting"]["verbs"]
@@ -67,7 +67,7 @@ def test_module_catalog_has_prepared_modules():
         assert modules[slug]["status"] == "coming_soon"
         assert modules[slug]["tenant_status"] == "coming_soon"
         assert modules[slug]["provider_slugs"] == []
-        assert modules[slug]["setup_path"] == f"/settings/modules/{slug}"
+        assert modules[slug]["setup_path"] == f"/modules/{slug}"
 
 
 def test_provider_module_lookup():
@@ -355,7 +355,7 @@ async def test_module_skill_injected_only_with_connection(session_override: Asyn
     playbook = await active_module_skill_prompt(session_override, tenant.id)
     assert "on, no package" in playbook
     assert "recommend_module" in playbook
-    assert "/settings/modules/accounting" in playbook
+    assert "/modules/accounting" in playbook
     assert "accounting_list_companies" not in playbook
 
     await _moneybird_connection(session_override, tenant)
@@ -411,7 +411,7 @@ async def test_snapshot_lists_unconnected_modules(session_override: AsyncSession
     prompt = format_tenant_snapshot_prompt(snapshot)
     assert "Modules:" in prompt
     assert "accounting — off" in prompt
-    assert "/settings/modules/accounting" in prompt
+    assert "/modules/accounting" in prompt
     assert "prepared, not connectable" in prompt
 
 
@@ -424,7 +424,7 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     slugs = {row["slug"] for row in listed["modules"]}
     assert slugs == {"accounting", "banking", "investing", "documents"}
     accounting = next(row for row in listed["modules"] if row["slug"] == "accounting")
-    assert accounting["setup_path"] == "/settings/modules/accounting"
+    assert accounting["setup_path"] == "/modules/accounting"
     assert accounting["tenant_status"] == "off"
     assert accounting["enabled"] is False
 

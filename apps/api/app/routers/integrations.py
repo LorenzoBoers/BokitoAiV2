@@ -49,6 +49,26 @@ class ModuleEnableBody(BaseModel):
     enabled: bool
 
 
+class ModulePrefsBody(BaseModel):
+    default_connection_id: str | None = None
+    default_company_id: str | None = None
+    clear_default_connection: bool = False
+
+
+class ModuleConnectionRenameBody(BaseModel):
+    display_name: str
+
+
+class ModuleSourceCreateBody(BaseModel):
+    title: str = ""
+    url: str
+    auto_reindex: bool = True
+
+
+class ModuleSourceDisableBody(BaseModel):
+    disabled: bool = True
+
+
 class McpInstallBody(BaseModel):
     provider: str = "custom_mcp"
     api_key: str = ""
@@ -94,6 +114,182 @@ async def patch_module(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"module": row}
+
+
+@router.get("/modules/{slug}/connections")
+async def get_module_connections(
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_connections import list_module_connections
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    try:
+        return await list_module_connections(session, auth.tenant.id, slug)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.patch("/modules/{slug}/prefs")
+async def patch_module_prefs(
+    slug: str,
+    body: ModulePrefsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_connections import set_module_defaults
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    try:
+        prefs = await set_module_defaults(
+            session,
+            auth.tenant.id,
+            slug,
+            default_connection_id=body.default_connection_id,
+            default_company_id=body.default_company_id,
+            clear_default_connection=body.clear_default_connection,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"prefs": prefs}
+
+
+@router.patch("/modules/{slug}/connections/{connection_id}")
+async def patch_module_connection(
+    slug: str,
+    connection_id: UUID,
+    body: ModuleConnectionRenameBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_connections import rename_module_connection
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    try:
+        row = await rename_module_connection(
+            session,
+            auth.tenant.id,
+            connection_id,
+            display_name=body.display_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"connection": row}
+
+
+@router.get("/modules/{slug}/sources")
+async def get_module_sources(
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_sources import ensure_platform_seeds, list_sources
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    await ensure_platform_seeds(session, auth.tenant.id, slug)
+    return {"sources": await list_sources(session, auth.tenant.id, slug)}
+
+
+@router.post("/modules/{slug}/sources")
+async def post_module_source(
+    slug: str,
+    body: ModuleSourceCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_sources import create_tenant_source, serialize_source
+    from app.workers.tasks import enqueue_module_source_index
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    try:
+        row = await create_tenant_source(
+            session,
+            auth.tenant.id,
+            slug,
+            title=body.title,
+            url=body.url,
+            auto_reindex=body.auto_reindex,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await enqueue_module_source_index(str(row.id))
+    return {"source": serialize_source(row)}
+
+
+@router.post("/modules/{slug}/sources/{source_id}/reindex")
+async def reindex_module_source(
+    slug: str,
+    source_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.models.module_source import ModuleSource
+    from app.modules.catalog import get_module
+    from app.services.module_sources import serialize_source
+    from app.workers.tasks import enqueue_module_source_index
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    row = await session.get(ModuleSource, source_id)
+    if row is None or row.tenant_id != auth.tenant.id or row.module_slug != slug:
+        raise HTTPException(status_code=404, detail="Source not found")
+    await enqueue_module_source_index(str(source_id))
+    # Optimistic status; worker (or inline fallback) updates the real result.
+    return {"source": serialize_source(row), "queued": True}
+
+
+@router.patch("/modules/{slug}/sources/{source_id}")
+async def patch_module_source(
+    slug: str,
+    source_id: UUID,
+    body: ModuleSourceDisableBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_sources import serialize_source, set_source_disabled
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    try:
+        row = await set_source_disabled(
+            session, auth.tenant.id, source_id, disabled=body.disabled
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if row.module_slug != slug:
+        raise HTTPException(status_code=404, detail="Source not found")
+    return {"source": serialize_source(row)}
+
+
+@router.delete("/modules/{slug}/sources/{source_id}")
+async def delete_module_source(
+    slug: str,
+    source_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.modules.catalog import get_module
+    from app.services.module_sources import delete_tenant_source
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    try:
+        await delete_tenant_source(session, auth.tenant.id, source_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True}
 
 
 @router.get("/modules/accounting/companies")
@@ -257,7 +453,18 @@ async def platform_oauth_start(
         # Dev sandbox: a credential-less connection is served by the accounting
         # module mocks, so the flow stays demo-able before a Moneybird OAuth
         # app is registered.
-        await ensure_oauth_connection(session, auth.tenant.id, "moneybird")
+        from app.services.module_connections import (
+            oauth_connection_id_from_return_url,
+            oauth_create_new_from_return_url,
+        )
+
+        await ensure_oauth_connection(
+            session,
+            auth.tenant.id,
+            "moneybird",
+            connection_id=oauth_connection_id_from_return_url(return_url),
+            create_new=oauth_create_new_from_return_url(return_url),
+        )
         authorize_url = mock_authorize_url(
             return_url, {"integration": "connected", "provider": "moneybird"}
         )

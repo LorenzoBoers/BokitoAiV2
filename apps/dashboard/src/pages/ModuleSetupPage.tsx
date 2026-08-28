@@ -9,6 +9,8 @@ import {
   type ApplicationHubStep,
 } from '../components/integrations/ApplicationHubDialog'
 import type { HubBanner } from '../components/integrations/IntegrationHubDialog'
+import { ModuleConnectionsPanel } from '../components/integrations/ModuleConnectionsPanel'
+import { ModuleSourcesPanel } from '../components/integrations/ModuleSourcesPanel'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
@@ -31,10 +33,18 @@ import {
   type IntegrationApplication,
   type IntegrationOffer,
 } from '../lib/integration-applications'
+import { talkToAssistantPath } from '../lib/talk-to-assistant'
+
+type ModuleTab = 'overview' | 'connections' | 'sources' | 'setup'
 
 function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): ApplicationHubStep {
   if (!offer) return 'app'
   return step === 'setup' ? 'offer-setup' : 'offer-detail'
+}
+
+function parseTab(raw: string | null): ModuleTab {
+  if (raw === 'connections' || raw === 'sources' || raw === 'setup') return raw
+  return 'overview'
 }
 
 export default function ModuleSetupPage() {
@@ -42,6 +52,7 @@ export default function ModuleSetupPage() {
   const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const tab = parseTab(searchParams.get('tab'))
   const { applications, modules, loadError, refreshCatalog, setModuleEnabled } =
     useIntegrationCatalog()
 
@@ -86,6 +97,16 @@ export default function ModuleSetupPage() {
   const visibleSteps = on
     ? setupSteps.filter((step) => !/^(turn |zet )/i.test(step))
     : setupSteps
+
+  const setTab = useCallback(
+    (next: ModuleTab) => {
+      const params = new URLSearchParams(searchParams)
+      if (next === 'overview') params.delete('tab')
+      else params.set('tab', next)
+      setSearchParams(params, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   const openApplicationHub = useCallback(
     (
@@ -183,11 +204,43 @@ export default function ModuleSetupPage() {
     navigate(connectedPathWithKind(kind))
   }
 
+  const openFirstPackage = () => {
+    const app = apps[0]
+    if (!app || !canConnect) return
+    const offer = app.offers[0] ?? null
+    openApplicationHub(app, on && offer ? 'offer-setup' : 'app', offer)
+  }
+
+  const setupPrefill = t('integrations.modules.setup.assistantPrefill', {
+    defaultValue:
+      'Help me finish setting up the {{name}} module: turn it on if needed, connect a package, set the default registration, and make sure platform sources are indexed.',
+    name,
+  })
+
+  const tabs: { id: ModuleTab; label: string }[] = [
+    {
+      id: 'overview',
+      label: t('integrations.modules.tabs.overview', { defaultValue: 'Overview' }),
+    },
+    {
+      id: 'connections',
+      label: t('integrations.modules.tabs.connections', { defaultValue: 'Connections' }),
+    },
+    {
+      id: 'sources',
+      label: t('integrations.modules.tabs.sources', { defaultValue: 'Sources' }),
+    },
+    {
+      id: 'setup',
+      label: t('integrations.modules.tabs.setup', { defaultValue: 'Setup' }),
+    },
+  ]
+
   return (
     <PageContent width="lg">
       <div className="mb-6">
         <Link
-          to="/settings/modules"
+          to="/modules"
           className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
         >
           <ArrowLeft size={12} />
@@ -242,35 +295,35 @@ export default function ModuleSetupPage() {
           <CardGridSkeleton cards={2} />
         ) : (
           <EmptyState
-            title={t('integrations.modules.notFound', { defaultValue: 'This module is not in the catalog.' })}
+            title={t('integrations.modules.notFound', {
+              defaultValue: 'This module is not in the catalog.',
+            })}
           />
         )
       ) : (
-        <div className="space-y-8">
-          {(() => {
-            const verbs = verbLabels.length > 0 ? (
-              <section>
-                <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                  {t('integrations.modules.verbsTitle', { defaultValue: 'What agents can do' })}
-                </h3>
-                <ul className="flex flex-wrap gap-1.5">
-                  {verbLabels.map((label) => (
-                    <li
-                      key={label}
-                      className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-text-secondary"
-                    >
-                      {t(`integrations.modules.verbs.${verbLabelKey(label)}`, { defaultValue: label })}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-xs text-text-muted">
-                  {t('integrations.modules.writesNote', {
-                    defaultValue: 'Writes always become a decision you approve.',
-                  })}
-                </p>
-              </section>
-            ) : null
-            const packages = (
+        <>
+          <nav className="mb-6 flex flex-wrap gap-1 border-b border-border/50 pb-px">
+            {tabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                className={`rounded-t-md px-3 py-2 text-sm ${
+                  tab === item.id
+                    ? 'border-b-2 border-accent font-medium text-text-heading'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          {tab === 'overview' ? (
+            <div className="space-y-8">
+              {capability ? (
+                <p className="max-w-2xl text-sm text-text-secondary">{capability}</p>
+              ) : null}
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-text-primary">
                   {t('integrations.modules.connectors', { defaultValue: 'Packages' })}
@@ -284,14 +337,20 @@ export default function ModuleSetupPage() {
                         onOpenDetail={() => {
                           if (!canConnect) return
                           const offer = application.offers[0] ?? null
-                          openApplicationHub(application, on && offer ? 'offer-setup' : 'app', offer)
+                          openApplicationHub(
+                            application,
+                            on && offer ? 'offer-setup' : 'app',
+                            offer,
+                          )
                         }}
                       />
                     ))}
                   </div>
                 ) : null}
                 {planned.length > 0 || comingSoonApps.length > 0 ? (
-                  <div className={`${apps.length > 0 ? 'mt-3' : ''} rounded-lg border border-dashed border-border-default p-4`}>
+                  <div
+                    className={`${apps.length > 0 ? 'mt-3' : ''} rounded-lg border border-dashed border-border-default p-4`}
+                  >
                     <p className="text-xs text-text-muted">
                       {t('integrations.modules.planned', {
                         defaultValue: 'Planned connectors: {{providers}}',
@@ -306,30 +365,76 @@ export default function ModuleSetupPage() {
                   </div>
                 ) : null}
               </section>
-            )
-            return (
-              <>
-                {capability ? (
-                  <p className="max-w-2xl text-sm text-text-secondary">{capability}</p>
-                ) : null}
-                {on ? packages : verbs}
-                {on ? verbs : packages}
-                {visibleSteps.length > 0 ? (
-                  <section>
-                    <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                      {t('integrations.modules.setupSteps', { defaultValue: 'Setup' })}
-                    </h3>
-                    <ol className="list-decimal space-y-1.5 pl-5 text-sm text-text-secondary">
-                      {visibleSteps.map((step) => (
-                        <li key={step}>{step}</li>
-                      ))}
-                    </ol>
-                  </section>
-                ) : null}
-              </>
-            )
-          })()}
-        </div>
+              {verbLabels.length > 0 ? (
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                    {t('integrations.modules.verbsTitle', { defaultValue: 'What agents can do' })}
+                  </h3>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {verbLabels.map((label) => (
+                      <li
+                        key={label}
+                        className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-text-secondary"
+                      >
+                        {t(`integrations.modules.verbs.${verbLabelKey(label)}`, {
+                          defaultValue: label,
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-text-muted">
+                    {t('integrations.modules.writesNote', {
+                      defaultValue: 'Writes always become a decision you approve.',
+                    })}
+                  </p>
+                </section>
+              ) : null}
+              {visibleSteps.length > 0 ? (
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                    {t('integrations.modules.setupSteps', { defaultValue: 'Setup checklist' })}
+                  </h3>
+                  <ol className="list-decimal space-y-1.5 pl-5 text-sm text-text-secondary">
+                    {visibleSteps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
+            </div>
+          ) : null}
+
+          {tab === 'connections' ? (
+            <ModuleConnectionsPanel slug={slug} onAddPackage={openFirstPackage} />
+          ) : null}
+
+          {tab === 'sources' ? <ModuleSourcesPanel slug={slug} /> : null}
+
+          {tab === 'setup' ? (
+            <section className="space-y-4">
+              <p className="max-w-2xl text-sm text-text-secondary">
+                {t('integrations.modules.setup.intro', {
+                  defaultValue:
+                    'The company assistant walks you through turning the module on, connecting packages, setting defaults, and indexing sources.',
+                })}
+              </p>
+              {visibleSteps.length > 0 ? (
+                <ol className="list-decimal space-y-1.5 pl-5 text-sm text-text-secondary">
+                  {visibleSteps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              ) : null}
+              <Button asChild>
+                <Link to={talkToAssistantPath(setupPrefill, { kind: 'company' })}>
+                  {t('integrations.modules.setup.openAssistant', {
+                    defaultValue: 'Continue with company assistant',
+                  })}
+                </Link>
+              </Button>
+            </section>
+          ) : null}
+        </>
       )}
 
       <ApplicationHubDialog

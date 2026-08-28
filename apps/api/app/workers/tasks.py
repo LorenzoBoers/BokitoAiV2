@@ -478,6 +478,24 @@ async def deliver_webhook_job(ctx, delivery_id: str):
         return {"status": delivery.status, "status_code": delivery.status_code}
 
 
+async def index_module_source_job(ctx, source_id: str):
+    """Fetch and index one ModuleSource URL into workspace docs."""
+    from app.services.module_sources import index_source
+
+    async with async_session_factory() as session:
+        row = await index_source(session, UUID(source_id))
+        return {"id": str(row.id), "status": row.status}
+
+
+async def reindex_module_sources_job(ctx):
+    """Weekly cron: reindex platform + auto_reindex tenant module sources."""
+    from app.services.module_sources import reindex_due_sources
+
+    async with async_session_factory() as session:
+        count = await reindex_due_sources(session)
+        return {"reindexed": count}
+
+
 class WorkerSettings:
     # Triggers + learning are scheduled by the in-process API scheduler
     # (app.services.trigger_scheduler); the worker only handles queued jobs
@@ -490,6 +508,8 @@ class WorkerSettings:
         sync_email_mailboxes_job,
         deliver_webhook_job,
         index_project_repo_job,
+        index_module_source_job,
+        reindex_module_sources_job,
     ]
     on_startup = startup
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
@@ -498,6 +518,7 @@ class WorkerSettings:
         cron(sync_email_mailboxes_job, second=0),
         cron(send_tenant_digests_job, hour=6, minute=0),
         cron(snapshot_platform_metrics_job, hour=5, minute=30),
+        cron(reindex_module_sources_job, weekday=0, hour=3, minute=15),
     ]
 
 
@@ -582,6 +603,33 @@ async def enqueue_webhook_delivery(delivery_id: str):
             except Exception:  # noqa: BLE001
                 logging.getLogger(__name__).exception(
                     "In-process webhook delivery failed for %s", delivery_id
+                )
+
+        asyncio.create_task(_inline())
+        return
+
+
+async def enqueue_module_source_index(source_id: str):
+    try:
+        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        await redis.enqueue_job("index_module_source_job", source_id)
+    except Exception as exc:  # noqa: BLE001
+        import asyncio
+        import logging
+
+        from app.services.runtime_health import record_redis_enqueue_failure
+
+        logging.getLogger(__name__).warning(
+            "Redis unavailable, indexing module source %s in-process: %s", source_id, exc
+        )
+        record_redis_enqueue_failure(f"module_source_index: {exc}")
+
+        async def _inline() -> None:
+            try:
+                await index_module_source_job(None, source_id)
+            except Exception:  # noqa: BLE001
+                logging.getLogger(__name__).exception(
+                    "In-process module source indexing failed for %s", source_id
                 )
 
         asyncio.create_task(_inline())

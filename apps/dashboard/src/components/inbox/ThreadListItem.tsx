@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Bot, Trash2 } from 'lucide-react'
+import { AI_PILL_CLASS } from '../ai/AiMark'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { cn } from '../../lib/utils'
@@ -113,6 +114,8 @@ export default function ThreadListItem({
     !showNeedsReply &&
     thread.status === 'open' &&
     thread.lastMessageDirection === 'outbound'
+  // Customer channel still owned by AI (human takeover clears the violet cue).
+  const aiManaged = !isDirect && !isAgentThread && !thread.aiPaused
 
   return (
     <div
@@ -126,12 +129,17 @@ export default function ThreadListItem({
         }
       }}
       data-active={isSelected || undefined}
+      data-ai-managed={aiManaged || undefined}
       className={cn(
         'row-interactive w-full cursor-pointer text-left px-3 rounded-md group/thread',
         compact ? 'py-1.5' : 'py-2.5',
         isSelected
           ? 'bg-accent/10 border border-accent/20'
           : 'hover:bg-bg-hover/50 border border-transparent',
+        aiManaged &&
+          (isSelected
+            ? 'shadow-[inset_3px_0_0_0_rgb(var(--color-ai)/0.55)]'
+            : 'border-ai/20 bg-ai/[0.04] shadow-[inset_3px_0_0_0_rgb(var(--color-ai)/0.45),0_8px_20px_-14px_rgb(var(--color-ai)/0.35)]'),
       )}
     >
       <div className="flex items-start gap-2 min-w-0">
@@ -154,7 +162,7 @@ export default function ThreadListItem({
           />
         ) : null}
         {isDirect || isAgentThread ? (
-          <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/10 text-accent">
+          <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
             <Bot size={13} />
           </span>
         ) : (
@@ -239,7 +247,12 @@ export default function ThreadListItem({
           {!isDirect && (thread.tags.length > 0 || thread.hasOpenDecision) ? (
             <div className="mb-1 flex flex-wrap items-center gap-1">
               {!isAgentThread && thread.hasOpenDecision ? (
-                <span className="shrink-0 rounded-full bg-status-warning/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-status-warning">
+                <span
+                  className={cn(
+                    'shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide',
+                    AI_PILL_CLASS,
+                  )}
+                >
                   {t('listItem.needsDecision')}
                 </span>
               ) : null}
