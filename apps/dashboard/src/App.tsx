@@ -268,19 +268,33 @@ export default function App() {
             {/* Assistant + agent chats */}
             <Route path="/communication/assistant" element={<DirectCommunication />} />
             <Route path="/communication/assistant/t/:threadId" element={<DirectCommunication />} />
+            <Route path="/communication/assistant/:queue" element={<DirectCommunication />} />
+            <Route path="/communication/assistant/:queue/t/:threadId" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/t/:threadId" element={<DirectCommunication />} />
+            <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
+            <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<DirectCommunication />} />
 
             {/* Agent runs */}
             <Route path="/communication/runs" element={<Navigate to={agentRunsPath('all')} replace />} />
             <Route path="/communication/runs/:queue" element={<Communication />} />
             <Route path="/communication/runs/:queue/t/:threadId" element={<Communication />} />
 
-            {/* Channels */}
+            {/* Channels (optionally nested sub-queue: /mine, /open, ...) */}
             <Route path="/communication/channel/email/:connectionId" element={<Communication />} />
             <Route path="/communication/channel/email/:connectionId/t/:threadId" element={<Communication />} />
+            <Route path="/communication/channel/email/:connectionId/:queue" element={<Communication />} />
+            <Route path="/communication/channel/email/:connectionId/:queue/t/:threadId" element={<Communication />} />
             <Route path="/communication/channel/:channelKey" element={<Communication />} />
             <Route path="/communication/channel/:channelKey/t/:threadId" element={<Communication />} />
+            <Route path="/communication/channel/:channelKey/:queue" element={<Communication />} />
+            <Route path="/communication/channel/:channelKey/:queue/t/:threadId" element={<Communication />} />
+
+            {/* Tags (cross-channel folders with the same sub-queues) */}
+            <Route path="/communication/tag/:tag" element={<Communication />} />
+            <Route path="/communication/tag/:tag/t/:threadId" element={<Communication />} />
+            <Route path="/communication/tag/:tag/:queue" element={<Communication />} />
+            <Route path="/communication/tag/:tag/:queue/t/:threadId" element={<Communication />} />
 
             {/* Legacy hub routes */}
             <Route path="/communication/chat" element={<LegacyChatRedirect />} />

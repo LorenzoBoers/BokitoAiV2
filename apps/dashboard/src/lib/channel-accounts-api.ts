@@ -20,7 +20,7 @@ export type ChannelAccountRow = {
   visibility: ChannelAccountVisibility
 }
 
-function normalizeVisibility(raw: unknown): ChannelAccountVisibility {
+export function normalizeVisibility(raw: unknown): ChannelAccountVisibility {
   if (raw && typeof raw === 'object') {
     const value = raw as Record<string, unknown>
     const mode = value.mode === 'selected' ? 'selected' : 'everyone'

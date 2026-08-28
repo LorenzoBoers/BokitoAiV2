@@ -15,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import StaffTenantBar from '../layout/StaffTenantBar'
-import InboxHeaderSearch from '../inbox/InboxHeaderSearch'
 import NotificationDropdown from '../notifications/NotificationDropdown'
 import { useTour } from '../tour/TourContext'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
@@ -189,10 +188,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         </button>
       ) : null}
 
-      {/* Inbox thread search (only on Communication routes with list context) */}
-      {pathname.startsWith('/communication') ? <InboxHeaderSearch /> : null}
-
-      {/* Search / command palette trigger */}
+      {/* Command palette trigger — conversation search lives in the thread list. */}
       <button
         type="button"
         onClick={onOpenPalette}

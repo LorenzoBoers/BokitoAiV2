@@ -25,12 +25,22 @@ export type EmailConnection = {
   isPrimary: boolean
   /** Initial backfill window in days; 0 = no limit. */
   syncWindowDays: number
+  /** Uniform channel lifecycle state (see channels-api). */
+  state?: string
+  capabilities?: string[]
+  /** Server verdict on outbound delivery, derived from capabilities + state. */
+  canSend?: boolean
 }
 
-/** Built-in Bokito addresses can send even when they are not an OAuth "connected" mailbox. */
+/**
+ * Whether a mailbox may send right now. The server resolves this from the
+ * channel's capabilities and lifecycle state, so relay addresses and OAuth
+ * mailboxes are judged the same way; `status` is only a fallback for clients
+ * talking to an older API.
+ */
 export function isSendableMailbox(item: EmailConnection): boolean {
   if (item.isEnabled === false) return false
-  if (item.provider === 'bokito') return item.status !== 'revoked' && item.status !== 'paused'
+  if (item.canSend != null) return item.canSend
   return item.status === 'active' || item.status === 'connected'
 }
 
@@ -169,6 +179,11 @@ function normalizeConnection(row: unknown): EmailConnection | null {
     isEnabled,
     isPrimary,
     syncWindowDays: asNumber(raw.sync_window_days ?? raw.syncWindowDays, 30),
+    state: asString(raw.state) || undefined,
+    capabilities: Array.isArray(raw.capabilities)
+      ? raw.capabilities.filter((c): c is string => typeof c === 'string')
+      : undefined,
+    canSend: typeof raw.can_send === 'boolean' ? raw.can_send : undefined,
   }
 }
 
@@ -202,29 +217,6 @@ export async function sendNewEmail(
   if (input.attachments?.length) body.attachments = input.attachments
   const payload = await apiPost<{ thread_id?: string }>(integrationsRoutes.email.send, body, token)
   return { threadId: asString(payload.thread_id) }
-}
-
-export type BokitoAddress = {
-  address: string
-  domain: string
-  connectionId: number
-  isEnabled: boolean
-}
-
-/** The tenant's built-in address; the server creates it on first request. */
-export async function getBokitoAddress(token: string): Promise<BokitoAddress> {
-  const payload = await apiGet<{
-    address?: string
-    domain?: string
-    connection_id?: number
-    is_enabled?: boolean
-  }>(integrationsRoutes.email.connections.bokitoAddress, token)
-  return {
-    address: asString(payload.address),
-    domain: asString(payload.domain),
-    connectionId: asNumber(payload.connection_id, 0),
-    isEnabled: payload.is_enabled !== false,
-  }
 }
 
 export async function listEmailConnections(token: string): Promise<EmailConnection[]> {

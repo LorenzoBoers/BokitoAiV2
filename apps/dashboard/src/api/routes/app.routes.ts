@@ -78,14 +78,18 @@ export const appRoutes = {
     threadTakeover: (threadId: string) => `/signals/${threadId}/takeover`,
     threadRelease: (threadId: string) => `/signals/${threadId}/release`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
+    threadAgentCandidates: (threadId: string) => `/signals/${threadId}/agent-candidates`,
     threadSessions: (threadId: string) => `/signals/${threadId}/sessions`,
+    threadSession: (threadId: string, sessionId: string) =>
+      `/signals/${threadId}/sessions/${sessionId}`,
     threadSessionClose: (threadId: string, sessionId: string) =>
       `/signals/${threadId}/sessions/${sessionId}/close`,
     messageResolve: (threadId: string, messageId: string) =>
       `/signals/${threadId}/messages/${messageId}/resolve`,
     pins: '/signals/pins',
     members: '/signals/members',
-    syncStatus: '/signals/sync-status',
+    tags: '/signals/tags',
+    tag: (tag: string) => `/signals/tags/${encodeURIComponent(tag)}`,
     badgeCounts: '/signals/badge-counts',
     bulk: '/signals/bulk',
     savedReplies: '/signals/saved-replies',
@@ -135,6 +139,13 @@ export const appRoutes = {
     byId: (id: string) => `/channels/accounts/${id}`,
     visibility: (id: string) => `/channels/accounts/${id}/visibility`,
     whatsappSetup: '/channels/whatsapp/setup',
+  },
+  channels: {
+    // Uniform channel rows: state, capabilities, checks.
+    list: '/channels',
+    byId: (id: string) => `/channels/accounts/${id}`,
+    sync: (id: string) => `/channels/accounts/${id}/sync`,
+    emailRelays: '/channels/email/relays',
   },
   contacts: {
     list: '/channels/contacts',

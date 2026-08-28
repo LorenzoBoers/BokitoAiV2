@@ -13,6 +13,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth, require_verified_email
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
+from app.services import signal_tags as tag_svc
 from app.services import signal_threads as svc
 from app.services.channel_visibility import visible_channel_account_ids
 from app.services.interpretation import triage_signal
@@ -43,8 +44,9 @@ class ThreadPatch(BaseModel):
 
 class BulkBody(BaseModel):
     signal_ids: list[UUID]
-    action: str  # close | reopen | spam | read | unread | assign
+    action: str  # close | reopen | spam | read | unread | assign | snooze
     assignee_id: int | None = None
+    snoozed_until: datetime | None = None
 
 
 class ReplyBody(BaseModel):
@@ -324,14 +326,6 @@ async def delete_saved_reply(
     return {"ok": True}
 
 
-@router.get("/sync-status")
-async def sync_status(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.sync_status(session, auth.tenant.id)
-
-
 @router.get("/badge-counts")
 async def badge_counts(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -346,6 +340,94 @@ async def badge_counts(
             session, auth.tenant.id, user_id=auth.user.id, role=auth.role
         ),
     )
+
+
+class TagCreateBody(BaseModel):
+    name: str
+    description: str = ""
+
+
+class TagPatchBody(BaseModel):
+    new_tag: str | None = None
+    description: str | None = None
+
+
+@router.get("/tags")
+async def list_signal_tags(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Tenant tag registry with usage counts (powers the Tags sidebar section,
+    the thread tag picker, and the AI tagging vocabulary)."""
+    return {
+        "items": await tag_svc.catalog(
+            session,
+            auth.tenant.id,
+            visible_account_ids=await visible_channel_account_ids(
+                session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+            ),
+        )
+    }
+
+
+@router.post("/tags")
+async def create_signal_tag(
+    body: TagCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Add a tag to the tenant vocabulary before any thread uses it."""
+    try:
+        row = await tag_svc.create_tag(
+            session,
+            auth.tenant.id,
+            auth.user.id,
+            name=body.name,
+            description=body.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"tag": row.name, "description": row.description}
+
+
+def _require_tag_admin(auth: AuthContext) -> None:
+    if not (auth.is_staff or auth.role in ("owner", "admin")):
+        raise HTTPException(status_code=403, detail="Only admins can manage tags")
+
+
+@router.patch("/tags/{tag}")
+async def update_signal_tag(
+    tag: str,
+    body: TagPatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Rename a tag across every thread and/or set its AI guidance (admin only)."""
+    _require_tag_admin(auth)
+    if body.new_tag is not None and not body.new_tag.strip():
+        raise HTTPException(status_code=400, detail="new_tag cannot be empty")
+    if body.new_tag is None and body.description is None:
+        raise HTTPException(status_code=400, detail="nothing to update")
+    return await tag_svc.update_tag(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        tag=tag,
+        new_name=body.new_tag,
+        description=body.description,
+    )
+
+
+@router.delete("/tags/{tag}")
+async def delete_signal_tag(
+    tag: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Remove a tag from the vocabulary and from every thread (admin only)."""
+    _require_tag_admin(auth)
+    changed = await tag_svc.delete_tag(session, auth.tenant.id, auth.user.id, tag=tag)
+    return {"changed": changed}
 
 
 @router.get("")
@@ -364,6 +446,7 @@ async def list_signal_threads(
     agent_id: str | None = Query(None),
     unread: bool = Query(False),
     needs_reply: bool = Query(False),
+    needs_decision: bool = Query(False),
     pinned: bool = Query(False),
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=1, le=100),
@@ -385,6 +468,7 @@ async def list_signal_threads(
         agent_id=agent_id,
         unread=unread,
         needs_reply=needs_reply,
+        needs_decision=needs_decision,
         pinned_only=pinned,
         page=page,
         per_page=per_page,
@@ -452,7 +536,7 @@ async def bulk_update(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Bulk operator actions on threads (close/reopen/spam/read/unread/assign)."""
+    """Bulk operator actions on threads (close/reopen/spam/read/unread/assign/snooze)."""
     return await svc.bulk_update_threads(
         session,
         auth.tenant.id,
@@ -460,6 +544,7 @@ async def bulk_update(
         signal_ids=body.signal_ids,
         action=body.action,
         assignee_id=body.assignee_id,
+        snoozed_until=body.snoozed_until,
     )
 
 
@@ -770,6 +855,25 @@ async def release_thread(
     return result
 
 
+@router.get("/{signal_id}/agent-candidates")
+async def list_agent_candidates(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Agents the operator can bring into this thread, most relevant first."""
+    from app.services import agent_sessions
+
+    items = await agent_sessions.thread_agent_candidates(
+        session,
+        auth.tenant.id,
+        auth.user,
+        signal_id,
+        is_admin=auth.role in ("owner", "admin"),
+    )
+    return {"items": items}
+
+
 @router.post("/{signal_id}/sessions")
 async def start_agent_session(
     signal_id: UUID,
@@ -779,12 +883,12 @@ async def start_agent_session(
 ):
     """Bring an agent into the thread: opens an inline agent session."""
     from app.services import agent_sessions
-    from app.services.personal_agents import resolve_chat_target
 
-    agent = await resolve_chat_target(
+    agent = await agent_sessions.resolve_session_agent(
         session,
         auth.tenant.id,
         auth.user,
+        signal_id,
         body.agent_id,
         is_admin=auth.role in ("owner", "admin"),
     )
@@ -804,6 +908,21 @@ async def close_agent_session(
     from app.services import agent_sessions
 
     return await agent_sessions.close_session(
+        session, auth.tenant.id, auth.user.id, signal_id, session_id
+    )
+
+
+@router.delete("/{signal_id}/sessions/{session_id}")
+async def discard_agent_session(
+    signal_id: UUID,
+    session_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Cancel a session that has no turns yet; nothing lands in the timeline."""
+    from app.services import agent_sessions
+
+    return await agent_sessions.discard_session(
         session, auth.tenant.id, auth.user.id, signal_id, session_id
     )
 

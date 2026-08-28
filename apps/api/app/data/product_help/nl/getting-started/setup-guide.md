@@ -28,7 +28,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Werk van boven
 
 ## Koppel kanalen en Inbox AI
 
-1. Kopieer het Bokito-adres of koppel elke mailbox onder **Instellingen** en daarna **E-mail en berichten**. Zie [Kanalen](/docs/inbox/channels).
+1. Maak een Bokito-adres aan of koppel elke mailbox onder **Instellingen** en daarna **E-mail en berichten**. Zie [Kanalen](/docs/inbox/channels).
 2. Voeg routing, handtekeningen en een paar opgeslagen antwoorden toe.
 3. Open [Inbox AI](/docs/inbox/inbox-ai). Begin e-mail op **Antwoorden voorstellen**. Websitechat kan wachten tot de widget erop staat.
 4. Websitechat en WhatsApp kunnen wachten tot mail loopt.
@@ -39,7 +39,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Werk van boven
 2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). **Pauzeer** agents die je nog niet wilt laten draaien.
 3. Zet de houding onder [Autonomie](/docs/govern/autonomy). Begin voorzichtig.
 4. Optioneel: open **Projecten** via de zesde setup-pijler wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/projects).
-5. Optioneel: open **Instellingen**, daarna **Modules**, en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
+5. Optioneel: open **Modules** in de linkerzijbalk (of **Instellingen**, daarna **Modules**), en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
 
 ## Plan terugkerend werk
 
@@ -49,7 +49,7 @@ Nieuwe workspaces starten met een uurlijkse **platform-check-in**. De assistent 
 
 Bij de eerste login toont Communicatie **Ga verder met setup**. Dezelfde stappen staan onder **Instellingen** en daarna **Setupgids**:
 
-1. **Koppel je kanalen** — Bokito-adres of Gmail/Outlook. Zie [Kanalen](/docs/inbox/channels).
+1. **Koppel je kanalen** — maak een Bokito-adres aan of koppel Gmail/Outlook. Zie [Kanalen](/docs/inbox/channels).
 2. **Voeg bedrijfskennis toe** — Stem en Geheugen. Zie [Kennis](/docs/ai/knowledge).
 3. **Chat met je assistent** — **Nieuwe chat** loopt de rest van de setup. De assistent kan waken vanuit dat gesprek aanzetten.
 4. **Laat de assistent waken** — de uurlijkse check-in staat aan voor nieuwe workspaces. Bestaande workspaces zetten die aan vanuit de setupgids.

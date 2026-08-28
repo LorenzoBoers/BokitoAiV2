@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -63,33 +63,43 @@ try {
   // Ignore private-mode storage failures.
 }
 
+// Data router (single splat route around the app) so router-data hooks such
+// as useBlocker (unsaved-changes guard) work; App keeps its descendant
+// <Routes> for the actual route table.
+const router = createBrowserRouter([
+  {
+    path: '*',
+    element: (
+      <ThemeProvider>
+        <AuthProvider>
+          <WorkspaceProvider>
+            <IntegrationBrandProvider>
+              <NotificationProvider>
+                <ValidationProvider>
+                  <App />
+                  <Toaster
+                    richColors
+                    closeButton
+                    position="top-right"
+                    toastOptions={{
+                      duration: 3400,
+                      className: 'shadow-overlay',
+                    }}
+                  />
+                </ValidationProvider>
+              </NotificationProvider>
+            </IntegrationBrandProvider>
+          </WorkspaceProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    ),
+  },
+])
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary>
-      <BrowserRouter>
-        <ThemeProvider>
-          <AuthProvider>
-            <WorkspaceProvider>
-              <IntegrationBrandProvider>
-                <NotificationProvider>
-                  <ValidationProvider>
-                    <App />
-                    <Toaster
-                      richColors
-                      closeButton
-                      position="top-right"
-                      toastOptions={{
-                        duration: 3400,
-                        className: 'shadow-overlay',
-                      }}
-                    />
-                  </ValidationProvider>
-                </NotificationProvider>
-              </IntegrationBrandProvider>
-            </WorkspaceProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </AppErrorBoundary>
   </StrictMode>,
 )

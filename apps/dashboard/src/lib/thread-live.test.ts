@@ -137,6 +137,12 @@ describe('threadMatchesFilters', () => {
     ).toBe(true)
     expect(threadMatchesFilters(thread({ isPinned: false }), { view: 'all_open', pinnedOnly: true }, me)).toBe(false)
     expect(threadMatchesFilters(thread({ isPinned: true }), { view: 'all_open', pinnedOnly: true }, me)).toBe(true)
+    expect(
+      threadMatchesFilters(thread({ hasOpenDecision: false }), { view: 'all_open', needsDecision: true }, me),
+    ).toBe(false)
+    expect(
+      threadMatchesFilters(thread({ hasOpenDecision: true }), { view: 'all_open', needsDecision: true }, me),
+    ).toBe(true)
   })
 
   it('falls back (null) for predicates that need the server', () => {

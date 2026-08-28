@@ -31,11 +31,27 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         resolved.provider_type, resolved.api_key, resolved.base_url or None
     )
     from app.services.agent.style import PLAIN_STYLE, strip_emoji
+    from app.services.signal_tags import ai_catalog_lines, allowed_tag_names
 
+    # Curated tagging: AI may only pick from the tenant's tag registry, with
+    # each tag's description as guidance — it never invents new tags.
+    catalog = await allowed_tag_names(session, tenant_id)
+    hints = await ai_catalog_lines(session, tenant_id)
+    tags_line = (
+        '"tags":["zero or more tags, ONLY from this list: ' + "; ".join(hints) + '"],'
+        if hints
+        else ""
+    )
     prompt = (
         "Classify this inbound signal. Reply with JSON only:\n"
         '{"category":"support|sales|billing|other","urgency":0-100,"impact":0-100,'
+        f"{tags_line}"
+        '"intent":"question|implementation_request|bug_report|feedback|complaint|other",'
+        '"sentiment":"positive|neutral|negative",'
         '"summary":"one sentence","certainty":0-100,"priority":"normal|high|urgent"}\n'
+        "intent guide: implementation_request = the sender asks for a new feature, "
+        "change, or piece of work; bug_report = something is broken or behaving "
+        "wrong; feedback = opinions or suggestions without a direct ask.\n"
         f"{PLAIN_STYLE}\n\n"
         f"Subject: {detail.get('subject')}\nFrom: {detail.get('contact_email')}\n\n{body}"
     )
@@ -68,6 +84,28 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
     if int(parsed.get("certainty", 0)) < threshold * 10:
         priority = "normal"
 
+    raw_tags = parsed.get("tags")
+    allowed = set(catalog)
+    proposed_tags = (
+        [t for t in raw_tags if isinstance(t, str) and t in allowed]
+        if isinstance(raw_tags, list)
+        else []
+    )
+
+    intent = str(parsed.get("intent") or "")
+    if intent not in (
+        "question",
+        "implementation_request",
+        "bug_report",
+        "feedback",
+        "complaint",
+        "other",
+    ):
+        intent = ""
+    sentiment = str(parsed.get("sentiment") or "")
+    if sentiment not in ("positive", "neutral", "negative"):
+        sentiment = ""
+
     signal = await apply_triage(
         session,
         tenant_id,
@@ -78,7 +116,23 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         summary=strip_emoji(str(parsed.get("summary", "")))[:500],
         certainty=int(parsed.get("certainty", 50)),
         priority=priority if priority in ("normal", "high", "urgent") else "normal",
+        tags=proposed_tags or None,
+        intent=intent or None,
+        sentiment=sentiment or None,
     )
+
+    # Work-shaped intent on a project thread: surface an "add to queue" chip.
+    if signal.project_id and intent in ("implementation_request", "bug_report"):
+        try:
+            chips = json.loads(signal.suggested_actions_json or "[]")
+        except json.JSONDecodeError:
+            chips = []
+        if "add_to_queue" not in chips:
+            signal.suggested_actions_json = json.dumps(([*chips, "add_to_queue"])[:4])
+            session.add(signal)
+            await session.commit()
+            await session.refresh(signal)
+
     from app.services.signals import serialize_signal
 
     return serialize_signal(signal)

@@ -6,6 +6,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
+from app.models.auth import Tenant
+from app.models.channel import ChannelAccount
 from app.models.inbox import InboxSettings
 from app.services.language import platform_default_ui_language
 from app.services.workspace import upsert_doc
@@ -121,12 +123,47 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     ).scalars().first()
     if assistant and profiles.get("executor-standard"):
         assistant.default_runtime_profile_id = profiles["executor-standard"].id
-    # Built-in receive/send address ({slug}-{token}@in.bokito.ai) so every
-    # workspace can get mail before connecting Gmail/Outlook.
-    from app.services.bokito_mailbox import ensure_bokito_mailbox
-
-    await ensure_bokito_mailbox(session, tenant_id, commit=False)
+    # Email stays empty until someone connects a mailbox or creates a Bokito
+    # relay address. The website chat is the one channel that works the moment
+    # the widget is embedded, so it gets a row to carry state and an off switch.
+    await ensure_widget_channel(session, tenant_id, commit=False)
     await seed_default_triggers(session, tenant_id)
+
+
+async def ensure_widget_channel(
+    session: AsyncSession, tenant_id: UUID, *, commit: bool = True
+) -> ChannelAccount:
+    """The website chat as a real channel row (state, pause, agent binding)."""
+    from sqlalchemy import select as sa_select
+
+    existing = (
+        await session.execute(
+            sa_select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant_id,
+                ChannelAccount.channel == "widget",
+            )
+        )
+    ).scalars().first()
+    if existing:
+        return existing
+    tenant = (
+        await session.execute(sa_select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one()
+    account = ChannelAccount(
+        tenant_id=tenant_id,
+        channel="widget",
+        provider="widget",
+        address=tenant.slug,
+        display_name="Website chat",
+        is_enabled=True,
+    )
+    session.add(account)
+    if commit:
+        await session.commit()
+        await session.refresh(account)
+    else:
+        await session.flush()
+    return account
 
 
 async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:

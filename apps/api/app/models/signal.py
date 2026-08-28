@@ -178,6 +178,28 @@ class SavedReply(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class SignalTag(SQLModel, table=True):
+    """Tenant tag registry: the curated vocabulary for thread tags.
+
+    Threads keep their tag names in `Signal.tags_json`; this table is the list
+    operators manage (create, rename, remove) and the only vocabulary AI triage
+    and agents may apply. Tagging a thread with a new name registers it here,
+    so the list never drifts from what is actually in use.
+    """
+
+    __tablename__ = "signal_tags"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    # Normalized (trimmed, lower-case) name; unique per tenant.
+    name: str = Field(default="", index=True)
+    # When to use this tag. Shown in settings and fed to AI tagging.
+    description: str = ""
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class SignalThreadPin(SQLModel, table=True):
     __tablename__ = "signal_thread_pins"
 

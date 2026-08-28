@@ -5,7 +5,7 @@ import { translateMockAgentBody } from '../../lib/activity-labels'
 import { cn } from '../../lib/utils'
 import { cancelScheduledMessage, submitMessageFeedback } from '../../lib/signals-api'
 import { useCorrectionChat } from '../../lib/correction-chat'
-import { DomainFavicon } from '../ui/DomainFavicon'
+import { PersonAvatar } from '../ui/PersonAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { TFunction } from 'i18next'
@@ -54,7 +54,7 @@ export function formatHourMinute(iso: string | null, language?: string | null): 
 }
 
 // Hover popover with contact details (name, email, phone) shown next to the
-// favicon. Renders only the rows that have data. Style mirrors the sidebar
+// avatar. Renders only the rows that have data. Style mirrors the sidebar
 // tooltip and user-menu popup (bg-bg-elevated, rounded border, soft shadow).
 function ContactHoverInfo({
   name,
@@ -106,8 +106,8 @@ function ContactHoverInfo({
   )
 }
 
-// Domain favicon avatar with initials fallback on error. Wrapped in a hover
-// tooltip showing name / email / phone (whatever is available).
+// Person avatar (initials, or question mark for unknown visitors). Wrapped
+// in a hover tooltip showing name / email / phone (whatever is available).
 function ContactAvatar({
   email,
   name,
@@ -120,7 +120,7 @@ function ContactAvatar({
   size?: number
 }) {
   const avatarNode = (
-    <DomainFavicon email={email} name={name} size={size} className="cursor-default" />
+    <PersonAvatar name={name} email={email} size={size} className="cursor-default" />
   )
 
   const hasInfo = !!(name && name !== email) || !!email || !!phone
@@ -606,6 +606,7 @@ const BUBBLE_VARIANT_CLASSES: Record<BubbleVariant, string> = {
 
 // Small role chip next to the author name ("Team" / "AI").
 function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
+  const { t } = useTranslation('communication')
   return (
     <span
       className={cn(
@@ -615,7 +616,7 @@ function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
           : 'border-border/60 bg-bg-elevated text-text-muted',
       )}
     >
-      {kind === 'ai' ? 'AI' : 'Team'}
+      {kind === 'ai' ? t('timeline.roleAi') : t('timeline.roleTeam')}
     </span>
   )
 }
@@ -833,7 +834,14 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   }, [noteActions, noteBusy, message.id, t])
 
   // Resolve author info for outbound / internal bubbles
-  const author = message.authorUserId != null ? membersById?.[message.authorUserId] : undefined
+  const authorFromId =
+    message.authorUserId != null ? membersById?.[Number(message.authorUserId)] : undefined
+  const authorFromEmail = (() => {
+    const address = (message.fromAddress || '').trim().toLowerCase()
+    if (!address || !membersById) return undefined
+    return Object.values(membersById).find((m) => m.email?.toLowerCase() === address)
+  })()
+  const author = authorFromId ?? authorFromEmail
   const authorName = author?.name ?? (isOutbound ? t('timeline.events.you') : t('timeline.events.teamMember'))
   const authorEmail = author?.email ?? ''
   const authorAvatarUrl = author?.avatarUrl ?? null
@@ -919,21 +927,27 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
   )
 
   // Group-chat author model: customer (external), teammate, AI agent, or the
-  // signed-in user. Only "self" renders on the right — the pattern everyone
-  // knows from WhatsApp-style group chats.
+  // signed-in user. Workspace members are never "external" — even on inbound
+  // mail from their login address (e.g. teammate wrote into a shared inbox).
+  const myEmail = user?.email?.trim().toLowerCase() || ''
+  const fromEmail = (message.fromAddress || '').trim().toLowerCase()
   const isOwn =
-    !isInbound &&
     !isAgentMessage &&
-    message.authorUserId != null &&
-    currentUserId != null &&
-    message.authorUserId === currentUserId
-  const authorKind: 'external' | 'agent' | 'self' | 'teammate' = isInbound
-    ? 'external'
-    : isAgentMessage
-      ? 'agent'
-      : isOwn
-        ? 'self'
-        : 'teammate'
+    ((message.authorUserId != null &&
+      currentUserId != null &&
+      Number(message.authorUserId) === Number(currentUserId)) ||
+      (Boolean(myEmail) && Boolean(fromEmail) && myEmail === fromEmail) ||
+      (Boolean(myEmail) && Boolean(author?.email) && myEmail === author.email.toLowerCase()))
+  const isWorkspaceMember = Boolean(author) || isOwn
+  const authorKind: 'external' | 'agent' | 'self' | 'teammate' = isAgentMessage
+    ? 'agent'
+    : isOwn
+      ? 'self'
+      : isWorkspaceMember
+        ? 'teammate'
+        : isInbound
+          ? 'external'
+          : 'teammate'
 
   const sendFailed =
     typeof message.sendStatus === 'string' && message.sendStatus.startsWith('failed')
@@ -1018,7 +1032,9 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
         network: 'timeline.deliveryFail.network',
         no_recipient: 'timeline.deliveryFail.noRecipient',
       }
-      const failReason = failReasonKey[failCode] ? t(failReasonKey[failCode]) : failCode
+      const failReason = failReasonKey[failCode]
+        ? t(failReasonKey[failCode])
+        : t('timeline.deliveryFail.unknown')
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
           <span

@@ -1,4 +1,4 @@
-"""Tests for mailbox folder selection and the inbox sync-status endpoint."""
+"""Tests for mailbox folder selection and the unified channel rows."""
 
 import pytest
 from httpx import AsyncClient
@@ -79,17 +79,19 @@ async def test_folder_selection_roundtrip(client: AsyncClient, session_override:
 
 
 @pytest.mark.asyncio
-async def test_sync_status_reports_mailboxes(client: AsyncClient, session_override: AsyncSession):
+async def test_channel_row_carries_folder_check(
+    client: AsyncClient, session_override: AsyncSession
+):
     headers = await _login(client)
     account = await _ensure_mailbox(session_override)
-    numeric_id = user_numeric_id(account.id)
 
-    res = await client.get("/api/signals/sync-status", headers=headers)
+    res = await client.get("/api/channels", headers=headers)
     assert res.status_code == 200
-    rows = res.json()
-    row = next((r for r in rows if r["id"] == numeric_id), None)
-    assert row is not None
-    assert row["mailbox_email"] == account.address
+    row = next(r for r in res.json()["channels"] if r["id"] == str(account.id))
+    assert row["address"] == account.address
+    assert "sync" in row["capabilities"]
     # No credentials stored for the test mailbox.
-    assert row["status"] == "needs_auth"
-    assert any(f["folder_id"] == "inbox" for f in row["folders"])
+    assert row["state"] == "action_required"
+    assert row["state_reason"] == "credentials"
+    folders = next(c for c in row["checks"] if c["id"] == "folders")
+    assert "Inbox" in folders["detail"]

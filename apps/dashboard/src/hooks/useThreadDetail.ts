@@ -20,6 +20,7 @@ import {
   type ReplyInput,
   type ThreadId,
 } from '../lib/inbox-api'
+import { notifySignalTagsChanged } from '../lib/signals-api'
 
 function escapeHtml(input: string): string {
   return input
@@ -48,7 +49,11 @@ function buildEmailReplyHtml(bodyText: string, signatureImageUrl: string): strin
   ].join('')
 }
 
-export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[] = []) {
+export function useThreadDetail(
+  threadId: ThreadId | null,
+  pinnedIds: ThreadId[] = [],
+  options?: { skipMarkRead?: boolean },
+) {
   const { token, user } = useAuth()
   const [rawDetail, setRawDetail] = useState<ThreadDetail | null>(null)
   const [loading, setLoading] = useState(false)
@@ -91,7 +96,7 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         // fire-and-forget so the UI never blocks on it; the local state already
         // reflects the read status. If the request fails the next list poll
         // (every 30s) will reconcile.
-        if (result && result.thread.hasUnread) {
+        if (result && result.thread.hasUnread && !options?.skipMarkRead) {
           setRawDetail({ ...result, thread: { ...result.thread, hasUnread: false } })
           void markThreadRead(token, threadId).catch(() => {})
         } else {
@@ -100,14 +105,14 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
       } catch (err) {
         if (generation !== fetchGeneration.current) return
         if (!quiet) {
-          setError(err instanceof Error ? err.message : 'Thread could not be loaded.')
+          setError(err instanceof Error ? err.message : 'THREAD_LOAD_FAILED')
           setRawDetail(null)
         }
       } finally {
         if (!quiet && generation === fetchGeneration.current) setLoading(false)
       }
     },
-    [token, threadId],
+    [token, threadId, options?.skipMarkRead],
   )
 
   useEffect(() => {
@@ -197,6 +202,9 @@ export function useThreadDetail(threadId: ThreadId | null, pinnedIds: ThreadId[]
         const updated = await patchThread(token, threadId, input)
         if (updated) {
           setRawDetail((prev) => (prev ? { ...prev, thread: updated } : prev))
+          if (input.tags !== undefined) {
+            notifySignalTagsChanged()
+          }
         }
       } catch (err) {
         throw err instanceof Error ? err : new Error('Could not update thread.')

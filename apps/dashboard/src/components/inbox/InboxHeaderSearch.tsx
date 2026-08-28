@@ -2,7 +2,7 @@ import { BookmarkPlus, Search, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
-import { readSavedSearches, writeSavedSearches } from '../../lib/inbox-ops'
+import { readSavedSearches, suggestSavedSearchName, writeSavedSearches } from '../../lib/inbox-ops'
 import { cn } from '../../lib/utils'
 
 export default function InboxHeaderSearch() {
@@ -55,8 +55,12 @@ export default function InboxHeaderSearch() {
           onClick={() => {
             const query = search.trim()
             if (!query) return
+            const suggested = suggestSavedSearchName(query)
+            const named = window.prompt(t('inboxSearchNamePrompt'), suggested)
+            if (named == null) return
+            const name = named.trim() || suggested
             const next = [
-              { id: `${Date.now()}`, name: query, query },
+              { id: `${Date.now()}`, name, query },
               ...saved.filter((row) => row.query !== query),
             ]
             writeSavedSearches(next)

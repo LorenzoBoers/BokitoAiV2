@@ -4,8 +4,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+import json
+
 from app.models.auth import Tenant
 from app.models.project import Project
+from app.models.project_work import ProjectResource
 from app.models.workspace import DocChunk
 from app.services import repo_index
 from app.services.repo_index import (
@@ -18,6 +21,18 @@ from app.services.repo_index import (
 
 async def _tenant(session) -> Tenant:
     return (await session.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+
+def _repo_resource(tenant_id, project_id, full_name: str, branch: str = "main") -> ProjectResource:
+    return ProjectResource(
+        tenant_id=tenant_id,
+        project_id=project_id,
+        resource_type="repo",
+        provider="github",
+        label=full_name,
+        external_ref=full_name,
+        config_json=json.dumps({"default_branch": branch}),
+    )
 
 
 def test_is_indexable_filters():
@@ -45,11 +60,13 @@ async def test_index_project_repo_end_to_end(
 ):
     tenant = await _tenant(session_override)
     project = Project(tenant_id=tenant.id, name="Indexed", slug="indexed")
-    project.github_repo_full_name = "bokito/example"
-    project.github_default_branch = "main"
     session_override.add(project)
+    await session_override.flush()
+    repo = _repo_resource(tenant.id, project.id, "bokito/example")
+    session_override.add(repo)
     await session_override.commit()
     await session_override.refresh(project)
+    await session_override.refresh(repo)
 
     async def fake_token(session, tenant_id, provider):
         return "gh-token"
@@ -71,9 +88,9 @@ async def test_index_project_repo_end_to_end(
     assert result["indexed"] == 2
     assert result["commit_sha"] == "sha-123"
 
-    await session_override.refresh(project)
-    assert project.repo_index_status == "ready"
-    assert project.repo_last_commit_sha == "sha-123"
+    await session_override.refresh(repo)
+    assert repo.sync_status == "ready"
+    assert repo.sync_ref == "sha-123"
 
     chunks = (
         await session_override.execute(
@@ -108,10 +125,13 @@ async def test_index_project_repo_end_to_end(
 async def test_index_without_token_sets_error(client: AsyncClient, session_override, monkeypatch):
     tenant = await _tenant(session_override)
     project = Project(tenant_id=tenant.id, name="Broken", slug="broken")
-    project.github_repo_full_name = "bokito/missing"
     session_override.add(project)
+    await session_override.flush()
+    repo = _repo_resource(tenant.id, project.id, "bokito/missing")
+    session_override.add(repo)
     await session_override.commit()
     await session_override.refresh(project)
+    await session_override.refresh(repo)
 
     async def no_token(session, tenant_id, provider):
         return None
@@ -124,6 +144,6 @@ async def test_index_without_token_sets_error(client: AsyncClient, session_overr
     assert result["indexed"] == 0
     assert "token" in result["error"].lower()
 
-    await session_override.refresh(project)
-    assert project.repo_index_status == "error"
-    assert project.repo_index_error
+    await session_override.refresh(repo)
+    assert repo.sync_status == "error"
+    assert repo.sync_error

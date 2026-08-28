@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, AtSign, Bell, CalendarClock, MessageSquare, ShieldCheck, UserCheck } from 'lucide-react';
+import { AlertTriangle, AtSign, Bell, CalendarClock, MessageSquare, Settings, ShieldCheck, UserCheck } from 'lucide-react';
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
 import { Button } from '../ui/button';
 import { Dropdown } from '../ui/dropdown';
@@ -71,47 +71,53 @@ export default function NotificationDropdown() {
   return (
     <Dropdown trigger={trigger} align="right">
       <div className="p-3">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm text-text-heading">
-            {t('notificationsUi.title')}
-          </h3>
-          <div className="flex items-center gap-1">
-            {unreadCount > 0 ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={markAllAsRead}
-                className="text-xs h-6 px-2"
+        <div className="mb-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="min-w-0 truncate font-semibold text-sm text-text-heading">
+              {t('notificationsUi.title')}
+            </h3>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {unreadCount > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={markAllAsRead}
+                  className="h-7 px-2 text-[11px] text-text-secondary"
+                >
+                  {t('notificationsUi.markAll')}
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => navigate('/settings/notifications')}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+                aria-label={t('notificationsUi.settings')}
+                title={t('notificationsUi.settings')}
               >
-                {t('notificationsUi.markAll')}
-              </Button>
-            ) : null}
-            {notifications.length > 0 ? (
+                <Settings size={14} aria-hidden />
+              </button>
+            </div>
+          </div>
+          {notifications.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
               <button
                 type="button"
                 onClick={() => navigate(inboxPath('open'))}
-                className="text-xs font-medium text-accent hover:underline"
+                className="font-medium text-text-muted transition-colors hover:text-accent"
               >
                 {t('notificationsUi.openInbox')}
               </button>
-            ) : null}
-            {hasDecisions ? (
-              <button
-                type="button"
-                onClick={() => navigate(agentRunsPath('awaiting-decision'))}
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                {t('notificationsUi.openDecisions')}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => navigate('/settings/notifications')}
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              {t('notificationsUi.settings')}
-            </button>
-          </div>
+              {hasDecisions ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(agentRunsPath('awaiting-decision'))}
+                  className="font-medium text-text-muted transition-colors hover:text-accent"
+                >
+                  {t('notificationsUi.openDecisions')}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-1 max-h-96 overflow-y-auto">

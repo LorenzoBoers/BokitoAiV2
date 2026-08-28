@@ -294,6 +294,7 @@ async def send_message(
     loop = AgentLoop(
         session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
         enable_chat_thinking=True,
+        tool_signal_id=signal.context_signal_id,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
     try:
@@ -379,6 +380,7 @@ async def stream_message(
     loop = AgentLoop(
         session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
         enable_chat_thinking=True,
+        tool_signal_id=signal.context_signal_id,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
 

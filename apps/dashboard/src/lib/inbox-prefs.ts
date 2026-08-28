@@ -4,7 +4,7 @@ const LAST_QUEUE_KEY = 'bokito.inbox.lastQueue'
 const QUICK_FILTER_KEY = 'bokito.inbox.quickFilter'
 const DENSITY_KEY = 'bokito.inbox.density'
 
-export type InboxListQuickFilter = 'all' | 'unread' | 'needsReply' | 'pinned'
+export type InboxListQuickFilter = 'all' | 'unread' | 'needsReply' | 'needsDecision' | 'pinned'
 export type InboxDensity = 'comfortable' | 'compact'
 
 function readStorage(key: string): string | null {
@@ -37,7 +37,7 @@ export function lastInboxPath(threadId?: string | null): string {
   return inboxPath(readLastInboxQueue(), threadId)
 }
 
-const QUICK_FILTERS: readonly InboxListQuickFilter[] = ['all', 'unread', 'needsReply', 'pinned']
+const QUICK_FILTERS: readonly InboxListQuickFilter[] = ['all', 'unread', 'needsReply', 'needsDecision', 'pinned']
 
 export function readQuickFilter(): InboxListQuickFilter {
   const raw = readStorage(QUICK_FILTER_KEY)

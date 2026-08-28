@@ -9,6 +9,7 @@ import { APP_VERSION } from '../../lib/app-version'
 import {
   TAB_GROUPS,
   iconForTab,
+  isNewTab,
   pathForTab,
   tabFromPath,
   titleForTab,
@@ -86,7 +87,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             <img
               src={brandMarkSrc}
               alt=""
-              className="h-6 w-6 shrink-0 object-contain"
+              className="h-6 w-6 shrink-0 rounded-md object-contain"
               style={
                 brandIconUrl
                   ? undefined
@@ -103,7 +104,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             <img
               src={brandMarkSrc}
               alt={brandName}
-              className="h-6 w-6 shrink-0 object-contain"
+              className="h-6 w-6 shrink-0 rounded-md object-contain"
               style={
                 brandIconUrl
                   ? undefined
@@ -155,6 +156,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                       const Icon = iconForTab(tab)
                       const active = activeTab === tab
                       const badge = badgeForTab(tab)
+                      const showNew = isNewTab(tab)
                       // Knowledge carries the violet brain identity, also in the rail.
                       const activeClass =
                         tab === 'knowledge'
@@ -180,12 +182,18 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                           {!collapsed ? (
                             <>
                               <span className="min-w-0 flex-1 truncate">{tabTitle(tab)}</span>
-                              {badge > 0 ? (
+                              {showNew ? (
+                                <span className="ml-auto shrink-0 rounded-md bg-accent/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
+                                  {t('tabs.modules.newBadge', { defaultValue: 'New' })}
+                                </span>
+                              ) : badge > 0 ? (
                                 <span className="count-pop ml-auto inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">
                                   {badge > 99 ? '99+' : badge}
                                 </span>
                               ) : null}
                             </>
+                          ) : showNew ? (
+                            <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" title={t('tabs.modules.newBadge', { defaultValue: 'New' })} />
                           ) : badge > 0 ? (
                             <span className="pulse-dot absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
                           ) : null}

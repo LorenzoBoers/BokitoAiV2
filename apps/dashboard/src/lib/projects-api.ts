@@ -21,6 +21,9 @@ export interface ProjectRow {
   repo_index_status?: RepoIndexStatus
   repo_indexed_at?: string | null
   repo_index_error?: string | null
+  queue_open_count?: number
+  doc_sections_total?: number
+  doc_sections_done?: number
   po_agent_id?: string | null
   po_agent?: {
     id: string
@@ -69,7 +72,7 @@ export async function createProject(input: {
 
 export async function patchProject(
   projectId: string,
-  patch: Partial<Pick<ProjectRow, 'autonomous_scope' | 'name' | 'description'>>,
+  patch: Partial<Pick<ProjectRow, 'autonomous_scope' | 'name' | 'description' | 'autonomous_mode'>>,
 ): Promise<ProjectRow> {
   return workforcePatch<ProjectRow>(projectsRoutes.byId(projectId), patch)
 }

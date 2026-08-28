@@ -78,7 +78,7 @@ def _connection_status(account: ChannelAccount) -> str:
     """Derive UI status from enablement + real credentials (not is_enabled alone)."""
     settings = _load_settings(account)
     if account.provider == "bokito":
-        # Built-in address: no OAuth credentials, always ready when enabled.
+        # Relay address: no OAuth credentials, always ready when enabled.
         return "connected" if account.is_enabled else "paused"
     if settings.get("last_error") and _has_access_token(account) and account.is_enabled:
         return "error"
@@ -89,13 +89,23 @@ def _connection_status(account: ChannelAccount) -> str:
     return "connected"
 
 
-def _serialize_connection(account: ChannelAccount, *, is_primary: bool) -> dict[str, Any]:
+def _serialize_connection(
+    account: ChannelAccount, *, is_primary: bool, tenant: Any | None = None
+) -> dict[str, Any]:
+    from app.services.channel_registry import can_send, resolve_channel
+
     settings = _load_settings(account)
     provider = account.provider
     is_ready = account.is_enabled and (
         provider == "bokito" or _has_access_token(account)
     )
+    # One source of truth for lifecycle state across every channel kind; the
+    # legacy `status` below stays for clients that only know email statuses.
+    row = resolve_channel(account, tenant=tenant)
     return {
+        "state": row["state"],
+        "capabilities": row["capabilities"],
+        "can_send": can_send(row),
         # Numeric id matches the `email_connection_id` filter on /api/signals.
         "id": user_numeric_id(account.id),
         "uuid": str(account.id),
@@ -153,26 +163,11 @@ async def list_accounts(
     ]
     explicit_primary = any(_load_settings(a).get("is_primary") for a in accounts)
     return [
-        _serialize_connection(a, is_primary=(not explicit_primary and index == 0))
+        _serialize_connection(
+            a, is_primary=(not explicit_primary and index == 0), tenant=auth.tenant
+        )
         for index, a in enumerate(accounts)
     ]
-
-
-@router.get("/bokito-address")
-async def get_bokito_address(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """The tenant's built-in address; lazily created for pre-existing tenants."""
-    from app.services.bokito_mailbox import ensure_bokito_mailbox, inbound_domain
-
-    account = await ensure_bokito_mailbox(session, auth.tenant.id)
-    return {
-        "address": account.address,
-        "domain": inbound_domain(),
-        "connection_id": user_numeric_id(account.id),
-        "is_enabled": account.is_enabled,
-    }
 
 
 def _parse_addresses(raw: str | None) -> list[str]:
@@ -539,11 +534,6 @@ async def disconnect_email_connection(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     account = await _require_account(session, auth.tenant.id, connection_id)
-    if account.provider == "bokito":
-        raise HTTPException(
-            status_code=400,
-            detail="The built-in Bokito address cannot be removed. You can pause it instead.",
-        )
     address = account.address
     provider = account.provider
     # Postgres enforces the FK constraints on channel_accounts.id, so first

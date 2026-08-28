@@ -138,26 +138,26 @@ async def index_project_repo(
     session: AsyncSession, tenant_id: UUID, project_id: UUID
 ) -> dict[str, Any]:
     """Index the project's connected GitHub repo into repo_file DocChunks."""
-    from app.models.project import Project
     from app.services.integrations_platform import get_provider_access_token
+    from app.services.projects import get_repo_resource
     from app.services.workspace import upsert_source_chunk
 
-    project = (
-        await session.execute(
-            select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
-        )
-    ).scalar_one_or_none()
-    if project is None or not project.github_repo_full_name:
+    repo = await get_repo_resource(session, tenant_id, project_id)
+    if repo is None or not repo.external_ref:
         return {"indexed": 0, "error": "No repository connected"}
 
-    full_name = project.github_repo_full_name
-    branch = project.github_default_branch or "main"
+    full_name = repo.external_ref
+    try:
+        config = json.loads(repo.config_json or "{}")
+    except json.JSONDecodeError:
+        config = {}
+    branch = str(config.get("default_branch") or "main")
     prefix = f"{project_id}:"
 
-    project.repo_index_status = "indexing"
-    project.repo_index_error = None
-    project.updated_at = datetime.utcnow()
-    session.add(project)
+    repo.sync_status = "indexing"
+    repo.sync_error = None
+    repo.updated_at = datetime.utcnow()
+    session.add(repo)
     await session.commit()
 
     try:
@@ -207,12 +207,12 @@ async def index_project_repo(
         if stale_ids:
             await session.execute(delete(DocChunk).where(DocChunk.id.in_(stale_ids)))
 
-        project.repo_index_status = "ready"
-        project.repo_indexed_at = datetime.utcnow()
-        project.repo_last_commit_sha = head_sha
-        project.repo_index_error = None
-        project.updated_at = datetime.utcnow()
-        session.add(project)
+        repo.sync_status = "ready"
+        repo.synced_at = datetime.utcnow()
+        repo.sync_ref = head_sha
+        repo.sync_error = None
+        repo.updated_at = datetime.utcnow()
+        session.add(repo)
         await session.commit()
         return {
             "indexed": len(indexed_ids),
@@ -222,10 +222,10 @@ async def index_project_repo(
         }
     except Exception as exc:  # noqa: BLE001 — status must reflect any failure
         await session.rollback()
-        project.repo_index_status = "error"
-        project.repo_index_error = str(exc)[:500]
-        project.updated_at = datetime.utcnow()
-        session.add(project)
+        repo.sync_status = "error"
+        repo.sync_error = str(exc)[:500]
+        repo.updated_at = datetime.utcnow()
+        session.add(repo)
         await session.commit()
         return {"indexed": 0, "error": str(exc)[:500]}
 

@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, Check, Mail, MoreHorizontal, OctagonAlert, Pin, PinOff, UserRound, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Check, Clock, Mail, MoreHorizontal, OctagonAlert, Pin, PinOff, UserRound, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { useMembers } from '../../hooks/useMembers'
@@ -64,6 +64,10 @@ export default function BulkActionsBar({ count, busy, onAction, onPin, onClear, 
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-44">
+          <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('snooze')}>
+            <Clock size={12} />
+            {t('bulkActions.snoozeTomorrow')}
+          </DropdownMenuItem>
           <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('unread')}>
             <Mail size={12} />
             {t('bulkActions.markUnread')}

@@ -326,6 +326,7 @@ async def apply_workspace_doc_change(
     if not path:
         raise HTTPException(status_code=400, detail="after_json missing path")
     mode = after.get("mode", "append")
+    project_id = UUID(str(after["project_id"])) if after.get("project_id") else None
     existing = await get_doc_by_path(session, tenant_id, path)
     if existing and mode == "append" and existing.content.strip():
         content = f"{existing.content.rstrip()}\n\n{content}"
@@ -335,6 +336,7 @@ async def apply_workspace_doc_change(
         path=path,
         content=content,
         kind=after.get("kind"),
+        project_id=project_id,
         created_by_type="agent",
         commit=False,
     )

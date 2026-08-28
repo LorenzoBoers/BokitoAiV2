@@ -43,6 +43,7 @@ AUTONOMY_POSTURES: dict[str, dict[str, Any]] = {
         "allowances": {
             "messaging": "allow",
             "workspace": "allow",
+            "projects": "ask",
             "agents": "ask",
             "channels": "ask",
             "triggers": "ask",
@@ -56,6 +57,7 @@ AUTONOMY_POSTURES: dict[str, dict[str, Any]] = {
         "allowances": {
             "messaging": "allow",
             "workspace": "allow",
+            "projects": "allow",
             "agents": "allow",
             "channels": "allow",
             "triggers": "allow",

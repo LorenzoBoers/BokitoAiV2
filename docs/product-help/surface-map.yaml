@@ -90,6 +90,7 @@ communication:
     - /communication
     - /communication/inbox
     - /communication/inbox/open
+    - /communication/tag/{tag}
   code_globs:
     - apps/dashboard/src/pages/Communication.tsx
     - apps/dashboard/src/components/inbox/**
@@ -117,8 +118,16 @@ channels:
   code_globs:
     - apps/dashboard/src/pages/InboxSettings.tsx
     - apps/dashboard/src/components/settings/ChannelBindingsPanel.tsx
-    - apps/dashboard/src/components/inbox/WhatsAppConnectCard.tsx
-    - apps/dashboard/src/components/inbox/SlackConnectCard.tsx
+    - apps/dashboard/src/components/inbox/ChannelList.tsx
+    - apps/dashboard/src/components/inbox/AddChannelDialog.tsx
+    - apps/dashboard/src/components/inbox/ChannelStateBadge.tsx
+    - apps/dashboard/src/components/inbox/WhatsAppConnectForm.tsx
+    - apps/dashboard/src/components/inbox/SlackConnectForm.tsx
+    - apps/dashboard/src/components/inbox/FoldersAndTagsManager.tsx
+    - apps/api/app/services/channel_registry.py
+    - apps/api/app/services/signal_tags.py
+    - apps/api/app/services/email_relay.py
+    - apps/api/app/routers/channels.py
   screenshots:
     - mailbox-status
 
@@ -204,6 +213,9 @@ projects:
   code_globs:
     - apps/dashboard/src/pages/ProjectsPage.tsx
     - apps/dashboard/src/pages/ProjectDetail.tsx
+    - apps/dashboard/src/components/projects/**
+    - apps/api/app/services/project_work.py
+    - apps/api/app/routers/projects.py
   screenshots:
     - project
 

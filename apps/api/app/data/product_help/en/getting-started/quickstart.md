@@ -17,7 +17,7 @@ This is the shortest path from a fresh workspace to real work happening.
 *Open Settings, then Email & messages.*
 
 1. Open **Settings**, then **Email & messages**.
-2. Copy **Your Bokito address** and send a test mail, or connect Gmail or Outlook if replies must leave from your domain.
+2. Choose **Add channel**, then **Bokito address**, pick a prefix and send a test mail to it — or connect Gmail or Outlook if replies must leave from your domain.
 3. Inbound mail appears as threads in Communication within a few minutes. See [Channels](/docs/inbox/channels).
 
 ## 2. Open your first thread

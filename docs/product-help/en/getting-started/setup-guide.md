@@ -28,7 +28,7 @@ The quickstart gets you running. This guide gets you configured. Work top to bot
 
 ## Connect channels and Inbox AI
 
-1. Copy the Bokito address or connect every mailbox under **Settings**, then **Email & messages**. See [Channels](/docs/inbox/channels).
+1. Create a Bokito address or connect every mailbox under **Settings**, then **Email & messages**. See [Channels](/docs/inbox/channels).
 2. Add routing, signatures and a few saved replies.
 3. Open [Inbox AI](/docs/inbox/inbox-ai). Start email on **Suggest replies**. Website chat can wait until the widget is installed.
 4. Website chat and WhatsApp can wait until mail runs.
@@ -39,7 +39,7 @@ The quickstart gets you running. This guide gets you configured. Work top to bot
 2. Review the default assistant under [Agents](/docs/ai/agents). **Pause** agents you are not ready to run.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
 4. Optional: open **Projects** from the sixth setup pillar when work should be grouped around a goal. See [Projects](/docs/ai/projects).
-5. Optional: open **Settings**, then **Modules**, and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
+5. Optional: open **Modules** in the left sidebar (or **Settings**, then **Modules**), and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
 
 ## Schedule recurring work
 
@@ -49,7 +49,7 @@ New workspaces start with an hourly **platform check-in**. The assistant wakes, 
 
 On first login, Communication shows **Continue setup**. The same steps live under **Settings**, then **Setup guide**:
 
-1. **Connect your channels** — Bokito address or Gmail/Outlook. See [Channels](/docs/inbox/channels).
+1. **Connect your channels** — create a Bokito address or connect Gmail/Outlook. See [Channels](/docs/inbox/channels).
 2. **Add company knowledge** — Voice and Memory. See [Knowledge](/docs/ai/knowledge).
 3. **Chat with your assistant** — **New chat** walks the rest of setup. The assistant can turn watching on from that chat.
 4. **Let the assistant watch** — the hourly check-in is on for new workspaces. Existing workspaces can turn it on from the setup guide.

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  BookOpen,
   Bot,
   CircleHelp,
   Clock,
@@ -155,6 +154,17 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         },
       },
       {
+        id: 'inbox-needs-decision',
+        label: t('palette.needsDecision'),
+        hint: t('palette.inboxOpenHint'),
+        group: t('palette.groupInbox'),
+        icon: Inbox,
+        run: () => {
+          inboxComm?.setQuickFilter('needsDecision')
+          navigate(`${inboxPath('open')}?filter=needsDecision`)
+        },
+      },
+      {
         id: 'inbox-assistant',
         label: t('support.section.assistant'),
         group: t('palette.groupInbox'),
@@ -220,13 +230,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         group: t('palette.groupActions'),
         icon: Settings,
         run: () => navigate('/settings/notifications'),
-      },
-      {
-        id: 'action-bookkeeping',
-        label: t('palette.openBookkeeping'),
-        group: t('palette.groupActions'),
-        icon: BookOpen,
-        run: () => navigate('/settings/modules/accounting'),
       },
       {
         id: 'action-my-assistant',

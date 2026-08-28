@@ -308,7 +308,8 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
         ]
 
     # Ask-assistant conversations opened from a customer thread: inject the
-    # live transcript of that thread so every turn stays grounded.
+    # live transcript of that thread so every turn stays grounded, plus what
+    # the agent may do on it (tool calls default to that thread).
     if signal.context_signal_id:
         transcript = await context_thread_transcript(session, signal.context_signal_id)
         if transcript:
@@ -316,8 +317,13 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
                 {
                     "role": "user",
                     "content": (
-                        "[Context] The teammate is working on this customer thread; "
-                        "use it to ground your answers:\n" + transcript
+                        "[Context] The teammate brought you into this customer "
+                        "conversation. Use it to ground your answers, and act on it "
+                        "when that helps: look things up, propose the next reply with "
+                        "suggest_thread_reply (the teammate approves it), or continue "
+                        "with the contact yourself via take_over_conversation. Offer "
+                        "a draft when a reply is clearly what they need. Your own "
+                        "messages here stay internal.\n" + transcript
                     ),
                 },
                 {"role": "assistant", "content": "Got it, I have the thread context."},

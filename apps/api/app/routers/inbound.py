@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.channels.base import BlockedContactError, InboundMessage, ingest_inbound
 from app.config import get_settings
 from app.db.session import get_session
-from app.services.bokito_mailbox import find_bokito_account_by_address
+from app.services.email_relay import find_relay_by_address
 from app.workers.tasks import enqueue_signal_processing
 
 logger = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ async def resend_inbound(
 
     account = None
     for addr in recipients:
-        account = await find_bokito_account_by_address(session, addr)
+        account = await find_relay_by_address(session, addr)
         if account:
             break
     if not account:

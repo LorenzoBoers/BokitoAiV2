@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
-import { Paperclip, Send } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { MessageSquareText, Paperclip, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { isSendableMailbox, listEmailConnections, sendNewEmail, type EmailConnection } from '../../lib/email-api'
 import type { MessageAttachment } from '../../lib/inbox-api'
+import { listSavedReplies, type SavedReplyRow } from '../../lib/signals-api'
 import { uploadAttachment } from '../../lib/uploads-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import MessageAttachments from './MessageAttachments'
 
 export type ComposePrefill = {
@@ -33,7 +40,9 @@ const FIELD =
 
 export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Props) {
   const { t } = useTranslation('communication')
+  const navigate = useNavigate()
   const { token } = useAuth()
+  const [savedReplies, setSavedReplies] = useState<SavedReplyRow[] | null>(null)
   const [connections, setConnections] = useState<EmailConnection[] | null>(null)
   const [connectionId, setConnectionId] = useState<number | null>(null)
   const [to, setTo] = useState('')
@@ -110,6 +119,21 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
     }, 30)
     return () => window.clearTimeout(focus)
   }, [open, prefill?.to])
+
+  const loadSavedReplies = async () => {
+    if (!token || savedReplies !== null) return
+    try {
+      setSavedReplies(await listSavedReplies(token))
+    } catch (err) {
+      setSavedReplies([])
+      toast.error(formatApiErrorMessage(err, t('composer.loadSavedRepliesError')))
+    }
+  }
+
+  const insertSavedReply = (row: SavedReplyRow) => {
+    setBody((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${row.bodyText}` : row.bodyText))
+    requestAnimationFrame(() => bodyRef.current?.focus())
+  }
 
   const handleSend = async () => {
     if (!token || !canSend) return
@@ -250,6 +274,59 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             className="hidden"
             onChange={(e) => void onPickFiles(e.target.files)}
           />
+          <div className="flex items-center gap-1">
+          <DropdownMenu onOpenChange={(next) => next && void loadSavedReplies()}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={sending}
+                title={t('composer.savedReplies')}
+                className="gap-1.5 text-xs text-text-muted hover:text-text-primary"
+              >
+                <MessageSquareText size={13} />
+                {t('composer.templates')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              {savedReplies === null ? (
+                <DropdownMenuItem disabled className="text-xs">
+                  {t('composer.loadingSavedReplies')}
+                </DropdownMenuItem>
+              ) : savedReplies.length === 0 ? (
+                <DropdownMenuItem
+                  className="text-xs"
+                  onSelect={() => {
+                    onClose()
+                    navigate('/settings/channels#saved-replies')
+                  }}
+                >
+                  {t('composer.noSavedReplies')}
+                </DropdownMenuItem>
+              ) : (
+                savedReplies.map((row) => (
+                  <DropdownMenuItem
+                    key={row.id}
+                    className="flex-col items-start gap-0.5 text-xs"
+                    onSelect={() => insertSavedReply(row)}
+                  >
+                    <span className="font-medium text-text-heading">{row.title}</span>
+                    <span className="line-clamp-1 text-[11px] text-text-muted">{row.bodyText}</span>
+                  </DropdownMenuItem>
+                ))
+              )}
+              <DropdownMenuItem
+                className="text-xs"
+                onSelect={() => {
+                  onClose()
+                  navigate('/settings/channels#saved-replies')
+                }}
+              >
+                {t('composer.manageSavedReplies')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             type="button"
             variant="ghost"
@@ -261,6 +338,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             <Paperclip size={13} />
             {uploading ? t('compose.uploading') : t('compose.attach')}
           </Button>
+          </div>
           <div className="flex items-center gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={sending}>
               {t('compose.cancel')}

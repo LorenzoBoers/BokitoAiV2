@@ -165,10 +165,11 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
                 return (
                   <Tooltip key={link.to}>
                     <TooltipTrigger asChild>{item}</TooltipTrigger>
+                    {/* Beside the rail so the hint never covers the next nav row. */}
                     <TooltipContent
-                      side="bottom"
+                      side={compact ? 'top' : 'right'}
                       align="start"
-                      sideOffset={2}
+                      sideOffset={8}
                       className="max-w-56 font-normal"
                     >
                       {hint}

@@ -21,6 +21,7 @@ function buildFilterKey(filters: ThreadFilters): string {
     filters.agentId ?? '',
     filters.unread ? '1' : '',
     filters.needsReply ? '1' : '',
+    filters.needsDecision ? '1' : '',
     filters.pinnedOnly ? '1' : '',
   ].join('\0')
 }
@@ -46,6 +47,7 @@ export function useThreads(
     filters.agentId,
     filters.unread,
     filters.needsReply,
+    filters.needsDecision,
     filters.pinnedOnly,
   ])
 
@@ -58,6 +60,8 @@ export function useThreads(
   const [syncedFilterKey, setSyncedFilterKey] = useState<string | null>(null)
   // Pages the user has explicitly loaded via loadMore (reset on filter change).
   const pagesLoadedRef = useRef(1)
+  const filterKeyRef = useRef(filterKey)
+  filterKeyRef.current = filterKey
 
   // Drop stale rows synchronously when queue/search/channel changes so callers
   // never auto-select from the previous folder while the new fetch is in flight.
@@ -82,6 +86,7 @@ export function useThreads(
     const keyAtStart = filterKey
     try {
       const result = await listThreads(token, { ...filters, page: 1, perPage: PAGE_SIZE })
+      if (keyAtStart !== filterKeyRef.current) return
       setTotal(result.itemsTotal)
       setSyncedFilterKey(keyAtStart)
       if (pagesLoadedRef.current <= 1) {
@@ -96,11 +101,12 @@ export function useThreads(
         })
       }
     } catch (err) {
+      if (keyAtStart !== filterKeyRef.current) return
       setError(err instanceof Error ? err.message : 'Could not load threads.')
       setRawThreads([])
       setSyncedFilterKey(keyAtStart)
     } finally {
-      setLoading(false)
+      if (keyAtStart === filterKeyRef.current) setLoading(false)
     }
   }, [
     token,
@@ -116,6 +122,10 @@ export function useThreads(
     filters.perPage,
     filters.connectionId,
     filters.agentId,
+    filters.unread,
+    filters.needsReply,
+    filters.needsDecision,
+    filters.pinnedOnly,
   ])
 
   useEffect(() => {

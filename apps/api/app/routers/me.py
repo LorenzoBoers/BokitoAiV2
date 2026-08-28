@@ -32,11 +32,65 @@ class PreferencesPatch(BaseModel):
     # First-run tour state (intro_done, completed, dismissed, version, ...).
     # Shallow-merged so future tour keys need no API change.
     tour: dict | None = None
+    # Communication hub folder defaults: which sub-view a channel/tag opens on,
+    # plus which tags stay pinned in the Tags sidebar section.
+    # Shape: {
+    #   "default_queue": "open",
+    #   "channel_defaults": {"channel:email:12": "mine"},
+    #   "sidebar_tags": ["billing", "vip"],
+    # }
+    inbox_folders: dict | None = None
+
+
+# Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
+INBOX_SUB_QUEUES = ("open", "mine", "unassigned", "closed")
+MAX_SIDEBAR_TAGS = 40
+MAX_SIDEBAR_TAG_LEN = 40
 
 
 def _tour_state(stored: dict) -> dict:
     tour = stored.get("tour")
     return tour if isinstance(tour, dict) else {}
+
+
+def _clean_sidebar_tags(raw) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        tag = item.strip().lower()[:MAX_SIDEBAR_TAG_LEN]
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        out.append(tag)
+        if len(out) >= MAX_SIDEBAR_TAGS:
+            break
+    return out
+
+
+def _inbox_folders_state(stored: dict) -> dict:
+    raw = stored.get("inbox_folders")
+    if not isinstance(raw, dict):
+        return {"default_queue": "open", "channel_defaults": {}, "sidebar_tags": []}
+    default_queue = raw.get("default_queue")
+    if default_queue not in INBOX_SUB_QUEUES:
+        default_queue = "open"
+    channel_defaults = raw.get("channel_defaults")
+    if not isinstance(channel_defaults, dict):
+        channel_defaults = {}
+    cleaned = {
+        str(key)[:80]: value
+        for key, value in channel_defaults.items()
+        if value in INBOX_SUB_QUEUES
+    }
+    return {
+        "default_queue": default_queue,
+        "channel_defaults": cleaned,
+        "sidebar_tags": _clean_sidebar_tags(raw.get("sidebar_tags")),
+    }
 
 
 @router.get("/preferences")
@@ -54,7 +108,11 @@ async def get_my_preferences(
     lang = stored.get("ui_language")
     if lang not in ("en", "nl"):
         lang = platform_default_ui_language()
-    return {"ui_language": lang, "tour": _tour_state(stored)}
+    return {
+        "ui_language": lang,
+        "tour": _tour_state(stored),
+        "inbox_folders": _inbox_folders_state(stored),
+    }
 
 
 @router.patch("/preferences")
@@ -86,6 +144,27 @@ async def patch_my_preferences(
         if len(cleaned) > 20:
             raise HTTPException(status_code=400, detail="tour state too large")
         stored["tour"] = cleaned
+    if body.inbox_folders is not None:
+        current = _inbox_folders_state(stored)
+        merged = {**current, **body.inbox_folders}
+        default_queue = merged.get("default_queue")
+        if default_queue not in INBOX_SUB_QUEUES:
+            raise HTTPException(status_code=400, detail="default_queue must be one of open/mine/unassigned/closed")
+        channel_defaults = merged.get("channel_defaults")
+        if not isinstance(channel_defaults, dict):
+            raise HTTPException(status_code=400, detail="channel_defaults must be an object")
+        cleaned_defaults: dict[str, str] = {}
+        for key, value in channel_defaults.items():
+            # Sending null/invalid for a key drops that override.
+            if value in INBOX_SUB_QUEUES:
+                cleaned_defaults[str(key)[:80]] = value
+        if len(cleaned_defaults) > 100:
+            raise HTTPException(status_code=400, detail="too many channel defaults")
+        stored["inbox_folders"] = {
+            "default_queue": default_queue,
+            "channel_defaults": cleaned_defaults,
+            "sidebar_tags": _clean_sidebar_tags(merged.get("sidebar_tags")),
+        }
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
     await session.commit()
@@ -93,6 +172,7 @@ async def patch_my_preferences(
     return {
         "ui_language": stored_lang if stored_lang in ("en", "nl") else platform_default_ui_language(),
         "tour": _tour_state(stored),
+        "inbox_folders": _inbox_folders_state(stored),
     }
 
 

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 TOOL_CATEGORIES = (
     "messaging",
     "workspace",
+    "projects",
     "agents",
     "channels",
     "triggers",
@@ -32,6 +33,8 @@ class ToolContext:
     agent: Any | None = None
     run_id: UUID | None = None
     signal_id: UUID | None = None
+    # Project scope of the current run: doc/repo/queue tools default to it.
+    project_id: UUID | None = None
     trust: str = "operator"
     # Resolved allowance mode for this call: "apply" (allowed) or "ask".
     mode: str = "apply"
@@ -118,3 +121,4 @@ def _ensure_builtin_loaded() -> None:
     import app.tools.accounting  # noqa: F401 — registers accounting module tools
     import app.tools.modules  # noqa: F401 — registers list_modules / recommend_module
     import app.tools.builtin  # noqa: F401 — registers built-in tools
+    import app.tools.project_work  # noqa: F401 — registers project queue/doc tools

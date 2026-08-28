@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Bot,
+  CalendarClock,
   CalendarDays,
   Gauge,
   Inbox,
@@ -17,6 +18,7 @@ import {
   Timer,
   X,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import ContentHeader from '../components/shell/ContentHeader'
 import ConnectionStatus from '../components/shell/ConnectionStatus'
 import CockpitTabs from '../components/shell/CockpitTabs'
@@ -34,6 +36,8 @@ import {
 } from '../lib/bokito-api'
 import { getPosture, listGovernChanges, type AutonomyPostureId } from '../lib/govern-api'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
+import { patchSignalThread } from '../lib/signals-api'
+import { snoozeUntilIso, SNOOZE_PRESETS } from '../lib/snooze'
 import { translateDecisionText } from '../lib/activity-labels'
 import { agentRunsPath, attentionThreadPath, channelPath, inboxPath } from '../lib/messages-paths'
 import { isPageGuideDismissed } from '../lib/page-guides'
@@ -48,7 +52,7 @@ import {
 import { listAgendaOccurrences, listTriggers, updateTrigger, type AgendaItem } from '../lib/orchestration-api'
 import { platformCheckInTrigger, talkToAssistantPath } from '../lib/talk-to-assistant'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import { DomainFavicon } from '../components/ui/DomainFavicon'
+import { PersonAvatar } from '../components/ui/PersonAvatar'
 import { ChannelGlyph, channelKind } from '../components/ui/ChannelGlyph'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
 import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
@@ -392,11 +396,30 @@ export default function CockpitPage() {
     }
   }, [token, load])
 
+  const snoozeAttention = useCallback(
+    async (threadId: InboxThread['id']) => {
+      if (!token) return
+      const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
+      if (!tomorrow) return
+      try {
+        await patchSignalThread(token, String(threadId), {
+          status: 'pending',
+          snoozedUntil: snoozeUntilIso(tomorrow),
+        })
+        setAttentionThreads((prev) => prev.filter((row) => String(row.id) !== String(threadId)))
+        toast.success(t('cockpitPage.snoozedUntilTomorrow'))
+      } catch (err) {
+        toast.error(formatApiErrorMessage(err, t('cockpitPage.snoozeFailed')))
+      }
+    },
+    [token, t],
+  )
+
   const attentionCount = attentionThreads.length + pendingChanges
   const firstAttention = attentionThreads[0]
   const decisionHref = firstAttention
     ? attentionThreadPath(firstAttention)
-    : agentRunsPath('awaiting-decision')
+    : `${inboxPath('open')}?filter=needsDecision`
   const freshAttention = attentionThreads.filter((thread) => {
     const days = thread.lastMessageAt
       ? Math.floor((Date.now() - new Date(thread.lastMessageAt).getTime()) / 86_400_000)
@@ -623,11 +646,12 @@ export default function CockpitPage() {
                         {t('cockpitPage.staleAttention')}
                       </p>
                     ) : null}
-                  <Link
-                    to={attentionThreadPath(thread)}
-                    title={String(thread.id)}
-                    className="row-interactive group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 hover:border-accent/40"
-                  >
+                  <div className="row-interactive group flex items-center gap-1 rounded-lg border border-border/40 bg-bg-elevated/45 px-2 py-1.5 hover:border-accent/40">
+                    <Link
+                      to={attentionThreadPath(thread)}
+                      title={String(thread.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 px-1 py-0.5"
+                    >
                     <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
                     <ChannelGlyph channel={thread.channel ?? 'email'} size={12} className="shrink-0 text-text-muted" />
                     <span className="min-w-0 flex-1">
@@ -651,7 +675,17 @@ export default function CockpitPage() {
                       </span>
                     </span>
                     <ArrowRight size={12} className="shrink-0 text-text-muted group-hover:text-accent" />
-                  </Link>
+                    </Link>
+                    <button
+                      type="button"
+                      title={t('cockpitPage.snoozeTomorrow')}
+                      aria-label={t('cockpitPage.snoozeTomorrow')}
+                      onClick={() => void snoozeAttention(thread.id)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                    >
+                      <CalendarClock size={13} />
+                    </button>
+                  </div>
                   </div>
                   )
                 })}
@@ -857,11 +891,7 @@ export default function CockpitPage() {
                   className="group flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
                   <Link to={`/contacts/${contact.id}`} className="flex min-w-0 flex-1 items-center gap-2.5">
-                    <DomainFavicon
-                      email={contact.address}
-                      name={contact.displayName || contact.address}
-                      size={28}
-                    />
+                    <PersonAvatar name={contact.displayName} email={contact.address} size={28} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[12.5px] font-medium text-text-primary">
                         {humanizeContactName(

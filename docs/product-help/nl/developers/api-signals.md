@@ -52,7 +52,7 @@ curl -X POST -H "Authorization: Bearer bok_..." -H "Content-Type: application/js
   "https://jouw-bokito-host/api/public/v1/signals"
 ```
 
-Vereist `signals:write`. `subject` (maximaal 200 tekens) en `body` zijn verplicht; `priority` is een van `low`, `normal`, `high`, `urgent` (standaard `normal`); maximaal 10 `tags` (die worden Labels in Communicatie). Optionele `contact_name` en `contact_email` maken of matchen een [contact](/docs/inbox/contacts).
+Vereist `signals:write`. `subject` (maximaal 200 tekens) en `body` zijn verplicht; `priority` is een van `low`, `normal`, `high`, `urgent` (standaard `normal`); maximaal 10 `tags` (die worden kleingeletterd en komen in de taglijst van Communicatie). Optionele `contact_name` en `contact_email` maken of matchen een [contact](/docs/inbox/contacts).
 
 Het signal landt in de inbox op het `api`-kanaal. Je kunt hier geen ander kanaal kiezen. Agents en routeringsregels behandelen het als elk ander inkomend bericht, en er vuurt een `signal.created`-webhook. Dit is de standaardmanier om alerts, formulierinzendingen of events uit andere systemen in dezelfde flow als klantmail te krijgen.
 

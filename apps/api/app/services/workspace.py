@@ -238,6 +238,7 @@ def serialize_doc(doc: WorkspaceDoc, *, include_content: bool = True) -> dict[st
         "id": str(doc.id),
         "path": doc.path,
         "kind": doc.kind,
+        "project_id": str(doc.project_id) if doc.project_id else None,
         "title": doc.title,
         "frontmatter": frontmatter,
         "is_pinned": doc.is_pinned,
@@ -289,9 +290,18 @@ async def get_doc_by_path(session: AsyncSession, tenant_id: UUID, path: str) -> 
 
 
 async def list_docs(
-    session: AsyncSession, tenant_id: UUID, *, kind: str | None = None
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    kind: str | None = None,
+    project_id: UUID | None = None,
 ) -> list[WorkspaceDoc]:
+    """Tenant knowledge by default; pass project_id to list one project's docs."""
     stmt = select(WorkspaceDoc).where(WorkspaceDoc.tenant_id == tenant_id)
+    if project_id is not None:
+        stmt = stmt.where(WorkspaceDoc.project_id == project_id)
+    else:
+        stmt = stmt.where(WorkspaceDoc.project_id.is_(None))
     if kind:
         stmt = stmt.where(WorkspaceDoc.kind == kind)
     stmt = stmt.order_by(WorkspaceDoc.sort_order, WorkspaceDoc.path)
@@ -305,6 +315,13 @@ async def reindex_doc(session: AsyncSession, doc: WorkspaceDoc) -> int:
 
     resolved = await resolve_model_call(session, doc.tenant_id, kind="embedding")
     await session.execute(delete(DocChunk).where(DocChunk.doc_id == doc.id))
+    # Section statuses ride along in chunk metadata so RAG consumers know
+    # whether a documented capability is planned or actually implemented.
+    section_status: dict[str, str] = {}
+    if doc.project_id:
+        from app.services.project_work import section_status_by_heading
+
+        section_status = await section_status_by_heading(session, doc)
     count = 0
     for heading, text in chunk_markdown(doc.content):
         embedding, emb_tokens = await embed_text_with_usage(
@@ -319,6 +336,12 @@ async def reindex_doc(session: AsyncSession, doc: WorkspaceDoc) -> int:
                 session, doc.tenant_id, resolved, tokens_in=emb_tokens, tokens_out=0,
                 scope="embedding", call_type="embedding",
             )
+        metadata: dict[str, Any] = {"kind": doc.kind, "path": doc.path}
+        if doc.project_id:
+            metadata["project_id"] = str(doc.project_id)
+            status = section_status.get(heading)
+            if status:
+                metadata["section_status"] = status
         session.add(
             DocChunk(
                 tenant_id=doc.tenant_id,
@@ -328,7 +351,7 @@ async def reindex_doc(session: AsyncSession, doc: WorkspaceDoc) -> int:
                 title=f"{doc.title}{f' / {heading}' if heading else ''}",
                 content=text,
                 embedding_json=json.dumps(embedding),
-                metadata_json=json.dumps({"kind": doc.kind, "path": doc.path}),
+                metadata_json=json.dumps(metadata),
             )
         )
         count += 1
@@ -344,6 +367,7 @@ async def upsert_doc(
     content: str,
     kind: str | None = None,
     title: str | None = None,
+    project_id: UUID | None = None,
     created_by_type: str = "user",
     created_by_id: str = "",
     commit: bool = True,
@@ -366,12 +390,13 @@ async def upsert_doc(
         doc.title = title or _title_from(norm, meta, body)
         doc.updated_at = datetime.utcnow()
     else:
-        inferred_kind = kind or _infer_kind(norm)
+        inferred_kind = kind or ("project_doc" if project_id else _infer_kind(norm))
         # Keep created_at == updated_at on first write so "explicitly saved
         # after bootstrap" checks (e.g. onboarding) compare cleanly.
         now = datetime.utcnow()
         doc = WorkspaceDoc(
             tenant_id=tenant_id,
+            project_id=project_id,
             path=norm,
             kind=inferred_kind,
             title=title or _title_from(norm, meta, body),
@@ -384,6 +409,11 @@ async def upsert_doc(
         )
         session.add(doc)
     await session.flush()
+    if doc.project_id:
+        # Keep the smart-doc section layer aligned with the markdown headings.
+        from app.services.project_work import sync_doc_sections
+
+        await sync_doc_sections(session, doc)
     await reindex_doc(session, doc)
     if commit:
         await session.commit()

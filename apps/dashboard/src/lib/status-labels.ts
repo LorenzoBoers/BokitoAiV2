@@ -26,6 +26,11 @@ export function mailboxStatusLabel(status: string | null | undefined, t: TFuncti
   return labelFromMap(status, t, 'status.mailbox')
 }
 
+/** One channel lifecycle label for the list, the hub sidebar, and the cockpit. */
+export function channelStateLabel(state: string | null | undefined, t: TFunction): string {
+  return labelFromMap(state, t, 'status.channel')
+}
+
 export function agendaStatusLabel(status: string | null | undefined, t: TFunction): string {
   return labelFromMap(status, t, 'status.agenda')
 }

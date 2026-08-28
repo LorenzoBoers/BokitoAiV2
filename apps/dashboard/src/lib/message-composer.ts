@@ -71,14 +71,17 @@ export function threadHubPath(thread: Pick<InboxThread, 'id' | 'channel' | 'fold
 }
 
 /** Primary label for thread list rows and headers. */
-export function threadCounterpartyName(thread: InboxThread): string {
+export function threadCounterpartyName(
+  thread: InboxThread,
+  labels?: { agent?: string; unknownSender?: string },
+): string {
   if (isInternalThread(thread)) {
     if (thread.agentName?.trim()) return thread.agentName.trim()
     const name = thread.contactName?.trim()
     if (name && name.toLowerCase() !== 'agent') return name
-    return 'Agent'
+    return labels?.agent ?? 'Agent'
   }
-  return thread.contactName?.trim() || thread.contactEmail?.trim() || 'Unknown sender'
+  return thread.contactName?.trim() || thread.contactEmail?.trim() || labels?.unknownSender || 'Unknown sender'
 }
 
 export function threadSecondaryLine(thread: InboxThread): string {
@@ -178,15 +181,15 @@ export function resolveComposerSurface(thread: InboxThread): ComposerSurface {
   }
 
   // widget / chat / integration
-  const name = thread.contactName?.trim() || 'visitor'
+  const name = thread.contactName?.trim()
   return {
     channel: 'chat',
     defaultTab: 'reply',
     tabs: ['reply', 'note'],
     replyLabel: 'Chat',
-    replyPlaceholder: `Reply in chat to ${name}...`,
-    replyPlaceholderKey: 'composer.placeholders.chat',
-    replyPlaceholderParams: { name },
+    replyPlaceholder: name ? `Reply in chat to ${name}...` : 'Reply in chat...',
+    replyPlaceholderKey: name ? 'composer.placeholders.chat' : 'composer.placeholders.chatVisitor',
+    replyPlaceholderParams: name ? { name } : undefined,
     includeSignature: false,
     showRecipient: Boolean(thread.contactName || thread.contactEmail),
     recipientLabel: 'With',

@@ -25,6 +25,7 @@ async def execute_tool(
     signal_id: UUID | None = None,
     agent: Any | None = None,
     run_id: UUID | None = None,
+    project_id: UUID | None = None,
     trust: str = "operator",
     approved: bool = False,
 ) -> dict[str, Any]:
@@ -79,6 +80,7 @@ async def execute_tool(
         agent=agent,
         run_id=run_id,
         signal_id=signal_id,
+        project_id=project_id,
         trust=trust,
         mode="ask" if mode == "ask" else "apply",
     )

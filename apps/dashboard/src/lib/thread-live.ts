@@ -122,6 +122,7 @@ function applyAndFlags(thread: InboxThread, filters: ThreadFilters, viewMatch: b
   if (filters.unread && !thread.hasUnread) return false
   if (filters.pinnedOnly && !thread.isPinned) return false
   if (filters.needsReply && !threadNeedsReply(thread)) return false
+  if (filters.needsDecision && !thread.hasOpenDecision) return false
   return viewMatch
 }
 

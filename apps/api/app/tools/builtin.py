@@ -99,10 +99,16 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
 
     path = tool_input["path"]
     mode = tool_input.get("mode", "append")
+    # Project-scoped runs write project docs by default (smart documentation).
+    project_id = str(tool_input.get("project_id") or "").strip() or (
+        str(ctx.project_id) if ctx.project_id else None
+    )
     existing = await get_doc_by_path(ctx.session, ctx.tenant_id, path)
     before = None
     if existing:
         before = {"path": existing.path, "content": existing.content, "kind": existing.kind}
+        if existing.project_id:
+            project_id = str(existing.project_id)
     return await _platform_change(
         ctx,
         resource_type="workspace_doc",
@@ -113,6 +119,7 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
             "content": tool_input["content"],
             "mode": mode if existing else "replace",
             "kind": tool_input.get("kind"),
+            "project_id": project_id,
         },
         before=before,
         tool_name="write_doc",
@@ -258,6 +265,132 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     }
 
 
+def _target_signal_id(ctx: ToolContext, tool_input: dict[str, Any]) -> UUID | None:
+    """Thread a messaging tool acts on: explicit input, else the call's thread."""
+    raw = tool_input.get("signal_id")
+    if raw:
+        try:
+            return UUID(str(raw))
+        except ValueError:
+            return ctx.signal_id
+    return ctx.signal_id
+
+
+async def _suggest_thread_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Propose a customer-facing reply on a thread; the operator approves it.
+
+    The proposal lands as the thread's reply-suggestion card, so a draft an
+    agent offers while sparring with an operator goes through the same
+    approve / edit / decline path as an inbound AI suggestion.
+    """
+    from app.models.signal import Signal
+    from app.services.inbound_agent import create_reply_suggestion
+
+    signal_id = _target_signal_id(ctx, tool_input)
+    if not signal_id:
+        return {"error": "signal_id required"}
+    if not ctx.agent:
+        return {"error": "Only an agent can suggest a reply"}
+
+    body_text = str(tool_input.get("body_text") or tool_input.get("body") or "").strip()
+    if not body_text:
+        return {"error": "body_text required"}
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+    if signal.channel in ("internal", "assistant"):
+        return {"error": f"Channel {signal.channel} has no external party to reply to"}
+
+    outcome = await create_reply_suggestion(
+        ctx.session, ctx.tenant_id, signal, ctx.agent, reply_text=body_text
+    )
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "awaiting_approval": True,
+        "note": (
+            "The draft is waiting as a suggested reply on the conversation. "
+            "Tell the teammate it is ready to review; nothing was sent."
+        ),
+        **outcome,
+    }
+
+
+async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Continue the customer conversation yourself: become its handling agent.
+
+    The mirror image of ``handoff_to_human``: AI replies resume on the thread
+    and this agent is pinned as the one that answers the next inbound
+    message, so an operator can hand a conversation back mid-sparring.
+    """
+    from datetime import datetime
+
+    from app.gateway.publish import publish_thread_update
+    from app.models.signal import Signal, SignalEvent
+
+    signal_id = _target_signal_id(ctx, tool_input)
+    if not signal_id:
+        return {"error": "signal_id required"}
+    if not ctx.agent:
+        return {"error": "Only an agent can take over a conversation"}
+    if getattr(ctx.agent, "kind", "company") != "company":
+        # Personal assistants serve one user; customer threads are handled by
+        # company agents (same rule as inbound routing).
+        return {
+            "error": "A personal assistant cannot handle a customer conversation",
+            "hint": "Suggest a reply instead, or ask a company agent to take over.",
+        }
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+    if signal.channel in ("internal", "assistant"):
+        return {"error": f"Channel {signal.channel} has no external party to converse with"}
+
+    signal.agent_id = ctx.agent.id
+    signal.ai_paused = False
+    signal.assigned_user_id = None
+    signal.updated_at = datetime.utcnow()
+    ctx.session.add(signal)
+    ctx.session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=ctx.tenant_id,
+            event_type="ai_resumed",
+            actor_type="agent",
+            actor_id=str(ctx.agent.id),
+            payload_json=json.dumps(
+                {
+                    "via": "take_over_conversation",
+                    "agent_id": str(ctx.agent.id),
+                    "agent_name": ctx.agent.name,
+                    "reason": str(tool_input.get("reason") or "").strip(),
+                }
+            ),
+        )
+    )
+    await ctx.session.flush()
+    await publish_thread_update(signal)
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "ai_paused": False,
+        "handling_agent": ctx.agent.name,
+        "note": (
+            "You now handle this conversation and answer the next inbound "
+            "message. Use suggest_thread_reply if you want to propose the "
+            "next reply for approval first."
+        ),
+    }
+
+
 async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Close a signal thread without replying (mark it resolved).
 
@@ -311,6 +444,86 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
 
     await emit_webhook_event(ctx.session, ctx.tenant_id, "signal.closed", signal_event_data(signal))
     return {"ok": True, "signal_id": str(signal.id), "status": "closed"}
+
+
+async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Add tags to a signal thread from the tenant's tag registry.
+
+    Union merge only: agents never remove operator tags, and can only apply
+    tags that are registered (same constraint as AI triage).
+    """
+    from datetime import datetime
+
+    from app.gateway.publish import publish_thread_update
+    from app.models.signal import Signal, SignalEvent
+    from app.services.signal_tags import allowed_tag_names, normalize_tag
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            pass
+    if not signal_id:
+        return {"error": "signal_id required"}
+
+    requested = tool_input.get("tags")
+    if not isinstance(requested, list) or not requested:
+        return {"error": "tags must be a non-empty list of strings"}
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+
+    catalog = set(await allowed_tag_names(ctx.session, ctx.tenant_id))
+    allowed: list[str] = []
+    rejected: list[str] = []
+    for raw in requested:
+        name = normalize_tag(raw) if isinstance(raw, str) else ""
+        if not name:
+            continue
+        (allowed if name in catalog else rejected).append(name)
+    if not allowed:
+        return {
+            "error": "None of the requested tags exist in the tag registry",
+            "rejected": rejected,
+            "catalog": sorted(catalog)[:30],
+        }
+
+    try:
+        existing = json.loads(signal.tags_json or "[]")
+    except json.JSONDecodeError:
+        existing = []
+    if not isinstance(existing, list):
+        existing = []
+    added = [t for t in allowed if t not in existing]
+    if added:
+        signal.tags_json = json.dumps([*existing, *added])
+        signal.updated_at = datetime.utcnow()
+        ctx.session.add(signal)
+        ctx.session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=ctx.tenant_id,
+                event_type="thread_updated",
+                actor_type="agent" if ctx.agent else "user",
+                actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+                payload_json=json.dumps({"tags": [*existing, *added], "via": "set_thread_tags"}),
+            )
+        )
+        await ctx.session.flush()
+        await publish_thread_update(signal)
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "added": added,
+        "tags": [*existing, *added],
+        "rejected": rejected,
+    }
 
 
 async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -492,7 +705,7 @@ async def _search_repo(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     query = str(tool_input.get("query") or "").strip()
     if not query:
         return {"error": "query required"}
-    project_id = None
+    project_id = ctx.project_id
     raw_project = str(tool_input.get("project_id") or "").strip()
     if raw_project:
         try:
@@ -862,7 +1075,11 @@ register_tool(
 register_tool(
     ToolSpec(
         name="write_doc",
-        description="Create or update a workspace markdown doc. mode=append adds to the end; mode=replace overwrites.",
+        description=(
+            "Create or update a workspace markdown doc. mode=append adds to the end; "
+            "mode=replace overwrites. In a project-scoped run new docs become project "
+            "documentation automatically; pass project_id to override."
+        ),
         category="workspace",
         input_schema={
             "type": "object",
@@ -871,6 +1088,7 @@ register_tool(
                 "content": {"type": "string"},
                 "mode": {"type": "string", "enum": ["append", "replace"]},
                 "kind": {"type": "string"},
+                "project_id": {"type": "string", "description": "Scope the doc to a project (smart documentation)."},
             },
             "required": ["path", "content"],
         },
@@ -907,6 +1125,54 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="suggest_thread_reply",
+        description=(
+            "Propose a reply to the customer on a conversation without sending it. "
+            "The draft appears as a suggested reply the teammate can approve, edit "
+            "or decline. Use this while helping on a conversation instead of "
+            "pasting a draft into chat."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "body_text": {
+                    "type": "string",
+                    "description": "The customer-facing reply body, nothing else.",
+                },
+            },
+            "required": ["body_text"],
+        },
+        handler=_suggest_thread_reply,
+        # Proposing to a human is the safe path; it never waits on approval.
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="take_over_conversation",
+        description=(
+            "Take the customer conversation over yourself: AI replies resume and "
+            "you become the agent that answers the next inbound message. Use when "
+            "a teammate asks you to continue with the contact."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "reason": {"type": "string", "description": "Why you are taking over."},
+            },
+            "required": [],
+        },
+        handler=_take_over_conversation,
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="close_thread",
         description="Close a signal thread without replying (mark it resolved, e.g. automated notifications).",
         category="messaging",
@@ -919,6 +1185,26 @@ register_tool(
             "required": [],
         },
         handler=_close_thread,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="set_thread_tags",
+        description=(
+            "Add tags to a conversation thread. Only tags that already exist in the "
+            "workspace tag catalog are applied; existing tags are never removed."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["tags"],
+        },
+        handler=_set_thread_tags,
     )
 )
 

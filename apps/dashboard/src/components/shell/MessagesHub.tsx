@@ -31,7 +31,7 @@ export default function MessagesHub() {
           id="nav"
           defaultWidth={232}
           minWidth={176}
-          maxWidth={320}
+          maxWidth={380}
           label={t('split.nav', { ns: 'communication' })}
           className="hidden md:flex"
         >
@@ -57,8 +57,12 @@ export default function MessagesHub() {
         </SplitPane>
         <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
           <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="hidden shrink-0 px-3 pt-3 md:block">
-              <PageGuideBanner page="communication" variant={runsGuide ? 'runs' : undefined} />
+            <div className="hidden shrink-0 md:block">
+              <PageGuideBanner
+                page="communication"
+                variant={runsGuide ? 'runs' : undefined}
+                className="mx-3 mt-3"
+              />
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <Outlet />

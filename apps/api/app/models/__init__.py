@@ -11,7 +11,14 @@ from app.models.learning import EvalScore, Feedback, InboxRule
 from app.models.metric import CustomMetric, CustomMetricPoint
 from app.models.outcome import OperationalOutcome
 from app.models.platform_change import PlatformChange
-from app.models.signal import SavedReply, Signal, SignalEvent, SignalMessage, SignalThreadPin
+from app.models.signal import (
+    SavedReply,
+    Signal,
+    SignalEvent,
+    SignalMessage,
+    SignalTag,
+    SignalThreadPin,
+)
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
 from app.models.trigger import Trigger
@@ -29,6 +36,12 @@ from app.models.custom_db import (
 from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
 from app.models.project import Project, ProjectAgent
+from app.models.project_work import (
+    ProjectDocSection,
+    ProjectQueueItem,
+    ProjectResource,
+    QueueItemDocLink,
+)
 from app.models.orchestration import (
     AgentTask,
     EvalCheckpoint,
@@ -77,6 +90,10 @@ __all__ = [
     "WorkstreamStep",
     "Project",
     "ProjectAgent",
+    "ProjectQueueItem",
+    "ProjectDocSection",
+    "QueueItemDocLink",
+    "ProjectResource",
     "UsageLedger",
     "PushSubscription",
     "CustomTable",
@@ -90,6 +107,7 @@ __all__ = [
     "Signal",
     "SignalMessage",
     "SignalEvent",
+    "SignalTag",
     "SignalThreadPin",
     "SavedReply",
     "Feedback",

@@ -28,6 +28,22 @@ export function getInitials(name: string | null | undefined): string {
   return (first + last).toUpperCase()
 }
 
+/**
+ * Initials from the local part of an email address: "john.doe@x.com" → "JD".
+ * Separator characters (., _, -, +) split words; falls back to the first two
+ * characters of the local part. Returns '' when there is no usable local part.
+ */
+export function getEmailInitials(email: string | null | undefined): string {
+  const address = (email ?? '').trim()
+  const atIndex = address.indexOf('@')
+  const local = (atIndex >= 0 ? address.slice(0, atIndex) : address).trim()
+  if (!local) return ''
+  const parts = local.split(/[._\-+]+/).filter(Boolean)
+  if (parts.length === 0) return ''
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return ((parts[0][0] ?? '') + (parts[parts.length - 1][0] ?? '')).toUpperCase()
+}
+
 /** Deterministic color from email string. */
 export function getAvatarColor(seed: string): { bg: string; text: string } {
   let hash = 0

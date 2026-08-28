@@ -87,6 +87,7 @@ async def seed() -> None:
         if not membership_result.scalar_one_or_none():
             session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
 
+        await _seed_channels(session, tenant)
         await _seed_tenant_data(session, tenant)
 
         # Demo tenant for isolation tests
@@ -126,6 +127,16 @@ DEFAULT_ORCHESTRATOR_SCOPES = [
     "platform:doc:write",
     "platform:edge:connect",
 ]
+
+
+async def _seed_channels(session, tenant):
+    """Website chat plus one relay address so local dev has a working inbox."""
+    from app.services.email_relay import create_relay, list_relays
+    from app.services.tenant_bootstrap import ensure_widget_channel
+
+    await ensure_widget_channel(session, tenant.id, commit=False)
+    if not await list_relays(session, tenant.id):
+        await create_relay(session, tenant.id, prefix="support", label="Support", commit=False)
 
 
 async def _seed_signals(session, tenant):
@@ -413,13 +424,25 @@ async def _seed_demo_project(session, tenant):
         slug="bokito-platform",
         description="Demo project for local development.",
         autonomous_scope="Maintain and improve the Bokito AI OS platform for multichannel support and agent workflows.",
-        github_repo_full_name="bokito/platform",
-        github_default_branch="main",
-        repo_source="github_oauth",
-        repo_index_status="ready",
         po_agent_id=po.id,
     )
     session.add(project)
+    await session.flush()
+    from app.models.project_work import ProjectResource
+
+    session.add(
+        ProjectResource(
+            tenant_id=tenant.id,
+            project_id=project.id,
+            resource_type="repo",
+            provider="github",
+            label="bokito/platform",
+            external_ref="bokito/platform",
+            config_json=json.dumps({"default_branch": "main"}),
+            status="linked",
+            sync_status="ready",
+        )
+    )
     await session.flush()
     await _seed_workforce_demo(session, tenant, project, po)
 

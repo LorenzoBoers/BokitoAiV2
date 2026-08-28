@@ -77,9 +77,11 @@ Intelligence Stack layers are **conceptual lanes** on the canvas and in metrics 
 Everything important should map to a **small set of canonical entity types**. Prefer extending:
 
 - `Signal` / `SignalMessage` — conversation context (external and internal)
+- `ChannelAccount` — one entity for every channel (mailbox, Bokito relay address, website chat, WhatsApp, Slack); lifecycle **state**, **capabilities** and **checks** are derived per kind in `services/channel_registry.py`, so a new channel type is one resolver, not a new stack
 - `Agent`, `Workstream`, `AgentRun` — orchestration
 - `DecisionRequest` — human action objects **within** threads, not parallel list UIs
-- `WorkspaceDoc`, `DocChunk` — workspace knowledge (markdown docs + vector-indexed chunks)
+- `WorkspaceDoc`, `DocChunk` — workspace knowledge (markdown docs + vector-indexed chunks); `project_id` scopes a doc to one project (smart documentation)
+- `Project`, `ProjectQueueItem`, `ProjectDocSection`, `QueueItemDocLink`, `ProjectResource` — conversation-driven project work: **the queue is the motor, the doc is the truth, the conversation is the source**
 - `os_canvas_nodes` / `os_canvas_edges` — visual graph overlay
 - `PlatformChange`, `AuditEvent` — governable mutations
 

@@ -9,12 +9,13 @@
  * that still list 'assistant' are repaired by normalizeSidebarPrefs.
  */
 
-export type SidebarSection = 'agents' | 'channels' | 'settings'
+export type SidebarSection = 'agents' | 'channels' | 'tags' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
 export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
   'agents',
   'channels',
+  'tags',
 ]
 
 export const ALL_SECTIONS: readonly SidebarSection[] = [...MOVABLE_SECTIONS, 'settings']
@@ -28,12 +29,15 @@ export type SidebarPrefs = {
   hidden: SidebarSection[]
   /** Sections that start collapsed (header still visible). */
   collapsed: SidebarSection[]
+  /** Channel/tag folders whose sub-view list is expanded (folder scope keys). */
+  expandedLeaves: string[]
 }
 
 export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   order: [...DEFAULT_SECTION_ORDER],
   hidden: [],
   collapsed: [],
+  expandedLeaves: [],
 }
 
 const STORAGE_KEY = 'communication-sidebar-prefs'
@@ -51,25 +55,32 @@ function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
   return [...middle, 'settings']
 }
 
+function freshDefaults(): SidebarPrefs {
+  return { ...DEFAULT_SIDEBAR_PREFS, order: [...DEFAULT_SECTION_ORDER], expandedLeaves: [] }
+}
+
 /** Repair stored prefs: drop unknown sections (e.g. legacy 'assistant'), append newly added ones. */
 export function normalizeSidebarPrefs(raw: unknown): SidebarPrefs {
-  if (!raw || typeof raw !== 'object') return { ...DEFAULT_SIDEBAR_PREFS, order: [...DEFAULT_SECTION_ORDER] }
+  if (!raw || typeof raw !== 'object') return freshDefaults()
   const data = raw as Partial<Record<keyof SidebarPrefs, unknown>>
   const order = withSettingsLast(
     (Array.isArray(data.order) ? data.order.filter(isSection) : []) as SidebarSection[],
   )
   const hidden = (Array.isArray(data.hidden) ? data.hidden.filter(isSection) : []) as SidebarSection[]
   const collapsed = (Array.isArray(data.collapsed) ? data.collapsed.filter(isSection) : []) as SidebarSection[]
-  return { order, hidden, collapsed }
+  const expandedLeaves = Array.isArray(data.expandedLeaves)
+    ? data.expandedLeaves.filter((v): v is string => typeof v === 'string')
+    : []
+  return { order, hidden, collapsed, expandedLeaves }
 }
 
 export function loadSidebarPrefs(): SidebarPrefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...DEFAULT_SIDEBAR_PREFS, order: [...DEFAULT_SECTION_ORDER] }
+    if (!raw) return freshDefaults()
     return normalizeSidebarPrefs(JSON.parse(raw))
   } catch {
-    return { ...DEFAULT_SIDEBAR_PREFS, order: [...DEFAULT_SECTION_ORDER] }
+    return freshDefaults()
   }
 }
 

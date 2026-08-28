@@ -56,22 +56,37 @@ async def _reply_context(
 async def _workspace_email_account(
     session: AsyncSession, tenant_id
 ) -> ChannelAccount | None:
-    """First sendable mailbox when a thread was never bound to one."""
+    """Sendable mailbox when a thread was never bound to one.
+
+    The workspace's chosen primary wins; otherwise any channel that can send
+    right now, preferring a real mailbox over a relay address.
+    """
+    from app.services.channel_registry import can_send, resolve_channel
+
     result = await session.execute(
-        select(ChannelAccount).where(
+        select(ChannelAccount)
+        .where(
             ChannelAccount.tenant_id == tenant_id,
             ChannelAccount.channel == "email",
             ChannelAccount.is_enabled.is_(True),
         )
+        .order_by(ChannelAccount.created_at)
     )
-    accounts = list(result.scalars().all())
-    if not accounts:
+    candidates = [a for a in result.scalars().all() if can_send(resolve_channel(a))]
+    if not candidates:
         return None
-    for preferred in ("bokito", "gmail", "outlook", "mock"):
-        match = next((account for account in accounts if account.provider == preferred), None)
+    from app.channels.base import account_settings
+
+    primary = next(
+        (a for a in candidates if account_settings(a).get("is_primary")), None
+    )
+    if primary:
+        return primary
+    for preferred in ("gmail", "outlook", "bokito", "mock"):
+        match = next((a for a in candidates if a.provider == preferred), None)
         if match:
             return match
-    return accounts[0]
+    return candidates[0]
 
 
 async def deliver_outbound(

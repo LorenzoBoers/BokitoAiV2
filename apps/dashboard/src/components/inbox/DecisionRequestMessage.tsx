@@ -36,6 +36,7 @@ import {
   type ThreadId,
 } from '../../lib/inbox-api'
 import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib/reply-send-as'
+import { snoozeUntilIso, SNOOZE_PRESETS } from '../../lib/snooze'
 import { useAuth } from '../../context/AuthContext'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
@@ -149,6 +150,11 @@ function internalNoteFromOptions(options: DecisionOption[]): string {
  * keep the label the agent wrote.
  */
 function optionLabelKey(option: DecisionOption): string | null {
+  // Queue proposals: approve reads as the action it performs.
+  if (option.action_type === 'create_queue_item') {
+    if (option.id === 'approve') return 'addToQueue'
+    if (option.id === 'always_auto') return 'alwaysAllow'
+  }
   const byId: Record<string, string> = {
     send: 'send',
     edit: 'edit',
@@ -171,6 +177,7 @@ function optionLabelKey(option: DecisionOption): string | null {
     escalate: 'escalate',
     close_thread: 'closeThread',
     create_task: 'createTask',
+    create_queue_item: 'addToQueue',
     approve: 'approve',
     defer: 'keepOpen',
     reject: 'reject',
@@ -244,6 +251,13 @@ export default function DecisionRequestMessage({
   const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
   // Automated/no-reply mail: the agent proposes an action instead of a reply.
   const isActionSuggestion = !isSuggestion && options.some((o) => o.action_type === 'close_thread')
+  // Conversation-born work: the agent proposes adding an item to a project
+  // queue. Action-suggestion cards can also carry a queue option; only a card
+  // whose primary action is the queue add renders as a queue proposal.
+  const isQueueProposal =
+    !isSuggestion &&
+    !isActionSuggestion &&
+    options.some((o) => o.action_type === 'create_queue_item')
   const internalNote = useMemo(() => internalNoteFromOptions(options), [options])
   const [noteOpen, setNoteOpen] = useState(false)
 
@@ -290,8 +304,15 @@ export default function DecisionRequestMessage({
         (action === 'approve'
           ? t('decisionCard.toastApproved')
           : action === 'defer'
-            ? t('decisionCard.toastDeferred')
+            ? t('decisionCard.toastDeferredSnoozed')
             : t('decisionCard.toastRejected'))
+      if (action === 'defer') {
+        const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
+        await patchThread(token, threadId, {
+          status: 'pending',
+          snoozedUntil: tomorrow ? snoozeUntilIso(tomorrow) : null,
+        })
+      }
       toast.success(toastLabel, {
         action: result.taskId
           ? {
@@ -375,6 +396,10 @@ export default function DecisionRequestMessage({
       await resolve('approve', option.id, undefined, t('decisionCard.toastTaskCreated'))
       return
     }
+    if (option.action_type === 'create_queue_item') {
+      await resolve('approve', option.id, undefined, t('decisionCard.toastQueueAdded'))
+      return
+    }
     if (option.id === 'edit' || option.action_type === 'draft') {
       onEditDraft?.({
         body: draftBody,
@@ -442,11 +467,13 @@ export default function DecisionRequestMessage({
               resolved ? 'text-text-muted' : AI_TEXT_CLASS,
             )}
           >
-            {isActionSuggestion
-              ? t('decisionCard.titleNoReply')
-              : isSuggestion
-                ? t('decisionCard.titleSuggestedReply')
-                : t('decisionCard.titleDecision')}
+            {isQueueProposal
+              ? t('decisionCard.titleQueueProposal')
+              : isActionSuggestion
+                ? t('decisionCard.titleNoReply')
+                : isSuggestion
+                  ? t('decisionCard.titleSuggestedReply')
+                  : t('decisionCard.titleDecision')}
           </span>
           {resolved ? (
             <span className="rounded-full bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">

@@ -4,6 +4,7 @@ import {
   parseComposerDraft,
   parseQuickFilterParam,
   serializeComposerDraft,
+  suggestSavedSearchName,
   toggleOrRangeSelect,
 } from './inbox-ops'
 
@@ -51,8 +52,23 @@ describe('nextUnreadId', () => {
 describe('parseQuickFilterParam', () => {
   it('accepts URL aliases', () => {
     expect(parseQuickFilterParam('needs_reply')).toBe('needsReply')
+    expect(parseQuickFilterParam('needs_decision')).toBe('needsDecision')
+    expect(parseQuickFilterParam('awaiting_decision')).toBe('needsDecision')
     expect(parseQuickFilterParam('unread')).toBe('unread')
     expect(parseQuickFilterParam('nope')).toBeNull()
+  })
+})
+
+describe('suggestSavedSearchName', () => {
+  it('keeps a short query and trims operators', () => {
+    expect(suggestSavedSearchName('  factuur  ')).toBe('factuur')
+    expect(suggestSavedSearchName('from:sanne invoice overdue')).toBe('sanne invoice overdue')
+  })
+
+  it('shortens a long query', () => {
+    const name = suggestSavedSearchName('outstanding-invoice-reminder-for-last-quarter')
+    expect(name.endsWith('...')).toBe(true)
+    expect(name.length).toBeLessThanOrEqual(32)
   })
 })
 

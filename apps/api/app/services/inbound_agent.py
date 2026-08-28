@@ -119,6 +119,23 @@ async def create_action_suggestion(
             "payload": {},
         },
     ]
+    if signal.project_id:
+        # Project thread: the notification may be work in disguise — offer to
+        # queue it on the project alongside the generic task option.
+        options.insert(
+            2,
+            {
+                "id": "add_to_queue",
+                "label": "Add to project queue",
+                "action_type": "create_queue_item",
+                "payload": {
+                    "project_id": str(signal.project_id),
+                    "kind": "task",
+                    "title": f"Follow up: {subject}"[:120],
+                    "body": text,
+                },
+            },
+        )
 
     from app.services.notification_mail import decision_bell_status
 

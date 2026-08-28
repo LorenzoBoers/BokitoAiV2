@@ -183,9 +183,9 @@ async def send_channel_nudges(session: AsyncSession) -> int:
                 .where(
                     ChannelAccount.tenant_id == tenant.id,
                     ChannelAccount.channel.in_(_EXTERNAL_CHANNELS),
-                    # The built-in Bokito address is auto-provisioned on signup;
-                    # only a channel the user connected themselves counts.
-                    ChannelAccount.provider != "bokito",
+                    # The website chat row exists from signup; the nudge is
+                    # about channels someone connected on purpose.
+                    ChannelAccount.channel != "widget",
                 )
                 .limit(1)
             )

@@ -19,7 +19,7 @@ const ROWS: Array<{ keys: string; labelKey: string }> = [
   { keys: 'R', labelKey: 'shortcuts.reply' },
   { keys: 'C', labelKey: 'shortcuts.compose' },
   { keys: 'N', labelKey: 'shortcuts.newChat' },
-  { keys: '1–4', labelKey: 'shortcuts.quickFilters' },
+  { keys: '1–5', labelKey: 'shortcuts.quickFilters' },
   { keys: '/', labelKey: 'shortcuts.search' },
   { keys: 'Cmd+K', labelKey: 'shortcuts.commandPalette' },
   { keys: 'Cmd+Enter', labelKey: 'shortcuts.send' },

@@ -64,15 +64,15 @@ export default function SignatureEditor({
     return [
       {
         name: t('signatureEditor.templateStandard'),
-        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br>{{company}}<br>E: ${emailToken}<br>T: {{phone}}</p>`,
+        html: `<p>${t('signatureEditor.kindRegards')},<br><br><strong>{{name}}</strong><br>{{company}}<br>${t('signatureEditor.emailAbbr')}: ${emailToken}<br>${t('signatureEditor.phoneAbbr')}: {{phone}}</p>`,
       },
       {
         name: t('signatureEditor.templateShort'),
-        html: `<p>Regards,<br><strong>{{name}}</strong></p>`,
+        html: `<p>${t('signatureEditor.regards')},<br><strong>{{name}}</strong></p>`,
       },
       {
         name: t('signatureEditor.templateExtended'),
-        html: `<p>Kind regards,<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>E: ${emailToken}<br>T: {{phone}}<br>W: {{website}}</p>`,
+        html: `<p>${t('signatureEditor.kindRegards')},<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>${t('signatureEditor.emailAbbr')}: ${emailToken}<br>${t('signatureEditor.phoneAbbr')}: {{phone}}<br>${t('signatureEditor.webAbbr')}: {{website}}</p>`,
       },
     ];
   }, [mailboxEmail, t]);
@@ -265,7 +265,7 @@ export default function SignatureEditor({
                   onChange={(event) => setSignature(event.target.value)}
                   spellCheck={false}
                   aria-label={t('signatureEditor.htmlAria')}
-                  placeholder={'<p>Kind regards,<br><strong>{{name}}</strong></p>'}
+                  placeholder={`<p>${t('signatureEditor.kindRegards')},<br><strong>{{name}}</strong></p>`}
                   className="min-h-[280px] w-full resize-y rounded-md border border-border bg-bg-elevated p-4 font-mono text-xs leading-relaxed text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
                 <div className="text-xs text-text-muted space-y-1">

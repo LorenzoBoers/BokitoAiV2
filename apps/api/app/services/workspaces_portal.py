@@ -772,8 +772,8 @@ async def onboarding_status(session: AsyncSession, tenant_id: UUID) -> dict[str,
         ).first()
     )
 
-    # Any working email channel counts: the built-in Bokito address receives
-    # mail from day one, so it completes this step just like an OAuth mailbox.
+    # Any email channel counts: a Bokito relay address the workspace created
+    # completes this step just like a connected Gmail/Outlook mailbox.
     email_done = bool(
         (
             await session.execute(

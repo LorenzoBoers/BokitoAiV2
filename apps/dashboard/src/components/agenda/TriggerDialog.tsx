@@ -147,7 +147,7 @@ export default function TriggerDialog({
           enabled,
           ...(runAtIso ? { run_at: runAtIso } : {}),
         })
-        toast.success('Saved')
+        toast.success(t('triggerDialog.saved'))
         if (kind === 'webhook') {
           setSavedWebhook({
             ...trigger,
@@ -178,10 +178,10 @@ export default function TriggerDialog({
         if (kind === 'webhook' && created.webhook_secret) {
           setSavedWebhook(created)
           setRevealedSecret(created.webhook_secret)
-          toast.success('Webhook created. Copy the secret now — it is shown once.')
+          toast.success(t('triggerDialog.webhookCreated'))
           onSaved()
         } else {
-          toast.success('Scheduled')
+          toast.success(t('triggerDialog.scheduled'))
           onOpenChange(false)
           onSaved()
         }
@@ -198,7 +198,7 @@ export default function TriggerDialog({
     setDeleting(true)
     try {
       await deleteTrigger(trigger.id)
-      toast.success('Deleted')
+      toast.success(t('triggerDialog.deleted'))
       onOpenChange(false)
       onSaved()
     } catch (err) {

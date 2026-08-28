@@ -16,6 +16,8 @@ type SidebarPrefsContextValue = {
   setOrder: (order: SidebarSection[]) => void
   setSectionHidden: (section: SidebarSection, hidden: boolean) => void
   setSectionCollapsed: (section: SidebarSection, collapsed: boolean) => void
+  /** Expand/collapse a channel or tag folder's sub-view list (folder scope key). */
+  setLeafExpanded: (scopeKey: string, expanded: boolean) => void
   resetPrefs: () => void
 }
 
@@ -64,8 +66,19 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
     [update],
   )
 
+  const setLeafExpanded = useCallback(
+    (scopeKey: string, expanded: boolean) =>
+      update((prev) => ({
+        ...prev,
+        // Accordion: only one folder's sub-list open at a time — keeps the
+        // rail scannable when many channels / agents / tags exist.
+        expandedLeaves: expanded ? [scopeKey] : prev.expandedLeaves.filter((k) => k !== scopeKey),
+      })),
+    [update],
+  )
+
   const resetPrefs = useCallback(
-    () => update(() => ({ order: [...DEFAULT_SECTION_ORDER], hidden: [], collapsed: [] })),
+    () => update(() => ({ order: [...DEFAULT_SECTION_ORDER], hidden: [], collapsed: [], expandedLeaves: [] })),
     [update],
   )
 
@@ -85,6 +98,7 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
       setOrder,
       setSectionHidden,
       setSectionCollapsed,
+      setLeafExpanded,
       resetPrefs,
     }),
     [
@@ -94,6 +108,7 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
       setOrder,
       setSectionHidden,
       setSectionCollapsed,
+      setLeafExpanded,
       resetPrefs,
     ],
   )

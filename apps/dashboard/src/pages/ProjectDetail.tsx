@@ -24,13 +24,18 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
+import { Switch } from '../components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectAgentsSection } from '../components/projects/ProjectAgentsSection'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
+import { ProjectDocs } from '../components/projects/ProjectDocs'
 import { ProjectOrchestratorSection } from '../components/projects/ProjectOrchestratorSection'
+import { ProjectQueue } from '../components/projects/ProjectQueue'
 import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
+import { ProjectResourcesSection } from '../components/projects/ProjectResourcesSection'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
@@ -87,6 +92,7 @@ export default function ProjectDetail() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
+  const [togglingAutonomy, setTogglingAutonomy] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -169,6 +175,24 @@ export default function ProjectDetail() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [dirty, saving, name, saveAbout])
+
+  const toggleAutonomy = async (checked: boolean) => {
+    if (!project) return
+    setTogglingAutonomy(true)
+    try {
+      const updated = await patchProject(project.id, { autonomous_mode: checked })
+      setProject(updated)
+      toast.success(
+        checked
+          ? t('projects.detail.autonomousModeOn')
+          : t('projects.detail.autonomousModeOff'),
+      )
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('projects.detail.saveError')))
+    } finally {
+      setTogglingAutonomy(false)
+    }
+  }
 
   const confirmDelete = async () => {
     if (!project) return
@@ -255,6 +279,22 @@ export default function ProjectDetail() {
             </p>
           ) : null}
 
+          <Tabs defaultValue="queue">
+            <TabsList>
+              <TabsTrigger value="queue">{t('projects.detail.tabQueue')}</TabsTrigger>
+              <TabsTrigger value="docs">{t('projects.detail.tabDocs')}</TabsTrigger>
+              <TabsTrigger value="settings">{t('projects.detail.tabSettings')}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="queue">
+              <ProjectQueue projectId={project.id} canEdit={isAdmin} />
+            </TabsContent>
+
+            <TabsContent value="docs">
+              <ProjectDocs projectId={project.id} canEdit={isAdmin} />
+            </TabsContent>
+
+            <TabsContent value="settings" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -432,8 +472,13 @@ export default function ProjectDetail() {
                   {t('projects.detail.repository')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <ProjectRepoSection project={project} onChanged={load} canEdit={isAdmin} />
+                <div className="space-y-1.5 border-t border-border/40 pt-3">
+                  <Label className="text-xs text-text-muted">{t('projects.detail.resources')}</Label>
+                  <p className="text-[11px] text-text-muted">{t('projects.detail.resourcesHint')}</p>
+                  <ProjectResourcesSection projectId={project.id} canEdit={isAdmin} />
+                </div>
               </CardContent>
             </Card>
 
@@ -490,6 +535,20 @@ export default function ProjectDetail() {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t('projects.detail.descriptionPlaceholder')}
                     disabled={!isAdmin}
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-heading">
+                      {t('projects.detail.autonomousMode')}
+                    </p>
+                    <p className="text-xs text-text-muted">{t('projects.detail.autonomousModeHint')}</p>
+                  </div>
+                  <Switch
+                    checked={Boolean(project.autonomous_mode)}
+                    disabled={!isAdmin || togglingAutonomy}
+                    onCheckedChange={(checked) => void toggleAutonomy(checked)}
+                    aria-label={t('projects.detail.autonomousMode')}
                   />
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -572,6 +631,8 @@ export default function ProjectDetail() {
               />
             )}
           </section>
+            </TabsContent>
+          </Tabs>
         </>
       )}
 

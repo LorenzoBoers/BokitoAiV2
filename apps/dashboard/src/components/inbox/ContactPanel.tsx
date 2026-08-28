@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { toast } from 'sonner'
-import { BookOpen, Building2, CalendarClock, Check, Loader2, Mail, Phone, ShieldBan, UserRound } from 'lucide-react'
+import { Building2, Check, Loader2, Mail, Phone, ShieldBan, Users, UserRound } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
-import { DomainFavicon } from '../ui/DomainFavicon'
+import { PersonAvatar } from '../ui/PersonAvatar'
 import { useAuth } from '../../context/AuthContext'
 import {
   findThreadsForContact,
@@ -16,15 +17,27 @@ import {
   type ContactStatus,
 } from '../../lib/contacts-api'
 import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../../lib/contact-label'
-import type { InboxThread, ThreadId } from '../../lib/inbox-api'
+import type { InboxMember, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { canComposeToAddress, composeEmailPath, newContactPath } from '../../lib/compose-intent'
-import { threadLooksFinancial } from '../../lib/thread-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
+import { useMembers } from '../../hooks/useMembers'
 import { threadStatusLabel } from '../../lib/status-labels'
-import { patchSignalThread } from '../../lib/signals-api'
-import { snoozeUntilIso, SNOOZE_PRESETS } from '../../lib/snooze'
-import { ThreadProjectPicker } from './ThreadProjectPicker'
+
+function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
+  const email = (address || '').trim().toLowerCase()
+  if (!email || !email.includes('@')) return undefined
+  return members.find((m) => m.email?.trim().toLowerCase() === email)
+}
+
+function roleLabel(
+  role: string | null | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  if (role === 'owner') return t('contactPanel.roleOwner')
+  if (role === 'admin') return t('contactPanel.roleAdmin')
+  return t('contactPanel.roleMember')
+}
 
 type Props = {
   contactId: string | null
@@ -34,7 +47,6 @@ type Props = {
   currentThreadId?: ThreadId | null
   threadSubject?: string | null
   threadPreview?: string | null
-  projectId?: string | null
   onUpdated?: () => void
 }
 
@@ -66,12 +78,11 @@ export default function ContactPanel({
   currentThreadId,
   threadSubject,
   threadPreview,
-  projectId,
   onUpdated,
 }: Props) {
   const { t } = useTranslation('communication')
-  const navigate = useNavigate()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const { members } = useMembers()
   const { activeConnections } = useMailboxConnections()
   const canSendEmail = activeConnections.length > 0
   const [contact, setContact] = useState<ContactRow | null>(null)
@@ -129,6 +140,8 @@ export default function ContactPanel({
     void load()
   }, [load])
 
+  useUnsavedChangesGuard(notesDirty, t('contactPanel.notesUnsavedLeave'))
+
   const saveNotes = async () => {
     if (!token || !contact || saving) return
     setSaving(true)
@@ -167,30 +180,6 @@ export default function ContactPanel({
     }
   }
 
-  const followUpTomorrow = async () => {
-    if (!token || !currentThreadId || saving) return
-    const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
-    if (!tomorrow) return
-    setSaving(true)
-    try {
-      await patchSignalThread(token, String(currentThreadId), {
-        status: 'pending',
-        snoozedUntil: snoozeUntilIso(tomorrow),
-      })
-      toast.success(t('contactPanel.followUpSet'), {
-        action: {
-          label: t('threadChrome.openAgenda'),
-          onClick: () => navigate('/agenda'),
-        },
-      })
-      onUpdated?.()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('contactPanel.followUpError')))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const setStatus = async (status: ContactStatus) => {
     if (!token || !contact || saving) return
     setSaving(true)
@@ -209,6 +198,54 @@ export default function ContactPanel({
       <div className="flex items-center gap-2 px-4 py-4 text-sm text-text-muted">
         <Loader2 className="h-4 w-4 animate-spin" />
         {t('contactPanel.loading')}
+      </div>
+    )
+  }
+
+  const teammate =
+    findMemberByAddress(members, contact?.address) ||
+    findMemberByAddress(members, fallbackEmail)
+  const isSelf =
+    Boolean(teammate) &&
+    Boolean(user?.email) &&
+    teammate!.email.trim().toLowerCase() === user!.email.trim().toLowerCase()
+
+  if (teammate) {
+    return (
+      <div className="flex flex-col">
+        <div className="border-b border-border/40 px-4 pb-3 pt-4">
+          <div className="flex items-start gap-2.5">
+            <PersonAvatar
+              name={teammate.name}
+              email={teammate.email}
+              size={36}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13.5px] font-semibold text-text-heading">
+                {teammate.name || teammate.email}
+              </p>
+              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-accent/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-accent">
+                <Users size={9} />
+                {isSelf ? t('contactPanel.you') : t('contactPanel.teammate')}
+              </span>
+              <p className="mt-1 truncate text-[11.5px] text-text-muted">
+                {roleLabel(teammate.role, t)}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            <FieldRow icon={Mail} value={teammate.email} />
+          </div>
+          <p className="mt-2 text-[11px] text-text-muted">{t('contactPanel.teammateHint')}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <Link
+              to="/settings/members"
+              className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+            >
+              {t('contactPanel.openMembers')}
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
@@ -258,7 +295,7 @@ export default function ContactPanel({
   }
 
   const previousThreads = threads.filter(
-    (t) => String(t.id) !== String(currentThreadId ?? ''),
+    (row) => String(row.id) !== String(currentThreadId ?? ''),
   )
 
   return (
@@ -266,11 +303,7 @@ export default function ContactPanel({
       {/* Identity card */}
       <div className="border-b border-border/40 px-4 pb-3 pt-4">
         <div className="flex items-start gap-2.5">
-          <DomainFavicon
-            email={contact.address}
-            name={contact.displayName || contact.address}
-            size={36}
-          />
+          <PersonAvatar name={contact.displayName} email={contact.address} size={36} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13.5px] font-semibold text-text-heading">
               {humanizeContactName(contact.displayName, contact.address, t('contactPanel.widgetVisitor')) ||
@@ -278,6 +311,21 @@ export default function ContactPanel({
                 (!isPlaceholderContactAddress(contact.address) && contact.address) ||
                 t('contactPanel.unknown')}
             </p>
+            <span
+              className={`mt-0.5 inline-flex rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
+                contact.status === 'blocked'
+                  ? 'bg-status-error/12 text-status-error'
+                  : contact.status === 'pending'
+                    ? 'bg-status-warning/15 text-status-warning'
+                    : 'bg-status-success/12 text-status-success'
+              }`}
+            >
+              {contact.status === 'blocked'
+                ? t('contactPanel.statusBlocked')
+                : contact.status === 'pending'
+                  ? t('contactPanel.statusPending')
+                  : t('contactPanel.statusApproved')}
+            </span>
             {contact.title || contact.company ? (
               <p className="truncate text-[11.5px] text-text-muted">
                 {[contact.title, contact.company].filter(Boolean).join(' - ')}
@@ -297,7 +345,11 @@ export default function ContactPanel({
           <FieldRow icon={Phone} value={contact.phone} />
           {contact.company ? (
             <Link
-              to={`/contacts?q=${encodeURIComponent(contact.company)}`}
+              to={
+                contact.companyId
+                  ? `/contacts/companies/${contact.companyId}`
+                  : `/contacts?q=${encodeURIComponent(contact.company)}`
+              }
               className="flex items-center gap-2 text-[12.5px] text-text-primary hover:text-accent"
             >
               <Building2 size={13} className="shrink-0 text-text-muted" />
@@ -344,7 +396,18 @@ export default function ContactPanel({
             </button>
           </form>
         ) : null}
-        <div className="mt-3 flex gap-1.5">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {contact.status === 'pending' ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void setStatus('approved')}
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+            >
+              <Check size={11} />
+              {t('contactPanel.approve')}
+            </button>
+          ) : null}
           {contact.status !== 'blocked' ? (
             <button
               type="button"
@@ -355,12 +418,23 @@ export default function ContactPanel({
                   void setStatus('blocked')
                 }
               }}
-              className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
+              title={t('contactPanel.block')}
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
             >
               <ShieldBan size={11} />
               {t('contactPanel.block')}
             </button>
-          ) : null}
+          ) : (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void setStatus('approved')}
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+            >
+              <Check size={11} />
+              {t('contactPanel.unblock')}
+            </button>
+          )}
           {canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
             <Link
               to={composeEmailPath({
@@ -369,7 +443,8 @@ export default function ContactPanel({
                   ? /^re:/i.test(threadSubject) ? threadSubject : `Re: ${threadSubject}`
                   : undefined,
               })}
-              className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              title={t('contactPanel.writeEmail')}
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <Mail size={11} />
               {t('contactPanel.writeEmail')}
@@ -377,44 +452,12 @@ export default function ContactPanel({
           ) : null}
           <Link
             to={`/contacts/${contact.id}`}
-            className="ml-auto flex items-center rounded-md px-2 py-1 text-[11px] font-medium text-accent hover:underline"
+            className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-1 text-[11px] font-medium text-accent hover:underline"
           >
             {t('contactPanel.fullProfile')}
           </Link>
         </div>
       </div>
-
-      {threadLooksFinancial(threadSubject, threadPreview) ? (
-        <div className="border-b border-border/40 px-4 py-3">
-          <Link
-            to="/settings/modules/accounting"
-            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
-          >
-            <BookOpen size={12} />
-            {t('contactPanel.openBookkeeping')}
-          </Link>
-          <p className="mt-1 text-[11px] text-text-muted">{t('contactPanel.openBookkeepingHint')}</p>
-        </div>
-      ) : null}
-
-      {currentThreadId ? (
-        <div className="border-b border-border/40 px-4 py-3 space-y-2">
-          <ThreadProjectPicker
-            threadId={currentThreadId}
-            projectId={projectId ?? null}
-            onUpdated={onUpdated}
-          />
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void followUpTomorrow()}
-            className="flex w-full items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 text-left text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
-          >
-            <CalendarClock size={12} />
-            {t('contactPanel.followUpTomorrow')}
-          </button>
-        </div>
-      ) : null}
 
       {/* Notes */}
       <div className="border-b border-border/40 px-4 py-3">
@@ -430,15 +473,18 @@ export default function ContactPanel({
           className="w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
         {notesDirty ? (
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void saveNotes()}
-            className="mt-1.5 flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
-            <Check size={11} />
-            {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
-          </button>
+          <div className="mt-1.5 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void saveNotes()}
+              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+            >
+              <Check size={11} />
+              {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
+            </button>
+            <span className="text-[11px] text-status-warning">{t('contactPanel.notesUnsaved')}</span>
+          </div>
         ) : null}
       </div>
 

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Bot, Globe, Hash, Mail, MessageCircle, MessageSquare, MessagesSquare } from 'lucide-react'
+import { Bot, Globe, Hash, Mail, MessageCircle, MessageCircleMore, MessagesSquare } from 'lucide-react'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
 import { cn } from '../../lib/utils'
 
@@ -17,7 +17,7 @@ export function channelKind(channel: string): string {
 
 const CHANNEL_ICONS: Record<string, LucideIcon> = {
   email: Mail,
-  widget: MessageSquare,
+  widget: MessageCircleMore,
   slack: Hash,
   whatsapp: MessageCircle,
   api: Globe,
@@ -25,14 +25,14 @@ const CHANNEL_ICONS: Record<string, LucideIcon> = {
   integration: Globe,
   internal: MessagesSquare,
   assistant: Bot,
-  webchat: Globe,
+  webchat: MessageCircleMore,
 }
 
+// Only true third-party brands get a logo image; email and website chat use
+// the crisp SVG icons above so they stay legible at small sizes.
 const CHANNEL_BRAND: Record<string, string> = {
   slack: 'slack',
   whatsapp: 'whatsapp',
-  email: 'smtp',
-  widget: 'bokito',
 }
 
 type GlyphProps = {

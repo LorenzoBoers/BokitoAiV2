@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, Loader2, Wrench } from 'lucide-react'
+import { Bot, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, Loader2, Wrench, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import ChatMarkdown from './ChatMarkdown'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { closeAgentSession, type ThreadSession } from '../../lib/signals-api'
+import { closeAgentSession, discardAgentSession, type ThreadSession } from '../../lib/signals-api'
 import { bokitoListMessages, type ChatMessage } from '../../lib/bokito-api'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import DirectChatPanel from './DirectChatPanel'
@@ -101,6 +101,10 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
   const { token } = useAuth()
   const [closing, setClosing] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  // A session becomes history at its first turn. Before that it is still a
+  // choice the operator can undo, so it cancels instead of checking out.
+  const [sentTurn, setSentTurn] = useState(false)
+  const started = session.messageCount > 0 || sentTurn
 
   const endSession = async () => {
     if (!token || closing) return
@@ -111,6 +115,19 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
       onChanged()
     } catch {
       toast.error(t('agentSession.closeError'))
+    } finally {
+      setClosing(false)
+    }
+  }
+
+  const cancelSession = async () => {
+    if (!token || closing) return
+    setClosing(true)
+    try {
+      await discardAgentSession(token, threadId, session.id)
+      onChanged()
+    } catch {
+      toast.error(t('agentSession.cancelError'))
     } finally {
       setClosing(false)
     }
@@ -141,16 +158,29 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
               {t('agentSession.openAgent')}
             </Link>
           ) : null}
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={closing}
-            onClick={() => void endSession()}
-            className="h-7 gap-1.5 px-2.5 text-[11.5px]"
-          >
-            {closing ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
-            {closing ? t('agentSession.ending') : t('agentSession.endSession')}
-          </Button>
+          {started ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={closing}
+              onClick={() => void endSession()}
+              className="h-7 gap-1.5 px-2.5 text-[11.5px]"
+            >
+              {closing ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+              {closing ? t('agentSession.ending') : t('agentSession.endSession')}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={closing}
+              onClick={() => void cancelSession()}
+              className="h-7 gap-1.5 px-2.5 text-[11.5px] text-text-muted"
+            >
+              {closing ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+              {t('agentSession.cancel')}
+            </Button>
+          )}
         </div>
         <div className="h-[420px]">
           <DirectChatPanel
@@ -159,6 +189,8 @@ export default function AgentSessionCard({ session, threadId, onChanged, onUseAs
             onCopyText={onUseAsReply}
             copyLabel={t('agentSession.useAsReply')}
             composerPlaceholder={t('agentSession.composerPlaceholder')}
+            onSent={() => setSentTurn(true)}
+            onRefreshThreads={onChanged}
           />
         </div>
       </div>

@@ -80,7 +80,7 @@ WhatsApp is a native inbox channel via the Meta Cloud API. V1 is bring-your-own 
 - Threading: one continuous Signal per customer number (`thread_external_id` = wa_id); dedupe on `wamid`
 - Outbound: `deliver_outbound` → Graph `POST /{phone_number_id}/messages` (text). Sends outside Meta's 24h customer-service window fail as `failed:outside_service_window`; expired tokens as `failed:auth`
 - Media inbound is stored as a placeholder (`[Image received]` + caption) with the media id in message metadata; media download and template messages are V2
-- UI: connect card on `/settings/channels` (WhatsAppConnectCard), rail entry in the Messages hub, AI mode (suggest default) on `/settings/communication`, marketplace tile links to the channel settings
+- UI: Add channel dialog on `/settings/channels` (WhatsAppConnectForm), rail entry in the Messages hub, AI mode (suggest default) on `/settings/communication`, marketplace tile links to the channel settings
 
 **Tenant setup (own Meta app):**
 

@@ -1,42 +1,68 @@
 ---
 title: Kanalen koppelen
 intro: Breng klantmail en andere inboxen naar Communicatie.
-description: Gebruik het ingebouwde Bokito-adres of koppel Gmail en Outlook, plus handtekeningen, routing en sjablonen.
-keywords: kanalen, gmail, outlook, mailbox, bokito-adres, routing, handtekening
+description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, WhatsApp of Slack, en lees de status en controles per kanaal.
+keywords: kanalen, gmail, outlook, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
 
 # Kanalen koppelen
 
-Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **E-mail en berichten**. Elke workspace heeft al een Bokito-adres; voeg Gmail of Outlook toe wanneer mail vanaf je eigen domein moet vertrekken.
+Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **E-mail en berichten**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij in de lijst **Kanalen** met dezelfde status, mogelijkheden en controles. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
 
-## Gebruik het Bokito-adres
+## Voeg een kanaal toe
+
+![Kanaalinstellingen met de kanalenlijst](/api/docs/assets/channels/mailbox-status.png)
+*Elk kanaal is één rij met een statusbadge, mogelijkheden en eigen controles.*
 
 1. Open **Instellingen** en daarna **E-mail en berichten**.
-2. Kopieer bovenaan **Je Bokito-adres**. Het is ingebouwd en klaar om te ontvangen.
-3. Deel het, of zet doorsturen vanaf een bestaande mailbox. Inbound mail landt in [Communicatie](/docs/inbox/communication). Antwoorden gaan vanaf dit adres.
+2. Kies **Kanaal toevoegen**.
+3. Kies **E-mail**, **WhatsApp Business**, **Slack-workspace** of **Websitechat**. **E-mail** opent een tweede stap met **Gmail**, **Outlook**, **SMTP / IMAP** en **Bokito-adres**.
+4. Rond het formulier voor die keuze af. De nieuwe rij verschijnt in de lijst **Kanalen**.
 
-Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
+SMTP / IMAP is nog niet beschikbaar. Gebruik een Bokito-adres en stuur je mail ernaartoe.
+
+## Maak een Bokito-adres aan
+
+1. Kies **Kanaal toevoegen**, daarna **E-mail** en dan **Bokito-adres**.
+2. Typ een **Prefix** van 3 tot 24 tekens, alleen letters, cijfers en streepjes. De voorbeeldregel onder **Je adres wordt** toont het volledige adres, bijvoorbeeld `support-acme@in.bokito.ai`.
+3. Let op de teller: een workspace heeft maximaal drie adressen. Namen als `postmaster` en `noreply` zijn gereserveerd.
+4. Kies **Adres aanmaken** en daarna **Kopiëren**.
+5. Deel het adres, of stuur mail vanaf je bestaande mailbox ernaartoe. Inkomende mail landt in [Communicatie](/docs/inbox/communication) en antwoorden gaan vanaf dit adres.
+
+Een Bokito-adres ontvangt en verstuurt; het synchroniseert niet, dus het toont geen mappen of laatste sync.
 
 ## Koppel Gmail of Outlook
 
-![Kanaalinstellingen met mailboxen](/api/docs/assets/channels/mailbox-status.png)
-*Mailboxstatus, sync en routing staan bij E-mail en berichten.*
+1. Kies **Kanaal toevoegen** en daarna **E-mail**.
+2. Kies **Gmail** of **Outlook** om de inlogprompt van de provider te openen.
+3. Terug in de lijst open je het rijmenu voor **Nu synchroniseren**, **Mappen**, **Handtekening**, **Routing**, **Primaire afzender maken** of **Verwijderen**.
+4. Staat er **Actie nodig** op de statusbadge, kies dan **Opnieuw koppelen** voordat je verstuurt.
 
-1. Kies **Mailbox koppelen** en start **Gmail** of **Outlook**.
-2. Rond de accountprompt af. Wacht tot inbound mail als gesprekken verschijnt.
-3. Open het rijmenu voor **Nu synchroniseren**, **Mappen**, **Handtekening**, **Routing**, **Primair maken** of **Verwijderen**. Outlook-**Mappen** opent **Mappen kiezen om te synchroniseren**.
-4. Als de status verlopen is of auth nodig heeft, koppel opnieuw voordat je verstuurt.
+Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 
-Het ingebouwde Bokito-adres hoeft niet te synchroniseren of opnieuw te koppelen. Gekoppelde mailboxen tonen de laatste sync.
+## Lees de status en controles van een kanaal
+
+1. Bekijk de statusbadge op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd** of **Fout**.
+2. De labels ernaast tonen wat het kanaal kan: **Ontvangen**, **Verzenden**, **Sync**.
+3. Klik op het pijltje vooraan de rij om **Controles** te openen. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
+4. Bij een mailbox bepaalt **Geschiedenis** in hetzelfde paneel hoe ver terug mail wordt bijgehaald bij (opnieuw) koppelen.
+5. Gebruik de schakelaar om een kanaal te pauzeren. Een gepauzeerd kanaal houdt zijn historie maar ontvangt niets nieuws.
 
 ## Zet een handtekening en routing
 
-1. Blijf op E-mail en berichten. Open het mailboxmenu en daarna **Handtekening**. Uitgaande mail vanaf die mailbox voegt die toe.
+1. Open het rijmenu van een mailbox en daarna **Handtekening**. Uitgaande mail vanaf die mailbox voegt die toe.
 2. Open **Routing**. De pagina heet **Routingregels**. Kies **Regel toevoegen**. Regels lopen van boven naar beneden; de eerste match wint. Versleep om te herordenen.
 3. Zet **Type voorwaarde** op **Afzenderdomein**, **Onderwerp bevat** of **Mailbox**, daarna **Toewijzen aan** een persoon (of **Niet toewijzen**) en optioneel **Labels**. Zet **Regel is actief** aan.
-4. Scroll naar **Kanaalrouting** (los van mailboxregels). Kies **Route toevoegen**, kies het kanaal, optioneel account, prioriteit en agent. **Pauzeren** zet een route uit zonder te verwijderen. Zonder route behandelt de **lead agent** nieuwe gesprekken. Maak één mailbox **Primair** als je er meerdere hebt.
+4. Gebruik de kolom **Agent** op de rij om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder route behandelt de **lead agent** nieuwe gesprekken. Maak één e-mailkanaal **Primair** als je er meerdere hebt.
+
+## Koppel WhatsApp of Slack
+
+1. Kies **Kanaal toevoegen** en daarna **WhatsApp Business** of **Slack-workspace**. Marketplacekaarten voor deze apps sturen je hier ook heen.
+2. Voor WhatsApp vul je **Telefoonnummer-ID** en **Toegangstoken** in (een permanent System User-token) en kies je **Nummer koppelen**. Kopieer **Webhook-URL** en **Verify token** naar het Meta App Dashboard onder WhatsApp, Configuration. Tijdelijke Meta-tokens verlopen na 24 uur.
+3. Voor Slack vul je **Bot-token** en **Signing secret** in en kies je **Workspace koppelen**. Kopieer **Events-URL** en **Interactivity-URL** naar je Slack-app. Keuzekaarten kunnen daar binnenkomen met **Goedkeuren** en **Weigeren**.
+4. Websitechat is de [Chatwidget](/docs/inbox/widget); die rij opent de widgetinstellingen. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
 
 ## Bewaar antwoorden die het team hergebruikt
 
@@ -44,12 +70,13 @@ Het ingebouwde Bokito-adres hoeft niet te synchroniseren of opnieuw te koppelen.
 2. Maak een titel en tekst, of sla een concept op vanuit de composer in een gesprek.
 3. Iedereen kan een opgeslagen antwoord invoegen tijdens het antwoorden in Communicatie.
 
-## Koppel WhatsApp of Slack
+## Kies standaard submappen en beheer tags
 
-1. Blijf op E-mail en berichten. Scroll naar **WhatsApp** of **Slack**. Marketplacekaarten voor deze apps sturen je hier ook heen.
-2. Voor WhatsApp kies je **WhatsApp koppelen**. Vul **Telefoonnummer-ID** en **Toegangstoken** in (een permanent System User-token) en kies **Nummer koppelen**. Kopieer **Webhook-URL** en **Verify token** naar het Meta App Dashboard onder WhatsApp, Configuration. Tijdelijke Meta-tokens verlopen na 24 uur.
-3. Voor Slack kies je **Slack koppelen**. Vul **Bot-token** en **Signing secret** in en kies **Workspace koppelen**. Kopieer **Events-URL** en **Interactivity-URL** naar je Slack-app. Keuzekaarten kunnen daar binnenkomen met **Goedkeuren** en **Weigeren**.
-4. Websitechat is de [Chatwidget](/docs/inbox/widget). Na het koppelen verschijnen die kanalen in de Communicatie-zijbalk.
+1. Scroll naar **Mappen en tags** op dezelfde pagina (of open `#tags` via het tandwiel dat verschijnt als je over de sectie **Tags** in de Communicatie-zijbalk beweegt).
+2. Elke kanaal-, tag- en agentmap in Communicatie heeft dezelfde submappen: **Open**, **Van mij**, **Niet toegewezen** en **Gesloten**. Submappen verschijnen pas als je op de map klikt. Kies de **Standaard submap** waarmee een map opent, en wijk daar per kanaal of assistent van af.
+3. De lijst **Tags** is je hele tagvocabulaire, met per tag hoeveel gesprekken die gebruiken. Vul een **Tagnaam** in en kies **Tag toevoegen** om een tag aan te maken voordat een gesprek die draagt.
+4. Kies **Vastzetten** bij een tag om die als map onder Tags in de Communicatie-zijbalk te houden. Tags die al op gesprekken staan verschijnen daar ook, en een gesprek met meerdere tags komt onder elke tag terug.
+5. Vul **Wanneer gebruik je deze tag** in om AI-tagging te sturen: triage en agents mogen alleen tags uit deze lijst gebruiken en volgen die hint. Hernoem een tag om elk gesprek in een keer bij te werken, of verwijder de tag overal.
 
 ## Wat nu
 

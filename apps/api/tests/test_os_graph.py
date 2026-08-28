@@ -33,11 +33,22 @@ async def _seed_project(session_override, tenant_id) -> Project:
         slug="os-graph",
         autonomous_scope="Test scope for graph",
         po_agent_id=po.id,
-        github_repo_full_name="test/repo",
-        repo_index_status="ready",
     )
     session_override.add(project)
     await session_override.flush()
+    from app.models.project_work import ProjectResource
+
+    session_override.add(
+        ProjectResource(
+            tenant_id=tenant_id,
+            project_id=project.id,
+            resource_type="repo",
+            provider="github",
+            label="test/repo",
+            external_ref="test/repo",
+            sync_status="ready",
+        )
+    )
     session_override.add(
         Workstream(
             tenant_id=tenant_id,

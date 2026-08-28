@@ -17,7 +17,7 @@ Dit is de kortste weg van een verse workspace naar echt werk.
 *Open Instellingen en daarna E-mail en berichten.*
 
 1. Open **Instellingen** en daarna **E-mail en berichten**.
-2. Kopieer **Je Bokito-adres** en stuur een testmail, of koppel Gmail of Outlook als antwoorden vanaf je eigen domein moeten vertrekken.
+2. Kies **Kanaal toevoegen** en daarna **Bokito-adres**, kies een prefix en stuur er een testmail naartoe — of koppel Gmail of Outlook als antwoorden vanaf je eigen domein moeten vertrekken.
 3. Inbound mail verschijnt binnen een paar minuten als gesprekken in Communicatie. Zie [Kanalen](/docs/inbox/channels).
 
 ## 2. Open je eerste gesprek

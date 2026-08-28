@@ -56,13 +56,17 @@ async def operational_error_handler(_request: Request, exc: OperationalError) ->
 
 async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
     detail = exc.detail
+    extras: dict = {}
     if isinstance(detail, dict):
         message = detail.get("message", str(detail))
         code = detail.get("code", "http_error")
+        # Structured errors keep their payload (for example a suggested
+        # alternative address) so the UI can act on it, not just print it.
+        extras = {k: v for k, v in detail.items() if k not in ("message", "code")}
     else:
         message = str(detail)
         code = "http_error"
     return JSONResponse(
         status_code=exc.status_code,
-        content={"error": {"code": code, "message": message}},
+        content={"error": {"code": code, "message": message, **extras}},
     )

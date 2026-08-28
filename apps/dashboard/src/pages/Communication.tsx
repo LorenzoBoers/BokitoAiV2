@@ -10,9 +10,12 @@ import {
   leafFromPath,
   leafKey,
   leafPath,
+  SUB_QUEUE_TO_VIEW,
+  tagPath,
   type HubLeaf,
   type InboxQueue,
   type RunsQueue,
+  type SubQueue,
 } from '../lib/messages-paths'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
@@ -74,7 +77,6 @@ import {
 import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
 import { listAgents } from '../lib/agents-api'
 import { listProjects } from '../lib/projects-api'
-import { threadLooksFinancial } from '../lib/thread-intent'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
@@ -90,6 +92,9 @@ const INBOX_QUEUE_TO_VIEW: Record<InboxQueue, View> = {
   closed: 'closed',
   spam: 'spam',
 }
+
+/** Sub-queue (channel/tag/agent sub-folder) → server view. No queue = "all". */
+// SUB_QUEUE_TO_VIEW is shared with DirectCommunication (messages-paths.ts).
 
 const RUNS_QUEUE_TO_VIEW: Record<string, View> = {
   all: 'internal',
@@ -116,7 +121,7 @@ function configForLeaf(leaf: HubLeaf): LeafConfig {
   switch (leaf.type) {
     case 'inbox':
       return {
-        filters: { folder: 'inbox', view: INBOX_QUEUE_TO_VIEW[leaf.queue] },
+        filters: { folder: 'inbox', view: INBOX_QUEUE_TO_VIEW[leaf.queue ?? 'all'] },
         mode: 'customer',
         variant: 'customer',
       }
@@ -137,11 +142,12 @@ function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     case 'channel': {
+      const view: View = leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all'
       if (leaf.channelKey === 'email') {
         return {
           filters: {
             folder: 'external',
-            view: 'all',
+            view,
             connectionId: leaf.connectionId ? Number(leaf.connectionId) : undefined,
           },
           mode: 'customer',
@@ -154,11 +160,21 @@ function configForLeaf(leaf: HubLeaf): LeafConfig {
       const channel =
         leaf.channelKey === 'webchat' ? 'widget' : leaf.channelKey === 'internal' ? 'internal' : leaf.channelKey
       return {
-        filters: { view: 'all', channel },
+        filters: { view, channel },
         mode: leaf.channelKey === 'internal' ? 'agent' : 'customer',
         variant: 'customer',
       }
     }
+    case 'tag':
+      return {
+        filters: {
+          folder: 'inbox',
+          view: leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all',
+          tag: leaf.tag,
+        },
+        mode: 'customer',
+        variant: 'customer',
+      }
     default:
       // assistant/agent chats are handled by DirectCommunication
       return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
@@ -171,6 +187,8 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
       return threads.filter((t) => t.hasUnread)
     case 'needsReply':
       return threads.filter((t) => threadNeedsReply(t))
+    case 'needsDecision':
+      return threads.filter((t) => t.hasOpenDecision)
     case 'pinned':
       return threads.filter((t) => t.isPinned)
     default:
@@ -234,6 +252,21 @@ export default function Communication() {
       ? t('threadList.scopeProject', { name: scopeName || t('threadList.scopeProjectFallback') })
       : null
 
+  // A tag has exactly one surface: its folder under Tags. Clicking a tag chip
+  // in the list navigates there, so the URL, the sidebar, and the list agree.
+  const activeTag = leaf.type === 'tag' ? leaf.tag : null
+
+  const openTagFolder = useCallback(
+    (tag: string) => {
+      navigate(tagPath(tag))
+    },
+    [navigate],
+  )
+
+  const leaveTagFolder = useCallback(() => {
+    navigate(inboxPath(leaf.type === 'tag' ? leaf.queue ?? 'open' : 'open'))
+  }, [leaf, navigate])
+
   const clearScope = useCallback(() => {
     const next = new URLSearchParams(searchParams)
     next.delete('agent')
@@ -249,6 +282,7 @@ export default function Communication() {
   }, [refreshNavBadges])
 
   const selectedThreadId: ThreadId | null = threadIdParam ?? null
+  const [skipMarkRead, setSkipMarkRead] = useState(false)
 
   const { search, setSearch, listSearch, quickFilter, setQuickFilter } = useInboxCommunication()
   const inboxQuery = useMemo(() => {
@@ -260,9 +294,11 @@ export default function Communication() {
     return query ? `?${query}` : ''
   }, [projectId, agentIdFilter, quickFilter])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
+  // Contact context panel: open by default; closing it only lasts for the
+  // current browser session (sessionStorage), so it returns on the next visit.
   const [showContactPanel, setShowContactPanel] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
-    const stored = window.localStorage.getItem('inbox.contactPanel.open')
+    const stored = window.sessionStorage.getItem('inbox.contactPanel.open')
     return stored === null ? true : stored === '1'
   })
 
@@ -270,7 +306,7 @@ export default function Communication() {
     setShowContactPanel((prev) => {
       const next = !prev
       try {
-        window.localStorage.setItem('inbox.contactPanel.open', next ? '1' : '0')
+        window.sessionStorage.setItem('inbox.contactPanel.open', next ? '1' : '0')
       } catch {
         // ignore storage failures (private mode etc.)
       }
@@ -297,9 +333,6 @@ export default function Communication() {
 
   const { pinnedIds, addPin, removePin } = usePinnedIds()
 
-  // Label filter: set by clicking a tag chip in the list, cleared via the
-  // filter pill. Server-side (`GET /signals?tag=`). Persist across queues.
-  const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [assigneeFilter, setAssigneeFilter] = useState<number | null>(null)
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
   const [channelFilter, setChannelFilter] = useState<string | null>(null)
@@ -320,10 +353,11 @@ export default function Communication() {
     [setQuickFilter, setSearchParams],
   )
 
+  const urlFilter = searchParams.get('filter')
   useEffect(() => {
-    const fromUrl = parseQuickFilterParam(searchParams.get('filter'))
-    if (fromUrl && fromUrl !== quickFilter) setQuickFilter(fromUrl)
-  }, [searchParams, quickFilter, setQuickFilter])
+    const fromUrl = parseQuickFilterParam(urlFilter)
+    if (fromUrl) setQuickFilter(fromUrl)
+  }, [urlFilter, setQuickFilter])
 
   const {
     threads,
@@ -343,9 +377,9 @@ export default function Communication() {
       search: listSearch,
       projectId,
       agentId: agentIdFilter,
-      tag: tagFilter ?? undefined,
       unread: quickFilter === 'unread' || undefined,
       needsReply: quickFilter === 'needsReply' || undefined,
+      needsDecision: quickFilter === 'needsDecision' || undefined,
       pinnedOnly: quickFilter === 'pinned' || undefined,
       assigneeId: assigneeFilter ?? undefined,
       channel: channelFilter ?? undefined,
@@ -356,7 +390,7 @@ export default function Communication() {
   const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}`
 
   useEffect(() => {
-    if (leaf.type === 'inbox') writeLastInboxQueue(leaf.queue)
+    if (leaf.type === 'inbox' && leaf.queue) writeLastInboxQueue(leaf.queue)
   }, [leaf])
 
   // Bulk selection lives per list context; switching leaves clears it.
@@ -418,7 +452,7 @@ export default function Communication() {
     markUnread,
     togglePin,
     toggleTakeover,
-  } = useThreadDetail(selectedThreadId, pinnedIds)
+  } = useThreadDetail(selectedThreadId, pinnedIds, { skipMarkRead })
 
   useEffect(() => {
     if (!detailError || selectedThreadId == null || detailLoading) return
@@ -434,10 +468,13 @@ export default function Communication() {
   }, [detail?.thread?.id, detail?.thread?.hasUnread, refreshNavBadges])
 
   const handleSelectThread = useCallback(
-    (id: ThreadId, replace = false) => {
-      setThreadReadState(id, false)
+    (id: ThreadId, replace = false, opts?: { markRead?: boolean }) => {
+      if (opts?.markRead !== false) {
+        setSkipMarkRead(false)
+        setThreadReadState(id, false)
+        void refreshNavBadges()
+      }
       navigate(`${leafPath(leaf, String(id))}${inboxQuery}`, replace ? { replace: true } : undefined)
-      void refreshNavBadges()
       scrollActiveThreadIntoView()
     },
     [leaf, navigate, setThreadReadState, refreshNavBadges, inboxQuery],
@@ -474,7 +511,8 @@ export default function Communication() {
   useEffect(() => {
     if (incomingCompose || composeOpen) return
     if (threadIdParam || !threadsReady || firstThreadId == null) return
-    handleSelectThread(firstThreadId, true)
+    setSkipMarkRead(true)
+    handleSelectThread(firstThreadId, true, { markRead: false })
   }, [incomingCompose, composeOpen, threadIdParam, threadsReady, firstThreadId, listContextKey, handleSelectThread])
 
   const handleListMarkRead = useCallback(
@@ -541,6 +579,24 @@ export default function Communication() {
       }
     },
     [token, addPin, removePin],
+  )
+
+  const handleListSnooze = useCallback(
+    async (id: ThreadId) => {
+      if (!token) return
+      const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
+      try {
+        await apiPatchThread(token, id, {
+          status: 'pending',
+          snoozedUntil: tomorrow ? snoozeUntilIso(tomorrow) : null,
+        })
+        toast.success(t('threadResolved.snoozed'))
+        void refreshThreads()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : t('actions.patchError'))
+      }
+    },
+    [token, refreshThreads, t],
   )
 
   const handleDetailTogglePin = useCallback(async () => {
@@ -657,8 +713,9 @@ export default function Communication() {
         navigate(`${agentRunsPath('all', String(detail.thread.id))}${inboxQuery}`, { replace: true })
         return
       }
-      if (threadFitsInboxQueue(detail.thread, leaf.queue, currentUserId)) return
-      if (resolvedStatusLeavesInboxQueue(detail.thread.status, leaf.queue)) {
+      const inboxQueue = leaf.queue ?? 'all'
+      if (threadFitsInboxQueue(detail.thread, inboxQueue, currentUserId)) return
+      if (resolvedStatusLeavesInboxQueue(detail.thread.status, inboxQueue)) {
         const dedicated = dedicatedInboxQueueForStatus(detail.thread.status)
         if (dedicated) {
           navigate(`${inboxPath(dedicated, String(detail.thread.id))}${inboxQuery}`, { replace: true })
@@ -840,7 +897,15 @@ export default function Communication() {
     },
     onDigitFilter: (digit) => {
       const next =
-        digit === 1 ? 'all' : digit === 2 ? 'needsReply' : digit === 3 ? 'unread' : 'pinned'
+        digit === 1
+          ? 'all'
+          : digit === 2
+            ? 'needsReply'
+            : digit === 3
+              ? 'unread'
+              : digit === 4
+                ? 'pinned'
+                : 'needsDecision'
       applyQuickFilterChange(next)
     },
   })
@@ -850,11 +915,15 @@ export default function Communication() {
       if (!token || bulkSelectedIds.size === 0) return
       setBulkBusy(true)
       try {
+        const tomorrow = SNOOZE_PRESETS.find((preset) => preset.key === 'tomorrow')
         const updated = await bulkUpdateSignalThreads(
           token,
           [...bulkSelectedIds],
           action,
           assigneeId,
+          action === 'snooze'
+            ? { snoozedUntil: tomorrow ? snoozeUntilIso(tomorrow) : null }
+            : undefined,
         )
         toast.success(t('actions.bulkUpdated', { count: updated }))
         setBulkSelectedIds(new Set())
@@ -956,17 +1025,6 @@ export default function Communication() {
             // Reply already left; takeover is best-effort so AI stops drafting.
           }
         }
-        if (
-          detail &&
-          threadLooksFinancial(detail.thread.emailSubject, detail.thread.lastMessagePreview)
-        ) {
-          toast.message(t('actions.sentCheckBookkeeping'), {
-            action: {
-              label: t('threadChrome.openBookkeeping'),
-              onClick: () => navigate('/settings/modules/accounting'),
-            },
-          })
-        }
       } finally {
         if (resolving) advancingRef.current = false
       }
@@ -980,7 +1038,6 @@ export default function Communication() {
       refreshDetail,
       selectedThreadId,
       leaveResolvedThread,
-      navigate,
       toggleTakeover,
     ],
   )
@@ -1212,7 +1269,7 @@ export default function Communication() {
       <PageGuideBanner
         page="communication"
         variant={leaf.type === 'runs' ? 'runs' : undefined}
-        className="mx-3 mt-3 shrink-0"
+        className="mx-3 mt-3 shrink-0 md:hidden"
       />
       ) : null}
       {showActivityChips ? (
@@ -1258,7 +1315,16 @@ export default function Communication() {
           <ThreadList
             threads={filteredThreads}
             allThreads={threads}
-            loading={threadsLoading}
+            loading={!threadsReady}
+            lastMailboxSyncAt={
+              enabledConnections.length === 0
+                ? undefined
+                : enabledConnections.reduce<string | null>((latest, row) => {
+                    if (!row.lastSyncAt) return latest
+                    if (!latest || row.lastSyncAt > latest) return row.lastSyncAt
+                    return latest
+                  }, null)
+            }
             error={threadsError}
             onRetry={() => void refreshThreads()}
             selectedId={selectedThreadId}
@@ -1268,6 +1334,7 @@ export default function Communication() {
             onMarkRead={handleListMarkRead}
             onMarkUnread={handleListMarkUnread}
             onTogglePin={handleListTogglePin}
+            onSnooze={mode === 'customer' ? handleListSnooze : undefined}
             onDelete={(id) => void handleDeleteThread(id, threads.find((t) => t.id === id)?.emailSubject)}
             deletingThreadId={deletingThreadId}
             variant={variant}
@@ -1286,8 +1353,9 @@ export default function Communication() {
             onPriorityFilter={setPriorityFilter}
             channelFilter={leaf.type === 'inbox' ? channelFilter : undefined}
             onChannelFilter={leaf.type === 'inbox' ? setChannelFilter : undefined}
-            activeTag={tagFilter}
-            onTagSelect={mode === 'customer' ? setTagFilter : undefined}
+            activeTag={activeTag}
+            onTagOpen={mode === 'customer' ? openTagFolder : undefined}
+            onLeaveTag={activeTag ? leaveTagFolder : undefined}
             scopeLabel={scopeLabel}
             onClearScope={agentIdFilter || projectId ? clearScope : undefined}
             total={threadsTotal}
@@ -1385,7 +1453,7 @@ export default function Communication() {
           <ThreadDetail
             detail={detail}
             loading={detailLoading}
-            error={detailError}
+            error={detailError === 'THREAD_LOAD_FAILED' ? t('threadChrome.loadError') : detailError}
             saving={saving}
             threadId={selectedThreadId}
             onPatch={handlePatch}
@@ -1413,41 +1481,44 @@ export default function Communication() {
             }
           />
         </SplitPane>
+        {/* Must be a direct SplitPane child: SplitRow ignores anything else
+            (a wrapping fragment would silently drop the whole pane). */}
         {detail && showContactPanel ? (
-          <>
-            <div className="fixed inset-0 z-40 lg:hidden">
-              <button
-                type="button"
-                className="absolute inset-0 bg-black/40"
-                aria-label={t('split.closeContext')}
-                onClick={toggleContactPanel}
-              />
-              <div className="absolute inset-y-0 right-0 w-[min(100%,20rem)] overflow-y-auto border-l border-border/60 bg-bg-surface shadow-overlay">
-                <AgentThreadPanel
-                  thread={detail.thread}
-                  onClose={toggleContactPanel}
-                  onThreadUpdated={handleThreadUpdated}
-                />
-              </div>
-            </div>
-            <SplitPane
-              id="context"
-              defaultWidth={288}
-              minWidth={240}
-              maxWidth={420}
-              label={t('split.context')}
-              className="hidden lg:flex"
-              handleClassName="hidden lg:block"
-            >
-              <AgentThreadPanel
-                thread={detail.thread}
-                onClose={toggleContactPanel}
-                onThreadUpdated={handleThreadUpdated}
-              />
-            </SplitPane>
-          </>
+          <SplitPane
+            id="context"
+            defaultWidth={288}
+            minWidth={240}
+            maxWidth={420}
+            label={t('split.context')}
+            className="hidden lg:flex"
+            handleClassName="hidden lg:block"
+          >
+            <AgentThreadPanel
+              thread={detail.thread}
+              onClose={toggleContactPanel}
+              onThreadUpdated={handleThreadUpdated}
+            />
+          </SplitPane>
         ) : null}
       </SplitRow>
+      {/* Mobile/tablet: same context panel as a slide-over. */}
+      {detail && showContactPanel ? (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label={t('split.closeContext')}
+            onClick={toggleContactPanel}
+          />
+          <div className="absolute inset-y-0 right-0 w-[min(100%,20rem)] overflow-y-auto border-l border-border/60 bg-bg-surface shadow-overlay">
+            <AgentThreadPanel
+              thread={detail.thread}
+              onClose={toggleContactPanel}
+              onThreadUpdated={handleThreadUpdated}
+            />
+          </div>
+        </div>
+      ) : null}
       <ComposeEmailModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}

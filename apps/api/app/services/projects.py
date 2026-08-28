@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.project import Project, ProjectAgent
+from app.models.project_work import ProjectDocSection, ProjectQueueItem, ProjectResource
 from app.models.orchestra import Workstream
 from app.models.usage import UsageLedger
 
@@ -41,7 +42,22 @@ def serialize_po_agent(agent: Agent | None) -> dict[str, Any] | None:
     }
 
 
-def serialize_project(project: Project, po_agent: Agent | None = None) -> dict[str, Any]:
+def _repo_config(resource: ProjectResource | None) -> dict[str, Any]:
+    if not resource:
+        return {}
+    try:
+        return json.loads(resource.config_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+
+
+def serialize_project(
+    project: Project,
+    po_agent: Agent | None = None,
+    repo: ProjectResource | None = None,
+) -> dict[str, Any]:
+    """Project shape for the dashboard; repo fields derive from the repo resource."""
+    config = _repo_config(repo)
     return {
         "id": str(project.id),
         "name": project.name,
@@ -50,20 +66,36 @@ def serialize_project(project: Project, po_agent: Agent | None = None) -> dict[s
         "autonomous_scope": project.autonomous_scope or "",
         "autonomous_mode": project.autonomous_mode,
         "active_domains": _parse_json(project.active_domains_json),
-        "github_connection_id": str(project.github_connection_id) if project.github_connection_id else None,
-        "repo_binding_id": str(project.repo_binding_id) if project.repo_binding_id else None,
-        "github_repo_full_name": project.github_repo_full_name,
-        "github_default_branch": project.github_default_branch,
-        "repo_source": project.repo_source or ("github_oauth" if project.github_repo_full_name else "none"),
-        "repo_connected_at": _iso(project.repo_connected_at),
-        "repo_index_status": project.repo_index_status or ("none" if not project.github_repo_full_name else "ready"),
-        "repo_indexed_at": _iso(project.repo_indexed_at),
-        "repo_index_error": project.repo_index_error,
+        "github_connection_id": str(repo.connection_id) if repo and repo.connection_id else None,
+        "github_repo_full_name": repo.external_ref if repo else None,
+        "github_default_branch": config.get("default_branch") if repo else None,
+        "repo_source": "github_oauth" if repo else "none",
+        "repo_connected_at": _iso(repo.created_at) if repo else None,
+        "repo_index_status": (repo.sync_status or "ready") if repo else "none",
+        "repo_indexed_at": _iso(repo.synced_at) if repo else None,
+        "repo_index_error": repo.sync_error if repo else None,
         "po_agent_id": str(project.po_agent_id) if project.po_agent_id else None,
         "po_agent": serialize_po_agent(po_agent),
         "updated_at": _iso(project.updated_at),
         "created_at": _iso(project.created_at),
     }
+
+
+async def get_repo_resource(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID
+) -> ProjectResource | None:
+    """The project's repo resource, if one is linked (single repo per project for now)."""
+    result = await session.execute(
+        select(ProjectResource)
+        .where(
+            ProjectResource.tenant_id == tenant_id,
+            ProjectResource.project_id == project_id,
+            ProjectResource.resource_type == "repo",
+        )
+        .order_by(ProjectResource.created_at)
+        .limit(1)
+    )
+    return result.scalars().first()
 
 
 async def get_project_row(
@@ -84,6 +116,14 @@ async def get_project_row(
     return project, po_agent
 
 
+async def get_project_detail(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID
+) -> dict[str, Any]:
+    project, po_agent = await get_project_row(session, tenant_id, project_id)
+    repo = await get_repo_resource(session, tenant_id, project_id)
+    return serialize_project(project, po_agent, repo)
+
+
 async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
     result = await session.execute(
         select(Project).where(Project.tenant_id == tenant_id).order_by(Project.updated_at.desc())
@@ -97,6 +137,20 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             select(Agent).where(Agent.id.in_(po_ids), Agent.tenant_id == tenant_id)
         )
         agents_by_id = {a.id: a for a in agents_result.scalars().all()}
+    # Repo resources (batched).
+    repo_by_project: dict[UUID, ProjectResource] = {}
+    if projects:
+        repo_result = await session.execute(
+            select(ProjectResource)
+            .where(
+                ProjectResource.tenant_id == tenant_id,
+                ProjectResource.resource_type == "repo",
+                ProjectResource.project_id.in_([p.id for p in projects]),
+            )
+            .order_by(ProjectResource.created_at)
+        )
+        for resource in repo_result.scalars().all():
+            repo_by_project.setdefault(resource.project_id, resource)
     # Roster chips for the projects list (batched; avoids N+1).
     roster_by_project: dict[UUID, list[dict[str, Any]]] = {}
     if projects:
@@ -113,10 +167,48 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             roster_by_project.setdefault(row.project_id, []).append(
                 {"agent_id": str(agent.id), "name": agent.name, "is_default": row.is_default}
             )
+    # Queue and doc-health badges for the project cards (batched).
+    open_queue_by_project: dict[UUID, int] = {}
+    sections_by_project: dict[UUID, tuple[int, int]] = {}  # (total, verified-ish)
+    if projects:
+        project_ids = [p.id for p in projects]
+        queue_result = await session.execute(
+            select(ProjectQueueItem.project_id, func.count())
+            .where(
+                ProjectQueueItem.tenant_id == tenant_id,
+                ProjectQueueItem.project_id.in_(project_ids),
+                ProjectQueueItem.status.not_in(["done", "rejected"]),
+            )
+            .group_by(ProjectQueueItem.project_id)
+        )
+        open_queue_by_project = {row[0]: row[1] for row in queue_result.all()}
+        section_result = await session.execute(
+            select(ProjectDocSection.project_id, ProjectDocSection.status, func.count())
+            .where(
+                ProjectDocSection.tenant_id == tenant_id,
+                ProjectDocSection.project_id.in_(project_ids),
+                ProjectDocSection.status != "deprecated",
+            )
+            .group_by(ProjectDocSection.project_id, ProjectDocSection.status)
+        )
+        for project_id, status, count in section_result.all():
+            total, done = sections_by_project.get(project_id, (0, 0))
+            total += count
+            if status in ("implemented", "verified"):
+                done += count
+            sections_by_project[project_id] = (total, done)
     out = []
     for p in projects:
-        item = serialize_project(p, agents_by_id.get(p.po_agent_id) if p.po_agent_id else None)
+        item = serialize_project(
+            p,
+            agents_by_id.get(p.po_agent_id) if p.po_agent_id else None,
+            repo_by_project.get(p.id),
+        )
         item["agents"] = roster_by_project.get(p.id, [])
+        item["queue_open_count"] = open_queue_by_project.get(p.id, 0)
+        total, done = sections_by_project.get(p.id, (0, 0))
+        item["doc_sections_total"] = total
+        item["doc_sections_done"] = done
         out.append(item)
     return out
 
@@ -159,19 +251,23 @@ async def patch_project(
     name: str | None = None,
     description: str | None = None,
     autonomous_scope: str | None = None,
+    autonomous_mode: bool | None = None,
 ) -> dict[str, Any]:
     project, po_agent = await get_project_row(session, tenant_id, project_id)
     if name is not None:
         project.name = name.strip()
     if description is not None:
         project.description = description
+    if autonomous_mode is not None:
+        project.autonomous_mode = autonomous_mode
     if autonomous_scope is not None:
         project.autonomous_scope = autonomous_scope.strip()
     project.updated_at = datetime.utcnow()
     session.add(project)
     await session.commit()
     await session.refresh(project)
-    return serialize_project(project, po_agent)
+    repo = await get_repo_resource(session, tenant_id, project_id)
+    return serialize_project(project, po_agent, repo)
 
 
 async def delete_project(
@@ -193,6 +289,36 @@ async def delete_project(
     for stream in streams.scalars().all():
         stream.project_id = None
         session.add(stream)
+    # Project-owned work: queue items, doc sections, links, resources, docs.
+    from sqlalchemy import delete as sa_delete
+
+    from app.models.project_work import (
+        ProjectDocSection,
+        ProjectQueueItem,
+        QueueItemDocLink,
+    )
+    from app.models.workspace import DocChunk, WorkspaceDoc
+
+    section_ids = select(ProjectDocSection.id).where(ProjectDocSection.project_id == project_id)
+    item_ids = select(ProjectQueueItem.id).where(ProjectQueueItem.project_id == project_id)
+    await session.execute(
+        sa_delete(QueueItemDocLink).where(
+            QueueItemDocLink.section_id.in_(section_ids)
+            | QueueItemDocLink.queue_item_id.in_(item_ids)
+        )
+    )
+    await session.execute(
+        sa_delete(ProjectDocSection).where(ProjectDocSection.project_id == project_id)
+    )
+    await session.execute(
+        sa_delete(ProjectQueueItem).where(ProjectQueueItem.project_id == project_id)
+    )
+    await session.execute(
+        sa_delete(ProjectResource).where(ProjectResource.project_id == project_id)
+    )
+    doc_ids = select(WorkspaceDoc.id).where(WorkspaceDoc.project_id == project_id)
+    await session.execute(sa_delete(DocChunk).where(DocChunk.doc_id.in_(doc_ids)))
+    await session.execute(sa_delete(WorkspaceDoc).where(WorkspaceDoc.project_id == project_id))
     await session.delete(project)
     await session.commit()
     return {"deleted": True}
@@ -212,24 +338,34 @@ async def connect_repo(
     project, po_agent = await get_project_row(session, tenant_id, project_id)
     now = datetime.utcnow()
     conn_uuid = UUID(connection_id) if connection_id else None
-    project.github_repo_full_name = repo_full_name
-    project.github_default_branch = default_branch or "main"
-    project.github_connection_id = conn_uuid
-    project.repo_binding_id = conn_uuid
-    project.repo_source = "github_oauth"
-    project.repo_connected_at = now
-    project.repo_index_status = "pending"
-    project.repo_index_error = None
+    repo = await get_repo_resource(session, tenant_id, project_id)
+    if not repo:
+        repo = ProjectResource(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            resource_type="repo",
+            created_at=now,
+        )
+    repo.provider = "github"
+    repo.connection_id = conn_uuid
+    repo.label = repo_full_name
+    repo.external_ref = repo_full_name
+    repo.config_json = json.dumps({"default_branch": default_branch or "main"})
+    repo.status = "connected" if conn_uuid else "linked"
+    repo.sync_status = "pending"
+    repo.sync_error = None
+    repo.updated_at = now
+    session.add(repo)
     project.updated_at = now
     session.add(project)
     await session.commit()
-    await session.refresh(project)
+    await session.refresh(repo)
 
     # Kick off the first index immediately; status transitions to indexing/ready.
     from app.workers.tasks import enqueue_repo_index
 
     await enqueue_repo_index(str(tenant_id), str(project_id))
-    return serialize_project(project, po_agent)
+    return serialize_project(project, po_agent, repo)
 
 
 async def disconnect_repo(
@@ -248,32 +384,26 @@ async def disconnect_repo(
             DocChunk.source_id.like(f"{project_id}:%"),
         )
     )
-    project.github_repo_full_name = None
-    project.github_default_branch = None
-    project.github_connection_id = None
-    project.repo_binding_id = None
-    project.repo_source = "none"
-    project.repo_connected_at = None
-    project.repo_index_status = "none"
-    project.repo_indexed_at = None
-    project.repo_index_error = None
-    project.repo_last_commit_sha = None
+    repo = await get_repo_resource(session, tenant_id, project_id)
+    if repo:
+        await session.delete(repo)
     project.updated_at = datetime.utcnow()
     session.add(project)
     await session.commit()
     await session.refresh(project)
-    return serialize_project(project, po_agent)
+    return serialize_project(project, po_agent, None)
 
 
 async def reindex_repo(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> dict[str, bool]:
     """Queue a real index run: GitHub tree + contents into repo_file DocChunks."""
-    project, _ = await get_project_row(session, tenant_id, project_id)
-    if not project.github_repo_full_name:
+    await get_project_row(session, tenant_id, project_id)
+    repo = await get_repo_resource(session, tenant_id, project_id)
+    if not repo or not repo.external_ref:
         raise HTTPException(status_code=400, detail="No repository connected")
-    project.repo_index_status = "indexing"
-    project.repo_index_error = None
-    project.updated_at = datetime.utcnow()
-    session.add(project)
+    repo.sync_status = "indexing"
+    repo.sync_error = None
+    repo.updated_at = datetime.utcnow()
+    session.add(repo)
     await session.commit()
 
     from app.workers.tasks import enqueue_repo_index
@@ -283,13 +413,13 @@ async def reindex_repo(session: AsyncSession, tenant_id: UUID, project_id: UUID)
 
 
 async def repo_status(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> dict[str, Any]:
-    project, _ = await get_project_row(session, tenant_id, project_id)
-    status = project.repo_index_status or "none"
+    await get_project_row(session, tenant_id, project_id)
+    repo = await get_repo_resource(session, tenant_id, project_id)
     return {
-        "repo_index_status": status,
-        "repo_indexed_at": _iso(project.repo_indexed_at),
-        "repo_last_commit_sha": project.repo_last_commit_sha,
-        "repo_index_error": project.repo_index_error,
+        "repo_index_status": (repo.sync_status or "none") if repo else "none",
+        "repo_indexed_at": _iso(repo.synced_at) if repo else None,
+        "repo_last_commit_sha": repo.sync_ref if repo else None,
+        "repo_index_error": repo.sync_error if repo else None,
     }
 
 

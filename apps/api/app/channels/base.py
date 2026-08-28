@@ -59,6 +59,15 @@ async def _resolve_contact(
 ) -> Contact | None:
     if not inbound.sender_address:
         return None
+
+    # Workspace members are operators, not CRM customers. Never create a
+    # Contact row for their login email — ContactPanel / pairing must not
+    # treat a teammate as someone to Block or Approve.
+    from app.services.workspace_members import find_member_by_email
+
+    if await find_member_by_email(session, tenant_id, inbound.sender_address):
+        return None
+
     result = await session.execute(
         select(Contact).where(
             Contact.tenant_id == tenant_id,
@@ -216,6 +225,13 @@ async def ingest_inbound(
         received_at=received,
         created_at=received,
     )
+    # If the sender is a workspace member, stamp authorship so the timeline
+    # can render them as a teammate (or self) instead of an anonymous inbound.
+    from app.services.workspace_members import find_member_by_email
+
+    member_hit = await find_member_by_email(session, tenant_id, inbound.sender_address)
+    if member_hit:
+        message.author_user_id = member_hit[0].id
     session.add(message)
     signal.has_unread = True
     if (
@@ -258,6 +274,10 @@ async def ingest_inbound(
             )
         )
         await session.commit()
+    # Workspace members are operators, not customers: never enqueue the inbound
+    # agent (no drafted "customer reply" to a teammate).
+    if member_hit:
+        return signal, False
     return signal, not pending
 
 

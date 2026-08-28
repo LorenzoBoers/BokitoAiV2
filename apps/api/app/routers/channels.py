@@ -164,17 +164,301 @@ async def delete_account(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    if account.channel == "widget":
+        raise HTTPException(
+            status_code=400,
+            detail="The website chat cannot be removed. You can pause it instead.",
+        )
+    await _detach_and_delete(session, account)
+    return {"ok": True}
+
+
+# ── unified channel rows (state + capabilities + checks) ─────────────
+
+
+class ChannelCheck(BaseModel):
+    """One granular truth about a channel (credentials, webhook, folders...)."""
+
+    id: str
+    state: str  # ok | warn | fail | pending | na
+    detail: str = ""
+    action: str = ""
+
+
+class ChannelVisibility(BaseModel):
+    mode: str
+    user_ids: list[str] = []
+
+
+class ChannelRow(BaseModel):
+    """A channel of any kind in one shape the whole product reads."""
+
+    id: str
+    channel: str
+    kind: str
+    provider: str
+    address: str
+    display_name: str
+    label: str
+    is_enabled: bool
+    is_primary: bool
+    state: str
+    state_reason: str = ""
+    capabilities: list[str]
+    checks: list[ChannelCheck]
+    actions: list[str]
+    configure_href: str = ""
+    last_event_at: str | None = None
+    last_sync_at: str | None = None
+    last_error: str = ""
+    ai_mode: str
+    visibility: ChannelVisibility
+    created_at: str
+    # Initial backfill window in days for sync channels; 0 = everything.
+    sync_window_days: int = 30
+
+
+class ChannelListResponse(BaseModel):
+    channels: list[ChannelRow]
+
+
+class ChannelPatchBody(BaseModel):
+    label: str | None = None
+    is_enabled: bool | None = None
+    is_primary: bool | None = None
+    sync_window_days: int | None = None
+
+
+class ChannelSyncResponse(BaseModel):
+    channel: ChannelRow
+    synced: int = 0
+    status: str = "ok"
+
+
+async def _tenant_account_or_404(
+    session: AsyncSession, tenant_id: UUID, account_id: UUID
+) -> ChannelAccount:
     result = await session.execute(
         select(ChannelAccount).where(
-            ChannelAccount.id == account_id, ChannelAccount.tenant_id == auth.tenant.id
+            ChannelAccount.id == account_id, ChannelAccount.tenant_id == tenant_id
         )
     )
     account = result.scalar_one_or_none()
     if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail="Channel not found")
+    return account
+
+
+async def _detach_and_delete(session: AsyncSession, account: ChannelAccount) -> None:
+    """Drop a channel without losing history: threads keep their messages."""
+    from sqlalchemy import delete as sa_delete, update as sa_update
+
+    from app.models.channel import ChannelBinding
+    from app.models.email_routing import EmailRoutingRule
+
+    await session.execute(
+        sa_update(Signal)
+        .where(Signal.channel_account_id == account.id)
+        .values(channel_account_id=None)
+    )
+    await session.execute(
+        sa_delete(EmailRoutingRule).where(EmailRoutingRule.channel_account_id == account.id)
+    )
+    await session.execute(
+        sa_delete(ChannelBinding).where(ChannelBinding.channel_account_id == account.id)
+    )
     await session.delete(account)
     await session.commit()
-    return {"ok": True}
+
+
+async def _row(session: AsyncSession, auth: AuthContext, account: ChannelAccount) -> dict:
+    from app.services.channel_registry import last_event_by_account, resolve_channel
+
+    events = await last_event_by_account(session, auth.tenant.id)
+    return resolve_channel(
+        account, tenant=auth.tenant, last_event_at=events.get(account.id)
+    )
+
+
+@router.get("", response_model=ChannelListResponse)
+async def list_channels_unified(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelListResponse:
+    """Every configurable channel with its state, capabilities, and checks."""
+    from app.services.channel_registry import list_channels
+
+    rows = await list_channels(
+        session, auth.tenant, user_id=auth.user.id, role=auth.role
+    )
+    return ChannelListResponse(channels=[ChannelRow(**row) for row in rows])
+
+
+@router.get("/accounts/{account_id}", response_model=ChannelRow)
+async def get_channel(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelRow:
+    """One channel with the full check list behind its state."""
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    if not is_account_visible_to(account, user_id=auth.user.id, role=auth.role):
+        raise HTTPException(status_code=404, detail="Channel not found")
+    return ChannelRow(**await _row(session, auth, account))
+
+
+@router.patch("/accounts/{account_id}", response_model=ChannelRow)
+async def patch_channel(
+    account_id: UUID,
+    body: ChannelPatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelRow:
+    """Rename, pause/resume, set the backfill window, or mark the primary sender."""
+    auth.require_role("owner", "admin")
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    settings = account_settings(account)
+    if body.sync_window_days is not None:
+        if body.sync_window_days < 0 or body.sync_window_days > 3650:
+            raise HTTPException(status_code=400, detail="Backfill window out of range")
+        settings["sync_window_days"] = int(body.sync_window_days)
+    if body.label is not None:
+        label = body.label.strip()
+        if label:
+            settings["label"] = label
+            account.display_name = label
+        else:
+            settings.pop("label", None)
+    if body.is_enabled is not None:
+        account.is_enabled = bool(body.is_enabled)
+    if body.is_primary is not None:
+        settings["is_primary"] = bool(body.is_primary)
+        if body.is_primary:
+            # Only one primary sender per channel kind.
+            others = await session.execute(
+                select(ChannelAccount).where(
+                    ChannelAccount.tenant_id == auth.tenant.id,
+                    ChannelAccount.channel == account.channel,
+                    ChannelAccount.id != account.id,
+                )
+            )
+            for other in others.scalars().all():
+                other_settings = account_settings(other)
+                if other_settings.get("is_primary"):
+                    other_settings["is_primary"] = False
+                    other.settings_json = json.dumps(other_settings)
+                    session.add(other)
+    account.settings_json = json.dumps(settings)
+    session.add(account)
+    await session.commit()
+    await session.refresh(account)
+    return ChannelRow(**await _row(session, auth, account))
+
+
+@router.post("/accounts/{account_id}/sync", response_model=ChannelSyncResponse)
+async def sync_channel(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelSyncResponse:
+    """Poll a channel that supports syncing; webhook channels have nothing to poll."""
+    from app.services.channel_registry import resolve_channel
+    from app.services.email_sync import sync_account
+
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    row = resolve_channel(account, tenant=auth.tenant)
+    if "sync" not in row["capabilities"]:
+        raise HTTPException(status_code=400, detail="This channel does not sync")
+    result = await sync_account(session, account)
+    await session.refresh(account)
+    return ChannelSyncResponse(
+        channel=ChannelRow(**await _row(session, auth, account)),
+        synced=int(result.get("synced") or 0),
+        status=str(result.get("status") or "ok"),
+    )
+
+
+# ── Bokito relay addresses ───────────────────────────────────────────
+
+
+class RelayCreateBody(BaseModel):
+    prefix: str
+    label: str = ""
+
+
+class RelayOptionsResponse(BaseModel):
+    """What the "create a Bokito address" form needs: domain, slug, budget."""
+
+    domain: str
+    workspace_slug: str
+    max_relays: int
+    used: int
+    reserved_prefixes: list[str]
+    relays: list[ChannelRow]
+
+
+@router.get("/email/relays", response_model=RelayOptionsResponse)
+async def list_email_relays(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RelayOptionsResponse:
+    """Existing relay addresses plus the rules for creating another one."""
+    from app.services.channel_registry import last_event_by_account, resolve_channel
+    from app.services.email_relay import (
+        MAX_RELAYS,
+        RESERVED_PREFIXES,
+        inbound_domain,
+        list_relays,
+        workspace_slug,
+    )
+
+    relays = await list_relays(session, auth.tenant.id)
+    events = await last_event_by_account(session, auth.tenant.id)
+    return RelayOptionsResponse(
+        domain=inbound_domain(),
+        workspace_slug=workspace_slug(auth.tenant.slug),
+        max_relays=MAX_RELAYS,
+        used=len(relays),
+        reserved_prefixes=sorted(RESERVED_PREFIXES),
+        relays=[
+            ChannelRow(
+                **resolve_channel(
+                    account, tenant=auth.tenant, last_event_at=events.get(account.id)
+                )
+            )
+            for account in relays
+        ],
+    )
+
+
+@router.post("/email/relays", response_model=ChannelRow, status_code=201)
+async def create_email_relay(
+    body: RelayCreateBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelRow:
+    """Create a `{prefix}-{workspace}@{domain}` address to forward mail into."""
+    auth.require_role("owner", "admin")
+    from app.services.email_relay import RelayError, create_relay
+
+    try:
+        account = await create_relay(
+            session, auth.tenant.id, prefix=body.prefix, label=body.label
+        )
+    except RelayError as exc:
+        detail: dict = {"code": "relay_rejected", "message": exc.detail}
+        if exc.suggestion:
+            detail["suggestion"] = exc.suggestion
+        raise HTTPException(status_code=exc.status_code, detail=detail) from exc
+    # A real channel replaces the onboarding demo thread.
+    from app.services.onboarding_demo import remove_demo_threads
+
+    try:
+        await remove_demo_threads(session, auth.tenant.id)
+    except Exception:  # noqa: BLE001 — cleanup must never break create
+        pass
+    return ChannelRow(**await _row(session, auth, account))
 
 
 # ── contacts (CRM + pairing / allowlist) ─────────────────────────────

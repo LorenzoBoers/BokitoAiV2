@@ -15,18 +15,11 @@ class Project(SQLModel, table=True):
     slug: str = Field(index=True)
     description: str = ""
     autonomous_scope: str = ""
+    # Per-project autonomy override: conversation-born queue items are
+    # auto-accepted and analysis auto-starts when enabled.
     autonomous_mode: bool = False
     active_domains_json: str = Field(default="[]")
-    github_connection_id: Optional[uuid.UUID] = None
-    repo_binding_id: Optional[uuid.UUID] = None
-    github_repo_full_name: Optional[str] = None
-    github_default_branch: Optional[str] = None
-    repo_source: Optional[str] = None
-    repo_connected_at: Optional[datetime] = None
-    repo_index_status: Optional[str] = None
-    repo_indexed_at: Optional[datetime] = None
-    repo_index_error: Optional[str] = None
-    repo_last_commit_sha: Optional[str] = None
+    # External surfaces (repo, drive, notion, vibecode) live in ProjectResource.
     po_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

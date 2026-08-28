@@ -47,6 +47,8 @@ export type InboxThread = {
   lastMessageAt: string | null
   hasUnread: boolean
   isPinned: boolean
+  /** True when an agent decision card is still waiting on a human. */
+  hasOpenDecision?: boolean
   /** True when a human operator has taken over and the AI is paused. */
   aiPaused?: boolean
   /** Next-action chips set by AI inbound processing (close / assign / create_task). */
@@ -124,6 +126,8 @@ export type InboxMember = {
   name: string
   email: string
   avatarUrl: string | null
+  /** Workspace role when known: owner | admin | member */
+  role?: string | null
 }
 
 export type MailboxFolder = {
@@ -183,6 +187,7 @@ export type ThreadFilters = {
   /** AND flags on top of the current view (not a replacement queue). */
   unread?: boolean
   needsReply?: boolean
+  needsDecision?: boolean
   pinnedOnly?: boolean
 }
 
@@ -248,7 +253,7 @@ export type PatchThreadInput = {
   snoozedUntil?: string | null
 }
 
-export type BulkThreadAction = 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign'
+export type BulkThreadAction = 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'snooze'
 
 export type SavedReply = {
   id: string
@@ -354,6 +359,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
+    hasOpenDecision: Boolean(raw.has_open_decision),
     isPinned: Boolean(raw.is_pinned),
     aiPaused: Boolean(raw.ai_paused),
     suggestedActions: Array.isArray(raw.suggested_actions)
@@ -692,48 +698,6 @@ export async function resolveThreadDecision(
 
 export async function listInboxMembers(token: string): Promise<InboxMember[]> {
   return listSignalMembers(token)
-}
-
-// ---------------------------------------------------------------------------
-// Sync status
-// ---------------------------------------------------------------------------
-
-export async function getSyncStatus(token: string): Promise<SyncConnectionStatus[]> {
-  const payload = await apiGetApp<unknown>(appRoutes.signals.syncStatus, token)
-  const source = Array.isArray(payload) ? payload : []
-  return source
-    .map((row) => {
-      if (!row || typeof row !== 'object') return null
-      const raw = row as Record<string, unknown>
-      const folderSource = Array.isArray(raw.folders) ? raw.folders : []
-      const folders: SyncFolderStatus[] = folderSource
-        .map((f) => {
-          if (!f || typeof f !== 'object') return null
-          const fr = f as Record<string, unknown>
-          return {
-            id: asNumber(fr.id),
-            folderId: asString(fr.folder_id),
-            folderName: asString(fr.folder_name),
-            isSelected: Boolean(fr.is_selected),
-            lastSyncAt: asNullableTimestampString(fr.last_sync_at),
-            messagesSynced: asNumber(fr.messages_synced),
-            lastError: asString(fr.last_error),
-          } satisfies SyncFolderStatus
-        })
-        .filter((f): f is SyncFolderStatus => f !== null)
-      return {
-        id: asNumber(raw.id),
-        mailboxEmail: asString(raw.mailbox_email),
-        displayName: asString(raw.display_name),
-        provider: asString(raw.provider),
-        status: asString(raw.status),
-        isEnabled: Boolean(raw.is_enabled),
-        lastSyncAt: asNullableTimestampString(raw.last_sync_at),
-        lastError: asString(raw.last_error),
-        folders,
-      } satisfies SyncConnectionStatus
-    })
-    .filter((c): c is SyncConnectionStatus => c !== null)
 }
 
 // ---------------------------------------------------------------------------

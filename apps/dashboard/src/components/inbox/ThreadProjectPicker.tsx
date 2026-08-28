@@ -87,6 +87,15 @@ export function ThreadProjectPicker({ threadId, projectId, onUpdated }: Props) {
           </SelectContent>
         </Select>
       )}
+      {linked && (linked.queue_open_count ?? 0) > 0 ? (
+        <button
+          type="button"
+          className="text-[11px] font-medium text-accent hover:underline"
+          onClick={() => navigate(`/projects/${linked.id}`)}
+        >
+          {t('threadChrome.queueOpen', { count: linked.queue_open_count })}
+        </button>
+      ) : null}
       {linked?.po_agent ? (
         <p className="text-[11px] text-text-muted">
           {t('threadChrome.lead', { name: linked.po_agent.name })}

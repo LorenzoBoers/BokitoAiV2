@@ -1,12 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { Bot, Trash2 } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
-import { DomainFavicon } from '../ui/DomainFavicon'
+import { PersonAvatar } from '../ui/PersonAvatar'
 import { cn } from '../../lib/utils'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import { isInternalThread, threadCounterpartyName, threadNeedsReply, threadSecondaryLine } from '../../lib/message-composer'
-import { threadLooksFinancial } from '../../lib/thread-intent'
 import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import { formatWakeTime } from '../../lib/snooze'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
@@ -19,6 +18,7 @@ type Props = {
   onMarkRead: (id: ThreadId) => void
   onMarkUnread: (id: ThreadId) => void
   onTogglePin: (id: ThreadId, currentPinned: boolean) => void
+  onSnooze?: (id: ThreadId) => void
   onDelete: (id: ThreadId) => void
   deleting?: boolean
   variant?: 'customer' | 'direct'
@@ -27,14 +27,20 @@ type Props = {
   onToggleChecked?: (id: ThreadId, shiftKey?: boolean) => void
   /** True while any thread is selected: keeps all checkboxes visible. */
   selectionActive?: boolean
-  /** Clicking a tag chip filters the list on that label. */
+  /** Clicking a tag chip opens that tag's folder. */
   onTagClick?: (tag: string) => void
+  /** Tag folder the list is showing; its chip renders as active. */
+  activeTag?: string | null
   /** Display name of the assigned member (resolved by the parent list). */
   assigneeName?: string | null
   compact?: boolean
 }
 
-function formatRelativeTime(iso: string | null, t: (key: string) => string, language?: string | null): string {
+function formatRelativeTime(
+  iso: string | null,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  language?: string | null,
+): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
@@ -42,11 +48,11 @@ function formatRelativeTime(iso: string | null, t: (key: string) => string, lang
   const diff = now - date.getTime()
   const minutes = Math.floor(diff / 60000)
   if (minutes < 1) return t('listItem.now')
-  if (minutes < 60) return `${minutes}m`
+  if (minutes < 60) return t('listItem.minutesAgo', { count: minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h`
+  if (hours < 24) return t('listItem.hoursAgo', { count: hours })
   const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}d`
+  if (days < 7) return t('listItem.daysAgo', { count: days })
   return formatAppDate(date, language, { day: 'numeric', month: 'short' })
 }
 
@@ -63,6 +69,7 @@ export default function ThreadListItem({
   onMarkRead,
   onMarkUnread,
   onTogglePin,
+  onSnooze,
   onDelete,
   deleting = false,
   variant = 'customer',
@@ -70,6 +77,7 @@ export default function ThreadListItem({
   onToggleChecked,
   selectionActive = false,
   onTagClick,
+  activeTag = null,
   assigneeName = null,
   compact = false,
 }: Props) {
@@ -83,7 +91,10 @@ export default function ThreadListItem({
   const primaryLabel = isDirect
     ? translateDecisionText(thread.emailSubject, t) || t('listItem.untitled')
     : isAgentThread
-      ? threadCounterpartyName(thread)
+      ? threadCounterpartyName(thread, {
+          agent: t('listItem.agent'),
+          unknownSender: t('listItem.unknownSender'),
+        })
       : contactLabel || readableEmail || t('listItem.unknownSender')
   const rawPreview =
     translateMockAgentBody(thread.lastMessagePreview, t) || translateDecisionText(thread.emailSubject, t)
@@ -140,9 +151,9 @@ export default function ThreadListItem({
             <Bot size={13} />
           </span>
         ) : (
-          <DomainFavicon
+          <PersonAvatar
+            name={thread.contactName}
             email={thread.contactEmail}
-            name={thread.contactName || thread.contactEmail}
             size={28}
             className="mt-0.5"
           />
@@ -153,6 +164,7 @@ export default function ThreadListItem({
           onMarkRead={() => onMarkRead(thread.id)}
           onMarkUnread={() => onMarkUnread(thread.id)}
           onTogglePin={() => onTogglePin(thread.id, thread.isPinned)}
+          onSnooze={onSnooze ? () => onSnooze(thread.id) : undefined}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1 mb-0.5">
@@ -225,9 +237,9 @@ export default function ThreadListItem({
                 {t('listItem.needsReply')}
               </span>
             ) : null}
-            {!isDirect && threadLooksFinancial(thread.emailSubject, thread.lastMessagePreview) ? (
-              <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-text-muted">
-                {t('listItem.billing')}
+            {!isDirect && thread.hasOpenDecision ? (
+              <span className="shrink-0 rounded-full bg-status-warning/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-status-warning">
+                {t('listItem.needsDecision')}
               </span>
             ) : null}
           </div>
@@ -251,8 +263,13 @@ export default function ThreadListItem({
                       onTagClick(tag)
                     }}
                     onKeyDown={(e) => e.stopPropagation()}
-                    title={t('listItem.filterBy', { tag })}
-                    className="inline-block rounded px-1.5 py-0.5 text-xs bg-bg-surface-hover text-text-secondary hover:bg-accent/10 hover:text-accent transition-colors"
+                    title={t('listItem.openTagFolder', { tag })}
+                    className={cn(
+                      'inline-block rounded px-1.5 py-0.5 text-xs transition-colors',
+                      tag === activeTag
+                        ? 'bg-accent/15 text-accent'
+                        : 'bg-bg-surface-hover text-text-secondary hover:bg-accent/10 hover:text-accent',
+                    )}
                   >
                     {tag}
                   </button>

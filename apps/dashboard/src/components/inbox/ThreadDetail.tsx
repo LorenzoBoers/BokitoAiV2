@@ -28,7 +28,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
-import { inboundQuoteText, suggestedBillingTag, suggestedReplyAllRecipients, threadLooksFinancial } from '../../lib/thread-intent'
+import { inboundQuoteText, suggestedReplyAllRecipients } from '../../lib/thread-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import {
@@ -41,13 +41,19 @@ import { useSignalStream } from '../../hooks/useSignalStream'
 import ThinkingTrace from './ThinkingTrace'
 import AgentSessionCard from './AgentSessionCard'
 import { draftThreadReply, resolveThreadDecision } from '../../lib/inbox-api'
-import { invokeSignalAgent, startAgentSession } from '../../lib/signals-api'
-import { bokitoListChatTargets, type ChatTarget } from '../../lib/bokito-api'
+import {
+  invokeSignalAgent,
+  listThreadAgentCandidates,
+  startAgentSession,
+  type ThreadAgentCandidate,
+} from '../../lib/signals-api'
 import { getAgents, type RuntimeAgent } from '../../lib/workforce-api'
 import { stripMentionMarkup, tokenizeMentions, type MentionItem } from '../../lib/mentions'
 import { createAgentTask } from '../../lib/orchestration-api'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { threadStatusLabel } from '../../lib/status-labels'
+import { tagPath } from '../../lib/messages-paths'
+import { TagPicker } from './TagPicker'
 import { formatWakeTime, SNOOZE_PRESETS, snoozeUntilIso, toLocalDateTimeValue } from '../../lib/snooze'
 import { formatAppDateTime } from '../../lib/app-locale'
 import { toast } from 'sonner'
@@ -236,9 +242,10 @@ function DraftWithAiButton({
 }
 
 /**
- * "Ask agent" launcher: pick which agent joins the thread as an inline
- * session. One click when only the personal assistant exists; a dropdown
- * when company agents are available too.
+ * "Bring an agent in" launcher: the agent joins the thread as an inline
+ * session where it can research, propose a reply, or take the conversation
+ * over. One click named after the agent when only one is relevant; a
+ * dropdown ordered by relevance when several are.
  */
 function AgentSessionLauncher({
   threadId,
@@ -251,23 +258,23 @@ function AgentSessionLauncher({
 }) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
-  const [targets, setTargets] = useState<ChatTarget[]>([])
+  const [candidates, setCandidates] = useState<ThreadAgentCandidate[]>([])
   const [starting, setStarting] = useState(false)
 
   useEffect(() => {
     if (!token) return
     let cancelled = false
-    bokitoListChatTargets(token)
-      .then((res) => {
-        if (!cancelled) setTargets(res.items)
+    listThreadAgentCandidates(token, threadId)
+      .then((rows) => {
+        if (!cancelled) setCandidates(rows)
       })
       .catch(() => {
-        // Launcher falls back to the default agent on the backend.
+        // Launcher falls back to the most relevant agent on the backend.
       })
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, threadId])
 
   const start = async (agentId: string | null) => {
     if (!token || starting) return
@@ -282,49 +289,45 @@ function AgentSessionLauncher({
     }
   }
 
+  const single = candidates.length === 1 ? candidates[0] : null
+  const label = single
+    ? t('agentSession.launcherNamed', { name: single.name })
+    : t('agentSession.launcher')
+
   const trigger = (
     <Button
       size="sm"
       variant="ghost"
       disabled={disabled || starting}
+      title={t('agentSession.launcherHint')}
       className="gap-1.5 text-ai-ink"
-      onClick={targets.length <= 1 ? () => void start(targets[0]?.id ?? null) : undefined}
+      onClick={candidates.length <= 1 ? () => void start(single?.id ?? null) : undefined}
     >
       {starting ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-      {t('agentSession.launcher')}
+      {label}
     </Button>
   )
 
-  if (targets.length <= 1) return trigger
+  if (candidates.length <= 1) return trigger
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-64">
         <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
           {t('agentSession.pickAgent')}
         </p>
-        {targets.map((target) => (
+        {candidates.map((candidate) => (
           <DropdownMenuItem
-            key={target.id}
+            key={candidate.id}
             className="gap-2 text-xs"
-            onSelect={() => void start(target.id)}
+            onSelect={() => void start(candidate.id)}
           >
             <Bot size={12} className="text-text-muted" />
-            <span className="min-w-0 flex-1 truncate">
-              {target.kind === 'personal'
-                ? t('newConversation.myAssistant')
-                : target.name}
+            <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
+            <span className="shrink-0 text-[10px] text-text-muted">
+              {t(`agentSession.reason.${candidate.reason}`)}
             </span>
-            {target.kind === 'personal' ? (
-              <span className="shrink-0 text-[10px] text-text-muted">
-                {t('agentSession.personalHint', { defaultValue: 'Personal' })}
-              </span>
-            ) : (
-              <span className="shrink-0 text-[10px] text-text-muted">
-                {t('newChat.companyAgent', { defaultValue: 'Company agent' })}
-              </span>
-            )}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -339,7 +342,7 @@ const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
 }
 
 /**
- * Compact chips row under the thread header: priority selector plus label
+ * Compact chips row under the thread header: priority selector plus tag
  * chips with add/remove. Backed by `PATCH /signals/{id}` (tags, priority).
  */
 function ThreadMetaRow({
@@ -348,33 +351,17 @@ function ThreadMetaRow({
   saving,
   onPatch,
   triage,
-  suggestBilling,
+  onOpenTag,
 }: {
   tags: string[]
   priority: string
   saving: boolean
   onPatch: (input: PatchThreadInput) => Promise<void>
   triage?: { category?: string | null; urgency?: number | null; certainty?: number | null; summary?: string | null }
-  suggestBilling?: boolean
+  /** Open a tag's folder in the Messages hub. */
+  onOpenTag?: (tag: string) => void
 }) {
   const { t } = useTranslation('communication')
-  const [addingTag, setAddingTag] = useState(false)
-  const [tagInput, setTagInput] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (addingTag) inputRef.current?.focus()
-  }, [addingTag])
-
-  const commitTag = () => {
-    const value = tagInput.trim().toLowerCase()
-    setTagInput('')
-    setAddingTag(false)
-    if (!value || tags.includes(value)) return
-    void onPatch({ tags: [...tags, value] })
-  }
-
-  const billingTag = suggestBilling ? suggestedBillingTag(tags) : null
 
   const removeTag = (tag: string) => {
     void onPatch({ tags: tags.filter((t) => t !== tag) })
@@ -439,25 +426,27 @@ function ThreadMetaRow({
 
       <span className="mx-0.5 h-3 w-px bg-border/50" aria-hidden />
 
-      {billingTag ? (
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void onPatch({ tags: [...tags, billingTag] })}
-          className="inline-flex items-center gap-1 rounded-full border border-dashed border-accent/40 px-2 py-0.5 text-[11px] text-accent transition-colors hover:bg-accent/10 disabled:opacity-40"
-        >
-          <Tag size={9} />
-          {t('tags.suggestBilling')}
-        </button>
-      ) : null}
-
       {tags.map((tag) => (
         <span
           key={tag}
           className="group/tag inline-flex items-center gap-1 rounded-full border border-border/60 bg-bg-surface-hover/50 px-2 py-0.5 text-[11px] text-text-secondary"
         >
-          <Tag size={9} className="text-text-muted" />
-          {tag}
+          {onOpenTag ? (
+            <button
+              type="button"
+              onClick={() => onOpenTag(tag)}
+              title={t('listItem.openTagFolder', { tag })}
+              className="inline-flex items-center gap-1 hover:text-accent transition-colors"
+            >
+              <Tag size={9} className="text-text-muted" />
+              {tag}
+            </button>
+          ) : (
+            <>
+              <Tag size={9} className="text-text-muted" />
+              {tag}
+            </>
+          )}
           <button
             type="button"
             disabled={saving}
@@ -470,36 +459,11 @@ function ThreadMetaRow({
         </span>
       ))}
 
-      {addingTag ? (
-        <input
-          ref={inputRef}
-          value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              commitTag()
-            }
-            if (e.key === 'Escape') {
-              setTagInput('')
-              setAddingTag(false)
-            }
-          }}
-          onBlur={commitTag}
-          placeholder={t('tags.placeholder')}
-          className="h-5 w-24 rounded-full border border-accent/40 bg-bg-input px-2 text-[11px] text-text-primary placeholder:text-text-muted focus:outline-none"
-        />
-      ) : (
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => setAddingTag(true)}
-          className="inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-[11px] text-text-muted transition-colors hover:border-accent/40 hover:text-text-secondary disabled:opacity-40"
-        >
-          <Plus size={9} />
-          {t('tags.addLabel')}
-        </button>
-      )}
+      <TagPicker
+        tags={tags}
+        disabled={saving}
+        onChange={(next) => onPatch({ tags: next })}
+      />
     </div>
   )
 }
@@ -880,11 +844,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
     return ''
   }, [detail])
-
-  const financialThread = threadLooksFinancial(
-    detail?.thread.emailSubject,
-    lastInboundText || detail?.thread.lastMessagePreview,
-  )
 
   // Email thread whose mailbox was removed: history stays readable, but
   // outbound replies are impossible and must not pretend to work.
@@ -1294,14 +1253,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             </TooltipContent>
           </Tooltip>
         ) : null}
-        {financialThread ? (
-          <Link
-            to="/settings/modules/accounting"
-            className="shrink-0 rounded-full border border-border/60 px-2 py-0.5 text-[11px] font-medium text-accent hover:bg-accent/10"
-          >
-            {t('threadChrome.openBookkeeping')}
-          </Link>
-        ) : null}
         <div
           className="flex items-center shrink-0 rounded-lg border border-border/60 bg-bg-surface-hover/30 p-0.5"
           role="toolbar"
@@ -1504,6 +1455,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                     {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
                   </DropdownMenuItem>
                 ) : null}
+                {!isInternalThread(thread) &&
+                thread.status !== 'closed' &&
+                thread.status !== 'spam' ? (
+                  <DropdownMenuItem
+                    className="gap-2"
+                    disabled={creatingTask}
+                    onClick={() => void handleCreateTaskFromThread()}
+                  >
+                    <ListPlus size={13} />
+                    {creatingTask ? t('threadChrome.creating') : t('threadChrome.createTask')}
+                  </DropdownMenuItem>
+                ) : null}
                 {onDelete ? (
                   <DropdownMenuItem
                     disabled={deleting}
@@ -1567,7 +1530,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           priority={thread.priority}
           saving={saving}
           onPatch={onPatch}
-          suggestBilling={financialThread}
+          onOpenTag={(tag) => navigate(tagPath(tag))}
           triage={{
             category: thread.category,
             urgency: thread.urgency,
@@ -1581,7 +1544,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       thread.status !== 'closed' &&
       thread.status !== 'spam' &&
       thread.status !== 'pending' &&
-      thread.suggestedActions?.includes('create_task') ? (
+      (thread.suggestedActions?.includes('create_task') || thread.hasOpenDecision) ? (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 bg-bg-elevated px-3 py-1.5">
           <button
             type="button"
@@ -1766,12 +1729,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                 </Link>
               </span>
             ) : thread.status === 'closed' || thread.status === 'spam' ? (
-              <span className="flex flex-wrap items-center gap-1.5">
+              <span className="flex flex-wrap items-center gap-2">
                 <AlertCircle size={13} className="shrink-0 text-status-warning" />
-                {thread.status === 'spam' ? t('composer.spamBlocked') : t('shortcuts.replyBlocked')}
+                <span>{thread.status === 'spam' ? t('composer.spamBlocked') : t('shortcuts.replyBlocked')}</span>
                 <button
                   type="button"
-                  className="font-medium text-accent hover:underline"
+                  className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
                   onClick={() => void onPatch({ status: 'open' })}
                 >
                   {t('threadChrome.reopen')}

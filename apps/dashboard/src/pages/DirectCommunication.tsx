@@ -33,7 +33,7 @@ import {
   type InboxThread,
   type ThreadId,
 } from '../lib/inbox-api'
-import { agentChatPath, assistantPath, leafFromPath } from '../lib/messages-paths'
+import { agentChatPath, assistantPath, leafFromPath, leafPath, SUB_QUEUE_TO_VIEW } from '../lib/messages-paths'
 
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
   switch (quickFilter) {
@@ -41,6 +41,8 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
       return threads.filter((t) => t.hasUnread)
     case 'needsReply':
       return threads.filter((t) => threadNeedsReply(t))
+    case 'needsDecision':
+      return threads.filter((t) => t.hasOpenDecision)
     case 'pinned':
       return threads.filter((t) => t.isPinned)
     default:
@@ -68,6 +70,8 @@ export default function DirectCommunication() {
 
   const leaf = leafFromPath(location.pathname)
   const isAgentScope = leaf?.type === 'agent'
+  const agentQueue = leaf?.type === 'agent' || leaf?.type === 'assistant' ? leaf.queue : undefined
+  const listView = agentQueue ? SUB_QUEUE_TO_VIEW[agentQueue] : 'all_open'
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
   const [targetsError, setTargetsError] = useState<string | null>(null)
@@ -109,7 +113,7 @@ export default function DirectCommunication() {
 
   const filterAgentId = isAgentScope ? routeAgentId : personalAgent?.id
 
-  const listContextKey = `direct:${filterAgentId ?? 'none'}:${projectId ?? ''}`
+  const listContextKey = `direct:${filterAgentId ?? 'none'}:${listView}:${projectId ?? ''}`
 
   useEffect(() => {
     setSearch('')
@@ -130,13 +134,14 @@ export default function DirectCommunication() {
     removeThread,
   } = useThreads(
     {
-      view: 'all_open',
+      view: listView,
       folder: 'assistant',
       agentId: filterAgentId,
       projectId,
       search: listSearch,
       unread: quickFilter === 'unread' || undefined,
       needsReply: quickFilter === 'needsReply' || undefined,
+      needsDecision: quickFilter === 'needsDecision' || undefined,
       pinnedOnly: quickFilter === 'pinned' || undefined,
     },
     pinnedIds,
@@ -154,9 +159,10 @@ export default function DirectCommunication() {
   )
 
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
+  // Open by default; a close only lasts for the current browser session.
   const [showContextPanel, setShowContextPanel] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
-    const stored = window.localStorage.getItem('inbox.contactPanel.open')
+    const stored = window.sessionStorage.getItem('inbox.contactPanel.open')
     return stored === null ? true : stored === '1'
   })
 
@@ -164,7 +170,7 @@ export default function DirectCommunication() {
     setShowContextPanel((prev) => {
       const next = !prev
       try {
-        window.localStorage.setItem('inbox.contactPanel.open', next ? '1' : '0')
+        window.sessionStorage.setItem('inbox.contactPanel.open', next ? '1' : '0')
       } catch {
         // ignore
       }
@@ -173,11 +179,14 @@ export default function DirectCommunication() {
   }, [])
 
   const basePath = useMemo(() => {
+    if (leaf?.type === 'agent' || leaf?.type === 'assistant') {
+      return leafPath(leaf)
+    }
     if (isAgentScope && routeAgentId) {
       return agentChatPath(routeAgentId)
     }
     return assistantPath()
-  }, [isAgentScope, routeAgentId])
+  }, [leaf, isAgentScope, routeAgentId])
 
   const handleSelectThread = useCallback(
     (id: ThreadId, replace = false) => {
@@ -278,7 +287,15 @@ export default function DirectCommunication() {
     },
     onDigitFilter: (digit) => {
       const next =
-        digit === 1 ? 'all' : digit === 2 ? 'needsReply' : digit === 3 ? 'unread' : 'pinned'
+        digit === 1
+          ? 'all'
+          : digit === 2
+            ? 'needsReply'
+            : digit === 3
+              ? 'unread'
+              : digit === 4
+                ? 'pinned'
+                : 'needsDecision'
       setQuickFilter(next)
     },
   })
@@ -370,7 +387,7 @@ export default function DirectCommunication() {
           <ThreadList
             threads={filteredThreads}
             allThreads={threads}
-            loading={threadsLoading || targetsLoading}
+            loading={!threadsReady || targetsLoading}
             error={threadsError}
             onRetry={() => void refreshThreads()}
             selectedId={selectedThreadId}

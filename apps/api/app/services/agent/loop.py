@@ -75,6 +75,7 @@ class AgentLoop:
         *,
         allowed_tool_names: set[str] | None = None,
         enable_chat_thinking: bool = False,
+        tool_signal_id: UUID | None = None,
     ):
         self.session = session
         self.tenant_id = tenant_id
@@ -82,6 +83,10 @@ class AgentLoop:
         self.agent = agent
         self.run = run
         self.signal_id = signal_id
+        # Thread that tool calls act on. Differs from `signal_id` when the
+        # conversation is an assistant session about another thread: streaming
+        # stays in the session, while replies/tags/handover hit the real thread.
+        self.tool_signal_id = tool_signal_id or signal_id
         self.trust = trust
         self.enable_chat_thinking = enable_chat_thinking
         self.llm = get_llm_provider()
@@ -228,6 +233,35 @@ class AgentLoop:
             stream_id=stream_id,
         )
 
+    async def _operator_context(self) -> str:
+        """Tell the model who is chatting — an internal operator, not a customer."""
+        if not self.user_id:
+            return ""
+        from sqlalchemy import select
+
+        from app.models.auth import Membership, User
+
+        user = await self.session.get(User, self.user_id)
+        if not user:
+            return ""
+        membership = (
+            await self.session.execute(
+                select(Membership).where(
+                    Membership.tenant_id == self.tenant_id,
+                    Membership.user_id == user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        role = membership.role if membership else "member"
+        name = (user.display_name or "").strip() or user.email
+        return (
+            "## Current operator\n"
+            f"You are assisting {name} <{user.email}>, a workspace {role} on this "
+            "Bokito tenant. They are an internal operator (teammate), not an external "
+            "customer. Address them as a colleague. Prefer tools and workspace context "
+            "over asking them for information that is already in the tenant snapshot."
+        )
+
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
         workspace = await build_workspace_context(self.session, self.tenant_id)
         rag_context = ""
@@ -286,6 +320,10 @@ class AgentLoop:
                 "with a human. After the tool succeeds, tell the visitor a team "
                 "member will take over in this same conversation."
             )
+        else:
+            operator = await self._operator_context()
+            if operator:
+                parts.append(operator)
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
@@ -472,9 +510,10 @@ class AgentLoop:
                 self.user_id,
                 tool_use["name"],
                 tool_use.get("input", {}),
-                signal_id=self.signal_id,
+                signal_id=self.tool_signal_id,
                 agent=self.agent,
                 run_id=self.run.id if self.run else None,
+                project_id=self.run.project_id if self.run else None,
                 trust=self.trust,
             )
             await self._publish_agent_step(

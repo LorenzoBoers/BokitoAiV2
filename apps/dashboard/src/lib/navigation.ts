@@ -1,13 +1,14 @@
 /**
  * Navigation model for the control shell.
  *
- * Target rail (7 items): Cockpit, Communication, Contacts, Agenda,
- * Agents, Knowledge, Settings. Cockpit hosts Overview/Activity/Usage as
- * inner tabs; Knowledge hosts workspace docs including skills and memory.
+ * Target rail: Cockpit, Communication, Contacts, Agenda, Projects,
+ * Agents, Knowledge, Modules, Settings. Cockpit hosts Overview/Activity/Usage
+ * as inner tabs; Knowledge hosts workspace docs including skills and memory.
  */
 
 import {
   Bot,
+  Boxes,
   Brain,
   CalendarDays,
   Contact,
@@ -26,12 +27,13 @@ export type Tab =
   | 'agents'
   | 'projects'
   | 'knowledge'
+  | 'modules'
   | 'settings'
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
   { label: 'Control', tabs: ['cockpit', 'communication', 'contacts', 'agenda', 'projects'] },
   { label: 'AI', tabs: ['agents', 'knowledge'] },
-  { label: 'Settings', tabs: ['settings'] },
+  { label: 'Settings', tabs: ['modules', 'settings'] },
 ]
 
 export const TAB_PATHS: Record<Tab, string> = {
@@ -42,6 +44,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   agents: '/agents',
   projects: '/projects',
   knowledge: '/knowledge',
+  modules: '/settings/modules',
   settings: '/settings',
 }
 
@@ -57,6 +60,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   projects: FolderKanban,
   // Knowledge identity: violet brain, recurring across the platform.
   knowledge: Brain,
+  modules: Boxes,
   settings: Settings,
 }
 
@@ -68,6 +72,7 @@ const TAB_TITLES: Record<Tab, string> = {
   agents: 'Agents',
   projects: 'Projects',
   knowledge: 'Knowledge',
+  modules: 'Modules',
   settings: 'Settings',
 }
 
@@ -79,8 +84,12 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   agents: 'People and agents you can chat with',
   projects: 'Shared goals for agents and threads',
   knowledge: 'Docs, skills and memory',
+  modules: 'Turn business capabilities on or off',
   settings: 'Workspace configuration',
 }
+
+/** Tabs that show a temporary "New" rail label (not a count badge). */
+const NEW_TABS: ReadonlySet<Tab> = new Set(['modules'])
 
 export function iconForTab(tab: Tab): LucideIcon {
   return TAB_ICONS[tab]
@@ -96,6 +105,10 @@ export function subtitleForTab(tab: Tab): string {
 
 export function pathForTab(tab: Tab): string {
   return TAB_PATHS[tab]
+}
+
+export function isNewTab(tab: Tab): boolean {
+  return NEW_TABS.has(tab)
 }
 
 /** Resolve the active tab from a pathname (longest-prefix match). */
@@ -119,6 +132,8 @@ export function tabFromPath(pathname: string): Tab | null {
     pathname.startsWith('/skills')
   )
     return 'knowledge'
+  // Modules lives under /settings/modules — match before the settings catch-all.
+  if (pathname.startsWith('/settings/modules')) return 'modules'
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
   return null
 }

@@ -70,6 +70,17 @@ async def resolve_agent_for_channel(
 
 
 async def resolve_agent_for_signal(session: AsyncSession, signal: Signal) -> Agent | None:
+    """Agent for this thread: a thread-level pin wins, else channel bindings.
+
+    ``Signal.agent_id`` is the handling agent of that one conversation (set
+    when an agent takes it over, or when it raised the thread). Honouring it
+    keeps a conversation with the agent that has been in it.
+    """
+    if signal.agent_id:
+        pinned = await _agent_by_id(session, signal.tenant_id, signal.agent_id)
+        if pinned and pinned.kind == "company":
+            return pinned
+
     return await resolve_agent_for_channel(
         session,
         signal.tenant_id,

@@ -6,7 +6,7 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-DOC_KINDS = ("doc", "memory", "persona", "skill", "daily_log", "heartbeat")
+DOC_KINDS = ("doc", "memory", "persona", "skill", "daily_log", "heartbeat", "project_doc")
 
 
 class WorkspaceDoc(SQLModel, table=True):
@@ -14,6 +14,8 @@ class WorkspaceDoc(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    # Project-scoped smart documentation (kind="project_doc"); null = tenant knowledge.
+    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     # Stable file-style path, unique per tenant (e.g. "memory.md", "skills/triage.md").
     path: str = Field(index=True)
     kind: str = Field(default="doc", index=True)

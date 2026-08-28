@@ -86,11 +86,16 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
+    hasOpenDecision: Boolean(raw.has_open_decision),
     isPinned: Boolean(raw.is_pinned),
     aiPaused: Boolean(raw.ai_paused),
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
       : [],
+    category: asString(raw.category) || null,
+    urgency: typeof raw.urgency === 'number' ? raw.urgency : null,
+    certainty: typeof raw.certainty === 'number' ? raw.certainty : null,
+    aiSummary: asString(raw.ai_summary) || null,
     channel: asString(raw.channel, 'email'),
     folder: asString(raw.folder, raw.channel === 'internal' ? 'internal' : 'external'),
     projectId: raw.project_id ? asString(raw.project_id) : null,
@@ -196,6 +201,7 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.search) params.set('search', filters.search)
   if (filters.unread) params.set('unread', '1')
   if (filters.needsReply) params.set('needs_reply', '1')
+  if (filters.needsDecision) params.set('needs_decision', '1')
   if (filters.pinnedOnly) params.set('pinned', '1')
   params.set('page', String(filters.page ?? 1))
   params.set('per_page', String(filters.perPage ?? 30))
@@ -260,6 +266,40 @@ function normalizeThreadSession(row: unknown): ThreadSession | null {
   }
 }
 
+/** Why an agent is offered on a thread; drives the picker's hint label. */
+export type ThreadAgentReason = 'channel' | 'project' | 'company' | 'personal'
+
+export type ThreadAgentCandidate = {
+  id: string
+  name: string
+  reason: ThreadAgentReason
+}
+
+export async function listThreadAgentCandidates(
+  token: string,
+  threadId: string,
+): Promise<ThreadAgentCandidate[]> {
+  const payload = await apiGet<{ items?: unknown[] }>(
+    appRoutes.signals.threadAgentCandidates(threadId),
+    token,
+  )
+  const reasons: ThreadAgentReason[] = ['channel', 'project', 'company', 'personal']
+  return (payload.items ?? [])
+    .map((row): ThreadAgentCandidate | null => {
+      if (!row || typeof row !== 'object') return null
+      const raw = row as Record<string, unknown>
+      const id = asString(raw.id)
+      if (!id) return null
+      const reason = asString(raw.reason) as ThreadAgentReason
+      return {
+        id,
+        name: asString(raw.name),
+        reason: reasons.includes(reason) ? reason : 'company',
+      }
+    })
+    .filter((c): c is ThreadAgentCandidate => c !== null)
+}
+
 export async function startAgentSession(
   token: string,
   threadId: string,
@@ -282,6 +322,15 @@ export async function closeAgentSession(
     token,
   )
   return normalizeThreadSession(payload)
+}
+
+/** Cancel a session that has no turns yet; it leaves no trace on the thread. */
+export async function discardAgentSession(
+  token: string,
+  threadId: string,
+  sessionId: string,
+): Promise<void> {
+  await apiDelete<unknown>(appRoutes.signals.threadSession(threadId, sessionId), token)
 }
 
 export async function getSignalThread(token: string, threadId: string): Promise<ThreadDetail | null> {
@@ -335,11 +384,13 @@ export async function patchSignalThread(
 export async function bulkUpdateSignalThreads(
   token: string,
   signalIds: string[],
-  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign',
+  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'snooze',
   assigneeId?: number,
+  extra?: { snoozedUntil?: string | null },
 ): Promise<number> {
   const body: Record<string, unknown> = { signal_ids: signalIds, action }
   if (assigneeId !== undefined) body.assignee_id = assigneeId
+  if (extra?.snoozedUntil !== undefined) body.snoozed_until = extra.snoozedUntil
   const payload = await apiPost<{ updated?: number }>(appRoutes.signals.bulk, body, token)
   return typeof payload.updated === 'number' ? payload.updated : 0
 }
@@ -391,6 +442,112 @@ export async function updateSavedReply(
 
 export async function deleteSavedReply(token: string, replyId: string): Promise<void> {
   await apiDelete<unknown>(appRoutes.signals.savedReply(replyId), token)
+}
+
+// ---------------------------------------------------------------------------
+// Tag registry (tag folders in the sidebar, thread tag picker, settings)
+// ---------------------------------------------------------------------------
+
+export type SignalTagRow = {
+  tag: string
+  total: number
+  open: number
+  /** When to use this tag; also the guidance AI tagging reads. */
+  description: string
+  /** False for legacy tags found on threads but not in the registry. */
+  registered: boolean
+}
+
+/** Fired when the tenant tag catalog may have changed (add/remove/rename). */
+export const SIGNAL_TAGS_CHANGED_EVENT = 'bokito:signal-tags-changed'
+
+export function notifySignalTagsChanged(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(SIGNAL_TAGS_CHANGED_EVENT))
+}
+
+/** Merge pinned default-view tags with the live catalog (used tags). */
+export function mergeSidebarTagRows(
+  pinned: string[],
+  catalog: SignalTagRow[],
+): SignalTagRow[] {
+  const byTag = new Map(catalog.map((row) => [row.tag.toLowerCase(), row]))
+  const seen = new Set<string>()
+  const rows: SignalTagRow[] = []
+  for (const raw of pinned) {
+    const key = raw.trim().toLowerCase()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    rows.push(byTag.get(key) ?? { tag: key, total: 0, open: 0, description: '', registered: false })
+  }
+  for (const row of catalog) {
+    const key = row.tag.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    rows.push(row)
+  }
+  return rows
+}
+
+export async function listSignalTags(token: string): Promise<SignalTagRow[]> {
+  const payload = await apiGet<{ items?: unknown }>(appRoutes.signals.tags, token)
+  const source = Array.isArray(payload.items) ? payload.items : []
+  return source
+    .map((row): SignalTagRow | null => {
+      if (!row || typeof row !== 'object') return null
+      const raw = row as Record<string, unknown>
+      const tag = asString(raw.tag)
+      if (!tag) return null
+      return {
+        tag,
+        total: asNumber(raw.total, 0),
+        open: asNumber(raw.open, 0),
+        description: asString(raw.description),
+        registered: raw.registered !== false,
+      }
+    })
+    .filter((r): r is SignalTagRow => r !== null)
+}
+
+/** Add a tag to the tenant vocabulary before any thread uses it. */
+export async function createSignalTag(
+  token: string,
+  name: string,
+  description = '',
+): Promise<string> {
+  const payload = await apiPost<{ tag?: string }>(
+    appRoutes.signals.tags,
+    { name, description },
+    token,
+  )
+  notifySignalTagsChanged()
+  return asString(payload.tag) || name.trim().toLowerCase()
+}
+
+export async function renameSignalTag(token: string, tag: string, newTag: string): Promise<number> {
+  const payload = await apiPatch<{ changed?: number }>(
+    appRoutes.signals.tag(tag),
+    { new_tag: newTag },
+    token,
+  )
+  notifySignalTagsChanged()
+  return asNumber(payload.changed, 0)
+}
+
+/** Set the "when to use this" guidance an operator and the AI both read. */
+export async function describeSignalTag(
+  token: string,
+  tag: string,
+  description: string,
+): Promise<void> {
+  await apiPatch<unknown>(appRoutes.signals.tag(tag), { description }, token)
+  notifySignalTagsChanged()
+}
+
+export async function deleteSignalTag(token: string, tag: string): Promise<number> {
+  const payload = await apiDelete<{ changed?: number }>(appRoutes.signals.tag(tag), token)
+  notifySignalTagsChanged()
+  return asNumber(payload?.changed, 0)
 }
 
 export async function deleteSignalThread(token: string, threadId: string): Promise<void> {
@@ -732,6 +889,7 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
         name: asString(raw.name, `User ${id}`),
         email: asString(raw.email),
         avatarUrl: typeof raw.avatar_url === 'string' && raw.avatar_url ? raw.avatar_url : null,
+        role: asString(raw.role) || null,
       }
     })
     .filter((m): m is InboxMember => m !== null)

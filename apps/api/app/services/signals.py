@@ -126,15 +126,19 @@ async def apply_email_routing(
         if assign_numeric is None and rule.assign_to_user_id is not None:
             assign_numeric = rule.assign_to_user_id
     if labels:
+        from app.services import signal_tags as tag_svc
+
         try:
             existing = json.loads(signal.tags_json or "[]")
         except (json.JSONDecodeError, TypeError):
             existing = []
-        merged = list(existing) if isinstance(existing, list) else []
-        for label in labels:
+        merged = tag_svc.normalize_tags(existing if isinstance(existing, list) else [])
+        for label in tag_svc.normalize_tags(labels):
             if label not in merged:
                 merged.append(label)
         signal.tags_json = json.dumps(merged)
+        # Routing-rule labels are operator intent: they belong in the vocabulary.
+        await tag_svc.ensure_tags(session, tenant_id, merged)
     if assign_numeric is not None and signal.assigned_user_id is None:
         member_result = await session.execute(
             select(User.id)
@@ -478,6 +482,9 @@ async def apply_triage(
     summary: str,
     certainty: int,
     priority: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    intent: Optional[str] = None,
+    sentiment: Optional[str] = None,
 ) -> Signal:
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
@@ -491,8 +498,25 @@ async def apply_triage(
     signal.summary = summary
     signal.certainty = max(0, min(100, certainty))
     signal.triaged_at = datetime.utcnow()
+    if intent:
+        signal.intent = intent
+    if sentiment:
+        signal.sentiment = sentiment
     if priority:
         signal.priority = priority
+    added_tags: list[str] = []
+    if tags:
+        from app.services import signal_tags as tag_svc
+
+        # Union merge: AI tagging only ever adds, never removes operator tags.
+        try:
+            existing = json.loads(signal.tags_json or "[]")
+        except json.JSONDecodeError:
+            existing = []
+        current = tag_svc.normalize_tags(existing if isinstance(existing, list) else [])
+        added_tags = [t for t in tag_svc.normalize_tags(tags) if t not in current]
+        if added_tags:
+            signal.tags_json = json.dumps([*current, *added_tags])
     session.add(
         SignalEvent(
             signal_id=signal.id,
@@ -500,7 +524,14 @@ async def apply_triage(
             event_type="triaged",
             actor_type="agent",
             payload_json=json.dumps(
-                {"category": category, "urgency": urgency, "impact": impact, "certainty": certainty}
+                {
+                    "category": category,
+                    "urgency": urgency,
+                    "impact": impact,
+                    "certainty": certainty,
+                    "intent": intent,
+                    "tags_added": added_tags,
+                }
             ),
         )
     )

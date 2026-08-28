@@ -46,6 +46,11 @@ export function DomainFavicon({ email, host, name, size = 28, className }: Props
         src={faviconUrl}
         alt=""
         onError={() => setErrored(true)}
+        onLoad={(event) => {
+          // Google S2 serves a generic 16px globe (HTTP 200) for unknown
+          // domains; treat that as a miss so initials render instead.
+          if (event.currentTarget.naturalWidth <= 16) setErrored(true)
+        }}
         width={Math.round(size * 0.7)}
         height={Math.round(size * 0.7)}
         className="object-contain"

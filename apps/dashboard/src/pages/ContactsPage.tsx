@@ -22,6 +22,7 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { ChannelGlyph, ChannelLabel, channelKind } from '../components/ui/ChannelGlyph'
 import { DomainFavicon } from '../components/ui/DomainFavicon'
+import { PersonAvatar } from '../components/ui/PersonAvatar'
 import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
@@ -306,11 +307,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
         <section className="rounded-xl border border-border/60 bg-bg-surface p-4 shadow-card">
           <div className="flex items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2.5">
-              <DomainFavicon
-                email={contact.address}
-                name={contact.displayName || contact.address}
-                size={32}
-              />
+              <PersonAvatar name={contact.displayName} email={contact.address} size={32} />
               <h2 className="truncate text-[14px] font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
             </span>
             <span
@@ -648,7 +645,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                   to={`/contacts/${c.id}`}
                   className="flex items-center gap-2.5 rounded-lg border border-border/40 bg-bg-elevated/45 px-3 py-2 transition-colors hover:border-accent/40"
                 >
-                  <DomainFavicon email={c.address} name={c.displayName || c.address} size={24} />
+                  <PersonAvatar name={c.displayName} email={c.address} size={24} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12.5px] font-medium text-text-primary">
                       {humanizeContactName(c.displayName, c.address, t('contactsPage.widgetVisitor')) ||
@@ -1262,11 +1259,7 @@ export default function ContactsPage() {
                         className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <DomainFavicon
-                          email={contact.address}
-                          name={contact.displayName || contact.address}
-                          size={28}
-                        />
+                        <PersonAvatar name={contact.displayName} email={contact.address} size={28} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium text-text-primary">
                             {humanizeContactName(

@@ -1,45 +1,60 @@
 ---
 title: Zo werken Projecten
-intro: Een project houdt een doel vast — wie het leidt, welke gesprekken het gebruikt, en hoeveel het mag uitgeven.
-description: Maak een project met een lead-agent, zet dag- en uurbudgetten, koppel een repo, en blijf praten in Communicatie.
-keywords: projecten, workstreams, budget, repository, orkestratie
+intro: Een project houdt een doel vast — de implementatie-queue, de documentatie, wie het leidt, en hoeveel het mag uitgeven.
+description: Werk de implementatie-queue af, houd slimme documentatie met sectiestatussen bij, koppel resources zoals een repo of drive, en laat agents queue-items voorstellen vanuit gesprekken.
+keywords: projecten, queue, documentatie, secties, resources, repository, budget, orkestratie
 sort: 40
 related: agenda,knowledge,communication
 ---
 
 # Zo werken Projecten
 
-Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven.
+Een project is werk over dagen. Open **Projecten** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een projectdetail heeft drie tabbladen: **Queue** (wat er moet gebeuren), **Documentatie** (wat waar is) en **Instellingen** (wie het uitvoert en waar het op werkt).
 
 ## Maak of open een project
 
 ![Projectenlijst](/api/docs/assets/projects/project.png)
-*Elke kaart toont de lead-agent en het budget.*
+*Elke kaart toont de lead-agent, open queue-items en het budget.*
 
 1. Open **Projecten**. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
-2. Lees de kaart: lead-agent, repo-status, resterend budget. Zoek op naam of lead als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
-3. Open die. De kaart **Wie dit uitvoert** toont de lead. Gebruik **Lead wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen. **Vernieuwen** toont wanneer de pagina het laatst laadde.
+2. Lees de kaart: lead-agent, open queue-items, documentatiegezondheid, repo-status, resterend budget. Zoek op naam of lead als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
+3. Open die. Je landt op het tabblad **Queue**. Het tabblad **Instellingen** bevat de kaart **Wie dit uitvoert**; gebruik **Lead wijzigen** om een andere agent te kiezen of er een te maken. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
 
-Status op een kaart kan werkend, inactief, gepauzeerd of geblokkeerd zijn (heeft jou nodig).
+## Werk de implementatie-queue af
 
-## Blijf praten in Communicatie
+1. Kies op het tabblad **Queue** voor **Aan queue toevoegen**. Geef het verzoek een titel, kies een soort (**Feature**, **Bug**, **Taak**, **Idee**, **Risico**) en een prioriteit, en kies **Toevoegen**.
+2. Items zijn gegroepeerd op status: **Voorgesteld**, **Geaccepteerd**, **In analyse**, **Gepland**, **In uitvoering**, **In verificatie**, **Klaar**, **Afgewezen**. Open een item om de context, impactanalyse en gekoppelde documentatiesecties te lezen.
+3. Kies **Accepteren** op een voorgesteld item. De projectagent analyseert het tegen de documentatie, koppelt de secties die het raakt en schrijft een impactsamenvatting. Gebruik **Analyseer** om dat opnieuw te draaien.
+4. Als het werk klaar is, kies je **Klaar voor verificatie** en daarna **Verifieer**. De agent toetst de documentatie aan de realiteit voordat het item naar **Klaar** gaat.
 
-1. Kies vanuit het project **Open communicatie**.
-2. Je landt in [Communicatie](/docs/inbox/communication) gefilterd op dat project. De lijst toont een banner die je kunt wissen.
-3. Agents en mensen blijven daar praten. Het project is de ruggengraat.
+Items die uit een gesprek zijn ontstaan tonen **Brongesprek openen**, dat je terugbrengt naar het exacte gesprek in [Communicatie](/docs/inbox/communication).
+
+## Laat gesprekken de queue voeden
+
+1. Koppel een gesprek aan een project in het detailpaneel van het gesprek (**Project**).
+2. Als iemand een bug beschrijft of iets nieuws vraagt, stelt de agent een queue-item voor. Er verschijnt een **Queue-voorstel**-kaart in het gesprek.
+3. Kies **Aan queue toevoegen** om te accepteren, of **Afwijzen**. Kies **Altijd toestaan** als de agent items mag toevoegen zonder te vragen.
+4. Zet **Autonome modus** aan op het tabblad **Instellingen** van het project om de acceptatiestap over te slaan: gespreksitems worden automatisch geaccepteerd en de analyse start direct.
+
+## Houd slimme documentatie bij
+
+1. Open het tabblad **Documentatie**. Kies **Nieuw document**, geef het een naam en schrijf markdown. Elke `##`-kop wordt een gevolgde sectie.
+2. Elke sectie draagt een status: **Open**, **Gepland**, **In uitvoering**, **Geïmplementeerd**, **Geverifieerd** of **Vervallen**. De gekleurde rail naast elke sectie toont de status in één oogopslag.
+3. Open een sectie om te zien welke queue-items haar raken — huidig en historisch. Klik op de statusbadge om die handmatig te wijzigen.
+4. Agents gebruiken deze statussen bij het beantwoorden van klanten, zodat ze geen features beloven die nog open staan.
+
+## Koppel resources
+
+1. Open het tabblad **Instellingen**. De repositorykaart koppelt een GitHub-repo zoals voorheen; de status gaat van **Repo indexeren** naar **Repo klaar**.
+2. Kies onder **Resources** voor **Resource koppelen** om andere omgevingen aan te haken waar het project op werkt: een drive-map, een Notion-pagina, een spreadsheet, een codeertool of een website.
+3. Kies een type, voeg een label en een referentie toe (URL of ID), en kies **Koppelen**. Resources zijn nu gekoppeld op referentie; connectors die synchroniseren en handelen haken hier later op aan.
 
 ## Beperk uitgaven
 
-1. Open het project.
+1. Open het tabblad **Instellingen** van het project.
 2. Zet dag- en uurbudgetten voor tokens zodat één doel niet het hele workspaceplafond opmaakt.
 3. Als een project het plafond raakt, toont de kaart **Tokenbudget bereikt**. Workspaceplafonds blijven op Cockpit **Verbruik**.
 
-## Koppel een repository
-
-1. Bij aanmaken of vanuit het project kies je **Ik gebruik GitHub** om een bestaande repo te koppelen, of **Doe het voor mij** voor een beheerde repo (geen GitHub-account). **Doe het voor mij** kan nog **Binnenkort** tonen. Als GitHub nog niet gekoppeld is, brengt **Integraties openen** je eerst daarheen.
-2. Voor GitHub kies je **Koppelen met GitHub**, daarna **Selecteer een repository**, en **Repository koppelen**. Status gaat van **Repo indexeren** naar **Repo klaar**.
-3. Agents zoeken dan in die repo in de context van het project. Geen repo is prima voor werk zonder code. Marketplace-GitHub-tools staan los van deze projectindex.
-
 ## Wat nu
 
-Hang een planning op de [Agenda](/docs/ai/agenda). Zet de brief in [Kennis](/docs/ai/knowledge).
+Hang een planning op de [Agenda](/docs/ai/agenda). Zet workspacebrede kennis in [Kennis](/docs/ai/knowledge); projectdocumentatie leeft op het project zelf.

@@ -1,4 +1,4 @@
-import { Mail, MailOpen, Pin, PinOff } from 'lucide-react'
+import { Clock, Mail, MailOpen, Pin, PinOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import {
@@ -14,6 +14,7 @@ type Props = {
   onMarkRead: () => void
   onMarkUnread: () => void
   onTogglePin: () => void
+  onSnooze?: () => void
 }
 
 /**
@@ -36,6 +37,7 @@ export default function ThreadIndicatorMenu({
   onMarkRead,
   onMarkUnread,
   onTogglePin,
+  onSnooze,
 }: Props) {
   const { t } = useTranslation('communication')
 
@@ -135,6 +137,18 @@ export default function ThreadIndicatorMenu({
             </>
           )}
         </DropdownMenuItem>
+        {onSnooze ? (
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              onSnooze()
+            }}
+            className="gap-2"
+          >
+            <Clock size={14} className="text-text-muted" />
+            {t('snooze.tomorrow')}
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )

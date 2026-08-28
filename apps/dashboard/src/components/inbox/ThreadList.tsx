@@ -25,6 +25,7 @@ type Props = {
   onMarkRead: (id: ThreadId) => void
   onMarkUnread: (id: ThreadId) => void
   onTogglePin: (id: ThreadId, currentPinned: boolean) => void
+  onSnooze?: (id: ThreadId) => void
   onDelete: (id: ThreadId) => void
   deletingThreadId?: ThreadId | null
   variant?: 'customer' | 'direct'
@@ -44,10 +45,12 @@ type Props = {
   onPriorityFilter?: (value: string | null) => void
   channelFilter?: string | null
   onChannelFilter?: (value: string | null) => void
-  /** Active label filter (server-side `?tag=`); null shows all threads. */
+  /** Tag folder this list belongs to (`/communication/tag/{tag}`), if any. */
   activeTag?: string | null
-  /** Set/clear the label filter; omit to make tag chips non-interactive. */
-  onTagSelect?: (tag: string | null) => void
+  /** Open a tag's folder; omit to make tag chips non-interactive. */
+  onTagOpen?: (tag: string) => void
+  /** Leave the tag folder (back to all communication). */
+  onLeaveTag?: () => void
   /** Visible scope when the list is filtered by agent or project. */
   scopeLabel?: string | null
   onClearScope?: () => void
@@ -62,6 +65,7 @@ type Props = {
   emptyLabel?: string
   emptyHint?: ReactNode
   onRetry?: () => void
+  lastMailboxSyncAt?: string | null
 }
 
 function buildFilterCounts(threads: InboxThread[]) {
@@ -69,6 +73,7 @@ function buildFilterCounts(threads: InboxThread[]) {
     all: threads.length,
     unread: threads.filter((t) => t.hasUnread).length,
     needsReply: threads.filter((t) => threadNeedsReply(t)).length,
+    needsDecision: threads.filter((t) => t.hasOpenDecision).length,
     pinned: threads.filter((t) => t.isPinned).length,
   }
 }
@@ -85,6 +90,7 @@ export default function ThreadList({
   onMarkRead,
   onMarkUnread,
   onTogglePin,
+  onSnooze,
   onDelete,
   deletingThreadId = null,
   variant = 'customer',
@@ -104,7 +110,8 @@ export default function ThreadList({
   channelFilter = null,
   onChannelFilter,
   activeTag = null,
-  onTagSelect,
+  onTagOpen,
+  onLeaveTag,
   scopeLabel = null,
   onClearScope,
   total = null,
@@ -115,6 +122,7 @@ export default function ThreadList({
   emptyLabel,
   emptyHint,
   onRetry,
+  lastMailboxSyncAt,
 }: Props) {
   const { t } = useTranslation('communication')
   const [density, setDensity] = useState(readInboxDensity)
@@ -202,58 +210,17 @@ export default function ThreadList({
           onSelectAll={onSelectAll}
           onMarkAllRead={onMarkAllRead}
           unreadCount={counts.unread}
+          lastMailboxSyncAt={lastMailboxSyncAt}
+          assigneeFilter={variant === 'customer' ? assigneeFilter : undefined}
+          onAssigneeFilter={variant === 'customer' ? onAssigneeFilter : undefined}
+          members={members}
+          priorityFilter={variant === 'customer' ? priorityFilter : undefined}
+          onPriorityFilter={variant === 'customer' ? onPriorityFilter : undefined}
+          channelFilter={variant === 'customer' ? channelFilter : undefined}
+          onChannelFilter={variant === 'customer' ? onChannelFilter : undefined}
+          channelOptions={channelOptions}
         />
       )}
-
-      {variant === 'customer' && (onAssigneeFilter || onPriorityFilter || onChannelFilter) ? (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-border/40 px-3 py-1.5">
-          {onAssigneeFilter ? (
-            <select
-              value={assigneeFilter == null ? '' : String(assigneeFilter)}
-              onChange={(event) =>
-                onAssigneeFilter(event.target.value ? Number(event.target.value) : null)
-              }
-              aria-label={t('threadList.filterAssignee')}
-              className="h-6 max-w-[9rem] rounded-md border border-border/60 bg-bg-surface px-1.5 text-[11px] text-text-secondary"
-            >
-              <option value="">{t('threadList.filterAssigneeAll')}</option>
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name || member.email}
-                </option>
-              ))}
-            </select>
-          ) : null}
-          {onPriorityFilter ? (
-            <select
-              value={priorityFilter ?? ''}
-              onChange={(event) => onPriorityFilter(event.target.value || null)}
-              aria-label={t('threadList.filterPriority')}
-              className="h-6 rounded-md border border-border/60 bg-bg-surface px-1.5 text-[11px] text-text-secondary"
-            >
-              <option value="">{t('threadList.filterPriorityAll')}</option>
-              <option value="urgent">{t('priority.urgent')}</option>
-              <option value="high">{t('priority.high')}</option>
-              <option value="normal">{t('priority.normal')}</option>
-            </select>
-          ) : null}
-          {onChannelFilter ? (
-            <select
-              value={channelFilter ?? ''}
-              onChange={(event) => onChannelFilter(event.target.value || null)}
-              aria-label={t('threadList.filterChannel')}
-              className="h-6 rounded-md border border-border/60 bg-bg-surface px-1.5 text-[11px] text-text-secondary"
-            >
-              <option value="">{t('threadList.filterChannelAll')}</option>
-              {channelOptions.map((channel) => (
-                <option key={channel} value={channel}>
-                  {t(`composer.channel.${channel}`, { defaultValue: channel })}
-                </option>
-              ))}
-            </select>
-          ) : null}
-        </div>
-      ) : null}
 
       {scopeLabel && onClearScope ? (
         <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
@@ -272,20 +239,22 @@ export default function ThreadList({
         </div>
       ) : null}
 
-      {activeTag && onTagSelect ? (
+      {activeTag ? (
         <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
           <Tag size={11} className="shrink-0 text-accent" />
           <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-text-heading">
             {activeTag}
           </span>
-          <button
-            type="button"
-            aria-label={t('threadList.clearLabelFilter')}
-            onClick={() => onTagSelect(null)}
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
-          >
-            <X size={11} />
-          </button>
+          {onLeaveTag ? (
+            <button
+              type="button"
+              aria-label={t('threadList.clearLabelFilter')}
+              onClick={onLeaveTag}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
+            >
+              <X size={11} />
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -321,6 +290,8 @@ export default function ThreadList({
                   ? t('threadList.emptyUnread')
                   : quickFilter === 'needsReply'
                     ? t('threadList.emptyNeedsReply')
+                    : quickFilter === 'needsDecision'
+                      ? t('threadList.emptyNeedsDecision')
                     : quickFilter === 'pinned'
                       ? t('threadList.emptyPinned')
                       : emptyLabel ?? t('threadList.empty')}
@@ -348,13 +319,15 @@ export default function ThreadList({
               onMarkRead={onMarkRead}
               onMarkUnread={onMarkUnread}
               onTogglePin={onTogglePin}
+              onSnooze={onSnooze}
               onDelete={onDelete}
               deleting={String(deletingThreadId) === String(thread.id)}
               variant={variant}
               checked={bulkSelectedIds?.has(String(thread.id))}
               onToggleChecked={onToggleBulkSelect}
               selectionActive={selectionActive}
-              onTagClick={onTagSelect ? (tag) => onTagSelect(tag) : undefined}
+              onTagClick={onTagOpen}
+              activeTag={activeTag}
               assigneeName={
                 thread.assignedToUserId != null
                   ? memberNames.get(String(thread.assignedToUserId)) ?? null

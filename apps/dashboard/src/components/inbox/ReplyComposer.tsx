@@ -631,13 +631,16 @@ export default function ReplyComposer({
                     ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
                     : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
               }
-              className={`flex h-8 w-8 items-center justify-center transition-colors disabled:opacity-40 ${
+              className={`flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40 ${
                 isNote
                   ? 'bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600'
                   : 'bg-accent text-accent-fg hover:bg-accent-hover'
               } ${!isNote && showCustomerActions ? 'rounded-none' : 'rounded-xl'}`}
             >
               {isNote ? <StickyNote size={13} /> : <Send size={13} />}
+              {!isNote && surface.channel === 'email' ? (
+                <span className="text-[10px] font-medium opacity-90">{t('composer.sendShortcut')}</span>
+              ) : null}
             </button>
             {!isNote && showCustomerActions ? (
               <DropdownMenu>

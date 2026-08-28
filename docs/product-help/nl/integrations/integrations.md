@@ -9,7 +9,7 @@ related: mcp,models,channels,govern
 
 # Integraties koppelen
 
-Integraties zijn de tools die agents mogen aanroepen. Open **Instellingen** en daarna **Modules** om een bedrijfsfunctie aan te zetten, of **Integraties** voor pakketten. Integraties heeft drie tabs: **Verbonden**, **Marketplace** en **Gekoppelde tools**.
+Integraties zijn de tools die agents mogen aanroepen. Open **Modules** in de linkerzijbalk (met label **Nieuw**) om een bedrijfsfunctie aan te zetten, of open **Instellingen** en daarna **Integraties** voor pakketten. Integraties heeft drie tabs: **Verbonden**, **Marketplace** en **Gekoppelde tools**.
 
 ## Zie wat gekoppeld is
 
@@ -41,7 +41,7 @@ De secties **Bankieren**, **Beleggen** en **Documenten** in de marketplace zijn 
 
 Een module is een schakelaar voor de workspace. Agents zien die functie pas nadat je hem aanzet. Pakketten blijven zichtbaar zodat je ziet welke koppelingen bij de module horen.
 
-1. Open **Instellingen** en daarna **Modules**.
+1. Open **Modules** in de linkerzijbalk (of **Instellingen**, dan **Modules**).
 2. Zoek **Boekhouding** (of een andere live module) en zet de schakelaar op **Aan**. Het badge verandert van **Uit** naar **Aan**.
 3. Agents kunnen de module nu gebruiken. Een pakket koppelen zet de module later ook aan. **Uit** verbergt de module voor agents; gekoppelde pakketten blijven staan.
 4. Of keur **Aanzetten** goed op een keuzekaart van de bedrijfsassistent. Die landt op dezelfde Modules-pagina.
@@ -50,7 +50,7 @@ Een module is een schakelaar voor de workspace. Agents zien die functie pas nada
 
 Een module is de bedrijfsfunctie (boekhouden, later bankieren). Een pakket is de connector eronder (KING, Moneybird). Jij of de assistent starten dezelfde setup.
 
-1. Open **Instellingen**, daarna **Modules**. Nadat je **Boekhouding** aanzet, kies **Pakket koppelen** of een pakketchip zoals Moneybird.
+1. Open **Modules** in de linkerzijbalk (of **Instellingen**, dan **Modules**). Nadat je **Boekhouding** aanzet, kies **Pakket koppelen** of een pakketchip zoals Moneybird.
 2. De volgende-stapbanner vraagt je te koppelen. Pakketten staan eerst als de module al aan staat. Schrijven wordt altijd een [beslissing](/docs/ai/decisions) die jij goedkeurt.
 3. Rond OAuth of de API-sleutel af in dezelfde hub als op Marketplace. Een pakket koppelen zet de module ook aan.
 4. Of vraag de bedrijfsassistent om de workspace in te richten. Na Communicatie, als het werk facturen of btw raakt, kan die de module aanbevelen en **Aanzetten** of **Pakket koppelen** op een keuzekaart zetten die dezezelfde pagina opent.

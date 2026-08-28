@@ -187,11 +187,11 @@ async def test_outbound_view(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
-async def test_signals_sync_status(client: AsyncClient):
+async def test_channels_list_returns_rows(client: AsyncClient):
     headers = await _auth_headers(client)
-    resp = await client.get("/api/signals/sync-status", headers=headers)
+    resp = await client.get("/api/channels", headers=headers)
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    assert isinstance(resp.json()["channels"], list)
 
 
 @pytest.mark.asyncio

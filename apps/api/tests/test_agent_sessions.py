@@ -150,6 +150,195 @@ async def test_session_outcome_extracts_actions(
 
 
 @pytest.mark.asyncio
+async def test_agent_candidates_rank_channel_agent_first(
+    client: AsyncClient, session_override: AsyncSession
+):
+    headers = await _login(client)
+    thread = await _customer_thread(session_override)
+
+    r = await client.get(f"/api/signals/{thread.id}/agent-candidates", headers=headers)
+    assert r.status_code == 200, r.text
+    items = r.json()["items"]
+    assert items, "at least the channel agent and the personal assistant"
+    assert items[0]["reason"] == "channel"
+    assert items[-1]["reason"] == "personal"
+    assert len({row["id"] for row in items}) == len(items)  # no duplicates
+
+    # An explicit candidate becomes the session agent.
+    picked = items[0]
+    r = await client.post(
+        f"/api/signals/{thread.id}/sessions", headers=headers, json={"agent_id": picked["id"]}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["agent_id"] == picked["id"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_before_first_turn_leaves_no_trace(
+    client: AsyncClient, session_override: AsyncSession
+):
+    headers = await _login(client)
+    thread = await _customer_thread(session_override)
+
+    session_id = (
+        await client.post(f"/api/signals/{thread.id}/sessions", headers=headers, json={})
+    ).json()["id"]
+
+    detail = (await client.get(f"/api/signals/{thread.id}", headers=headers)).json()
+    assert detail["sessions"][0]["message_count"] == 0
+
+    r = await client.delete(
+        f"/api/signals/{thread.id}/sessions/{session_id}", headers=headers
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["discarded"] is True
+
+    detail = (await client.get(f"/api/signals/{thread.id}", headers=headers)).json()
+    assert detail["sessions"] == []
+    assert not any(e["event_type"] == "agent_session_started" for e in detail["events"])
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_first_turn_checks_out_instead(
+    client: AsyncClient, session_override: AsyncSession
+):
+    headers = await _login(client)
+    thread = await _customer_thread(session_override)
+
+    session_id = (
+        await client.post(f"/api/signals/{thread.id}/sessions", headers=headers, json={})
+    ).json()["id"]
+    await client.post(
+        f"/api/chat/conversations/{session_id}/messages",
+        headers=headers,
+        json={"content": "Wat is hier aan de hand?"},
+    )
+
+    detail = (await client.get(f"/api/signals/{thread.id}", headers=headers)).json()
+    assert detail["sessions"][0]["message_count"] >= 1
+
+    r = await client.delete(
+        f"/api/signals/{thread.id}/sessions/{session_id}", headers=headers
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["discarded"] is False
+    assert body["session"]["state"] == "closed"
+
+
+@pytest.mark.asyncio
+async def test_suggest_thread_reply_proposes_on_host_thread(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """A sparring agent proposes; the operator still approves."""
+    await _login(client)
+    thread = await _customer_thread(session_override)
+
+    from app.models.agent import Agent
+    from app.models.notification import DecisionRequest
+    from app.tools import execute_tool
+
+    agent = (
+        await session_override.execute(
+            select(Agent).where(Agent.tenant_id == thread.tenant_id, Agent.kind == "company")
+        )
+    ).scalars().first()
+
+    result = await execute_tool(
+        session_override,
+        thread.tenant_id,
+        None,
+        "suggest_thread_reply",
+        {"body_text": "De factuur is vorige week gecrediteerd."},
+        signal_id=thread.id,
+        agent=agent,
+    )
+    assert result.get("ok") is True
+    assert result.get("awaiting_approval") is True
+
+    decision = (
+        await session_override.execute(
+            select(DecisionRequest).where(DecisionRequest.signal_id == thread.id)
+        )
+    ).scalars().first()
+    assert decision is not None
+    assert decision.status == "awaiting_human"
+    assert "gecrediteerd" in decision.summary
+
+
+@pytest.mark.asyncio
+async def test_take_over_conversation_pins_the_agent(
+    client: AsyncClient, session_override: AsyncSession
+):
+    await _login(client)
+    thread = await _customer_thread(session_override)
+    thread.ai_paused = True
+    await session_override.commit()
+
+    from app.models.agent import Agent
+    from app.services.routing import resolve_agent_for_signal
+    from app.tools import execute_tool
+
+    agent = (
+        await session_override.execute(
+            select(Agent).where(Agent.tenant_id == thread.tenant_id, Agent.kind == "company")
+        )
+    ).scalars().first()
+
+    result = await execute_tool(
+        session_override,
+        thread.tenant_id,
+        None,
+        "take_over_conversation",
+        {"reason": "Teammate asked me to continue"},
+        signal_id=thread.id,
+        agent=agent,
+        approved=True,
+    )
+    assert result.get("ok") is True
+    assert result.get("ai_paused") is False
+
+    await session_override.refresh(thread)
+    assert thread.ai_paused is False
+    assert thread.agent_id == agent.id
+    # Inbound routing now keeps the conversation with that agent.
+    routed = await resolve_agent_for_signal(session_override, thread)
+    assert routed is not None and routed.id == agent.id
+
+
+@pytest.mark.asyncio
+async def test_personal_assistant_cannot_take_over(
+    client: AsyncClient, session_override: AsyncSession
+):
+    headers = await _login(client)
+    thread = await _customer_thread(session_override)
+
+    from app.models.agent import Agent
+    from app.tools import execute_tool
+
+    # Listing candidates provisions the caller's personal assistant.
+    await client.get(f"/api/signals/{thread.id}/agent-candidates", headers=headers)
+    personal = (
+        await session_override.execute(
+            select(Agent).where(Agent.tenant_id == thread.tenant_id, Agent.kind == "personal")
+        )
+    ).scalars().first()
+    assert personal is not None
+
+    result = await execute_tool(
+        session_override,
+        thread.tenant_id,
+        None,
+        "take_over_conversation",
+        {},
+        signal_id=thread.id,
+        agent=personal,
+        approved=True,
+    )
+    assert "error" in result
+
+
+@pytest.mark.asyncio
 async def test_session_rejected_on_assistant_thread(
     client: AsyncClient, session_override: AsyncSession
 ):

@@ -241,6 +241,24 @@ async def test_bulk_close_and_spam(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_bulk_snooze(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    a = await _create_thread(client, owner, subject="Snooze me")
+    wake = "2026-09-01T07:00:00Z"
+    r = await client.post(
+        "/api/signals/bulk",
+        headers=owner,
+        json={"signal_ids": [a], "action": "snooze", "snoozed_until": wake},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["updated"] == 1
+    pending = await _list(client, owner, view="snoozed")
+    row = next(t for t in pending if t["id"] == a)
+    assert row["status"] == "pending"
+    assert row["snoozed_until"]
+
+
+@pytest.mark.asyncio
 async def test_bulk_assign_and_read(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     a = await _create_thread(client, owner, subject="Assign me")

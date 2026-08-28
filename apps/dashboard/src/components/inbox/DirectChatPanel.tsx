@@ -62,6 +62,8 @@ export type DirectChatPanelProps = {
   copyLabel?: string
   /** Placeholder for the message input. */
   composerPlaceholder?: string
+  /** Fires when the operator sends a turn (before the reply arrives). */
+  onSent?: () => void
 }
 
 function SystemEventDivider({ text }: { text: string }) {
@@ -316,6 +318,7 @@ export default function DirectChatPanel({
   onCopyText,
   copyLabel,
   composerPlaceholder,
+  onSent,
 }: DirectChatPanelProps) {
   const { t } = useTranslation('communication')
   const location = useLocation()
@@ -406,6 +409,7 @@ export default function DirectChatPanel({
         created_at: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, optimistic])
+      onSent?.()
       setStream({ text: '', thinking: '', active: true })
       streamingRef.current = true
       const controller = new AbortController()
@@ -444,7 +448,7 @@ export default function DirectChatPanel({
         onRefreshThreads?.()
       }
     },
-    [mention, token, conversationId, refreshSessions, onRefreshThreads],
+    [mention, token, conversationId, refreshSessions, onRefreshThreads, onSent],
   )
 
   useEffect(() => {

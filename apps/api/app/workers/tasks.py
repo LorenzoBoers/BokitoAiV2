@@ -19,7 +19,9 @@ settings = get_settings()
 
 # Suggest mode is research-only: the agent may read the knowledge base and
 # query connected MCP integrations, and raise inline decisions — but it can
-# never send, write, or mutate anything.
+# never send, write, or mutate anything. create_queue_item is the one
+# exception: under "ask" policy it renders an inline proposal card, so
+# conversations can still feed project queues in suggest mode.
 SUGGEST_MODE_TOOLS = frozenset(
     {
         "search_index",
@@ -29,6 +31,10 @@ SUGGEST_MODE_TOOLS = frozenset(
         "get_tenant_overview",
         "call_mcp_tool",
         "create_decision_request",
+        "list_projects",
+        "list_queue_items",
+        "list_project_docs",
+        "create_queue_item",
     }
 )
 
@@ -103,6 +109,15 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
             return {"processed": True, "signal_id": signal_id, "delivery": outcome}
 
+        # Inbound from a workspace member (teammate wrote into a shared inbox):
+        # never draft a customer reply to an operator.
+        from app.services.workspace_members import find_member_by_email
+
+        if msg.author_user_id or await find_member_by_email(
+            session, UUID(tenant_id), sender_address
+        ):
+            return {"skipped": True, "reason": "workspace_member"}
+
         # Automated / no-reply mail (system notifications, newsletters, bounces):
         # never draft a reply. Surface a compact action suggestion instead —
         # close the thread, create a task, or keep it open.
@@ -144,6 +159,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         run = AgentRun(
             tenant_id=UUID(tenant_id),
             agent_id=agent.id,
+            project_id=signal.project_id,
             trigger_type=signal.channel,
             trigger_id=signal_id,
             subject=f"{signal.channel.title()}: {signal.subject[:80]}",
@@ -178,6 +194,18 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         msg_text = message_plain_text(msg)
 
+        # Conversation-driven projects: give the agent the project landscape so
+        # it can recognize opportunities/bugs and feed the right project queue.
+        project_context = ""
+        try:
+            from app.services.project_work import conversation_project_context
+
+            snippet = await conversation_project_context(session, UUID(tenant_id), signal)
+            if snippet:
+                project_context = f"{snippet}\n"
+        except Exception:  # noqa: BLE001 — context enrichment must never block replies
+            project_context = ""
+
         if ai_mode == "suggest":
             # Suggest-only: read-only research tools + inline decisions.
             # The final reply text becomes a DecisionRequest via
@@ -209,6 +237,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "(no-reply sender, newsletter, receipt, system alert), return exactly: "
                 "NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
                 f"{language_rules}"
+                f"{project_context}"
                 "Never invent facts about the customer's administration — if research "
                 "returns nothing, say so in the draft and propose next steps."
             )
@@ -223,6 +252,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "(no-reply sender, newsletter, receipt, system alert), do not reply; "
                 "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>.\n"
                 f"{language_rules}"
+                f"{project_context}"
             )
         try:
             reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
@@ -300,6 +330,21 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
         )
         await session.commit()
+
+        # Interpretation pass after the reply loop: category, urgency, intent
+        # (implementation_request / bug_report feed the queue chips). Failures
+        # are non-fatal — the reply already went out.
+        try:
+            from app.services.interpretation import triage_signal
+
+            await triage_signal(session, UUID(tenant_id), signal.id)
+        except Exception:  # noqa: BLE001
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Triage failed for signal %s", signal_id, exc_info=True
+            )
+
         return {"processed": True, "signal_id": signal_id, "delivery": delivery}
 
 

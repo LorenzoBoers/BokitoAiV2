@@ -12,6 +12,16 @@ export function isInsideDialog(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && Boolean(target.closest('[role="dialog"]'))
 }
 
+/** Radix menus/listboxes stay in a portal; Esc should close them, not the thread. */
+export function isInsideOpenMenu(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return Boolean(document.querySelector('[role="menu"], [data-radix-menu-content]'))
+  }
+  return Boolean(
+    target.closest('[role="menu"], [role="listbox"], [data-radix-menu-content], [data-radix-popper-content-wrapper]'),
+  )
+}
+
 export function scrollActiveThreadIntoView(): void {
   requestAnimationFrame(() => {
     document.querySelector<HTMLElement>('[data-active="true"]')?.scrollIntoView({ block: 'nearest' })
@@ -52,7 +62,7 @@ type Options = {
   onToggleSelect?: () => void
   onCopyLink?: () => void
   onCopyId?: () => void
-  onDigitFilter?: (digit: 1 | 2 | 3 | 4) => void
+  onDigitFilter?: (digit: 1 | 2 | 3 | 4 | 5) => void
 }
 
 export function useInboxListShortcuts(options: Options): void {
@@ -94,6 +104,7 @@ export function useInboxListShortcuts(options: Options): void {
       if (isTypingTarget(event.target)) return
 
       if (event.key === 'Escape') {
+        if (isInsideOpenMenu(event.target) || isInsideDialog(event.target)) return
         event.preventDefault()
         o.onEscapeList?.()
         return
@@ -199,9 +210,9 @@ export function useInboxListShortcuts(options: Options): void {
         o.onCopyId()
         return
       }
-      if ((event.key === '1' || event.key === '2' || event.key === '3' || event.key === '4') && o.onDigitFilter) {
+      if ((event.key === '1' || event.key === '2' || event.key === '3' || event.key === '4' || event.key === '5') && o.onDigitFilter) {
         event.preventDefault()
-        o.onDigitFilter(Number(event.key) as 1 | 2 | 3 | 4)
+        o.onDigitFilter(Number(event.key) as 1 | 2 | 3 | 4 | 5)
         return
       }
     }

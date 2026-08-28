@@ -326,14 +326,17 @@ export default function AgendaPage() {
       if (token && item.name.trim()) {
         try {
           const found = await listThreads(token, {
-            folder: 'internal',
             search: item.name,
             perPage: 8,
           })
           const match = pickClosestThreadBySubject(found.items, item.name, item.at)
           if (match) {
-            const queue = item.status === 'completed' ? 'results' : 'all'
-            navigate(agentRunsPath(queue, String(match.id)))
+            if (match.folder === 'internal' || match.channel === 'internal') {
+              const queue = item.status === 'completed' ? 'results' : 'all'
+              navigate(agentRunsPath(queue, String(match.id)))
+            } else {
+              navigate(inboxPath(match.status === 'pending' ? 'snoozed' : 'open', String(match.id)))
+            }
             return
           }
         } catch {

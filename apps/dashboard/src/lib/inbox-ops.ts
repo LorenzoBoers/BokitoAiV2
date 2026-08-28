@@ -50,8 +50,9 @@ export function nextUnreadId(
 
 export function parseQuickFilterParam(raw: string | null | undefined): InboxListQuickFilter | null {
   if (!raw) return null
-  if (raw === 'unread' || raw === 'needsReply' || raw === 'pinned' || raw === 'all') return raw
+  if (raw === 'unread' || raw === 'needsReply' || raw === 'needsDecision' || raw === 'pinned' || raw === 'all') return raw
   if (raw === 'needs_reply') return 'needsReply'
+  if (raw === 'needs_decision' || raw === 'awaiting_decision') return 'needsDecision'
   return null
 }
 
@@ -104,6 +105,15 @@ export function writeSavedSearches(rows: SavedInboxSearch[]): void {
   } catch {
     // ignore quota
   }
+}
+
+/** Short label for a saved inbox search so the chip is not the raw query. */
+export function suggestSavedSearchName(query: string): string {
+  const q = query.trim().replace(/\s+/g, ' ')
+  if (!q) return ''
+  const cleaned = q.replace(/^(from|to|subject|tag):/i, '').trim() || q
+  const words = cleaned.split(' ').slice(0, 4).join(' ')
+  return words.length > 32 ? `${words.slice(0, 29)}...` : words
 }
 
 export function listScrollStorageKey(leafKey: string): string {

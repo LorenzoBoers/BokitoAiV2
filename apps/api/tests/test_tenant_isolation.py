@@ -194,8 +194,10 @@ async def test_onboarding_status_endpoint(client: AsyncClient):
     assert step_ids == ["email", "company", "assistant", "watching", "first_decision", "team"]
     assert data["completed"] is False
     by_id = {step["id"]: step["done"] for step in data["steps"]}
-    # The built-in Bokito address and the hourly check-in are on from day one;
-    # company knowledge, a real assistant chat, a decision, and a teammate remain.
-    assert by_id["email"] is True
+    # Only the hourly check-in is on from day one. A signup has no email channel
+    # until the workspace creates a relay address or connects a mailbox.
     assert by_id["watching"] is True
-    assert all(by_id[key] is False for key in ("company", "assistant", "first_decision", "team"))
+    assert all(
+        by_id[key] is False
+        for key in ("email", "company", "assistant", "first_decision", "team")
+    )

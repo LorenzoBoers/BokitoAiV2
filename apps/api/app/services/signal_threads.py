@@ -134,6 +134,7 @@ def serialize_thread(
     agent: Agent | None = None,
     last_preview: str | None = None,
     last_direction: str | None = None,
+    has_open_decision: bool = False,
 ) -> dict[str, Any]:
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
@@ -166,6 +167,7 @@ def serialize_thread(
         "triaged_at": _iso(signal.triaged_at),
         "last_message_at": _iso(signal.last_message_at),
         "has_unread": signal.has_unread,
+        "has_open_decision": has_open_decision,
         "is_pinned": is_pinned,
         "channel": signal.channel,
         "folder": folder,
@@ -432,6 +434,7 @@ async def list_threads(
     agent_id: str | None = None,
     unread: bool = False,
     needs_reply: bool = False,
+    needs_decision: bool = False,
     pinned_only: bool = False,
     page: int = 1,
     per_page: int = 30,
@@ -587,6 +590,9 @@ async def list_threads(
             Signal.status == "open",
             or_(Signal.has_unread.is_(True), Signal.id.in_(inbound_last)),
         )
+    if needs_decision:
+        open_dec = await _signals_with_open_decisions(session, tenant_id)
+        query = query.where(Signal.id.in_(open_dec) if open_dec else Signal.id.is_(None))
 
     if search:
         like = f"%{search}%"
@@ -688,6 +694,7 @@ async def list_threads(
                     project_po_agents[project.id] = po_by_id[project.po_agent_id]
 
     previews = await _latest_message_previews(session, tenant_id, [t.id for t in threads])
+    open_dec = await _signals_with_open_decisions(session, tenant_id) if threads else set()
     items = []
     for t in threads:
         agent = agents_by_id.get(t.agent_id) if t.agent_id else None
@@ -702,6 +709,7 @@ async def list_threads(
                 agent=agent,
                 last_preview=preview,
                 last_direction=direction,
+                has_open_decision=t.id in open_dec,
             )
         )
     next_page = page + 1 if page * per_page < items_total else None
@@ -810,7 +818,12 @@ async def get_thread(
     )
 
     return {
-        "thread": serialize_thread(signal, is_pinned=signal_id in pinned, agent=agent),
+        "thread": serialize_thread(
+            signal,
+            is_pinned=signal_id in pinned,
+            agent=agent,
+            has_open_decision=signal_id in await _signals_with_open_decisions(session, tenant_id),
+        ),
         "messages": serialized_messages,
         "events": [serialize_event(e, user_num_map=rev_map) for e in events_result.scalars().all()],
         "sessions": sessions,
@@ -954,7 +967,14 @@ async def patch_thread(
             newly_assigned = next_assignee
         signal.assigned_user_id = next_assignee
     if tags is not None:
-        signal.tags_json = json.dumps(tags)
+        from app.services import signal_tags as tag_svc
+
+        normalized = tag_svc.normalize_tags(tags)
+        signal.tags_json = json.dumps(normalized)
+        # Operator-typed tags join the tenant vocabulary, so the sidebar,
+        # settings, and AI tagging all see the same list.
+        await tag_svc.ensure_tags(session, tenant_id, normalized, user_id=user_id)
+        tags = normalized
     if priority is not None:
         signal.priority = priority
     if project_id_set:
@@ -1131,7 +1151,7 @@ async def wake_snoozed_threads(session: AsyncSession) -> int:
     return len(woken)
 
 
-BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign")
+BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "snooze")
 
 
 async def bulk_update_threads(
@@ -1142,6 +1162,7 @@ async def bulk_update_threads(
     signal_ids: list[UUID],
     action: str,
     assignee_id: int | None = None,
+    snoozed_until: datetime | None = None,
 ) -> dict[str, Any]:
     """Apply one operator action to many threads at once (inbox bulk bar)."""
     if action not in BULK_ACTIONS:
@@ -1178,6 +1199,9 @@ async def bulk_update_threads(
             signal.has_unread = True
         elif action == "assign":
             signal.assigned_user_id = assignee_uuid
+        elif action == "snooze":
+            signal.status = "pending"
+            signal.snoozed_until = snoozed_until
         signal.updated_at = now
         session.add(signal)
         if action in ("close", "spam"):
@@ -1186,7 +1210,7 @@ async def bulk_update_threads(
             await _defer_open_reply_suggestions(
                 session, tenant_id, signal.id, reason="thread_closed"
             )
-        if action in ("close", "reopen", "spam", "assign"):
+        if action in ("close", "reopen", "spam", "assign", "snooze"):
             event_payload: dict[str, Any] = {"bulk": action}
             if action == "assign" and assignee_id is not None:
                 # The timeline chip names the assignee from this field.
@@ -1203,7 +1227,7 @@ async def bulk_update_threads(
             )
     # One audit event per bulk action with the before-states; mark-read noise
     # (read/unread) is intentionally excluded from the govern audit.
-    if signals and action in ("close", "reopen", "spam", "assign"):
+    if signals and action in ("close", "reopen", "spam", "assign", "snooze"):
         from app.services.audit import record_audit
 
         await record_audit(
@@ -1808,10 +1832,12 @@ async def unpin_thread(session: AsyncSession, tenant_id: UUID, user_id: UUID, si
 
 async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
     result = await session.execute(
-        select(User).join(Membership, Membership.user_id == User.id).where(Membership.tenant_id == tenant_id)
+        select(User, Membership)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
     )
     members = []
-    for user in result.scalars().all():
+    for user, membership in result.all():
         members.append(
             {
                 "id": user_numeric_id(user.id),
@@ -1819,77 +1845,18 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
                 "name": user.display_name or user.email,
                 "email": user.email,
                 "avatar_url": user.avatar_url,
+                "role": membership.role,
             }
         )
     return members
 
 
-async def sync_status(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
-    """Per-mailbox sync state for the inbox Sync status panel."""
-    from app.services.email_sync import account_sync_folders
-
-    result = await session.execute(
-        select(ChannelAccount)
-        .where(ChannelAccount.tenant_id == tenant_id, ChannelAccount.channel == "email")
-        .order_by(ChannelAccount.created_at)
-    )
-    accounts = [a for a in result.scalars().all() if a.provider in ("gmail", "outlook")]
-
-    rows: list[dict[str, Any]] = []
-    for account in accounts:
-        try:
-            settings = json.loads(account.settings_json or "{}")
-            if not isinstance(settings, dict):
-                settings = {}
-        except json.JSONDecodeError:
-            settings = {}
-        try:
-            creds = json.loads(account.credentials_json or "{}")
-            has_token = bool(isinstance(creds, dict) and creds.get("access_token"))
-        except json.JSONDecodeError:
-            has_token = False
-
-        if settings.get("last_error") and has_token and account.is_enabled:
-            status = "error"
-        elif not account.is_enabled:
-            status = "paused"
-        elif not has_token:
-            status = "needs_auth"
-        else:
-            status = "connected"
-
-        last_sync_at = settings.get("last_sync_at")
-        messages_synced = int(settings.get("messages_synced") or 0)
-        folders = []
-        for index, folder in enumerate(account_sync_folders(settings)):
-            selected = bool(folder.get("is_selected"))
-            folders.append(
-                {
-                    "id": index + 1,
-                    "folder_id": str(folder.get("id") or ""),
-                    "folder_name": str(folder.get("display_name") or folder.get("id") or ""),
-                    "is_selected": selected,
-                    # Only the Inbox is polled today; other selections are stored intent.
-                    "last_sync_at": last_sync_at if selected and folder.get("id") == "inbox" else None,
-                    "messages_synced": messages_synced if folder.get("id") == "inbox" else 0,
-                    "last_error": "",
-                }
-            )
-
-        rows.append(
-            {
-                "id": user_numeric_id(account.id),
-                "mailbox_email": account.address,
-                "display_name": account.display_name or account.address,
-                "provider": account.provider,
-                "status": status,
-                "is_enabled": account.is_enabled,
-                "last_sync_at": last_sync_at,
-                "last_error": str(settings.get("last_error") or ""),
-                "folders": folders,
-            }
-        )
-    return rows
+def _parse_tags(tags_json: str | None) -> list[str]:
+    try:
+        tags = json.loads(tags_json or "[]")
+    except json.JSONDecodeError:
+        return []
+    return [t for t in tags if isinstance(t, str) and t.strip()]
 
 
 async def resolve_message_decision(

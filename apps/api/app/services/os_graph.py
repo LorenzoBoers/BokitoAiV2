@@ -127,7 +127,10 @@ async def ensure_canvas_seeded(session: AsyncSession, tenant_id: UUID) -> None:
                     )
                 )
 
-        if project.github_repo_full_name or project.repo_binding_id:
+        from app.services.projects import get_repo_resource
+
+        repo_resource = await get_repo_resource(session, tenant_id, project.id)
+        if repo_resource and repo_resource.external_ref:
             if project.id not in repo_nodes:
                 repo_node = OsCanvasNode(
                     tenant_id=tenant_id,
@@ -135,7 +138,7 @@ async def ensure_canvas_seeded(session: AsyncSession, tenant_id: UUID) -> None:
                     ref_id=project.id,
                     x=base_x,
                     y=orch_y + ROW_GAP * 2 + len(workstreams) * 30,
-                    label=project.github_repo_full_name or project.name,
+                    label=repo_resource.external_ref or project.name,
                 )
                 session.add(repo_node)
                 await session.flush()
@@ -232,12 +235,15 @@ async def _resolve_node_summary(
             select(Project).where(Project.id == node.ref_id, Project.tenant_id == tenant_id)
         )
         project = result.scalar_one_or_none()
+        repo_resource = None
+        if project:
+            from app.services.projects import get_repo_resource
+
+            repo_resource = await get_repo_resource(session, tenant_id, project.id)
         base["title"] = node.label or "Source"
-        base["subtitle"] = project.github_repo_full_name if project else ""
+        base["subtitle"] = repo_resource.external_ref if repo_resource else ""
         base["status"] = (
-            project.repo_index_status
-            if project and project.repo_index_status
-            else ("ready" if project and project.github_repo_full_name else "none")
+            (repo_resource.sync_status or "ready") if repo_resource else "none"
         )
         base["href"] = f"/project/{node.ref_id}/settings" if project else None
         base["project_id"] = str(node.ref_id)
@@ -502,6 +508,9 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
                 AgentRun.status == "running",
             )
         )
+        from app.services.projects import get_repo_resource
+
+        repo_resource = await get_repo_resource(session, tenant_id, project.id)
         project_nodes.append(
             {
                 "id": str(project.id),
@@ -509,9 +518,10 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
                 "slug": project.slug,
                 "po_agent": serialize_po_agent(po_agent),
                 "workstream_count": int(ws_count.scalar_one() or 0),
-                "repo_status": project.repo_index_status
-                or ("none" if not project.github_repo_full_name else "ready"),
-                "repo_full_name": project.github_repo_full_name,
+                "repo_status": (repo_resource.sync_status or "ready")
+                if repo_resource
+                else "none",
+                "repo_full_name": repo_resource.external_ref if repo_resource else None,
                 "running_runs": int(running.scalar_one() or 0),
                 "pending_decisions": int(pending.scalar_one() or 0),
                 "has_orchestrator": po_agent is not None,

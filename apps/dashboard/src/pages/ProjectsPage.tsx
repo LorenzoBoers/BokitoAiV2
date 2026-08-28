@@ -177,6 +177,28 @@ function ProjectCard({
             ) : null}
           </div>
         ) : null}
+        {(project.queue_open_count ?? 0) > 0 || (project.doc_sections_total ?? 0) > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-text-secondary">
+            {(project.queue_open_count ?? 0) > 0 ? (
+              <Badge variant="info" className="px-1.5 py-0 text-[10px]">
+                {t('projects.page.queueOpen', { count: project.queue_open_count })}
+              </Badge>
+            ) : null}
+            {(project.doc_sections_total ?? 0) > 0 ? (
+              <Badge
+                variant={
+                  project.doc_sections_done === project.doc_sections_total ? 'success' : 'neutral'
+                }
+                className="px-1.5 py-0 text-[10px]"
+              >
+                {t('projects.page.docHealth', {
+                  done: project.doc_sections_done ?? 0,
+                  total: project.doc_sections_total ?? 0,
+                })}
+              </Badge>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 text-xs text-text-secondary">
           <GitBranch size={13} className="shrink-0 text-text-muted" />
           {project.github_repo_full_name ? (
