@@ -102,7 +102,7 @@ async def test_suggestion_stores_clean_body_and_internal_note(client, session_ov
     assert "INTERNAL_NOTE" not in send["payload"]["body_text"]
     assert "company.md" in send["payload"]["internal_note"]
 
-    # The internal note also lives as a real internal note on the thread.
+    # Suggestion notes stay on the card payload — not a second timeline message.
     notes = (
         (
             await session_override.execute(
@@ -115,9 +115,7 @@ async def test_suggestion_stores_clean_body_and_internal_note(client, session_ov
         .scalars()
         .all()
     )
-    assert len(notes) == 1
-    assert "company.md" in notes[0].body_text
-    assert notes[0].direction == "internal"
+    assert len(notes) == 0
 
 
 # ── send-as attribution on approval ──────────────────────────────

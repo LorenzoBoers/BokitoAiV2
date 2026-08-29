@@ -14,7 +14,16 @@ import { threadNeedsReply } from './message-composer'
 import { normalizeSignalMessage, normalizeSignalThread } from './signals-api'
 
 /** Mirrors EXTERNAL_CHANNELS in apps/api/app/models/signal.py. */
-const EXTERNAL_CHANNELS = new Set(['email', 'chat', 'widget', 'slack', 'webhook', 'integration'])
+const EXTERNAL_CHANNELS = new Set([
+  'email',
+  'chat',
+  'widget',
+  'slack',
+  'whatsapp',
+  'webhook',
+  'integration',
+  'api',
+])
 
 /** Extract the canonical thread row from a gateway `message`/`thread` event. */
 export function extractLiveThreadRow(event: GatewayEvent): InboxThread | null {

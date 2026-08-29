@@ -31,7 +31,7 @@ Start with **Suggest replies** on email. Website chat often starts on **Reply au
 1. Stay on Inbox AI. Open the **Language** card.
 2. **Reply language** is what the customer sees. **Automatic (match the customer)** mirrors the inbound language. You can pin Dutch, English, German, French or Spanish.
 3. **Team language** is for notes to your team (summaries, no-reply explanations). It does not change the customer reply.
-4. **Approved replies are sent as** is **The approving teammate** or **The AI agent**. That choice picks whose signature is appended. Anyone can still switch **Send as:** **You** or the agent on a single reply.
+4. **Approved replies are sent as** is **The approving teammate** or **The AI agent**. That choice picks whose signature is appended. On a single suggested reply anyone can still switch **Send as:** **You** or the agent and see that signature previewed on the card before sending.
 
 ## Raise the triage bar
 
@@ -48,7 +48,7 @@ Start with **Suggest replies** on email. Website chat often starts on **Reply au
 ## Review a draft before it goes out
 
 1. Open the thread in [Communication](/docs/inbox/communication).
-2. Read the suggestion. **Send**, **Edit**, or **Escalate**. Escalate pauses AI on that thread and assigns you.
+2. Read the suggestion. The customer draft and any team **Internal note** stay separate. **Send**, **Edit**, or **Escalate**. Escalate pauses AI on that thread and assigns you.
 3. **Take over from AI** also pauses the assistant so you can finish by hand. **Hand back to AI** resumes it.
 
 Nothing customer-facing leaves on **Suggest replies** until you send, unless [Autonomy](/docs/govern/autonomy) later allows more.

@@ -5,7 +5,6 @@ import {
   Inbox,
   Mail,
   Plus,
-  Scale,
   Settings,
   Sparkles,
   Tag,
@@ -28,7 +27,6 @@ import {
   leafFromPath,
   leafKey,
   newConversationPath,
-  agentRunsPath,
   type HubLeaf,
   type InboxQueue,
   type SubQueue,
@@ -447,24 +445,6 @@ export default function MessagesHubNav() {
             <Plus size={14} className="shrink-0 text-accent" />
             <span>{t('support.newChat')}</span>
           </NavLink>
-          {counts.agentsAttention > 0 ? (
-            <NavLink
-              to={agentRunsPath('awaiting-decision')}
-              title={t('support.links.activityHint')}
-              className={({ isActive }) =>
-                cn(
-                  'nav-row flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-medium',
-                  isActive
-                    ? 'border-ai/40 bg-ai/10 text-ai-ink'
-                    : 'border-ai/20 bg-ai/5 text-ai-ink hover:border-ai/40 hover:bg-ai/10',
-                )
-              }
-            >
-              <Scale size={14} className="shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{t('support.links.awaitingDecision')}</span>
-              <NavCountBadge count={counts.agentsAttention} placement="inline" />
-            </NavLink>
-          ) : null}
         </section>
 
         <section className="space-y-0.5">

@@ -103,7 +103,8 @@ describe('threadMatchesFilters', () => {
   })
 
   it('applies folder / channel / tag / assignee / connection filters', () => {
-    expect(threadMatchesFilters(thread(), { folder: 'external' }, me)).toBe(true)
+    expect(threadMatchesFilters(thread({ channel: 'whatsapp' }), { folder: 'external' }, me)).toBe(true)
+    expect(threadMatchesFilters(thread({ channel: 'api' }), { folder: 'external' }, me)).toBe(true)
     expect(threadMatchesFilters(thread({ channel: 'internal' }), { folder: 'external' }, me)).toBe(false)
     expect(threadMatchesFilters(thread({ channel: 'internal' }), { folder: 'internal' }, me)).toBe(true)
     expect(threadMatchesFilters(thread({ channel: 'assistant' }), { folder: 'inbox' }, me)).toBe(false)

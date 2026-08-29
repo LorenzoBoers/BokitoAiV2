@@ -232,7 +232,9 @@
       "you": "Jij",
       "agentFallback": "Agent",
       "signatureYou": "Je eigen handtekening wordt automatisch toegevoegd",
-      "signatureAgent": "De handtekening van {{name}} wordt automatisch toegevoegd"
+      "signatureAgent": "De handtekening van {{name}} wordt automatisch toegevoegd",
+      "signaturePreview": "Handtekening",
+      "signatureEmpty": "Geen handtekening ingesteld"
     },
     "rulePrompt": {
       "autoClose": "Berichten van {{sender}} voortaan altijd sluiten?",

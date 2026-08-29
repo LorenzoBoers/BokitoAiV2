@@ -601,7 +601,8 @@ const BUBBLE_VARIANT_CLASSES: Record<BubbleVariant, string> = {
   team: 'bg-bg-elevated/80 border-border/60',
   agent: AI_CARD_CLASS,
   self: 'bg-accent/15 border-accent/30',
-  note: 'bg-yellow-50 border-yellow-200/60 dark:bg-yellow-900/10 dark:border-yellow-700/30',
+  // Notes use a dedicated left-rule layout — this class is unused for notes.
+  note: 'border-transparent bg-transparent',
 }
 
 // Small role chip next to the author name ("Team" / "AI").
@@ -866,8 +867,8 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     Boolean(message.agentTrace)
 
   const plainBody =
-    message.bodyPreview ||
     message.bodyText ||
+    message.bodyPreview ||
     (message.bodyHtml
       ? message.bodyHtml
           .replace(/<br\s*\/?>/gi, '\n')
@@ -991,7 +992,7 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     if (isInternal) {
       return (
         <div className="flex items-center gap-1.5 mb-1 min-w-0">
-          <StickyNote size={12} className="text-yellow-600 shrink-0" />
+          <StickyNote size={12} className="shrink-0 text-text-muted" />
           {!isOwn ? (
             <span className="font-medium text-text-heading text-xs truncate">{authorName}</span>
           ) : null}
@@ -1131,7 +1132,12 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
     bubbleBody
   )
 
-  const bubble = useFullWidthEmailCard ? (
+  const bubble = isInternal ? (
+    <div className="border-l-2 border-border/70 py-0.5 pl-3">
+      {header}
+      <div className="text-xs leading-relaxed text-text-secondary">{bubbleBodyWithMeta}</div>
+    </div>
+  ) : useFullWidthEmailCard ? (
     <EmailMessageBlock avatar={contactAvatar} header={inboundHeader} body={bubbleBodyWithMeta} />
   ) : (
     <ChatMessageBubble side={side} avatar={avatar} header={header} body={bubbleBodyWithMeta} variant={variant} />

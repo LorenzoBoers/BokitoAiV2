@@ -5,12 +5,9 @@ import { toast } from 'sonner'
 import {
   BellOff,
   Bot,
-  ChevronDown,
-  ChevronRight,
   Copy,
   Loader2,
   MessageSquareWarning,
-  PenLine,
   StickyNote,
   ThumbsDown,
   ThumbsUp,
@@ -38,6 +35,7 @@ import {
 import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib/reply-send-as'
 import { snoozeUntilIso, SNOOZE_PRESETS } from '../../lib/snooze'
 import { useAuth } from '../../context/AuthContext'
+import { listAgents } from '../../lib/agents-api'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -65,6 +63,8 @@ type Props = {
   }) => void
   /** Name of the agent bound to this thread, used for the correction action. */
   agentName?: string | null
+  /** Agent id for loading the send-as signature preview. */
+  agentId?: string | null
 }
 
 function isDecisionResolved(message: InboxMessage, events: InboxEvent[]): boolean {
@@ -196,13 +196,15 @@ export default function DecisionRequestMessage({
   onResolved,
   onEditDraft,
   agentName,
+  agentId,
 }: Props) {
   const { t } = useTranslation('communication')
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [sentiment, setSentiment] = useState<'up' | 'down' | null>(null)
   const { startCorrection, starting: correctionStarting } = useCorrectionChat()
+  const [agentSignatureHtml, setAgentSignatureHtml] = useState('')
 
   const decisionSubjectId = message.decisionId ? String(message.decisionId) : String(message.id)
 
@@ -260,7 +262,6 @@ export default function DecisionRequestMessage({
     !isActionSuggestion &&
     options.some((o) => o.action_type === 'create_queue_item')
   const internalNote = useMemo(() => internalNoteFromOptions(options), [options])
-  const [noteOpen, setNoteOpen] = useState(false)
 
   // Sender identity for the approved reply: the operator's last choice wins,
   // otherwise the tenant default (fetched once per session).
@@ -275,6 +276,38 @@ export default function DecisionRequestMessage({
       cancelled = true
     }
   }, [token])
+
+  // Resolve agent id from prop or decision payload, then load signature HTML.
+  const resolvedAgentId = useMemo(() => {
+    if (agentId) return agentId
+    const fromPayload = message.payload?.agent_id
+    return typeof fromPayload === 'string' ? fromPayload : null
+  }, [agentId, message.payload?.agent_id])
+
+  useEffect(() => {
+    if (!resolvedAgentId) {
+      setAgentSignatureHtml('')
+      return
+    }
+    let cancelled = false
+    void listAgents()
+      .then((rows) => {
+        if (cancelled) return
+        const match = rows.find((row) => String(row.id) === String(resolvedAgentId))
+        setAgentSignatureHtml(
+          typeof match?.email_signature_html === 'string' ? match.email_signature_html : '',
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setAgentSignatureHtml('')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [resolvedAgentId])
+
+  const signatureHtml =
+    sendAs === 'user' ? (user?.emailSignatureHtml ?? '').trim() : agentSignatureHtml.trim()
 
   function chooseSendAs(value: ReplySendAs) {
     setSendAs(value)
@@ -528,73 +561,69 @@ export default function DecisionRequestMessage({
               <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
             </div>
             {internalNote ? (
-              <div className="mt-2 rounded-lg border border-yellow-200/60 bg-yellow-50 dark:border-yellow-700/30 dark:bg-yellow-900/10">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs font-medium text-yellow-800 dark:text-yellow-200"
-                  onClick={() => setNoteOpen((open) => !open)}
-                >
-                  {noteOpen ? (
-                    <ChevronDown size={12} aria-hidden />
-                  ) : (
-                    <ChevronRight size={12} aria-hidden />
-                  )}
-                  <StickyNote size={12} aria-hidden />
-                  {t('decisionCard.internalNote.title')}
-                  <span className="ml-1 font-normal text-yellow-700/70 dark:text-yellow-300/60">
-                    {t('decisionCard.internalNote.notSent')}
+              <div className="mt-3 border-l-2 border-border/70 pl-3">
+                <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
+                  <StickyNote size={12} className="shrink-0 text-text-muted" aria-hidden />
+                  <span>{t('decisionCard.internalNote.title')}</span>
+                  <span className="font-normal text-text-muted/80">
+                    · {t('decisionCard.internalNote.notSent')}
                   </span>
-                </button>
-                {noteOpen ? (
-                  <p className="whitespace-pre-wrap px-3 pb-2.5 pl-8 text-xs text-yellow-900/90 dark:text-yellow-100/80">
-                    {internalNote}
-                  </p>
-                ) : null}
+                </div>
+                <p className="whitespace-pre-wrap text-xs leading-relaxed text-text-secondary">
+                  {internalNote}
+                </p>
               </div>
             ) : null}
           </>
         )}
         {!resolved && isSuggestion ? (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="text-xs text-text-muted">{t('decisionCard.sendAs.label')}</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => chooseSendAs('user')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-                  sendAs === 'user'
-                    ? 'border-accent/50 bg-accent/10 text-text-primary'
-                    : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
-                )}
-              >
-                <UserRound size={12} aria-hidden />
-                {t('decisionCard.sendAs.you')}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => chooseSendAs('agent')}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-                  sendAs === 'agent'
-                    ? 'border-ai/40 bg-ai/10 text-text-primary'
-                    : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
-                )}
-              >
-                <Bot size={12} aria-hidden />
-                {agentName || t('decisionCard.sendAs.agentFallback')}
-              </button>
+          <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="text-xs text-text-muted">{t('decisionCard.sendAs.label')}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => chooseSendAs('user')}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                    sendAs === 'user'
+                      ? 'border-accent/50 bg-accent/10 text-text-primary'
+                      : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                  )}
+                >
+                  <UserRound size={12} aria-hidden />
+                  {t('decisionCard.sendAs.you')}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => chooseSendAs('agent')}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                    sendAs === 'agent'
+                      ? 'border-ai/40 bg-ai/10 text-text-primary'
+                      : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                  )}
+                >
+                  <Bot size={12} aria-hidden />
+                  {agentName || t('decisionCard.sendAs.agentFallback')}
+                </button>
+              </div>
             </div>
-            <span className="flex items-center gap-1 text-[11px] text-text-muted/80">
-              <PenLine size={11} aria-hidden />
-              {sendAs === 'user'
-                ? t('decisionCard.sendAs.signatureYou')
-                : t('decisionCard.sendAs.signatureAgent', {
-                    name: agentName || t('decisionCard.sendAs.agentFallback'),
-                  })}
-            </span>
+            <div className="rounded-lg border border-border/50 bg-bg-elevated/50 px-3 py-2">
+              <div className="mb-1.5 border-b border-border/40 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+                {t('decisionCard.sendAs.signaturePreview')}
+              </div>
+              {signatureHtml ? (
+                <div
+                  className="prose prose-sm max-w-none text-xs text-text-secondary dark:prose-invert [&_a]:text-accent"
+                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                />
+              ) : (
+                <p className="text-xs text-text-muted">{t('decisionCard.sendAs.signatureEmpty')}</p>
+              )}
+            </div>
           </div>
         ) : null}
         {!resolved ? (

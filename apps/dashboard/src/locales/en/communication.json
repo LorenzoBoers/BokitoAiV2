@@ -232,7 +232,9 @@
       "you": "You",
       "agentFallback": "Agent",
       "signatureYou": "Your signature is added automatically",
-      "signatureAgent": "The signature of {{name}} is added automatically"
+      "signatureAgent": "The signature of {{name}} is added automatically",
+      "signaturePreview": "Signature",
+      "signatureEmpty": "No signature configured"
     },
     "rulePrompt": {
       "autoClose": "Always close messages from {{sender}}?",

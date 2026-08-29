@@ -301,27 +301,10 @@ async def create_reply_suggestion(
         signal_id=signal.id,
     )
 
-    if internal_note:
-        # Team-facing remarks live as an internal note on the thread — never
-        # in the draft that can be approved and emailed to the contact.
-        note_message = SignalMessage(
-            signal_id=signal.id,
-            tenant_id=tenant_id,
-            kind="internal_note",
-            direction="internal",
-            role="assistant",
-            author_agent_id=agent.id,
-            body_text=internal_note,
-            body_preview=internal_note[:200],
-            received_at=datetime.utcnow(),
-        )
-        session.add(note_message)
-        await session.flush()
-        from app.gateway.publish import publish_signal_message
-
-        await publish_signal_message(signal, note_message)
-
     apply_suggested_actions(signal)
+    # Team-facing remarks stay on the decision option payload (`internal_note`)
+    # and render under the draft card — do not dual-write a timeline note that
+    # would truncate and duplicate the same text.
     session.add(signal)
     session.add(
         SignalEvent(

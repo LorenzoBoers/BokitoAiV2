@@ -10,13 +10,17 @@ import {
   leafFromPath,
   leafKey,
   leafPath,
-  SUB_QUEUE_TO_VIEW,
   tagPath,
   type HubLeaf,
-  type InboxQueue,
   type RunsQueue,
   type SubQueue,
 } from '../lib/messages-paths'
+import {
+  configForLeaf,
+  mergeHubThreadFilters,
+  threadFitsChannelLeaf,
+  threadFitsTagLeaf,
+} from '../lib/hub-list-filters'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
@@ -71,7 +75,6 @@ import {
   asMessageAttachments,
   type MessageAttachment,
   type PatchThreadInput,
-  type ThreadFilters,
   type ThreadId,
 } from '../lib/inbox-api'
 import { bulkUpdateSignalThreads, cancelScheduledMessage } from '../lib/signals-api'
@@ -81,105 +84,12 @@ import { listProjects } from '../lib/projects-api'
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
 
-type View = NonNullable<ThreadFilters['view']>
-
-const INBOX_QUEUE_TO_VIEW: Record<InboxQueue, View> = {
-  all: 'all',
-  mine: 'mine',
-  open: 'all_open',
-  unassigned: 'unassigned',
-  snoozed: 'snoozed',
-  closed: 'closed',
-  spam: 'spam',
-}
-
-/** Sub-queue (channel/tag/agent sub-folder) → server view. No queue = "all". */
-// SUB_QUEUE_TO_VIEW is shared with DirectCommunication (messages-paths.ts).
-
-const RUNS_QUEUE_TO_VIEW: Record<string, View> = {
-  all: 'internal',
-  updates: 'updates',
-  results: 'results',
-  'awaiting-decision': 'awaiting_decision',
-}
-
 const ACTIVITY_CHIPS: ReadonlyArray<{ queue: RunsQueue; labelKey: string }> = [
   { queue: 'all', labelKey: 'runsChips.all' },
   { queue: 'updates', labelKey: 'runsChips.updates' },
   { queue: 'results', labelKey: 'runsChips.results' },
   { queue: 'awaiting-decision', labelKey: 'runsChips.decisions' },
 ]
-
-type LeafConfig = {
-  filters: Omit<ThreadFilters, 'search' | 'projectId'>
-  mode: 'customer' | 'agent'
-  variant: 'customer' | 'direct'
-}
-
-/** Map the active sidebar leaf to thread filters and rendering mode. */
-function configForLeaf(leaf: HubLeaf): LeafConfig {
-  switch (leaf.type) {
-    case 'inbox':
-      return {
-        filters: { folder: 'inbox', view: INBOX_QUEUE_TO_VIEW[leaf.queue ?? 'all'] },
-        mode: 'customer',
-        variant: 'customer',
-      }
-    case 'runs':
-      // Decisions can sit on email/widget threads as well as internal run
-      // threads — do not scope that queue to folder=internal or Cockpit's
-      // "Awaiting decision" count will open an empty list.
-      if (leaf.queue === 'awaiting-decision') {
-        return {
-          filters: { view: 'awaiting_decision' },
-          mode: 'agent',
-          variant: 'customer',
-        }
-      }
-      return {
-        filters: { folder: 'internal', view: RUNS_QUEUE_TO_VIEW[leaf.queue] ?? 'internal' },
-        mode: 'agent',
-        variant: 'customer',
-      }
-    case 'channel': {
-      const view: View = leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all'
-      if (leaf.channelKey === 'email') {
-        return {
-          filters: {
-            folder: 'external',
-            view,
-            connectionId: leaf.connectionId ? Number(leaf.connectionId) : undefined,
-          },
-          mode: 'customer',
-          variant: 'customer',
-        }
-      }
-      if (leaf.channelKey === 'agent') {
-        return { filters: { folder: 'internal', view: 'internal' }, mode: 'agent', variant: 'customer' }
-      }
-      const channel =
-        leaf.channelKey === 'webchat' ? 'widget' : leaf.channelKey === 'internal' ? 'internal' : leaf.channelKey
-      return {
-        filters: { view, channel },
-        mode: leaf.channelKey === 'internal' ? 'agent' : 'customer',
-        variant: 'customer',
-      }
-    }
-    case 'tag':
-      return {
-        filters: {
-          folder: 'inbox',
-          view: leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all',
-          tag: leaf.tag,
-        },
-        mode: 'customer',
-        variant: 'customer',
-      }
-    default:
-      // assistant/agent chats are handled by DirectCommunication
-      return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
-  }
-}
 
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
   switch (quickFilter) {
@@ -375,20 +285,25 @@ export default function Communication() {
     setThreadReadState,
     removeThread,
   } = useThreads(
-    {
-      ...leafFilters,
+    mergeHubThreadFilters(leaf, leafFilters, {
       search: listSearch,
       projectId,
       agentId: agentIdFilter,
-      unread: quickFilter === 'unread' || undefined,
-      needsReply: quickFilter === 'needsReply' || undefined,
-      needsDecision: quickFilter === 'needsDecision' || undefined,
-      pinnedOnly: quickFilter === 'pinned' || undefined,
-      assigneeId: assigneeFilter ?? undefined,
-      channel: channelFilter ?? undefined,
-    },
+      unread: quickFilter === 'unread',
+      needsReply: quickFilter === 'needsReply',
+      needsDecision: quickFilter === 'needsDecision',
+      pinnedOnly: quickFilter === 'pinned',
+      assigneeId: assigneeFilter,
+      channelFilter,
+    }),
     pinnedIds,
   )
+
+  // Inbox channel chip is leaf-local; clear when leaving inbox so it cannot
+  // leak into a later merge if leaf typing regresses.
+  useEffect(() => {
+    if (leaf.type !== 'inbox') setChannelFilter(null)
+  }, [leaf.type])
 
   const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}`
 
@@ -735,6 +650,16 @@ export default function Communication() {
       const destQueue =
         detail.thread.status === 'open' && !isInternalThread(detail.thread) ? 'open' : 'all'
       navigate(`${inboxPath(destQueue, String(detail.thread.id))}${inboxQuery}`, { replace: true })
+      return
+    }
+
+    // Channel / tag leaves: wrong-scope deep links hop to the thread's hub home.
+    if (leaf.type === 'channel' && !threadFitsChannelLeaf(detail.thread, leaf)) {
+      navigate(`${threadHubPath(detail.thread)}${inboxQuery}`, { replace: true })
+      return
+    }
+    if (leaf.type === 'tag' && !threadFitsTagLeaf(detail.thread, leaf)) {
+      navigate(`${threadHubPath(detail.thread)}${inboxQuery}`, { replace: true })
       return
     }
 

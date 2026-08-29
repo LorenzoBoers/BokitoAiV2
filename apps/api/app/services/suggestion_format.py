@@ -5,8 +5,8 @@ to put anything meant for the team after a literal ``INTERNAL_NOTE:`` sentinel.
 Models don't always comply, so this module also strips legacy leak patterns
 observed in production:
 
-- a research/meta preamble before the first ``---`` divider when the next
-  segment starts with a greeting,
+- a research/meta preamble before the first greeting (with or without a
+  ``---`` divider),
 - ``**Interne notitie:**`` / ``Internal note:`` blocks,
 - trailing sign-offs ("Met vriendelijke groet, Bokito Assistent") — the
   signature system appends exactly one signature server-side, so a model
@@ -120,33 +120,45 @@ def _extract_legacy_note(text: str) -> tuple[str, str]:
 
 
 def _strip_preamble(text: str) -> tuple[str, str]:
-    """Drop a meta preamble that precedes a divider + greeting-opened letter.
+    """Drop a meta preamble that precedes the actual customer-facing letter.
 
-    Matches the production leak: research commentary, then ``---``, then the
-    actual draft starting with "Hallo …". Conservative on purpose — without a
-    divider followed by a greeting, nothing is removed.
+    Handles two production leak shapes:
+
+    1. Research commentary, then ``---``, then a greeting-opened draft.
+    2. Research commentary directly above a greeting with no divider
+       (e.g. "Het company doc is een stub…\\n\\nHoi Sjaak,…").
+
+    Conservative: without a greeting later in the text, nothing is peeled.
     """
     lines = text.splitlines()
     divider_idx = None
+    first_greeting_idx = None
     for i, line in enumerate(lines):
-        if _DIVIDER_RE.match(line):
+        if first_greeting_idx is None and _GREETING_RE.match(line):
+            first_greeting_idx = i
+        if divider_idx is None and _DIVIDER_RE.match(line):
             divider_idx = i
+
+    # Divider + greeting after it: classic leak pattern.
+    if divider_idx is not None and divider_idx > 0:
+        rest = lines[divider_idx + 1 :]
+        for line in rest:
+            if not line.strip():
+                continue
+            if _GREETING_RE.match(line):
+                preamble = "\n".join(lines[:divider_idx]).strip()
+                return "\n".join(rest).strip(), preamble
             break
-        if _GREETING_RE.match(line):
-            return text, ""  # letter starts before any divider: no preamble
-    if divider_idx is None or divider_idx == 0:
-        if divider_idx == 0:
-            # Leading divider with no preamble text: just drop the divider.
-            return "\n".join(lines[1:]).lstrip("\n"), ""
-        return text, ""
-    rest = lines[divider_idx + 1 :]
-    for line in rest:
-        if not line.strip():
-            continue
-        if _GREETING_RE.match(line):
-            preamble = "\n".join(lines[:divider_idx]).strip()
-            return "\n".join(rest).strip(), preamble
-        break
+    elif divider_idx == 0:
+        # Leading divider with no preamble text: just drop the divider.
+        return "\n".join(lines[1:]).lstrip("\n"), ""
+
+    # Greeting after non-empty meta lines (no divider required).
+    if first_greeting_idx is not None and first_greeting_idx > 0:
+        before = "\n".join(lines[:first_greeting_idx]).strip()
+        if before:
+            return "\n".join(lines[first_greeting_idx:]).strip(), before
+
     return text, ""
 
 

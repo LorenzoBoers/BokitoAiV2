@@ -382,7 +382,7 @@ export default function ReplyComposer({
               title={t('composer.tabHintNote')}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
                 isNote
-                  ? 'bg-yellow-100 text-yellow-800 font-semibold ring-1 ring-yellow-300/60 dark:bg-yellow-900/30 dark:text-yellow-200 dark:ring-yellow-700/40'
+                  ? 'bg-bg-elevated text-text-primary font-semibold ring-1 ring-border/70'
                   : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
               }`}
             >
@@ -537,7 +537,7 @@ export default function ReplyComposer({
           }
           className={
             isNote
-              ? 'border-yellow-300/50 bg-yellow-50/40 dark:border-yellow-700/40 dark:bg-yellow-900/10'
+              ? 'border-border/70 border-l-[3px] border-l-border bg-bg-elevated/40'
               : 'border-border/60 bg-bg-surface'
           }
           overlay={
@@ -633,7 +633,7 @@ export default function ReplyComposer({
               }
               className={`flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40 ${
                 isNote
-                  ? 'bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-700 dark:hover:bg-yellow-600'
+                  ? 'bg-bg-elevated text-text-primary ring-1 ring-border/70 hover:bg-bg-hover'
                   : 'bg-accent text-accent-fg hover:bg-accent-hover'
               } ${!isNote && showCustomerActions ? 'rounded-none' : 'rounded-xl'}`}
             >

@@ -14,6 +14,23 @@ def test_sentinel_note_is_extracted():
     assert "INTERNAL_NOTE" not in parts.body
 
 
+def test_preamble_without_divider_is_peeled_before_greeting():
+    # Live leak: research text then greeting with no --- divider.
+    raw = (
+        "Het company doc is een stub met minimale inhoud. Op basis van de "
+        "platformhulp kan ik een algemene beschrijving van Bokito opstellen.\n\n"
+        "Hoi Sjaak,\n\n"
+        "Bedankt voor je bericht! Bokito brengt berichten, agents en goedkeuringen "
+        "samen in één systeem."
+    )
+    parts = split_suggestion(raw)
+    assert parts.body.startswith("Hoi Sjaak,")
+    assert "company doc" not in parts.body
+    assert "platformhulp" not in parts.body
+    assert "stub" in parts.internal_note
+    assert "platformhulp" in parts.internal_note
+
+
 def test_production_leak_pattern_is_fully_cleaned():
     # The exact shape that leaked to a contact: meta preamble, dividers,
     # legacy internal note block, and a model-written sign-off.
