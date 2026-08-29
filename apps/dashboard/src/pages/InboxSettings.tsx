@@ -51,6 +51,7 @@ import {
 import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
 import { formatAppDateTime } from '../lib/app-locale'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
+import { inboxPath } from '../lib/messages-paths'
 
 function mapRuleToComponent(rule: RoutingRuleApi): RoutingRule {
   return {
@@ -513,6 +514,9 @@ export default function InboxSettings() {
       <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
         <p>{t('channelsPage.crossLinks.body')}</p>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
+            {t('channelsPage.crossLinks.communication')}
+          </Link>
           <Link to="/settings/communication" className="font-medium text-accent hover:underline">
             {t('channelsPage.crossLinks.inboxAi')}
           </Link>
@@ -521,6 +525,9 @@ export default function InboxSettings() {
           </Link>
           <Link to="/settings/marketplace?kind=inbox" className="font-medium text-accent hover:underline">
             {t('channelsPage.crossLinks.integrations')}
+          </Link>
+          <Link to="/settings/setup" className="font-medium text-accent hover:underline">
+            {t('channelsPage.crossLinks.setup')}
           </Link>
         </div>
       </div>

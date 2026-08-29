@@ -497,21 +497,37 @@ export default function ContactPanel({
           <div className="rounded-lg border border-dashed border-border/60 px-3 py-3 space-y-1.5">
             <p className="text-[11.5px] text-text-muted">{t('contactPanel.noPrevious')}</p>
             <p className="text-[11px] text-text-muted/90">{t('contactPanel.noPreviousHint')}</p>
-            {contactId ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {contact?.address && canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
+                <Link
+                  to={composeEmailPath({ to: contact.address })}
+                  className="text-[11px] font-medium text-accent hover:underline"
+                >
+                  {t('contactPanel.writeEmail')}
+                </Link>
+              ) : null}
               <Link
-                to={`/contacts/${contactId}`}
-                className="inline-block text-[11px] font-medium text-accent hover:underline"
+                to={inboxPath('open')}
+                className="text-[11px] font-medium text-accent hover:underline"
               >
-                {t('contactPanel.fullProfile')}
+                {t('contactPanel.openCommunication')}
               </Link>
-            ) : (
-              <Link
-                to="/contacts"
-                className="inline-block text-[11px] font-medium text-accent hover:underline"
-              >
-                {t('contactPanel.openContacts')}
-              </Link>
-            )}
+              {contactId ? (
+                <Link
+                  to={`/contacts/${contactId}`}
+                  className="text-[11px] font-medium text-accent hover:underline"
+                >
+                  {t('contactPanel.fullProfile')}
+                </Link>
+              ) : (
+                <Link
+                  to="/contacts"
+                  className="text-[11px] font-medium text-accent hover:underline"
+                >
+                  {t('contactPanel.openContacts')}
+                </Link>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-1">

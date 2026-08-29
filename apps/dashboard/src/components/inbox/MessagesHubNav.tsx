@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
   Bot,
+  ChevronRight,
   Inbox,
   Mail,
   Plus,
@@ -64,12 +65,49 @@ function isLeafActive(activeLeaf: HubLeaf | null, leaf: HubLeaf): boolean {
 type CollapsibleSectionProps = {
   section: SidebarSection
   title: string
+  /** Item count shown as a muted `(n)` after the title. Omit while loading. */
+  count?: number | null
   headerAction?: ReactNode
   children: ReactNode
 }
 
+/** Square gear control — fixed size so hover/hitbox stay circular, not a thin strip. */
+function SectionGearLink({ to, label }: { to: string; label: string }) {
+  return (
+    <Link
+      to={to}
+      title={label}
+      aria-label={label}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Settings size={12} strokeWidth={2} aria-hidden />
+    </Link>
+  )
+}
+
+const SECTION_GEAR: Partial<
+  Record<SidebarSection, { to: string; labelKey: string; defaultLabel: string }>
+> = {
+  channels: {
+    to: '/settings/channels',
+    labelKey: 'support.channels.settingsAria',
+    defaultLabel: 'Manage channels',
+  },
+  tags: {
+    to: '/settings/channels#tags',
+    labelKey: 'support.tags.settingsAria',
+    defaultLabel: 'Manage tags',
+  },
+  agents: {
+    to: '/agents',
+    labelKey: 'support.agents.settingsAria',
+    defaultLabel: 'Manage agents',
+  },
+}
+
 /** Section header with persisted collapse state from sidebar prefs. */
-function CollapsibleSection({ section, title, headerAction, children }: CollapsibleSectionProps) {
+function CollapsibleSection({ section, title, count, headerAction, children }: CollapsibleSectionProps) {
   const { prefs, setSectionCollapsed } = useSidebarPrefs()
   const collapsed = prefs.collapsed.includes(section)
   const open = !collapsed
@@ -102,15 +140,30 @@ function CollapsibleSection({ section, title, headerAction, children }: Collapsi
             if (collapsed) setMounted(true)
             setSectionCollapsed(section, !collapsed)
           }}
-          className="nav-row flex min-w-0 flex-1 items-center gap-1 px-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted hover:text-text-secondary"
+          className="nav-row flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted hover:text-text-secondary"
           aria-expanded={open}
         >
-          <span className="min-w-0 flex-1 truncate text-left">{title}</span>
+          <ChevronRight
+            size={11}
+            strokeWidth={2.25}
+            aria-hidden
+            className={cn(
+              'shrink-0 text-text-muted/55 transition-transform duration-150 ease-out',
+              open && 'rotate-90 text-text-muted/80',
+            )}
+          />
+          <span className="min-w-0 truncate text-left">{title}</span>
+          {count != null ? (
+            <span className="shrink-0 font-medium normal-case tracking-normal text-text-muted/65">
+              ({count})
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1" aria-hidden />
         </button>
         {/* Section tools stay hidden until the section (or a row in it) is
             hovered or focused, so the rail reads as folders only. */}
         {headerAction ? (
-          <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/section:opacity-100 group-focus-within/section:opacity-100">
+          <span className="inline-flex shrink-0 opacity-0 transition-opacity focus-within:opacity-100 group-hover/section:opacity-100 group-focus-within/section:opacity-100">
             {headerAction}
           </span>
         ) : null}
@@ -125,12 +178,22 @@ function CollapsibleSection({ section, title, headerAction, children }: Collapsi
 type TFn = (key: string, opts?: { defaultValue?: string }) => string
 
 type ChannelsSectionProps = {
+  folders: ChannelFolder[]
+  loading: boolean
   activeLeaf: HubLeaf | null
   defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }
 
-function ChannelsSection({ activeLeaf, defaultQueueFor, t }: ChannelsSectionProps) {
+type ChannelFolder = {
+  leaf: HubLeaf
+  label: string
+  icon: ReactNode
+  title?: string
+}
+
+/** Connected channel folders shown under the Channels section (email + enabled accounts). */
+function useConnectedChannelFolders(t: TFn): { folders: ChannelFolder[]; loading: boolean } {
   const { token } = useAuth()
   const { activeConnections: connections, loading: connectionsLoading } = useMailboxConnections()
   const [accounts, setAccounts] = useState<ChannelAccountRow[]>([])
@@ -161,47 +224,54 @@ function ChannelsSection({ activeLeaf, defaultQueueFor, t }: ChannelsSectionProp
   }, [token])
 
   const loading = connectionsLoading || accountsLoading
-  const enabledAccounts = accounts.filter((a) => a.isEnabled)
-  const hasWidget = enabledAccounts.some((a) => a.channel === 'widget')
-  const hasSlack = enabledAccounts.some((a) => a.channel === 'slack')
-  const hasWhatsApp = enabledAccounts.some((a) => a.channel === 'whatsapp')
+  const folders = useMemo(() => {
+    const enabledAccounts = accounts.filter((a) => a.isEnabled)
+    const hasWidget = enabledAccounts.some((a) => a.channel === 'widget')
+    const hasSlack = enabledAccounts.some((a) => a.channel === 'slack')
+    const hasWhatsApp = enabledAccounts.some((a) => a.channel === 'whatsapp')
 
-  // Only list channels that are actually connected — empty stubs clutter the rail.
-  const folders: Array<{ leaf: HubLeaf; label: string; icon: ReactNode; title?: string }> = [
-    ...connections.map((conn) => ({
-      leaf: { type: 'channel', channelKey: 'email', connectionId: String(conn.id) } as HubLeaf,
-      label: mailboxDisplayLabel(conn.displayName, conn.mailboxEmail),
-      icon: <ChannelGlyph channel="email" size={14} />,
-    })),
-    ...(hasWidget
-      ? [
-          {
-            leaf: { type: 'channel', channelKey: 'webchat' } as HubLeaf,
-            label: t('support.channels.webchat'),
-            icon: <ChannelGlyph channel="widget" size={14} />,
-          },
-        ]
-      : []),
-    ...(hasWhatsApp
-      ? [
-          {
-            leaf: { type: 'channel', channelKey: 'whatsapp' } as HubLeaf,
-            label: t('support.channels.whatsapp'),
-            icon: <ChannelGlyph channel="whatsapp" size={14} />,
-          },
-        ]
-      : []),
-    ...(hasSlack
-      ? [
-          {
-            leaf: { type: 'channel', channelKey: 'slack' } as HubLeaf,
-            label: t('support.channels.slack'),
-            icon: <ChannelGlyph channel="slack" size={14} />,
-          },
-        ]
-      : []),
-  ]
+    // Only list channels that are actually connected — empty stubs clutter the rail.
+    const next: ChannelFolder[] = [
+      ...connections.map((conn) => ({
+        leaf: { type: 'channel', channelKey: 'email', connectionId: String(conn.id) } as HubLeaf,
+        label: mailboxDisplayLabel(conn.displayName, conn.mailboxEmail),
+        icon: <ChannelGlyph channel="email" size={14} />,
+      })),
+      ...(hasWidget
+        ? [
+            {
+              leaf: { type: 'channel', channelKey: 'webchat' } as HubLeaf,
+              label: t('support.channels.webchat'),
+              icon: <ChannelGlyph channel="widget" size={14} />,
+            },
+          ]
+        : []),
+      ...(hasWhatsApp
+        ? [
+            {
+              leaf: { type: 'channel', channelKey: 'whatsapp' } as HubLeaf,
+              label: t('support.channels.whatsapp'),
+              icon: <ChannelGlyph channel="whatsapp" size={14} />,
+            },
+          ]
+        : []),
+      ...(hasSlack
+        ? [
+            {
+              leaf: { type: 'channel', channelKey: 'slack' } as HubLeaf,
+              label: t('support.channels.slack'),
+              icon: <ChannelGlyph channel="slack" size={14} />,
+            },
+          ]
+        : []),
+    ]
+    return next
+  }, [accounts, connections, t])
 
+  return { folders, loading }
+}
+
+function ChannelsSection({ folders, loading, activeLeaf, defaultQueueFor, t }: ChannelsSectionProps) {
   const hasAnyChannel = folders.length > 0
 
   return (
@@ -235,26 +305,36 @@ function ChannelsSection({ activeLeaf, defaultQueueFor, t }: ChannelsSectionProp
 }
 
 type TagsSectionProps = {
+  rows: ReturnType<typeof mergeSidebarTagRows> | null
   activeLeaf: HubLeaf | null
   defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }
 
-function TagsSection({ activeLeaf, defaultQueueFor, t }: TagsSectionProps) {
+function useSidebarTagRows() {
   const { prefs } = useInboxFolderPrefs()
   const { rows: catalog } = useSignalTags()
-
-  const rows = useMemo(
+  return useMemo(
     () => (catalog == null ? null : mergeSidebarTagRows(prefs.sidebarTags, catalog)),
     [catalog, prefs.sidebarTags],
   )
+}
 
+function TagsSection({ rows, activeLeaf, defaultQueueFor, t }: TagsSectionProps) {
   return (
     <div className="space-y-0.5">
       {rows === null ? (
         <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.tags.loading')}</p>
       ) : rows.length === 0 ? (
-        <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.tags.empty')}</p>
+        <div className="space-y-1 px-3 py-1">
+          <p className="text-[12px] text-text-muted">{t('support.tags.empty')}</p>
+          <Link
+            to={inboxPath('open')}
+            className="block text-[11px] font-medium text-accent hover:underline"
+          >
+            {t('support.tags.openToTag')}
+          </Link>
+        </div>
       ) : (
         rows.map((row) => {
           const leaf: HubLeaf = { type: 'tag', tag: row.tag }
@@ -384,6 +464,8 @@ export default function MessagesHubNav() {
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
+  const { folders: channelFolders, loading: channelsLoading } = useConnectedChannelFolders(t)
+  const tagRows = useSidebarTagRows()
 
   useEffect(() => {
     let cancelled = false
@@ -411,9 +493,30 @@ export default function MessagesHubNav() {
   const inboxDefaultQueue = defaultQueueFor(inboxBaseLeaf)
   const inboxBadge = countForInboxQueue(counts, inboxDefaultQueue)
 
+  const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
+    channels: channelsLoading ? null : channelFolders.length,
+    tags: tagRows == null ? null : tagRows.length,
+    agents: targetsLoading ? null : companyAgents.length + (assistant ? 1 : 0),
+  }
+
   const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
-    channels: <ChannelsSection activeLeaf={activeLeaf} defaultQueueFor={defaultQueueFor} t={t} />,
-    tags: <TagsSection activeLeaf={activeLeaf} defaultQueueFor={defaultQueueFor} t={t} />,
+    channels: (
+      <ChannelsSection
+        folders={channelFolders}
+        loading={channelsLoading}
+        activeLeaf={activeLeaf}
+        defaultQueueFor={defaultQueueFor}
+        t={t}
+      />
+    ),
+    tags: (
+      <TagsSection
+        rows={tagRows}
+        activeLeaf={activeLeaf}
+        defaultQueueFor={defaultQueueFor}
+        t={t}
+      />
+    ),
     agents: (
       <AgentsSection
         assistant={assistant}
@@ -485,28 +588,27 @@ export default function MessagesHubNav() {
           />
         </section>
 
-        {visibleSections.map((section) => (
-          <CollapsibleSection
-            key={section}
-            section={section}
-            title={t(SECTION_LABELS[section].labelKey)}
-            headerAction={
-              section === 'tags' ? (
-                <Link
-                  to="/settings/channels#tags"
-                  title={t('support.tags.settingsAria')}
-                  aria-label={t('support.tags.settingsAria')}
-                  className="rounded-md p-1 text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Settings size={12} />
-                </Link>
-              ) : undefined
-            }
-          >
-            {sectionContent[section as Exclude<SidebarSection, 'settings'>]}
-          </CollapsibleSection>
-        ))}
+        {visibleSections.map((section) => {
+          const gear = SECTION_GEAR[section]
+          return (
+            <CollapsibleSection
+              key={section}
+              section={section}
+              title={t(SECTION_LABELS[section].labelKey)}
+              count={sectionCounts[section]}
+              headerAction={
+                gear ? (
+                  <SectionGearLink
+                    to={gear.to}
+                    label={t(gear.labelKey, { defaultValue: gear.defaultLabel })}
+                  />
+                ) : undefined
+              }
+            >
+              {sectionContent[section as Exclude<SidebarSection, 'settings'>]}
+            </CollapsibleSection>
+          )
+        })}
       </div>
 
       {settingsVisible ? (

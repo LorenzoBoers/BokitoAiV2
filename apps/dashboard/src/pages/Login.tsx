@@ -115,15 +115,26 @@ export default function Login() {
         setWorkspaceSetup(err);
         return;
       }
-      const message = err instanceof Error ? err.message : t('loginPage.failed');
+      const message = err instanceof Error ? err.message : t('loginPage.failed')
+      const lower = message.toLowerCase()
       setError(
         message.includes('Invalid') ||
         message.includes('401') ||
         message.includes('password') ||
-        message.toLowerCase().includes('valid integer')
-        ? t('loginPage.incorrect')
-        : message
-      );
+        lower.includes('valid integer')
+          ? t('loginPage.incorrect')
+          : message.includes('500') ||
+              message.includes('502') ||
+              message.includes('503') ||
+              message.includes('504') ||
+              lower.includes('failed to fetch') ||
+              lower.includes('networkerror') ||
+              lower.includes('network request failed')
+            ? t('loginPage.serverUnavailable')
+            : message.startsWith('HTTP ')
+              ? t('loginPage.failed')
+              : message,
+      )
     } finally {
       setIsLoading(false);
     }

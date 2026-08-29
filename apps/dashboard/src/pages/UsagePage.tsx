@@ -265,7 +265,30 @@ export default function UsagePage() {
 
       <CockpitTabs />
 
-      {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
+      {error ? (
+        <div className="space-y-2">
+          <ApiErrorBanner message={error} onRetry={load} />
+          {!summary ? (
+            <div className="rounded-xl border border-dashed border-border/60 px-4 py-3">
+              <p className="text-[12px] text-text-muted">{t('usagePage.errorRecoveryHint')}</p>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                <Link to="/communication/new" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('usagePage.startChat')}
+                </Link>
+                <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('usagePage.openAgents')}
+                </Link>
+                <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('usagePage.openSetup')}
+                </Link>
+                <Link to="/settings/models" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('usagePage.openModels')}
+                </Link>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {budget?.status.blocked ? (
         <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-status-error/40 bg-status-error/10 px-4 py-3 text-[12.5px] text-text-primary">

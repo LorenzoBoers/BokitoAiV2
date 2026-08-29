@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
@@ -681,6 +681,17 @@ export function DirectChatEmptyState({ agentLabel }: { agentLabel: string }) {
       >
         {t('directChat.newChat')}
       </button>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
+        <Link to="/agents" className="font-medium text-accent hover:underline">
+          {t('directChat.openAgents')}
+        </Link>
+        <Link to="/knowledge" className="font-medium text-accent hover:underline">
+          {t('directChat.openKnowledge')}
+        </Link>
+        <Link to="/settings/setup" className="font-medium text-accent hover:underline">
+          {t('directChat.openSetup')}
+        </Link>
+      </div>
     </div>
   )
 }

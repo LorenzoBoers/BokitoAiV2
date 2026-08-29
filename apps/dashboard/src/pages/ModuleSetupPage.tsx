@@ -298,6 +298,16 @@ export default function ModuleSetupPage() {
             title={t('integrations.modules.notFound', {
               defaultValue: 'This module is not in the catalog.',
             })}
+            action={
+              <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
+                <Link to="/modules" className="font-medium text-accent hover:underline">
+                  {t('integrations.modules.openCatalog', { defaultValue: 'Open Modules' })}
+                </Link>
+                <Link to="/settings/marketplace" className="font-medium text-accent hover:underline">
+                  {t('integrations.modules.openMarketplace', { defaultValue: 'Open Marketplace' })}
+                </Link>
+              </div>
+            }
           />
         )
       ) : (

@@ -272,7 +272,7 @@
         },
         {
           "title": "Threads",
-          "body": "View threads deep-links into Communication filtered to that project. Agents and humans keep talking in Messages; the project is the spine."
+          "body": "View threads deep-links into Communication filtered to that project. Agents and humans keep talking in Communication; the project is the spine."
         },
         {
           "title": "Budget",
@@ -517,7 +517,7 @@
     "openPeople": "Show people",
     "noContacts": "No contacts yet",
     "noMatchingContacts": "No matching contacts",
-    "noContactsHint": "Contacts are created automatically when customers reach out through email or the website widget.",
+    "noContactsHint": "Contacts appear when customers write you. Connect a channel, or open Communication to start a conversation.",
     "clearFilters": "Try a different search or clear the status filter.",
     "clearFiltersAction": "Clear filters",
     "connectEmail": "Connect email",
@@ -728,6 +728,7 @@
     "rights": "All rights reserved",
     "failed": "Sign in failed",
     "incorrect": "Incorrect email or password.",
+    "serverUnavailable": "Bokito could not be reached. Check your connection and try again.",
     "microsoftNotConfigured": "Microsoft sign-in is not configured on this server.",
     "microsoftStartFailed": "Could not start Microsoft sign-in. Please try again.",
     "sessionExpired": "This session expired. Sign in again.",
@@ -963,7 +964,7 @@
     "autonomyRate": "Handled without you",
     "posture": "Agent freedom",
     "timeSaved": "Time saved 7d (est.)",
-    "timeSavedEmptyHint": "Shows up after agents handle work for you",
+    "timeSavedEmptyHint": "Shows up after agents handle work for you. Open Agents to get started.",
     "openFirst": "Open first",
     "csat": "Customer rating 30d",
     "csatResponses": "{{count}} response",
@@ -992,6 +993,7 @@
     "snoozeFailed": "Could not snooze that conversation.",
     "nothingAttention": "Nothing needs your attention right now.",
     "openCommunication": "Open Communication",
+    "openGovernDrafts": "Review drafts",
     "decisionNeeded": "Decision needed",
     "waitingDays": "Waiting {{count}} day — open to decide",
     "waitingDays_other": "Waiting {{count}} days — open to decide",
@@ -1020,8 +1022,8 @@
     "installWidget": "Install widget",
     "openSetup": "Open setup guide",
     "loopTitle": "How Bokito fits together",
-    "loopHint": "Messages, agents, the check-in and approvals are one loop. Start here, then open the rest when you need it.",
-    "loopMessages": "Messages",
+    "loopHint": "Communication, agents, the check-in and approvals are one loop. Start here, then open the rest when you need it.",
+    "loopMessages": "Communication",
     "loopMessagesHint": "Customer and team conversations land here — including check-in findings.",
     "loopAgents": "Agents",
     "loopAgentsHint": "They draft replies and do scheduled work.",
@@ -1031,7 +1033,7 @@
     "loopGovernHint": "Decisions appear in the conversation. Govern sets how far they may go.",
     "loopDismiss": "Hide",
     "watchTitle": "Hourly inbox scan is off",
-    "watchHint": "Turn on the hourly check-in. When something needs you, it posts in Messages.",
+    "watchHint": "Turn on the hourly check-in. When something needs you, it posts in Communication.",
     "watchEnable": "Turn on check-in",
     "watchEnabling": "Turning on...",
     "watchAsk": "Ask the assistant",
@@ -1122,6 +1124,7 @@
     "byModel": "By model ({{days}}d)",
     "billable": "Billable {{amount}}",
     "noModelUsage": "No model usage yet.",
+    "errorRecoveryHint": "While usage is unavailable, you can still chat with an agent or finish setup.",
     "startChat": "Start assistant chat",
     "openAgents": "Open Agents",
     "openSetup": "Open setup guide",
@@ -1163,7 +1166,7 @@
     "settings": "Settings",
     "openDecisions": "Decisions",
     "openChannels": "Email & messages",
-    "openCommunication": "Open Messages",
+    "openCommunication": "Open Communication",
     "now": "Now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
@@ -1198,6 +1201,9 @@
     "addChannel": "Add channel",
     "addChannelDescription": "Pick what you want to connect. A Bokito address is created here; the rest signs in or asks for credentials.",
     "noChannels": "No channels yet. Nothing can reach you until you add one.",
+    "openSetup": "Open setup guide",
+    "openCommunication": "Open Communication",
+    "openWidget": "Install chat widget",
     "loadingChannels": "Loading channels...",
     "loadError": "Could not load channels.",
     "back": "Back",
@@ -1304,10 +1310,12 @@
       "createError": "Could not create the address."
     },
     "crossLinks": {
-      "body": "Channels, AI behavior, and the chat widget work together. Adjust related settings without leaving Communication.",
+      "body": "Channels land conversations in Communication. AI behavior and the chat widget work with the same channels.",
+      "communication": "Open Communication",
       "inboxAi": "Inbox AI settings",
       "widget": "Chat widget",
-      "integrations": "Browse integrations"
+      "integrations": "Browse integrations",
+      "setup": "Setup guide"
     },
     "setupNeededAlert": {
       "title": "{{count}} channel still needs setup before replies can send",
@@ -1435,6 +1443,7 @@
     "newRule": "New rule",
     "empty": "No rules yet. Rules appear automatically when you make the same choice on a \"No reply needed\" card a few times, or create one manually.",
     "openCommunication": "Try it in Communication",
+    "openAgendaAutomations": "Agenda automations",
     "loading": "Loading...",
     "cancel": "Cancel",
     "create": "Create rule",
@@ -1563,6 +1572,8 @@
     "verifyToken": "Verify token:",
     "verifyTokenMissing": "Ask your platform admin for the verify token (WHATSAPP_VERIFY_TOKEN is not configured).",
     "subscribeHint": "Subscribe the webhook to the messages field, then send a test message to your number.",
+    "openCommunication": "Open Communication",
+    "openInboxAi": "Inbox AI settings",
     "displayName": "Display name",
     "displayNamePlaceholder": "+31 6 12345678",
     "phoneNumberId": "Phone number ID",
@@ -1595,6 +1606,9 @@
     "finishSetup": "Finish setup in your Slack app config (both URLs, shown once here but stable):",
     "eventsUrl": "Events URL:",
     "interactivityUrl": "Interactivity URL:",
+    "openCommunication": "Open Communication",
+    "openInboxAi": "Inbox AI settings",
+    "openGovern": "Open Govern policy",
     "workspaceName": "Workspace name",
     "workspaceNamePlaceholder": "Acme Inc",
     "notifyChannel": "Fallback notify channel ID (optional)",
@@ -1711,7 +1725,9 @@
     "openNotifications": "Open notifications",
     "openBookkeeping": "Open bookkeeping",
     "talkAssistant": "Talk to my assistant",
-    "talkPrefill": "Help me with today's work. What needs attention?"
+    "talkPrefill": "Help me with today's work. What needs attention?",
+    "openAgenda": "Open Agenda",
+    "openGovernDrafts": "Review Govern drafts"
   },
   "gateway": {
     "connected": "Live",
@@ -2068,16 +2084,19 @@
       "connectChannel": "Add a channel",
       "agent": "Agent messages",
       "whatsapp": "WhatsApp",
-      "slack": "Slack"
+      "slack": "Slack",
+      "settingsAria": "Manage channels and connections"
     },
     "agents": {
       "loading": "Loading agents...",
       "empty": "No agents available for chat.",
-      "runs": "Agent runs"
+      "runs": "Agent runs",
+      "settingsAria": "Manage agents"
     },
     "tags": {
       "loading": "Loading tags...",
       "empty": "Tag a conversation and it shows up here, across every channel.",
+      "openToTag": "Open a conversation to add a tag",
       "manage": "Manage tags",
       "settingsAria": "Manage tags and pin them to this sidebar"
     },
@@ -2534,6 +2553,10 @@
       "searchPlaceholder": "Search integrations...",
       "empty": "No integrations found.",
       "emptyKind": "No integrations in this category.",
+      "emptyFiltered": "No matches for this search or filter.",
+      "clearFilters": "Clear filters",
+      "openModules": "Open Modules",
+      "openConnected": "Open connected integrations",
       "catalogFallback": "Catalog API unavailable; using local list."
     },
     "categories": {
@@ -2557,6 +2580,7 @@
       "openProjects": "Open Projects",
       "manageMcp": "Manage connected tools",
       "openAgents": "Open agents",
+      "openCommunication": "Open Communication",
       "mcpHint": "Apps and tools your agents can use in this workspace.",
       "openGovern": "Open Govern policy",
       "viewAll": "View connected integrations"
@@ -2839,6 +2863,7 @@
       "refresh": "Refresh",
       "chat": "Chat",
       "schedule": "Schedule",
+      "runs": "Runs",
       "projectsLink": "Projects",
       "workersEmpty": "No more agents yet. Create one, or chat with your assistant from Communication.",
       "sections": {
@@ -3250,6 +3275,7 @@
       "agentsEmpty": "No agents on this project yet. Threads fall back to the project lead, then the lead agent.",
       "agentsAskAssistant": "Ask the assistant to pick agents",
       "agentsAskPrefill": "Help me choose which agents should work on this project, and who should be the default.",
+      "openAgents": "Browse agents",
       "agentAddPlaceholder": "Add an agent",
       "agentAddError": "Could not add agent.",
       "agentRemove": "Remove from project",
@@ -3267,6 +3293,7 @@
       "queueCreateError": "Could not add to the queue.",
       "queueEmptyTitle": "The queue is empty",
       "queueEmptyBody": "Requests from conversations and teammates land here. Add the first item or link a thread to this project.",
+      "openCommunication": "Open Communication",
       "addToQueue": "Add to queue",
       "titlePlaceholder": "What needs to happen?",
       "bodyPlaceholder": "Context, expected behavior, links... (optional)",
@@ -3349,6 +3376,8 @@
       "docsEmpty": "No project documentation yet.",
       "docsEmptyTitle": "No documentation yet",
       "docsEmptyBody": "Project docs describe what this project does. Sections carry a status from open to verified, and queue items link to the sections they touch.",
+      "openKnowledge": "Open Knowledge",
+      "openAgents": "Open Agents",
       "newDoc": "New document",
       "docPathPlaceholder": "e.g. overview",
       "docCreated": "Document created",
@@ -3359,6 +3388,8 @@
       "saveDoc": "Save",
       "resourcesLoading": "Loading resources...",
       "resourcesEmpty": "No resources linked yet.",
+      "openModules": "Open Modules",
+      "openIntegrations": "Open integrations",
       "resourceAddLink": "Link a resource",
       "resourceAdd": "Link",
       "resourceLinked": "Resource linked",
@@ -3886,6 +3917,7 @@
     "openAgents": "Open Agents",
     "openSetup": "Open setup guide",
     "talkAssistant": "Talk to your assistant",
+    "tryPrefill": "Use our knowledge docs to answer: what do we already know that would help with today's work?",
     "usedByAgents": "Agents read this while they work.",
     "openRuns": "Open Agent runs",
     "openHelpCenter": "Customer help center",
@@ -4268,7 +4300,7 @@
     "removeError": "Could not remove the member.",
     "body": "Manage members and invites in your workspace.",
     "inviteTitle": "Invite a teammate",
-    "inviteBody": "They will see Messages, decisions, and agents in this workspace.",
+    "inviteBody": "They will see Communication, decisions, and agents in this workspace.",
     "roleHint": {
       "owner": "Full control, including billing and who can join",
       "admin": "Can change settings, agents, and invites",

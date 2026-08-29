@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { useAuth } from '../../context/AuthContext'
 import { createSlackAccount } from '../../lib/channel-accounts-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { inboxPath } from '../../lib/messages-paths'
 
 /**
  * Connect a Slack workspace so decision cards arrive as DMs with
@@ -83,6 +85,17 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
           <span className="font-medium text-text-secondary">{t('slackCard.interactivityUrl')}</span>{' '}
           <code className="rounded bg-bg-input px-1 py-0.5 text-[11px]">{interactionsUrl}</code>
         </p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
+          <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
+            {t('slackCard.openCommunication')}
+          </Link>
+          <Link to="/settings/communication" className="font-medium text-accent hover:underline">
+            {t('slackCard.openInboxAi')}
+          </Link>
+          <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">
+            {t('slackCard.openGovern')}
+          </Link>
+        </div>
       </div>
     )
   }

@@ -16,6 +16,7 @@ import { Card } from '../ui/card'
 import { Input } from '../ui/input'
 import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
 import { inboxPath } from '../../lib/messages-paths'
+import { AGENDA_AUTOMATIONS_PATH } from '../../lib/navigation'
 
 const ACTION_KEYS: Record<InboxRule['action'], string> = {
   auto_close: 'automationRules.actionClose',
@@ -176,6 +177,12 @@ export default function AutomationRulesManager() {
                 className="text-[12px] font-medium text-accent hover:underline"
               >
                 {t('automationRules.openCommunication')}
+              </Link>
+              <Link
+                to={AGENDA_AUTOMATIONS_PATH}
+                className="text-[12px] font-medium text-accent hover:underline"
+              >
+                {t('automationRules.openAgendaAutomations')}
               </Link>
             </div>
           </div>

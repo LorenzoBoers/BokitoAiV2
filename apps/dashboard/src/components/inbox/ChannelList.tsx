@@ -39,6 +39,8 @@ import { ChannelCapabilityChips, ChannelStateBadge } from './ChannelStateBadge'
 import { formatAppDateTime } from '../../lib/app-locale'
 import type { ChannelCheck, ChannelCheckState, ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
+import { WEBSITE_WIDGET_PATH } from '../../lib/assistant-settings-path'
+import { inboxPath } from '../../lib/messages-paths'
 
 const CHECK_ICONS: Record<ChannelCheckState, typeof Check> = {
   ok: Check,
@@ -204,13 +206,24 @@ export default function ChannelList({
     return (
       <div className="px-4 py-10 text-center text-sm text-text-muted">
         <p>{t('channelsPage.noChannels')}</p>
-        <button
-          type="button"
-          onClick={onAddChannel}
-          className="mt-2 text-sm font-medium text-accent hover:underline"
-        >
-          {t('channelsPage.addChannel')}
-        </button>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+          <button
+            type="button"
+            onClick={onAddChannel}
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            {t('channelsPage.addChannel')}
+          </button>
+          <Link to="/settings/setup" className="text-sm font-medium text-accent hover:underline">
+            {t('channelsPage.openSetup')}
+          </Link>
+          <Link to={inboxPath('open')} className="text-sm font-medium text-accent hover:underline">
+            {t('channelsPage.openCommunication')}
+          </Link>
+          <Link to={WEBSITE_WIDGET_PATH} className="text-sm font-medium text-accent hover:underline">
+            {t('channelsPage.openWidget')}
+          </Link>
+        </div>
       </div>
     )
   }

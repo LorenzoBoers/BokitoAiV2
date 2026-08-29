@@ -385,6 +385,9 @@ export default function AutomationsPanel({ reloadKey = 0, onCreateTrigger, onEdi
                       </Button>
                     ) : null}
                     <Button type="button" size="sm" variant="outline" asChild>
+                      <Link to="/agents">{t('agendaPage.openAgents')}</Link>
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" asChild>
                       <Link to="/agenda">{t('agendaPage.backToAgenda')}</Link>
                     </Button>
                   </div>

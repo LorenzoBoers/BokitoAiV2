@@ -38,6 +38,7 @@ import {
   type WorkspaceSearchHit,
 } from '../lib/workspace-api'
 import { agentRunsPath } from '../lib/messages-paths'
+import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { titleToDocPath } from '../lib/workspace-doc-path'
 import { cn } from '../lib/utils'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
@@ -658,6 +659,13 @@ export default function WorkspaceDocs() {
                     {' · '}
                     <Link to={agentRunsPath('all')} className="font-medium text-accent hover:underline">
                       {t('knowledgePage.openRuns')}
+                    </Link>
+                    {' · '}
+                    <Link
+                      to={talkToAssistantPath(t('knowledgePage.tryPrefill'))}
+                      className="font-medium text-accent hover:underline"
+                    >
+                      {t('knowledgePage.talkAssistant')}
                     </Link>
                   </p>
                 </div>

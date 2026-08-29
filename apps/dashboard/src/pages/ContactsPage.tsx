@@ -1217,6 +1217,12 @@ export default function ContactsPage() {
                 {t('contactsPage.installWidget')}
               </Link>
               <Link
+                to={inboxPath('open')}
+                className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {t('contactsPage.openCommunication')}
+              </Link>
+              <Link
                 to="/settings/setup"
                 className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
               >

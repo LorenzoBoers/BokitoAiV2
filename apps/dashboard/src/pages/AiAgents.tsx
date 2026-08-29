@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bot, CalendarDays, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react'
+import { Bot, CalendarDays, Inbox, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -30,10 +30,12 @@ function AgentQuickLinks({
   agentId,
   chatLabel,
   scheduleLabel,
+  runsLabel,
 }: {
   agentId: string
   chatLabel: string
   scheduleLabel: string
+  runsLabel: string
 }) {
   const navigate = useNavigate()
   return (
@@ -50,6 +52,19 @@ function AgentQuickLinks({
       >
         <MessageSquare size={12} className="mr-1" />
         {chatLabel}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-[11px]"
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          navigate(agentRunsPath('all') + `?agent=${encodeURIComponent(agentId)}`)
+        }}
+      >
+        <Inbox size={12} className="mr-1" />
+        {runsLabel}
       </Button>
       <Button
         size="sm"
@@ -137,6 +152,7 @@ function AgentLibraryCard({
             agentId={agent.id}
             chatLabel={t('workforce.agents.chat')}
             scheduleLabel={t('workforce.agents.schedule')}
+            runsLabel={t('workforce.agents.runs')}
           />
           {agent.model ? (
             <span
@@ -356,6 +372,9 @@ export default function AiAgents() {
                 <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
                   <Link to="/settings/setup" className="font-medium text-accent hover:underline">
                     {t('settings.links.setupGuide')}
+                  </Link>
+                  <Link to="/agenda" className="font-medium text-accent hover:underline">
+                    {t('workforce.agents.openFullAgenda')}
                   </Link>
                   <Link to="/knowledge" className="font-medium text-accent hover:underline">
                     {t('tabs.knowledge.title')}

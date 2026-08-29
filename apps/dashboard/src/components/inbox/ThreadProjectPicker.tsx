@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Label } from '../ui/label'
@@ -67,6 +67,13 @@ export function ThreadProjectPicker({ threadId, projectId, onUpdated }: Props) {
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <Loader2 className="h-3 w-3 animate-spin" />
           {t('threadChrome.loadingProjects')}
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="space-y-1.5">
+          <p className="text-[11.5px] text-text-muted">{t('threadChrome.noProjectsYet')}</p>
+          <Link to="/projects" className="text-[11px] font-medium text-accent hover:underline">
+            {t('threadChrome.openProjects')}
+          </Link>
         </div>
       ) : (
         <Select

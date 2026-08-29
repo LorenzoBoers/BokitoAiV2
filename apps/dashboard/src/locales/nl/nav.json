@@ -296,7 +296,7 @@
         },
         {
           "title": "Gesprekken",
-          "body": "Bekijk gesprekken springt naar Communicatie, gefilterd op dat project. Agents en mensen praten in Berichten; het project is de ruggengraat."
+          "body": "Bekijk gesprekken springt naar Communicatie, gefilterd op dat project. Agents en mensen praten in Communicatie; het project is de ruggengraat."
         },
         {
           "title": "Budget",
@@ -541,7 +541,7 @@
     "openPeople": "Mensen tonen",
     "noContacts": "Nog geen contacten",
     "noMatchingContacts": "Geen contacten gevonden",
-    "noContactsHint": "Contacten ontstaan automatisch wanneer klanten mailen of de website-widget gebruiken.",
+    "noContactsHint": "Contacten verschijnen wanneer klanten je schrijven. Koppel een kanaal, of open Communicatie om een gesprek te starten.",
     "clearFilters": "Probeer een andere zoekterm of wis het statusfilter.",
     "clearFiltersAction": "Filters wissen",
     "connectEmail": "E-mail koppelen",
@@ -752,6 +752,7 @@
     "rights": "Alle rechten voorbehouden",
     "failed": "Inloggen mislukt",
     "incorrect": "Onjuist e-mailadres of wachtwoord.",
+    "serverUnavailable": "Bokito was niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
     "microsoftNotConfigured": "Microsoft-inloggen is niet geconfigureerd op deze server.",
     "microsoftStartFailed": "Microsoft-inloggen kon niet worden gestart. Probeer het opnieuw.",
     "sessionExpired": "Deze sessie is verlopen. Log opnieuw in.",
@@ -987,7 +988,7 @@
     "autonomyRate": "Afgehandeld zonder jou",
     "posture": "Vrijheid van agents",
     "timeSaved": "Tijd bespaard 7d (schatting)",
-    "timeSavedEmptyHint": "Verschijnt nadat agents werk voor je afhandelen",
+    "timeSavedEmptyHint": "Verschijnt nadat agents werk voor je afhandelen. Open Agents om te beginnen.",
     "openFirst": "Open de eerste",
     "csat": "Klantbeoordeling 30d",
     "csatResponses": "{{count}} reactie",
@@ -1016,6 +1017,7 @@
     "snoozeFailed": "Kon dat gesprek niet uitstellen.",
     "nothingAttention": "Niets vraagt nu je aandacht.",
     "openCommunication": "Communicatie openen",
+    "openGovernDrafts": "Concepten bekijken",
     "decisionNeeded": "Beslissing nodig",
     "waitingDays": "Wacht al {{count}} dag — open om te beslissen",
     "waitingDays_other": "Wacht al {{count}} dagen — open om te beslissen",
@@ -1044,8 +1046,8 @@
     "installWidget": "Widget installeren",
     "openSetup": "Setupgids openen",
     "loopTitle": "Hoe Bokito samenhangt",
-    "loopHint": "Berichten, agents, de check-in en goedkeuringen zijn een loop. Begin hier, open de rest als je het nodig hebt.",
-    "loopMessages": "Berichten",
+    "loopHint": "Communicatie, agents, de check-in en goedkeuringen zijn een loop. Begin hier, open de rest als je het nodig hebt.",
+    "loopMessages": "Communicatie",
     "loopMessagesHint": "Klant- en teamgesprekken komen hier binnen — inclusief check-in-bevindingen.",
     "loopAgents": "Agents",
     "loopAgentsHint": "Zij maken conceptantwoorden en doen gepland werk.",
@@ -1055,7 +1057,7 @@
     "loopGovernHint": "Beslissingen verschijnen in het gesprek. Govern bepaalt hoe ver ze mogen gaan.",
     "loopDismiss": "Verbergen",
     "watchTitle": "Uurlijkse inboxscan staat uit",
-    "watchHint": "Zet de uurlijkse check-in aan. Als iets jou nodig heeft, post die in Berichten.",
+    "watchHint": "Zet de uurlijkse check-in aan. Als iets jou nodig heeft, post die in Communicatie.",
     "watchEnable": "Check-in aanzetten",
     "watchEnabling": "Aanzetten...",
     "watchAsk": "Vraag de assistent",
@@ -1146,6 +1148,7 @@
     "byModel": "Per model ({{days}}d)",
     "billable": "Factureerbaar {{amount}}",
     "noModelUsage": "Nog geen modelverbruik.",
+    "errorRecoveryHint": "Terwijl verbruik niet beschikbaar is, kun je nog steeds chatten met een agent of de setup afronden.",
     "startChat": "Start assistant-chat",
     "openAgents": "Agents openen",
     "openSetup": "Setupgids openen",
@@ -1187,7 +1190,7 @@
     "settings": "Instellingen",
     "openDecisions": "Beslissingen",
     "openChannels": "E-mail en berichten",
-    "openCommunication": "Berichten openen",
+    "openCommunication": "Communicatie openen",
     "now": "Nu",
     "minutesAgo": "{{count}}m geleden",
     "hoursAgo": "{{count}}u geleden",
@@ -1222,6 +1225,9 @@
     "addChannel": "Kanaal toevoegen",
     "addChannelDescription": "Kies wat je wilt koppelen. Een Bokito-adres maak je hier aan; de rest vraagt om inloggen of gegevens.",
     "noChannels": "Nog geen kanalen. Zonder kanaal kan niemand je bereiken.",
+    "openSetup": "Setupgids openen",
+    "openCommunication": "Communicatie openen",
+    "openWidget": "Chatwidget installeren",
     "loadingChannels": "Kanalen laden...",
     "loadError": "Kanalen konden niet worden geladen.",
     "back": "Terug",
@@ -1328,10 +1334,12 @@
       "createError": "Het adres kon niet worden aangemaakt."
     },
     "crossLinks": {
-      "body": "Kanalen, AI-gedrag en de chatwidget werken samen. Pas gerelateerde instellingen aan zonder Communicatie te verlaten.",
+      "body": "Kanalen laten gesprekken landen in Communicatie. AI-gedrag en de chatwidget horen bij dezelfde kanalen.",
+      "communication": "Communicatie openen",
       "inboxAi": "AI-antwoorden",
       "widget": "Chatwidget",
-      "integrations": "Integraties bekijken"
+      "integrations": "Integraties bekijken",
+      "setup": "Setupgids"
     },
     "setupNeededAlert": {
       "title": "{{count}} kanaal moet nog worden afgerond voordat antwoorden kunnen uitgaan",
@@ -1459,6 +1467,7 @@
     "newRule": "Nieuwe regel",
     "empty": "Nog geen regels. Ze verschijnen automatisch als je dezelfde keuze een paar keer maakt op een \"Geen antwoord nodig\"-kaart, of maak er zelf een.",
     "openCommunication": "Probeer het in Communicatie",
+    "openAgendaAutomations": "Agenda-automatiseringen",
     "loading": "Laden...",
     "cancel": "Annuleren",
     "create": "Regel maken",
@@ -1587,6 +1596,8 @@
     "verifyToken": "Verify token:",
     "verifyTokenMissing": "Vraag je platformbeheerder om de verify token (WHATSAPP_VERIFY_TOKEN is niet geconfigureerd).",
     "subscribeHint": "Abonneer de webhook op het veld messages en stuur daarna een testbericht naar je nummer.",
+    "openCommunication": "Communicatie openen",
+    "openInboxAi": "AI-antwoordinstellingen",
     "displayName": "Weergavenaam",
     "displayNamePlaceholder": "+31 6 12345678",
     "phoneNumberId": "Telefoonnummer-ID",
@@ -1619,6 +1630,9 @@
     "finishSetup": "Rond de setup af in je Slack-appconfiguratie (beide URL's, hier eenmalig getoond maar stabiel):",
     "eventsUrl": "Events-URL:",
     "interactivityUrl": "Interactivity-URL:",
+    "openCommunication": "Communicatie openen",
+    "openInboxAi": "AI-antwoordinstellingen",
+    "openGovern": "Govern-beleid openen",
     "workspaceName": "Workspacenaam",
     "workspaceNamePlaceholder": "Acme Inc",
     "notifyChannel": "Fallback notify-kanaal-ID (optioneel)",
@@ -1735,7 +1749,9 @@
     "openNotifications": "Open meldingen",
     "openBookkeeping": "Boekhouding openen",
     "talkAssistant": "Praat met mijn assistent",
-    "talkPrefill": "Help me met het werk van vandaag. Wat vraagt aandacht?"
+    "talkPrefill": "Help me met het werk van vandaag. Wat vraagt aandacht?",
+    "openAgenda": "Agenda openen",
+    "openGovernDrafts": "Govern-concepten bekijken"
   },
   "gateway": {
     "connected": "Live",
@@ -2092,16 +2108,19 @@
       "connectChannel": "Kanaal toevoegen",
       "agent": "Agentberichten",
       "whatsapp": "WhatsApp",
-      "slack": "Slack"
+      "slack": "Slack",
+      "settingsAria": "Kanalen en koppelingen beheren"
     },
     "agents": {
       "loading": "Agents laden...",
       "empty": "Geen agents beschikbaar voor chat.",
-      "runs": "Agent-runs"
+      "runs": "Agent-runs",
+      "settingsAria": "Agents beheren"
     },
     "tags": {
       "loading": "Tags laden...",
       "empty": "Geef een gesprek een tag en het verschijnt hier, over alle kanalen heen.",
+      "openToTag": "Open een gesprek om een tag toe te voegen",
       "manage": "Tags beheren",
       "settingsAria": "Tags beheren en vastzetten in deze zijbalk"
     },
@@ -2558,6 +2577,10 @@
       "searchPlaceholder": "Zoek integraties...",
       "empty": "Geen integraties gevonden.",
       "emptyKind": "Geen integraties in deze categorie.",
+      "emptyFiltered": "Geen treffers voor deze zoekopdracht of dit filter.",
+      "clearFilters": "Filters wissen",
+      "openModules": "Modules openen",
+      "openConnected": "Gekoppelde integraties openen",
       "catalogFallback": "Catalogus-API niet beschikbaar; lokale lijst wordt gebruikt."
     },
     "categories": {
@@ -2581,6 +2604,7 @@
       "openProjects": "Projecten openen",
       "manageMcp": "Gekoppelde tools beheren",
       "openAgents": "Agents openen",
+      "openCommunication": "Communicatie openen",
       "mcpHint": "Apps en tools die je agents in deze workspace kunnen gebruiken.",
       "openGovern": "Open Govern-beleid",
       "viewAll": "Bekijk verbonden integraties"
@@ -2850,6 +2874,7 @@
       "refresh": "Vernieuwen",
       "chat": "Chat",
       "schedule": "Plannen",
+      "runs": "Runs",
       "projectsLink": "Projecten",
       "workersEmpty": "Nog geen extra agents. Maak er een, of chat met je assistant vanuit Communicatie.",
       "sections": {
@@ -3261,6 +3286,7 @@
       "agentsEmpty": "Nog geen agents op dit project. Gesprekken vallen terug op de projectlead, daarna de lead agent.",
       "agentsAskAssistant": "Vraag de assistent agents te kiezen",
       "agentsAskPrefill": "Help me kiezen welke agents op dit project werken, en wie de standaard moet zijn.",
+      "openAgents": "Agents bekijken",
       "agentAddPlaceholder": "Agent toevoegen",
       "agentAddError": "Kon agent niet toevoegen.",
       "agentRemove": "Van project verwijderen",
@@ -3278,6 +3304,7 @@
       "queueCreateError": "Kon niet toevoegen aan de queue.",
       "queueEmptyTitle": "De queue is leeg",
       "queueEmptyBody": "Verzoeken uit gesprekken en van teamgenoten landen hier. Voeg het eerste item toe of koppel een gesprek aan dit project.",
+      "openCommunication": "Communicatie openen",
       "addToQueue": "Aan queue toevoegen",
       "titlePlaceholder": "Wat moet er gebeuren?",
       "bodyPlaceholder": "Context, verwacht gedrag, links... (optioneel)",
@@ -3360,6 +3387,8 @@
       "docsEmpty": "Nog geen projectdocumentatie.",
       "docsEmptyTitle": "Nog geen documentatie",
       "docsEmptyBody": "Projectdocumentatie beschrijft wat dit project doet. Secties dragen een status van open tot geverifieerd, en queue-items koppelen aan de secties die ze raken.",
+      "openKnowledge": "Kennis openen",
+      "openAgents": "Agents openen",
       "newDoc": "Nieuw document",
       "docPathPlaceholder": "bijv. overzicht",
       "docCreated": "Document aangemaakt",
@@ -3370,6 +3399,8 @@
       "saveDoc": "Opslaan",
       "resourcesLoading": "Resources laden...",
       "resourcesEmpty": "Nog geen resources gekoppeld.",
+      "openModules": "Modules openen",
+      "openIntegrations": "Integraties openen",
       "resourceAddLink": "Resource koppelen",
       "resourceAdd": "Koppelen",
       "resourceLinked": "Resource gekoppeld",
@@ -3976,6 +4007,7 @@
     "openAgents": "Agents openen",
     "openSetup": "Setupgids openen",
     "talkAssistant": "Praat met je assistent",
+    "tryPrefill": "Gebruik onze kennisdocumenten om te antwoorden: wat weten we al dat helpt bij het werk van vandaag?",
     "usedByAgents": "Agents lezen dit tijdens het werk.",
     "openRuns": "Agent-runs openen",
     "openHelpCenter": "Klant-helpcentrum",
@@ -4358,7 +4390,7 @@
     "removeError": "Kon het lid niet verwijderen.",
     "body": "Beheer leden en uitnodigingen in je workspace.",
     "inviteTitle": "Nodig een teammate uit",
-    "inviteBody": "Zij zien Berichten, beslissingen en agents in deze workspace.",
+    "inviteBody": "Zij zien Communicatie, beslissingen en agents in deze workspace.",
     "roleHint": {
       "owner": "Volledige controle, inclusief facturatie en wie erbij mag",
       "admin": "Kan instellingen, agents en uitnodigingen wijzigen",

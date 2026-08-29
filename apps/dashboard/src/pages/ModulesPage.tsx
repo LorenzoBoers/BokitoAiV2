@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
+import { inboxPath } from '../lib/messages-paths'
 import { ModulePowerSwitch } from '../components/integrations/ModulePowerSwitch'
 import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
 import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
@@ -147,7 +148,7 @@ function LiveModuleCard({
 
       <ConnectorShowcase module={module} applications={applications} />
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <Link
           to={moduleHomePath(module)}
           className="text-xs font-medium text-accent hover:underline"
@@ -166,6 +167,25 @@ function LiveModuleCard({
                   name,
                 })}
         </Link>
+        {on ? (
+          <>
+            <Link to="/agents" className="text-xs text-text-muted hover:text-accent hover:underline">
+              {t('integrations.connected.openAgents', { defaultValue: 'Open Agents' })}
+            </Link>
+            <Link
+              to={inboxPath('open')}
+              className="text-xs text-text-muted hover:text-accent hover:underline"
+            >
+              {t('integrations.connected.openCommunication', { defaultValue: 'Open Communication' })}
+            </Link>
+            <Link
+              to="/settings/govern?tab=policy"
+              className="text-xs text-text-muted hover:text-accent hover:underline"
+            >
+              {t('integrations.connected.openGovern', { defaultValue: 'Open Govern' })}
+            </Link>
+          </>
+        ) : null}
       </div>
     </article>
   )

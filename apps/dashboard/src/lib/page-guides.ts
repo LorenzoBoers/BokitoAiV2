@@ -37,6 +37,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   cockpit: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
+    { to: '/settings/govern', labelKey: 'pageGuides.related.govern' },
     { to: '/settings/setup', labelKey: 'pageGuides.related.setup' },
   ],
   communication: [
@@ -71,11 +72,13 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   knowledge: [
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
     { to: '/communication/runs/all', labelKey: 'pageGuides.related.agentRuns' },
+    { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/settings/setup', labelKey: 'pageGuides.related.setup' },
   ],
   govern: [
     { to: '/learn/autonomy', labelKey: 'pageGuides.related.autonomy' },
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
+    { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/settings/developers', labelKey: 'pageGuides.related.developers' },
   ],
   channels: [

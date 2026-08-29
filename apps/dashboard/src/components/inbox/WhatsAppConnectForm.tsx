@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
@@ -10,6 +11,7 @@ import {
   type WhatsAppSetupInfo,
 } from '../../lib/channel-accounts-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { inboxPath } from '../../lib/messages-paths'
 
 /**
  * Connect a WhatsApp Business number (Cloud API). V1 is bring-your-own Meta
@@ -119,6 +121,14 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
           <p>{t('whatsappCard.verifyTokenMissing')}</p>
         )}
         <p>{t('whatsappCard.subscribeHint')}</p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
+          <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
+            {t('whatsappCard.openCommunication')}
+          </Link>
+          <Link to="/settings/communication" className="font-medium text-accent hover:underline">
+            {t('whatsappCard.openInboxAi')}
+          </Link>
+        </div>
       </div>
     )
   }

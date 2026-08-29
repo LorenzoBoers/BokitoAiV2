@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Bot,
+  CalendarDays,
   CircleHelp,
   Clock,
   CornerDownLeft,
@@ -14,6 +15,7 @@ import {
   Moon,
   Plus,
   Settings,
+  Shield,
   User,
   UserPlus,
 } from 'lucide-react'
@@ -292,6 +294,20 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         run: () => navigate('/learn'),
       },
       {
+        id: 'action-open-agenda',
+        label: t('palette.openAgenda'),
+        group: t('palette.groupActions'),
+        icon: CalendarDays,
+        run: () => navigate('/agenda'),
+      },
+      {
+        id: 'action-govern-drafts',
+        label: t('palette.openGovernDrafts'),
+        group: t('palette.groupActions'),
+        icon: Shield,
+        run: () => navigate('/settings/govern?tab=drafts'),
+      },
+      {
         id: 'action-theme',
         label: isDark ? t('palette.switchToLight') : t('palette.switchToDark'),
         group: t('palette.groupActions'),
@@ -447,6 +463,8 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const suggestions: PaletteItem[] = [
     catalog.actions[0],
     catalog.nav.find((item) => item.id === 'nav-communication') ?? catalog.actions[1],
+    catalog.actions.find((item) => item.id === 'action-open-agenda'),
+    catalog.actions.find((item) => item.id === 'action-govern-drafts'),
     catalog.actions.find((item) => item.id === 'action-setup-guide') ?? catalog.actions[catalog.actions.length - 1],
   ].filter((item): item is PaletteItem => Boolean(item))
 

@@ -335,9 +335,36 @@ export default function IntegrationsMarketplace() {
         <EmptyState
           icon={Search}
           title={
-            kindFilter === 'all'
-              ? t('integrations.marketplace.empty')
-              : t('integrations.marketplace.emptyKind')
+            search.trim() || kindFilter !== 'all' || statusFilter !== 'all'
+              ? t('integrations.marketplace.emptyFiltered')
+              : kindFilter === 'all'
+                ? t('integrations.marketplace.empty')
+                : t('integrations.marketplace.emptyKind')
+          }
+          action={
+            <div className="flex flex-col items-center gap-2">
+              {search.trim() || kindFilter !== 'all' || statusFilter !== 'all' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setKindFilter('all')
+                    setStatusFilter('all')
+                  }}
+                >
+                  {t('integrations.marketplace.clearFilters')}
+                </Button>
+              ) : null}
+              <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
+                <Link to="/modules" className="font-medium text-accent hover:underline">
+                  {t('integrations.marketplace.openModules')}
+                </Link>
+                <Link to="/settings/integrations" className="font-medium text-accent hover:underline">
+                  {t('integrations.marketplace.openConnected')}
+                </Link>
+              </div>
+            </div>
           }
         />
       ) : (

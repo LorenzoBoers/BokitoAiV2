@@ -222,6 +222,20 @@ export function ProjectQueue({ projectId, canEdit }: { projectId: string; canEdi
         <Card className="p-6 text-center">
           <p className="text-sm font-medium text-text-heading">{t('projects.work.queueEmptyTitle')}</p>
           <p className="mt-1 text-sm text-text-muted">{t('projects.work.queueEmptyBody')}</p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {canEdit ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => setComposerOpen(true)}>
+                <Plus size={13} className="mr-1" />
+                {t('projects.work.addToQueue')}
+              </Button>
+            ) : null}
+            <Link
+              to={inboxPath('open')}
+              className="rounded-md border border-border/60 px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            >
+              {t('projects.work.openCommunication')}
+            </Link>
+          </div>
         </Card>
       ) : (
         groups.map((group) => (

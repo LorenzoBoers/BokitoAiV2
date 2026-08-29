@@ -554,7 +554,9 @@ export default function CockpitPage() {
               : undefined
           }
           icon={Timer}
-          to="/cockpit/usage"
+          to={
+            summary && summary.time_saved_minutes_week === 0 ? '/agents' : '/cockpit/usage'
+          }
         />
         <StatCard
           index={5}
@@ -627,12 +629,26 @@ export default function CockpitPage() {
             {attentionThreads.length === 0 && pendingChanges === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
                 <p className="text-[12px] text-text-muted">{t('cockpitPage.nothingAttention')}</p>
-                <Link
-                  to={inboxPath('open')}
-                  className="mt-2 inline-block text-[12px] font-medium text-accent hover:underline"
-                >
-                  {t('cockpitPage.openCommunication')}
-                </Link>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                  <Link
+                    to={inboxPath('open')}
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.openCommunication')}
+                  </Link>
+                  <Link
+                    to="/agenda"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.openAgenda')}
+                  </Link>
+                  <Link
+                    to="/settings/govern?tab=drafts"
+                    className="text-[12px] font-medium text-accent hover:underline"
+                  >
+                    {t('cockpitPage.openGovernDrafts')}
+                  </Link>
+                </div>
               </div>
             ) : (
               <>

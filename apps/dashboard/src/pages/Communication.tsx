@@ -289,10 +289,10 @@ export default function Communication() {
       search: listSearch,
       projectId,
       agentId: agentIdFilter,
-      unread: quickFilter === 'unread',
-      needsReply: quickFilter === 'needsReply',
-      needsDecision: quickFilter === 'needsDecision',
-      pinnedOnly: quickFilter === 'pinned',
+      unread: mode === 'customer' && quickFilter === 'unread',
+      needsReply: mode === 'customer' && quickFilter === 'needsReply',
+      needsDecision: mode === 'customer' && quickFilter === 'needsDecision',
+      pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
       channelFilter,
     }),
@@ -304,6 +304,20 @@ export default function Communication() {
   useEffect(() => {
     if (leaf.type !== 'inbox') setChannelFilter(null)
   }, [leaf.type])
+
+  // Customer list chips (Needs reply / Unread / …) must not stick on Agent-runs
+  // or assistant leaves — they hide runs and show the wrong empty copy.
+  useEffect(() => {
+    if (mode === 'customer') return
+    if (quickFilter === 'all') return
+    setQuickFilter('all')
+    setSearchParams((prev) => {
+      if (!prev.has('filter')) return prev
+      const next = new URLSearchParams(prev)
+      next.delete('filter')
+      return next
+    }, { replace: true })
+  }, [mode, quickFilter, setQuickFilter, setSearchParams])
 
   const listContextKey = `${leafKey(leaf)}:${projectId ?? ''}:${agentIdFilter ?? ''}`
 
@@ -325,12 +339,12 @@ export default function Communication() {
   }, [])
 
   const filteredThreads = useMemo(() => {
-    let next = applyQuickFilter(threads, quickFilter)
+    let next = mode === 'customer' ? applyQuickFilter(threads, quickFilter) : threads
     if (priorityFilter) next = next.filter((thread) => thread.priority === priorityFilter)
     if (leaf.type !== 'inbox') return next
     if (leaf.queue === 'open') return customersOnly(next)
     return customersFirst(next)
-  }, [threads, quickFilter, priorityFilter, leaf])
+  }, [threads, quickFilter, priorityFilter, leaf, mode])
 
   const handleToggleBulkSelect = useCallback(
     (id: ThreadId, shiftKey = false) => {
@@ -1344,6 +1358,12 @@ export default function Communication() {
                     className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openAgents')}
+                  </Link>
+                  <Link
+                    to="/agenda"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.openAgenda')}
                   </Link>
                   <Link
                     to="/communication/new"

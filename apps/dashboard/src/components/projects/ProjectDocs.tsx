@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight, FileText, Loader2, Pencil, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import MarkdownView from '../docs/MarkdownView'
@@ -302,6 +303,14 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
           <Card className="p-6 text-center">
             <p className="text-sm font-medium text-text-heading">{t('projects.work.docsEmptyTitle')}</p>
             <p className="mt-1 text-sm text-text-muted">{t('projects.work.docsEmptyBody')}</p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <Link to="/knowledge" className="text-xs font-medium text-accent hover:underline">
+                {t('projects.work.openKnowledge')}
+              </Link>
+              <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+                {t('projects.work.openAgents')}
+              </Link>
+            </div>
           </Card>
         ) : (
           <>

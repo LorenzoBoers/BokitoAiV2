@@ -98,12 +98,17 @@ export function ProjectAgentsSection({
       ) : roster.length === 0 ? (
         <div className="space-y-1.5">
           <p className="text-sm text-text-muted">{t('projects.detail.agentsEmpty')}</p>
-          <Link
-            to={talkToAssistantPath(t('projects.detail.agentsAskPrefill'))}
-            className="text-xs font-medium text-accent hover:underline"
-          >
-            {t('projects.detail.agentsAskAssistant')}
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Link
+              to={talkToAssistantPath(t('projects.detail.agentsAskPrefill'))}
+              className="text-xs font-medium text-accent hover:underline"
+            >
+              {t('projects.detail.agentsAskAssistant')}
+            </Link>
+            <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+              {t('projects.detail.openAgents')}
+            </Link>
+          </div>
         </div>
       ) : (
         <ul className="space-y-1">

@@ -437,13 +437,21 @@ export default function ActivityPage() {
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
               {filtered.length > 0 && detail === 'headlines' ? (
-                <button
-                  type="button"
-                  onClick={() => patchFilters({ detail: 'all' })}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-                >
-                  {t('activityPage.showFullLog')}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => patchFilters({ detail: 'all' })}
+                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                  >
+                    {t('activityPage.showFullLog')}
+                  </button>
+                  <Link
+                    to={inboxPath('open')}
+                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('activityPage.openCommunication')}
+                  </Link>
+                </>
               ) : entries.length > 0 && (filter.trim() || source !== 'all') ? (
                 <button
                   type="button"

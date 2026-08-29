@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Filter, Tag, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import type { BulkThreadAction, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
+import { agentRunsPath } from '../../lib/messages-paths'
 import { threadNeedsReply } from '../../lib/message-composer'
 import { cn } from '../../lib/utils'
 import { useMembers } from '../../hooks/useMembers'
@@ -297,13 +299,23 @@ export default function ThreadList({
                       : emptyLabel ?? t('threadList.empty')}
               </p>
               {quickFilter !== 'all' ? (
-                <button
-                  type="button"
-                  onClick={() => onQuickFilterChange('all')}
-                  className="mt-2 text-[11px] font-medium text-accent hover:underline"
-                >
-                  {t('threadList.showAllConversations')}
-                </button>
+                <div className="mt-2 flex flex-col items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onQuickFilterChange('all')}
+                    className="text-[11px] font-medium text-accent hover:underline"
+                  >
+                    {t('threadList.showAllConversations')}
+                  </button>
+                  {quickFilter === 'needsDecision' ? (
+                    <Link
+                      to={agentRunsPath('awaiting-decision')}
+                      className="text-[11px] font-medium text-ai-ink hover:underline"
+                    >
+                      {t('threadList.openDecisionsQueue')}
+                    </Link>
+                  ) : null}
+                </div>
               ) : (
                 emptyHint
               )}
