@@ -552,6 +552,7 @@
     "takeOverFromAi": "Take over from AI",
     "aiHandlingBanner": "AI is handling this conversation. Take over to reply yourself.",
     "aiHandlingBannerNoSend": "AI is watching this conversation, but replies cannot send until an email channel is ready.",
+    "teammateAiBanner": "This message is from a teammate. AI will not draft a customer reply — respond as a colleague yourself.",
     "youTookOverBanner": "You have taken over. The AI will not reply until you hand it back.",
     "earlierConversations": "+{{count}} earlier",
     "openAgenda": "Open Agenda",

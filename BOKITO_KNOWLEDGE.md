@@ -1289,7 +1289,8 @@ Uitbreiding van het platform met een volledige multichannel inbox, AI-communicat
 - OAuth2 koppeling voor Microsoft Outlook (Graph API) en Google Gmail (Gmail API)
 - Per workspace meerdere mailboxen (support@, sales@, persoonlijk)
 - Bidirectionele email sync: inkomend ophalen (polling 60s) + uitgaand verzenden via provider API
-- Email threading op basis van In-Reply-To/References headers en thread_id
+- Email threading: eerst provider `thread_id`/`conversationId`, daarna RFC `In-Reply-To`/`References` tegen opgeslagen `rfc_message_id`, daarna subject+afzender (45 dagen) — nodig omdat Outlook soms een nieuwe `conversationId` geeft op Gmail-client follow-ups
+- Outlook sync haalt per bericht `internetMessageHeaders` bij (list/delta mist die) zodat In-Reply-To/References beschikbaar zijn voor matching
 - Attachment handling: inline images + bijlagen in FastAPI file storage (max 25MB)
 - Token management: AES-256 encrypted, auto-refresh, health indicator (verbonden/fout/verlopen)
 - HTML signature management per mailbox

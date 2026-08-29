@@ -47,6 +47,7 @@ GRAPH_FOLDER_URL = "https://graph.microsoft.com/v1.0/me/mailFolders/{folder}/mes
 GRAPH_FOLDER_DELTA_URL = (
     "https://graph.microsoft.com/v1.0/me/mailFolders/{folder}/messages/delta"
 )
+GRAPH_MESSAGE_URL = "https://graph.microsoft.com/v1.0/me/messages/{id}"
 GRAPH_ATTACHMENTS_URL = "https://graph.microsoft.com/v1.0/me/messages/{id}/attachments"
 
 MAX_FETCH = 25
@@ -309,6 +310,7 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
         "rfc_message_id": headers.get("message-id", ""),
         # Who else was copied — shown in the timeline and used for reply-all.
         "cc": headers.get("cc", ""),
+        "in_reply_to": headers.get("in-reply-to", ""),
         "references": headers.get("references", ""),
         "auto_headers": {k: headers[k] for k in _AUTO_HEADER_KEYS if headers.get(k)},
     }
@@ -378,13 +380,22 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
         # Delta sometimes returns id-only stubs; skip until a full fetch.
         return None
     sender = (msg.get("from") or {}).get("emailAddress") or {}
-    # Graph only returns internetMessageHeaders when explicitly selected;
-    # tolerate their absence and keep whatever automation markers we can get.
+    # Graph only returns internetMessageHeaders when explicitly selected /
+    # fetched on a single message; tolerate absence for list/delta payloads.
     auto_headers: dict[str, str] = {}
+    in_reply_to = ""
+    references = ""
     for header in msg.get("internetMessageHeaders") or []:
         name = str(header.get("name", "")).lower()
-        if name in _AUTO_HEADER_KEYS and header.get("value"):
-            auto_headers[name] = str(header["value"])
+        value = str(header.get("value") or "")
+        if not value:
+            continue
+        if name in _AUTO_HEADER_KEYS:
+            auto_headers[name] = value
+        elif name == "in-reply-to":
+            in_reply_to = value
+        elif name == "references":
+            references = value
     body = msg.get("body") or {}
     content_type = (body.get("contentType") or "text").lower()
     body_content = body.get("content") or ""
@@ -405,6 +416,8 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
         "message_id": msg.get("id", ""),
         "thread_id": msg.get("conversationId", ""),
         "rfc_message_id": msg.get("internetMessageId", ""),
+        "in_reply_to": in_reply_to,
+        "references": references,
         "received_at": _parse_iso_utc(msg.get("receivedDateTime")),
         "auto_headers": auto_headers,
         # Who else was copied — shown in the timeline and used for reply-all.
@@ -414,6 +427,41 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
             if (addr := ((r.get("emailAddress") or {}).get("address") or ""))
         ),
     }
+
+
+async def _enrich_graph_rfc_headers(
+    client: httpx.AsyncClient, token: str, parsed: dict[str, Any]
+) -> dict[str, Any]:
+    """List/delta omit internetMessageHeaders; fetch them for thread matching."""
+    if parsed.get("in_reply_to") or parsed.get("references"):
+        return parsed
+    mid = str(parsed.get("message_id") or "").strip()
+    if not mid:
+        return parsed
+    try:
+        resp = await client.get(
+            GRAPH_MESSAGE_URL.format(id=mid),
+            params={"$select": "internetMessageHeaders"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        if resp.status_code != 200:
+            return parsed
+        for header in resp.json().get("internetMessageHeaders") or []:
+            name = str(header.get("name", "")).lower()
+            value = str(header.get("value") or "")
+            if not value:
+                continue
+            if name == "in-reply-to" and not parsed.get("in_reply_to"):
+                parsed["in_reply_to"] = value
+            elif name == "references" and not parsed.get("references"):
+                parsed["references"] = value
+            elif name in _AUTO_HEADER_KEYS:
+                auto = parsed.setdefault("auto_headers", {})
+                if isinstance(auto, dict) and name not in auto:
+                    auto[name] = value
+    except httpx.HTTPError:
+        logger.debug("Graph RFC header enrich failed for %s", mid, exc_info=True)
+    return parsed
 
 
 async def _gmail_get_message(client: httpx.AsyncClient, token: str, mid: str) -> dict[str, Any]:
@@ -524,7 +572,7 @@ async def _fetch_graph_page(
     for msg in data.get("value", []) or []:
         parsed = _parse_graph_message(msg)
         if parsed:
-            messages.append(parsed)
+            messages.append(await _enrich_graph_rfc_headers(client, token, parsed))
     return messages, data.get("@odata.nextLink"), data.get("@odata.deltaLink")
 
 
@@ -834,6 +882,7 @@ async def _ingest_items(
                 "body_html": item.get("body_html", ""),
                 "attachments": item.get("attachments") or [],
                 "rfc_message_id": item.get("rfc_message_id", ""),
+                "in_reply_to": item.get("in_reply_to", ""),
                 "references": item.get("references", ""),
                 "auto_headers": item.get("auto_headers") or {},
                 "folder": folder_id,

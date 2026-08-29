@@ -868,6 +868,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return me?.id ?? null
   }, [membersById, user?.email])
 
+  const contactIsTeammate = useMemo(() => {
+    const email = detail?.thread.contactEmail?.trim().toLowerCase()
+    if (!email) return false
+    return Object.values(membersById).some((m) => m.email?.trim().toLowerCase() === email)
+  }, [detail?.thread.contactEmail, membersById])
+
   const [creatingTask, setCreatingTask] = useState(false)
   const [previousCount, setPreviousCount] = useState(0)
   const [closingSender, setClosingSender] = useState(false)
@@ -1515,18 +1521,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           <p className="text-[11.5px] text-text-secondary">
             {thread.aiPaused
               ? t('threadChrome.youTookOverBanner')
-              : mailboxDisconnected
-                ? t('threadChrome.aiHandlingBannerNoSend')
-                : t('threadChrome.aiHandlingBanner')}
+              : contactIsTeammate
+                ? t('threadChrome.teammateAiBanner')
+                : mailboxDisconnected
+                  ? t('threadChrome.aiHandlingBannerNoSend')
+                  : t('threadChrome.aiHandlingBanner')}
           </p>
-          <button
-            type="button"
-            disabled={saving || loading}
-            onClick={() => void onToggleTakeover()}
-            className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40"
-          >
-            {thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
-          </button>
+          {contactIsTeammate && !thread.aiPaused ? null : (
+            <button
+              type="button"
+              disabled={saving || loading}
+              onClick={() => void onToggleTakeover()}
+              className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-[11px] font-medium text-text-primary hover:border-accent/40"
+            >
+              {thread.aiPaused ? t('threadChrome.handBackToAi') : t('threadChrome.takeOverFromAi')}
+            </button>
+          )}
         </div>
       ) : null}
 

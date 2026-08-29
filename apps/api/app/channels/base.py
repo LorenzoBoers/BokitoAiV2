@@ -9,8 +9,9 @@ only for approved contacts.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -19,6 +20,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent, SignalMessage
+
+# Outlook (and some relays) assign a new conversationId when a Gmail client
+# replies even though In-Reply-To/References are intact. Fall back to RFC
+# headers and then subject+sender within this window.
+_SUBJECT_THREAD_LOOKBACK = timedelta(days=45)
+_SUBJECT_PREFIX_RE = re.compile(
+    r"^(?:(?:re|fw|fwd|aw|wg|sv|antw)\s*:\s*)+",
+    re.IGNORECASE,
+)
+_RFC_MSG_ID_RE = re.compile(r"<[^<>@\s]+@[^<>\s]+>")
+
+
+def normalize_email_subject(subject: str) -> str:
+    """Strip reply/forward prefixes so follow-ups match the root subject."""
+    text = (subject or "").strip()
+    while True:
+        stripped = _SUBJECT_PREFIX_RE.sub("", text).strip()
+        if stripped == text:
+            break
+        text = stripped
+    return text.casefold()
+
+
+def extract_rfc_message_ids(*header_values: str | None) -> list[str]:
+    """Unique RFC 5322 Message-IDs from In-Reply-To / References strings."""
+    found: list[str] = []
+    seen: set[str] = set()
+    for raw in header_values:
+        if not raw:
+            continue
+        for match in _RFC_MSG_ID_RE.findall(str(raw)):
+            key = match.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(match)
+    return found
 
 
 @dataclass
@@ -108,6 +146,76 @@ async def _resolve_contact(
     return contact
 
 
+async def _find_by_rfc_headers(
+    session: AsyncSession, tenant_id: UUID, inbound: InboundMessage
+) -> Signal | None:
+    """Match In-Reply-To / References against stored message Message-IDs."""
+    meta = inbound.metadata if isinstance(inbound.metadata, dict) else {}
+    ids = extract_rfc_message_ids(
+        str(meta.get("in_reply_to") or ""),
+        str(meta.get("references") or ""),
+    )
+    if not ids:
+        return None
+    # Narrow by contact when known so a shared Message-ID collision across
+    # unrelated mailboxes cannot merge threads.
+    clauses = [
+        SignalMessage.tenant_id == tenant_id,
+        SignalMessage.metadata_json.is_not(None),
+    ]
+    result = await session.execute(
+        select(SignalMessage)
+        .where(*clauses)
+        .order_by(SignalMessage.created_at.desc())
+        .limit(400)
+    )
+    needle = {mid.casefold() for mid in ids}
+    for message in result.scalars().all():
+        try:
+            stored = json.loads(message.metadata_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(stored, dict):
+            continue
+        rfc = str(stored.get("rfc_message_id") or "").strip().casefold()
+        if rfc and rfc in needle:
+            signal = await session.get(Signal, message.signal_id)
+            if signal and signal.channel == inbound.channel:
+                return signal
+    return None
+
+
+async def _find_by_subject_sender(
+    session: AsyncSession, tenant_id: UUID, inbound: InboundMessage
+) -> Signal | None:
+    """Last-resort thread merge when providers split conversation ids."""
+    if inbound.channel != "email" or not inbound.sender_address:
+        return None
+    norm = normalize_email_subject(inbound.subject)
+    if not norm:
+        return None
+    since = datetime.utcnow() - _SUBJECT_THREAD_LOOKBACK
+    filters = [
+        Signal.tenant_id == tenant_id,
+        Signal.channel == "email",
+        Signal.contact_email == inbound.sender_address,
+        Signal.last_message_at.is_not(None),
+        Signal.last_message_at >= since,
+    ]
+    if inbound.channel_account_id:
+        filters.append(Signal.channel_account_id == inbound.channel_account_id)
+    result = await session.execute(
+        select(Signal).where(*filters).order_by(Signal.last_message_at.desc()).limit(40)
+    )
+    candidates = [
+        s for s in result.scalars().all() if normalize_email_subject(s.subject) == norm
+    ]
+    if not candidates:
+        return None
+    open_ones = [s for s in candidates if s.status in ("open", "pending")]
+    return (open_ones or candidates)[0]
+
+
 async def _find_existing_thread(
     session: AsyncSession, tenant_id: UUID, inbound: InboundMessage
 ) -> Signal | None:
@@ -122,7 +230,10 @@ async def _find_existing_thread(
         existing = result.scalar_one_or_none()
         if existing:
             return existing
-    return None
+    by_rfc = await _find_by_rfc_headers(session, tenant_id, inbound)
+    if by_rfc:
+        return by_rfc
+    return await _find_by_subject_sender(session, tenant_id, inbound)
 
 
 async def ingest_inbound(

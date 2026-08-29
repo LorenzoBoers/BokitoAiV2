@@ -552,6 +552,7 @@
     "takeOverFromAi": "Overnemen van AI",
     "aiHandlingBanner": "AI behandelt dit gesprek. Neem over om zelf te antwoorden.",
     "aiHandlingBannerNoSend": "AI volgt dit gesprek, maar antwoorden kunnen pas uit zodra een e-mailkanaal klaar is.",
+    "teammateAiBanner": "Dit bericht komt van een teamlid. AI stelt geen klantantwoord voor — antwoord zelf als collega.",
     "youTookOverBanner": "Jij hebt overgenomen. De AI antwoordt niet tot je het teruggeeft.",
     "earlierConversations": "+{{count}} eerder",
     "openAgenda": "Agenda openen",

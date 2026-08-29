@@ -380,13 +380,114 @@ def test_gmail_parser_captures_rfc_id():
                     {"name": "From", "value": "Klant <k@x.nl>"},
                     {"name": "Subject", "value": "Vraag"},
                     {"name": "Message-ID", "value": "<gm@mail.gmail.com>"},
-                    {"name": "References", "value": "<earlier@x>"},
+                    {"name": "In-Reply-To", "value": "<prior@outlook.com>"},
+                    {"name": "References", "value": "<earlier@x> <prior@outlook.com>"},
                 ]
             },
         }
     )
     assert parsed["rfc_message_id"] == "<gm@mail.gmail.com>"
-    assert parsed["references"] == "<earlier@x>"
+    assert parsed["in_reply_to"] == "<prior@outlook.com>"
+    assert parsed["references"] == "<earlier@x> <prior@outlook.com>"
+
+
+@pytest.mark.asyncio
+async def test_ingest_joins_thread_via_in_reply_to(session_override: AsyncSession):
+    """Outlook may mint a new conversationId; RFC In-Reply-To must still join."""
+    from app.channels.base import InboundMessage, ingest_inbound
+
+    tenant = await _tenant(session_override)
+    sender = f"klant-{uuid4().hex[:6]}@gmail.com"
+    first = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=sender,
+        subject="Factuur #99",
+        body_text="Eerste vraag",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-original",
+        metadata={"rfc_message_id": "<root-msg@gmail.com>"},
+    )
+    signal1, _ = await ingest_inbound(session_override, tenant.id, first)
+
+    follow = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=sender,
+        subject="Re: Factuur #99",
+        body_text="Nog een vraag",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-outlook-split",
+        metadata={
+            "rfc_message_id": "<follow@gmail.com>",
+            "in_reply_to": "<outbound@outlook.com>",
+            "references": "<root-msg@gmail.com> <outbound@outlook.com>",
+        },
+    )
+    signal2, _ = await ingest_inbound(session_override, tenant.id, follow)
+    assert signal2.id == signal1.id
+
+
+@pytest.mark.asyncio
+async def test_ingest_joins_thread_via_subject_sender(session_override: AsyncSession):
+    """When RFC headers are missing, same subject + sender still merges."""
+    from app.channels.base import InboundMessage, ingest_inbound
+
+    tenant = await _tenant(session_override)
+    sender = f"klant-{uuid4().hex[:6]}@gmail.com"
+    first = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=sender,
+        subject="BOKITO-E2E subject merge",
+        body_text="Eerste",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-a",
+        metadata={"rfc_message_id": "<a@x>"},
+    )
+    signal1, _ = await ingest_inbound(session_override, tenant.id, first)
+
+    follow = InboundMessage(
+        channel="email",
+        source="outlook",
+        sender_address=sender,
+        subject="Re: BOKITO-E2E subject merge",
+        body_text="Follow-up zonder headers",
+        external_id=f"ext-{uuid4().hex}",
+        thread_external_id="conv-b-split",
+    )
+    signal2, _ = await ingest_inbound(session_override, tenant.id, follow)
+    assert signal2.id == signal1.id
+
+
+def test_normalize_email_subject_strips_prefixes():
+    from app.channels.base import normalize_email_subject
+
+    assert normalize_email_subject("Re: Re: Factuur") == "factuur"
+    assert normalize_email_subject("Fwd: Aw: Hello") == "hello"
+
+
+def test_graph_parser_captures_reply_headers():
+    from app.services.email_sync import _parse_graph_message
+
+    parsed = _parse_graph_message(
+        {
+            "id": "m-2",
+            "subject": "Re: Vraag",
+            "from": {"emailAddress": {"address": "k@x.nl", "name": "Klant"}},
+            "body": {"contentType": "text", "content": "Ok"},
+            "bodyPreview": "Ok",
+            "conversationId": "c-new",
+            "internetMessageId": "<follow@x>",
+            "internetMessageHeaders": [
+                {"name": "In-Reply-To", "value": "<prior@outlook.com>"},
+                {"name": "References", "value": "<root@gmail.com> <prior@outlook.com>"},
+            ],
+        }
+    )
+    assert parsed is not None
+    assert parsed["in_reply_to"] == "<prior@outlook.com>"
+    assert parsed["references"] == "<root@gmail.com> <prior@outlook.com>"
 
 
 def test_parsers_capture_cc_recipients():
