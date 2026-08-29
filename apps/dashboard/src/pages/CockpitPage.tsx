@@ -419,7 +419,9 @@ export default function CockpitPage() {
   const firstAttention = attentionThreads[0]
   const decisionHref = firstAttention
     ? attentionThreadPath(firstAttention)
-    : `${inboxPath('open')}?filter=needsDecision`
+    : agentRunsPath('awaiting-decision')
+  // Prefer live attention list when summary lags (e.g. internal agent-run decisions).
+  const openDecisionCount = Math.max(summary?.open_decisions ?? 0, attentionThreads.length)
   const freshAttention = attentionThreads.filter((thread) => {
     const days = thread.lastMessageAt
       ? Math.floor((Date.now() - new Date(thread.lastMessageAt).getTime()) / 86_400_000)
@@ -504,10 +506,10 @@ export default function CockpitPage() {
         <StatCard
           index={1}
           label={t('cockpitPage.awaitingDecision')}
-          value={summary ? formatAppNumber(summary.open_decisions, i18n.language) : '-'}
+          value={summary ? formatAppNumber(openDecisionCount, i18n.language) : '-'}
           sub={
             summary
-              ? summary.open_decisions === 0
+              ? openDecisionCount === 0
                 ? t('cockpitPage.awaitingDecisionEmptyHint')
                 : t('cockpitPage.awaitingDecisionHint')
               : undefined

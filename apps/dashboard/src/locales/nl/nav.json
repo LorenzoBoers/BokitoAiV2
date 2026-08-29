@@ -1001,7 +1001,7 @@
     "sliceContacts": "recente contacten",
     "sliceInbox": "inboxgesprekken",
     "awaitingDecisionHint": "Open items die wachten tot jij goedkeurt of afwijst",
-    "awaitingDecisionEmptyHint": "Beslissingen staan in klantgesprekken. Open Communicatie om te antwoorden.",
+    "awaitingDecisionEmptyHint": "Als een agent een ja of nee nodig heeft, verschijnt dat hier en onder Beslissingen in Communicatie.",
     "autonomyHint": "Deel van antwoorden dat is verstuurd zonder dat jij op Versturen klikte.",
     "autonomyEmptyHint": "Verschijnt nadat agents zelf klantwerk afhandelen",
     "usage": "AI-verbruik deze maand",
@@ -1332,6 +1332,11 @@
       "inboxAi": "AI-antwoorden",
       "widget": "Chatwidget",
       "integrations": "Integraties bekijken"
+    },
+    "setupNeededAlert": {
+      "title": "{{count}} kanaal moet nog worden afgerond voordat antwoorden kunnen uitgaan",
+      "title_plural": "{{count}} kanalen moeten nog worden afgerond voordat antwoorden kunnen uitgaan",
+      "body": "Open het kanaal hieronder om te zien wat nog blokkeert. Je kunt ook Gmail of Outlook koppelen om vanaf je eigen mailbox te versturen."
     },
     "connectHint": "Na het koppelen ga je naar de inlogpagina van de provider. Bokito synchroniseert daarna mappen en geschiedenis voor deze mailbox.",
     "connect": "Koppelen",

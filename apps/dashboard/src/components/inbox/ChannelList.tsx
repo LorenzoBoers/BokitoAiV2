@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -152,6 +152,27 @@ export default function ChannelList({
   const { t, i18n } = useTranslation('nav')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Auto-open the check list when a channel still needs attention — first-time
+  // users otherwise only see "Setup required" next to an enabled switch.
+  useEffect(() => {
+    setExpanded((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const row of channels) {
+        if (
+          (row.state === 'setup_required' ||
+            row.state === 'action_required' ||
+            row.state === 'error') &&
+          next[row.id] === undefined
+        ) {
+          next[row.id] = true
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [channels])
 
   const toggleExpanded = useCallback((id: string) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))

@@ -316,6 +316,7 @@ export default function Communication() {
 
   const {
     activeConnections,
+    setupNeededConnections,
     loading: connectionsLoading,
     error: connectionsError,
     needsOrganisation,
@@ -330,6 +331,8 @@ export default function Communication() {
   } = useOnboardingStatus()
 
   const enabledConnections = activeConnections
+  const mailboxNeedsSetup =
+    enabledConnections.length === 0 && setupNeededConnections.length > 0
 
   const { pinnedIds, addPin, removePin } = usePinnedIds()
 
@@ -1474,6 +1477,7 @@ export default function Communication() {
             mode={mode}
             onAskAssistant={detail ? handleAskAssistant : undefined}
             canSendEmail={enabledConnections.length > 0}
+            mailboxNeedsSetup={mailboxNeedsSetup}
             onForward={
               detail && detail.thread.channel === 'email' && enabledConnections.length > 0
                 ? handleForward

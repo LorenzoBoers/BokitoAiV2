@@ -496,12 +496,13 @@ export default function ContactPanel({
         {previousThreads.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 px-3 py-3 space-y-1.5">
             <p className="text-[11.5px] text-text-muted">{t('contactPanel.noPrevious')}</p>
+            <p className="text-[11px] text-text-muted/90">{t('contactPanel.noPreviousHint')}</p>
             {contactId ? (
               <Link
                 to={`/contacts/${contactId}`}
                 className="inline-block text-[11px] font-medium text-accent hover:underline"
               >
-                {t('contactPanel.openContacts')}
+                {t('contactPanel.fullProfile')}
               </Link>
             ) : (
               <Link

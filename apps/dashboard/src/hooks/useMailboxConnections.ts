@@ -51,6 +51,11 @@ export function useMailboxConnections() {
     () => connections.filter(isSendableMailbox),
     [connections],
   )
+  /** Enabled mailboxes that still cannot send (e.g. Bokito address awaiting platform mail). */
+  const setupNeededConnections = useMemo(
+    () => connections.filter((item) => item.isEnabled !== false && !isSendableMailbox(item)),
+    [connections],
+  )
   const loadingState = loading || (Boolean(token) && authLoading)
 
   const needsOrganisation =
@@ -59,6 +64,7 @@ export function useMailboxConnections() {
   return {
     connections,
     activeConnections,
+    setupNeededConnections,
     loading: loadingState,
     error,
     refresh,

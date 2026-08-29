@@ -91,6 +91,12 @@ const TAB_SUBTITLES: Record<Tab, string> = {
 /** Tabs that show a temporary "New" rail label (not a count badge). */
 const NEW_TABS: ReadonlySet<Tab> = new Set(['modules'])
 
+const NEW_TAB_SEEN_PREFIX = 'bokito.nav.newTab.seen.'
+
+function newTabSeenKey(tab: Tab): string {
+  return `${NEW_TAB_SEEN_PREFIX}${tab}`
+}
+
 export function iconForTab(tab: Tab): LucideIcon {
   return TAB_ICONS[tab]
 }
@@ -108,7 +114,22 @@ export function pathForTab(tab: Tab): string {
 }
 
 export function isNewTab(tab: Tab): boolean {
-  return NEW_TABS.has(tab)
+  if (!NEW_TABS.has(tab)) return false
+  try {
+    return localStorage.getItem(newTabSeenKey(tab)) !== '1'
+  } catch {
+    return true
+  }
+}
+
+/** Clear the temporary "New" rail badge after the user opens that area. */
+export function markTabSeen(tab: Tab): void {
+  if (!NEW_TABS.has(tab)) return
+  try {
+    localStorage.setItem(newTabSeenKey(tab), '1')
+  } catch {
+    // ignore storage failures
+  }
 }
 
 /** Resolve the active tab from a pathname (longest-prefix match). */

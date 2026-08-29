@@ -320,7 +320,7 @@ export default function WorkspaceDocs() {
                 <KnowledgeTile />
                 <div className="min-w-0 leading-tight">
                   <h2 className="truncate text-sm font-semibold text-text-heading">{t('knowledgePage.title')}</h2>
-                  <p className="truncate text-[11px] text-text-muted">
+                  <p className="text-[11px] leading-snug text-text-muted line-clamp-2">
                     {t('knowledgePage.subtitle')}
                   </p>
                 </div>

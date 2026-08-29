@@ -977,7 +977,7 @@
     "sliceContacts": "recent contacts",
     "sliceInbox": "inbox threads",
     "awaitingDecisionHint": "Open items waiting for you to approve or reject",
-    "awaitingDecisionEmptyHint": "Decisions live in customer threads. Open Communication to reply.",
+    "awaitingDecisionEmptyHint": "When an agent needs a yes or no, it shows up here and under Decisions in Communication.",
     "autonomyHint": "Share of replies sent without you clicking Send.",
     "autonomyEmptyHint": "Shows up after agents handle customer work on their own",
     "usage": "AI usage this month",
@@ -1308,6 +1308,11 @@
       "inboxAi": "Inbox AI settings",
       "widget": "Chat widget",
       "integrations": "Browse integrations"
+    },
+    "setupNeededAlert": {
+      "title": "{{count}} channel still needs setup before replies can send",
+      "title_plural": "{{count}} channels still need setup before replies can send",
+      "body": "Open the channel below to see what is blocked. You can also connect Gmail or Outlook if you want to send from your own mailbox."
     },
     "connectHint": "After connecting you will be redirected to the provider's sign-in page. Bokito then syncs folders and history for this mailbox.",
     "connect": "Connect",

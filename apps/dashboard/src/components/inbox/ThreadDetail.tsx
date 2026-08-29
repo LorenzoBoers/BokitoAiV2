@@ -136,6 +136,8 @@ type Props = {
   onToggleTakeover?: () => void | Promise<void>
   /** Workspace has at least one mailbox that can send (Bokito / Gmail / Outlook). */
   canSendEmail?: boolean
+  /** Mailboxes exist but none can send yet (finish setup on Channels). */
+  mailboxNeedsSetup?: boolean
   onDelete?: () => void | Promise<void>
   deleting?: boolean
   /** Mobile stacked navigation: return to the thread list (hidden on md+). */
@@ -515,7 +517,7 @@ function groupByDay(
   return Array.from(map.values())
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, canSendEmail = false }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, onTogglePin, onToggleTakeover, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onAskAssistant, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
   const { t, i18n } = useTranslation('communication')
   const navigate = useNavigate()
   const { token, user } = useAuth()
@@ -1511,7 +1513,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }`}
         >
           <p className="text-[11.5px] text-text-secondary">
-            {thread.aiPaused ? t('threadChrome.youTookOverBanner') : t('threadChrome.aiHandlingBanner')}
+            {thread.aiPaused
+              ? t('threadChrome.youTookOverBanner')
+              : mailboxDisconnected
+                ? t('threadChrome.aiHandlingBannerNoSend')
+                : t('threadChrome.aiHandlingBanner')}
           </p>
           <button
             type="button"
@@ -1718,14 +1724,20 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           lastInboundText={lastInboundText}
           replyDisabledNotice={
             mailboxDisconnected ? (
-              <span className="flex flex-wrap items-center gap-1.5">
+              <span className="flex flex-wrap items-center gap-2">
                 <AlertCircle size={13} className="shrink-0 text-status-warning" />
-                {t('composer.mailboxDisconnected')}
+                <span>
+                  {mailboxNeedsSetup
+                    ? t('composer.mailboxNeedsSetup')
+                    : t('composer.mailboxDisconnected')}
+                </span>
                 <Link
                   to="/settings/channels"
-                  className="font-medium text-accent hover:underline"
+                  className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-fg hover:bg-accent-hover"
                 >
-                  {t('composer.reconnectMailbox')}
+                  {mailboxNeedsSetup
+                    ? t('composer.finishMailboxSetup')
+                    : t('composer.reconnectMailbox')}
                 </Link>
               </span>
             ) : thread.status === 'closed' || thread.status === 'spam' ? (

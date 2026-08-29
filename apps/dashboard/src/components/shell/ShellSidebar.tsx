@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
@@ -10,6 +10,7 @@ import {
   TAB_GROUPS,
   iconForTab,
   isNewTab,
+  markTabSeen,
   pathForTab,
   tabFromPath,
   titleForTab,
@@ -57,6 +58,15 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const brandMarkSrc = brandIconUrl || DEFAULT_BRAND_MARK
   const activeTab = tabFromPath(pathname)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups)
+  const [, setNewBadgeTick] = useState(0)
+
+  // Persist + re-render so temporary "New" badges clear after the area is opened.
+  useEffect(() => {
+    if (!activeTab) return
+    if (!isNewTab(activeTab)) return
+    markTabSeen(activeTab)
+    setNewBadgeTick((n) => n + 1)
+  }, [activeTab])
 
   const tabTitle = (tab: Tab) => t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
 

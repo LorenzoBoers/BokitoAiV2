@@ -33,15 +33,16 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
 
     open_decisions = (
         await session.execute(
-            select(func.count())
-            .select_from(DecisionRequest)
-            .join(Signal, Signal.id == DecisionRequest.signal_id)
+            select(func.count(func.distinct(Signal.id)))
+            .select_from(Signal)
+            .join(SignalMessage, SignalMessage.signal_id == Signal.id)
+            .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
             .where(
-                DecisionRequest.tenant_id == tenant_id,
-                DecisionRequest.status == "awaiting_human",
-                DecisionRequest.signal_id.is_not(None),
-                Signal.channel.in_(EXTERNAL_CHANNELS),
+                Signal.tenant_id == tenant_id,
+                Signal.channel != "assistant",
                 Signal.status.notin_(("closed", "spam")),
+                SignalMessage.kind == "decision_request",
+                DecisionRequest.status == "awaiting_human",
             )
         )
     ).scalar_one()

@@ -494,6 +494,22 @@ export default function InboxSettings() {
       <PageGuideBanner page="channels" />
       <PageIntro description={t('pageHeaders.emailMessages')} />
 
+      {channels.some((row) => row.state === 'setup_required' || row.state === 'action_required' || row.state === 'error') ? (
+        <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm">
+          <p className="font-medium text-text-heading">
+            {t('channelsPage.setupNeededAlert.title', {
+              count: channels.filter(
+                (row) =>
+                  row.state === 'setup_required' ||
+                  row.state === 'action_required' ||
+                  row.state === 'error',
+              ).length,
+            })}
+          </p>
+          <p className="mt-1 text-text-secondary">{t('channelsPage.setupNeededAlert.body')}</p>
+        </div>
+      ) : null}
+
       <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3 text-sm text-text-secondary">
         <p>{t('channelsPage.crossLinks.body')}</p>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">

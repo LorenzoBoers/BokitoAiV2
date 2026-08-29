@@ -45,10 +45,13 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 ## Read a channel's state and checks
 
 1. Look at the state badge on the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused** or **Error**.
-2. The chips next to it show what the channel can do: **Receive**, **Send**, **Sync**.
-3. Click the arrow at the start of the row to open **Checks**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
-4. For a mailbox, **History** in the same panel sets how far back mail is backfilled when it (re)connects.
-5. Use the toggle to pause a channel. A paused channel keeps its history but receives nothing new.
+2. When any channel still needs setup, a yellow notice appears above the list. Channels in **Setup required**, **Action needed** or **Error** open their **Checks** panel automatically.
+3. The chips next to the badge show what the channel can do: **Receive**, **Send**, **Sync**. A channel can show **Send** and still be blocked until every required check is OK.
+4. Click the arrow at the start of the row to open **Checks**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
+5. For a mailbox, **History** in the same panel sets how far back mail is backfilled when it (re)connects.
+6. Use the toggle to pause a channel. A paused channel keeps its history but receives nothing new.
+
+In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked.
 
 ## Set a signature and routing
 

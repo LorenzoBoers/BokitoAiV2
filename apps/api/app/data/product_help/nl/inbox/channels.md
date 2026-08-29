@@ -45,10 +45,13 @@ Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 ## Lees de status en controles van een kanaal
 
 1. Bekijk de statusbadge op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd** of **Fout**.
-2. De labels ernaast tonen wat het kanaal kan: **Ontvangen**, **Verzenden**, **Sync**.
-3. Klik op het pijltje vooraan de rij om **Controles** te openen. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
-4. Bij een mailbox bepaalt **Geschiedenis** in hetzelfde paneel hoe ver terug mail wordt bijgehaald bij (opnieuw) koppelen.
-5. Gebruik de schakelaar om een kanaal te pauzeren. Een gepauzeerd kanaal houdt zijn historie maar ontvangt niets nieuws.
+2. Als een kanaal nog niet klaar is, verschijnt een gele melding boven de lijst. Kanalen met **Instellen nodig**, **Actie nodig** of **Fout** openen hun **Controles** automatisch.
+3. De labels ernaast tonen wat het kanaal kan: **Ontvangen**, **Verzenden**, **Sync**. Een kanaal kan **Verzenden** tonen en toch geblokkeerd zijn tot elke verplichte controle OK is.
+4. Klik op het pijltje vooraan de rij om **Controles** te openen. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
+5. Bij een mailbox bepaalt **Geschiedenis** in hetzelfde paneel hoe ver terug mail wordt bijgehaald bij (opnieuw) koppelen.
+6. Gebruik de schakelaar om een kanaal te pauzeren. Een gepauzeerd kanaal houdt zijn historie maar ontvangt niets nieuws.
+
+In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** als er al een kanaal is dat nog niet klaar is, of **Mailbox koppelen** als er nog geen kanaal is.
 
 ## Zet een handtekening en routing
 

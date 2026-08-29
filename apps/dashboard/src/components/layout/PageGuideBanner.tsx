@@ -65,9 +65,10 @@ export function PageGuideBanner({ page, variant, className }: PageGuideBannerPro
       </span>
       <p className="min-w-0 flex-1 truncate text-[12.5px] text-text-heading">
         <span className="font-medium">{t(titleKey)}</span>
+        <span className="text-text-muted">. </span>
         <Link
           to={pageGuidePath(page)}
-          className="ml-2 font-medium text-accent hover:underline"
+          className="font-medium text-accent hover:underline"
         >
           {t('pageGuides.learnMore')}
         </Link>
