@@ -410,8 +410,6 @@ async def test_allowance_tighten_from_rejected_tool_decisions(
 
 @pytest.mark.asyncio
 async def test_allowance_tighten_never_loosens(client: AsyncClient, session_override):
-    from datetime import datetime
-
     from app.models.audit import AuditEvent
     from app.services.learning import apply_heuristic_allowance_tighten
 

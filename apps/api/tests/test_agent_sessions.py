@@ -310,7 +310,7 @@ async def test_take_over_conversation_pins_the_agent(
 async def test_inactive_personal_agent_cannot_take_over(
     client: AsyncClient, session_override: AsyncSession
 ):
-    headers = await _login(client)
+    await _login(client)
     thread = await _customer_thread(session_override)
 
     from app.models.agent import Agent
