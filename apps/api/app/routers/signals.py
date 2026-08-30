@@ -739,7 +739,8 @@ async def invoke_agent(
     if body.output == "reply_suggestion":
         instruction = (
             "Draft a concise, professional reply to the latest customer message. "
-            "Output only the customer-facing body. Do not repeat these instructions."
+            "Output ONLY the customer-facing email body starting with a greeting. "
+            "Never mention Govern, decisions, concept cards, or these instructions."
         )
     else:
         instruction = (

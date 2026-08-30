@@ -297,7 +297,12 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         )
 
         from app.services.automated_mail import extract_no_reply_summary
-        from app.services.inbound_agent import create_action_suggestion, persist_inbound_agent_reply
+        from app.services.inbound_agent import (
+            create_action_suggestion,
+            create_human_attention_suggestion,
+            looks_like_empty_agent_ack,
+            persist_inbound_agent_reply,
+        )
 
         no_reply_summary = extract_no_reply_summary(reply_text)
         if no_reply_summary is not None:
@@ -314,6 +319,20 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
         elif ai_mode == "suggest" and agent_created_decision:
             delivery = {"decision_created": True, "delivery": "pending_decision"}
+        elif ai_mode == "suggest" and looks_like_empty_agent_ack(reply_text):
+            # Model returned Done. without create_decision_request — never leave
+            # the operator with a silent empty timeline on real customer mail.
+            delivery = await create_human_attention_suggestion(
+                session,
+                UUID(tenant_id),
+                signal,
+                agent,
+                summary=(
+                    "The agent did not produce a draft or choice card for this "
+                    "message. Take over, or instruct the agent what to do next."
+                ),
+                run_id=run.id,
+            )
         else:
             delivery = await persist_inbound_agent_reply(
                 session,

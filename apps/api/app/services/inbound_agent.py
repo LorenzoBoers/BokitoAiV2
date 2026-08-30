@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from uuid import UUID
 
@@ -18,9 +19,32 @@ from app.services.suggestion_format import format_customer_email_body, split_sug
 
 _SKIP_REPLIES = frozenset({"", "Done.", "HEARTBEAT_OK"})
 
+# Meta / operator scaffolding that must never become a customer-facing draft.
+_META_DRAFT_RE = re.compile(
+    r"(?i)("
+    r"conceptreactie staat klaar|nog niets verstuurd|via govern|"
+    r"openstaande concepten|/decisions\b|beoordeel en verstuur|"
+    r"do not repeat these instructions|teammate'?s request|"
+    r"output only the customer-facing"
+    r")"
+)
+
 # Channels where an approved/auto reply can be delivered to the external party
 # (widget/chat visitors receive replies live via the gateway instead).
 _DELIVERABLE_CHANNELS = ("email", "slack")
+
+
+def looks_like_empty_agent_ack(text: str | None) -> bool:
+    """True when the model returned only Done./empty without a real draft."""
+    return (text or "").strip() in _SKIP_REPLIES
+
+
+def looks_like_meta_draft(text: str | None) -> bool:
+    """True when the draft talks about the platform instead of the customer."""
+    body = (text or "").strip()
+    if not body:
+        return False
+    return bool(_META_DRAFT_RE.search(body))
 
 
 def compute_suggested_actions(signal: Signal) -> list[str]:
@@ -216,6 +240,111 @@ async def create_action_suggestion(
     }
 
 
+async def create_human_attention_suggestion(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    agent: Agent | None,
+    *,
+    summary: str,
+    run_id: UUID | None = None,
+) -> dict:
+    """Inline decision when the agent finished without a draft or choice card.
+
+    Avoids a silent ``Done.`` that leaves the operator with no next step on
+    urgent / ambiguous customer mail.
+    """
+    text = (summary or "").strip() or (
+        "The agent finished without a draft. Choose how to continue."
+    )
+    options = [
+        {
+            "id": "escalate",
+            "label": "I'll handle it myself",
+            "action_type": "escalate",
+            "payload": {},
+        },
+        {
+            "id": "custom",
+            "label": "Instruct the agent",
+            "action_type": "acknowledge",
+            "input_type": "text",
+            "input_placeholder": "e.g. Draft a short confirmation that we will call today",
+        },
+    ]
+    from app.services.notification_mail import decision_bell_status
+    from app.services.signal_decisions import ingest_decision_request
+
+    notification = Notification(
+        tenant_id=tenant_id,
+        user_id=signal.assigned_user_id,
+        kind="decision_request",
+        title="Needs your attention",
+        body=text[:500],
+        status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
+        payload_json=json.dumps(
+            {
+                "kind": "needs_attention",
+                "channel": signal.channel,
+                "signal_id": str(signal.id),
+                "run_id": str(run_id) if run_id else None,
+            }
+        ),
+    )
+    session.add(notification)
+    await session.flush()
+
+    decision = DecisionRequest(
+        tenant_id=tenant_id,
+        notification_id=notification.id,
+        title="Needs your attention",
+        summary=text,
+        options_json=json.dumps(options),
+        status="awaiting_human",
+        project_id=signal.project_id,
+    )
+    session.add(decision)
+    await session.flush()
+
+    message = await ingest_decision_request(
+        session,
+        tenant_id,
+        notification,
+        decision,
+        user_id=signal.assigned_user_id,
+        agent_id=agent.id if agent else None,
+        signal_id=signal.id,
+    )
+    apply_suggested_actions(signal)
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            event_type="suggestion_created",
+            actor_type="agent" if agent else "system",
+            actor_id=str(agent.id) if agent else "",
+            payload_json=json.dumps(
+                {
+                    "decision_id": str(decision.id),
+                    "message_id": str(message.id),
+                    "kind": "needs_attention",
+                    "run_id": str(run_id) if run_id else None,
+                }
+            ),
+        )
+    )
+    await session.commit()
+    return {
+        "suggestion": True,
+        "kind": "needs_attention",
+        "decision_id": str(decision.id),
+        "message_id": str(message.id),
+        "channel": signal.channel,
+        "delivery": "pending_decision",
+    }
+
+
 async def create_reply_suggestion(
     session: AsyncSession,
     tenant_id: UUID,
@@ -240,6 +369,8 @@ async def create_reply_suggestion(
     parts = split_suggestion(text)
     text = parts.body
     internal_note = parts.internal_note
+    if looks_like_meta_draft(text):
+        return {"skipped": True, "reason": "meta_draft"}
     # Customer drafts may cite /docs/... as in-app markdown; rewrite to
     # absolute URLs so the card and outbound mail stay clickable outside Bokito.
     if signal.channel == "email":
@@ -383,7 +514,7 @@ async def persist_inbound_agent_reply(
         return {"skipped": True, "reason": "empty_or_paused"}
 
     if mode == "suggest":
-        return await create_reply_suggestion(
+        outcome = await create_reply_suggestion(
             session,
             tenant_id,
             signal,
@@ -391,11 +522,26 @@ async def persist_inbound_agent_reply(
             reply_text=text,
             run_id=run_id,
         )
+        if outcome.get("reason") == "meta_draft":
+            return await create_human_attention_suggestion(
+                session,
+                tenant_id,
+                signal,
+                agent,
+                summary=(
+                    "The agent produced platform meta-text instead of a customer "
+                    "reply. Take over, or instruct the agent what to draft."
+                ),
+                run_id=run_id,
+            )
+        return outcome
 
     # Auto mode delivers straight to the customer: the same cleaning applies
     # (no research preamble, no internal notes, no model-written sign-off).
     parts = split_suggestion(text)
     text = parts.body
+    if looks_like_meta_draft(text):
+        return {"skipped": True, "reason": "meta_draft"}
     if signal.channel == "email":
         text, _html = format_customer_email_body(text)
     if parts.internal_note:
