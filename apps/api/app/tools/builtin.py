@@ -756,7 +756,13 @@ async def _suggest_inbox_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     await ctx.session.commit()
     return {
         "rule": payload,
-        "note": "Suggested only - the operator confirms it under Inbox settings > Automation rules.",
+        "confirm_path": "/settings/channels#automation-rules",
+        "note": (
+            "Suggested only — the operator must activate it. Tell them with an "
+            "in-app markdown link, e.g. "
+            "[Automation rules](/settings/channels#automation-rules). "
+            "Do not write plain breadcrumbs like Inbox > Automation rules."
+        ),
     }
 
 
@@ -1365,7 +1371,8 @@ register_tool(
         description=(
             "Suggest an inbox automation rule after learning from a correction or a "
             "recurring pattern (e.g. always auto-close newsletters from a sender). "
-            "The operator must confirm before it activates. "
+            "The operator must confirm before it activates — point them to "
+            "confirm_path with an in-app markdown link. "
             "Actions: auto_close, auto_task, mute_ai."
         ),
         category="messaging",

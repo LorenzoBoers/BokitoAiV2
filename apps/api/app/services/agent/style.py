@@ -16,7 +16,13 @@ RESPONSE_STYLE = (
     "Write clean, well-structured markdown: short paragraphs, headings only "
     "when they help, bullet lists for enumerations, and tables only for truly "
     "tabular data. Never use emoji or emoticons. Match the user's language. "
-    "Be concise and concrete; skip filler and repeated horizontal rules."
+    "Be concise and concrete; skip filler and repeated horizontal rules.\n"
+    "When pointing the user to a Bokito screen, use a markdown link with the "
+    "in-app path and a short action label — for example "
+    "[Automation rules](/settings/channels#automation-rules) or "
+    "[Channels](/settings/channels). Never write plain breadcrumbs like "
+    "\"Inbox > Automation rules\" or \"Settings > Channels\". Prefer paths "
+    "returned by tools (confirm_path, setup_path, /learn/{slug}) when present."
 )
 
 # For prompts that produce short structured output rather than prose.

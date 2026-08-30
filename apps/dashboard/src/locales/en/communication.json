@@ -236,7 +236,9 @@
       "signatureYou": "Your signature is added automatically",
       "signatureAgent": "The signature of {{name}} is added automatically",
       "signaturePreview": "Signature",
-      "signatureEmpty": "No signature configured"
+      "signatureEmpty": "No signature configured",
+      "customizeSignature": "Set signature",
+      "editSignature": "Edit signature"
     },
     "rulePrompt": {
       "autoClose": "Always close messages from {{sender}}?",

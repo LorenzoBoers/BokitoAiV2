@@ -137,7 +137,7 @@ export default function AutomationRulesManager() {
   )
 
   return (
-    <Card className="overflow-hidden p-0">
+    <Card id="automation-rules" className="scroll-mt-6 overflow-hidden p-0">
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
         <div className="flex min-w-0 items-start gap-3">
           <KnowledgeTile className="mt-0.5" />

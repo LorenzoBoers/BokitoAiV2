@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import UUID
 
@@ -11,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import Tenant
 from app.services.audit import record_audit
+from app.tools.decision_copy import format_policy_decision
 from app.tools.policy import resolve_tool_mode
 from app.tools.registry import ToolContext, agent_allowed_tools, get_tool_spec
 
@@ -63,7 +63,9 @@ async def execute_tool(
         tenant = tenant_result.scalar_one_or_none()
         if tenant is None:
             return {"error": "Tenant not found"}
-        mode, reason = await resolve_tool_mode(session, tenant, agent, spec, trust=trust)
+        mode, reason = await resolve_tool_mode(
+            session, tenant, agent, spec, trust=trust, tool_input=tool_input
+        )
 
     if mode == "deny":
         await record_audit(
@@ -132,14 +134,15 @@ async def _create_policy_decision(
         },
         {"id": "reject", "label": "Reject", "action_type": "reject"},
     ]
+    title, summary = format_policy_decision(tool_name, tool_input)
     return await execute_tool(
         session,
         tenant_id,
         user_id,
         "create_decision_request",
         {
-            "title": f"Approve action: {tool_name}",
-            "summary": json.dumps(tool_input)[:500],
+            "title": title,
+            "summary": summary,
             "signal_id": str(signal_id) if signal_id else None,
             "options": options,
         },

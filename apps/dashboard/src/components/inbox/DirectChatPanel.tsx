@@ -31,6 +31,7 @@ import { resolveProviderBrand } from '../../lib/integration-brand'
 import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
 import ChatMarkdown from './ChatMarkdown'
 import { translateMockAgentBody } from '../../lib/activity-labels'
+import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
 import ThinkingTrace from './ThinkingTrace'
 import ReasoningDisclosure from './ReasoningDisclosure'
 import { useSignalStream } from '../../hooks/useSignalStream'
@@ -210,6 +211,9 @@ function ChatDecisionCard({
     ? options.find((o) => o.id === decision.chosen_option_id)?.label ?? decision.chosen_option_id
     : null
   const bodyText = decision?.summary || fallbackText
+  const toolCopy = formatToolDecisionSummary(bodyText, decision?.title)
+  const displayTitle = toolCopy?.title || decision?.title
+  const displayBody = toolCopy?.summary || bodyText
   const integrationProvider =
     options.find((o) => isModuleSetupAction(o.action_type))?.provider?.trim() || null
   const integrationBrand = integrationProvider ? resolveProviderBrand(integrationProvider) : null
@@ -256,7 +260,7 @@ function ChatDecisionCard({
           </span>
         ) : null}
       </div>
-      {decision?.title ? (
+      {displayTitle ? (
         <p className="mt-1 flex items-center gap-2 text-[13px] font-medium text-text-primary">
           {integrationBrand ? (
             <IntegrationHostLogo
@@ -270,12 +274,12 @@ function ChatDecisionCard({
               className="rounded-md"
             />
           ) : null}
-          {decision.title}
+          {displayTitle}
         </p>
       ) : null}
-      {bodyText && bodyText !== decision?.title ? (
+      {displayBody && displayBody !== displayTitle ? (
         <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text-secondary">
-          {bodyText}
+          {displayBody}
         </p>
       ) : null}
       {!resolved ? (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -15,6 +15,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
+import { composeDefaultSignatureHtml } from '../../lib/default-signature'
+import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
 import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
@@ -198,13 +200,14 @@ export default function DecisionRequestMessage({
   agentName,
   agentId,
 }: Props) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [sentiment, setSentiment] = useState<'up' | 'down' | null>(null)
   const { startCorrection, starting: correctionStarting } = useCorrectionChat()
   const [agentSignatureHtml, setAgentSignatureHtml] = useState('')
+  const [agentDisplayName, setAgentDisplayName] = useState('')
 
   const decisionSubjectId = message.decisionId ? String(message.decisionId) : String(message.id)
 
@@ -235,22 +238,34 @@ export default function DecisionRequestMessage({
     () => (integrationProvider ? resolveProviderBrand(integrationProvider) : null),
     [integrationProvider],
   )
+  const toolCopy = useMemo(
+    () =>
+      formatToolDecisionSummary(
+        message.bodyText?.trim() || message.bodyPreview || '',
+        message.subject,
+      ),
+    [message.bodyText, message.bodyPreview, message.subject],
+  )
   const summary = translateDecisionText(
-    message.bodyText?.trim() ||
+    toolCopy?.summary ||
+      message.bodyText?.trim() ||
       message.bodyPreview ||
       message.subject ||
       t('decisionCard.decisionNeeded'),
     t,
   )
   const excerpt = formatDecisionExcerpt(summary)
-  const draftBody = useMemo(
-    () =>
-      translateMockAgentBody(
-        translateDecisionText(draftBodyFromOptions(options, summary), t),
-        t,
-      ),
-    [options, summary, t],
-  )
+  const draftBody = useMemo(() => {
+    if (toolCopy) return toolCopy.summary
+    return translateMockAgentBody(
+      translateDecisionText(draftBodyFromOptions(options, summary), t),
+      t,
+    )
+  }, [toolCopy, options, summary, t])
+  const displaySubject = useMemo(() => {
+    const raw = toolCopy?.title || message.subject
+    return raw ? translateDecisionText(raw, t) : null
+  }, [toolCopy, message.subject, t])
   const isSuggestion = options.some((o) => o.action_type === 'send_reply' || o.action_type === 'send_email' || o.id === 'send')
   // Automated/no-reply mail: the agent proposes an action instead of a reply.
   const isActionSuggestion = !isSuggestion && options.some((o) => o.action_type === 'close_thread')
@@ -287,6 +302,7 @@ export default function DecisionRequestMessage({
   useEffect(() => {
     if (!resolvedAgentId) {
       setAgentSignatureHtml('')
+      setAgentDisplayName('')
       return
     }
     let cancelled = false
@@ -297,17 +313,40 @@ export default function DecisionRequestMessage({
         setAgentSignatureHtml(
           typeof match?.email_signature_html === 'string' ? match.email_signature_html : '',
         )
+        setAgentDisplayName(typeof match?.name === 'string' ? match.name : '')
       })
       .catch(() => {
-        if (!cancelled) setAgentSignatureHtml('')
+        if (!cancelled) {
+          setAgentSignatureHtml('')
+          setAgentDisplayName('')
+        }
       })
     return () => {
       cancelled = true
     }
   }, [resolvedAgentId])
 
-  const signatureHtml =
+  const customSignatureHtml =
     sendAs === 'user' ? (user?.emailSignatureHtml ?? '').trim() : agentSignatureHtml.trim()
+  const signatureHtml =
+    customSignatureHtml ||
+    composeDefaultSignatureHtml({
+      name:
+        sendAs === 'user'
+          ? user?.name || user?.email || ''
+          : agentDisplayName || agentName || t('decisionCard.sendAs.agentFallback'),
+      email: sendAs === 'user' ? user?.email : null,
+      jobTitle: sendAs === 'user' ? user?.jobTitle : null,
+      company: user?.tenant?.name,
+      language: i18n.language,
+    })
+  const signatureIsDefault = !customSignatureHtml
+  const signatureSettingsPath =
+    sendAs === 'user'
+      ? '/settings/profile'
+      : resolvedAgentId
+        ? `/agents/${resolvedAgentId}`
+        : '/agents'
 
   function chooseSendAs(value: ReplySendAs) {
     setSendAs(value)
@@ -540,7 +579,7 @@ export default function DecisionRequestMessage({
           </>
         ) : (
           <>
-            {message.subject ? (
+            {displaySubject ? (
               <h3 className="flex items-center gap-2 text-sm font-medium text-text-heading">
                 {integrationBrand ? (
                   <IntegrationHostLogo
@@ -554,11 +593,67 @@ export default function DecisionRequestMessage({
                     className="rounded-md"
                   />
                 ) : null}
-                {translateDecisionText(message.subject, t)}
+                {displaySubject}
               </h3>
             ) : null}
-            <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
-              <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
+            <div className="mt-2 overflow-hidden rounded-lg border border-border/60 bg-bg-elevated">
+              <div className="px-3 py-2">
+                <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
+              </div>
+              {!resolved && isSuggestion ? (
+                <div className="border-t border-border/40 px-3 py-2">
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
+                        {t('decisionCard.sendAs.signaturePreview')}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-text-muted">{t('decisionCard.sendAs.label')}</span>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => chooseSendAs('user')}
+                          className={cn(
+                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium transition-colors',
+                            sendAs === 'user'
+                              ? 'border-accent/50 bg-accent/10 text-text-primary'
+                              : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                          )}
+                        >
+                          <UserRound size={11} aria-hidden />
+                          {t('decisionCard.sendAs.you')}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => chooseSendAs('agent')}
+                          className={cn(
+                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium transition-colors',
+                            sendAs === 'agent'
+                              ? 'border-ai/40 bg-ai/10 text-text-primary'
+                              : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                          )}
+                        >
+                          <Bot size={11} aria-hidden />
+                          {agentName || t('decisionCard.sendAs.agentFallback')}
+                        </button>
+                      </div>
+                    </div>
+                    <Link
+                      to={signatureSettingsPath}
+                      className="md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 text-[11px] font-medium text-accent no-underline transition-colors hover:border-accent/45 hover:bg-bg-hover/70"
+                    >
+                      {signatureIsDefault
+                        ? t('decisionCard.sendAs.customizeSignature')
+                        : t('decisionCard.sendAs.editSignature')}
+                    </Link>
+                  </div>
+                  <div
+                    className="prose prose-sm max-w-none text-xs text-text-secondary dark:prose-invert [&_a]:text-accent"
+                    dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                  />
+                </div>
+              ) : null}
             </div>
             {internalNote ? (
               <div className="mt-3 border-l-2 border-border/70 pl-3">
@@ -576,56 +671,6 @@ export default function DecisionRequestMessage({
             ) : null}
           </>
         )}
-        {!resolved && isSuggestion ? (
-          <div className="mt-3 space-y-2">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <span className="text-xs text-text-muted">{t('decisionCard.sendAs.label')}</span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => chooseSendAs('user')}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-                    sendAs === 'user'
-                      ? 'border-accent/50 bg-accent/10 text-text-primary'
-                      : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
-                  )}
-                >
-                  <UserRound size={12} aria-hidden />
-                  {t('decisionCard.sendAs.you')}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => chooseSendAs('agent')}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-                    sendAs === 'agent'
-                      ? 'border-ai/40 bg-ai/10 text-text-primary'
-                      : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
-                  )}
-                >
-                  <Bot size={12} aria-hidden />
-                  {agentName || t('decisionCard.sendAs.agentFallback')}
-                </button>
-              </div>
-            </div>
-            <div className="rounded-lg border border-border/50 bg-bg-elevated/50 px-3 py-2">
-              <div className="mb-1.5 border-b border-border/40 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
-                {t('decisionCard.sendAs.signaturePreview')}
-              </div>
-              {signatureHtml ? (
-                <div
-                  className="prose prose-sm max-w-none text-xs text-text-secondary dark:prose-invert [&_a]:text-accent"
-                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
-                />
-              ) : (
-                <p className="text-xs text-text-muted">{t('decisionCard.sendAs.signatureEmpty')}</p>
-              )}
-            </div>
-          </div>
-        ) : null}
         {!resolved ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {options.length > 0 ? (

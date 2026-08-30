@@ -238,11 +238,14 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
         )
     assert user is not None
 
-    # No signatures anywhere: resolver defers to the mailbox fallback.
+    # No custom signatures: dynamic default from the user identity.
     resolved = await resolve_signature_html(
         session_override, tenant.id, send_as="user", user_id=user.id, agent_id=agent.id
     )
-    assert resolved is None
+    assert resolved is not None
+    assert "Met vriendelijke groet" in resolved or "Kind regards" in resolved
+    identity = (user.display_name or user.email).strip()
+    assert identity in resolved
 
     # Agent signature only: used for both identities (fallback for user).
     agent.settings_json = json.dumps({"email_signature_html": "<p>Team Bokito</p>"})
@@ -277,12 +280,12 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
     mailbox_settings = json.loads(account.settings_json or "{}")
     mailbox_settings["signature_html"] = "<p>Mailbox sig</p>"
     account.settings_json = json.dumps(mailbox_settings)
-    html = _append_signature("<p>Body</p>", account, override="<p>Groet, Test User</p>")
-    assert html.count("Groet, Test User") == 1
-    assert "Mailbox sig" not in html
+    out_html = _append_signature("<p>Body</p>", account, override="<p>Groet, Test User</p>")
+    assert out_html.count("Groet, Test User") == 1
+    assert "Mailbox sig" not in out_html
     # Without an identity signature the mailbox fallback applies.
-    html = _append_signature("<p>Body</p>", account, override=None)
-    assert "Mailbox sig" in html
+    out_html = _append_signature("<p>Body</p>", account, override=None)
+    assert "Mailbox sig" in out_html
 
 
 # ── settings endpoints ───────────────────────────────────────────

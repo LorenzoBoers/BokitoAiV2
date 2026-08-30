@@ -1,4 +1,5 @@
 import { memo, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 
 /**
  * Standard renderer for AI-generated text in chat surfaces (assistant panel,
@@ -7,9 +8,20 @@ import { memo, type ReactNode } from 'react'
  * inline code, fenced code, links, ordered/unordered lists, tables,
  * blockquotes, and horizontal rules. Safe by construction: only text nodes,
  * never raw HTML.
+ *
+ * In-app paths (`/settings/...`, `/learn/...`) render as inline nav pills
+ * via React Router so agents can deep-link without breadcrumb prose.
  */
 
 const INLINE_PATTERN = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g
+
+/** Same-origin app path: leading `/`, not protocol-relative `//`. */
+export function isAppPath(href: string): boolean {
+  return href.startsWith('/') && !href.startsWith('//')
+}
+
+const APP_LINK_CLASS =
+  'md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 align-baseline text-[12px] font-medium text-accent no-underline transition-colors hover:border-accent/45 hover:bg-bg-hover/70'
 
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -42,8 +54,13 @@ function renderInline(text: string): ReactNode[] {
       const close = token.indexOf('](')
       const label = token.slice(1, close)
       const href = token.slice(close + 2, -1)
-      const safe = /^(https?:\/\/|mailto:|\/)/i.test(href)
-      if (safe) {
+      if (isAppPath(href)) {
+        nodes.push(
+          <Link key={key++} to={href} className={APP_LINK_CLASS}>
+            {label}
+          </Link>,
+        )
+      } else if (/^(https?:\/\/|mailto:)/i.test(href)) {
         nodes.push(
           <a
             key={key++}

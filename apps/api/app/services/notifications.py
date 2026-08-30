@@ -82,7 +82,16 @@ async def resolve_decision(
                         payload.setdefault("body", value)
 
         if always_auto and user_id and action_type:
-            await set_tool_override(session, tenant_id, action_type, "allow")
+            from app.tools.decision_copy import mcp_override_key
+
+            # Prefer a per-MCP-tool key so "Always allow" for one remote tool
+            # does not unlock every call_mcp_tool invocation.
+            override_name = action_type
+            if action_type == "call_mcp_tool":
+                mcp_key = mcp_override_key(payload)
+                if mcp_key:
+                    override_name = mcp_key
+            await set_tool_override(session, tenant_id, override_name, "allow")
 
         if action_type == "enable_module":
             slug = str(payload.get("module") or "").strip()

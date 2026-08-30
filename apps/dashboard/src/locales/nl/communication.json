@@ -236,7 +236,9 @@
       "signatureYou": "Je eigen handtekening wordt automatisch toegevoegd",
       "signatureAgent": "De handtekening van {{name}} wordt automatisch toegevoegd",
       "signaturePreview": "Handtekening",
-      "signatureEmpty": "Geen handtekening ingesteld"
+      "signatureEmpty": "Geen handtekening ingesteld",
+      "customizeSignature": "Handtekening instellen",
+      "editSignature": "Handtekening bewerken"
     },
     "rulePrompt": {
       "autoClose": "Berichten van {{sender}} voortaan altijd sluiten?",

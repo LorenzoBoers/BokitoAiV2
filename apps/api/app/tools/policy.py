@@ -127,10 +127,17 @@ async def resolve_tool_mode(
     spec: ToolSpec,
     *,
     trust: str = "operator",
+    tool_input: dict[str, Any] | None = None,
 ) -> tuple[AllowanceMode, str]:
     """Returns (mode, reason)."""
+    from app.tools.decision_copy import is_mcp_discovery_tool, mcp_override_key
+
     if not spec.gated or not spec.mutating:
         return "allow", "ungated"
+
+    # MCP discovery (list_tools, ping, …) never needs a human gate.
+    if spec.name == "call_mcp_tool" and is_mcp_discovery_tool(tool_input):
+        return "allow", "mcp_discovery"
 
     mode: str = tenant_allowances(tenant).get(spec.category, "ask")
     reason = f"category:{spec.category}"
@@ -144,7 +151,16 @@ async def resolve_tool_mode(
             mode, reason = "allow", "agent_auto"
 
     # Explicit per-tool override wins over slider + passport.
-    override = tenant_tool_overrides(tenant).get(spec.name)
+    # MCP Always-allow keys are ``mcp:{server}:{tool}``; fall back to the
+    # wrapper name for legacy blanket overrides.
+    overrides = tenant_tool_overrides(tenant)
+    override = None
+    if spec.name == "call_mcp_tool":
+        mcp_key = mcp_override_key(tool_input)
+        if mcp_key and mcp_key in overrides:
+            override = overrides[mcp_key]
+    if override is None:
+        override = overrides.get(spec.name)
     if override:
         mode, reason = override, "tool_override"
 
