@@ -172,11 +172,13 @@ function optionLabelKey(option: DecisionOption): string | null {
     connect: 'connectPackage',
   }
   if (byId[option.id]) return byId[option.id]
+  // Remap known action_types only for canonical single-purpose options.
+  // Agent-authored multi-choice cards often share action_type "escalate"
+  // (human takeover) while carrying distinct labels — never overwrite those.
   const byAction: Record<string, string> = {
     send_reply: 'send',
     send_email: 'send',
     draft: 'edit',
-    escalate: 'escalate',
     close_thread: 'closeThread',
     create_task: 'createTask',
     create_queue_item: 'addToQueue',
@@ -187,7 +189,12 @@ function optionLabelKey(option: DecisionOption): string | null {
     setup_integration: 'connectPackage',
     add_module_source: 'addSource',
   }
-  if (option.action_type && byAction[option.action_type]) return byAction[option.action_type]
+  if (option.action_type && byAction[option.action_type]) {
+    // Keep a distinctive agent label when present (non-empty and not just the id).
+    const label = (option.label || '').trim()
+    if (label && label !== option.id) return null
+    return byAction[option.action_type]
+  }
   return null
 }
 

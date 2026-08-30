@@ -1250,7 +1250,10 @@ register_tool(
             "free text instead of clicking a fixed choice. "
             "For action_type use a real platform tool name when approving should "
             "run that tool, or one of: escalate, acknowledge, defer, reject. "
-            "Use escalate or acknowledge when a human takes over (no tool runs)."
+            "Each option needs a distinct id and label. Use send_reply with "
+            "payload.body_text when the choice should send a customer message "
+            "(e.g. clarification). Use escalate or acknowledge only when a human "
+            "takes over with no outbound mail."
         ),
         category="messaging",
         input_schema={

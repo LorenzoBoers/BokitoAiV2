@@ -69,7 +69,7 @@ Pull an agent in when you want to think out loud, look something up, or hand the
 *Decision cards appear in the timeline.*
 
 1. A decision card appears when an agent needs your judgment.
-2. Read the proposal. Approve, edit or decline. **Later** / **Not now** parks the conversation until tomorrow 9:00 so it leaves Open.
+2. Read the proposal. When the card offers several concrete choices, each button keeps its own label (for example send vs cancel vs ask the customer). Approve, edit or decline. **Later** / **Not now** parks the conversation until tomorrow 9:00 so it leaves Open. The single **I'll handle it myself** button is only for pausing AI so you take over.
 3. Nothing customer-facing goes out until you answer, unless autonomy allows it. Approving **Create task** opens a follow-up on [Agenda](/docs/ai/agenda). You can also create a task from the thread menu on any customer conversation. See [Decisions](/docs/ai/decisions).
 
 ## Capture a website visitor
