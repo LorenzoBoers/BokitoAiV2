@@ -1042,9 +1042,10 @@ register_tool(
         description=(
             "Search Bokito product-help articles (how to use the platform). "
             "Use this when the user asks how a Bokito page, setting, or workflow works. "
-            "Cite /learn/{slug} or /docs/{section}/{slug} for in-app operator messages. "
-            "In customer-facing email drafts, cite the full https://app.bokito.ai/docs/... "
-            "URL as plain text (never a relative path or markdown link)."
+            "Each hit includes docs_path (/docs/{section}/{slug}) and public_url — "
+            "cite those exactly; never invent a shortened /docs/{slug} path. "
+            "In customer-facing email drafts, paste public_url as plain text "
+            "(never a relative path or markdown link)."
         ),
         category="workspace",
         input_schema={

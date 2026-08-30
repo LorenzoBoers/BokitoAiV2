@@ -280,6 +280,11 @@ async def test_product_help_search_finds_how_to_tasks():
     slugs = {h["slug"] for h in hits}
     assert "channels" in slugs
     assert all(h["source_type"] == "product_help" for h in hits)
+    channels = next(h for h in hits if h["slug"] == "channels")
+    assert channels["path"] == "inbox/channels"
+    assert channels["docs_path"] == "/docs/inbox/channels"
+    assert channels["public_url"].endswith("/docs/inbox/channels")
+    assert channels["section"] == "inbox"
 
 
 def test_surface_map_covers_articles_and_routes():

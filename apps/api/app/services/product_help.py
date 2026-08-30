@@ -401,6 +401,7 @@ def build_sitemap_xml() -> str:
 @dataclass
 class _IndexedChunk:
     slug: str
+    section: str
     title: str
     heading: str
     content: str
@@ -437,6 +438,7 @@ async def _index_lang(lang: str) -> list[_IndexedChunk]:
             chunks.append(
                 _IndexedChunk(
                     slug=article.slug,
+                    section=article.section,
                     title=article.title,
                     heading=heading or article.title,
                     content=text,
@@ -473,18 +475,27 @@ async def search_product_help(
         if score > 0:
             scored.append((score, chunk))
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [
-        {
-            "source_type": SOURCE_TYPE,
-            "source_id": chunk.slug,
-            "slug": chunk.slug,
-            "title": chunk.title,
-            "heading": chunk.heading,
-            "content": chunk.content,
-            "score": round(score, 4),
-        }
-        for score, chunk in scored[: max(1, min(top_k, 12))]
-    ]
+    base = (get_settings().public_app_url or "").rstrip("/")
+    results: list[dict[str, Any]] = []
+    for score, chunk in scored[: max(1, min(top_k, 12))]:
+        path = f"{chunk.section}/{chunk.slug}"
+        docs_path = f"/docs/{path}"
+        results.append(
+            {
+                "source_type": SOURCE_TYPE,
+                "source_id": chunk.slug,
+                "slug": chunk.slug,
+                "section": chunk.section,
+                "path": path,
+                "docs_path": docs_path,
+                "public_url": f"{base}{docs_path}" if base else docs_path,
+                "title": chunk.title,
+                "heading": chunk.heading,
+                "content": chunk.content,
+                "score": round(score, 4),
+            }
+        )
+    return results
 
 
 def reset_product_help_cache() -> None:

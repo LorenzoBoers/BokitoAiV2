@@ -159,3 +159,14 @@ def test_format_customer_email_rewrites_bare_app_path():
     )
     assert "https://app.bokito.ai/settings/channels" in plain
     assert 'href="https://app.bokito.ai/settings/channels"' in html
+
+
+def test_format_customer_email_expands_short_docs_slug():
+    from app.services.suggestion_format import format_customer_email_body
+
+    plain, _html = format_customer_email_body(
+        "Lees meer: https://app.bokito.ai/docs/widget",
+        base="https://app.bokito.ai",
+    )
+    assert "https://app.bokito.ai/docs/inbox/widget" in plain
+    assert "/docs/widget" not in plain.replace("/docs/inbox/widget", "")

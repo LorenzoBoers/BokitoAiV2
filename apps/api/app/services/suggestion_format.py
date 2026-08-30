@@ -96,9 +96,29 @@ def absolute_app_url(path: str, *, base: str | None = None) -> str:
     if not href:
         return root
     if href.startswith("http://") or href.startswith("https://") or href.startswith("mailto:"):
+        # Collapse mistaken https://app…/docs/{slug} (missing section) when possible.
+        marker = "/docs/"
+        idx = href.find(marker)
+        if idx >= 0:
+            rest = href[idx + len(marker) :].split("?", 1)[0].split("#", 1)[0].strip("/")
+            if rest and "/" not in rest:
+                from app.services.product_help import get_article
+
+                article = get_article(rest)
+                if article:
+                    return f"{href[:idx]}{marker}{article.path}"
         return href
     if not href.startswith("/"):
         href = "/" + href
+    # /docs/{slug} without section → /docs/{section}/{slug} when unique.
+    if href.startswith("/docs/"):
+        rest = href[len("/docs/") :].split("?", 1)[0].split("#", 1)[0].strip("/")
+        if rest and "/" not in rest:
+            from app.services.product_help import get_article
+
+            article = get_article(rest)
+            if article:
+                href = f"/docs/{article.path}"
     return f"{root}{href}" if root else href
 
 
@@ -142,6 +162,18 @@ def format_customer_email_body(text: str, *, base: str | None = None) -> tuple[s
 
     plain = _BARE_APP_PATH_RE.sub(_bare_plain, plain)
     html_src = _BARE_APP_PATH_RE.sub(_bare_html, html_src)
+
+    # Fix already-absolute but shortened docs URLs: …/docs/{slug} → …/docs/{section}/{slug}
+    _SHORT_DOCS_URL_RE = re.compile(
+        r"(https?://[^\s)<\]]+/docs/)([a-z0-9][a-z0-9-]{0,62})(?![a-z0-9-]/)"
+    )
+
+    def _expand_short_docs(m: re.Match[str]) -> str:
+        return _abs(m.group(0))
+
+    plain = _SHORT_DOCS_URL_RE.sub(_expand_short_docs, plain)
+    html_src = _SHORT_DOCS_URL_RE.sub(_expand_short_docs, html_src)
+
     # Escape nothing else aggressively — body is operator/AI-authored; keep
     # newlines as breaks. Strip residual markdown emphasis for plain mail.
     plain = re.sub(r"[*]{1,2}([^*]+)[*]{1,2}", r"\1", plain)
