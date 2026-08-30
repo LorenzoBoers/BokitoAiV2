@@ -136,3 +136,26 @@ def test_reviewer_note_line_is_stripped():
     parts = split_suggestion(raw)
     assert "Hallo Kim" in parts.body
     assert "reviewer" not in parts.body.lower()
+
+
+def test_format_customer_email_rewrites_docs_markdown_link():
+    from app.services.suggestion_format import format_customer_email_body
+
+    plain, html = format_customer_email_body(
+        "Meer info: [Widget](/docs/inbox/widget)",
+        base="https://app.bokito.ai",
+    )
+    assert plain == "Meer info: Widget (https://app.bokito.ai/docs/inbox/widget)"
+    assert 'href="https://app.bokito.ai/docs/inbox/widget"' in html
+    assert "[Widget]" not in plain
+
+
+def test_format_customer_email_rewrites_bare_app_path():
+    from app.services.suggestion_format import format_customer_email_body
+
+    plain, html = format_customer_email_body(
+        "Open /settings/channels voor de koppeling.",
+        base="https://app.bokito.ai",
+    )
+    assert "https://app.bokito.ai/settings/channels" in plain
+    assert 'href="https://app.bokito.ai/settings/channels"' in html

@@ -13,7 +13,7 @@ from app.models.agent import Agent
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.assistant_threads import append_signal_chat_message
-from app.services.suggestion_format import split_suggestion
+from app.services.suggestion_format import format_customer_email_body, split_suggestion
 
 
 _SKIP_REPLIES = frozenset({"", "Done.", "HEARTBEAT_OK"})
@@ -240,6 +240,10 @@ async def create_reply_suggestion(
     parts = split_suggestion(text)
     text = parts.body
     internal_note = parts.internal_note
+    # Customer drafts may cite /docs/... as in-app markdown; rewrite to
+    # absolute URLs so the card and outbound mail stay clickable outside Bokito.
+    if signal.channel == "email":
+        text, _html = format_customer_email_body(text)
 
     subject = f"Re: {signal.subject}" if signal.subject else "Reply"
     options = _suggestion_options(
@@ -392,6 +396,8 @@ async def persist_inbound_agent_reply(
     # (no research preamble, no internal notes, no model-written sign-off).
     parts = split_suggestion(text)
     text = parts.body
+    if signal.channel == "email":
+        text, _html = format_customer_email_body(text)
     if parts.internal_note:
         note_message = SignalMessage(
             signal_id=signal.id,

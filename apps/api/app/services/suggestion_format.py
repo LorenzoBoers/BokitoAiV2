@@ -80,6 +80,75 @@ _REVIEWER_NOTE_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+# Markdown links and bare in-app paths that must become absolute URLs in email.
+_MD_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+_BARE_APP_PATH_RE = re.compile(
+    r"(?<![(\w])(/(?:docs|learn|settings|communication|modules|os|govern|agents|contacts)[^\s<>\]\)]*)"
+)
+
+
+def absolute_app_url(path: str, *, base: str | None = None) -> str:
+    """Turn an in-app path into an absolute public URL for customer email."""
+    from app.config import get_settings
+
+    root = (base if base is not None else get_settings().public_app_url or "").rstrip("/")
+    href = (path or "").strip()
+    if not href:
+        return root
+    if href.startswith("http://") or href.startswith("https://") or href.startswith("mailto:"):
+        return href
+    if not href.startswith("/"):
+        href = "/" + href
+    return f"{root}{href}" if root else href
+
+
+def format_customer_email_body(text: str, *, base: str | None = None) -> tuple[str, str]:
+    """Rewrite in-app links for outbound customer email.
+
+    Returns ``(plain_text, html)``. Relative ``/docs/...`` markdown links become
+    absolute ``https://app…`` URLs so customers can click them outside Bokito.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return "", ""
+
+    def _abs(url: str) -> str:
+        return absolute_app_url(url, base=base)
+
+    # First expand markdown links, then any remaining bare app paths.
+    plain_parts: list[str] = []
+    html_parts: list[str] = []
+    last = 0
+    for match in _MD_LINK_RE.finditer(raw):
+        before = raw[last : match.start()]
+        plain_parts.append(before)
+        html_parts.append(before)
+        label, href = match.group(1), match.group(2).strip()
+        abs_href = _abs(href)
+        plain_parts.append(f"{label} ({abs_href})")
+        html_parts.append(f'<a href="{abs_href}">{label}</a>')
+        last = match.end()
+    plain_parts.append(raw[last:])
+    html_parts.append(raw[last:])
+    plain = "".join(plain_parts)
+    html_src = "".join(html_parts)
+
+    def _bare_plain(m: re.Match[str]) -> str:
+        return _abs(m.group(1))
+
+    def _bare_html(m: re.Match[str]) -> str:
+        href = _abs(m.group(1))
+        return f'<a href="{href}">{href}</a>'
+
+    plain = _BARE_APP_PATH_RE.sub(_bare_plain, plain)
+    html_src = _BARE_APP_PATH_RE.sub(_bare_html, html_src)
+    # Escape nothing else aggressively — body is operator/AI-authored; keep
+    # newlines as breaks. Strip residual markdown emphasis for plain mail.
+    plain = re.sub(r"[*]{1,2}([^*]+)[*]{1,2}", r"\1", plain)
+    html = "<p>" + html_src.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    return plain.strip(), html
+
+
 
 @dataclass(frozen=True)
 class SuggestionParts:

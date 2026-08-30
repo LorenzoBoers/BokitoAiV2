@@ -169,6 +169,15 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     if not body_text and body_html:
         body_text = body_html
 
+    # Safety net: relative /docs links and markdown must not leave the mailbox.
+    if signal.channel == "email":
+        from app.services.suggestion_format import format_customer_email_body
+
+        plain, html = format_customer_email_body(body_text)
+        body_text = plain or body_text
+        if not body_html:
+            body_html = html
+
     subject = str(tool_input.get("subject") or "").strip()
     if not subject:
         subject = f"Re: {signal.subject}" if signal.subject else "Reply"
@@ -1033,7 +1042,9 @@ register_tool(
         description=(
             "Search Bokito product-help articles (how to use the platform). "
             "Use this when the user asks how a Bokito page, setting, or workflow works. "
-            "Cite /learn/{slug} in-app or /docs/{slug} for a public link."
+            "Cite /learn/{slug} or /docs/{section}/{slug} for in-app operator messages. "
+            "In customer-facing email drafts, cite the full https://app.bokito.ai/docs/... "
+            "URL as plain text (never a relative path or markdown link)."
         ),
         category="workspace",
         input_schema={
