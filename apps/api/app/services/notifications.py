@@ -139,6 +139,10 @@ async def resolve_decision(
             "defer",
             "draft",
             "escalate",
+            "acknowledge",
+            "human_takeover",
+            "assign_me",
+            "take_over",
             "setup_integration",
             "enable_module",
             "add_module_source",
@@ -146,50 +150,57 @@ async def resolve_decision(
             "orchestration_continue",
         ):
             from app.tools import execute_tool
+            from app.tools.registry import get_tool_spec
 
-            if decision.signal_id and "signal_id" not in payload:
-                payload["signal_id"] = str(decision.signal_id)
+            # Agent-authored options sometimes invent action_type labels
+            # ("acknowledge", "call_customer", …). Only run registered tools;
+            # unknown types resolve as human-owned choices without a 422.
+            if get_tool_spec(action_type) is not None:
+                if decision.signal_id and "signal_id" not in payload:
+                    payload["signal_id"] = str(decision.signal_id)
 
-            tool_result = await execute_tool(
-                session,
-                tenant_id,
-                user_id,
-                action_type,
-                payload,
-                signal_id=decision.signal_id,
-                approved=True,
-            )
-            failed = isinstance(tool_result, dict) and bool(tool_result.get("error"))
-            await record_audit(
-                session,
-                tenant_id,
-                action=f"decision:execute:{action_type}",
-                actor_type="user",
-                actor_id=str(user_id) if user_id else "",
-                resource_type="decision",
-                resource_id=str(decision.id),
-                outcome="error" if failed else "executed",
-                summary=f"Executed approved action {action_type}",
-                payload=payload,
-                after=tool_result if isinstance(tool_result, dict) else None,
-            )
-            if failed:
-                # The action never happened: reopen the card so the operator
-                # can retry, and tell the caller why instead of pretending
-                # the reply was sent.
-                decision.status = "awaiting_human"
-                decision.chosen_option_id = None
-                decision.resolved_at = None
-                await session.commit()
-                raise DecisionActionError(action_type, str(tool_result.get("error")))
+                tool_result = await execute_tool(
+                    session,
+                    tenant_id,
+                    user_id,
+                    action_type,
+                    payload,
+                    signal_id=decision.signal_id,
+                    approved=True,
+                )
+                failed = isinstance(tool_result, dict) and bool(tool_result.get("error"))
+                await record_audit(
+                    session,
+                    tenant_id,
+                    action=f"decision:execute:{action_type}",
+                    actor_type="user" if user_id else "system",
+                    actor_id=str(user_id) if user_id else "",
+                    resource_type="decision",
+                    resource_id=str(decision.id),
+                    outcome="error" if failed else "executed",
+                    summary=f"Executed approved action {action_type}",
+                    payload=payload,
+                    after=tool_result if isinstance(tool_result, dict) else None,
+                )
+                if failed:
+                    # The action never happened: reopen the card so the operator
+                    # can retry, and tell the caller why instead of pretending
+                    # the reply was sent.
+                    decision.status = "awaiting_human"
+                    decision.chosen_option_id = None
+                    decision.resolved_at = None
+                    await session.commit()
+                    raise DecisionActionError(action_type, str(tool_result.get("error")))
 
     # Resolution is reflected on the decision itself (status + chosen option) and
     # via the `decision_{action}` SignalEvent written by the resolve endpoint; no
     # extra chat message is appended here to keep threads free of noise.
 
-    # Escalate (reject + escalate option, or approved escalate): pause AI and leave a system note.
+    # Escalate / human-owned choice: pause AI and leave a system note.
     escalate_chosen = chosen and (
-        chosen.get("id") == "escalate" or chosen.get("action_type") == "escalate"
+        chosen.get("id") == "escalate"
+        or chosen.get("action_type")
+        in ("escalate", "acknowledge", "human_takeover", "assign_me", "take_over")
     )
     if decision.signal_id and escalate_chosen and action in ("approved", "rejected"):
         sig_result = await session.execute(

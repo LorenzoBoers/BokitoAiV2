@@ -188,3 +188,61 @@ async def test_decision_accepts_linked_platform_change(client: AsyncClient, sess
         await session_override.execute(select(PlatformChange).where(PlatformChange.id == change.id))
     ).scalar_one()
     assert updated_change.status == "accepted"
+
+
+@pytest.mark.asyncio
+async def test_acknowledge_action_resolves_without_tool(client: AsyncClient, session_override):
+    """Human-owned options with invented action_types must not 422."""
+    from app.models.auth import Tenant, User
+    from app.models.signal import Signal
+    from scripts.seed import TEST_EMAIL
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="Escalate please",
+        status="open",
+        ai_paused=False,
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        title="Escalatie",
+        summary="Human should take over",
+        status="awaiting_human",
+        signal_id=signal.id,
+        options_json=json.dumps(
+            [
+                {
+                    "id": "call_back",
+                    "label": "Ik bel zelf terug",
+                    "action_type": "acknowledge",
+                },
+                {"id": "reject", "label": "Reject", "action_type": "reject"},
+            ]
+        ),
+    )
+    session_override.add(decision)
+    await session_override.commit()
+    await session_override.refresh(decision)
+    decision_id = decision.id
+    signal_id = signal.id
+
+    res = await client.post(
+        f"/api/notifications/decisions/{decision_id}/approve",
+        headers=headers,
+        json={"option_id": "call_back"},
+    )
+    assert res.status_code == 200, res.text
+
+    row = (
+        await session_override.execute(select(DecisionRequest).where(DecisionRequest.id == decision_id))
+    ).scalar_one()
+    assert row.status == "approved"
+    sig = (await session_override.execute(select(Signal).where(Signal.id == signal_id))).scalar_one()
+    assert sig.ai_paused is True
+    assert sig.assigned_user_id == user.id

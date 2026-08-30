@@ -1247,7 +1247,10 @@ register_tool(
         description=(
             "Ask the human to choose between concrete options via an inline card. "
             "Set input_type to 'text' on an option to let the human answer with "
-            "free text instead of clicking a fixed choice."
+            "free text instead of clicking a fixed choice. "
+            "For action_type use a real platform tool name when approving should "
+            "run that tool, or one of: escalate, acknowledge, defer, reject. "
+            "Use escalate or acknowledge when a human takes over (no tool runs)."
         ),
         category="messaging",
         input_schema={
