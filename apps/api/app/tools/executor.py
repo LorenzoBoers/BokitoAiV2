@@ -88,6 +88,25 @@ async def execute_tool(
     )
 
     if mode == "ask":
+        # Never ask humans to approve MCP calls that cannot run here (e.g. mock://
+        # servers in production). Return an error to the agent so it can continue
+        # with a customer-facing draft instead of a dead-end decision card.
+        if tool_name == "call_mcp_tool":
+            blocked = await _mcp_unavailable_in_env(session, tenant_id, tool_input)
+            if blocked:
+                await record_audit(
+                    session,
+                    tenant_id,
+                    action=action,
+                    actor_type=actor_type,
+                    actor_id=actor_id,
+                    agent_id=agent_id,
+                    run_id=run_id,
+                    outcome="denied",
+                    summary=blocked,
+                    payload=tool_input,
+                )
+                return {"error": blocked, "status": "unavailable"}
         await record_audit(
             session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
             agent_id=agent_id, run_id=run_id, outcome="escalated",
@@ -108,6 +127,37 @@ async def execute_tool(
             after=result if isinstance(result, dict) else None,
         )
     return result
+
+
+async def _mcp_unavailable_in_env(
+    session: AsyncSession,
+    tenant_id: UUID,
+    tool_input: dict[str, Any],
+) -> str | None:
+    """Return an error message when an MCP server cannot execute in this env."""
+    from app.config import get_settings
+    from app.models.integration import McpServer
+
+    server_name = str(tool_input.get("server_name") or "").strip()
+    if not server_name:
+        return None
+    row = (
+        await session.execute(
+            select(McpServer).where(
+                McpServer.tenant_id == tenant_id,
+                McpServer.name == server_name,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    url = str(row.server_url or "")
+    if url.startswith("mock://") and get_settings().is_production:
+        return (
+            f"MCP server {server_name} has a mock URL, which is not allowed "
+            "in production. Reinstall it with a real server URL."
+        )
+    return None
 
 
 async def _create_policy_decision(

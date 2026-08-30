@@ -165,6 +165,7 @@ function optionLabelKey(option: DecisionOption): string | null {
     create_task: 'createTask',
     keep_open: 'keepOpen',
     approve: 'approve',
+    always_auto: 'alwaysAllow',
     reject: 'reject',
     later: 'later',
     defer: 'defer',
