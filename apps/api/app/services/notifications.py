@@ -105,6 +105,64 @@ async def resolve_decision(
                 except ValueError:
                     pass
 
+        if action_type == "calendar_create_event":
+            from app.services.calendar_sync import create_external_event
+
+            conn_raw = str(payload.get("connection_id") or "").strip()
+            title = str(payload.get("title") or "").strip()
+            start_raw = str(payload.get("start_at") or "").strip()
+            end_raw = str(payload.get("end_at") or "").strip()
+            if conn_raw and title and start_raw and end_raw:
+                try:
+                    start_at = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))
+                    end_at = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+                    await create_external_event(
+                        session,
+                        tenant_id,
+                        connection_id=UUID(conn_raw),
+                        title=title,
+                        start_at=start_at,
+                        end_at=end_at,
+                        description=str(payload.get("description") or ""),
+                        location=str(payload.get("location") or ""),
+                    )
+                except Exception as exc:
+                    raise DecisionActionError(action_type, str(exc)) from exc
+
+        if action_type == "calendar_update_event":
+            from app.services.calendar_sync import update_external_event
+
+            event_raw = str(payload.get("event_id") or "").strip()
+            if event_raw:
+                try:
+                    start_at = None
+                    end_at = None
+                    start_raw = str(payload.get("start_at") or "").strip()
+                    end_raw = str(payload.get("end_at") or "").strip()
+                    if start_raw:
+                        start_at = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))
+                    if end_raw:
+                        end_at = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+                    title = payload.get("title")
+                    await update_external_event(
+                        session,
+                        tenant_id,
+                        UUID(event_raw),
+                        title=str(title).strip() if title is not None else None,
+                        start_at=start_at,
+                        end_at=end_at,
+                        description=(
+                            str(payload.get("description"))
+                            if "description" in payload
+                            else None
+                        ),
+                        location=(
+                            str(payload.get("location")) if "location" in payload else None
+                        ),
+                    )
+                except Exception as exc:
+                    raise DecisionActionError(action_type, str(exc)) from exc
+
         if action_type == "add_module_source":
             slug = str(payload.get("module") or "").strip()
             url = str(payload.get("url") or "").strip()
@@ -145,6 +203,8 @@ async def resolve_decision(
             "take_over",
             "setup_integration",
             "enable_module",
+            "calendar_create_event",
+            "calendar_update_event",
             "add_module_source",
             "accept_platform_change",
             "orchestration_continue",

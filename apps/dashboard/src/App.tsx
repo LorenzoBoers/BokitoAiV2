@@ -14,7 +14,7 @@ import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-set
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { CardGridSkeleton } from './components/ui/skeleton'
-import { agentChatPath, agentRunsPath, channelPath, inboxPath, newConversationPath } from './lib/messages-paths'
+import { agentChatPath, agentRunsPath, channelPath, decisionsPath, inboxPath, newConversationPath } from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
 // Public pages
@@ -63,6 +63,7 @@ const IntegrationsConnected = lazy(() => import('./pages/IntegrationsConnected')
 const IntegrationsMarketplace = lazy(() => import('./pages/IntegrationsMarketplace'))
 const ModulesPage = lazy(() => import('./pages/ModulesPage'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
+const ModuleWorkspacePage = lazy(() => import('./pages/ModuleWorkspacePage'))
 const IntegrationsMcp = lazy(() => import('./pages/IntegrationsMcp'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const GovernPage = lazy(() => import('./pages/GovernPage'))
@@ -182,7 +183,7 @@ function LegacyCustomersRedirect() {
     )
   }
   if (queue === 'awaiting-decision') {
-    return <Navigate to={`${agentRunsPath('awaiting-decision', threadId)}${location.search}`} replace />
+    return <Navigate to={`${decisionsPath(threadId)}${location.search}`} replace />
   }
   const target = LEGACY_CUSTOMER_QUEUE_MAP[queue ?? ''] ?? 'all'
   return <Navigate to={`${inboxPath(target as Parameters<typeof inboxPath>[0], threadId)}${location.search}`} replace />
@@ -195,12 +196,22 @@ const LEGACY_RUNS_QUEUE_MAP: Record<string, 'all' | 'updates' | 'results' | 'awa
   'awaiting-decision': 'awaiting-decision',
 }
 
-/** `/communication/agents/:queue[...]` → `/communication/runs/:queue[...]`. */
+/** `/communication/agents/:queue[...]` → `/communication/runs/:queue[...]` (or Decisions). */
 function LegacyAgentsRedirect() {
   const { queue, threadId } = useParams<{ queue?: string; threadId?: string }>()
   const location = useLocation()
-  const target = LEGACY_RUNS_QUEUE_MAP[queue ?? ''] ?? 'all'
-  return <Navigate to={`${agentRunsPath(target, threadId)}${location.search}`} replace />
+  const mapped = LEGACY_RUNS_QUEUE_MAP[queue ?? ''] ?? 'all'
+  if (mapped === 'awaiting-decision') {
+    return <Navigate to={`${decisionsPath(threadId)}${location.search}`} replace />
+  }
+  return <Navigate to={`${agentRunsPath(mapped, threadId)}${location.search}`} replace />
+}
+
+/** `/communication/runs/awaiting-decision[...]` → `/communication/decisions[...]`. */
+function LegacyAwaitingDecisionRedirect() {
+  const { threadId } = useParams<{ threadId?: string }>()
+  const location = useLocation()
+  return <Navigate to={`${decisionsPath(threadId)}${location.search}`} replace />
 }
 
 /** `/messages/...` → the new inbox/runs routes. */
@@ -272,8 +283,20 @@ export default function App() {
             <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<DirectCommunication />} />
 
+            {/* Decisions — sole exception queue for open DecisionRequests */}
+            <Route path="/communication/decisions" element={<Communication />} />
+            <Route path="/communication/decisions/t/:threadId" element={<Communication />} />
+
             {/* Agent runs */}
             <Route path="/communication/runs" element={<Navigate to={agentRunsPath('all')} replace />} />
+            <Route
+              path="/communication/runs/awaiting-decision"
+              element={<LegacyAwaitingDecisionRedirect />}
+            />
+            <Route
+              path="/communication/runs/awaiting-decision/t/:threadId"
+              element={<LegacyAwaitingDecisionRedirect />}
+            />
             <Route path="/communication/runs/:queue" element={<Communication />} />
             <Route path="/communication/runs/:queue/t/:threadId" element={<Communication />} />
 
@@ -336,6 +359,7 @@ export default function App() {
           {/* Modules hub (first-class product surface) */}
           <Route path="/modules" element={<ModulesPage />} />
           <Route path="/modules/:slug" element={<ModuleSetupPage />} />
+          <Route path="/ai/modules/:slug" element={<ModuleWorkspacePage />} />
 
           {/* Settings */}
           <Route element={<SettingsLayout />}>

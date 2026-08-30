@@ -35,6 +35,19 @@ async def _tenant(session: AsyncSession) -> Tenant:
     return tenant
 
 
+async def _enable_accounting(session: AsyncSession, tenant: Tenant) -> None:
+    """Installed modules need >=1 rostered agent; create one and enable."""
+    from app.models.agent import Agent
+    from app.services.module_agents import add_module_agent
+
+    agent = Agent(tenant_id=tenant.id, name=f"Boekhouder {uuid4().hex[:6]}", kind="company")
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+    await add_module_agent(session, tenant.id, "accounting", agent.id, is_default=True)
+    await set_module_enabled(session, tenant.id, "accounting", True)
+
+
 async def _moneybird_connection(
     session: AsyncSession, tenant: Tenant, *, token: str = ""
 ) -> IntegrationConnection:
@@ -59,7 +72,7 @@ def test_module_catalog_has_prepared_modules():
     assert modules["accounting"]["status"] == "available"
     assert modules["accounting"]["setup_path"] == "/modules/accounting"
     assert modules["accounting"]["enabled"] is False
-    assert modules["accounting"]["tenant_status"] == "off"
+    assert modules["accounting"]["tenant_status"] == "not_installed"
     assert "list_companies" in modules["accounting"]["verbs"]
     assert modules["accounting"]["verb_labels"]
     assert modules["accounting"]["needs_when"]
@@ -105,7 +118,7 @@ async def test_no_connection_returns_structured_error(session_override: AsyncSes
     assert result["ok"] is False
     assert result["code"] == "module_off"
 
-    await set_module_enabled(session_override, tenant.id, "accounting", True)
+    await _enable_accounting(session_override, tenant)
     result = await call_accounting_verb(session_override, tenant.id, "list_companies")
     assert result["ok"] is False
     assert result["code"] == "no_connection"
@@ -315,6 +328,154 @@ def test_build_proposal_shapes_decision_payload():
     assert build_proposal("propose_nonsense", {}) is None
 
 
+def test_build_proposal_routes_approve_to_apply_tool():
+    proposal = build_proposal(
+        "propose_booking",
+        {
+            "summary": "Boek verkoopfactuur 2026-0042",
+            "connection_id": "conn-1",
+            "company_id": "adm-1",
+            "payload": {
+                "journal": "10",
+                "date": "2026-08-31",
+                "lines": [
+                    {"account": "10000", "debit": 100.0},
+                    {"account": "8000", "credit": 100.0},
+                ],
+            },
+        },
+    )
+    assert proposal is not None
+    approve = proposal["options"][0]
+    assert approve["action_type"] == "accounting_apply_booking"
+    # Structured payload is flattened next to the routing ids.
+    assert approve["payload"]["journal"] == "10"
+    assert approve["payload"]["connection_id"] == "conn-1"
+    assert approve["payload"]["company_id"] == "adm-1"
+
+    party = build_proposal("propose_party", {"summary": "New debtor", "payload": {"name": "X"}})
+    assert party is not None
+    assert party["options"][0]["action_type"] == "accounting_apply_party"
+
+    # No apply path yet for match/send: stays a recorded human decision.
+    send = build_proposal("propose_send", {"summary": "Send it"})
+    assert send is not None
+    assert send["options"][0]["action_type"] == "approve"
+
+
+# ── writes: kill switch + apply chain ────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_apply_blocked_by_platform_switch(session_override: AsyncSession, monkeypatch):
+    from app.config import get_settings
+
+    tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
+    await install_mcp(
+        session_override,
+        tenant.id,
+        provider="king_accountancy",
+        api_key="",
+        display_name="KING Accountancy",
+    )
+    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", False)
+
+    result = await call_accounting_verb(
+        session_override, tenant.id, "apply_party", {"name": "Nieuwe Debiteur"}
+    )
+    assert result["ok"] is False
+    assert result["code"] == "writes_disabled"
+    assert "ACCOUNTING_WRITES_ENABLED" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_apply_blocked_by_tenant_pref(session_override: AsyncSession, monkeypatch):
+    from app.config import get_settings
+
+    tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
+    await install_mcp(
+        session_override,
+        tenant.id,
+        provider="king_accountancy",
+        api_key="",
+        display_name="KING Accountancy",
+    )
+    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+
+    result = await call_accounting_verb(
+        session_override, tenant.id, "apply_party", {"name": "Nieuwe Debiteur"}
+    )
+    assert result["ok"] is False
+    assert result["code"] == "writes_disabled"
+    assert "Modules > Accounting" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_apply_runs_when_both_switches_on(session_override: AsyncSession, monkeypatch):
+    from app.config import get_settings
+    from app.modules.catalog import update_module_prefs
+
+    tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
+    await install_mcp(
+        session_override,
+        tenant.id,
+        provider="king_accountancy",
+        api_key="",
+        display_name="KING Accountancy",
+    )
+    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+    await update_module_prefs(
+        session_override, tenant.id, "accounting", writes_enabled=True
+    )
+
+    # No credentials in dev -> mock write, proving the chain end-to-end.
+    result = await call_accounting_verb(
+        session_override, tenant.id, "apply_party", {"name": "Nieuwe Debiteur"}
+    )
+    assert result["ok"] is True
+    assert result.get("applied") is True
+    assert result.get("mock") is True
+
+
+@pytest.mark.asyncio
+async def test_apply_invalid_payload_rejected(session_override: AsyncSession, monkeypatch):
+    from app.config import get_settings
+    from app.modules.catalog import update_module_prefs
+
+    tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
+    await install_mcp(
+        session_override,
+        tenant.id,
+        provider="king_accountancy",
+        api_key="",
+        display_name="KING Accountancy",
+    )
+    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+    await update_module_prefs(
+        session_override, tenant.id, "accounting", writes_enabled=True
+    )
+
+    result = await call_accounting_verb(
+        session_override, tenant.id, "apply_party", {}
+    )
+    assert result["ok"] is False
+    assert result["code"] == "invalid_payload"
+
+
+def test_apply_capability_matrix():
+    assert vendor_supports("king", "parties.write")
+    assert vendor_supports("king", "journal.write")
+    assert not vendor_supports("king", "documents.sales.write")
+    assert not vendor_supports("moneybird", "parties.write")
+    assert not vendor_supports("bjorn_lunden", "journal.write")
+    assert capability_for_verb("apply_party") == "parties.write"
+    assert capability_for_verb("apply_booking") == "journal.write"
+
+
 # ── tools registered ─────────────────────────────────────────────
 
 
@@ -341,6 +502,12 @@ def test_accounting_tools_registered_and_ungated():
         assert spec is not None, name
         assert spec.gated is False  # the tool itself asks the human
 
+    for name in ("accounting_apply_party", "accounting_apply_booking"):
+        spec = get_tool_spec(name)
+        assert spec is not None, name
+        assert spec.mutating is True
+        assert spec.gated is True  # direct agent calls escalate to a decision
+
 
 # ── skill injection + snapshot ───────────────────────────────────
 
@@ -351,7 +518,7 @@ async def test_module_skill_injected_only_with_connection(session_override: Asyn
     playbook = await active_module_skill_prompt(session_override, tenant.id)
     assert playbook == ""
 
-    await set_module_enabled(session_override, tenant.id, "accounting", True)
+    await _enable_accounting(session_override, tenant)
     playbook = await active_module_skill_prompt(session_override, tenant.id)
     assert "on, no package" in playbook
     assert "recommend_module" in playbook
@@ -410,7 +577,7 @@ async def test_snapshot_lists_unconnected_modules(session_override: AsyncSession
     assert snapshot["modules"]
     prompt = format_tenant_snapshot_prompt(snapshot)
     assert "Modules:" in prompt
-    assert "accounting — off" in prompt
+    assert "accounting — not installed" in prompt
     assert "/modules/accounting" in prompt
     assert "prepared, not connectable" in prompt
 
@@ -425,7 +592,7 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     assert slugs == {"accounting", "banking", "investing", "documents"}
     accounting = next(row for row in listed["modules"] if row["slug"] == "accounting")
     assert accounting["setup_path"] == "/modules/accounting"
-    assert accounting["tenant_status"] == "off"
+    assert accounting["tenant_status"] == "not_installed"
     assert accounting["enabled"] is False
 
     coming = await execute_tool(
@@ -472,6 +639,205 @@ def test_module_tools_hidden_until_enabled():
         "accounting_propose_send",
         "create_agent",
     ]
+
+
+def test_module_tools_require_agent_roster():
+    from app.services.module_agents import filter_tools_for_agent_modules
+
+    tools = [
+        {"name": "list_modules"},
+        {"name": "accounting_list_companies"},
+        {"name": "create_agent"},
+    ]
+    # Module installed but agent not on roster → hide accounting tools.
+    no_roster = filter_tools_for_agent_modules(
+        tools, enabled_slugs={"accounting"}, rostered_slugs=set()
+    )
+    assert [t["name"] for t in no_roster] == ["list_modules", "create_agent"]
+    on_roster = filter_tools_for_agent_modules(
+        tools, enabled_slugs={"accounting"}, rostered_slugs={"accounting"}
+    )
+    assert [t["name"] for t in on_roster] == [
+        "list_modules",
+        "accounting_list_companies",
+        "create_agent",
+    ]
+
+
+def test_read_only_roster_hides_propose_and_apply_tools():
+    from app.services.module_agents import filter_tools_for_agent_modules
+
+    tools = [
+        {"name": "accounting_list_companies"},
+        {"name": "accounting_propose_booking"},
+        {"name": "accounting_apply_booking"},
+        {"name": "create_agent"},
+    ]
+    read_only = filter_tools_for_agent_modules(
+        tools,
+        enabled_slugs={"accounting"},
+        rostered_slugs={"accounting"},
+        writable_slugs=set(),
+    )
+    assert [t["name"] for t in read_only] == [
+        "accounting_list_companies",
+        "create_agent",
+    ]
+    writable = filter_tools_for_agent_modules(
+        tools,
+        enabled_slugs={"accounting"},
+        rostered_slugs={"accounting"},
+        writable_slugs={"accounting"},
+    )
+    assert [t["name"] for t in writable] == [
+        "accounting_list_companies",
+        "accounting_propose_booking",
+        "accounting_apply_booking",
+        "create_agent",
+    ]
+
+
+# ── per-agent scope enforcement ──────────────────────────────────
+
+
+async def _rostered_agent(session: AsyncSession, tenant: Tenant, **access):
+    from app.models.agent import Agent
+    from app.services.module_agents import add_module_agent, update_module_agent_access
+
+    agent = Agent(tenant_id=tenant.id, name=f"Scoped {uuid4().hex[:6]}", kind="company")
+    session.add(agent)
+    await session.commit()
+    await session.refresh(agent)
+    await add_module_agent(session, tenant.id, "accounting", agent.id)
+    if access:
+        await update_module_agent_access(
+            session, tenant.id, "accounting", agent.id, **access
+        )
+    return agent
+
+
+@pytest.mark.asyncio
+async def test_agent_not_on_roster_is_forbidden(session_override: AsyncSession):
+    from app.models.agent import Agent
+
+    tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
+    await _moneybird_connection(session_override, tenant)
+    outsider = Agent(tenant_id=tenant.id, name="Outsider", kind="company")
+    session_override.add(outsider)
+    await session_override.commit()
+    await session_override.refresh(outsider)
+
+    result = await call_accounting_verb(
+        session_override, tenant.id, "list_companies", agent_id=outsider.id
+    )
+    assert result["ok"] is False
+    assert result["code"] == "agent_forbidden"
+
+
+@pytest.mark.asyncio
+async def test_agent_company_scope_enforced(session_override: AsyncSession):
+    tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
+    await _moneybird_connection(session_override, tenant)
+    agent = await _rostered_agent(
+        session_override, tenant, company_ids=["adm-demo-2"]
+    )
+
+    listed = await call_accounting_verb(
+        session_override, tenant.id, "list_companies", agent_id=agent.id
+    )
+    assert listed["ok"] is True
+    assert [c["id"] for c in listed["companies"]] == ["adm-demo-2"]
+
+    denied = await call_accounting_verb(
+        session_override,
+        tenant.id,
+        "search_parties",
+        {"company_id": "adm-demo-1", "query": "x"},
+        agent_id=agent.id,
+    )
+    assert denied["ok"] is False
+    assert denied["code"] == "company_forbidden"
+
+    allowed = await call_accounting_verb(
+        session_override,
+        tenant.id,
+        "search_parties",
+        {"company_id": "adm-demo-2", "query": "x"},
+        agent_id=agent.id,
+    )
+    assert allowed["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_read_only_agent_cannot_apply(session_override: AsyncSession, monkeypatch):
+    from app.config import get_settings
+    from app.modules.catalog import update_module_prefs
+
+    tenant = await _tenant(session_override)
+    await _enable_accounting(session_override, tenant)
+    await _moneybird_connection(session_override, tenant)
+    monkeypatch.setattr(get_settings(), "accounting_writes_enabled", True)
+    await update_module_prefs(
+        session_override, tenant.id, "accounting", writes_enabled=True
+    )
+    agent = await _rostered_agent(session_override, tenant)
+
+    result = await call_accounting_verb(
+        session_override,
+        tenant.id,
+        "apply_party",
+        {"name": "Test"},
+        agent_id=agent.id,
+    )
+    assert result["ok"] is False
+    assert result["code"] == "write_forbidden"
+
+
+@pytest.mark.asyncio
+async def test_user_access_pref_gates_members_not_admins(session_override: AsyncSession):
+    from app.modules.catalog import update_module_prefs, user_can_access_module
+
+    tenant = await _tenant(session_override)
+    allowed_user = uuid4()
+    other_user = uuid4()
+
+    # No pref set: every member may use the module.
+    assert await user_can_access_module(
+        session_override, tenant.id, "accounting", user_id=other_user, role="member"
+    )
+
+    await update_module_prefs(
+        session_override,
+        tenant.id,
+        "accounting",
+        user_access={"mode": "selected", "user_ids": [str(allowed_user)]},
+    )
+    assert await user_can_access_module(
+        session_override, tenant.id, "accounting", user_id=allowed_user, role="member"
+    )
+    assert not await user_can_access_module(
+        session_override, tenant.id, "accounting", user_id=other_user, role="member"
+    )
+    # Owners and admins always keep access.
+    assert await user_can_access_module(
+        session_override, tenant.id, "accounting", user_id=other_user, role="owner"
+    )
+    assert await user_can_access_module(
+        session_override, tenant.id, "accounting", user_id=other_user, role="admin"
+    )
+
+    # Back to all_members reopens the module.
+    await update_module_prefs(
+        session_override,
+        tenant.id,
+        "accounting",
+        user_access={"mode": "all_members"},
+    )
+    assert await user_can_access_module(
+        session_override, tenant.id, "accounting", user_id=other_user, role="member"
+    )
 
 
 def test_modules_listed_in_marketplace_payload():

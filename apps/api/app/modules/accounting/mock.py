@@ -165,4 +165,11 @@ def mock_verb(vendor: str, connection_id: str, verb: str, args: dict[str, Any]) 
             ],
             mock=True,
         )
+    if verb.startswith("apply_"):
+        return ok_result(
+            applied=True,
+            vendor_id="mock-write-1",
+            note=f"Mock write for {verb}; no real accounting package was touched.",
+            mock=True,
+        )
     return ok_result(note=f"Mock response for {verb}", mock=True)

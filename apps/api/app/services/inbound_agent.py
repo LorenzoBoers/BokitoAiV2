@@ -287,6 +287,75 @@ async def acknowledge_automated_mail(
     }
 
 
+async def acknowledge_channel_not_ready(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    agent: Agent | None,
+    *,
+    state: str = "",
+    state_reason: str = "",
+) -> dict:
+    """Quiet exception when AI cannot reply because the channel cannot send.
+
+    Matches the composer rule: no undeliverable drafts or auto-sends. Operators
+    see an internal note plus a timeline event; no ``Send`` decision card.
+    """
+    reason = (state_reason or state or "cannot_send").strip()
+    note = (
+        "AI did not draft a customer reply: this channel cannot send yet. "
+        "Finish channel setup under Settings → Email & messages, then take over "
+        "or hand the thread back to AI."
+    )
+    session.add(
+        SignalMessage(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            kind="internal_note",
+            direction="internal",
+            role="assistant" if agent else "system",
+            author_agent_id=agent.id if agent else None,
+            body_text=note,
+            body_preview=note[:200],
+            received_at=datetime.utcnow(),
+            metadata_json=json.dumps(
+                {
+                    "kind": "channel_not_ready",
+                    "state": state,
+                    "state_reason": state_reason,
+                }
+            ),
+        )
+    )
+    apply_suggested_actions(signal)
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            event_type="channel_not_ready",
+            actor_type="agent" if agent else "system",
+            actor_id=str(agent.id) if agent else "",
+            payload_json=json.dumps(
+                {
+                    "kind": "channel_not_ready",
+                    "state": state,
+                    "state_reason": state_reason,
+                    "reason": reason,
+                }
+            ),
+        )
+    )
+    await session.commit()
+    return {
+        "suggestion": False,
+        "kind": "channel_not_ready",
+        "reason": reason,
+        "channel": signal.channel,
+        "delivery": "channel_not_ready",
+    }
+
+
 async def create_human_attention_suggestion(
     session: AsyncSession,
     tenant_id: UUID,
@@ -560,6 +629,24 @@ async def persist_inbound_agent_reply(
     if text in _SKIP_REPLIES or signal.ai_paused:
         return {"skipped": True, "reason": "empty_or_paused"}
 
+    # Defense in depth: never create a Send card or customer bubble when the
+    # bound channel cannot deliver (composer already blocks the same way).
+    if signal.channel in ("email", "slack", "whatsapp") and signal.channel_account_id:
+        from app.models.channel import ChannelAccount
+        from app.services.channel_registry import account_can_send, resolve_channel
+
+        account = await session.get(ChannelAccount, signal.channel_account_id)
+        if account is not None and not account_can_send(account):
+            row = resolve_channel(account)
+            return await acknowledge_channel_not_ready(
+                session,
+                tenant_id,
+                signal,
+                agent,
+                state=str(row.get("state") or ""),
+                state_reason=str(row.get("state_reason") or ""),
+            )
+
     if mode == "suggest":
         outcome = await create_reply_suggestion(
             session,
@@ -623,11 +710,14 @@ async def persist_inbound_agent_reply(
 
     delivery_status = "skipped"
     if signal.channel in _DELIVERABLE_CHANNELS:
-        from app.services.signatures import resolve_signature_html
+        from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
         # Auto mode sends carry the agent identity: agent signature, with the
         # mailbox signature as fallback.
         signature_html = await resolve_signature_html(
+            session, tenant_id, send_as="agent", agent_id=agent.id
+        )
+        from_display_name = await resolve_from_display_name(
             session, tenant_id, send_as="agent", agent_id=agent.id
         )
         delivery = await deliver_outbound(
@@ -636,6 +726,7 @@ async def persist_inbound_agent_reply(
             body_text=text,
             subject=f"Re: {signal.subject}" if signal.subject else "Reply",
             signature_html=signature_html,
+            from_display_name=from_display_name,
         )
         delivery_status = delivery.status
         if delivery.body_html:

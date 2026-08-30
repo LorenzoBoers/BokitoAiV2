@@ -29,6 +29,7 @@ Govern is policy. Open **Settings**, then **Govern**. Message-level choices stay
 2. Pick **Manual**, **Assisted** or **Autonomous**. See [Autonomy](/docs/govern/autonomy).
 3. Under **Allowance sliders**, set each category to **Deny**, **Ask first** or **Allow**. Override one tool when the category is too broad.
 4. Categories include Messaging, Workspace, Agents, Channels, Triggers, Integrations, Govern and Handoff. External visitor sessions never auto-mutate.
+5. When learning sees many escalated tool gates or rejected tool decisions on a category that was **Allow**, Bokito can tighten that slider to **Ask first** automatically. A short note appears under the sliders. Loosening a slider stays a manual edit here.
 
 Per-agent overrides live on the agent page under Tools and permissions.
 

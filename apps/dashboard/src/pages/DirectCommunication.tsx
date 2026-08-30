@@ -33,7 +33,7 @@ import {
   type InboxThread,
   type ThreadId,
 } from '../lib/inbox-api'
-import { agentChatPath, leafFromPath, leafPath, SUB_QUEUE_TO_VIEW } from '../lib/messages-paths'
+import { agentChatPath, decisionsPath, leafFromPath, leafPath, SUB_QUEUE_TO_VIEW } from '../lib/messages-paths'
 
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
   switch (quickFilter) {
@@ -285,6 +285,10 @@ export default function DirectCommunication() {
       )
     },
     onDigitFilter: (digit) => {
+      if (digit === 5) {
+        navigate(decisionsPath())
+        return
+      }
       const next =
         digit === 1
           ? 'all'
@@ -292,9 +296,7 @@ export default function DirectCommunication() {
             ? 'needsReply'
             : digit === 3
               ? 'unread'
-              : digit === 4
-                ? 'pinned'
-                : 'needsDecision'
+              : 'pinned'
       setQuickFilter(next)
     },
   })

@@ -416,6 +416,21 @@ def can_send(row: dict[str, Any]) -> bool:
     )
 
 
+def account_can_send(
+    account: ChannelAccount | None,
+    *,
+    tenant: Tenant | None = None,
+) -> bool:
+    """Whether this ChannelAccount may deliver outbound messages right now.
+
+    Same rule the dashboard composer uses via ``can_send`` on a resolved row.
+    Missing or disabled accounts cannot send.
+    """
+    if account is None or not account.is_enabled:
+        return False
+    return can_send(resolve_channel(account, tenant=tenant))
+
+
 async def last_event_by_account(
     session: Any, tenant_id: UUID
 ) -> dict[UUID, datetime]:

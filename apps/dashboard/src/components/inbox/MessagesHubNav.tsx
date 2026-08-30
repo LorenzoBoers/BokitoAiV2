@@ -6,6 +6,7 @@ import {
   Inbox,
   Mail,
   Plus,
+  Scale,
   Settings,
   Tag,
 } from 'lucide-react'
@@ -24,6 +25,7 @@ import { countForInboxQueue } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
   inboxPath,
+  decisionsPath,
   leafFromPath,
   leafKey,
   newConversationPath,
@@ -572,6 +574,15 @@ export default function MessagesHubNav() {
               </>
             }
           />
+          <NavLink
+            to={decisionsPath()}
+            title={t('support.decisions.hint')}
+            className={({ isActive }) => navLinkClass(isActive || activeLeaf?.type === 'decisions')}
+          >
+            <Scale size={14} className="shrink-0 text-text-muted" />
+            <span className="min-w-0 flex-1 truncate">{t('support.decisions.label')}</span>
+            <NavCountBadge count={counts.agentsAttention} placement="inline" />
+          </NavLink>
         </section>
 
         {visibleSections.map((section) => {

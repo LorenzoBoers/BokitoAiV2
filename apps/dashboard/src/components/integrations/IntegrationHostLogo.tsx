@@ -120,10 +120,16 @@ export function IntegrationHostLogo({
 
   if (showImage) {
     const useDarkVariant = hasDarkLogo
+    // Colorful marks (Gmail, Microsoft, Slack, …) sit on the surface plate.
+    // Never force a white disc — that breaks dark UI vs BrandMark / WhatsApp.
+    const invertOnDark =
+      Boolean(hostSlug) &&
+      ['github', 'notion', 'linear', 'custom', 'smtp'].includes(hostSlug!) &&
+      !hasDarkLogo
     return (
       <span
         className={cn(
-          'relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-white ring-1 ring-border/60',
+          'relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-bg-elevated ring-1 ring-border/50',
           sizes.box,
           className,
         )}
@@ -135,6 +141,7 @@ export function IntegrationHostLogo({
             className={cn(
               'h-full w-full object-contain p-1',
               useDarkVariant && 'dark:hidden',
+              invertOnDark && 'dark:invert',
               imageClassName,
             )}
             loading="lazy"

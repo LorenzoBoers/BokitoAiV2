@@ -218,7 +218,16 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated }: Pr
             to={`/agents/${agentId}`}
             className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2.5 transition-colors hover:border-accent/50"
           >
-            <AiAvatar name={agent.name} seed={agentId} size={32} className="mt-0.5" />
+            <AiAvatar
+              name={agent.name}
+              seed={agentId}
+              size={32}
+              className="mt-0.5"
+              kind={agent.avatar_kind}
+              icon={agent.avatar_icon}
+              color={agent.avatar_color}
+              imageUrl={agent.avatar_image_url}
+            />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-text-heading">{agent.name}</span>
               <span className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">

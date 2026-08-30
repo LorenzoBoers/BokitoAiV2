@@ -39,9 +39,10 @@ describe('configForLeaf', () => {
     })
   })
 
-  it('keeps awaiting-decision unscoped by folder', () => {
-    const leaf: HubLeaf = { type: 'runs', queue: 'awaiting-decision' }
+  it('keeps Decisions unscoped by folder', () => {
+    const leaf: HubLeaf = { type: 'decisions' }
     expect(configForLeaf(leaf).filters).toEqual({ view: 'awaiting_decision' })
+    expect(configForLeaf(leaf).mode).toBe('agent')
   })
 })
 

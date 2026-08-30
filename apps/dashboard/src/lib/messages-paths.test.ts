@@ -138,6 +138,18 @@ describe('sameLeafScope', () => {
     expect(leafKey({ type: 'inbox', queue: 'open' })).toBe('inbox:open')
   })
 
+  it('round-trips the Decisions leaf', () => {
+    expect(leafFromPath('/communication/decisions')).toEqual({ type: 'decisions' })
+    expect(leafPath({ type: 'decisions' })).toBe('/communication/decisions')
+    expect(leafPath({ type: 'decisions' }, 'sig-1')).toBe('/communication/decisions/t/sig-1')
+    expect(leafKey({ type: 'decisions' })).toBe('decisions')
+  })
+
+  it('matches Decisions scope', () => {
+    expect(sameLeafScope({ type: 'decisions' }, { type: 'decisions' })).toBe(true)
+    expect(sameLeafScope({ type: 'decisions' }, { type: 'inbox' })).toBe(false)
+  })
+
   it('matches the same tag regardless of queue', () => {
     expect(
       sameLeafScope({ type: 'tag', tag: 'vip', queue: 'closed' }, { type: 'tag', tag: 'vip' }),

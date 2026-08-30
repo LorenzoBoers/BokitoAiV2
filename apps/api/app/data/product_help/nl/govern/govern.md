@@ -29,6 +29,7 @@ Govern is beleid. Open **Instellingen** en daarna **Govern**. Keuzes op berichtn
 2. Kies **Handmatig**, **Ondersteund** of **Autonoom**. Zie [Autonomie](/docs/govern/autonomy).
 3. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Overschrijf één tool wanneer de categorie te breed is.
 4. Categorieën zijn onder meer Berichten, Workspace, Agents, Kanalen, Triggers, Integraties, Govern en Overdracht. Externe bezoekerssessies muteren nooit automatisch.
+5. Als learning veel geëscaleerde tool-gates of afgewezen toolbeslissingen ziet op een categorie die **Toestaan** stond, kan Bokito die slider automatisch aanscherpen naar **Eerst vragen**. Onder de sliders verschijnt een korte notitie. Losser maken blijft hier een handmatige edit.
 
 Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 

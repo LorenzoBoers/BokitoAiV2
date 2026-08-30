@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { toast } from 'sonner'
 import {
   agentRunsPath,
+  decisionsPath,
   inboxPath,
   newConversationPath,
   leafFromPath,
@@ -88,7 +89,6 @@ const ACTIVITY_CHIPS: ReadonlyArray<{ queue: RunsQueue; labelKey: string }> = [
   { queue: 'all', labelKey: 'runsChips.all' },
   { queue: 'updates', labelKey: 'runsChips.updates' },
   { queue: 'results', labelKey: 'runsChips.results' },
-  { queue: 'awaiting-decision', labelKey: 'runsChips.decisions' },
 ]
 
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
@@ -255,6 +255,10 @@ export default function Communication() {
 
   const applyQuickFilterChange = useCallback(
     (value: InboxListQuickFilter) => {
+      if (value === 'needsDecision') {
+        navigate(decisionsPath())
+        return
+      }
       setQuickFilter(value)
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev)
@@ -263,14 +267,18 @@ export default function Communication() {
         return next
       }, { replace: true })
     },
-    [setQuickFilter, setSearchParams],
+    [navigate, setQuickFilter, setSearchParams],
   )
 
   const urlFilter = searchParams.get('filter')
   useEffect(() => {
     const fromUrl = parseQuickFilterParam(urlFilter)
+    if (fromUrl === 'needsDecision') {
+      navigate(decisionsPath(), { replace: true })
+      return
+    }
     if (fromUrl) setQuickFilter(fromUrl)
-  }, [urlFilter, setQuickFilter])
+  }, [urlFilter, setQuickFilter, navigate])
 
   const {
     threads,
@@ -838,6 +846,10 @@ export default function Communication() {
       )
     },
     onDigitFilter: (digit) => {
+      if (digit === 5) {
+        navigate(decisionsPath())
+        return
+      }
       const next =
         digit === 1
           ? 'all'
@@ -845,9 +857,7 @@ export default function Communication() {
             ? 'needsReply'
             : digit === 3
               ? 'unread'
-              : digit === 4
-                ? 'pinned'
-                : 'needsDecision'
+              : 'pinned'
       applyQuickFilterChange(next)
     },
   })
@@ -1214,7 +1224,7 @@ export default function Communication() {
       {!(onboardingStatus && !onboardingStatus.completed && !onboardingDismissed) ? (
       <PageGuideBanner
         page="communication"
-        variant={leaf.type === 'runs' ? 'runs' : undefined}
+        variant={leaf.type === 'runs' ? 'runs' : leaf.type === 'decisions' ? 'decisions' : undefined}
         className="mx-3 mt-3 shrink-0 md:hidden"
       />
       ) : null}
@@ -1314,7 +1324,9 @@ export default function Communication() {
                 ? t('threadList.emptySearch', { query: search.trim() })
                 : agentIdFilter || projectId
                 ? t('threadList.emptyScoped')
-                : leaf.type === 'runs'
+                : leaf.type === 'decisions'
+                  ? t('threadList.emptyDecisions')
+                  : leaf.type === 'runs'
                   ? t('threadList.emptyRuns')
                   : leaf.type === 'inbox' && leaf.queue === 'snoozed'
                     ? t('threadList.emptySnoozed')
@@ -1347,16 +1359,24 @@ export default function Communication() {
                     {t('threadList.openInbox')}
                   </Link>
                 </div>
+              ) : leaf.type === 'decisions' ? (
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                  <p className="w-full text-[11px] text-text-muted">{t('threadList.emptyDecisionsHint')}</p>
+                  <Link
+                    to={inboxPath('open')}
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.openInbox')}
+                  </Link>
+                  <Link
+                    to="/agents"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.openAgents')}
+                  </Link>
+                </div>
               ) : leaf.type === 'runs' ? (
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  {runsQueue === 'awaiting-decision' ? (
-                    <Link
-                      to={inboxPath('open')}
-                      className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                    >
-                      {t('threadList.openInbox')}
-                    </Link>
-                  ) : null}
                   <Link
                     to="/agents"
                     className="rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"

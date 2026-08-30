@@ -3,8 +3,13 @@
 Resolves the tenant's accounting connections (KING, Björn Lundén, Moneybird),
 routes a module verb to the right adapter, enforces the capability matrix,
 and falls back to normalized mocks in development when credentials are
-missing. Writes never happen here: ``build_proposal`` shapes a
-DecisionRequest payload and the human approves in the thread.
+missing.
+
+Writes: ``build_proposal`` shapes a DecisionRequest whose approve option is
+the matching ``accounting_apply_*`` tool. Apply verbs run here only after
+human approval and only when both write switches are on
+(``ACCOUNTING_WRITES_ENABLED`` env + ``modules.accounting.writes_enabled``
+tenant pref); otherwise they return a ``writes_disabled`` error.
 """
 
 from __future__ import annotations
@@ -23,7 +28,12 @@ from app.modules.accounting.adapters import bjorn_lunden as bl_adapter
 from app.modules.accounting.adapters import king as king_adapter
 from app.modules.accounting.adapters import moneybird as mb_adapter
 from app.modules.accounting.capabilities import capability_for_verb, vendor_supports
-from app.modules.accounting.schema import module_error, ok_result, unsupported
+from app.modules.accounting.schema import (
+    WRITE_PAYLOADS,
+    module_error,
+    ok_result,
+    unsupported,
+)
 
 VENDOR_LABELS = {
     "king": "KING Accountancy",
@@ -38,6 +48,23 @@ PROPOSE_VERBS = (
     "propose_match",
     "propose_send",
 )
+
+# Apply verbs execute an approved write through the vendor adapter. They are
+# only reachable via an approved DecisionRequest (accounting_apply_* tools)
+# and are guarded by the platform + tenant write switches.
+APPLY_VERBS = (
+    "apply_party",
+    "apply_booking",
+    "apply_document",
+    "apply_payment",
+)
+
+# propose kind -> apply verb/tool used when the human approves.
+PROPOSE_TO_APPLY = {
+    "party": "apply_party",
+    "booking": "apply_booking",
+    "document": "apply_document",
+}
 
 
 @dataclass
@@ -189,9 +216,18 @@ def _resolve_connection(
 
 
 async def call_accounting_verb(
-    session: AsyncSession, tenant_id: UUID, verb: str, args: dict[str, Any] | None = None
+    session: AsyncSession,
+    tenant_id: UUID,
+    verb: str,
+    args: dict[str, Any] | None = None,
+    *,
+    agent_id: UUID | None = None,
 ) -> dict[str, Any]:
-    """Execute one read verb against the right adapter with normalized output."""
+    """Execute one module verb against the right adapter with normalized output.
+
+    ``agent_id`` enables per-agent enforcement: roster membership, company
+    scope, and write access from the ModuleAgent row.
+    """
     args = dict(args or {})
     from app.modules.catalog import module_is_on
 
@@ -201,6 +237,26 @@ async def call_accounting_verb(
             "Accounting is off. Turn it on at /modules/accounting "
             "before agents use accounting tools.",
         )
+
+    company_scope: list[str] | None = None
+    if agent_id is not None:
+        from app.services.module_agents import module_agent_access, parse_company_scope
+
+        access = await module_agent_access(session, tenant_id, agent_id, "accounting")
+        if access is None:
+            return module_error(
+                "agent_forbidden",
+                "This agent is not on the accounting module roster. An operator "
+                "can add it under Modules > Accounting > Agents.",
+            )
+        company_scope = parse_company_scope(access)
+        if verb in APPLY_VERBS and not access.can_write:
+            return module_error(
+                "write_forbidden",
+                "This agent has read-only access to accounting. An operator can "
+                "grant write access under Modules > Accounting > Agents.",
+            )
+
     connections = await list_accounting_connections(session, tenant_id)
     if not connections:
         return module_error(
@@ -218,6 +274,8 @@ async def call_accounting_verb(
                 companies.extend(outcome.get("companies") or [])
             elif outcome.get("message"):
                 errors.append(f"{VENDOR_LABELS.get(conn.vendor, conn.vendor)}: {outcome['message']}")
+        if company_scope is not None:
+            companies = [c for c in companies if str(c.get("id") or "") in company_scope]
         result = ok_result(
             companies=companies,
             connections=[
@@ -249,8 +307,29 @@ async def call_accounting_verb(
     if capability and not vendor_supports(conn.vendor, capability):
         return unsupported(capability, VENDOR_LABELS.get(conn.vendor, conn.vendor))
 
+    if verb in APPLY_VERBS:
+        gate = await writes_gate(session, tenant_id)
+        if gate is not None:
+            return gate
+        payload_model = WRITE_PAYLOADS.get(verb)
+        if payload_model is not None:
+            payload_fields = {
+                k: v for k, v in args.items() if k in payload_model.model_fields
+            }
+            try:
+                validated = payload_model(**payload_fields)
+            except Exception as exc:
+                return module_error("invalid_payload", f"Invalid {verb} payload: {exc}")
+            args = {**args, **validated.model_dump()}
+
     if verb == "summarize":
-        return await _summarize(conn, args)
+        requested = str(args.get("company_id") or "").strip()
+        if company_scope is not None:
+            if requested and requested not in company_scope:
+                return _company_forbidden(requested)
+            if not requested and len(company_scope) == 1:
+                args["company_id"] = company_scope[0]
+        return await _summarize(conn, args, company_scope=company_scope)
 
     if not str(args.get("company_id") or "").strip():
         company_map = prefs.get("default_company_by_connection")
@@ -259,14 +338,35 @@ async def call_accounting_verb(
             if preferred:
                 args["company_id"] = preferred
         if not str(args.get("company_id") or "").strip():
-            default = await _default_company_id(conn)
-            if default:
-                args["company_id"] = default
+            if company_scope is not None and len(company_scope) == 1:
+                args["company_id"] = company_scope[0]
+            else:
+                default = await _default_company_id(conn)
+                if default:
+                    args["company_id"] = default
+
+    company_id = str(args.get("company_id") or "").strip()
+    if company_scope is not None and company_id and company_id not in company_scope:
+        return _company_forbidden(company_id)
 
     return await _dispatch(conn, verb, args)
 
 
-async def _summarize(conn: AccountingConnection, args: dict[str, Any]) -> dict[str, Any]:
+def _company_forbidden(company_id: str) -> dict[str, Any]:
+    return module_error(
+        "company_forbidden",
+        f"This agent is not allowed to access administration {company_id}. "
+        "Its accounting scope is limited; ask an operator to widen it under "
+        "Modules > Accounting > Agents.",
+    )
+
+
+async def _summarize(
+    conn: AccountingConnection,
+    args: dict[str, Any],
+    *,
+    company_scope: list[str] | None = None,
+) -> dict[str, Any]:
     """Composite overview: companies, outstanding, recent documents, ledger tail.
 
     Degrades per capability: unsupported sections are simply omitted.
@@ -278,6 +378,8 @@ async def _summarize(conn: AccountingConnection, args: dict[str, Any]) -> dict[s
     )
     companies_outcome = await _dispatch(conn, "list_companies", {})
     companies = companies_outcome.get("companies") or []
+    if company_scope is not None:
+        companies = [c for c in companies if str(c.get("id") or "") in company_scope]
     summary["companies"] = companies
 
     company_id = str(args.get("company_id") or "").strip()
@@ -305,11 +407,39 @@ async def _summarize(conn: AccountingConnection, args: dict[str, Any]) -> dict[s
     return summary
 
 
+async def writes_gate(session: AsyncSession, tenant_id: UUID) -> dict[str, Any] | None:
+    """Return a writes_disabled error unless BOTH write switches are on.
+
+    Platform: env ACCOUNTING_WRITES_ENABLED (default off).
+    Tenant: modules.accounting.writes_enabled pref (default off).
+    """
+    if not get_settings().accounting_writes_enabled:
+        return module_error(
+            "writes_disabled",
+            "Accounting writes are disabled on this platform "
+            "(ACCOUNTING_WRITES_ENABLED is off). The approved decision is "
+            "recorded, but nothing was written to the accounting package.",
+        )
+    from app.modules.catalog import get_module_prefs
+
+    prefs = await get_module_prefs(session, tenant_id, "accounting")
+    if not bool(prefs.get("writes_enabled")):
+        return module_error(
+            "writes_disabled",
+            "Accounting writes are disabled for this workspace. An owner or "
+            "admin can enable them under Modules > Accounting. The approved "
+            "decision is recorded, but nothing was written.",
+        )
+    return None
+
+
 def build_proposal(verb: str, args: dict[str, Any]) -> dict[str, Any] | None:
     """Shape a DecisionRequest payload for one accounting write proposal.
 
-    The approved decision documents the intended change; no silent write
-    happens (vendor write execution is a later slice).
+    Approve options point at the registered ``accounting_apply_*`` tool for
+    that write kind, so resolve_decision executes it (behind the write
+    switches). Kinds without an apply path (match, send) resolve as a
+    recorded human decision only.
     """
     if verb not in PROPOSE_VERBS:
         return None
@@ -323,12 +453,24 @@ def build_proposal(verb: str, args: dict[str, Any]) -> dict[str, Any] | None:
     }
     description = str(args.get("summary") or args.get("description") or "").strip()
     payload = {k: v for k, v in args.items() if k not in ("summary", "description")}
+    inner = payload.pop("payload", None)
+    if isinstance(inner, dict):
+        # Flatten the structured write details next to connection/company ids
+        # so the apply tool receives one flat payload.
+        payload = {**inner, **payload}
+    apply_verb = PROPOSE_TO_APPLY.get(kind)
+    approve_action = f"accounting_{apply_verb}" if apply_verb else "approve"
     return {
         "title": str(args.get("title") or titles.get(kind, f"Accounting {kind}")),
         "summary": description
-        or f"Proposed accounting write ({kind}). Review the payload and approve to record the decision.",
+        or f"Proposed accounting write ({kind}). Review the payload and approve to apply it.",
         "options": [
-            {"id": "approve", "label": "Approve", "action_type": "approve", "payload": payload},
+            {
+                "id": "approve",
+                "label": "Approve",
+                "action_type": approve_action,
+                "payload": payload,
+            },
             {"id": "reject", "label": "Reject", "action_type": "reject"},
         ],
     }

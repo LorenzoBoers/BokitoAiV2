@@ -1,8 +1,8 @@
 ---
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
-description: Brief company agents, set chat access, pause them, and add an email signature.
-keywords: agents, ai workforce, pause, chat access, signature
+description: Brief company agents, set chat access, pause them, add a signature, and set visual identity.
+keywords: agents, ai workforce, pause, chat access, signature, avatar, icon
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -16,13 +16,13 @@ Agents are the AI workers for this workspace. Open **Agents** to add one, change
 ![Agents library](/api/docs/assets/agents/library.png)
 *Each agent is a card. The default handler has a Lead badge.*
 
-1. Open **Agents**. Company agents appear as cards. The agent that handles unassigned work shows a **Lead** badge and the line **Handles mail when nothing else is assigned**. **Filter agents** narrows the grid. Pills **All**, **Working**, **Paused** and **Lead** hide the rest.
+1. Open **Agents**. Company agents appear as cards. The agent that handles unassigned work shows a **Lead** badge and the line **Handles mail when nothing else is assigned**. Each card can show **open** conversations and threads that **need a decision** — open the card and scroll to **Open conversations**, or jump into Communication for that agent. **Filter agents** narrows the grid. Pills **All**, **Working**, **Paused** and **Lead** hide the rest.
 2. Choose **New agent**. Pick a starter (**Customer support**, **Team assistant**, or **Project lead**), enter a **Name**, pick a **Role** (the line under the role explains what it does), a **Model**, optional **Project**, optional **Instructions**, then **Create agent**.
 3. Open a card for instructions, model and chat access. Use **Chat** to start an internal thread. **More actions** holds Knowledge, Inbox AI, Setup and **Duplicate**.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
 
-When agents need a yes or no, a banner opens **Decisions** in Communication. Tip cards for automated mail (receipts, newsletters) do not count there. If those tips piled up, the banner **Clear tip cards** removes them without changing real decisions.
+Real decisions live in each conversation (and under **Open conversations** on the agent). Tip cards for automated mail do not inflate those counts.
 
 New chats in Communication require a **company agent**. If none are available for you, the composer shows **No agents available**. Open **Agents** or the setup guide to add one.
 
@@ -45,9 +45,19 @@ Leads do not use the same pause and access controls as other company agents.
 
 ## Add an agent signature
 
-1. On a company agent, open the email signature card.
-2. Add HTML that is appended when replies go out as that agent (automatic sends and approvals on behalf of the agent).
-3. If the card is empty, the mailbox signature is the fallback. See [Channels](/docs/inbox/channels).
+1. On a company agent, open **Email signature & send as**.
+2. Choose the default **Send as**: **As this agent** (signs as the agent) or **As the approving teammate** (impersonates the person who approves).
+3. Enter a plain-text signature. Line breaks are kept. When the agent sends as itself, Bokito always adds a short “Replied by an AI agent · Powered by Bokito AI” line with a link to [bokito.ai](https://bokito.ai) under the signature.
+4. Save. Approvals for this agent use that default until you pick another Send as on the card.
+
+
+## Set icon, color or photo
+
+1. Open a company agent.
+2. On the **Visual identity** card, choose **Edit**.
+3. Pick **Initials**, **Icon** (with a color), or **Image** (upload a photo), then save.
+
+The same look shows on the Agents library, agent detail, Messages, the default agent email signature (photo when set), and the webchat header bubble for the answering agent.
 
 ## Schedule the agent
 

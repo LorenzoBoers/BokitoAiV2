@@ -59,12 +59,18 @@ class TokenCreate(BaseModel):
 
 
 def _allowance_state(tenant: Tenant) -> dict:
+    settings = tenant_settings(tenant)
+    history = settings.get("learning_allowance_history")
+    if not isinstance(history, list):
+        history = []
+    learning_history = [h for h in history if isinstance(h, dict)][:5]
     return {
         "posture": resolve_posture(tenant),
         "allowances": tenant_allowances(tenant),
         "tool_overrides": tenant_tool_overrides(tenant),
         "categories": list(TOOL_CATEGORIES),
         "presets": serialize_posture_catalog(),
+        "learning_history": learning_history,
     }
 
 

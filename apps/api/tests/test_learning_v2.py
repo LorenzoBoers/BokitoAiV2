@@ -315,7 +315,182 @@ async def test_two_thumbs_down_threads_do_not_suggest(client: AsyncClient, sessi
     assert await suggest_rules_from_feedback(session_override, tenant.id) == 0
 
 
-# ── digest learning stats ─────────────────────────────────────────
+# ── category allowance tighten (allow → ask) ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_allowance_tighten_from_escalations(client: AsyncClient, session_override):
+    from datetime import datetime
+
+    from app.models.audit import AuditEvent
+    from app.services.learning import apply_heuristic_allowance_tighten
+    from app.tools.policy import tenant_allowances
+
+    tenant = await _tenant(session_override)
+    _set_settings(tenant, autonomy_posture="assisted")
+    session_override.add(tenant)
+    for _ in range(5):
+        session_override.add(
+            AuditEvent(
+                tenant_id=tenant.id,
+                action="tool_call:write_doc",
+                actor_type="agent",
+                outcome="escalated",
+                summary="Escalated to human",
+                created_at=datetime.utcnow(),
+            )
+        )
+    await session_override.commit()
+
+    result = await apply_heuristic_allowance_tighten(session_override, tenant.id)
+    assert len(result["tightened"]) == 1
+    assert result["tightened"][0]["category"] == "workspace"
+    assert result["tightened"][0]["to"] == "ask"
+
+    await session_override.refresh(tenant)
+    settings = json.loads(tenant.settings_json)
+    assert settings["tool_allowances"]["workspace"] == "ask"
+    assert tenant_allowances(tenant)["workspace"] == "ask"
+    assert settings["learning_allowance_history"][0]["category"] == "workspace"
+
+    from app.models.audit import AuditEvent as AE
+
+    audits = (
+        await session_override.execute(
+            select(AE).where(AE.action == "learning:allowance_tightened")
+        )
+    ).scalars().all()
+    assert len(audits) == 1
+
+    # Idempotent: already ask — no second tighten.
+    result2 = await apply_heuristic_allowance_tighten(session_override, tenant.id)
+    assert result2["tightened"] == []
+
+
+@pytest.mark.asyncio
+async def test_allowance_tighten_from_rejected_tool_decisions(
+    client: AsyncClient, session_override
+):
+    from datetime import datetime
+
+    from app.models.notification import DecisionRequest
+    from app.services.learning import apply_heuristic_allowance_tighten
+
+    tenant = await _tenant(session_override)
+    _set_settings(tenant, autonomy_posture="autonomous")
+    session_override.add(tenant)
+    for i in range(3):
+        session_override.add(
+            DecisionRequest(
+                tenant_id=tenant.id,
+                title=f"Approve tool {i}",
+                summary="gate",
+                status="rejected",
+                options_json=json.dumps(
+                    [
+                        {
+                            "id": "approve",
+                            "label": "Approve",
+                            "action_type": "create_agent",
+                            "payload": {},
+                        },
+                        {"id": "reject", "label": "Reject", "action_type": "reject"},
+                    ]
+                ),
+                resolved_at=datetime.utcnow(),
+            )
+        )
+    await session_override.commit()
+
+    result = await apply_heuristic_allowance_tighten(session_override, tenant.id)
+    assert any(row["category"] == "agents" and row["to"] == "ask" for row in result["tightened"])
+    await session_override.refresh(tenant)
+    assert json.loads(tenant.settings_json)["tool_allowances"]["agents"] == "ask"
+
+
+@pytest.mark.asyncio
+async def test_allowance_tighten_never_loosens(client: AsyncClient, session_override):
+    from datetime import datetime
+
+    from app.models.audit import AuditEvent
+    from app.services.learning import apply_heuristic_allowance_tighten
+
+    tenant = await _tenant(session_override)
+    _set_settings(
+        tenant,
+        autonomy_posture="assisted",
+        tool_allowances={"workspace": "deny"},
+    )
+    session_override.add(tenant)
+    for _ in range(10):
+        session_override.add(
+            AuditEvent(
+                tenant_id=tenant.id,
+                action="tool_call:write_doc",
+                actor_type="agent",
+                outcome="escalated",
+                summary="Escalated",
+            )
+        )
+    await session_override.commit()
+
+    result = await apply_heuristic_allowance_tighten(session_override, tenant.id)
+    assert result["tightened"] == []
+    await session_override.refresh(tenant)
+    assert json.loads(tenant.settings_json)["tool_allowances"]["workspace"] == "deny"
+
+
+@pytest.mark.asyncio
+async def test_learning_cycle_includes_allowance_tighten(client: AsyncClient, session_override):
+    from datetime import datetime
+
+    from app.models.audit import AuditEvent
+
+    tenant = await _tenant(session_override)
+    _set_settings(tenant, autonomy_posture="assisted")
+    session_override.add(tenant)
+    for _ in range(5):
+        session_override.add(
+            AuditEvent(
+                tenant_id=tenant.id,
+                action="tool_call:write_doc",
+                actor_type="agent",
+                outcome="escalated",
+                created_at=datetime.utcnow(),
+            )
+        )
+    await session_override.commit()
+
+    result = await run_tenant_learning_cycle(session_override, tenant.id)
+    assert not result.get("skipped")
+    assert len(result.get("allowances", {}).get("tightened") or []) == 1
+
+
+@pytest.mark.asyncio
+async def test_digest_includes_allowance_tighten_count(client: AsyncClient, session_override):
+    from datetime import datetime
+
+    from app.models.audit import AuditEvent
+    from app.services.digest_mail import build_tenant_digest, digest_paragraphs
+
+    tenant = await _tenant(session_override)
+    session_override.add(
+        AuditEvent(
+            tenant_id=tenant.id,
+            action="learning:allowance_tightened",
+            actor_type="system",
+            summary="workspace allow → ask",
+            created_at=datetime.utcnow(),
+        )
+    )
+    await session_override.commit()
+
+    digest = await build_tenant_digest(session_override, tenant.id, period="weekly")
+    assert digest["allowances_tightened"] == 1
+    lines = digest_paragraphs(digest, tenant.name)
+    learning_line = next(line for line in lines if line.startswith("Learning:"))
+    assert "policy slider(s) tightened" in learning_line
+
 
 
 @pytest.mark.asyncio

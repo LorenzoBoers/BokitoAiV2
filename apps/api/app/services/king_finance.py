@@ -5,8 +5,10 @@ tenant is an accountancy kantoor; each client environment is an administratie
 identified by an omgevingscode. The platform partnerkey comes from env
 (``KING_FINANCE_PARTNER_KEY``), never from a King username/password.
 
-Read-only in V1. Writes (CreateJournaalpost, CreateStamTabelRecord, …) stay
-out of this module until they go through a DecisionRequest.
+Reads are agent-visible tools. Writes (CreateJournaalpost,
+Create/UpdateStamTabelRecord) exist as internal write tools that only the
+accounting module apply path may call — after a human approved the
+DecisionRequest and only when the platform + tenant write switches are on.
 """
 
 from __future__ import annotations
@@ -82,6 +84,13 @@ KING_NATIVE_TOOLS: list[dict[str, str]] = [
         "description": "Last booking dates/periods for the selected administratie",
     },
 ]
+
+# Write tools: not in KING_NATIVE_TOOLS (agents never see them directly).
+# Only the accounting module apply path calls these, after human approval
+# and behind the platform + tenant write switches.
+KING_WRITE_TOOL_NAMES = frozenset(
+    {"create_journal_entry", "create_party", "update_party"}
+)
 
 # (partner_key, omgevingscode) -> (session_id, expires_at_epoch)
 _session_cache: dict[tuple[str, str], tuple[str, float]] = {}
@@ -171,9 +180,16 @@ def _dataset_selectie(
     where_operators: str = "",
     where_values: str = "",
     order_by: str = "",
-    page: int = 0,
+    page: int = 1,
+    page_size: int = 10000,
 ) -> str:
-    """Minimal ADO.NET DataSet XML that Cloudswitch accepts as Selectie."""
+    """Cloudswitch Selectie payload (NewDataSet/Table1), sent as CDATA.
+
+    Docs: https://apps.imuisonline.com/muis-apps/getstamtabelrecords/
+    Multi-field SELECT/WHERE values are TAB-separated.
+    """
+    # Cloudswitch requires WHERE* and ORDERBY tags even when empty
+    # ("De selectie is incompleet, zie veld: ORDERBY").
     cells = {
         "TABLE": table,
         "SELECTFIELDS": select_fields,
@@ -182,34 +198,18 @@ def _dataset_selectie(
         "WHEREVALUES": where_values,
         "ORDERBY": order_by,
         "MAXRESULT": "0",
-        "PAGESIZE": "0",
-        "SELECTPAGE": str(page),
+        "PAGESIZE": str(page_size),
+        "SELECTPAGE": str(page if page > 0 else 1),
     }
-    field_xsd = "\n".join(
-        f'                <xs:element name="{name}" type="xs:string" minOccurs="0" />'
-        for name in cells
-    )
-    row_xml = "\n".join(f"          <{name}>{escape(value)}</{name}>" for name, value in cells.items())
-    return (
-        '<xs:schema id="NewDataSet" xmlns="" '
-        'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
-        'xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">'
-        '<xs:element name="NewDataSet" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">'
-        "<xs:complexType><xs:choice minOccurs=\"0\" maxOccurs=\"unbounded\">"
-        f'<xs:element name="Table1"><xs:complexType><xs:sequence>{field_xsd}'
-        "</xs:sequence></xs:complexType></xs:element>"
-        "</xs:choice></xs:complexType></xs:element></xs:schema>"
-        '<diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" '
-        'xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">'
-        f'<NewDataSet><Table1 diffgr:id="Table11" msdata:rowOrder="0">{row_xml}'
-        "</Table1></NewDataSet></diffgr:diffgram>"
-    )
+    row_parts = [f"<{name}>{escape(value)}</{name}>" for name, value in cells.items()]
+    return f"<NewDataSet><Table1>{''.join(row_parts)}</Table1></NewDataSet>"
 
 
 def _soap_envelope(method: str, fields: dict[str, str], selectie_xml: str | None = None) -> str:
     parts = [f"      <{name}>{escape(value)}</{name}>" for name, value in fields.items()]
     if selectie_xml is not None:
-        parts.append(f"      <Selectie>{selectie_xml}</Selectie>")
+        # ws1_xml expects Selectie as a string (CDATA NewDataSet), not nested XML.
+        parts.append(f"      <Selectie><![CDATA[{selectie_xml}]]></Selectie>")
         parts.append("      <Records />")
         parts.append("      <Foutmelding></Foutmelding>")
     inner = "\n".join(parts)
@@ -247,24 +247,56 @@ def _row_to_dict(row: ET.Element) -> dict[str, str]:
 
 
 def parse_dataset_rows(records_el: ET.Element | None) -> list[dict[str, str]]:
-    """Turn a Cloudswitch Records DataSet into a list of row dicts."""
+    """Turn a Cloudswitch Records payload into a list of row dicts.
+
+    ws1_xml often returns Records as an HTML-escaped NewDataSet string
+    (``&lt;NewDataSet&gt;...``). Nested XML DataSets are also accepted.
+    """
     if records_el is None:
         return []
+
+    text = (records_el.text or "").strip()
+    if text:
+        import html
+
+        # Outer SOAP parse already expands entities once. Only unescape when
+        # the payload is still tag-escaped (&lt;NewDataSet&gt;…); a second
+        # html.unescape would turn &amp; into bare & and break ET.fromstring.
+        candidate = text
+        if candidate.lower().startswith("&lt;"):
+            candidate = html.unescape(candidate).strip()
+        if candidate.startswith("<"):
+            try:
+                inner = ET.fromstring(candidate)
+            except ET.ParseError:
+                inner = None
+            if inner is not None:
+                return _rows_from_dataset_root(inner)
+
+    return _rows_from_dataset_root(records_el)
+
+
+def _rows_from_dataset_root(root: ET.Element) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
-    for node in records_el.iter():
+    for node in root.iter():
         tag = _local(node.tag).upper()
-        if tag in {"DATA", "TABLE1"} or tag.startswith("TABLE"):
+        if tag in {"METADATA", "NEWDATASET", "RECORDS", "SCHEMA", "DIFFGRAM"}:
+            continue
+        if tag in {"DATA", "TABLE1"} or tag.startswith("TABLE") or tag in {
+            "BASALG",
+            "BASFIN",
+            "DEB",
+            "CRED",
+            "GRB",
+        }:
             parsed = _row_to_dict(node)
-            if parsed:
-                rows.append(parsed)
-        elif tag == "ADM" or tag.endswith("ROW"):
-            parsed = _row_to_dict(node)
-            if parsed:
-                rows.append(parsed)
+            # Prefer leaf rows with field children, skip wrapper-only nodes.
+            if parsed and any(k.upper() not in {"TABLE", "SELECTFIELDS"} for k in parsed):
+                if parsed not in rows:
+                    rows.append(parsed)
     if rows:
         return rows
-    # Fallback: any element with child scalars under NewDataSet / diffgram.
-    for node in records_el.iter():
+    for node in root.iter():
         if _local(node.tag) in {"NewDataSet", "diffgram", "Records", "schema"}:
             continue
         children = [c for c in list(node) if (c.text or "").strip()]
@@ -289,11 +321,21 @@ def parse_soap_response(xml_text: str, method: str) -> dict[str, Any]:
     session_el = next((el for el in response.iter() if _local(el.tag) == "SessionId"), None)
     error_el = next((el for el in response.iter() if _local(el.tag) == "Foutmelding"), None)
     records_el = next((el for el in response.iter() if _local(el.tag) == "Records"), None)
+    primary_el = next((el for el in response.iter() if _local(el.tag) == "Primarykey"), None)
+    primary_keys: list[str] = []
+    if primary_el is not None:
+        direct = _element_text(primary_el)
+        if direct:
+            primary_keys.append(direct)
+        primary_keys.extend(
+            text for child in primary_el if (text := (child.text or "").strip())
+        )
     return {
         "ok": _truthy(_element_text(result_el)) if result_el is not None else True,
         "session_id": _element_text(session_el),
         "error": _element_text(error_el),
         "rows": parse_dataset_rows(records_el),
+        "primary_keys": primary_keys,
     }
 
 
@@ -313,6 +355,100 @@ async def _soap_call(
         response = await client.post(base_url, content=envelope.encode("utf-8"), headers=headers)
         response.raise_for_status()
         return parse_soap_response(response.text, method)
+
+
+def _write_envelope(
+    method: str,
+    session_fields: dict[str, str],
+    dataset_field: str,
+    dataset_xml: str,
+    *,
+    include_primarykey: bool,
+) -> str:
+    """SOAP envelope for Cloudswitch write methods.
+
+    Writes take a named dataset (Journaalpost / Stamtabel / Mutatie) as a
+    CDATA string, plus ByRef Primarykey (create methods) and Foutmelding.
+    """
+    parts = [f"      <{name}>{escape(value)}</{name}>" for name, value in session_fields.items()]
+    parts.append(f"      <{dataset_field}><![CDATA[{dataset_xml}]]></{dataset_field}>")
+    if include_primarykey:
+        parts.append("      <Primarykey />")
+    parts.append("      <Foutmelding></Foutmelding>")
+    inner = "\n".join(parts)
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        f'<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        f'xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+        f'xmlns:soap="{KING_SOAPENV}">'
+        f"<soap:Body>"
+        f'<{method} xmlns="{KING_SOAP_NS}">'
+        f"{inner}"
+        f"</{method}>"
+        f"</soap:Body></soap:Envelope>"
+    )
+
+
+async def _soap_write(
+    method: str,
+    session_fields: dict[str, str],
+    *,
+    dataset_field: str,
+    dataset_xml: str,
+    include_primarykey: bool,
+    base_url: str,
+) -> dict[str, Any]:
+    envelope = _write_envelope(
+        method,
+        session_fields,
+        dataset_field,
+        dataset_xml,
+        include_primarykey=include_primarykey,
+    )
+    headers = {
+        "Content-Type": "text/xml; charset=utf-8",
+        "SOAPAction": f'"{KING_SOAP_NS}{method}"',
+    }
+    async with _http_client() as client:
+        response = await client.post(base_url, content=envelope.encode("utf-8"), headers=headers)
+        response.raise_for_status()
+        return parse_soap_response(response.text, method)
+
+
+def _stamtabel_dataset(
+    table: str,
+    fields: dict[str, Any],
+    *,
+    where: tuple[str, str, str] | None = None,
+) -> str:
+    """METADATA + DATA dataset for Create/UpdateStamTabelRecord."""
+    meta_cells = [f"<TABLE>{escape(table)}</TABLE>"]
+    if where is not None:
+        meta_cells.append(f"<WHEREFIELDS>{escape(where[0])}</WHEREFIELDS>")
+        meta_cells.append(f"<WHEREOPERATORS>{escape(where[1])}</WHEREOPERATORS>")
+        meta_cells.append(f"<WHEREVALUES>{escape(where[2])}</WHEREVALUES>")
+    data_cells = [
+        f"<{name}>{escape(str(value))}</{name}>"
+        for name, value in fields.items()
+        if str(value or "").strip()
+    ]
+    return (
+        f"<NewDataSet><METADATA>{''.join(meta_cells)}</METADATA>"
+        f"<DATA>{''.join(data_cells)}</DATA></NewDataSet>"
+    )
+
+
+def _journaalpost_dataset(rows: list[dict[str, Any]]) -> str:
+    """BOE dataset for CreateJournaalpost (one <BOE> element per datarow)."""
+    parts: list[str] = []
+    for row in rows:
+        cells = "".join(
+            f"<{name}>{escape(str(value))}</{name}>"
+            for name, value in row.items()
+            if str(value if value is not None else "").strip()
+        )
+        parts.append(f"<BOE>{cells}</BOE>")
+    return f"<NewDataSet>{''.join(parts)}</NewDataSet>"
 
 
 async def _login(partner_key: str, omgevingscode: str, base_url: str) -> str:
@@ -370,14 +506,17 @@ async def validate_credentials(auth: dict[str, Any]) -> dict[str, Any]:
 async def call_king_tool(
     auth: dict[str, Any], tool_name: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """Execute one read-only KING Cloudswitch tool.
+    """Execute one KING Cloudswitch tool.
 
-    Returns ``{"result": ...}`` on success or ``{"error": ...}`` on failure.
+    Reads are agent-visible (``KING_NATIVE_TOOLS``); write tools
+    (``KING_WRITE_TOOL_NAMES``) are only reachable through the accounting
+    module apply path. Returns ``{"result": ...}`` or ``{"error": ...}``.
     """
     if tool_name == "list_companies":
         return {"result": public_companies(auth)}
 
-    if tool_name not in {t["name"] for t in KING_NATIVE_TOOLS}:
+    known = {t["name"] for t in KING_NATIVE_TOOLS} | KING_WRITE_TOOL_NAMES
+    if tool_name not in known:
         return {"error": f"Unknown KING Accountancy tool: {tool_name}"}
 
     partner_key = resolve_partner_key(auth)
@@ -410,13 +549,23 @@ async def call_king_tool(
             parsed = await _soap_call(
                 "GetAdmInfo",
                 session_fields,
-                selectie_xml=_dataset_selectie(),
+                selectie_xml=_dataset_selectie(
+                    table="BASALG",
+                    select_fields="NAAM\tNAAM2\tADRES\tPOSTCD\tPLAATS\tLAND\tBTWNR",
+                ),
                 base_url=base_url,
             )
             if not parsed["ok"]:
                 return {"error": parsed["error"] or "GetAdmInfo failed"}
             details = parsed["rows"][0] if parsed["rows"] else {}
-            return {"result": {"company_id": admin["id"], "name": admin["name"], **details}}
+            display_name = str(details.get("NAAM") or admin["name"])
+            return {
+                "result": {
+                    "company_id": admin["id"],
+                    "name": display_name,
+                    **details,
+                }
+            }
 
         if tool_name in ("search_customers", "get_customer"):
             customer_id = str(arguments.get("customer_id") or arguments.get("id") or "").strip()
@@ -427,7 +576,7 @@ async def call_king_tool(
                 session_fields,
                 selectie_xml=_dataset_selectie(
                     table="DEB",
-                    select_fields="NR\tNAAM\tEMAIL\tSTRAAT\tPLAATS\tPOSTCD\tTELEFOON",
+                    select_fields="NR\tNAAM\tEMAIL\tSTRAAT\tPLAATS\tPOSTCD",
                     where_fields=where[0],
                     where_operators=where[1],
                     where_values=where[2],
@@ -488,16 +637,18 @@ async def call_king_tool(
             return {"result": rows}
 
         if tool_name == "list_recent_bookings":
+            # These endpoints accept an empty NewDataSet selection.
+            empty_selectie = "<NewDataSet><Table1></Table1></NewDataSet>"
             dates = await _soap_call(
                 "GetDatumLaatsteBoekingen",
                 {"PartnerKey": partner_key},
-                selectie_xml=_dataset_selectie(),
+                selectie_xml=empty_selectie,
                 base_url=base_url,
             )
             period = await _soap_call(
                 "GetLaatsteBoekingPeriode",
                 session_fields,
-                selectie_xml=_dataset_selectie(),
+                selectie_xml=empty_selectie,
                 base_url=base_url,
             )
             if not dates["ok"] and not period["ok"]:
@@ -512,8 +663,78 @@ async def call_king_tool(
                     "errors": [e for e in (dates.get("error"), period.get("error")) if e],
                 }
             }
+
+        if tool_name == "create_journal_entry":
+            rows = arguments.get("rows") or []
+            if not isinstance(rows, list) or not rows:
+                return {"error": "create_journal_entry requires prepared BOE rows"}
+            parsed = await _soap_write(
+                "CreateJournaalpost",
+                session_fields,
+                dataset_field="Journaalpost",
+                dataset_xml=_journaalpost_dataset(rows),
+                include_primarykey=True,
+                base_url=base_url,
+            )
+            if not parsed["ok"]:
+                return {"error": parsed["error"] or "CreateJournaalpost failed"}
+            return {
+                "result": {
+                    "company_id": admin["id"],
+                    "created": True,
+                    "primary_keys": parsed.get("primary_keys") or [],
+                }
+            }
+
+        if tool_name in ("create_party", "update_party"):
+            table = "CRED" if str(arguments.get("role") or "") == "supplier" else "DEB"
+            fields = arguments.get("fields") or {}
+            if not isinstance(fields, dict) or not fields:
+                return {"error": f"{tool_name} requires a fields mapping"}
+            if tool_name == "create_party":
+                parsed = await _soap_write(
+                    "CreateStamTabelRecord",
+                    session_fields,
+                    dataset_field="Stamtabel",
+                    dataset_xml=_stamtabel_dataset(table, fields),
+                    include_primarykey=True,
+                    base_url=base_url,
+                )
+                if not parsed["ok"]:
+                    return {"error": parsed["error"] or "CreateStamTabelRecord failed"}
+                keys = parsed.get("primary_keys") or []
+                return {
+                    "result": {
+                        "company_id": admin["id"],
+                        "created": True,
+                        "party_number": keys[0] if keys else "",
+                        "primary_keys": keys,
+                    }
+                }
+            number = str(arguments.get("party_id") or "").strip()
+            if not number:
+                return {"error": "update_party requires party_id (NR)"}
+            parsed = await _soap_write(
+                "UpdateStamtabelRecord",
+                session_fields,
+                dataset_field="Mutatie",
+                dataset_xml=_stamtabel_dataset(table, fields, where=("NR", "=", number)),
+                include_primarykey=False,
+                base_url=base_url,
+            )
+            if not parsed["ok"]:
+                return {"error": parsed["error"] or "UpdateStamtabelRecord failed"}
+            return {
+                "result": {
+                    "company_id": admin["id"],
+                    "updated": True,
+                    "party_number": number,
+                }
+            }
     except httpx.HTTPStatusError as exc:
-        detail = exc.response.text[:300] if exc.response is not None else str(exc)
+        detail = (exc.response.text or "").strip()[:300] if exc.response is not None else str(exc)
+        if not detail and exc.response is not None:
+            detail = f"(empty body, status={exc.response.status_code})"
         return {"error": f"KING Finance API error ({exc.response.status_code}): {detail}"}
     except Exception as exc:
         return {"error": f"KING Finance API request failed: {exc}"}

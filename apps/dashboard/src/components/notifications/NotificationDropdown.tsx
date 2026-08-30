@@ -9,7 +9,7 @@ import { translateDecisionText } from '../../lib/activity-labels';
 import { collapseNotifications } from '../../lib/notification-groups';
 import { activityDayBucket } from '../../lib/activity-day';
 import { pathForNotification } from '../../lib/notification-path';
-import { agentRunsPath, inboxPath } from '../../lib/messages-paths';
+import { decisionsPath, inboxPath } from '../../lib/messages-paths';
 
 const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
   status_update: CalendarClock,
@@ -110,7 +110,7 @@ export default function NotificationDropdown() {
               {hasDecisions ? (
                 <button
                   type="button"
-                  onClick={() => navigate(agentRunsPath('awaiting-decision'))}
+                  onClick={() => navigate(decisionsPath())}
                   className="font-medium text-text-muted transition-colors hover:text-accent"
                 >
                   {t('notificationsUi.openDecisions')}

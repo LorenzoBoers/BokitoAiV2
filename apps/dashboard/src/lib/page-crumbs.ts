@@ -13,7 +13,9 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (/^\/projects\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.project' }]
   if (/^\/knowledge\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.document' }]
   if (pathname.startsWith('/communication/new')) return [{ labelKey: 'crumbs.newConversation' }]
-  if (pathname.includes('/awaiting-decision')) return [{ labelKey: 'crumbs.decisions' }]
+  if (pathname.startsWith('/communication/decisions') || pathname.includes('/awaiting-decision')) {
+    return [{ labelKey: 'crumbs.decisions' }]
+  }
   if (pathname.startsWith('/ai/assistant') && pathname.includes('/installation')) {
     return [{ labelKey: 'crumbs.widgetInstall' }]
   }
@@ -26,6 +28,9 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/settings/marketplace')) return [{ labelKey: 'crumbs.marketplace' }]
   if (pathname.startsWith('/modules/') && pathname !== '/modules') {
     return [{ labelKey: 'crumbs.moduleSetup' }]
+  }
+  if (pathname.startsWith('/ai/modules/')) {
+    return [{ labelKey: 'crumbs.moduleWorkspace' }]
   }
   if (pathname.startsWith('/modules')) return []
   if (pathname.startsWith('/settings/mcp')) return [{ labelKey: 'crumbs.connectedTools' }]

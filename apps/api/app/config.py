@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     king_finance_partner_key: str = ""
     # SOAP endpoint. Default is the documented Cloudswitch XML service.
     king_finance_base_url: str = "https://api.kingfinance.nl/v1/ws1_xml.asmx"
+    # Platform kill switch for accounting module writes (apply_* verbs).
+    # Default off: approved decisions return writes_disabled instead of
+    # touching the books. The tenant pref modules.accounting.writes_enabled
+    # must ALSO be on for a write to execute.
+    accounting_writes_enabled: bool = False
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     # Raw provider fallback when a call bypasses the catalog; must be a real

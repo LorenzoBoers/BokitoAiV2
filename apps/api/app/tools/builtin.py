@@ -188,8 +188,8 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
 
     # Sender identity: "user" (human approved — the default for approvals) or
     # "agent" (auto mode, or explicitly chosen). It drives the appended
-    # signature and the timeline attribution; the From address stays the
-    # mailbox (technical requirement of the connected account).
+    # signature, From display name, and timeline attribution; the From
+    # address stays the mailbox (technical requirement of the connected account).
     send_as = str(tool_input.get("send_as") or "").strip().lower()
     if send_as not in ("user", "agent"):
         send_as = "agent" if ctx.agent else "user"
@@ -197,9 +197,16 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     if send_as == "user" and not ctx.user_id:
         send_as = "agent"
 
-    from app.services.signatures import resolve_signature_html
+    from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
     signature_html = await resolve_signature_html(
+        ctx.session,
+        ctx.tenant_id,
+        send_as=send_as,
+        user_id=ctx.user_id,
+        agent_id=identity_agent_id,
+    )
+    from_display_name = await resolve_from_display_name(
         ctx.session,
         ctx.tenant_id,
         send_as=send_as,
@@ -214,6 +221,7 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         subject=subject,
         body_html=body_html if isinstance(body_html, str) else None,
         signature_html=signature_html,
+        from_display_name=from_display_name,
     )
     delivery = delivery_result.status
     if delivery == "skipped":
@@ -233,6 +241,8 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         "delivery": delivery,
         "send_as": send_as,
     }
+    if from_display_name:
+        metadata["from_display_name"] = from_display_name
     if ctx.user_id:
         # Keep the approving human traceable even on agent-identity sends.
         metadata["approved_by_user_id"] = str(ctx.user_id)

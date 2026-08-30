@@ -568,6 +568,8 @@ const WIDGET_CSS = `
 .bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-primary);}
 .bk-header-avatar.has-brand-icon .bk-avatar-logo{display:none!important;}
 .bk-header-avatar-img{width:100%;height:100%;padding:5px;object-fit:contain;display:block;border-radius:inherit;box-sizing:border-box;}
+.bk-header-avatar-initials{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;letter-spacing:.02em;border-radius:inherit;user-select:none;}
+.bk-header-avatar.has-brand-icon .bk-header-avatar-initials[hidden]{display:none!important;}
 :host([data-preview-mode="true"]){position:relative;display:block;width:100%;height:100%;min-height:0;min-width:0;max-width:none;margin:0;--bk-z-widget:50;--bk-window-w:100%;--bk-window-h:100%;}
 :host([data-preview-mode="true"]) .bk-launcher{display:none!important;}
 :host([data-preview-mode="true"]) .bk-proactive-bubbles{display:none!important;}
@@ -1169,6 +1171,10 @@ class BokitoChatWidget extends HTMLElement {
     pick('welcome_subtitle');
     pick('chatbot_name');
     pick('widget_favicon_url');
+    pick('agent_avatar_kind');
+    pick('agent_avatar_icon');
+    pick('agent_avatar_color');
+    pick('agent_avatar_image_url');
     if (pv.modules && typeof pv.modules === 'object') out.modules = { ...pv.modules };
     return out;
   }
@@ -1246,16 +1252,43 @@ class BokitoChatWidget extends HTMLElement {
     }
   }
 
+  #headerAvatarInitials(name) {
+    const parts = String(name || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) return '';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+  }
+
   #syncHeaderAvatarFromTheme(theme) {
     const t = theme && typeof theme === 'object' ? theme : {};
-    const url =
-      typeof t.widget_favicon_url === 'string' && t.widget_favicon_url.trim()
-        ? t.widget_favicon_url.trim()
+    const imageUrl =
+      (typeof t.agent_avatar_image_url === 'string' && t.agent_avatar_image_url.trim())
+      || (typeof t.widget_favicon_url === 'string' && t.widget_favicon_url.trim())
+      || null;
+    const url = imageUrl ? this.#attachmentSrc(imageUrl) : null;
+    const color =
+      typeof t.agent_avatar_color === 'string' && /^#[0-9a-fA-F]{6}$/i.test(t.agent_avatar_color.trim())
+        ? t.agent_avatar_color.trim()
         : null;
+    const name =
+      typeof t.chatbot_name === 'string' && t.chatbot_name.trim()
+        ? t.chatbot_name.trim()
+        : (this.#sessionTenant?.name || '').trim();
+    const initials = !url && color ? this.#headerAvatarInitials(name) : '';
     const headerImg = this.#headerAvatarImg || this.#root?.querySelector('.bk-header-avatar-img');
     const launcherImg = this.#launcherIconImg || this.#root?.querySelector('.bk-launcher-icon--custom');
     const headerWrap = headerImg?.closest?.('.bk-header-avatar') || this.#root?.querySelector('.bk-header-avatar');
     const monkey = this.#root?.querySelector('.bk-avatar-logo');
+    let initialsEl = headerWrap?.querySelector('.bk-header-avatar-initials');
+    if (headerWrap && !initialsEl) {
+      initialsEl = document.createElement('span');
+      initialsEl.className = 'bk-header-avatar-initials';
+      initialsEl.hidden = true;
+      headerWrap.appendChild(initialsEl);
+    }
     if (headerImg) {
       if (url) {
         headerImg.src = url;
@@ -1274,8 +1307,25 @@ class BokitoChatWidget extends HTMLElement {
         launcherImg.hidden = true;
       }
     }
-    if (monkey) monkey.hidden = Boolean(url);
-    headerWrap?.classList.toggle('has-brand-icon', Boolean(url));
+    if (initialsEl) {
+      if (initials) {
+        initialsEl.textContent = initials;
+        initialsEl.hidden = false;
+        initialsEl.style.color = color;
+        initialsEl.style.background = `color-mix(in srgb, ${color} 12%, transparent)`;
+        headerWrap?.style.setProperty('border-color', `color-mix(in srgb, ${color} 55%, transparent)`);
+        headerWrap?.style.setProperty('background', `color-mix(in srgb, ${color} 8%, transparent)`);
+      } else {
+        initialsEl.textContent = '';
+        initialsEl.hidden = true;
+        initialsEl.removeAttribute('style');
+        headerWrap?.style.removeProperty('border-color');
+        headerWrap?.style.removeProperty('background');
+      }
+    }
+    const branded = Boolean(url || initials);
+    if (monkey) monkey.hidden = branded;
+    headerWrap?.classList.toggle('has-brand-icon', branded);
     this.#launcher?.classList.toggle('has-brand-icon', Boolean(url));
   }
 
@@ -1610,6 +1660,7 @@ class BokitoChatWidget extends HTMLElement {
           </button>
           <div class="bk-header-avatar">
             <img class="bk-header-avatar-img" alt="" hidden />
+            <span class="bk-header-avatar-initials" hidden></span>
             ${MONKEY_MARK}
           </div>
           <div class="bk-header-info">

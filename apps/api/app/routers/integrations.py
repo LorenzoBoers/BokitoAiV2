@@ -46,13 +46,23 @@ class ApiKeyConnectionCreate(BaseModel):
 
 
 class ModuleEnableBody(BaseModel):
-    enabled: bool
+    """Lifecycle actions for a business module.
+
+    Prefer ``action``. Legacy clients may still send ``enabled``.
+    """
+
+    action: str | None = None  # install | complete_setup | uninstall
+    enabled: bool | None = None
 
 
 class ModulePrefsBody(BaseModel):
     default_connection_id: str | None = None
     default_company_id: str | None = None
     clear_default_connection: bool = False
+    # Owner/admin only: tenant-level write switch for module apply verbs.
+    writes_enabled: bool | None = None
+    # Owner/admin only: {"mode": "all_members"|"selected", "user_ids": [...]}.
+    user_access: dict | None = None
 
 
 class ModuleConnectionRenameBody(BaseModel):
@@ -83,12 +93,38 @@ class McpInstallBody(BaseModel):
 # --- Platform marketplace ---
 
 
+async def _ensure_module_access(
+    session: AsyncSession, auth: AuthContext, slug: str
+) -> None:
+    """403 for members outside the module's user_access selection."""
+    from app.modules.catalog import user_can_access_module
+
+    if not await user_can_access_module(
+        session, auth.tenant.id, slug, user_id=auth.user.id, role=auth.role
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this module. Ask an owner or admin.",
+        )
+
+
 @router.get("/providers")
 async def get_providers(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    return await list_providers(session, auth.tenant.id)
+    from app.modules.catalog import user_can_access_module
+
+    data = await list_providers(session, auth.tenant.id)
+    for module in data.get("modules") or []:
+        module["user_accessible"] = await user_can_access_module(
+            session,
+            auth.tenant.id,
+            str(module.get("slug") or ""),
+            user_id=auth.user.id,
+            role=auth.role,
+        )
+    return data
 
 
 @router.patch("/modules/{slug}")
@@ -98,22 +134,146 @@ async def patch_module(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Turn a business module on or off for this workspace."""
-    from app.modules.catalog import get_module, set_module_enabled
+    """Install, finish setup, or uninstall a business module for this workspace."""
+    from app.modules.catalog import (
+        complete_module_setup,
+        get_module,
+        install_module,
+        set_module_enabled,
+        uninstall_module,
+    )
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
+    action = (body.action or "").strip().lower()
     try:
-        row = await set_module_enabled(
-            session,
-            auth.tenant.id,
-            slug,
-            body.enabled,
-            actor_id=auth.user.id,
-        )
+        if action == "install":
+            row = await install_module(
+                session, auth.tenant.id, slug, actor_id=auth.user.id
+            )
+        elif action == "complete_setup":
+            row = await complete_module_setup(
+                session, auth.tenant.id, slug, actor_id=auth.user.id
+            )
+        elif action == "uninstall":
+            row = await uninstall_module(
+                session, auth.tenant.id, slug, actor_id=auth.user.id
+            )
+        elif body.enabled is not None:
+            row = await set_module_enabled(
+                session,
+                auth.tenant.id,
+                slug,
+                body.enabled,
+                actor_id=auth.user.id,
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Provide action (install|complete_setup|uninstall) or enabled",
+            )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"module": row}
+
+
+class ModuleAgentAddBody(BaseModel):
+    agent_id: str
+    is_default: bool = False
+
+
+class ModuleAgentPatchBody(BaseModel):
+    is_default: bool | None = None
+    # Company/administration ids this agent may access; [] or null via
+    # clear_company_scope=True means all companies.
+    company_ids: list[str] | None = None
+    clear_company_scope: bool = False
+    can_write: bool | None = None
+
+
+@router.get("/modules/{slug}/agents")
+async def get_module_agents(
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import module_agents as module_agents_svc
+
+    await _ensure_module_access(session, auth, slug)
+    return await module_agents_svc.list_module_agents(session, auth.tenant.id, slug)
+
+
+@router.post("/modules/{slug}/agents")
+async def post_module_agent(
+    slug: str,
+    body: ModuleAgentAddBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import module_agents as module_agents_svc
+
+    try:
+        agent_id = UUID(body.agent_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid agent_id") from exc
+    return await module_agents_svc.add_module_agent(
+        session,
+        auth.tenant.id,
+        slug,
+        agent_id,
+        is_default=body.is_default,
+    )
+
+
+@router.patch("/modules/{slug}/agents/{agent_id}")
+async def patch_module_agent(
+    slug: str,
+    agent_id: UUID,
+    body: ModuleAgentPatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import module_agents as module_agents_svc
+
+    row = None
+    if body.is_default is not None:
+        row = await module_agents_svc.set_module_agent_default(
+            session,
+            auth.tenant.id,
+            slug,
+            agent_id,
+            is_default=body.is_default,
+        )
+    if body.company_ids is not None or body.clear_company_scope or body.can_write is not None:
+        row = await module_agents_svc.update_module_agent_access(
+            session,
+            auth.tenant.id,
+            slug,
+            agent_id,
+            company_ids=body.company_ids,
+            clear_company_scope=body.clear_company_scope,
+            can_write=body.can_write,
+        )
+    if row is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide is_default, company_ids, clear_company_scope, or can_write",
+        )
+    return row
+
+
+@router.delete("/modules/{slug}/agents/{agent_id}")
+async def delete_module_agent(
+    slug: str,
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import module_agents as module_agents_svc
+
+    return await module_agents_svc.remove_module_agent(
+        session, auth.tenant.id, slug, agent_id
+    )
 
 
 @router.get("/modules/{slug}/connections")
@@ -127,6 +287,7 @@ async def get_module_connections(
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
     try:
         return await list_module_connections(session, auth.tenant.id, slug)
     except ValueError as exc:
@@ -140,11 +301,13 @@ async def patch_module_prefs(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from app.modules.catalog import get_module
+    from app.modules.catalog import get_module, update_module_prefs
     from app.services.module_connections import set_module_defaults
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
+    if body.writes_enabled is not None or body.user_access is not None:
+        auth.require_role("owner", "admin")
     try:
         prefs = await set_module_defaults(
             session,
@@ -154,6 +317,14 @@ async def patch_module_prefs(
             default_company_id=body.default_company_id,
             clear_default_connection=body.clear_default_connection,
         )
+        if body.writes_enabled is not None or body.user_access is not None:
+            prefs = await update_module_prefs(
+                session,
+                auth.tenant.id,
+                slug,
+                writes_enabled=body.writes_enabled,
+                user_access=body.user_access,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"prefs": prefs}
@@ -195,6 +366,7 @@ async def get_module_sources(
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
+    await _ensure_module_access(session, auth, slug)
     await ensure_platform_seeds(session, auth.tenant.id, slug)
     return {"sources": await list_sources(session, auth.tenant.id, slug)}
 
@@ -304,6 +476,7 @@ async def get_accounting_companies(
     """
     from app.modules.accounting.router import call_accounting_verb
 
+    await _ensure_module_access(session, auth, "accounting")
     return await call_accounting_verb(session, auth.tenant.id, "list_companies")
 
 
@@ -467,6 +640,42 @@ async def platform_oauth_start(
         )
         authorize_url = mock_authorize_url(
             return_url, {"integration": "connected", "provider": "moneybird"}
+        )
+    elif provider in ("google_calendar", "outlook_calendar"):
+        from app.services.calendar_sync import sync_connection
+        from app.models.integration import IntegrationConnection
+
+        serialized = await ensure_oauth_connection(
+            session,
+            auth.tenant.id,
+            provider,
+            display_name="Google Calendar" if provider == "google_calendar" else "Outlook Calendar",
+        )
+        # Seed mock credentials so sync can populate demo events in dev.
+        conn_id = serialized.get("id") if isinstance(serialized, dict) else None
+        if conn_id:
+            from uuid import UUID as _UUID
+
+            try:
+                conn = await session.get(IntegrationConnection, _UUID(str(conn_id)))
+            except ValueError:
+                conn = None
+            if conn is not None:
+                import json as _json
+
+                creds = {}
+                try:
+                    creds = _json.loads(conn.credentials_json or "{}")
+                except Exception:
+                    creds = {}
+                if not creds.get("access_token"):
+                    conn.credentials_json = _json.dumps({"mock": True})
+                    session.add(conn)
+                    await session.commit()
+                    await session.refresh(conn)
+                await sync_connection(session, conn)
+        authorize_url = mock_authorize_url(
+            return_url, {"integration": "connected", "provider": provider}
         )
     else:
         # No mock success for generic integrations: a "connected" state must

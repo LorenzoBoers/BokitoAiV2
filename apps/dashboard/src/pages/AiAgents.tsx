@@ -15,19 +15,13 @@ import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { formatAgentModelLine } from '../lib/model-label'
-import { agentChatPath, agentRunsPath, attentionThreadPath, inboxPath } from '../lib/messages-paths'
+import { agentChatPath, agentRunsPath, decisionsPath, inboxPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
-import { useOptionalNavBadges } from '../context/NavBadgeContext'
-import { useAuth } from '../context/AuthContext'
-import { listThreads } from '../lib/inbox-api'
-import { dismissNoReplySuggestions } from '../lib/signals-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { filterLibraryAgents, sortAgentsForLibrary } from '../lib/workforce-nav-agents'
 import { agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
 import { cn } from '../lib/utils'
-import { toast } from 'sonner'
-import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 
 function AgentQuickLinks({
   agentId,
@@ -101,6 +95,7 @@ function AgentLibraryCard({
   projectName?: string
 }) {
   const { t } = useTranslation('nav')
+  const navigate = useNavigate()
   const roleLabel = agentRoleLabel(agent.role_name || agent.role_slug, t)
   const genericRole = new Set([
     t('workforce.agents.types.orchestrator').trim().toLowerCase(),
@@ -114,12 +109,23 @@ function AgentLibraryCard({
     roleLower !== nameLower &&
     !nameLower.includes(roleLower) &&
     !genericRole.has(roleLower)
+  const openCount = agent.open_conversations ?? 0
+  const decisionCount = agent.awaiting_decision ?? 0
 
   return (
     <Link to={`/agents/${agent.id}`} className="block h-full">
       <Card interactive className="flex h-full flex-col gap-3 p-4">
         <div className="flex items-start gap-3">
-          <AiAvatar name={agent.name} seed={agent.id} size={36} className="mt-0.5" />
+          <AiAvatar
+            name={agent.name}
+            seed={agent.id}
+            size={36}
+            className="mt-0.5"
+            kind={agent.avatar_kind}
+            icon={agent.avatar_icon}
+            color={agent.avatar_color}
+            imageUrl={agent.avatar_image_url}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate font-medium text-text-heading">{agent.name}</p>
@@ -142,6 +148,36 @@ function AgentLibraryCard({
               </span>
               {showRole ? <span className="text-xs text-text-muted">{roleLabel}</span> : null}
             </div>
+            {openCount > 0 || decisionCount > 0 ? (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                {openCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      navigate(`/agents/${agent.id}#conversations`)
+                    }}
+                    className="text-[11px] font-medium text-accent hover:underline"
+                  >
+                    {t('workforce.agents.openConversationsCount', { count: openCount })}
+                  </button>
+                ) : null}
+                {decisionCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      navigate(`${decisionsPath()}?agent=${encodeURIComponent(agent.id)}`)
+                    }}
+                    className="text-[11px] font-medium text-text-heading hover:underline"
+                  >
+                    {t('workforce.agents.awaitingDecisionCount', { count: decisionCount })}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         {agent.current_activity_summary ? (
@@ -175,13 +211,9 @@ export default function AiAgents() {
   const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
-  const { counts, refresh: refreshBadges } = useOptionalNavBadges()
-  const { token } = useAuth()
-  const [attentionHref, setAttentionHref] = useState(agentRunsPath('awaiting-decision'))
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [dismissingNoReply, setDismissingNoReply] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
@@ -222,46 +254,6 @@ export default function AiAgents() {
     void load()
   }, [load])
 
-  const dismissNoReply = useCallback(
-    async (alsoClose: boolean) => {
-      if (!token) return
-      setDismissingNoReply(true)
-      try {
-        const result = await dismissNoReplySuggestions(token, { alsoClose })
-        toast.success(
-          alsoClose
-            ? t('workforce.agents.noReplyDismissedClosed', { count: result.dismissed })
-            : t('workforce.agents.noReplyDismissed', { count: result.dismissed }),
-        )
-        await refreshBadges()
-      } catch (err) {
-        toast.error(formatApiErrorMessage(err, t('workforce.agents.noReplyDismissFailed')))
-      } finally {
-        setDismissingNoReply(false)
-      }
-    },
-    [token, t, refreshBadges],
-  )
-
-  useEffect(() => {
-    if (!token || counts.agentsAttention <= 0) {
-      setAttentionHref(agentRunsPath('awaiting-decision'))
-      return
-    }
-    let cancelled = false
-    void listThreads(token, { view: 'awaiting_decision', perPage: 1 })
-      .then((result) => {
-        const first = result.items[0]
-        if (!cancelled && first) setAttentionHref(attentionThreadPath(first))
-      })
-      .catch(() => {
-        if (!cancelled) setAttentionHref(agentRunsPath('awaiting-decision'))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [token, counts.agentsAttention])
-
   useEffect(() => {
     if (searchParams.get('new') !== '1') return
     setShowNewAgent(true)
@@ -286,56 +278,6 @@ export default function AiAgents() {
   return (
     <PageContent width="xl" className="space-y-4 py-1">
       <PageGuideBanner page="agents" />
-      {counts.agentsAttention > 0 ? (
-        <Link
-          to={attentionHref}
-          className="flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 hover:border-accent/50"
-        >
-          <span>
-            <span className="block text-sm font-medium text-text-heading">
-              {t('workforce.agents.attentionTitle', { count: counts.agentsAttention })}
-            </span>
-            <span className="mt-0.5 block text-xs text-text-muted">
-              {t('workforce.agents.attentionHint')}
-            </span>
-          </span>
-          <span className="shrink-0 text-xs font-medium text-accent">
-            {t('workforce.agents.attentionAction')}
-          </span>
-        </Link>
-      ) : null}
-      {counts.noReplySuggestions > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-bg-elevated/40 px-4 py-3">
-          <span>
-            <span className="block text-sm font-medium text-text-heading">
-              {t('workforce.agents.noReplyTitle', { count: counts.noReplySuggestions })}
-            </span>
-            <span className="mt-0.5 block text-xs text-text-muted">
-              {t('workforce.agents.noReplyHint')}
-            </span>
-          </span>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={dismissingNoReply}
-              onClick={() => void dismissNoReply(false)}
-            >
-              {t('workforce.agents.noReplyDismiss')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={dismissingNoReply}
-              onClick={() => void dismissNoReply(true)}
-            >
-              {t('workforce.agents.noReplyDismissAndClose')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-text-heading">{t('workforce.agents.title')}</h1>

@@ -1,4 +1,4 @@
-export type IntegrationKind = 'inbox' | 'repository' | 'mcp'
+export type IntegrationKind = 'inbox' | 'repository' | 'mcp' | 'calendar'
 
 const MCP_SLUGS = new Set([
   'king_accountancy',
@@ -22,6 +22,7 @@ const MCP_SLUGS = new Set([
   'higgsfield_mcp',
 ])
 const REPOSITORY_SLUGS = new Set(['github', 'gitlab'])
+const CALENDAR_SLUGS = new Set(['google_calendar', 'outlook_calendar', 'google-calendar', 'outlook-calendar'])
 const INBOX_SLUGS = new Set([
   'outlook',
   'gmail',
@@ -43,9 +44,11 @@ export function resolveIntegrationKind(
   capabilities?: Record<string, boolean>,
 ): IntegrationKind {
   const slug = normalizeSlug(slugOrId)
+  if (capabilities?.calendar) return 'calendar'
   if (capabilities?.mcp_tools || capabilities?.remote_mcp || capabilities?.accounting) return 'mcp'
   if (capabilities?.inbox_sync) return 'inbox'
   if (capabilities?.repo_index) return 'repository'
+  if (CALENDAR_SLUGS.has(slug) || slug.includes('calendar')) return 'calendar'
   if (MCP_SLUGS.has(slug) || slug.includes('mcp')) return 'mcp'
   if (REPOSITORY_SLUGS.has(slug)) return 'repository'
   if (INBOX_SLUGS.has(slug)) return 'inbox'
@@ -59,6 +62,8 @@ export function getManagePath(kind: IntegrationKind): string {
       return '/settings/integrations?kind=repository'
     case 'inbox':
       return '/settings/integrations?kind=inbox'
+    case 'calendar':
+      return '/agenda'
     case 'mcp':
       return '/settings/mcp'
   }

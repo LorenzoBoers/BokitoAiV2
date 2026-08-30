@@ -8,6 +8,10 @@ export const integrationsRoutes = {
   platform: {
     providers: '/integrations/providers',
     moduleBySlug: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}`,
+    moduleAgents: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/agents`,
+    moduleAgentById: (slug: string, agentId: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/agents/${encodeURIComponent(agentId)}`,
     moduleConnections: (slug: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/connections`,
     modulePrefs: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}/prefs`,
@@ -19,6 +23,14 @@ export const integrationsRoutes = {
     moduleSourceReindex: (slug: string, sourceId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/sources/${encodeURIComponent(sourceId)}/reindex`,
     accountingCompanies: '/integrations/modules/accounting/companies',
+    calendars: {
+      connections: '/calendars/connections',
+      syncAll: '/calendars/sync',
+      syncOne: (connectionId: string) =>
+        `/calendars/connections/${encodeURIComponent(connectionId)}/sync`,
+      events: '/calendars/events',
+      eventById: (eventId: string) => `/calendars/events/${encodeURIComponent(eventId)}`,
+    },
     connections: (provider?: string) => {
       const params = new URLSearchParams()
       if (provider) params.set('provider', provider)

@@ -28,7 +28,12 @@ export type ModuleConnectionsResponse = {
   prefs?: {
     default_connection_id?: string | null
     default_company_by_connection?: Record<string, string>
+    /** Tenant-level write switch (owner/admin). */
+    writes_enabled?: boolean
+    user_access?: { mode?: string; user_ids?: string[] }
   }
+  /** True only when the platform switch AND the tenant pref are both on. */
+  writes_active?: boolean
 }
 
 export type ModuleSourceRow = {
@@ -52,12 +57,19 @@ export async function listModuleConnections(slug: string): Promise<ModuleConnect
   return apiGet(integrationsRoutes.platform.moduleConnections(slug))
 }
 
+export type ModuleUserAccess = {
+  mode: 'all_members' | 'selected'
+  user_ids?: string[]
+}
+
 export async function setModulePrefs(
   slug: string,
   body: {
     default_connection_id?: string | null
     default_company_id?: string | null
     clear_default_connection?: boolean
+    writes_enabled?: boolean
+    user_access?: ModuleUserAccess
   },
 ): Promise<{ prefs: Record<string, unknown> }> {
   return apiPatch(integrationsRoutes.platform.modulePrefs(slug), body)

@@ -192,3 +192,40 @@ async def set_tool_override(
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
     await session.flush()
+
+
+_MODE_RANK = {"allow": 0, "ask": 1, "deny": 2}
+
+
+def is_stricter_mode(candidate: str, current: str) -> bool:
+    """True when ``candidate`` is a tighter gate than ``current``."""
+    return _MODE_RANK.get(candidate, 1) > _MODE_RANK.get(current, 1)
+
+
+async def set_category_allowance(
+    session: AsyncSession,
+    tenant_id: UUID,
+    category: str,
+    mode: AllowanceMode,
+    *,
+    commit: bool = False,
+) -> dict[str, str] | None:
+    """Write one category into tenant ``tool_allowances``. Returns before/after or None."""
+    if category not in TOOL_CATEGORIES or mode not in ALLOWANCE_MODES:
+        return None
+    result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        return None
+    before = tenant_allowances(tenant).get(category, "ask")
+    settings = tenant_settings(tenant)
+    current = _parse_mode_map(settings.get("tool_allowances"))
+    current[category] = mode
+    settings["tool_allowances"] = current
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return {"category": category, "from": before, "to": mode}

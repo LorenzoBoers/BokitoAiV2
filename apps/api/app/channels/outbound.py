@@ -117,6 +117,7 @@ async def deliver_outbound(
     bcc: str | None = None,
     attachments: list[dict] | None = None,
     signature_html: str | None = None,
+    from_display_name: str | None = None,
 ) -> OutboundDelivery:
     """Send `body_text` to the external party of this thread.
 
@@ -126,6 +127,8 @@ async def deliver_outbound(
 
     `signature_html` is the identity-resolved signature (user or agent, see
     services/signatures.py); when None the mailbox signature is the fallback.
+    `from_display_name` is the visible From name for the same identity; the
+    mailbox address is never changed.
     """
     if signal.channel not in ("email", "slack", "whatsapp"):
         return OutboundDelivery("skipped")
@@ -144,6 +147,11 @@ async def deliver_outbound(
     account = result.scalar_one_or_none()
     if not account or not account.is_enabled:
         return OutboundDelivery("failed:no_account")
+
+    from app.services.channel_registry import account_can_send
+
+    if not account_can_send(account):
+        return OutboundDelivery("failed:cannot_send")
 
     if signal.channel == "email":
         recipient = (to_address or "").strip() or signal.contact_email
@@ -165,6 +173,7 @@ async def deliver_outbound(
             attachments=attachments,
             session=session,
             signature_html=signature_html,
+            from_display_name=from_display_name,
         )
         return OutboundDelivery(status, body_html=final_html)
     if signal.channel == "whatsapp":

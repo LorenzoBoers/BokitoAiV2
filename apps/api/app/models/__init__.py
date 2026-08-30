@@ -53,6 +53,8 @@ from app.models.secret import TenantSecret
 from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetting
 from app.models.provider import ProviderConnection, TenantModel
 from app.models.module_source import ModuleSource
+from app.models.module_agent import ModuleAgent
+from app.models.calendar import CalendarEvent
 
 __all__ = [
     "Tenant",
@@ -129,4 +131,6 @@ __all__ = [
     "ProviderConnection",
     "TenantModel",
     "ModuleSource",
+    "ModuleAgent",
+    "CalendarEvent",
 ]

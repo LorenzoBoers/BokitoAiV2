@@ -65,16 +65,26 @@ async def widget_assistant_name(session: AsyncSession, tenant_id: UUID) -> str:
 
     Empty when unset or still generic, so callers fall back to the tenant name.
     """
-    from app.services.routing import resolve_agent_for_channel
-
-    agent = await resolve_agent_for_channel(session, tenant_id, "widget")
+    agent = await widget_assistant_agent(session, tenant_id)
     name = (agent.name or "").strip() if agent else ""
     if name.lower() in GENERIC_ASSISTANT_NAMES:
         return ""
     return name
 
 
-def livechat_theme_from_tenant(tenant: Tenant, *, assistant_name: str = "") -> dict[str, Any]:
+async def widget_assistant_agent(session: AsyncSession, tenant_id: UUID):
+    """Company agent bound to the widget channel (else lead)."""
+    from app.services.routing import resolve_agent_for_channel
+
+    return await resolve_agent_for_channel(session, tenant_id, "widget")
+
+
+def livechat_theme_from_tenant(
+    tenant: Tenant,
+    *,
+    assistant_name: str = "",
+    agent_avatar: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     settings_data = tenant_settings(tenant)
     livechat = settings_data.get("livechat_settings")
     if not isinstance(livechat, dict):
@@ -104,6 +114,17 @@ def livechat_theme_from_tenant(tenant: Tenant, *, assistant_name: str = "") -> d
     if _is_platform_mark(favicon):
         favicon = ""
 
+    avatar = agent_avatar if isinstance(agent_avatar, dict) else {}
+    from app.services.agent_avatar import absolutize_avatar_url
+
+    agent_image = absolutize_avatar_url(str(avatar.get("avatar_image_url") or "") or None)
+    agent_color = str(avatar.get("avatar_color") or "").strip()
+    agent_icon = str(avatar.get("avatar_icon") or "").strip()
+    agent_kind = str(avatar.get("avatar_kind") or "").strip()
+    # Prefer the answering agent's photo in the header bubble when set.
+    if agent_image:
+        favicon = agent_image
+
     from app.services.language import resolve_workspace_language
 
     locale = resolve_workspace_language(tenant)
@@ -125,6 +146,10 @@ def livechat_theme_from_tenant(tenant: Tenant, *, assistant_name: str = "") -> d
         or defaults["subtitle"],
         "chatbot_name": chatbot_name,
         "widget_favicon_url": favicon,
+        "agent_avatar_kind": agent_kind or None,
+        "agent_avatar_icon": agent_icon or None,
+        "agent_avatar_color": agent_color or None,
+        "agent_avatar_image_url": agent_image or None,
         "modules": _messenger_modules(appearance),
     }
 
@@ -261,8 +286,11 @@ def session_start_payload(
     auth_mode: str = "optional",
     customer_id: str | None = None,
     assistant_name: str = "",
+    agent_avatar: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    theme = livechat_theme_from_tenant(tenant, assistant_name=assistant_name)
+    theme = livechat_theme_from_tenant(
+        tenant, assistant_name=assistant_name, agent_avatar=agent_avatar
+    )
     identity_type = "authenticated" if user else "anonymous"
     # Optional host sign-in link shown on the widget's "Sign in required" panel.
     login_url = ""

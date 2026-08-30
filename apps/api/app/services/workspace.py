@@ -464,7 +464,9 @@ async def skills_overview(session: AsyncSession, tenant_id: UUID) -> str:
     return "\n".join(lines)
 
 
-async def build_workspace_context(session: AsyncSession, tenant_id: UUID) -> str:
+async def build_workspace_context(
+    session: AsyncSession, tenant_id: UUID, *, agent_id: UUID | None = None
+) -> str:
     """Company + persona + memory + skills + live tenant snapshot for the system prompt."""
     parts: list[str] = []
     company = await get_doc_by_path(session, tenant_id, "company.md")
@@ -493,7 +495,7 @@ async def build_workspace_context(session: AsyncSession, tenant_id: UUID) -> str
     try:
         from app.services.tenant_introspection import build_tenant_snapshot_prompt
 
-        snapshot = await build_tenant_snapshot_prompt(session, tenant_id)
+        snapshot = await build_tenant_snapshot_prompt(session, tenant_id, agent_id=agent_id)
         if snapshot.strip():
             parts.append(snapshot)
     except Exception:

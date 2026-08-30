@@ -263,7 +263,11 @@ class AgentLoop:
         )
 
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
-        workspace = await build_workspace_context(self.session, self.tenant_id)
+        workspace = await build_workspace_context(
+            self.session,
+            self.tenant_id,
+            agent_id=self.agent.id if self.agent is not None else None,
+        )
         rag_context = ""
         product_help_context = ""
         if user_query:
@@ -272,11 +276,17 @@ class AgentLoop:
             if hits:
                 rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
             if self.trust != "external":
+                from app.models.auth import Tenant
+                from app.services.language import resolve_workspace_language
                 from app.services.product_help import search_product_help
 
+                tenant = await self.session.get(Tenant, self.tenant_id)
+                help_lang = resolve_workspace_language(tenant)
+                if help_lang not in ("en", "nl"):
+                    help_lang = get_settings().platform_default_language
                 product_hits = await search_product_help(
                     user_query,
-                    lang=get_settings().platform_default_language,
+                    lang=help_lang,
                     top_k=3,
                 )
                 if product_hits:
@@ -330,6 +340,11 @@ class AgentLoop:
         from app.services.agent.style import BOKITO_MODEL_IDENTITY, RESPONSE_STYLE
 
         parts.append(RESPONSE_STYLE)
+        from app.models.auth import Tenant
+        from app.services.language import language_rules_for_trust
+
+        tenant_for_lang = await self.session.get(Tenant, self.tenant_id)
+        parts.append(language_rules_for_trust(self.trust, tenant_for_lang))
         # Bokito virtual models present as Bokito's own model; agents on
         # BYOK/real models keep their actual identity.
         resolved = getattr(self, "resolved_call", None)
@@ -347,10 +362,29 @@ class AgentLoop:
 
         model_slug = self.agent.model if self.agent else None
         if not getattr(self, "_module_tools_applied", False):
-            from app.modules.catalog import enabled_module_slugs, filter_tools_for_modules
+            from app.modules.catalog import enabled_module_slugs
+            from app.services.module_agents import (
+                filter_tools_for_agent_modules,
+                module_slugs_for_agent,
+                writable_module_slugs_for_agent,
+            )
 
             enabled = await enabled_module_slugs(self.session, self.tenant_id)
-            self.tools = filter_tools_for_modules(self.tools, enabled)
+            rostered: set[str] = set()
+            writable: set[str] = set()
+            if self.agent is not None:
+                rostered = await module_slugs_for_agent(
+                    self.session, self.tenant_id, self.agent.id
+                )
+                writable = await writable_module_slugs_for_agent(
+                    self.session, self.tenant_id, self.agent.id
+                )
+            self.tools = filter_tools_for_agent_modules(
+                self.tools,
+                enabled_slugs=enabled,
+                rostered_slugs=rostered,
+                writable_slugs=writable,
+            )
             self._module_tools_applied = True
         self.resolved_call = await resolve_model_call(
             self.session, self.tenant_id, kind="chat", model_slug=model_slug

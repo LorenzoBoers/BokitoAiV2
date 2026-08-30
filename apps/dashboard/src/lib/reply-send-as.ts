@@ -2,8 +2,9 @@
  *
  * Order of precedence for the selector's initial value:
  * 1. the operator's own last choice (localStorage),
- * 2. the tenant default (`reply_send_as` from AI communication settings),
- * 3. "user".
+ * 2. the agent default (`reply_send_as` on the agent),
+ * 3. the tenant default (`reply_send_as` from AI communication settings),
+ * 4. "user".
  */
 
 import { getAiCommunicationSettings, type ReplySendAs } from './inbox-api'

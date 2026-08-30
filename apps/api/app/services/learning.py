@@ -168,6 +168,187 @@ async def apply_heuristic_guardrails(session: AsyncSession, tenant_id: UUID) -> 
     return updated
 
 
+# Escalated tool gates / rejected tool decisions that justify allow → ask.
+_ALLOWANCE_ESCALATION_THRESHOLD = 5
+_ALLOWANCE_REJECT_THRESHOLD = 3
+_LEARNING_HISTORY_MAX = 5
+
+
+def _tool_category_from_action(action: str) -> str | None:
+    from app.tools.registry import get_tool_spec
+
+    if not action.startswith("tool_call:"):
+        return None
+    spec = get_tool_spec(action[len("tool_call:") :])
+    return spec.category if spec else None
+
+
+def _tool_category_from_name(tool_name: str) -> str | None:
+    from app.tools.registry import get_tool_spec
+
+    spec = get_tool_spec(tool_name)
+    return spec.category if spec else None
+
+
+async def _category_exception_counts(
+    session: AsyncSession, tenant_id: UUID, *, since: datetime
+) -> dict[str, dict[str, int]]:
+    """Per-category counts of escalated tool calls and rejected tool-gate decisions."""
+    from collections import defaultdict
+
+    counts: dict[str, dict[str, int]] = defaultdict(lambda: {"escalations": 0, "rejects": 0})
+
+    escalations = (
+        await session.execute(
+            select(AuditEvent.action).where(
+                AuditEvent.tenant_id == tenant_id,
+                AuditEvent.outcome == "escalated",
+                AuditEvent.action.startswith("tool_call:"),
+                AuditEvent.created_at >= since,
+            )
+        )
+    ).scalars().all()
+    for action in escalations:
+        category = _tool_category_from_action(action)
+        if category:
+            counts[category]["escalations"] += 1
+
+    rejected = (
+        await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.status == "rejected",
+                DecisionRequest.resolved_at.is_not(None),
+                DecisionRequest.resolved_at >= since,
+            )
+        )
+    ).scalars().all()
+    for decision in rejected:
+        try:
+            options = json.loads(decision.options_json or "[]")
+        except json.JSONDecodeError:
+            options = []
+        if not isinstance(options, list):
+            continue
+        categories_seen: set[str] = set()
+        for option in options:
+            if not isinstance(option, dict):
+                continue
+            action_type = str(option.get("action_type") or "").strip()
+            if not action_type or action_type in ("reject", "defer", "escalate", "acknowledge"):
+                continue
+            category = _tool_category_from_name(action_type)
+            if category:
+                categories_seen.add(category)
+        for category in categories_seen:
+            counts[category]["rejects"] += 1
+
+    return dict(counts)
+
+
+async def apply_heuristic_allowance_tighten(
+    session: AsyncSession, tenant_id: UUID
+) -> dict[str, Any]:
+    """Tighten category sliders from operator exceptions (no ML).
+
+    Safety asymmetry: only ``allow`` → ``ask`` is auto-applied. Loosening
+    stays a human Govern edit. Evidence is escalated tool audits and rejected
+    tool-gate decisions in the past week.
+    """
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant
+    from app.services.audit import record_audit
+    from app.tools.policy import (
+        is_stricter_mode,
+        set_category_allowance,
+        tenant_allowances,
+    )
+    from app.tools.registry import TOOL_CATEGORIES
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        return {"tightened": []}
+
+    since = datetime.utcnow() - timedelta(days=7)
+    counts = await _category_exception_counts(session, tenant_id, since=since)
+    effective = tenant_allowances(tenant)
+    tightened: list[dict[str, Any]] = []
+
+    for category in TOOL_CATEGORIES:
+        current = effective.get(category, "ask")
+        if current != "allow":
+            # Already ask/deny — never auto-loosen, and don't push ask→deny.
+            continue
+        stats = counts.get(category) or {"escalations": 0, "rejects": 0}
+        escalations = int(stats.get("escalations") or 0)
+        rejects = int(stats.get("rejects") or 0)
+        if (
+            escalations < _ALLOWANCE_ESCALATION_THRESHOLD
+            and rejects < _ALLOWANCE_REJECT_THRESHOLD
+        ):
+            continue
+        if not is_stricter_mode("ask", current):
+            continue
+
+        reason_bits = []
+        if escalations >= _ALLOWANCE_ESCALATION_THRESHOLD:
+            reason_bits.append(f"{escalations} escalated tool calls")
+        if rejects >= _ALLOWANCE_REJECT_THRESHOLD:
+            reason_bits.append(f"{rejects} rejected tool decisions")
+        reason = (
+            f"High exception load on {category} "
+            f"({', '.join(reason_bits)} in 7 days); tightened allow → ask"
+        )
+        change = await set_category_allowance(
+            session, tenant_id, category, "ask", commit=False
+        )
+        if not change:
+            continue
+        await record_audit(
+            session,
+            tenant_id,
+            action="learning:allowance_tightened",
+            actor_type="system",
+            resource_type="tool_allowances",
+            resource_id=category,
+            summary=reason,
+            before={"category": category, "mode": change["from"]},
+            after={"category": category, "mode": change["to"]},
+            payload={
+                "escalations": escalations,
+                "rejects": rejects,
+            },
+            commit=False,
+        )
+        # Refresh tenant settings for history append (set_category_allowance
+        # already mutated settings_json; re-read after flush).
+        await session.refresh(tenant)
+        settings = tenant_settings(tenant)
+        history = settings.get("learning_allowance_history")
+        if not isinstance(history, list):
+            history = []
+        entry = {
+            "category": category,
+            "from": change["from"],
+            "to": change["to"],
+            "reason": reason,
+            "at": datetime.utcnow().isoformat() + "Z",
+            "escalations": escalations,
+            "rejects": rejects,
+        }
+        history = [entry, *[h for h in history if isinstance(h, dict)]][:_LEARNING_HISTORY_MAX]
+        settings["learning_allowance_history"] = history
+        tenant.settings_json = json.dumps(settings)
+        session.add(tenant)
+        tightened.append(entry)
+        # Recompute effective so a second category in the same pass sees updates.
+        effective = tenant_allowances(tenant)
+
+    if tightened:
+        await session.commit()
+    return {"tightened": tightened}
+
+
 async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool:
     """Turn a cluster of negative feedback into a Govern persona-review proposal.
 
@@ -504,6 +685,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
     batch = await process_feedback_batch(session, tenant_id)
     evals = await compute_eval_scores(session, tenant_id)
     guardrails = await apply_heuristic_guardrails(session, tenant_id)
+    allowances = await apply_heuristic_allowance_tighten(session, tenant_id)
     persona_proposed = await propose_persona_review(session, tenant_id)
 
     enqueue_strategy = await _eval_trend_worsened(session, tenant_id, "escalation_rate")
@@ -541,6 +723,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         "feedback_batch": batch,
         "eval_count": len(evals),
         "guardrails": guardrails,
+        "allowances": allowances,
         "persona_review_proposed": persona_proposed,
         "strategy_review_recommended": enqueue_strategy,
         "strategy_workstream_enqueued": workstream_enqueued,

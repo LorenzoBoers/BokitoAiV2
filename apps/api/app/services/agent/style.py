@@ -15,7 +15,7 @@ RESPONSE_STYLE = (
     "## Response style\n"
     "Write clean, well-structured markdown: short paragraphs, headings only "
     "when they help, bullet lists for enumerations, and tables only for truly "
-    "tabular data. Never use emoji or emoticons. Match the user's language. "
+    "tabular data. Never use emoji or emoticons. "
     "Be concise and concrete; skip filler and repeated horizontal rules.\n"
     "When pointing the user to a Bokito screen, use a markdown link with the "
     "in-app path and a short action label — for example "

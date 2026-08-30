@@ -66,6 +66,10 @@ export type InboxThread = {
   agentId?: string | null
   agentName?: string | null
   agentKind?: string | null
+  agentAvatarKind?: string | null
+  agentAvatarIcon?: string | null
+  agentAvatarColor?: string | null
+  agentAvatarImageUrl?: string | null
 }
 
 export type InboxMessage = {

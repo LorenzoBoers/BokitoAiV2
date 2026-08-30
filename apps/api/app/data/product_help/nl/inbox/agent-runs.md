@@ -1,31 +1,31 @@
 ---
-title: Agent-runs afhandelen
-intro: Geplande scans en wachtende beslissingen staan hier, niet in de wachtrij Open.
-description: Open Agent-runs om gepland werk en wachtende beslissingen te beoordelen zonder ze door klantwerk in Open te mengen.
-keywords: agent-runs, gepland, beslissingen, wachtrij, inbox
+title: Agent-runs bekijken
+intro: Geplande scans en afgeronde resultaten staan hier — open goedkeuringen staan onder Beslissingen.
+description: Open Agent-runs om gepland werk te bekijken zonder het te mengen met klant-Open. Wachtende goedkeuringen gebruiken het blad Beslissingen.
+keywords: agent-runs, gepland, resultaten, wachtrij, inbox
 sort: 15
 related: communication,decisions,agenda,cockpit
 ---
 
-# Agent-runs afhandelen
+# Agent-runs bekijken
 
-Agent-runs zijn intern werk: een geplande sweep, een follow-up, een beslissing die op jou wacht. Ze blijven buiten Open, zodat klantmail niet concurreert met achtergrondwerk.
+Agent-runs zijn intern werk: een geplande scan, een opvolging, een afgerond resultaat. Ze blijven buiten Open zodat klantmail niet concurreert met achtergrondwerk. Open goedkeuringen staan onder [Beslissingen](/docs/ai/decisions), niet als vierde Agent-runs-chip.
 
-## Open de runlijst
+## Open de runs-lijst
 
-![Lijst Agent-runs](/api/docs/assets/agent-runs/runs-list.png)
+![Agent-runs-lijst](/api/docs/assets/agent-runs/runs-list.png)
 *Gepland werk blijft buiten Open.*
 
-1. Wissel in Communicatie de zijbalk naar **Agents** en open daarna **Agent-runs**. Klantmail blijft onder **Klant**.
-2. Gebruik de chips **Alles**, **Updates**, **Resultaten** en **Beslissingen**. **Updates** is werk in uitvoering. **Resultaten** zijn afgeronde runs. Begin bij **Beslissingen** wanneer iets op jou wacht.
-3. Cockpit **Wacht op beslissing** opent diezelfde lijst **Beslissingen**. Een gepauzeerde agent maakt een wake niet af tot je die hervat onder [Agents](/docs/ai/agents).
+1. Open in Communicatie **Agent-runs** (via Agents of een deep link). Klantmail blijft onder **Alle communicatie**.
+2. Gebruik de chips **Alles**, **Updates** en **Resultaten**. **Updates** is werk in uitvoering. **Resultaten** zijn afgeronde runs.
+3. Voor items die op een ja of nee wachten, open het zijbalkblad **Beslissingen** — dezelfde lijst als Cockpit **Wacht op beslissing**. Een gepauzeerde agent maakt een wake niet af tot je die hervat onder [Agents](/docs/ai/agents).
 
 ## Open een run en beslis
 
 1. Selecteer een run om te lezen wat de agent deed en waarom die stopte.
 2. Wacht er een keuzekaart, gebruik **Goedkeuren**, **Afwijzen**, **Bewerken** of **Escaleren** in het gesprek. Zie [Beslissingen](/docs/ai/decisions).
-3. Ga terug naar de lijst. De run verlaat **Wacht op beslissing** zodra je antwoordt.
+3. Ga terug naar **Beslissingen** als je de volgende open goedkeuring nodig hebt.
 
 ## Wat nu
 
-Klantmail blijft onder [Communicatie](/docs/inbox/communication). Terugkerende wakes plan je op de [Agenda](/docs/ai/agenda).
+Klantmail blijft onder [Communicatie](/docs/inbox/communication). Terugkerende wakes plant je op de [Agenda](/docs/ai/agenda).

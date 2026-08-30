@@ -1,4 +1,4 @@
-import { agentRunsPath, inboxPath } from './messages-paths'
+import { decisionsPath, inboxPath, agentRunsPath } from './messages-paths'
 
 export type NotificationPayload = Record<string, unknown>
 
@@ -28,11 +28,13 @@ export function pathForNotification(input: {
   const { kind, payload } = input
   const signalId = notificationSignalId(payload)
 
+  if (kind === 'decision_request') {
+    return signalId ? decisionsPath(signalId) : decisionsPath()
+  }
+
   if (signalId) {
     if (isInternalNotificationPayload(payload)) {
-      return kind === 'decision_request'
-        ? agentRunsPath('awaiting-decision', signalId)
-        : agentRunsPath('all', signalId)
+      return agentRunsPath('all', signalId)
     }
     // Prefer All so pending/unassigned/closed deep links still land on the
     // intended thread; Communication retargets closed/spam/snoozed boxes.
@@ -47,12 +49,6 @@ export function pathForNotification(input: {
   if (kind === 'ops_alert') {
     if (typeof payload.account_id === 'string') return '/settings/channels'
     return agentRunsPath('all')
-  }
-
-  if (kind === 'decision_request') {
-    return isInternalNotificationPayload(payload)
-      ? agentRunsPath('awaiting-decision')
-      : inboxPath('all')
   }
 
   if (kind === 'status_update') {

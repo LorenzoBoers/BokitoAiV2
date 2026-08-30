@@ -2,7 +2,7 @@ import type { IntegrationKind } from './integration-kind'
 
 export type IntegrationKindFilter = 'all' | IntegrationKind
 
-const KIND_PARAMS = new Set(['all', 'inbox', 'repository', 'mcp'])
+const KIND_PARAMS = new Set(['all', 'inbox', 'repository', 'mcp', 'calendar'])
 
 export function parseKindFilter(value: string | null): IntegrationKindFilter {
   if (value && KIND_PARAMS.has(value)) {

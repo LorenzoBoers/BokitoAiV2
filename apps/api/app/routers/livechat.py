@@ -18,11 +18,13 @@ from app.db.session import get_session
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import Tenant, User
 from app.models.signal import Signal
+from app.services.agent_avatar import avatar_payload
 from app.services.livechat_compat import (
     create_widget_session_token,
     decode_widget_session_token,
     resolve_tenant_for_livechat,
     session_start_payload,
+    widget_assistant_agent,
     widget_assistant_name,
 )
 from app.services.livechat_stream import (
@@ -94,6 +96,7 @@ async def session_start(
         user_id=user.id if user else None,
         customer_id=customer_id,
     )
+    assistant_agent = await widget_assistant_agent(session, tenant.id)
     assistant_name = await widget_assistant_name(session, tenant.id)
     return session_start_payload(
         tenant,
@@ -102,6 +105,7 @@ async def session_start(
         auth_mode=auth_mode,
         customer_id=customer_id,
         assistant_name=assistant_name,
+        agent_avatar=avatar_payload(assistant_agent) if assistant_agent is not None else None,
     )
 
 

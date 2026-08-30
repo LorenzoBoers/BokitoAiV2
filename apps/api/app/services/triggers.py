@@ -600,6 +600,14 @@ async def agenda_occurrences(
             }
         )
 
+    # External calendar events (Google / Outlook) when not filtering to one agent.
+    if agent_id is None:
+        from app.services.calendar_sync import events_as_agenda_items
+
+        items.extend(
+            await events_as_agenda_items(session, tenant_id, start=start, end=end)
+        )
+
     items.sort(key=lambda item: item["at"] or "")
     return items
 

@@ -2,17 +2,19 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import { inboxPath } from '../lib/messages-paths'
-import { ModulePowerSwitch } from '../components/integrations/ModulePowerSwitch'
+import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
 import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
+import { ModuleToolsetDropdown } from '../components/integrations/ModuleToolsetDropdown'
 import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import {
   moduleHomePath,
+  moduleIsInSetup,
   moduleIsOn,
+  moduleWorkspacePath,
   plannedProviderLabel,
-  verbLabelKey,
 } from '../lib/integration-modules'
 import { moduleSetupPath } from '../lib/integration-setup-url'
 import type { IntegrationApplication } from '../lib/integration-applications'
@@ -22,7 +24,7 @@ function packageConnectId(app: IntegrationApplication): string {
   return app.offers[0]?.integration.id || app.hostSlug
 }
 
-function ConnectorShowcase({
+function UsesIntegrations({
   module,
   applications,
 }: {
@@ -39,34 +41,50 @@ function ConnectorShowcase({
   return (
     <div className="mt-4">
       <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-text-muted">
-        {t('integrations.modules.connectors', { defaultValue: 'Packages' })}
+        {t('integrations.modules.usesIntegrations', { defaultValue: 'Uses integrations' })}
+      </p>
+      <p className="mb-2 text-xs text-text-muted">
+        {t('integrations.modules.usesIntegrationsHint', {
+          defaultValue:
+            'Connect these on the platform. The module uses them when they are available.',
+        })}
       </p>
       {apps.length > 0 ? (
         <ul className="flex flex-wrap items-center gap-2">
-          {apps.map((app) => (
-            <li key={app.hostSlug}>
-              <Link
-                to={moduleSetupPath(module.slug, packageConnectId(app), 'setup')}
-                aria-label={t('integrations.modules.connectPackage', {
-                  defaultValue: 'Connect {{name}}',
-                  name: app.name,
-                })}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 hover:border-accent/50 hover:bg-bg-hover/50"
-              >
-                <IntegrationHostLogo
-                  logoUrl={app.brand.logoUrl}
-                  logoDarkUrl={app.brand.logoDarkUrl}
-                  initials={app.brand.initials}
-                  color={app.brand.color}
-                  name=""
-                  hostSlug={app.brand.hostSlug}
-                  size="sm"
-                  className="rounded-md"
-                />
-                <span className="text-xs text-text-secondary">{app.name}</span>
-              </Link>
-            </li>
-          ))}
+          {apps.map((app) => {
+            const connected = (app.connectionCount ?? 0) > 0 || app.status === 'connected'
+            return (
+              <li key={app.hostSlug}>
+                <Link
+                  to={moduleSetupPath(module.slug, packageConnectId(app), 'setup')}
+                  aria-label={t('integrations.modules.openIntegration', {
+                    defaultValue: 'Open {{name}}',
+                    name: app.name,
+                  })}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 hover:border-accent/50 hover:bg-bg-hover/50"
+                >
+                  <IntegrationHostLogo
+                    logoUrl={app.brand.logoUrl}
+                    logoDarkUrl={app.brand.logoDarkUrl}
+                    initials={app.brand.initials}
+                    color={app.brand.color}
+                    name=""
+                    hostSlug={app.brand.hostSlug}
+                    size="sm"
+                    className="rounded-md"
+                  />
+                  <span className="text-xs text-text-secondary">{app.name}</span>
+                  <span
+                    className={`text-[10px] ${connected ? 'text-status-success' : 'text-text-muted'}`}
+                  >
+                    {connected
+                      ? t('integrations.modules.integrationOn', { defaultValue: 'On' })
+                      : t('integrations.modules.integrationOff', { defaultValue: 'Optional' })}
+                  </span>
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       ) : null}
       {planned.length > 0 ? (
@@ -84,20 +102,26 @@ function ConnectorShowcase({
 function LiveModuleCard({
   module,
   applications,
-  setModuleEnabled,
+  runModuleAction,
 }: {
   module: IntegrationModuleRow
   applications: IntegrationApplication[]
-  setModuleEnabled: (slug: string, enabled: boolean) => Promise<unknown>
+  runModuleAction: (
+    slug: string,
+    action: 'install' | 'complete_setup' | 'uninstall',
+  ) => Promise<unknown>
 }) {
   const { t } = useTranslation('nav')
   const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
   const description = t(`integrations.modules.${module.slug}.description`, {
     defaultValue: module.description,
   })
-  const on = moduleIsOn(module)
+  const capability = t(`integrations.modules.${module.slug}.capability`, {
+    defaultValue: module.capability_summary || '',
+  })
+  const installed = moduleIsOn(module)
+  const inSetup = moduleIsInSetup(module)
   const connected = module.tenant_status === 'connected' || Boolean(module.connected)
-  const needsPackage = on && !connected
 
   return (
     <article className="rounded-xl border border-border/60 bg-bg-surface p-5 shadow-card">
@@ -109,65 +133,80 @@ function LiveModuleCard({
           </div>
           <p className="mt-1 text-sm text-text-secondary">{description}</p>
         </div>
-        <ModulePowerSwitch module={module} onToggle={setModuleEnabled} />
+        <ModuleInstallControls module={module} onAction={runModuleAction} />
       </div>
 
-      {needsPackage ? (
+      {inSetup ? (
         <p className="mt-3 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-xs text-text-primary">
-          {t('integrations.modules.nextConnect', {
-            defaultValue: '{{name}} is on. Connect a package so agents can use it.',
+          {t('integrations.modules.setupInProgress', {
+            defaultValue:
+              'Finish setup to install {{name}}. Optionally link a platform integration it can use.',
+            name,
+          })}
+        </p>
+      ) : installed && !connected ? (
+        <p className="mt-3 rounded-lg border border-border/50 bg-bg-muted/40 px-3 py-2 text-xs text-text-secondary">
+          {t('integrations.modules.installedNoIntegration', {
+            defaultValue:
+              '{{name}} is installed. Link an optional integration so agents can reach live data.',
             name,
           })}
         </p>
       ) : (
         <p className="mt-2 text-xs text-text-muted">
-          {on
-            ? t('integrations.modules.toggleHint', {
+          {installed
+            ? t('integrations.modules.installedHint', {
                 defaultValue:
-                  'Turning a module off hides it from agents. Connected packages stay in place.',
+                  'Installed modules appear under AI in the main menu. Uninstall removes them from agents.',
               })
-            : t('integrations.modules.enableToUseHint', {
+            : t('integrations.modules.installHint', {
                 defaultValue:
-                  'Turn this module on so agents can use it. Connecting a package also turns it on.',
+                  'Install this module, complete setup, then open it from AI > Modules.',
               })}
         </p>
       )}
 
-      {module.verb_labels && module.verb_labels.length > 0 ? (
-        <ul className="mt-3 flex flex-wrap gap-1.5">
-              {module.verb_labels.map((label) => (
-            <li
-              key={label}
-              className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs text-text-secondary"
-            >
-              {t(`integrations.modules.verbs.${verbLabelKey(label)}`, { defaultValue: label })}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <ModuleToolsetDropdown
+          moduleSlug={module.slug}
+          verbLabels={module.verb_labels ?? []}
+          verbs={module.verbs}
+          proposeVerbs={module.propose_verbs}
+          capability={capability}
+        />
+      </div>
 
-      <ConnectorShowcase module={module} applications={applications} />
+      <UsesIntegrations module={module} applications={applications} />
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {installed ? (
+          <Link
+            to={moduleWorkspacePath(module)}
+            className="text-xs font-medium text-accent hover:underline"
+          >
+            {t('integrations.modules.openWorkspace', {
+              defaultValue: 'Open {{name}}',
+              name,
+            })}
+          </Link>
+        ) : null}
         <Link
           to={moduleHomePath(module)}
           className="text-xs font-medium text-accent hover:underline"
         >
-          {needsPackage
-            ? t('integrations.modules.connectCta', {
-                defaultValue: 'Connect a package',
-              })
-            : on
+          {inSetup
+            ? t('integrations.modules.continueSetup', { defaultValue: 'Continue setup' })
+            : installed
               ? t('integrations.modules.manageCta', {
                   defaultValue: 'Manage {{name}}',
                   name,
                 })
               : t('integrations.modules.setupCta', {
-                  defaultValue: 'Set up {{name}}',
+                  defaultValue: 'View {{name}}',
                   name,
                 })}
         </Link>
-        {on ? (
+        {installed ? (
           <>
             <Link to="/agents" className="text-xs text-text-muted hover:text-accent hover:underline">
               {t('integrations.connected.openAgents', { defaultValue: 'Open Agents' })}
@@ -193,11 +232,11 @@ function LiveModuleCard({
 
 export default function ModulesPage() {
   const { t } = useTranslation(['nav', 'common'])
-  const { applications, modules, loadError, refreshCatalog, setModuleEnabled } =
+  const { applications, modules, loadError, refreshCatalog, runModuleAction } =
     useIntegrationCatalog()
   const live = modules.filter((module) => module.status !== 'coming_soon')
   const later = modules.filter((module) => module.status === 'coming_soon')
-  const onCount = live.filter((module) => moduleIsOn(module)).length
+  const installedCount = live.filter((module) => moduleIsOn(module)).length
 
   return (
     <PageContent width="lg">
@@ -205,16 +244,16 @@ export default function ModulesPage() {
         <p className="max-w-2xl text-sm text-text-secondary">
           {t('integrations.modules.pageIntro', {
             defaultValue:
-              'Turn a business module on so agents can use it. Open a module for packages, connections, sources and AI setup.',
+              'Install a business module, assign at least one AI agent, optionally link integrations, finish setup, then open the module from AI. Only assigned agents get the module tools.',
           })}
         </p>
         {live.length > 0 ? (
           <p className="mt-2 text-xs text-text-muted">
             {t('integrations.modules.readyCount', {
-              defaultValue: '{{on}} of {{total}} ready modules are on',
-              on: onCount,
+              defaultValue: '{{on}} of {{total}} modules installed',
+              on: installedCount,
               total: live.length,
-              count: onCount,
+              count: installedCount,
             })}
           </p>
         ) : null}
@@ -238,7 +277,7 @@ export default function ModulesPage() {
                 key={module.slug}
                 module={module}
                 applications={applications}
-                setModuleEnabled={setModuleEnabled}
+                runModuleAction={runModuleAction}
               />
             ))}
           </div>
@@ -290,7 +329,7 @@ export default function ModulesPage() {
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
             <Link to="/settings/marketplace" className="text-accent hover:underline">
               {t('integrations.modules.browseMarketplace', {
-                defaultValue: 'Browse packages on Marketplace',
+                defaultValue: 'Browse integrations on Marketplace',
               })}
             </Link>
             <Link to="/docs/integrations/integrations" className="hover:underline">

@@ -154,6 +154,8 @@ export function tabFromPath(pathname: string): Tab | null {
   )
     return 'knowledge'
   if (pathname.startsWith('/modules')) return 'modules'
+  // Installed module workspaces live under AI, not Settings.
+  if (pathname.startsWith('/ai/modules')) return null
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/')) return 'settings'
   return null
 }

@@ -110,6 +110,72 @@ class TaxRate(BaseModel):
     percentage: float | None = None
 
 
+class PartyUpsert(BaseModel):
+    """Vendor-neutral customer/supplier create-or-update payload.
+
+    ``party_id`` empty means create; set means update that party.
+    """
+
+    role: PartyRole = "customer"
+    party_id: str = ""
+    name: str
+    email: str = ""
+    phone: str = ""
+    street: str = ""
+    postal_code: str = ""
+    city: str = ""
+    country: str = ""
+
+
+class JournalLine(BaseModel):
+    account: str
+    description: str = ""
+    debit: float | None = None
+    credit: float | None = None
+    tax_code: str = ""
+
+
+class JournalEntry(BaseModel):
+    """Vendor-neutral journal booking (KING CreateJournaalpost, Exact
+    GeneralJournalEntries, BLA vouchers). Lines must balance."""
+
+    journal: str = ""  # dagboek / journal code; vendor default when empty
+    date: str = ""  # YYYY-MM-DD; vendor default when empty
+    description: str = ""
+    reference: str = ""
+    lines: list[JournalLine] = Field(default_factory=list)
+
+
+class SalesInvoiceDraft(BaseModel):
+    """Vendor-neutral sales invoice draft (Moneybird sales_invoices,
+    Exact SalesEntries, SnelStart verkoopboekingen)."""
+
+    party_id: str
+    reference: str = ""
+    date: str = ""
+    due_date: str = ""
+    currency: str = ""
+    lines: list[DocumentLine] = Field(default_factory=list)
+
+
+class PaymentRegistration(BaseModel):
+    """Vendor-neutral payment registration against one document."""
+
+    document_id: str
+    amount: float
+    date: str = ""
+    account: str = ""
+
+
+# Apply verb -> canonical payload model used to validate before dispatch.
+WRITE_PAYLOADS: dict[str, type[BaseModel]] = {
+    "apply_party": PartyUpsert,
+    "apply_booking": JournalEntry,
+    "apply_document": SalesInvoiceDraft,
+    "apply_payment": PaymentRegistration,
+}
+
+
 class ModuleError(BaseModel):
     """Structured failure envelope; ``unsupported`` carries a capability key."""
 

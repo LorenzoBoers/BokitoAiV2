@@ -290,11 +290,14 @@ async def send_email(
         recipients = to_addresses
 
     attachments = [a for a in (body.attachments or []) if isinstance(a, dict)]
-    from app.services.signatures import resolve_signature_html
+    from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
     # Composed mail is sent as the authoring user: their signature applies
     # (mailbox signature as fallback).
     signature_html = await resolve_signature_html(
+        session, auth.tenant.id, send_as="user", user_id=auth.user.id
+    )
+    from_display_name = await resolve_from_display_name(
         session, auth.tenant.id, send_as="user", user_id=auth.user.id
     )
     delivery = await deliver_outbound(
@@ -309,6 +312,7 @@ async def send_email(
         bcc=body.bcc,
         attachments=attachments,
         signature_html=signature_html,
+        from_display_name=from_display_name,
     )
     send_status = delivery.status
     if send_status == "skipped":

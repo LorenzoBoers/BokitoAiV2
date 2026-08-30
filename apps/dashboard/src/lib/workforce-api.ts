@@ -86,8 +86,12 @@ export interface RuntimeAgent {
   model?: string
   provider?: string
   system_prompt?: string
-  /** Signature (HTML) appended to outbound replies sent as this agent. */
+  /** Signature (HTML, derived) appended to outbound replies sent as this agent. */
   email_signature_html?: string
+  /** Plain-text signature body for this agent. */
+  email_signature_text?: string
+  /** Default Send as on approvals: user (impersonate) | agent. */
+  reply_send_as?: 'user' | 'agent'
   chat_access?: 'everyone' | 'selected' | 'nobody'
   kind?: 'company' | 'personal'
   /** Exactly one company agent per workspace carries the lead label. */
@@ -95,7 +99,16 @@ export interface RuntimeAgent {
   current_session_id: string | null
   current_activity_id: string | null
   current_activity_summary: string | null
+  /** Open non-assistant threads assigned to this agent. */
+  open_conversations?: number
+  /** Real awaiting-decision threads for this agent (excludes no-reply tips). */
+  awaiting_decision?: number
   updated_at: number
+  /** Visual identity: initials | icon | image (from settings_json). */
+  avatar_kind?: 'initials' | 'icon' | 'image' | string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
 }
 
 export interface RuntimeActivity {

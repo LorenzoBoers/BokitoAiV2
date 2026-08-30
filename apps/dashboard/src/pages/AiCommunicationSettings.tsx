@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Gauge, Globe, Languages, Mail, MessageCircle, MessageSquareText, UserRound } from 'lucide-react'
+import { ChevronDown, Gauge, Globe, Languages, Mail, MessageCircle, MessageSquareText, UserRound } from 'lucide-react'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
@@ -20,7 +21,13 @@ import ProviderLogo from '../components/email/ProviderLogo'
 import ChannelBindingsPanel from '../components/settings/ChannelBindingsPanel'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
-import { getAiConfig, saveAiConfig, type MailboxAiMode, type MailboxReplyLanguage } from '../lib/email-api'
+import {
+  getAiConfig,
+  saveAiConfig,
+  type EmailConnection,
+  type MailboxAiMode,
+  type MailboxReplyLanguage,
+} from '../lib/email-api'
 import {
   getAiCommunicationSettings,
   getInboxTriageSettings,
@@ -37,10 +44,16 @@ import { resetTenantDefaultSendAs } from '../lib/reply-send-as'
 import { WEBSITE_WIDGET_CUSTOMIZE_PATH, WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
+import { cn } from '../lib/utils'
 
 const MODES: AiMode[] = ['suggest', 'auto', 'off']
 const REPLY_LANGUAGES: ReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']
 const WORKSPACE_LANGUAGES: WorkspaceLanguage[] = ['nl', 'en', 'de', 'fr', 'es']
+
+type MailboxOverrideDraft = {
+  mode: MailboxAiMode | ''
+  replyLanguage: MailboxReplyLanguage
+}
 
 type ModeSelectProps = {
   id: string
@@ -102,28 +115,32 @@ function LanguageSelect({
   )
 }
 
+function hasOverride(draft: MailboxOverrideDraft | undefined): boolean {
+  if (!draft) return false
+  return Boolean(draft.mode) || Boolean(draft.replyLanguage)
+}
+
+function overridesEqual(a: MailboxOverrideDraft | undefined, b: MailboxOverrideDraft | undefined): boolean {
+  return (a?.mode ?? '') === (b?.mode ?? '') && (a?.replyLanguage ?? '') === (b?.replyLanguage ?? '')
+}
+
 export default function AiCommunicationSettings() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const { activeConnections: activeMailboxes, loading: mailboxesLoading } = useMailboxConnections()
 
-  // Tenant-wide channel defaults + language policy
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null)
   const [savedAiSettings, setSavedAiSettings] = useState<AiSettings | null>(null)
   const [modesError, setModesError] = useState<string | null>(null)
 
-  // Triage certainty threshold (1-10)
   const [certainty, setCertainty] = useState<number | null>(null)
   const [savedCertainty, setSavedCertainty] = useState<number | null>(null)
 
-  // Per-mailbox override
-  const [connectionId, setConnectionId] = useState<number | null>(null)
-  const [mailboxMode, setMailboxMode] = useState<MailboxAiMode | ''>('')
-  const [savedMailboxMode, setSavedMailboxMode] = useState<MailboxAiMode | ''>('')
-  const [mailboxLanguage, setMailboxLanguage] = useState<MailboxReplyLanguage>('')
-  const [savedMailboxLanguage, setSavedMailboxLanguage] = useState<MailboxReplyLanguage>('')
-  const [loadingConfig, setLoadingConfig] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [mailboxDrafts, setMailboxDrafts] = useState<Record<number, MailboxOverrideDraft>>({})
+  const [savedMailboxDrafts, setSavedMailboxDrafts] = useState<Record<number, MailboxOverrideDraft>>({})
+  const [loadingMailboxConfigs, setLoadingMailboxConfigs] = useState(false)
+  const [mailboxLoadError, setMailboxLoadError] = useState<string | null>(null)
+  const [expandedMailboxId, setExpandedMailboxId] = useState<number | null>(null)
 
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -166,51 +183,86 @@ export default function AiCommunicationSettings() {
     }
   }, [token])
 
-  useEffect(() => {
-    if (activeMailboxes.length === 0) {
-      setConnectionId(null)
-      return
-    }
-    if (connectionId == null || !activeMailboxes.some((m) => m.id === connectionId)) {
-      setConnectionId(activeMailboxes[0].id)
-    }
-  }, [activeMailboxes, connectionId])
+  const mailboxIdsKey = useMemo(
+    () => activeMailboxes.map((mailbox) => mailbox.id).join(','),
+    [activeMailboxes],
+  )
 
   useEffect(() => {
-    if (!token || connectionId == null) return
+    if (!token || mailboxesLoading) return
+    if (!mailboxIdsKey) {
+      setMailboxDrafts({})
+      setSavedMailboxDrafts({})
+      setExpandedMailboxId(null)
+      setMailboxLoadError(null)
+      setLoadingMailboxConfigs(false)
+      return
+    }
+
+    const mailboxIds = mailboxIdsKey.split(',').map(Number)
     let cancelled = false
-    setLoadingConfig(true)
-    setLoadError(null)
-    void getAiConfig(token, connectionId)
-      .then((data) => {
-        if (!cancelled) {
-          setMailboxMode(data.mode)
-          setSavedMailboxMode(data.mode)
-          setMailboxLanguage(data.replyLanguage)
-          setSavedMailboxLanguage(data.replyLanguage)
-        }
+    setLoadingMailboxConfigs(true)
+    setMailboxLoadError(null)
+
+    void Promise.all(
+      mailboxIds.map(async (id) => {
+        const config = await getAiConfig(token, id)
+        return [id, { mode: config.mode, replyLanguage: config.replyLanguage }] as const
+      }),
+    )
+      .then((rows) => {
+        if (cancelled) return
+        const next: Record<number, MailboxOverrideDraft> = {}
+        for (const [id, draft] of rows) next[id] = draft
+        setMailboxDrafts(next)
+        setSavedMailboxDrafts(next)
+        setExpandedMailboxId((prev) => (prev != null && mailboxIds.includes(prev) ? prev : null))
       })
       .catch((err) => {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : t('ai.communication.loadError'))
+          setMailboxLoadError(err instanceof Error ? err.message : t('ai.communication.loadError'))
         }
       })
       .finally(() => {
-        if (!cancelled) setLoadingConfig(false)
+        if (!cancelled) setLoadingMailboxConfigs(false)
       })
+
     return () => {
       cancelled = true
     }
-  }, [token, connectionId, t])
+  }, [token, mailboxesLoading, mailboxIdsKey, t])
+
+  const dirtyMailboxIds = useMemo(() => {
+    const ids = new Set<number>()
+    for (const mailbox of activeMailboxes) {
+      if (!overridesEqual(mailboxDrafts[mailbox.id], savedMailboxDrafts[mailbox.id])) {
+        ids.add(mailbox.id)
+      }
+    }
+    return ids
+  }, [activeMailboxes, mailboxDrafts, savedMailboxDrafts])
+
+  const customMailboxCount = useMemo(
+    () => activeMailboxes.filter((mailbox) => hasOverride(mailboxDrafts[mailbox.id])).length,
+    [activeMailboxes, mailboxDrafts],
+  )
 
   const tenantDirty =
     aiSettings != null &&
     savedAiSettings != null &&
     JSON.stringify(aiSettings) !== JSON.stringify(savedAiSettings)
-  const mailboxDirty = mailboxMode !== savedMailboxMode || mailboxLanguage !== savedMailboxLanguage
+  const mailboxDirty = dirtyMailboxIds.size > 0
   const certaintyDirty = certainty != null && certainty !== savedCertainty
   const isDirty = tenantDirty || mailboxDirty || certaintyDirty
   useUnsavedChangesGuard(isDirty, t('ai.communication.unsavedLeave'))
+
+  const updateMailboxDraft = useCallback((mailboxId: number, patch: Partial<MailboxOverrideDraft>) => {
+    setMailboxDrafts((prev) => {
+      const current = prev[mailboxId] ?? { mode: '', replyLanguage: '' as MailboxReplyLanguage }
+      return { ...prev, [mailboxId]: { ...current, ...patch } }
+    })
+    setSaveMessage(null)
+  }, [])
 
   const handleSave = useCallback(async () => {
     if (!token) return
@@ -225,13 +277,20 @@ export default function AiCommunicationSettings() {
           replySendAs: aiSettings.replySendAs,
         })
         setSavedAiSettings(aiSettings)
-        // Decision cards cache the tenant default per session; refresh it.
         resetTenantDefaultSendAs()
       }
-      if (connectionId != null && mailboxDirty) {
-        await saveAiConfig(token, connectionId, { mode: mailboxMode, replyLanguage: mailboxLanguage })
-        setSavedMailboxMode(mailboxMode)
-        setSavedMailboxLanguage(mailboxLanguage)
+      if (mailboxDirty) {
+        const saves = Array.from(dirtyMailboxIds).map(async (id) => {
+          const draft = mailboxDrafts[id] ?? { mode: '', replyLanguage: '' as MailboxReplyLanguage }
+          await saveAiConfig(token, id, { mode: draft.mode, replyLanguage: draft.replyLanguage })
+          return [id, draft] as const
+        })
+        const savedRows = await Promise.all(saves)
+        setSavedMailboxDrafts((prev) => {
+          const next = { ...prev }
+          for (const [id, draft] of savedRows) next[id] = draft
+          return next
+        })
       }
       if (certaintyDirty && certainty != null) {
         await saveInboxTriageSettings(token, { certaintyThreshold: certainty })
@@ -243,7 +302,27 @@ export default function AiCommunicationSettings() {
     } finally {
       setSaving(false)
     }
-  }, [token, aiSettings, tenantDirty, connectionId, mailboxDirty, mailboxMode, mailboxLanguage, certaintyDirty, certainty, t])
+  }, [
+    token,
+    aiSettings,
+    tenantDirty,
+    mailboxDirty,
+    dirtyMailboxIds,
+    mailboxDrafts,
+    certaintyDirty,
+    certainty,
+    t,
+  ])
+
+  const effectiveModeLabel = (draft: MailboxOverrideDraft | undefined) => {
+    const mode = draft?.mode || modes?.email || 'suggest'
+    return t(`ai.communication.modeOptions.${mode}`)
+  }
+
+  const effectiveLanguageLabel = (draft: MailboxOverrideDraft | undefined) => {
+    const language = draft?.replyLanguage || aiSettings?.replyLanguage || 'auto'
+    return t(`ai.communication.languageOptions.${language}`)
+  }
 
   return (
     <PageContent width="md" className="space-y-6">
@@ -282,248 +361,267 @@ export default function AiCommunicationSettings() {
         </div>
       </div>
 
-      <Card className="p-5 space-y-5">
+      <section className="space-y-4">
         <div>
-          <h2 className="text-sm font-medium text-text-heading">
-            {t('ai.communication.channelDefaultsTitle')}
+          <h2 className="text-base font-medium text-text-heading">
+            {t('ai.communication.workspaceDefaultsTitle')}
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
-            {t('ai.communication.channelDefaultsDescription')}
+            {t('ai.communication.workspaceDefaultsDescription')}
           </p>
         </div>
-        {modesError ? <p className="text-xs text-destructive">{modesError}</p> : null}
-        {!modes ? (
-          <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
-        ) : (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <Mail size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="ai-mode-email" className="text-sm font-medium">
-                    {t('ai.communication.channelEmail')}
-                  </Label>
-                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
-                    {t(`ai.communication.modeHints.${modes.email}`)}
-                  </p>
-                </div>
-              </div>
-              <ModeSelect
-                id="ai-mode-email"
-                value={modes.email}
-                onChange={(v) => {
-                  setAiSettings((prev) =>
-                    prev ? { ...prev, modes: { ...prev.modes, email: v as AiMode } } : prev,
-                  )
-                  setSaveMessage(null)
-                }}
-              />
-            </div>
-            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
-              <div className="flex items-start gap-3">
-                <Globe size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="ai-mode-widget" className="text-sm font-medium">
-                    {t('ai.communication.channelWidget')}
-                  </Label>
-                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
-                    {t(`ai.communication.modeHints.${modes.widget}`)}
-                  </p>
-                </div>
-              </div>
-              <ModeSelect
-                id="ai-mode-widget"
-                value={modes.widget}
-                onChange={(v) => {
-                  setAiSettings((prev) =>
-                    prev ? { ...prev, modes: { ...prev.modes, widget: v as AiMode } } : prev,
-                  )
-                  setSaveMessage(null)
-                }}
-              />
-            </div>
-            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
-              <div className="flex items-start gap-3">
-                <MessageCircle size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="ai-mode-whatsapp" className="text-sm font-medium">
-                    {t('ai.communication.channelWhatsapp')}
-                  </Label>
-                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
-                    {t(`ai.communication.modeHints.${modes.whatsapp}`)}
-                  </p>
-                </div>
-              </div>
-              <ModeSelect
-                id="ai-mode-whatsapp"
-                value={modes.whatsapp}
-                onChange={(v) => {
-                  setAiSettings((prev) =>
-                    prev ? { ...prev, modes: { ...prev.modes, whatsapp: v as AiMode } } : prev,
-                  )
-                  setSaveMessage(null)
-                }}
-              />
-            </div>
+
+        <Card className="p-5 space-y-5">
+          <div>
+            <h3 className="text-sm font-medium text-text-heading">
+              {t('ai.communication.howAiRespondsTitle')}
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              {t('ai.communication.howAiRespondsDescription')}
+            </p>
           </div>
-        )}
-      </Card>
+          {modesError ? <p className="text-xs text-destructive">{modesError}</p> : null}
+          {!modes ? (
+            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+          ) : (
+            <div className="space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <Mail size={16} className="mt-0.5 text-accent" />
+                  <div>
+                    <Label htmlFor="ai-mode-email" className="text-sm font-medium">
+                      {t('ai.communication.channelEmail')}
+                    </Label>
+                    <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                      {t(`ai.communication.modeHints.${modes.email}`)}
+                    </p>
+                    {customMailboxCount > 0 ? (
+                      <p className="text-xs text-text-secondary mt-1.5">
+                        {t('ai.communication.mailboxExceptionsSummary', { count: customMailboxCount })}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <ModeSelect
+                  id="ai-mode-email"
+                  value={modes.email}
+                  onChange={(v) => {
+                    setAiSettings((prev) =>
+                      prev ? { ...prev, modes: { ...prev.modes, email: v as AiMode } } : prev,
+                    )
+                    setSaveMessage(null)
+                  }}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
+                <div className="flex items-start gap-3">
+                  <Globe size={16} className="mt-0.5 text-accent" />
+                  <div>
+                    <Label htmlFor="ai-mode-widget" className="text-sm font-medium">
+                      {t('ai.communication.channelWidget')}
+                    </Label>
+                    <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                      {t(`ai.communication.modeHints.${modes.widget}`)}
+                    </p>
+                  </div>
+                </div>
+                <ModeSelect
+                  id="ai-mode-widget"
+                  value={modes.widget}
+                  onChange={(v) => {
+                    setAiSettings((prev) =>
+                      prev ? { ...prev, modes: { ...prev.modes, widget: v as AiMode } } : prev,
+                    )
+                    setSaveMessage(null)
+                  }}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
+                <div className="flex items-start gap-3">
+                  <MessageCircle size={16} className="mt-0.5 text-accent" />
+                  <div>
+                    <Label htmlFor="ai-mode-whatsapp" className="text-sm font-medium">
+                      {t('ai.communication.channelWhatsapp')}
+                    </Label>
+                    <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                      {t(`ai.communication.modeHints.${modes.whatsapp}`)}
+                    </p>
+                  </div>
+                </div>
+                <ModeSelect
+                  id="ai-mode-whatsapp"
+                  value={modes.whatsapp}
+                  onChange={(v) => {
+                    setAiSettings((prev) =>
+                      prev ? { ...prev, modes: { ...prev.modes, whatsapp: v as AiMode } } : prev,
+                    )
+                    setSaveMessage(null)
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-5 space-y-5">
+          <div>
+            <h3 className="text-sm font-medium text-text-heading">
+              {t('ai.communication.languageTitle')}
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              {t('ai.communication.languageDescription')}
+            </p>
+          </div>
+          {!aiSettings ? (
+            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+          ) : (
+            <div className="space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <Languages size={16} className="mt-0.5 text-accent" />
+                  <div>
+                    <Label htmlFor="ai-reply-language" className="text-sm font-medium">
+                      {t('ai.communication.replyLanguageLabel')}
+                    </Label>
+                    <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                      {t('ai.communication.replyLanguageHint')}
+                    </p>
+                  </div>
+                </div>
+                <LanguageSelect
+                  id="ai-reply-language"
+                  value={aiSettings.replyLanguage}
+                  languages={REPLY_LANGUAGES}
+                  onChange={(v) => {
+                    setAiSettings((prev) =>
+                      prev ? { ...prev, replyLanguage: (v || 'auto') as ReplyLanguage } : prev,
+                    )
+                    setSaveMessage(null)
+                  }}
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
+                <div className="flex items-start gap-3">
+                  <MessageSquareText size={16} className="mt-0.5 text-accent" />
+                  <div>
+                    <Label htmlFor="ai-workspace-language" className="text-sm font-medium">
+                      {t('ai.communication.workspaceLanguageLabel')}
+                    </Label>
+                    <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                      {t('ai.communication.workspaceLanguageHint')}
+                    </p>
+                  </div>
+                </div>
+                <LanguageSelect
+                  id="ai-workspace-language"
+                  value={aiSettings.workspaceLanguage}
+                  languages={WORKSPACE_LANGUAGES}
+                  onChange={(v) => {
+                    setAiSettings((prev) =>
+                      prev ? { ...prev, workspaceLanguage: (v || 'en') as WorkspaceLanguage } : prev,
+                    )
+                    setSaveMessage(null)
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-5 space-y-5">
+          <div>
+            <h3 className="text-sm font-medium text-text-heading">
+              {t('ai.communication.sendAndTriageTitle')}
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              {t('ai.communication.sendAndTriageDescription')}
+            </p>
+          </div>
+          {!aiSettings || certainty == null ? (
+            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+          ) : (
+            <div className="space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <UserRound size={16} className="mt-0.5 text-accent" />
+                  <div>
+                    <Label htmlFor="ai-reply-send-as" className="text-sm font-medium">
+                      {t('ai.communication.sendAsLabel')}
+                    </Label>
+                    <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                      {t('ai.communication.sendAsHint')}
+                    </p>
+                  </div>
+                </div>
+                <Select
+                  value={aiSettings.replySendAs}
+                  onValueChange={(v) => {
+                    setAiSettings((prev) =>
+                      prev ? { ...prev, replySendAs: v as ReplySendAs } : prev,
+                    )
+                    setSaveMessage(null)
+                  }}
+                >
+                  <SelectTrigger id="ai-reply-send-as" className="w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">{t('ai.communication.sendAsUser')}</SelectItem>
+                    <SelectItem value="agent">{t('ai.communication.sendAsAgent')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
+                <div className="flex items-start gap-3">
+                  <Gauge size={16} className="mt-0.5 text-accent" />
+                  <div>
+                    <Label htmlFor="ai-certainty-threshold" className="text-sm font-medium">
+                      {t('ai.communication.certaintyLabel')}
+                    </Label>
+                    <p className="text-xs text-text-muted mt-0.5 max-w-sm">
+                      {t('ai.communication.certaintyHint')}
+                    </p>
+                  </div>
+                </div>
+                <Select
+                  value={String(certainty)}
+                  onValueChange={(v) => {
+                    setCertainty(Number(v))
+                    setSaveMessage(null)
+                  }}
+                >
+                  <SelectTrigger id="ai-certainty-threshold" className="w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n} —{' '}
+                        {n <= 3
+                          ? t('ai.communication.certaintyLow')
+                          : n <= 7
+                            ? t('ai.communication.certaintyMedium')
+                            : t('ai.communication.certaintyHigh')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </Card>
+      </section>
 
       <Card className="p-5 space-y-5">
         <div>
           <h2 className="text-sm font-medium text-text-heading">
-            {t('ai.communication.languageTitle')}
+            {t('ai.communication.mailboxExceptionsTitle')}
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
-            {t('ai.communication.languageDescription')}
+            {t('ai.communication.mailboxExceptionsDescription')}
           </p>
         </div>
-        {!aiSettings ? (
-          <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
-        ) : (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <Languages size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="ai-reply-language" className="text-sm font-medium">
-                    {t('ai.communication.replyLanguageLabel')}
-                  </Label>
-                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
-                    {t('ai.communication.replyLanguageHint')}
-                  </p>
-                </div>
-              </div>
-              <LanguageSelect
-                id="ai-reply-language"
-                value={aiSettings.replyLanguage}
-                languages={REPLY_LANGUAGES}
-                onChange={(v) => {
-                  setAiSettings((prev) =>
-                    prev ? { ...prev, replyLanguage: (v || 'auto') as ReplyLanguage } : prev,
-                  )
-                  setSaveMessage(null)
-                }}
-              />
-            </div>
-            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
-              <div className="flex items-start gap-3">
-                <MessageSquareText size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="ai-workspace-language" className="text-sm font-medium">
-                    {t('ai.communication.workspaceLanguageLabel')}
-                  </Label>
-                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
-                    {t('ai.communication.workspaceLanguageHint')}
-                  </p>
-                </div>
-              </div>
-              <LanguageSelect
-                id="ai-workspace-language"
-                value={aiSettings.workspaceLanguage}
-                languages={WORKSPACE_LANGUAGES}
-                onChange={(v) => {
-                  setAiSettings((prev) =>
-                    prev ? { ...prev, workspaceLanguage: (v || 'en') as WorkspaceLanguage } : prev,
-                  )
-                  setSaveMessage(null)
-                }}
-              />
-            </div>
-            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
-              <div className="flex items-start gap-3">
-                <UserRound size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="ai-reply-send-as" className="text-sm font-medium">
-                    {t('ai.communication.sendAsLabel')}
-                  </Label>
-                  <p className="text-xs text-text-muted mt-0.5 max-w-sm">
-                    {t('ai.communication.sendAsHint')}
-                  </p>
-                </div>
-              </div>
-              <Select
-                value={aiSettings.replySendAs}
-                onValueChange={(v) => {
-                  setAiSettings((prev) =>
-                    prev ? { ...prev, replySendAs: v as ReplySendAs } : prev,
-                  )
-                  setSaveMessage(null)
-                }}
-              >
-                <SelectTrigger id="ai-reply-send-as" className="w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">{t('ai.communication.sendAsUser')}</SelectItem>
-                  <SelectItem value="agent">{t('ai.communication.sendAsAgent')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <Card className="p-5 space-y-5">
-        <div>
-          <h2 className="text-sm font-medium text-text-heading">
-            {t('ai.communication.triageTitle')}
-          </h2>
-          <p className="text-xs text-text-muted mt-0.5">
-            {t('ai.communication.triageDescription')}
-          </p>
-        </div>
-        {certainty == null ? (
-          <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
-        ) : (
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <Gauge size={16} className="mt-0.5 text-accent" />
-              <div>
-                <Label htmlFor="ai-certainty-threshold" className="text-sm font-medium">
-                  {t('ai.communication.certaintyLabel')}
-                </Label>
-                <p className="text-xs text-text-muted mt-0.5 max-w-sm">
-                  {t('ai.communication.certaintyHint')}
-                </p>
-              </div>
-            </div>
-            <Select
-              value={String(certainty)}
-              onValueChange={(v) => {
-                setCertainty(Number(v))
-                setSaveMessage(null)
-              }}
-            >
-              <SelectTrigger id="ai-certainty-threshold" className="w-56">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} — {n <= 3
-                      ? t('ai.communication.certaintyLow')
-                      : n <= 7
-                        ? t('ai.communication.certaintyMedium')
-                        : t('ai.communication.certaintyHigh')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </Card>
-
-      <Card className="p-5 space-y-5">
-        <div>
-          <h2 className="text-sm font-medium text-text-heading">
-            {t('ai.communication.mailboxOverrideTitle')}
-          </h2>
-          <p className="text-xs text-text-muted mt-0.5">
-            {t('ai.communication.mailboxOverrideDescription')}
-          </p>
-        </div>
-        {mailboxesLoading ? (
+        {mailboxesLoading || loadingMailboxConfigs ? (
           <LoadingBlock variant="inline" label={t('ai.communication.loadingMailboxes')} />
         ) : activeMailboxes.length === 0 ? (
           <EmptyState
@@ -542,68 +640,34 @@ export default function AiCommunicationSettings() {
             }
           />
         ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ai-mailbox-select">{t('ai.communication.mailboxLabel')}</Label>
-              <Select
-                value={connectionId != null ? String(connectionId) : undefined}
-                onValueChange={(v) => setConnectionId(Number(v))}
-              >
-                <SelectTrigger id="ai-mailbox-select" className="max-w-md">
-                  <SelectValue placeholder={t('ai.communication.mailboxPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeMailboxes.map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      <span className="flex items-center gap-2">
-                        <ProviderLogo provider={m.provider} className="h-4 w-4 object-contain" />
-                        {m.displayName} ({m.mailboxEmail})
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {loadError ? <p className="text-xs text-destructive">{loadError}</p> : null}
-            {loadingConfig ? (
-              <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <p className="text-xs text-text-muted mt-2 max-w-sm">
-                    {mailboxMode
-                      ? t(`ai.communication.modeHints.${mailboxMode}`)
-                      : t(`ai.communication.modeHints.${modes?.email ?? 'suggest'}`)}
-                  </p>
-                  <ModeSelect
-                    id="ai-mode-mailbox"
-                    value={mailboxMode}
-                    onChange={(v) => {
-                      setMailboxMode(v as MailboxAiMode | '')
-                      setSaveMessage(null)
-                    }}
-                    includeDefault
-                    defaultLabel={t('ai.communication.useDefault')}
-                  />
-                </div>
-                <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-4">
-                  <p className="text-xs text-text-muted mt-2 max-w-sm">
-                    {t('ai.communication.mailboxLanguageHint')}
-                  </p>
-                  <LanguageSelect
-                    id="ai-language-mailbox"
-                    value={mailboxLanguage}
-                    languages={REPLY_LANGUAGES}
-                    onChange={(v) => {
-                      setMailboxLanguage(v as MailboxReplyLanguage)
-                      setSaveMessage(null)
-                    }}
-                    includeDefault
-                    defaultLabel={t('ai.communication.useDefault')}
-                  />
-                </div>
-              </div>
-            )}
+          <div className="space-y-2">
+            {mailboxLoadError ? <p className="text-xs text-destructive">{mailboxLoadError}</p> : null}
+            {activeMailboxes.map((mailbox) => (
+              <MailboxExceptionRow
+                key={mailbox.id}
+                mailbox={mailbox}
+                draft={mailboxDrafts[mailbox.id]}
+                expanded={expandedMailboxId === mailbox.id}
+                isCustom={hasOverride(mailboxDrafts[mailbox.id])}
+                effectiveMode={effectiveModeLabel(mailboxDrafts[mailbox.id])}
+                effectiveLanguage={effectiveLanguageLabel(mailboxDrafts[mailbox.id])}
+                onToggle={() =>
+                  setExpandedMailboxId((prev) => (prev === mailbox.id ? null : mailbox.id))
+                }
+                onModeChange={(value) => updateMailboxDraft(mailbox.id, { mode: value as MailboxAiMode | '' })}
+                onLanguageChange={(value) =>
+                  updateMailboxDraft(mailbox.id, { replyLanguage: value as MailboxReplyLanguage })
+                }
+                customBadge={t('ai.communication.customBadge')}
+                useDefaultLabel={t('ai.communication.useDefault')}
+                modeHint={
+                  mailboxDrafts[mailbox.id]?.mode
+                    ? t(`ai.communication.modeHints.${mailboxDrafts[mailbox.id].mode}`)
+                    : t(`ai.communication.modeHints.${modes?.email ?? 'suggest'}`)
+                }
+                languageHint={t('ai.communication.mailboxLanguageHint')}
+              />
+            ))}
           </div>
         )}
       </Card>
@@ -622,7 +686,105 @@ export default function AiCommunicationSettings() {
         {saveMessage ? <p className="text-xs text-text-secondary">{saveMessage}</p> : null}
       </div>
 
-      <ChannelBindingsPanel />
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-medium text-text-heading">
+            {t('ai.communication.whoAnswersTitle')}
+          </h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            {t('ai.communication.whoAnswersDescription')}
+          </p>
+        </div>
+        <ChannelBindingsPanel />
+      </section>
     </PageContent>
+  )
+}
+
+function MailboxExceptionRow({
+  mailbox,
+  draft,
+  expanded,
+  isCustom,
+  effectiveMode,
+  effectiveLanguage,
+  onToggle,
+  onModeChange,
+  onLanguageChange,
+  customBadge,
+  useDefaultLabel,
+  modeHint,
+  languageHint,
+}: {
+  mailbox: EmailConnection
+  draft: MailboxOverrideDraft | undefined
+  expanded: boolean
+  isCustom: boolean
+  effectiveMode: string
+  effectiveLanguage: string
+  onToggle: () => void
+  onModeChange: (value: string) => void
+  onLanguageChange: (value: string) => void
+  customBadge: string
+  useDefaultLabel: string
+  modeHint: string
+  languageHint: string
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-bg-hover/40 transition-colors"
+        aria-expanded={expanded}
+      >
+        <ProviderLogo provider={mailbox.provider} className="h-5 w-5 object-contain shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-text-heading truncate">
+              {mailbox.displayName || mailbox.mailboxEmail}
+            </p>
+            {isCustom ? (
+              <Badge variant="accent" className="rounded-md px-1.5 py-0.5 text-[10px] font-medium">
+                {customBadge}
+              </Badge>
+            ) : null}
+          </div>
+          <p className="text-xs text-text-muted truncate">{mailbox.mailboxEmail}</p>
+          <p className="text-xs text-text-secondary mt-1">
+            {effectiveMode} · {effectiveLanguage}
+          </p>
+        </div>
+        <ChevronDown
+          size={16}
+          className={cn('shrink-0 text-text-muted transition-transform', expanded && 'rotate-180')}
+        />
+      </button>
+      {expanded ? (
+        <div className="space-y-4 border-t border-border/60 bg-bg-elevated/30 px-3 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-xs text-text-muted mt-2 max-w-sm">{modeHint}</p>
+            <ModeSelect
+              id={`ai-mode-mailbox-${mailbox.id}`}
+              value={draft?.mode ?? ''}
+              onChange={onModeChange}
+              includeDefault
+              defaultLabel={useDefaultLabel}
+            />
+          </div>
+          <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-4">
+            <p className="text-xs text-text-muted mt-2 max-w-sm">{languageHint}</p>
+            <LanguageSelect
+              id={`ai-language-mailbox-${mailbox.id}`}
+              value={draft?.replyLanguage ?? ''}
+              languages={REPLY_LANGUAGES}
+              onChange={onLanguageChange}
+              includeDefault
+              defaultLabel={useDefaultLabel}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }

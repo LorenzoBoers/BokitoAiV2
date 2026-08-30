@@ -55,9 +55,23 @@ export interface IntegrationModuleRow {
   setup_steps?: string[]
   capability_summary?: string
   setup_path?: string
+  workspace_path?: string
   enabled?: boolean
   connected?: boolean
-  tenant_status?: 'off' | 'on' | 'connected' | 'coming_soon' | 'available'
+  install_state?: 'not_installed' | 'setup' | 'installed'
+  assigned_agent_count?: number
+  default_agent_id?: string | null
+  /** False when this member is outside the module's user_access selection. */
+  user_accessible?: boolean
+  tenant_status?:
+    | 'not_installed'
+    | 'setup'
+    | 'installed'
+    | 'connected'
+    | 'coming_soon'
+    | 'off'
+    | 'on'
+    | 'available'
 }
 
 export interface IntegrationConnectionRow {
@@ -137,13 +151,65 @@ export async function listIntegrationProviders(): Promise<ProvidersListResponse>
 
 export async function patchIntegrationModule(
   slug: string,
-  enabled: boolean,
+  body: { enabled?: boolean; action?: 'install' | 'complete_setup' | 'uninstall' },
 ): Promise<IntegrationModuleRow> {
   const data = await apiPatch<{ module: IntegrationModuleRow }>(
     integrationsRoutes.platform.moduleBySlug(slug),
-    { enabled },
+    body,
   )
   return data.module
+}
+
+export interface ModuleAgentRow {
+  id: string
+  module_slug: string
+  agent_id: string
+  name: string
+  role: string
+  is_active: boolean
+  is_default: boolean
+  /** Company/administration ids this agent may access; null = all. */
+  company_ids: string[] | null
+  /** Without this flag the agent gets read tools only. */
+  can_write: boolean
+  created_at: string
+}
+
+export async function listModuleAgents(slug: string): Promise<ModuleAgentRow[]> {
+  return apiGet<ModuleAgentRow[]>(integrationsRoutes.platform.moduleAgents(slug))
+}
+
+export async function addModuleAgent(
+  slug: string,
+  agentId: string,
+  isDefault = false,
+): Promise<ModuleAgentRow> {
+  return apiPost<ModuleAgentRow>(integrationsRoutes.platform.moduleAgents(slug), {
+    agent_id: agentId,
+    is_default: isDefault,
+  })
+}
+
+export async function setModuleAgentDefault(
+  slug: string,
+  agentId: string,
+  isDefault: boolean,
+): Promise<ModuleAgentRow> {
+  return apiPatch<ModuleAgentRow>(integrationsRoutes.platform.moduleAgentById(slug, agentId), {
+    is_default: isDefault,
+  })
+}
+
+export async function removeModuleAgent(slug: string, agentId: string): Promise<void> {
+  await apiDelete(integrationsRoutes.platform.moduleAgentById(slug, agentId))
+}
+
+export async function updateModuleAgentAccess(
+  slug: string,
+  agentId: string,
+  body: { company_ids?: string[]; clear_company_scope?: boolean; can_write?: boolean },
+): Promise<ModuleAgentRow> {
+  return apiPatch<ModuleAgentRow>(integrationsRoutes.platform.moduleAgentById(slug, agentId), body)
 }
 
 export async function listIntegrationConnections(

@@ -50,6 +50,17 @@ export type AllowanceState = {
   tool_overrides: Record<string, AllowanceMode>
   categories: string[]
   presets: PosturePreset[]
+  learning_history?: LearningAllowanceNote[]
+}
+
+export type LearningAllowanceNote = {
+  category?: string
+  from?: string
+  to?: string
+  reason?: string
+  at?: string
+  escalations?: number
+  rejects?: number
 }
 
 export type GovernToolRow = {

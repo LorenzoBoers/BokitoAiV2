@@ -295,7 +295,17 @@ export async function bokitoCreateAgent(token: string, input: CreateAgentInput) 
 export async function bokitoUpdateAgent(
   token: string,
   agentId: string,
-  input: { name?: string; system_prompt?: string; email_signature_html?: string },
+  input: {
+    name?: string
+    system_prompt?: string
+    email_signature_html?: string
+    email_signature_text?: string
+    reply_send_as?: 'user' | 'agent'
+    avatar_kind?: string | null
+    avatar_icon?: string | null
+    avatar_color?: string | null
+    avatar_image_url?: string | null
+  },
 ) {
   return bokitoFetch<{ ok: boolean; agent: RuntimeAgent }>(
     `/api/workforce/agents/${agentId}`,

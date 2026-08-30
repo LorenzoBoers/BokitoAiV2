@@ -30,8 +30,15 @@ def _schedule_label(kind: str, cron_expr: str, interval_minutes: int) -> str:
     return kind or "schedule"
 
 
-async def collect_tenant_snapshot(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    """Structured snapshot used by tools and the compact prompt block."""
+async def collect_tenant_snapshot(
+    session: AsyncSession, tenant_id: UUID, *, agent_id: UUID | None = None
+) -> dict[str, Any]:
+    """Structured snapshot used by tools and the compact prompt block.
+
+    With ``agent_id``, module context is scoped to that agent's roster:
+    accounting connections disappear when the agent is not rostered, and the
+    per-agent company scope + write flag are included.
+    """
     from app.models.agent import Agent, AgentRun
     from app.models.integration import IntegrationConnection, McpServer
     from app.models.notification import DecisionRequest
@@ -199,6 +206,20 @@ async def collect_tenant_snapshot(session: AsyncSession, tenant_id: UUID) -> dic
 
     modules = await serialize_modules_for_tenant(session, tenant_id)
 
+    accounting_scope: dict[str, Any] | None = None
+    if agent_id is not None:
+        from app.services.module_agents import module_agent_access, parse_company_scope
+
+        access = await module_agent_access(session, tenant_id, agent_id, "accounting")
+        if access is None:
+            # Not rostered: this agent has no accounting capability at all.
+            accounting_connections = []
+        else:
+            accounting_scope = {
+                "company_ids": parse_company_scope(access),
+                "can_write": bool(access.can_write),
+            }
+
     return {
         "agents": agents,
         "projects": projects,
@@ -209,6 +230,7 @@ async def collect_tenant_snapshot(session: AsyncSession, tenant_id: UUID) -> dic
         "integrations": integrations,
         "mcp_servers": mcp_servers,
         "accounting_connections": accounting_connections,
+        "accounting_scope": accounting_scope,
         "modules": modules,
         "agent_runs_total": int(recent_runs_count or 0),
     }
@@ -272,6 +294,20 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
             f"Accounting: {len(accounting)} connection(s) ({names}) — use the "
             "accounting_* tools; start with accounting_list_companies."
         )
+        scope = snapshot.get("accounting_scope")
+        if isinstance(scope, dict):
+            company_ids = scope.get("company_ids")
+            if isinstance(company_ids, list) and company_ids:
+                lines.append(
+                    "Your accounting scope is limited to administration id(s): "
+                    + ", ".join(str(c) for c in company_ids[:6])
+                    + "."
+                )
+            if not scope.get("can_write"):
+                lines.append(
+                    "You have read-only accounting access; you cannot propose "
+                    "or apply accounting writes."
+                )
 
     modules = snapshot.get("modules") or []
     if modules:
@@ -285,20 +321,30 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
             if status == "coming_soon":
                 coming.append(slug)
                 continue
-            if status == "connected":
+            if status in ("connected",):
                 lines.append(
                     f"- {slug} — connected — use {slug}_* tools"
                     + ("; start with accounting_list_companies" if slug == "accounting" else "")
                     + "."
                 )
-            elif status == "on":
+            elif status in ("installed", "on"):
                 lines.append(
-                    f"- {slug} — on, no package — use when {when or 'this work comes up'}. "
-                    f"Setup: {setup}"
+                    f"- {slug} — installed"
+                    + (
+                        f" — use when {when or 'this work comes up'}. Setup: {setup}"
+                        if status == "on" or not module.get("connected")
+                        else " — use module tools."
+                    )
+                )
+            elif status == "setup":
+                lines.append(
+                    f"- {slug} — setup in progress — finish at {setup}"
+                    + (f" ({when})" if when else "")
+                    + "."
                 )
             else:
                 lines.append(
-                    f"- {slug} — off — enable at {setup}"
+                    f"- {slug} — not installed — install at {setup}"
                     + (f" when {when}" if when else "")
                     + "."
                 )
@@ -323,8 +369,10 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
     return text
 
 
-async def build_tenant_snapshot_prompt(session: AsyncSession, tenant_id: UUID) -> str:
-    snapshot = await collect_tenant_snapshot(session, tenant_id)
+async def build_tenant_snapshot_prompt(
+    session: AsyncSession, tenant_id: UUID, *, agent_id: UUID | None = None
+) -> str:
+    snapshot = await collect_tenant_snapshot(session, tenant_id, agent_id=agent_id)
     return format_tenant_snapshot_prompt(snapshot)
 
 

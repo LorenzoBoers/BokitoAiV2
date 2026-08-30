@@ -13,8 +13,17 @@ import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import TriggerDialog, { type TargetOption } from '../components/agenda/TriggerDialog'
 import AutomationsPanel from '../components/agenda/AutomationsPanel'
+import { CalendarConnectBar } from '../components/agenda/CalendarConnectBar'
+import CalendarEventDialog, {
+  type CalendarEventEditSeed,
+} from '../components/agenda/CalendarEventDialog'
+import CalendarEventDetailDialog from '../components/agenda/CalendarEventDetailDialog'
 import { useAuth } from '../context/AuthContext'
 import { listAgents } from '../lib/agents-api'
+import {
+  listCalendarConnections,
+  type CalendarConnection,
+} from '../lib/calendars-api'
 import {
   listAgendaOccurrences,
   listTriggers,
@@ -48,6 +57,18 @@ const KIND_LABELS: Record<string, string> = {
   interval: 'Repeating',
   heartbeat: 'Check-in',
   webhook: 'Incoming',
+  calendar: 'Calendar',
+}
+
+type SourceFilter = 'all' | 'wakes' | 'calendar'
+
+function parseSourceFilter(raw: string | null): SourceFilter {
+  if (raw === 'wakes' || raw === 'calendar') return raw
+  return 'all'
+}
+
+function isCalendarItem(item: AgendaItem): boolean {
+  return item.kind === 'calendar' || item.source === 'calendar'
 }
 
 function startOfDay(d: Date): Date {
@@ -83,7 +104,10 @@ function formatTime(d: Date, language?: string | null): string {
   return formatAppTime(d, language)
 }
 
-function statusStyle(status: string): string {
+function statusStyle(status: string, kind?: string): string {
+  if (kind === 'calendar' || status === 'calendar') {
+    return 'border-sky-500/35 bg-sky-500/8 text-text-heading'
+  }
   const s = status.toLowerCase()
   if (s === 'planned') return 'border-border/60 bg-bg-elevated text-text'
   if (s === 'running' || s === 'active') return 'border-accent/40 bg-accent/10 text-accent'
@@ -109,7 +133,7 @@ function AgendaChip({
       disabled={!onClick}
       className={cn(
         'w-full rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors',
-        statusStyle(item.status),
+        statusStyle(item.status, item.kind),
         onClick ? 'hover:border-accent/60' : 'cursor-default',
         !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
       )}
@@ -125,7 +149,10 @@ function AgendaChip({
       </div>
       <p className="mt-0.5 truncate font-medium">{translateDecisionText(item.name, t) || item.name}</p>
       {item.agent_name ? <p className="truncate opacity-75">{item.agent_name}</p> : null}
-      {item.status !== 'planned' ? (
+      {isCalendarItem(item) && item.provider_label ? (
+        <p className="truncate opacity-75">{item.provider_label}</p>
+      ) : null}
+      {item.status !== 'planned' && item.status !== 'calendar' ? (
         <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-75">{agendaStatusLabel(item.status, t)}</p>
       ) : null}
     </button>
@@ -141,15 +168,23 @@ export default function AgendaPage() {
   const [weekOffset, setWeekOffset] = useState(() => parseWeekOffset(searchParams.get('week')))
   const [agentFilter, setAgentFilter] = useState(() => searchParams.get('agent') ?? 'all')
   const [kindFilter, setKindFilter] = useState(() => searchParams.get('kind') ?? 'all')
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(() =>
+    parseSourceFilter(searchParams.get('source')),
+  )
   const [listQuery, setListQuery] = useState('')
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [items, setItems] = useState<AgendaItem[]>([])
   const [triggers, setTriggers] = useState<Trigger[]>([])
   const [agents, setAgents] = useState<TargetOption[]>([])
   const [workstreams, setWorkstreams] = useState<TargetOption[]>([])
+  const [calendarConnections, setCalendarConnections] = useState<CalendarConnection[]>([])
+  const [calendarLoading, setCalendarLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [calendarDialogOpen, setCalendarDialogOpen] = useState(false)
+  const [calendarEditEvent, setCalendarEditEvent] = useState<CalendarEventEditSeed | null>(null)
+  const [calendarDetailItem, setCalendarDetailItem] = useState<AgendaItem | null>(null)
   const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null)
   const [initialRunAt, setInitialRunAt] = useState<Date | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -172,6 +207,8 @@ export default function AgendaPage() {
     setAgentFilter((current) => (current === agentFromUrl ? current : agentFromUrl))
     const kindFromUrl = searchParams.get('kind') ?? 'all'
     setKindFilter((current) => (current === kindFromUrl ? current : kindFromUrl))
+    const sourceFromUrl = parseSourceFilter(searchParams.get('source'))
+    setSourceFilter((current) => (current === sourceFromUrl ? current : sourceFromUrl))
     const weekFromUrl = parseWeekOffset(searchParams.get('week'))
     setWeekOffset((current) => (current === weekFromUrl ? current : weekFromUrl))
   }, [searchParams])
@@ -202,6 +239,14 @@ export default function AgendaPage() {
     const params = new URLSearchParams(searchParams)
     if (next === 'all') params.delete('kind')
     else params.set('kind', next)
+    setSearchParams(params, { replace: true })
+  }
+
+  const handleSourceFilterChange = (next: SourceFilter) => {
+    setSourceFilter(next)
+    const params = new URLSearchParams(searchParams)
+    if (next === 'all') params.delete('source')
+    else params.set('source', next)
     setSearchParams(params, { replace: true })
   }
 
@@ -268,6 +313,21 @@ export default function AgendaPage() {
   useEffect(() => {
     if (!token) return
     void (async () => {
+      setCalendarLoading(true)
+      try {
+        const rows = await listCalendarConnections()
+        setCalendarConnections(rows)
+      } catch {
+        setCalendarConnections([])
+      } finally {
+        setCalendarLoading(false)
+      }
+    })()
+  }, [token, reloadKey])
+
+  useEffect(() => {
+    if (!token) return
+    void (async () => {
       try {
         const [agentRows, wsRes] = await Promise.all([
           listAgents().catch(() => []),
@@ -283,16 +343,18 @@ export default function AgendaPage() {
 
   const filtered = useMemo(() => {
     let out = items
+    if (sourceFilter === 'wakes') out = out.filter((i) => !isCalendarItem(i))
+    if (sourceFilter === 'calendar') out = out.filter((i) => isCalendarItem(i))
     if (kindFilter !== 'all') out = out.filter((i) => i.kind === kindFilter)
     const q = listQuery.trim().toLowerCase()
     if (q) {
       out = out.filter((i) => {
-        const hay = `${i.name} ${i.agent_name ?? ''} ${i.kind} ${i.status}`.toLowerCase()
+        const hay = `${i.name} ${i.agent_name ?? ''} ${i.provider_label ?? ''} ${i.kind} ${i.status}`.toLowerCase()
         return hay.includes(q)
       })
     }
     return [...out].sort((a, b) => parseAt(a.at).getTime() - parseAt(b.at).getTime())
-  }, [items, kindFilter, listQuery])
+  }, [items, kindFilter, sourceFilter, listQuery])
 
   const byDay = useMemo(() => {
     const map = new Map<string, AgendaItem[]>()
@@ -322,6 +384,10 @@ export default function AgendaPage() {
   }, [searchParams, triggers])
 
   const openItem = (item: AgendaItem) => {
+    if (isCalendarItem(item)) {
+      setCalendarDetailItem(item)
+      return
+    }
     void (async () => {
       if (token && item.name.trim()) {
         try {
@@ -393,12 +459,29 @@ export default function AgendaPage() {
               aria-label={t('agendaPage.refresh')}
               onClick={() => {
                 if (view === 'automations') setReloadKey((k) => k + 1)
-                else void load()
+                else {
+                  setReloadKey((k) => k + 1)
+                  void load()
+                }
               }}
               disabled={loading}
             >
               <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} aria-hidden />
             </Button>
+            {calendarConnections.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setCalendarEditEvent(null)
+                  setCalendarDialogOpen(true)
+                }}
+              >
+                <CalendarDays className="mr-1.5 h-4 w-4" aria-hidden />
+                {t('agendaPage.calendar.newBlock')}
+              </Button>
+            ) : null}
             <Button type="button" size="sm" onClick={() => openCreate()}>
               <Plus className="mr-1.5 h-4 w-4" aria-hidden />
               {t('agendaPage.new')}
@@ -407,6 +490,17 @@ export default function AgendaPage() {
         }
       />
 
+      {view !== 'automations' ? (
+        <CalendarConnectBar
+          connections={calendarConnections}
+          loading={calendarLoading}
+          onConnectionsChange={setCalendarConnections}
+          onSynced={() => {
+            setReloadKey((k) => k + 1)
+            void load()
+          }}
+        />
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={view} onValueChange={(v) => handleViewChange(v as ViewTab)}>
           <TabsList>
@@ -461,6 +555,16 @@ export default function AgendaPage() {
                 aria-label={t('agendaPage.listSearch')}
               />
             ) : null}
+            <Select value={sourceFilter} onValueChange={(v) => handleSourceFilterChange(v as SourceFilter)}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue placeholder={t('agendaPage.allSources')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('agendaPage.allSources')}</SelectItem>
+                <SelectItem value="wakes">{t('agendaPage.sourceWakes')}</SelectItem>
+                <SelectItem value="calendar">{t('agendaPage.sourceCalendar')}</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={agentFilter} onValueChange={handleAgentFilterChange}>
               <SelectTrigger className="h-8 w-[150px] text-xs">
                 <SelectValue placeholder={t('agendaPage.allAgents')} />
@@ -474,19 +578,23 @@ export default function AgendaPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={kindFilter} onValueChange={handleKindFilterChange}>
-              <SelectTrigger className="h-8 w-[130px] text-xs">
-                <SelectValue placeholder={t('agendaPage.allTypes')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('agendaPage.allTypes')}</SelectItem>
-                {Object.keys(KIND_LABELS).map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`agendaPage.kinds.${value}`, { defaultValue: KIND_LABELS[value] })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {sourceFilter !== 'calendar' ? (
+              <Select value={kindFilter} onValueChange={handleKindFilterChange}>
+                <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <SelectValue placeholder={t('agendaPage.allTypes')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('agendaPage.allTypes')}</SelectItem>
+                  {Object.keys(KIND_LABELS)
+                    .filter((value) => value !== 'calendar')
+                    .map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {t(`agendaPage.kinds.${value}`, { defaultValue: KIND_LABELS[value] })}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -559,7 +667,11 @@ export default function AgendaPage() {
                         ...item,
                         agent_name: resolveAgendaAgentName(item, agents, triggers, items) || item.agent_name,
                       }}
-                      onClick={item.run_id || item.trigger_id ? () => openItem(item) : undefined}
+                      onClick={
+                        isCalendarItem(item) || item.run_id || item.trigger_id
+                          ? () => openItem(item)
+                          : undefined
+                      }
                     />
                   ))
                 )}
@@ -618,12 +730,21 @@ export default function AgendaPage() {
                       <button
                         key={item.id}
                         type="button"
-                        disabled={!item.trigger_id && !(item.run_id && item.agent_id)}
-                        onClick={item.run_id || item.trigger_id ? () => openItem(item) : undefined}
+                        disabled={
+                          !isCalendarItem(item) && !item.trigger_id && !(item.run_id && item.agent_id)
+                        }
+                        onClick={
+                          isCalendarItem(item) || item.run_id || item.trigger_id
+                            ? () => openItem(item)
+                            : undefined
+                        }
                         className={cn(
                           'flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-left text-sm transition-colors',
-                          item.run_id || item.trigger_id ? 'hover:border-accent/60' : 'cursor-default',
+                          isCalendarItem(item) || item.run_id || item.trigger_id
+                            ? 'hover:border-accent/60'
+                            : 'cursor-default',
                           !item.enabled && item.status === 'planned' ? 'opacity-50' : '',
+                          isCalendarItem(item) ? 'border-sky-500/30' : '',
                         )}
                       >
                         <span className="w-12 shrink-0 font-medium tabular-nums text-text-heading">
@@ -649,14 +770,20 @@ export default function AgendaPage() {
                           >
                             {agentLabel}
                           </span>
+                        ) : item.provider_label ? (
+                          <span className="hidden shrink-0 text-xs text-text-muted sm:inline">
+                            {item.provider_label}
+                          </span>
                         ) : null}
                         <span
                           className={cn(
                             'shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide',
-                            statusStyle(item.status),
+                            statusStyle(item.status, item.kind),
                           )}
                         >
-                          {agendaStatusLabel(item.status, t)}
+                          {item.status === 'calendar'
+                            ? t('agendaPage.kinds.calendar')
+                            : agendaStatusLabel(item.status, t)}
                         </span>
                       </button>
                     )
@@ -676,6 +803,30 @@ export default function AgendaPage() {
         workstreams={workstreams}
         initialRunAt={initialRunAt}
         onSaved={onSaved}
+      />
+      <CalendarEventDialog
+        open={calendarDialogOpen}
+        onOpenChange={(open) => {
+          setCalendarDialogOpen(open)
+          if (!open) setCalendarEditEvent(null)
+        }}
+        connections={calendarConnections}
+        initialStart={initialRunAt}
+        editEvent={calendarEditEvent}
+        onCreated={onSaved}
+      />
+      <CalendarEventDetailDialog
+        open={calendarDetailItem != null}
+        onOpenChange={(open) => {
+          if (!open) setCalendarDetailItem(null)
+        }}
+        item={calendarDetailItem}
+        onDeleted={onSaved}
+        onEdit={(seed) => {
+          setCalendarDetailItem(null)
+          setCalendarEditEvent(seed)
+          setCalendarDialogOpen(true)
+        }}
       />
     </PageContent>
   )

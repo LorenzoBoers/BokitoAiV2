@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Boxes, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
@@ -24,6 +24,12 @@ import {
 } from '../../lib/tenant-branding'
 import ConnectionStatus from './ConnectionStatus'
 import ThemeModeToggle from './ThemeModeToggle'
+import { useIntegrationCatalog } from '../../hooks/useIntegrationCatalog'
+import {
+  moduleIsOn,
+  moduleWorkspacePath,
+  type IntegrationModuleRow,
+} from '../../lib/integration-modules'
 
 const BOKITO_MARK_FILTER_DARK =
   'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
@@ -53,6 +59,14 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const { isDark } = useTheme()
   const { currentWorkspace } = useWorkspace()
   const { counts } = useOptionalNavBadges()
+  const { modules } = useIntegrationCatalog()
+  const installedModules = useMemo(
+    () =>
+      modules.filter(
+        (m) => m.status !== 'coming_soon' && moduleIsOn(m) && m.user_accessible !== false,
+      ),
+    [modules],
+  )
   const brandName = workspaceBrandName(currentWorkspace)
   const brandIconUrl = resolveBrandIconUrl(currentWorkspace)
   const brandMarkSrc = brandIconUrl || DEFAULT_BRAND_MARK
@@ -210,6 +224,13 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                         </NavLink>
                       )
                     })}
+                    {group.label === 'AI' && installedModules.length > 0 ? (
+                      <InstalledModulesNav
+                        modules={installedModules}
+                        collapsed={collapsed}
+                        onNavigate={onNavigate}
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </section>
@@ -230,6 +251,83 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
           <ConnectionStatus showLabel={!collapsed} />
         </div>
       </div>
+    </div>
+  )
+}
+
+function InstalledModulesNav({
+  modules,
+  collapsed,
+  onNavigate,
+}: {
+  modules: IntegrationModuleRow[]
+  collapsed: boolean
+  onNavigate?: () => void
+}) {
+  const { t } = useTranslation('nav')
+  const { pathname } = useLocation()
+
+  if (collapsed) {
+    return (
+      <>
+        {modules.map((module) => {
+          const to = moduleWorkspacePath(module)
+          const active = pathname.startsWith(to)
+          const name = t(`integrations.modules.${module.slug}.name`, {
+            defaultValue: module.name,
+          })
+          return (
+            <NavLink
+              key={module.slug}
+              to={to}
+              onClick={onNavigate}
+              title={name}
+              aria-label={name}
+              data-tour={`nav-module-${module.slug}`}
+              className={`relative flex h-9 w-9 items-center justify-center rounded-lg text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
+                active
+                  ? 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
+                  : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
+              }`}
+            >
+              <Boxes size={15} className="shrink-0" />
+            </NavLink>
+          )
+        })}
+      </>
+    )
+  }
+
+  return (
+    <div className="mt-2 space-y-px border-t border-border/30 pt-2">
+      <p className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+        {t('tabGroups.modules', { defaultValue: 'Modules' })}
+      </p>
+      {modules.map((module) => {
+        const to = moduleWorkspacePath(module)
+        const active = pathname.startsWith(to)
+        const name = t(`integrations.modules.${module.slug}.name`, {
+          defaultValue: module.name,
+        })
+        return (
+          <NavLink
+            key={module.slug}
+            to={to}
+            onClick={onNavigate}
+            title={name}
+            aria-label={name}
+            data-tour={`nav-module-${module.slug}`}
+            className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-[background-color,color,box-shadow] duration-200 ${
+              active
+                ? 'bg-accent/12 font-medium text-accent shadow-[inset_2px_0_0_0_rgb(var(--color-accent))]'
+                : 'text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary'
+            }`}
+          >
+            <Boxes size={15} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{name}</span>
+          </NavLink>
+        )
+      })}
     </div>
   )
 }

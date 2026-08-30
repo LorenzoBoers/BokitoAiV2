@@ -10,19 +10,43 @@
     "loadingWorkspaces": "Loading workspaces..."
   },
   "tabs": {
-    "cockpit": { "title": "Cockpit", "subtitle": "Overview, activity and usage" },
-    "communication": { "title": "Communication", "subtitle": "Chats, customer and agent threads" },
-    "contacts": { "title": "Contacts", "subtitle": "People across your channels" },
-    "agenda": { "title": "Agenda", "subtitle": "Scheduled check-ins, tasks and appointments" },
-    "agents": { "title": "Agents", "subtitle": "People and agents you can chat with" },
-    "projects": { "title": "Projects", "subtitle": "Shared goals for agents and threads" },
-    "knowledge": { "title": "Knowledge", "subtitle": "Docs, skills and memory" },
+    "cockpit": {
+      "title": "Cockpit",
+      "subtitle": "Overview, activity and usage"
+    },
+    "communication": {
+      "title": "Communication",
+      "subtitle": "Chats, customer and agent threads"
+    },
+    "contacts": {
+      "title": "Contacts",
+      "subtitle": "People across your channels"
+    },
+    "agenda": {
+      "title": "Agenda",
+      "subtitle": "Scheduled check-ins, tasks and appointments"
+    },
+    "agents": {
+      "title": "Agents",
+      "subtitle": "People and agents you can chat with"
+    },
+    "projects": {
+      "title": "Projects",
+      "subtitle": "Shared goals for agents and threads"
+    },
+    "knowledge": {
+      "title": "Knowledge",
+      "subtitle": "Docs, skills and memory"
+    },
     "modules": {
       "title": "Modules",
       "subtitle": "Turn business capabilities on or off",
       "newBadge": "New"
     },
-    "settings": { "title": "Settings", "subtitle": "Workspace configuration" }
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Workspace configuration"
+    }
   },
   "cockpitTabs": {
     "aria": "Cockpit sections",
@@ -46,6 +70,7 @@
     "marketplace": "Marketplace",
     "modules": "Modules",
     "moduleSetup": "Module setup",
+    "moduleWorkspace": "Module",
     "connectedTools": "Connected tools",
     "myAssistant": "My assistant"
   },
@@ -178,7 +203,9 @@
       "bannerTitle": "Communication is where work lands",
       "bannerBody": "Customer messages, agent chats and internal threads share one inbox. Connect channels, then reply or let AI draft answers.",
       "runsBannerTitle": "Agent runs are internal work",
-      "runsBannerBody": "Scheduled scans, decisions and agent updates live here. Customer mail stays in Inbox — Open is only work that still needs a person.",
+      "runsBannerBody": "Scheduled scans and agent updates live here. Items waiting on a yes or no sit under Decisions.",
+      "decisionsBannerTitle": "Decisions are the exception queue",
+      "decisionsBannerBody": "Every open approval — customer drafts and internal agent asks — lives here. Approve or edit on the thread card.",
       "pageTitle": "How Communication works",
       "intro": "The hub for every conversation — external customers and internal agents in one place.",
       "sections": [
@@ -195,8 +222,8 @@
           "body": "Mention an agent or start a chat from New chat. Agent runs and decision cards appear inline — approve or edit before anything goes out."
         },
         {
-          "title": "Agent runs",
-          "body": "Scheduled scans and waiting decisions live under Agent runs, not in Open. Cockpit “Awaiting decision” opens the same list."
+          "title": "Decisions",
+          "body": "Open DecisionRequests from any channel share one Decisions leaf. Cockpit Needs attention and notification clicks open the same list."
         }
       ]
     },
@@ -222,13 +249,17 @@
     },
     "agenda": {
       "bannerTitle": "Agenda is when agents wake up",
-      "bannerBody": "Schedule wakes, one-off tasks, recurring checks and incoming webhooks. This is not a meeting calendar — it is the run plan for your agents.",
+      "bannerBody": "Schedule agent wakes and sync Google or Outlook calendars into the same week view. Wakes run agents; calendar blocks are meetings from your connected calendars.",
       "pageTitle": "How Agenda works",
-      "intro": "Everything that should happen on a clock or an incoming event is planned here.",
+      "intro": "Everything that should happen on a clock or an incoming event is planned here, alongside synced calendar events.",
       "sections": [
         {
           "title": "Week and list",
-          "body": "Week shows planned runs on each day. List is the same schedule as a feed. Today is highlighted so you can see what fires next."
+          "body": "Week shows planned runs and calendar events on each day. List is the same schedule as a feed. Filter by Wakes, Calendar or All. Today is highlighted so you can see what fires next."
+        },
+        {
+          "title": "Calendar sync",
+          "body": "Connect Google Calendar or Outlook Calendar from Agenda or Marketplace. Events appear on the week grid. Agents can list events and propose new blocks that wait for your approval."
         },
         {
           "title": "Automations",
@@ -236,7 +267,7 @@
         },
         {
           "title": "New",
-          "body": "Use New to attach a schedule to an agent or a flow. Finished one-shots stay visible so you can see what already ran; on-demand chat runs belong in Activity, not here."
+          "body": "Use Schedule for agent wakes. Use Calendar block to create an event on a connected calendar. Finished one-shots stay visible; on-demand chat runs belong in Activity."
         }
       ]
     },
@@ -351,7 +382,7 @@
       "intro": "Dial how much agents may do on their own, from full oversight to exception-only review."
     }
   },
-    "agendaPage": {
+  "agendaPage": {
     "new": "Schedule",
     "week": "Week",
     "list": "List",
@@ -369,8 +400,12 @@
     "removeTriggerConfirm": "Delete this schedule?",
     "allAgents": "All agents",
     "allTypes": "All types",
+    "allSources": "All items",
+    "sourceWakes": "Wakes",
+    "sourceCalendar": "Calendar",
+    "cancel": "Cancel",
     "emptyTitle": "Nothing scheduled",
-    "emptyBody": "Schedule a check-in, a one-off task, or an event with New.",
+    "emptyBody": "Schedule a check-in, a one-off task, or connect a calendar.",
     "createRun": "Create a scheduled run",
     "openSetup": "Open setup guide",
     "openAgents": "Open Agents",
@@ -392,7 +427,41 @@
       "cron": "Recurring",
       "interval": "Repeating",
       "heartbeat": "Check-in",
-      "webhook": "Incoming"
+      "webhook": "Incoming",
+      "calendar": "Calendar"
+    },
+    "calendar": {
+      "connectTitle": "Sync a calendar",
+      "connectBody": "Connect Google Calendar or Outlook Calendar to show meetings next to agent wakes.",
+      "connectGoogle": "Google Calendar",
+      "connectOutlook": "Outlook Calendar",
+      "openMarketplace": "Marketplace",
+      "connectError": "Could not start calendar connect.",
+      "connectedLabel": "Calendars",
+      "eventCount": "{{count}} events synced",
+      "syncNow": "Sync",
+      "syncError": "Could not sync calendars.",
+      "newBlock": "Calendar block",
+      "createTitle": "New calendar block",
+      "connection": "Calendar",
+      "eventTitle": "Title",
+      "start": "Starts",
+      "end": "Ends",
+      "location": "Location",
+      "description": "Notes",
+      "createSubmit": "Create",
+      "edit": "Edit",
+      "editTitle": "Edit calendar block",
+      "updateSubmit": "Save",
+      "saving": "Saving...",
+      "createValidation": "Fill title, start and end (end after start).",
+      "createError": "Could not create the calendar event.",
+      "updateError": "Could not update the calendar event.",
+      "provider": "Provider",
+      "calendarName": "Calendar",
+      "openExternal": "Open in calendar",
+      "deleteConfirm": "Delete this calendar event?",
+      "deleteError": "Could not delete the calendar event."
     },
     "schedule": {
       "webhook": "on webhook",
@@ -1706,7 +1775,8 @@
     "control": "Control",
     "agent": "Agent",
     "ai": "AI",
-    "settings": "Settings"
+    "settings": "Settings",
+    "modules": "Modules"
   },
   "palette": {
     "placeholder": "Search pages, threads, contacts, knowledge, actions...",
@@ -1722,6 +1792,7 @@
     "groupSettings": "Settings",
     "groupInbox": "Inbox queues",
     "inboxOpenHint": "J/K to move, ? for shortcuts",
+    "decisionsHint": "Open approvals across all channels",
     "needsReply": "Needs reply",
     "needsDecision": "Needs decision",
     "agentRuns": "Agent runs",
@@ -2062,6 +2133,10 @@
       "agentOps": "Agent ops"
     },
     "newChat": "New chat",
+    "decisions": {
+      "label": "Decisions",
+      "hint": "Everything waiting on a yes, no, or approved draft"
+    },
     "inbox": {
       "all": "All",
       "allHint": "Every customer conversation, including closed ones",
@@ -2221,6 +2296,10 @@
       "saving": "Saving…",
       "saved": "Saved.",
       "saveError": "Save failed.",
+      "workspaceDefaultsTitle": "Workspace defaults",
+      "workspaceDefaultsDescription": "What applies when a channel or mailbox does not set its own exception.",
+      "howAiRespondsTitle": "How AI responds",
+      "howAiRespondsDescription": "The default AI mode for new inbound customer messages on each channel type.",
       "channelDefaultsTitle": "Channel defaults",
       "channelDefaultsDescription": "The workspace-wide AI mode for new inbound customer messages.",
       "channelEmail": "Email",
@@ -2239,11 +2318,13 @@
       "languageTitle": "Language",
       "languageDescription": "What language the AI writes in — for customer replies and for notes to your team.",
       "replyLanguageLabel": "Reply language",
-      "replyLanguageHint": "Language of drafted customer replies. Automatic mirrors the language of the customer's message.",
+      "replyLanguageHint": "Language of drafted customer replies. Automatic mirrors the language of the customer's message. Individual mailboxes can override this below.",
       "workspaceLanguageLabel": "Team language",
-      "workspaceLanguageHint": "Language of AI summaries and explanations written for your team, such as no-reply summaries.",
+      "workspaceLanguageHint": "Language of AI summaries and explanations written for your team, such as no-reply summaries. Workspace-wide only.",
+      "sendAndTriageTitle": "Sending and triage",
+      "sendAndTriageDescription": "Workspace policy for who appears as sender on approved replies, and how confident triage must be before it changes priority.",
       "sendAsLabel": "Approved replies are sent as",
-      "sendAsHint": "Default sender identity when a teammate approves a suggested reply. It determines whose signature is appended; each teammate can still switch per reply.",
+      "sendAsHint": "Default sender identity when a teammate approves a suggested reply. Teammates can still switch on the decision card; agents can set their own default under Agents.",
       "sendAsUser": "The approving teammate",
       "sendAsAgent": "The AI agent",
       "languageOptions": {
@@ -2261,10 +2342,17 @@
       "certaintyLow": "permissive",
       "certaintyMedium": "balanced",
       "certaintyHigh": "strict",
+      "mailboxExceptionsTitle": "Mailbox exceptions",
+      "mailboxExceptionsDescription": "Only mailboxes that need a different mode or reply language than the email workspace default. Expand a row to change it.",
+      "mailboxExceptionsSummary_one": "{{count}} mailbox differs from this default",
+      "mailboxExceptionsSummary_other": "{{count}} mailboxes differ from this default",
       "mailboxOverrideTitle": "Per-mailbox override",
       "mailboxOverrideDescription": "Give a specific mailbox its own AI mode and reply language instead of the workspace default.",
       "mailboxLanguageHint": "Reply language for drafts from this mailbox.",
+      "customBadge": "Custom",
       "useDefault": "Workspace default",
+      "whoAnswersTitle": "Who answers",
+      "whoAnswersDescription": "Route incoming conversations to a specific agent. This is separate from AI mode: routing picks who works the thread; mode picks whether they draft, auto-reply, or stay off.",
       "noMailboxTitle": "No mailbox connected",
       "noMailboxDescription": "Connect email under Email & messages before you can change AI replies per mailbox.",
       "unsavedLeave": "You have unsaved AI reply settings. Leave this page?",
@@ -2275,7 +2363,7 @@
       "mailboxLabel": "Mailbox",
       "mailboxPlaceholder": "Choose a mailbox",
       "crossLinks": {
-        "body": "AI modes apply per channel. Connect channels first, then fine-tune behavior here.",
+        "body": "Workspace defaults apply until a mailbox sets an exception. Connect channels first, then fine-tune behavior here.",
         "channels": "Email and channels",
         "widget": "Chat widget appearance",
         "installWidget": "Install widget on your site",
@@ -2313,6 +2401,7 @@
     "kind": {
       "inbox": "Communication",
       "repository": "Repository",
+      "calendar": "Calendar",
       "mcp": "Tools"
     },
     "actions": {
@@ -2333,6 +2422,7 @@
       "all": "All integrations",
       "inbox": "Communication",
       "repository": "Repository",
+      "calendar": "Calendar",
       "mcp": "Tools for agents",
       "connected": "Connected",
       "available": "Available",
@@ -2481,36 +2571,136 @@
       "verbsTitle": "What agents can do",
       "writesNote": "Writes always become a decision you approve.",
       "setupSteps": "Setup",
-      "connectors": "Packages",
+      "connectors": "Uses integrations",
+      "usesIntegrations": "Uses integrations",
+      "usesIntegrationsHint": "Connect these on the platform. The module uses them when they are available.",
       "backToMarketplace": "Back to Marketplace",
       "backToModules": "Back to Modules",
       "connectedBadge": "Connected",
-      "onBadge": "On",
-      "offBadge": "Off",
-      "turnOn": "Turn on",
-      "turnOff": "Turn off",
+      "installedBadge": "Installed",
+      "setupBadge": "Setup",
+      "notInstalledBadge": "Not installed",
+      "onBadge": "Installed",
+      "offBadge": "Not installed",
+      "install": "Install",
+      "uninstall": "Uninstall",
+      "finishSetup": "Finish setup",
+      "installStarted": "{{name}} is ready for setup.",
+      "installFinished": "{{name}} is installed.",
+      "uninstalled": "{{name}} was uninstalled.",
+      "uninstallTitle": "Uninstall {{name}}?",
+      "uninstallTitle2": "Really uninstall {{name}}?",
+      "uninstallConfirm": "Agents stop using {{name}}. Connected integrations on the platform stay in place.",
+      "uninstallConfirm2": "This removes {{name}} from your workspace and from the AI menu. Platform integrations stay connected.",
+      "uninstallContinue": "Continue",
+      "uninstallConfirmAction": "Yes, uninstall",
+      "toolset": "AI toolset",
+      "toolsetTitle": "Actions this module can perform",
+      "proposeToolset": "Writes (as decisions)",
+      "applyNote": "Proposals land as decisions. Approval applies the write only when the workspace write switch is on.",
+      "openWorkspace": "Open {{name}}",
+      "continueSetup": "Continue setup",
+      "setupInProgress": "Finish setup to install {{name}}. Optionally link a platform integration it can use.",
+      "installedNoIntegration": "{{name}} is installed. Link an optional integration so agents can reach live data.",
+      "installedHint": "Installed modules appear under AI in the main menu. Uninstall removes them from agents.",
+      "installHint": "Install this module, complete setup, then open it from AI > Modules.",
+      "integrationOn": "On",
+      "integrationOff": "Optional",
+      "openIntegration": "Open {{name}}",
+      "turnOn": "Install",
+      "turnOff": "Uninstall",
       "switchOn": "On",
       "switchOff": "Off",
-      "toggleHint": "Turning a module off hides it from agents. Connected packages stay in place.",
-      "enableToUseHint": "Turn this module on so agents can use it. Connecting a package also turns it on.",
+      "toggleHint": "Uninstalling hides the module from agents. Platform integrations stay in place.",
+      "enableToUseHint": "Install this module so agents can use it.",
       "toggleError": "Could not update this module.",
-      "turnOffTitle": "Turn {{name}} off?",
-      "turnOffConfirm": "Agents stop using it. Connected packages stay in place.",
-      "turnedOn": "{{name}} is on.",
-      "turnedOff": "{{name}} is off.",
-      "nextConnect": "{{name}} is on. Connect a package so agents can use it.",
-      "connectCta": "Connect a package",
-      "connectPackage": "Connect {{name}}",
+      "turnOffTitle": "Uninstall {{name}}?",
+      "turnOffConfirm": "Agents stop using it. Connected integrations stay in place.",
+      "turnedOn": "{{name}} is installed.",
+      "turnedOff": "{{name}} was uninstalled.",
+      "nextConnect": "{{name}} is installed. Link an optional integration so agents can use live data.",
+      "connectCta": "Link an integration",
+      "connectPackage": "Open {{name}}",
       "laterTitle": "Coming later",
-      "readyCount": "{{on}} of {{total}} ready modules are on",
-      "readyCount_one": "{{on}} of {{total}} ready module is on",
-      "pageIntro": "Turn a business module on so agents can use it. Then connect the package you already use.",
+      "readyCount": "{{on}} of {{total}} modules installed",
+      "readyCount_one": "{{on}} of {{total}} module installed",
+      "pageIntro": "Install a business module so agents can use its toolset. Link optional platform integrations, finish setup, then open the module from AI.",
       "manageCta": "Manage {{name}}",
       "openSetup": "Open {{name}}",
-      "browseMarketplace": "Browse packages on Marketplace",
+      "browseMarketplace": "Browse integrations on Marketplace",
       "helpLink": "How modules work",
-      "plannedEmpty": "Connectors for this module are not listed yet.",
+      "plannedEmpty": "Integrations for this module are not listed yet.",
       "notFound": "This module is not in the catalog.",
+      "workspace": {
+        "status": "Status",
+        "readyLive": "Ready with live data",
+        "readyNoData": "Installed — link an integration for live data",
+        "integrationCount": "{{count}} linked",
+        "verbCount": "{{count}} read actions",
+        "domainsTitle": "What agents can work with",
+        "manageIntegrations": "Manage connections",
+        "noIntegrations": "No integrations listed for this module yet.",
+        "actionsTitle": "Quick actions",
+        "sources": "Knowledge sources",
+        "missing": "Module not found",
+        "missingBody": "This module is not in the catalog.",
+        "backToCatalog": "Back to Modules",
+        "finishFirst": "Finish setup for {{name}}",
+        "finishFirstBody": "Complete setup under Settings > Modules before opening the workspace.",
+        "installFirst": "Install {{name}} first",
+        "installFirstBody": "Install this module from the catalog, then return here from AI.",
+        "noAccess": "No access to this module",
+        "noAccessBody": "An owner or admin can grant you access under Settings > Modules.",
+        "writesOn": "Writes enabled — approved decisions execute",
+        "writesOff": "Writes disabled — retrieval only",
+        "writesOnHint": "Agents propose writes as decisions; on approval they are applied to the package.",
+        "writesOffHint": "Agents can read and propose. Approvals resolve safely without writing to the package.",
+        "writesPlatformOff": "Enabled for this workspace, but writes are switched off platform-wide. Approvals resolve safely without writing.",
+        "writesToggle": "Allow writes in this workspace",
+        "writesError": "Could not update the write switch.",
+        "administrationsTitle": "Administrations",
+        "defaultConnection": "Default",
+        "connectionReady": "Connected",
+        "connectionNotReady": "Credentials missing",
+        "defaultCompany": "default",
+        "noCompanies": "No administrations visible yet for this connection.",
+        "manageAgents": "Manage roster",
+        "genericBody": "This module is installed. Open Manage for connections, sources, and setup.",
+        "domainHints": {
+          "administrations": "Companies and ledgers agents can address.",
+          "contacts": "Customers and suppliers via the accounting contract.",
+          "invoices_and_bills": "Sales and purchase documents; writes stay decisions.",
+          "ledger": "Chart of accounts and journal lines.",
+          "outstanding_balances": "Open receivables and payables.",
+          "bank_mutations": "Bank lines when the package exposes them."
+        }
+      },
+      "agents": {
+        "sectionTitle": "Assigned agents",
+        "label": "Assigned agents",
+        "hint": "At least one agent is required. Only assigned agents can use this module’s tools.",
+        "loading": "Loading agents…",
+        "empty": "No agents assigned yet. Add one to continue setup.",
+        "openAgents": "Open Agents",
+        "addPlaceholder": "Assign an agent…",
+        "addError": "Could not assign this agent.",
+        "defaultBadge": "Default",
+        "makeDefault": "Make default for setup chat",
+        "defaultError": "Could not set the default agent.",
+        "remove": "Remove",
+        "removeError": "Could not remove this agent.",
+        "chatSetup": "Continue setup with default agent",
+        "writeBadge": "Write",
+        "readOnlyBadge": "Read-only",
+        "scopeBadge": "{{count}} administration(s)",
+        "scopeAll": "All administrations",
+        "access": "Access: scope and write permission",
+        "accessError": "Could not update module access for this agent.",
+        "canWrite": "Write access",
+        "canWriteHint": "Allow proposing accounting writes. Applying still needs human approval and the workspace write switch.",
+        "scopeTitle": "Administration scope",
+        "scopeHint": "No selection = access to all administrations."
+      },
       "verbs": {
         "administrations": "Administrations",
         "contacts": "Contacts",
@@ -2535,10 +2725,10 @@
         "description": "One accounting contract for agents: companies, parties, invoices, ledger, and outstanding balances across every connected package.",
         "capability": "Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances. Writes always become a decision you approve.",
         "setup": [
-          "Turn Accounting on under Settings > Modules.",
-          "Choose a package (KING, Bjorn Lunden, or Moneybird).",
-          "Connect with OAuth or an API key.",
-          "If more than one administration appears, pick which one agents should use."
+          "Install Accounting under Settings > Modules.",
+          "Optionally enable a platform integration this module can use (KING, Bjorn Lunden, or Moneybird).",
+          "If more than one administration appears, pick which one agents should use.",
+          "Finish setup to mark the module installed."
         ]
       },
       "banking": {
@@ -2876,18 +3066,18 @@
       "loadError": "Could not load agents.",
       "empty": "No agents yet.",
       "emptyHint": "Create an agent to handle conversations. You can chat with it from Communication and schedule it on the Agenda.",
-      "attentionTitle": "{{count}} conversations wait for a decision",
-      "attentionTitle_one": "{{count}} conversation waits for a decision",
-      "attentionHint": "Your agents paused and need a yes or no before they continue.",
-      "attentionAction": "Review decisions",
-      "noReplyTitle": "{{count}} automated messages marked as no reply needed",
-      "noReplyTitle_one": "{{count}} automated message marked as no reply needed",
-      "noReplyHint": "Receipts, newsletters, and system mail. Clear the tip cards without changing real decisions.",
-      "noReplyDismiss": "Clear tip cards",
-      "noReplyDismissAndClose": "Clear and close threads",
-      "noReplyDismissed": "Cleared {{count}} tip cards",
-      "noReplyDismissedClosed": "Cleared {{count}} tip cards and closed those threads",
-      "noReplyDismissFailed": "Could not clear tip cards",
+      "openConversationsCount": "{{count}} open",
+      "openConversationsCount_one": "{{count}} open",
+      "awaitingDecisionCount": "{{count}} need a decision",
+      "awaitingDecisionCount_one": "{{count}} needs a decision",
+      "conversationsTitle": "Open conversations",
+      "conversationsDescription": "Threads this agent is handling right now.",
+      "conversationsEmpty": "No open conversations for this agent.",
+      "openAllConversations": "Open in Communication",
+      "viewAllConversations": "View all ({{count}})",
+      "viewAllAgenda": "View all ({{count}})",
+      "conversationUntitled": "Untitled conversation",
+      "needsDecisionBadge": "Decision",
       "askAdmin": "Ask your workspace admin",
       "askAdminHint": "Agents are managed by workspace admins. You can still chat with them from Communication.",
       "openCommunication": "Open Communication",
@@ -2955,14 +3145,26 @@
       "instructionsPrompt": "Instructions",
       "instructionsPlaceholder": "Describe how this agent should behave.",
       "instructionsEmpty": "No custom instructions. This agent uses the default behavior.",
-      "signatureTitle": "Email signature",
-      "signatureBody": "Appended to replies sent as {{name}} — automatic replies and approvals sent as the agent.",
+      "signatureTitle": "Email signature & send as",
+      "signatureBody": "How {{name}} signs outbound mail, and whether approvals default to this agent or to the teammate who approves.",
       "signatureEdit": "Edit",
       "signatureAdd": "Add",
-      "signatureEmpty": "No signature yet. Without one, the mailbox signature is used as a fallback.",
+      "signatureEmpty": "No signature yet. Without one, a default from the agent name is used.",
       "openMailboxSignatures": "Mailbox signatures",
-      "signatureSaved": "Agent signature saved",
-      "signatureSaveError": "Could not save the signature",
+      "signatureSaved": "Signature settings saved",
+      "signatureSaveError": "Could not save signature settings",
+      "signatureSave": "Save",
+      "signatureTextLabel": "Signature text",
+      "signatureTextHint": "Plain text only. Line breaks are kept. When mailing as the agent, a short Bokito AI line is always added underneath.",
+      "signatureTextPlaceholder": "{{name}}\nSupport",
+      "signaturePreview": "Preview",
+      "signatureDisclaimerNote": "The powered-by Bokito AI line is always included when this agent sends as itself.",
+      "replySendAsLabel": "Default send as",
+      "replySendAsHint": "Used on suggested replies for this agent when you have not picked a send-as choice yet.",
+      "replySendAsAgent": "As this agent",
+      "replySendAsAgentHint": "Signs with this agent’s name and the Bokito AI line.",
+      "replySendAsUser": "As the approving teammate",
+      "replySendAsUserHint": "Impersonates the person who approves — their signature is used.",
       "signatureEditorContext": "for agent {{name}}",
       "openInboxAi": "Adjust Inbox AI",
       "selectModel": "Select a model",
@@ -3049,6 +3251,25 @@
         "project": "Add to project (optional)",
         "projectNone": "No project yet",
         "modelsRetry": "Could not load models. Try again"
+      },
+      "visualTitle": "Visual identity",
+      "visualBody": "How this agent appears in the library, Messages, email signature, and webchat.",
+      "visualEdit": "Edit",
+      "visualSaved": "Visual identity saved",
+      "visualSaveError": "Could not save visual identity.",
+      "visualUploadError": "Could not upload the image.",
+      "visualImageRequired": "Upload an image or switch to Initials or Icon.",
+      "visualIconRequired": "Pick an icon.",
+      "visualInitialsHint": "Uses the agent name initials with your chosen color.",
+      "visualPickIcon": "Icon",
+      "visualPickColor": "Color",
+      "visualUpload": "Upload image",
+      "visualClearImage": "Remove image",
+      "visualImageHint": "Square photos work best. Stored in workspace uploads.",
+      "visualKind": {
+        "initials": "Initials",
+        "icon": "Icon",
+        "image": "Image"
       }
     },
     "pageMeta": {
@@ -3816,30 +4037,96 @@
     }
   },
   "settingsPageMeta": {
-    "profile": { "title": "Profile", "description": "Manage your personal profile information and account preferences." },
-    "notifications": { "title": "Notifications", "description": "Configure personal and team notification defaults." },
-    "support": { "title": "Communication", "description": "Configure Communication behavior and channels." },
-    "messenger": { "title": "Assistant", "description": "Configure assistant widget behavior and preview settings." },
-    "helpCenters": { "title": "Help center", "description": "Customer-facing articles. Internal docs live in Knowledge." },
-    "general": { "title": "General", "description": "Set workspace-level defaults and product behavior." },
-    "branding": { "title": "Branding", "description": "Align the portal experience with your organization branding." },
-    "members": { "title": "Members and teams", "description": "Invite, organize, and manage collaborators." },
-    "teams": { "title": "Members and teams", "description": "Invite, organize, and manage collaborators." },
-    "billing": { "title": "Billing", "description": "Review plan usage and update billing settings." },
-    "accessSecurity": { "title": "Access & Security", "description": "Strengthen account security and permission defaults." },
-    "company": { "title": "Company", "description": "Manage branding and organization-level configuration." },
-    "inbox": { "title": "Email & messages", "description": "Configure mailbox routing, signatures, and channel behavior." },
-    "attributes": { "title": "Attributes", "description": "Manage user record data and custom fields." },
-    "users": { "title": "Users", "description": "Manage user data entities for support workflows." },
-    "companies": { "title": "Companies", "description": "Manage company records and account metadata." },
-    "conversations": { "title": "Conversations", "description": "Review and structure conversation data." },
-    "importsExports": { "title": "Imports & exports", "description": "Move data into and out of your workspace safely." }
+    "profile": {
+      "title": "Profile",
+      "description": "Manage your personal profile information and account preferences."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Configure personal and team notification defaults."
+    },
+    "support": {
+      "title": "Communication",
+      "description": "Configure Communication behavior and channels."
+    },
+    "messenger": {
+      "title": "Assistant",
+      "description": "Configure assistant widget behavior and preview settings."
+    },
+    "helpCenters": {
+      "title": "Help center",
+      "description": "Customer-facing articles. Internal docs live in Knowledge."
+    },
+    "general": {
+      "title": "General",
+      "description": "Set workspace-level defaults and product behavior."
+    },
+    "branding": {
+      "title": "Branding",
+      "description": "Align the portal experience with your organization branding."
+    },
+    "members": {
+      "title": "Members and teams",
+      "description": "Invite, organize, and manage collaborators."
+    },
+    "teams": {
+      "title": "Members and teams",
+      "description": "Invite, organize, and manage collaborators."
+    },
+    "billing": {
+      "title": "Billing",
+      "description": "Review plan usage and update billing settings."
+    },
+    "accessSecurity": {
+      "title": "Access & Security",
+      "description": "Strengthen account security and permission defaults."
+    },
+    "company": {
+      "title": "Company",
+      "description": "Manage branding and organization-level configuration."
+    },
+    "inbox": {
+      "title": "Email & messages",
+      "description": "Configure mailbox routing, signatures, and channel behavior."
+    },
+    "attributes": {
+      "title": "Attributes",
+      "description": "Manage user record data and custom fields."
+    },
+    "users": {
+      "title": "Users",
+      "description": "Manage user data entities for support workflows."
+    },
+    "companies": {
+      "title": "Companies",
+      "description": "Manage company records and account metadata."
+    },
+    "conversations": {
+      "title": "Conversations",
+      "description": "Review and structure conversation data."
+    },
+    "importsExports": {
+      "title": "Imports & exports",
+      "description": "Move data into and out of your workspace safely."
+    }
   },
   "supportPageMeta": {
-    "my": { "title": "Assigned to me", "description": "Threads assigned to you — customer and agent work in one place." },
-    "all": { "title": "All conversations", "description": "Every signal across external and internal channels." },
-    "created": { "title": "Created by me", "description": "Threads and requests you started." },
-    "unassigned": { "title": "Unassigned", "description": "Signals waiting for first ownership." }
+    "my": {
+      "title": "Assigned to me",
+      "description": "Threads assigned to you — customer and agent work in one place."
+    },
+    "all": {
+      "title": "All conversations",
+      "description": "Every signal across external and internal channels."
+    },
+    "created": {
+      "title": "Created by me",
+      "description": "Threads and requests you started."
+    },
+    "unassigned": {
+      "title": "Unassigned",
+      "description": "Signals waiting for first ownership."
+    }
   },
   "fallbackTitles": {
     "supportInbox": "Communication",

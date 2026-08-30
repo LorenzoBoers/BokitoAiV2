@@ -247,20 +247,24 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
     identity = (user.display_name or user.email).strip()
     assert identity in resolved
 
-    # Agent signature only: used for both identities (fallback for user).
+    # Agent signature only: used for agent identity (with Bokito disclaimer),
+    # and as fallback for user identity (no disclaimer).
     agent.settings_json = json.dumps({"email_signature_html": "<p>Team Bokito</p>"})
     session_override.add(agent)
     await session_override.flush()
     resolved = await resolve_signature_html(
         session_override, tenant.id, send_as="agent", agent_id=agent.id
     )
-    assert resolved == "<p>Team Bokito</p>"
+    assert resolved is not None
+    assert "Team Bokito" in resolved
+    assert "bokito.ai" in resolved
+    assert "Bokito AI" in resolved
     resolved = await resolve_signature_html(
         session_override, tenant.id, send_as="user", user_id=user.id, agent_id=agent.id
     )
     assert resolved == "<p>Team Bokito</p>"
 
-    # User signature wins for user identity; agent identity keeps its own.
+    # User signature wins for user identity; agent identity keeps its own + disclaimer.
     user_settings = json.loads(user.settings_json or "{}")
     user_settings["email_signature_html"] = "<p>Groet, Test User</p>"
     user.settings_json = json.dumps(user_settings)
@@ -273,7 +277,9 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
     resolved = await resolve_signature_html(
         session_override, tenant.id, send_as="agent", user_id=user.id, agent_id=agent.id
     )
-    assert resolved == "<p>Team Bokito</p>"
+    assert resolved is not None
+    assert "Team Bokito" in resolved
+    assert "bokito.ai" in resolved
 
     # Exactly one signature in the outgoing HTML: the override replaces the
     # mailbox signature instead of stacking on it.
@@ -328,10 +334,25 @@ async def test_agent_signature_roundtrip(client, session_override):
     saved = await client.patch(
         f"/api/workforce/agents/{agent.id}",
         headers=headers,
-        json={"email_signature_html": "<p>Bokito Assistent</p>"},
+        json={
+            "email_signature_text": "Bokito Assistent\nSupport",
+            "reply_send_as": "user",
+        },
     )
     assert saved.status_code == 200
-    assert saved.json()["agent"]["email_signature_html"] == "<p>Bokito Assistent</p>"
+    body = saved.json()["agent"]
+    assert body["email_signature_text"] == "Bokito Assistent\nSupport"
+    assert "Bokito Assistent" in body["email_signature_html"]
+    assert body["reply_send_as"] == "user"
+
+    # Legacy HTML write converts to plain text.
+    legacy = await client.patch(
+        f"/api/workforce/agents/{agent.id}",
+        headers=headers,
+        json={"email_signature_html": "<p>Legacy line</p>"},
+    )
+    assert legacy.status_code == 200
+    assert legacy.json()["agent"]["email_signature_text"] == "Legacy line"
 
 
 @pytest.mark.asyncio
@@ -360,3 +381,125 @@ async def test_reply_send_as_setting_roundtrip(client):
     await client.put(
         "/api/settings/ai-modes", headers=headers, json={"reply_send_as": "user"}
     )
+
+
+# ── From display name follows send_as ─────────────────────────────
+
+
+def test_format_mailbox_from_quotes_specials():
+    from app.channels.email import format_mailbox_from
+
+    assert format_mailbox_from("a@b.com", None) == "a@b.com"
+    assert format_mailbox_from("a@b.com", "Ada") == "Ada <a@b.com>"
+    assert format_mailbox_from("a@b.com", 'Ada "A"') == '"Ada \\"A\\"" <a@b.com>'
+
+
+def test_format_outbound_from_display_name_gmail_and_bokito():
+    import base64
+    from email import message_from_bytes
+
+    from app.channels.email import format_outbound
+
+    gmail = ChannelAccount(
+        channel="email",
+        provider="gmail",
+        address="desk@example.com",
+        display_name="Mailbox Label",
+        credentials_json='{"access_token": "tok"}',
+    )
+    payload = format_outbound(
+        gmail,
+        to_address="customer@example.com",
+        subject="Hi",
+        body_text="Hello",
+        from_display_name="Support Agent",
+        apply_signature=False,
+        body_html="<p>Hello</p>",
+    )
+    raw = base64.urlsafe_b64decode(payload["raw"])
+    mime = message_from_bytes(raw)
+    assert "Support Agent" in mime["From"]
+    assert "desk@example.com" in mime["From"]
+    assert "Mailbox Label" not in mime["From"]
+
+    bokito = ChannelAccount(
+        channel="email",
+        provider="bokito",
+        address="relay@bokito.ai",
+        display_name="Relay",
+    )
+    resend = format_outbound(
+        bokito,
+        to_address="customer@example.com",
+        subject="Hi",
+        body_text="Hello",
+        from_display_name="Ada Lovelace",
+        apply_signature=False,
+        body_html="<p>Hello</p>",
+    )
+    assert resend["from"] == "Ada Lovelace <relay@bokito.ai>"
+
+
+def test_format_outbound_outlook_sets_from_name():
+    from app.channels.email import format_outbound
+
+    outlook = ChannelAccount(
+        channel="email",
+        provider="outlook",
+        address="me@contoso.com",
+        display_name="Contoso Desk",
+        credentials_json='{"access_token": "tok"}',
+    )
+    payload = format_outbound(
+        outlook,
+        to_address="customer@example.com",
+        subject="Hi",
+        body_text="Hello",
+        from_display_name="Ops Agent",
+        apply_signature=False,
+        body_html="<p>Hello</p>",
+    )
+    from_block = payload["message"]["from"]["emailAddress"]
+    assert from_block["address"] == "me@contoso.com"
+    assert from_block["name"] == "Ops Agent"
+
+
+@pytest.mark.asyncio
+async def test_approve_send_as_agent_stores_from_display_name(client, session_override):
+    headers = await _auth_headers(client)
+    tenant, agent, account = await _seeded(session_override)
+    signal, result = await _suggestion_on_thread(session_override, tenant, agent, account)
+
+    resolve = await client.post(
+        f"/api/signals/{signal.id}/messages/{result['message_id']}/resolve",
+        headers=headers,
+        json={"action": "approved", "option_id": "send", "send_as": "agent"},
+    )
+    assert resolve.status_code == 200
+
+    outbound = await _outbound_messages(session_override, signal.id)
+    assert len(outbound) == 1
+    meta = json.loads(outbound[0].metadata_json)
+    assert meta["send_as"] == "agent"
+    assert meta.get("from_display_name") == agent.name
+
+
+@pytest.mark.asyncio
+async def test_approve_send_as_user_stores_user_from_display_name(client, session_override):
+    headers = await _auth_headers(client)
+    tenant, agent, account = await _seeded(session_override)
+    user = (await session_override.execute(select(User))).scalars().first()
+    signal, result = await _suggestion_on_thread(session_override, tenant, agent, account)
+
+    resolve = await client.post(
+        f"/api/signals/{signal.id}/messages/{result['message_id']}/resolve",
+        headers=headers,
+        json={"action": "approved", "option_id": "send", "send_as": "user"},
+    )
+    assert resolve.status_code == 200
+
+    outbound = await _outbound_messages(session_override, signal.id)
+    meta = json.loads(outbound[0].metadata_json)
+    assert meta["send_as"] == "user"
+    expected = (user.display_name or user.email or "").strip()
+    assert meta.get("from_display_name") == expected

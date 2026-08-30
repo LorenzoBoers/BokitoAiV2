@@ -72,6 +72,34 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             # never be delivered would be misleading.
             return {"skipped": True, "reason": "mailbox_disconnected"}
         tenant = await session.get(Tenant, UUID(tenant_id))
+        # Match the composer: never draft/auto-send when the bound channel
+        # cannot deliver (setup_required / action_required / paused).
+        if (
+            signal.channel in ("email", "slack", "whatsapp")
+            and account is not None
+        ):
+            from app.services.channel_registry import account_can_send, resolve_channel
+            from app.services.inbound_agent import acknowledge_channel_not_ready
+            from app.services.routing import resolve_agent_for_signal
+
+            if not account_can_send(account, tenant=tenant):
+                row = resolve_channel(account, tenant=tenant)
+                agent = await resolve_agent_for_signal(session, signal)
+                delivery = await acknowledge_channel_not_ready(
+                    session,
+                    UUID(tenant_id),
+                    signal,
+                    agent,
+                    state=str(row.get("state") or ""),
+                    state_reason=str(row.get("state_reason") or ""),
+                )
+                return {
+                    "processed": True,
+                    "signal_id": signal_id,
+                    "delivery": delivery,
+                    "skipped_ai": True,
+                    "reason": "channel_not_ready",
+                }
         ai_mode = resolve_ai_mode(tenant, account, signal.channel)
         if ai_mode == "off":
             return {"skipped": True, "reason": "ai_mode_off"}
@@ -528,6 +556,34 @@ async def reindex_module_sources_job(ctx):
         return {"reindexed": count}
 
 
+async def sync_calendar_connections_job(ctx):
+    """Poll Google / Outlook calendar connections into CalendarEvent rows."""
+    from sqlalchemy import select
+
+    from app.models.integration import IntegrationConnection
+    from app.services.calendar_sync import CALENDAR_PROVIDERS, sync_connection
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(IntegrationConnection).where(
+                IntegrationConnection.provider.in_(list(CALENDAR_PROVIDERS)),
+                IntegrationConnection.status == "active",
+            )
+        )
+        synced = 0
+        errors = 0
+        for conn in result.scalars().all():
+            try:
+                out = await sync_connection(session, conn)
+                if out.get("status") == "error":
+                    errors += 1
+                else:
+                    synced += 1
+            except Exception:
+                errors += 1
+        return {"connections": synced, "errors": errors}
+
+
 class WorkerSettings:
     # Triggers + learning are scheduled by the in-process API scheduler
     # (app.services.trigger_scheduler); the worker only handles queued jobs
@@ -538,6 +594,7 @@ class WorkerSettings:
         run_agent_task_segment_job,
         run_workstream_orchestrated,
         sync_email_mailboxes_job,
+        sync_calendar_connections_job,
         deliver_webhook_job,
         index_project_repo_job,
         index_module_source_job,
@@ -548,6 +605,7 @@ class WorkerSettings:
     # Poll mailboxes every minute (replaces the former in-process API scheduler poll).
     cron_jobs = [
         cron(sync_email_mailboxes_job, second=0),
+        cron(sync_calendar_connections_job, minute={0, 15, 30, 45}),
         cron(send_tenant_digests_job, hour=6, minute=0),
         cron(snapshot_platform_metrics_job, hour=5, minute=30),
         cron(reindex_module_sources_job, weekday=0, hour=3, minute=15),

@@ -140,11 +140,10 @@
   },
   "runsChips": {
     "heading": "Agent runs",
-    "subtitle": "Background work and items waiting for you.",
+    "subtitle": "Background work and results.",
     "all": "All",
     "updates": "Updates",
-    "results": "Results",
-    "decisions": "Decisions"
+    "results": "Results"
   },
   "threadList": {
     "loading": "Loading...",
@@ -153,6 +152,8 @@
     "emptyUnread": "No unread conversations in this list.",
     "emptyNeedsReply": "Nothing waiting on you. Customers you already answered sit in All.",
     "emptyNeedsDecision": "No conversations waiting on a decision in this list.",
+    "emptyDecisions": "Nothing waiting on a decision.",
+    "emptyDecisionsHint": "When an agent needs a yes or no, the thread appears here — customer and internal in one list.",
     "emptyPinned": "No pinned conversations yet. Pin one to keep it at the top.",
     "showAllConversations": "Show all conversations",
     "openDecisionsQueue": "Open Decisions",
@@ -205,6 +206,27 @@
     "earlierDraft": "Earlier draft — dismissed",
     "automatedExplainer": "This looks like an automated message, so no reply was drafted.",
     "decisionNeeded": "Decision needed",
+    "accounting": {
+      "title": "Accounting write",
+      "kinds": {
+        "party": "New accounting contact",
+        "booking": "Journal booking",
+        "document": "Accounting document",
+        "payment": "Payment registration"
+      },
+      "fields": {
+        "company": "Administration",
+        "party": "Contact",
+        "kind": "Type",
+        "description": "Description",
+        "date": "Date",
+        "journal": "Journal",
+        "reference": "Reference",
+        "email": "Email",
+        "lines": "Lines",
+        "amount": "Amount"
+      }
+    },
     "answerPlaceholder": "Type your answer...",
     "submitAnswer": "Submit answer",
     "cancel": "Cancel",
@@ -350,7 +372,9 @@
       "running": "Running",
       "completed": "Completed",
       "failed": "Failed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "calendar": "Calendar",
+      "planned": "Planned"
     },
     "agendaKind": {
       "wake": "Agent wake",
@@ -360,7 +384,8 @@
       "once": "Task",
       "cron": "Recurring",
       "interval": "Repeating",
-      "heartbeat": "Check-in"
+      "heartbeat": "Check-in",
+      "calendar": "Calendar"
     },
     "agentRuntime": {
       "active": "Active",

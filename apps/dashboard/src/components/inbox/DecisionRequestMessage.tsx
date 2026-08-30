@@ -15,7 +15,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
-import { composeDefaultSignatureHtml } from '../../lib/default-signature'
+import { composeDefaultSignatureHtml, plainTextToSignatureHtml, withAgentDisclaimer } from '../../lib/default-signature'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
 import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
 import { cn } from '../../lib/utils'
@@ -135,6 +135,48 @@ function draftBodyFromOptions(options: DecisionOption[], fallback: string): stri
     if (body.trim()) return body
   }
   return fallback
+}
+
+type AccountingProposal = {
+  /** Write kind derived from the apply tool name, e.g. "party" | "booking". */
+  kind: string
+  rows: Array<{ label: string; value: string }>
+}
+
+/**
+ * Accounting write proposals carry the canonical payload on the approve
+ * option (action_type `accounting_apply_*`). Surface the fields that matter
+ * for the approval: administration, contact/booking details, and amounts.
+ */
+function accountingProposalFromOptions(options: DecisionOption[]): AccountingProposal | null {
+  const option = options.find((o) => (o.action_type ?? '').startsWith('accounting_apply_'))
+  if (!option?.payload) return null
+  const kind = (option.action_type ?? '').replace('accounting_apply_', '')
+  const payload = option.payload
+  const rows: Array<{ label: string; value: string }> = []
+  const push = (label: string, value: unknown) => {
+    if (value === null || value === undefined) return
+    const text = String(value).trim()
+    if (text) rows.push({ label, value: text })
+  }
+  push('company', payload.company_id)
+  push('party', payload.party_id ?? payload.name)
+  push('kind', payload.kind)
+  push('description', payload.description)
+  push('date', payload.date)
+  push('journal', payload.journal_code)
+  push('reference', payload.reference)
+  push('email', payload.email)
+  const lines = payload.lines
+  if (Array.isArray(lines) && lines.length > 0) {
+    const total = lines.reduce((sum, line) => {
+      const amount = Number((line as Record<string, unknown>)?.amount)
+      return Number.isFinite(amount) && amount > 0 ? sum + amount : sum
+    }, 0)
+    push('lines', `${lines.length}${total > 0 ? ` — ${total.toFixed(2)}` : ''}`)
+  }
+  push('amount', payload.amount)
+  return rows.length > 0 ? { kind, rows } : null
 }
 
 /** Team-facing remarks the agent produced alongside the draft (never emailed). */
@@ -285,22 +327,30 @@ export default function DecisionRequestMessage({
     !isActionSuggestion &&
     options.some((o) => o.action_type === 'create_queue_item')
   const internalNote = useMemo(() => internalNoteFromOptions(options), [options])
+  const accountingProposal = useMemo(() => accountingProposalFromOptions(options), [options])
 
   // Sender identity for the approved reply: the operator's last choice wins,
-  // otherwise the tenant default (fetched once per session).
+  // otherwise this agent's default, then the tenant default.
   const [sendAs, setSendAs] = useState<ReplySendAs>(() => rememberedSendAs() ?? 'user')
+  const [agentDefaultSendAs, setAgentDefaultSendAs] = useState<ReplySendAs | null>(null)
   useEffect(() => {
-    if (!token || rememberedSendAs()) return
+    if (rememberedSendAs()) return
     let cancelled = false
-    void tenantDefaultSendAs(token).then((value) => {
-      if (!cancelled) setSendAs(value)
-    })
+    void (async () => {
+      if (agentDefaultSendAs) {
+        if (!cancelled) setSendAs(agentDefaultSendAs)
+        return
+      }
+      if (!token) return
+      const tenant = await tenantDefaultSendAs(token)
+      if (!cancelled) setSendAs(tenant)
+    })()
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, agentDefaultSendAs])
 
-  // Resolve agent id from prop or decision payload, then load signature HTML.
+  // Resolve agent id from prop or decision payload, then load signature + default send-as.
   const resolvedAgentId = useMemo(() => {
     if (agentId) return agentId
     const fromPayload = message.payload?.agent_id
@@ -311,6 +361,7 @@ export default function DecisionRequestMessage({
     if (!resolvedAgentId) {
       setAgentSignatureHtml('')
       setAgentDisplayName('')
+      setAgentDefaultSendAs(null)
       return
     }
     let cancelled = false
@@ -319,14 +370,23 @@ export default function DecisionRequestMessage({
         if (cancelled) return
         const match = rows.find((row) => String(row.id) === String(resolvedAgentId))
         setAgentSignatureHtml(
-          typeof match?.email_signature_html === 'string' ? match.email_signature_html : '',
+          typeof match?.email_signature_html === 'string' && match.email_signature_html.trim()
+            ? match.email_signature_html
+            : typeof match?.email_signature_text === 'string'
+              ? plainTextToSignatureHtml(match.email_signature_text)
+              : '',
         )
         setAgentDisplayName(typeof match?.name === 'string' ? match.name : '')
+        const agentSendAs = match?.reply_send_as === 'user' || match?.reply_send_as === 'agent'
+          ? match.reply_send_as
+          : 'agent'
+        setAgentDefaultSendAs(agentSendAs)
       })
       .catch(() => {
         if (!cancelled) {
           setAgentSignatureHtml('')
           setAgentDisplayName('')
+          setAgentDefaultSendAs(null)
         }
       })
     return () => {
@@ -336,7 +396,7 @@ export default function DecisionRequestMessage({
 
   const customSignatureHtml =
     sendAs === 'user' ? (user?.emailSignatureHtml ?? '').trim() : agentSignatureHtml.trim()
-  const signatureHtml =
+  const baseSignatureHtml =
     customSignatureHtml ||
     composeDefaultSignatureHtml({
       name:
@@ -348,6 +408,8 @@ export default function DecisionRequestMessage({
       company: user?.tenant?.name,
       language: i18n.language,
     })
+  const signatureHtml =
+    sendAs === 'agent' ? withAgentDisclaimer(baseSignatureHtml, i18n.language) : baseSignatureHtml
   const signatureIsDefault = !customSignatureHtml
   const signatureSettingsPath =
     sendAs === 'user'
@@ -663,6 +725,29 @@ export default function DecisionRequestMessage({
                 </div>
               ) : null}
             </div>
+            {accountingProposal ? (
+              <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
+                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+                  {t(`decisionCard.accounting.kinds.${accountingProposal.kind}`, {
+                    defaultValue: t('decisionCard.accounting.title'),
+                  })}
+                </p>
+                <dl className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+                  {accountingProposal.rows.map((row) => (
+                    <div key={row.label} className="flex min-w-0 gap-1.5">
+                      <dt className="shrink-0 text-text-muted">
+                        {t(`decisionCard.accounting.fields.${row.label}`, {
+                          defaultValue: row.label,
+                        })}
+                      </dt>
+                      <dd className="min-w-0 truncate text-text-primary" title={row.value}>
+                        {row.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ) : null}
             {internalNote ? (
               <div className="mt-3 border-l-2 border-border/70 pl-3">
                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-text-muted">

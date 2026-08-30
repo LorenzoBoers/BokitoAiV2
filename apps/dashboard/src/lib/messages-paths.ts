@@ -4,18 +4,23 @@
  * The hub is organized as sidebar "leaves"; each leaf drives the thread-list
  * column and the conversation pane:
  *
- * - `inbox`   — assignable conversations across channels
- * - `agent`   — direct chats with a company agent (optional sub-queue)
- * - `runs`    — internal agent activity (updates, results, decisions)
- * - `channel` — threads of one connected channel (email mailbox, webchat, ...)
- * - `tag`     — cross-channel tag folder (optional sub-queue)
+ * - `inbox`     — assignable conversations across channels
+ * - `decisions` — sole exception queue for open DecisionRequests (any folder)
+ * - `agent`     — direct chats with a company agent (optional sub-queue)
+ * - `runs`      — internal agent activity (updates, results)
+ * - `channel`   — threads of one connected channel (email mailbox, webchat, ...)
+ * - `tag`       — cross-channel tag folder (optional sub-queue)
  */
 
 export const INBOX_QUEUES = ['all', 'mine', 'open', 'unassigned', 'snoozed', 'closed', 'spam'] as const
 export type InboxQueue = (typeof INBOX_QUEUES)[number]
 
-export const RUNS_QUEUES = ['all', 'updates', 'results', 'awaiting-decision'] as const
+/** Agent-runs chips only — decisions live on `/communication/decisions`. */
+export const RUNS_QUEUES = ['all', 'updates', 'results'] as const
 export type RunsQueue = (typeof RUNS_QUEUES)[number]
+
+/** Legacy URL segment; redirects to `decisionsPath`. Kept for typed redirects. */
+export const LEGACY_AWAITING_DECISION_QUEUE = 'awaiting-decision' as const
 
 export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'slack', 'whatsapp'] as const
 export type ChannelKey = (typeof CHANNEL_KEYS)[number]
@@ -38,6 +43,7 @@ export const SUB_QUEUE_TO_VIEW = {
 
 export type HubLeaf =
   | { type: 'inbox'; queue?: InboxQueue }
+  | { type: 'decisions' }
   | { type: 'agent'; agentId: string; queue?: SubQueue }
   | { type: 'runs'; queue: RunsQueue }
   | { type: 'channel'; channelKey: ChannelKey; connectionId?: string; queue?: SubQueue }
@@ -71,14 +77,18 @@ export function agentRunsPath(queue: RunsQueue = 'all', threadId?: string | null
   return withThread(`/communication/runs/${queue}`, threadId)
 }
 
-/** Open a waiting decision in Inbox or Agent-runs based on the thread folder. */
+/** Sole Communication leaf for open DecisionRequests (customer + internal). */
+export function decisionsPath(threadId?: string | null): string {
+  return withThread('/communication/decisions', threadId)
+}
+
+/** Open a waiting decision on the unified Decisions leaf. */
 export function attentionThreadPath(thread: {
   id: string | number
   folder?: string | null
 }): string {
-  return thread.folder === 'internal'
-    ? agentRunsPath('awaiting-decision', String(thread.id))
-    : inboxPath('open', String(thread.id))
+  void thread.folder
+  return decisionsPath(String(thread.id))
 }
 
 export function channelPath(
@@ -113,6 +123,8 @@ export function leafPath(leaf: HubLeaf, threadId?: string | null): string {
   switch (leaf.type) {
     case 'inbox':
       return inboxPath(leaf.queue, threadId)
+    case 'decisions':
+      return decisionsPath(threadId)
     case 'agent':
       return agentChatPath(leaf.agentId, { queue: leaf.queue, threadId })
     case 'runs':
@@ -158,6 +170,8 @@ export function leafFromPath(pathname: string): HubLeaf | null {
         queue: raw && isInboxQueue(raw) ? raw : undefined,
       }
     }
+    case 'decisions':
+      return { type: 'decisions' }
     case 'agent': {
       if (!parts[0]) return null
       const second = parts[1] ? decodeURIComponent(parts[1]) : undefined
@@ -210,6 +224,7 @@ export function leafFromPath(pathname: string): HubLeaf | null {
 export function sameLeafScope(a: HubLeaf | null, b: HubLeaf): boolean {
   if (!a) return false
   if (a.type === 'inbox' && b.type === 'inbox') return true
+  if (a.type === 'decisions' && b.type === 'decisions') return true
   if (a.type === 'channel' && b.type === 'channel') {
     return a.channelKey === b.channelKey && (a.connectionId ?? '') === (b.connectionId ?? '')
   }
@@ -223,6 +238,8 @@ export function leafKey(leaf: HubLeaf): string {
   switch (leaf.type) {
     case 'inbox':
       return leaf.queue ? `inbox:${leaf.queue}` : 'inbox'
+    case 'decisions':
+      return 'decisions'
     case 'agent':
       return `agent:${leaf.agentId}${leaf.queue ? `:${leaf.queue}` : ''}`
     case 'runs':

@@ -73,6 +73,30 @@ export function normalizeSignalThread(row: unknown): InboxThread | null {
     agentId: typeof raw.agent_id === 'string' && raw.agent_id.length > 0 ? raw.agent_id : null,
     agentName: typeof raw.agent_name === 'string' && raw.agent_name.length > 0 ? raw.agent_name : null,
     agentKind: typeof raw.agent_kind === 'string' && raw.agent_kind.length > 0 ? raw.agent_kind : null,
+    agentAvatarKind:
+      typeof raw.agent_avatar_kind === 'string' && raw.agent_avatar_kind.length > 0
+        ? raw.agent_avatar_kind
+        : typeof raw.avatar_kind === 'string' && raw.avatar_kind.length > 0
+          ? raw.avatar_kind
+          : null,
+    agentAvatarIcon:
+      typeof raw.agent_avatar_icon === 'string' && raw.agent_avatar_icon.length > 0
+        ? raw.agent_avatar_icon
+        : typeof raw.avatar_icon === 'string' && raw.avatar_icon.length > 0
+          ? raw.avatar_icon
+          : null,
+    agentAvatarColor:
+      typeof raw.agent_avatar_color === 'string' && raw.agent_avatar_color.length > 0
+        ? raw.agent_avatar_color
+        : typeof raw.avatar_color === 'string' && raw.avatar_color.length > 0
+          ? raw.avatar_color
+          : null,
+    agentAvatarImageUrl:
+      typeof raw.agent_avatar_image_url === 'string' && raw.agent_avatar_image_url.length > 0
+        ? raw.agent_avatar_image_url
+        : typeof raw.avatar_image_url === 'string' && raw.avatar_image_url.length > 0
+          ? raw.avatar_image_url
+          : null,
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),

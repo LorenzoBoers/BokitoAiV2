@@ -1,5 +1,7 @@
 import type { IntegrationModuleRow } from './integrations-api'
 
+export type { IntegrationModuleRow }
+
 /** Shown while the catalog API is unreachable so module sections still render. */
 export const FALLBACK_MODULES: IntegrationModuleRow[] = [
   {
@@ -22,16 +24,18 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     ],
     needs_when: 'invoices, VAT, ledgers, outstanding balances, or bookkeeping',
     setup_steps: [
-      'Turn Accounting on under Modules.',
-      'Choose a package (KING, Bjorn Lunden, or Moneybird).',
-      'Connect with OAuth or an API key.',
+      'Install Accounting under Settings > Modules.',
+      'Optionally enable a platform integration this module can use (KING, Bjorn Lunden, or Moneybird).',
       'If more than one administration appears, pick which one agents should use.',
+      'Finish setup to mark the module installed.',
     ],
     capability_summary:
       'Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances. Writes always become a decision you approve.',
     setup_path: '/modules/accounting',
+    workspace_path: '/ai/modules/accounting',
     enabled: false,
-    tenant_status: 'off',
+    install_state: 'not_installed',
+    tenant_status: 'not_installed',
   },
   {
     slug: 'banking',
@@ -50,7 +54,9 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     capability_summary:
       'Later: read accounts, balances, and transactions. Payments stay a human-approved proposal.',
     setup_path: '/modules/banking',
+    workspace_path: '/ai/modules/banking',
     enabled: false,
+    install_state: 'not_installed',
     tenant_status: 'coming_soon',
   },
   {
@@ -70,7 +76,9 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     capability_summary:
       'Later: positions, quotes, and watchlists. Orders stay a human-approved proposal.',
     setup_path: '/modules/investing',
+    workspace_path: '/ai/modules/investing',
     enabled: false,
+    install_state: 'not_installed',
     tenant_status: 'coming_soon',
   },
   {
@@ -90,7 +98,9 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     capability_summary:
       'Later: search and read external files into Knowledge. Uploads stay a human-approved proposal.',
     setup_path: '/modules/documents',
+    workspace_path: '/ai/modules/documents',
     enabled: false,
+    install_state: 'not_installed',
     tenant_status: 'coming_soon',
   },
 ]
@@ -132,16 +142,66 @@ export function moduleHomePath(module: Pick<IntegrationModuleRow, 'slug' | 'setu
   return `/modules/${encodeURIComponent(module.slug)}`
 }
 
-export function moduleIsOn(module: Pick<IntegrationModuleRow, 'enabled' | 'tenant_status'>): boolean {
-  if (typeof module.enabled === 'boolean') return module.enabled
-  return module.tenant_status === 'on' || module.tenant_status === 'connected'
+export function moduleWorkspacePath(
+  module: Pick<IntegrationModuleRow, 'slug' | 'workspace_path'>,
+): string {
+  const path = module.workspace_path?.trim()
+  if (path?.startsWith('/ai/modules/')) return path
+  return `/ai/modules/${encodeURIComponent(module.slug)}`
+}
+
+export function moduleInstallState(
+  module: Pick<IntegrationModuleRow, 'install_state' | 'enabled' | 'tenant_status' | 'status'>,
+): 'not_installed' | 'setup' | 'installed' | 'coming_soon' {
+  if (module.status === 'coming_soon' || module.tenant_status === 'coming_soon') return 'coming_soon'
+  if (module.install_state === 'setup' || module.tenant_status === 'setup') return 'setup'
+  if (module.install_state === 'installed') return 'installed'
+  if (module.install_state === 'not_installed') return 'not_installed'
+  if (typeof module.enabled === 'boolean') {
+    return module.enabled ? 'installed' : 'not_installed'
+  }
+  if (
+    module.tenant_status === 'installed' ||
+    module.tenant_status === 'connected' ||
+    module.tenant_status === 'on'
+  ) {
+    return 'installed'
+  }
+  return 'not_installed'
+}
+
+/** True when the module is installed (tools + AI nav). Setup alone is not enough. */
+export function moduleIsOn(
+  module: Pick<IntegrationModuleRow, 'enabled' | 'tenant_status' | 'install_state' | 'status'>,
+): boolean {
+  return moduleInstallState(module) === 'installed'
+}
+
+export function moduleIsInSetup(
+  module: Pick<IntegrationModuleRow, 'install_state' | 'tenant_status' | 'status'>,
+): boolean {
+  return moduleInstallState(module) === 'setup'
 }
 
 export function moduleStatusLabelKey(
-  module: Pick<IntegrationModuleRow, 'status' | 'tenant_status' | 'connected' | 'enabled'>,
-): 'comingSoon' | 'connectedBadge' | 'onBadge' | 'offBadge' {
-  if (module.status === 'coming_soon') return 'comingSoon'
-  if (module.tenant_status === 'connected' || module.connected) return 'connectedBadge'
-  if (moduleIsOn(module)) return 'onBadge'
-  return 'offBadge'
+  module: Pick<
+    IntegrationModuleRow,
+    'status' | 'tenant_status' | 'connected' | 'enabled' | 'install_state'
+  >,
+):
+  | 'comingSoon'
+  | 'connectedBadge'
+  | 'installedBadge'
+  | 'setupBadge'
+  | 'notInstalledBadge'
+  | 'onBadge'
+  | 'offBadge' {
+  const state = moduleInstallState(module)
+  if (state === 'coming_soon') return 'comingSoon'
+  if (state === 'setup') return 'setupBadge'
+  if (state === 'installed') {
+    if (module.tenant_status === 'connected' || module.connected) return 'connectedBadge'
+    return 'installedBadge'
+  }
+  return 'notInstalledBadge'
 }

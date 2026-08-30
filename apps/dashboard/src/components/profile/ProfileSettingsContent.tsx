@@ -447,13 +447,20 @@ export function ProfileSettingsContent() {
       <Section title={t('profile:personalInformation.title')} description={t('profile:personalInformation.description')}>
         <Card>
           {/* Avatar */}
-          <div className="flex items-center justify-between border-b border-border/60 py-3.5 pr-4">
-            <span className="w-36 shrink-0 text-sm font-medium text-text-heading">{t('profile:personalInformation.profilePicture')}</span>
-              <button
+          <div className="flex items-center justify-between gap-3 border-b border-border/60 py-3.5 pr-4">
+            <div className="min-w-0">
+              <span className="block text-sm font-medium text-text-heading">
+                {t('profile:personalInformation.profilePicture')}
+              </span>
+              <p className="mt-0.5 text-xs text-text-muted">
+                {t('profile:personalInformation.photoHint')}
+              </p>
+            </div>
+            <button
               type="button"
               onClick={() => !avatarUploading && avatarInputRef.current?.click()}
               disabled={avatarUploading}
-              className="group relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full transition-opacity hover:opacity-80 disabled:cursor-wait"
+              className="group relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full transition-opacity hover:opacity-80 disabled:cursor-wait"
               title={t('profile:personalInformation.uploadPhoto')}
               aria-label={t('profile:personalInformation.uploadPhoto')}
             >
@@ -472,7 +479,6 @@ export function ProfileSettingsContent() {
               onChange={(e) => void handleAvatarChange(e)}
             />
           </div>
-          <p className="px-0 pb-3 text-xs text-text-muted">{t('profile:personalInformation.photoHint')}</p>
 
           {/* Email */}
           <EditableField

@@ -15,9 +15,12 @@ import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
-import { ModulePowerSwitch } from '../components/integrations/ModulePowerSwitch'
+import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
 import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
-import { moduleIsOn, plannedProviderLabel, verbLabelKey } from '../lib/integration-modules'
+import { ModuleToolsetDropdown } from '../components/integrations/ModuleToolsetDropdown'
+import { ModuleAgentsSection } from '../components/modules/ModuleAgentsSection'
+import { listAgents } from '../lib/agents-api'
+import { moduleIsInSetup, moduleIsOn, moduleWorkspacePath, plannedProviderLabel, verbLabelKey } from '../lib/integration-modules'
 import {
   parseHubConnectParam,
   stripOAuthCallbackParams,
@@ -53,7 +56,7 @@ export default function ModuleSetupPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = parseTab(searchParams.get('tab'))
-  const { applications, modules, loadError, refreshCatalog, setModuleEnabled } =
+  const { applications, modules, loadError, refreshCatalog, runModuleAction } =
     useIntegrationCatalog()
 
   const [hubOpen, setHubOpen] = useState(false)
@@ -61,6 +64,13 @@ export default function ModuleSetupPage() {
   const [hubOffer, setHubOffer] = useState<IntegrationOffer | null>(null)
   const [hubStep, setHubStep] = useState<ApplicationHubStep>('app')
   const [hubBanner, setHubBanner] = useState<HubBanner>(null)
+  const [companyAgents, setCompanyAgents] = useState<Array<{ id: string; name: string }>>([])
+
+  useEffect(() => {
+    void listAgents()
+      .then((rows) => setCompanyAgents(rows.map((a) => ({ id: a.id, name: a.name }))))
+      .catch(() => setCompanyAgents([]))
+  }, [])
 
   const module = useMemo(
     () => modules.find((row) => row.slug === slug) ?? null,
@@ -94,8 +104,9 @@ export default function ModuleSetupPage() {
   const canConnect = module?.status === 'available'
   const comingSoon = module?.status === 'coming_soon'
   const on = module ? moduleIsOn(module) : false
-  const visibleSteps = on
-    ? setupSteps.filter((step) => !/^(turn |zet )/i.test(step))
+  const inSetup = module ? moduleIsInSetup(module) : false
+  const visibleSteps = on || inSetup
+    ? setupSteps.filter((step) => !/^(turn |zet |install )/i.test(step))
     : setupSteps
 
   const setTab = useCallback(
@@ -216,6 +227,8 @@ export default function ModuleSetupPage() {
       'Help me finish setting up the {{name}} module: turn it on if needed, connect a package, set the default registration, and make sure platform sources are indexed.',
     name,
   })
+  const setupAgentId = module?.default_agent_id ?? null
+  const setupChatPath = talkToAssistantPath(setupPrefill, setupAgentId)
 
   const tabs: { id: ModuleTab; label: string }[] = [
     {
@@ -239,13 +252,26 @@ export default function ModuleSetupPage() {
   return (
     <PageContent width="lg">
       <div className="mb-6">
-        <Link
-          to="/modules"
-          className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
-        >
-          <ArrowLeft size={12} />
-          {t('integrations.modules.backToModules', { defaultValue: 'Back to Modules' })}
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/modules"
+            className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
+          >
+            <ArrowLeft size={12} />
+            {t('integrations.modules.backToModules', { defaultValue: 'Back to Modules' })}
+          </Link>
+          {module && on ? (
+            <Link
+              to={moduleWorkspacePath(module)}
+              className="text-xs font-medium text-accent hover:underline"
+            >
+              {t('integrations.modules.openWorkspace', {
+                defaultValue: 'Open {{name}}',
+                name,
+              })}
+            </Link>
+          ) : null}
+        </div>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -257,26 +283,44 @@ export default function ModuleSetupPage() {
             ) : null}
           </div>
           {module && !comingSoon ? (
-            <ModulePowerSwitch module={module} onToggle={setModuleEnabled} />
+            <div className="flex flex-wrap items-center gap-2">
+              <ModuleToolsetDropdown
+                moduleSlug={module.slug}
+                verbLabels={verbLabels}
+                verbs={module.verbs}
+                proposeVerbs={module.propose_verbs}
+                capability={capability}
+              />
+              <ModuleInstallControls module={module} onAction={runModuleAction} />
+            </div>
           ) : null}
         </div>
-        {module && !comingSoon && on && !(module.tenant_status === 'connected' || module.connected) ? (
+        {module && !comingSoon && inSetup ? (
           <p className="mt-3 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-sm text-text-primary">
-            {t('integrations.modules.nextConnect', {
-              defaultValue: '{{name}} is on. Connect a package so agents can use it.',
+            {t('integrations.modules.setupInProgress', {
+              defaultValue:
+                'Finish setup to install {{name}}. Optionally link a platform integration it can use.',
+              name,
+            })}
+          </p>
+        ) : module && !comingSoon && on && !(module.tenant_status === 'connected' || module.connected) ? (
+          <p className="mt-3 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-sm text-text-primary">
+            {t('integrations.modules.installedNoIntegration', {
+              defaultValue:
+                '{{name}} is installed. Link an optional integration so agents can reach live data.',
               name,
             })}
           </p>
         ) : module && !comingSoon ? (
           <p className="mt-2 text-xs text-text-muted">
             {on
-              ? t('integrations.modules.toggleHint', {
+              ? t('integrations.modules.installedHint', {
                   defaultValue:
-                    'Turning a module off hides it from agents. Connected packages stay in place.',
+                    'Installed modules appear under AI in the main menu. Uninstall removes them from agents.',
                 })
-              : t('integrations.modules.enableToUseHint', {
+              : t('integrations.modules.installHint', {
                   defaultValue:
-                    'Turn this module on so agents can use it. Connecting a package also turns it on.',
+                    'Install this module, complete setup, then open it from AI > Modules.',
                 })}
           </p>
         ) : null}
@@ -399,6 +443,18 @@ export default function ModuleSetupPage() {
                   </p>
                 </section>
               ) : null}
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                  {t('integrations.modules.agents.sectionTitle', {
+                    defaultValue: 'Assigned agents',
+                  })}
+                </h3>
+                <ModuleAgentsSection
+                  moduleSlug={slug}
+                  agents={companyAgents}
+                  onChanged={() => void refreshCatalog()}
+                />
+              </section>
               {visibleSteps.length > 0 ? (
                 <section>
                   <h3 className="mb-2 text-sm font-semibold text-text-primary">
@@ -425,9 +481,14 @@ export default function ModuleSetupPage() {
               <p className="max-w-2xl text-sm text-text-secondary">
                 {t('integrations.modules.setup.intro', {
                   defaultValue:
-                    'The company assistant walks you through turning the module on, connecting packages, setting defaults, and indexing sources.',
+                    'Assign at least one AI agent, then chat with the default agent to connect packages, set defaults, and index sources.',
                 })}
               </p>
+              <ModuleAgentsSection
+                moduleSlug={slug}
+                agents={companyAgents}
+                onChanged={() => void refreshCatalog()}
+              />
               {visibleSteps.length > 0 ? (
                 <ol className="list-decimal space-y-1.5 pl-5 text-sm text-text-secondary">
                   {visibleSteps.map((step) => (
@@ -435,13 +496,21 @@ export default function ModuleSetupPage() {
                   ))}
                 </ol>
               ) : null}
-              <Button asChild>
-                <Link to={talkToAssistantPath(setupPrefill)}>
+              {setupAgentId ? (
+                <Button asChild>
+                  <Link to={setupChatPath}>
+                    {t('integrations.modules.setup.openAssistant', {
+                      defaultValue: 'Continue with assigned agent',
+                    })}
+                  </Link>
+                </Button>
+              ) : (
+                <Button type="button" disabled>
                   {t('integrations.modules.setup.openAssistant', {
-                    defaultValue: 'Continue with company assistant',
+                    defaultValue: 'Continue with assigned agent',
                   })}
-                </Link>
-              </Button>
+                </Button>
+              )}
             </section>
           ) : null}
         </>

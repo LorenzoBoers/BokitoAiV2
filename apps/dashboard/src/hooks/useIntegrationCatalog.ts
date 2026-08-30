@@ -170,7 +170,17 @@ export function useIntegrationCatalog() {
 
   const setModuleEnabled = useCallback(
     async (slug: string, enabled: boolean) => {
-      const row = await patchIntegrationModule(slug, enabled)
+      const row = await patchIntegrationModule(slug, { enabled })
+      setModules((current) => current.map((module) => (module.slug === slug ? { ...module, ...row } : module)))
+      await refreshCatalog()
+      return row
+    },
+    [refreshCatalog],
+  )
+
+  const runModuleAction = useCallback(
+    async (slug: string, action: 'install' | 'complete_setup' | 'uninstall') => {
+      const row = await patchIntegrationModule(slug, { action })
       setModules((current) => current.map((module) => (module.slug === slug ? { ...module, ...row } : module)))
       await refreshCatalog()
       return row
@@ -184,5 +194,6 @@ export function useIntegrationCatalog() {
     loadError,
     refreshCatalog,
     setModuleEnabled,
+    runModuleAction,
   }
 }

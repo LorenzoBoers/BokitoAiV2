@@ -33,6 +33,12 @@ CAPABILITIES: dict[str, dict[str, bool]] = {
         "outstanding.read": False,
         "bank_mutations.read": False,
         "tax_rates.read": False,
+        # Writes: Cloudswitch Create/UpdateStamTabelRecord (DEB/CRED) and
+        # CreateJournaalpost. Behind the platform+tenant write switch.
+        "parties.write": True,
+        "journal.write": True,
+        "documents.sales.write": False,
+        "payments.write": False,
     },
     "bjorn_lunden": {
         "companies.read": True,
@@ -45,6 +51,11 @@ CAPABILITIES: dict[str, dict[str, bool]] = {
         "outstanding.read": True,  # derived from open invoice state
         "bank_mutations.read": False,
         "tax_rates.read": False,
+        # BLA REST supports vouchers/invoices; adapter write slice not built yet.
+        "parties.write": False,
+        "journal.write": False,
+        "documents.sales.write": False,
+        "payments.write": False,
     },
     "moneybird": {
         "companies.read": True,
@@ -57,6 +68,12 @@ CAPABILITIES: dict[str, dict[str, bool]] = {
         "outstanding.read": True,
         "bank_mutations.read": True,
         "tax_rates.read": True,
+        # Moneybird: contacts + sales invoices + payments via REST; no free
+        # journal entries. Adapter write slice not built yet.
+        "parties.write": False,
+        "journal.write": False,
+        "documents.sales.write": False,
+        "payments.write": False,
     },
     # Docs-only rows: schema-ready, no adapter yet.
     "exact_online": {
@@ -71,6 +88,10 @@ CAPABILITIES: dict[str, dict[str, bool]] = {
         "outstanding.read": True,
         "bank_mutations.read": True,  # BankEntries exist; invoice matching does not
         "tax_rates.read": True,
+        "parties.write": False,
+        "journal.write": False,
+        "documents.sales.write": False,
+        "payments.write": False,
     },
     "snelstart": {
         "docs_only": True,
@@ -84,6 +105,10 @@ CAPABILITIES: dict[str, dict[str, bool]] = {
         "outstanding.read": True,
         "bank_mutations.read": True,
         "tax_rates.read": True,
+        "parties.write": False,
+        "journal.write": False,
+        "documents.sales.write": False,
+        "payments.write": False,
     },
 }
 
@@ -102,6 +127,12 @@ VERB_CAPABILITY: dict[str, str] = {
     "list_bank_mutations": "bank_mutations.read",
     # summarize degrades gracefully per capability; only companies required.
     "summarize": "companies.read",
+    # Apply verbs execute an approved write through the adapter. They are
+    # additionally guarded by the platform + tenant write switches.
+    "apply_party": "parties.write",
+    "apply_booking": "journal.write",
+    "apply_document": "documents.sales.write",
+    "apply_payment": "payments.write",
 }
 
 

@@ -181,6 +181,13 @@ async def _store_integration_credentials(
     conn.status = "active"
     session.add(conn)
     await session.commit()
+    if provider in oauth_providers.CALENDAR_PROVIDERS:
+        try:
+            from app.services.calendar_sync import sync_connection
+
+            await sync_connection(session, conn)
+        except Exception:
+            logger.exception("initial calendar sync failed for %s", provider)
 
 
 async def _complete_sso_login(

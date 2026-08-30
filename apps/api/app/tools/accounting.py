@@ -2,7 +2,9 @@
 
 Agents call ``accounting_*`` verbs; they never see vendor endpoints or MCP
 server names. Reads are ungated (live reads, no mirror). Writes are always
-proposals that land as a DecisionRequest in the thread.
+proposals that land as a DecisionRequest in the thread; on approve the
+matching ``accounting_apply_*`` tool executes the write through the vendor
+adapter — behind the platform + tenant write switches (default off).
 """
 
 from __future__ import annotations
@@ -23,11 +25,17 @@ _COMMON_PROPS: dict[str, Any] = {
 }
 
 
+def _agent_id(ctx: ToolContext):
+    return ctx.agent.id if ctx.agent is not None else None
+
+
 def _read_handler(verb: str):
     async def handler(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
         from app.modules.accounting.router import call_accounting_verb
 
-        return await call_accounting_verb(ctx.session, ctx.tenant_id, verb, tool_input)
+        return await call_accounting_verb(
+            ctx.session, ctx.tenant_id, verb, tool_input, agent_id=_agent_id(ctx)
+        )
 
     return handler
 
@@ -184,5 +192,79 @@ for _verb, _description in _PROPOSALS.items():
             },
             handler=_propose_handler(_verb),
             gated=False,
+        )
+    )
+
+
+def _apply_handler(verb: str):
+    async def handler(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+        from app.modules.accounting.router import call_accounting_verb
+
+        return await call_accounting_verb(
+            ctx.session, ctx.tenant_id, verb, tool_input, agent_id=_agent_id(ctx)
+        )
+
+    return handler
+
+
+# Apply tools execute the approved write. They are gated + mutating: a direct
+# agent call escalates to a decision; resolve_decision runs them with
+# approved=True after a human approves the matching proposal. The router
+# additionally enforces the platform + tenant write switches.
+_APPLIES: dict[str, tuple[str, dict[str, Any]]] = {
+    "apply_party": (
+        "Create or update a customer/supplier in the connected accounting package. "
+        "Only runs after human approval; blocked while accounting writes are disabled.",
+        {
+            "role": {"type": "string", "enum": ["customer", "supplier"]},
+            "party_id": {"type": "string", "description": "Empty to create; set to update."},
+            "name": {"type": "string"},
+            "email": {"type": "string"},
+            "phone": {"type": "string"},
+            "street": {"type": "string"},
+            "postal_code": {"type": "string"},
+            "city": {"type": "string"},
+            "country": {"type": "string"},
+        },
+    ),
+    "apply_booking": (
+        "Create a journal booking in the connected accounting package. "
+        "Only runs after human approval; blocked while accounting writes are disabled.",
+        {
+            "journal": {"type": "string", "description": "Journal/dagboek code."},
+            "date": {"type": "string", "description": "YYYY-MM-DD"},
+            "description": {"type": "string"},
+            "reference": {"type": "string"},
+            "lines": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "account": {"type": "string"},
+                        "description": {"type": "string"},
+                        "debit": {"type": "number"},
+                        "credit": {"type": "number"},
+                        "tax_code": {"type": "string"},
+                    },
+                    "required": ["account"],
+                },
+            },
+        },
+    ),
+}
+
+for _verb, (_description, _props) in _APPLIES.items():
+    register_tool(
+        ToolSpec(
+            name=f"accounting_{_verb}",
+            description=_description,
+            category="integrations",
+            input_schema={
+                "type": "object",
+                "properties": {**_COMMON_PROPS, **_props},
+            },
+            handler=_apply_handler(_verb),
+            mutating=True,
+            gated=True,
         )
     )

@@ -117,7 +117,9 @@
     "intro": "Per tool category: deny blocks the action, ask creates an inline decision, allow runs it automatically with an audit record.",
     "saved": "Allowance saved.",
     "toolOverrideSaved": "{{toolName}}: {{mode}}",
-    "toolOverrideCleared": "{{toolName}}: category default"
+    "toolOverrideCleared": "{{toolName}}: category default",
+    "learningNote": "Learning tightened {{category}} from {{from}} to {{to}}.",
+    "learningIntro": "Recent automatic tightenings (allow to ask first). Loosening stays a manual edit here."
   },
   "toolCategories": {
     "messaging": { "label": "Messaging", "hint": "Replies, decisions, and thread actions." },

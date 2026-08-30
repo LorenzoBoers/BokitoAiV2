@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Bot, Trash2 } from 'lucide-react'
+import { AiAvatar } from '../ui/AiAvatar'
 import { AI_PILL_CLASS } from '../ai/AiMark'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { PersonAvatar } from '../ui/PersonAvatar'
@@ -162,9 +163,25 @@ export default function ThreadListItem({
           />
         ) : null}
         {isDirect || isAgentThread ? (
-          <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
-            <Bot size={13} />
-          </span>
+          thread.agentAvatarKind ||
+          thread.agentAvatarIcon ||
+          thread.agentAvatarColor ||
+          thread.agentAvatarImageUrl ? (
+            <AiAvatar
+              name={thread.agentName || 'Agent'}
+              seed={thread.agentId || String(thread.id)}
+              size={28}
+              className="mt-0.5"
+              kind={thread.agentAvatarKind}
+              icon={thread.agentAvatarIcon}
+              color={thread.agentAvatarColor}
+              imageUrl={thread.agentAvatarImageUrl}
+            />
+          ) : (
+            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-ai/25 bg-ai/10 text-ai-ink">
+              <Bot size={13} />
+            </span>
+          )
         ) : (
           <PersonAvatar
             name={thread.contactName}

@@ -222,8 +222,19 @@ export type AgendaItem = {
   instructions: string
   enabled: boolean
   at: string
+  end_at?: string | null
   status: string
   run_id: string | null
+  source?: string | null
+  provider?: string | null
+  provider_label?: string | null
+  calendar_id?: string | null
+  calendar_name?: string | null
+  location?: string | null
+  html_link?: string | null
+  all_day?: boolean
+  connection_id?: string | null
+  external_id?: string | null
 }
 
 export async function listAgendaOccurrences(params: {

@@ -125,6 +125,7 @@ export default function IntegrationsConnected() {
     emailOutlook,
     emailGmail,
     mcpRows,
+    calendarRows,
     counts,
     refresh,
   } = useConnectedIntegrationsSummary()
@@ -158,6 +159,7 @@ export default function IntegrationsConnected() {
       all: counts.all,
       inbox: counts.inbox,
       repository: counts.repository,
+      calendar: counts.calendar,
       mcp: counts.mcp,
     }),
     [counts],
@@ -284,7 +286,7 @@ export default function IntegrationsConnected() {
       ) : null}
 
       {kindFilter === 'all' && !loading ? (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryCard
             label={t('integrations.kind.inbox')}
             count={counts.inbox}
@@ -294,6 +296,11 @@ export default function IntegrationsConnected() {
             label={t('integrations.kind.repository')}
             count={counts.repository}
             onClick={() => setKindFilter('repository')}
+          />
+          <SummaryCard
+            label={t('integrations.kind.calendar')}
+            count={counts.calendar}
+            onClick={() => setKindFilter('calendar')}
           />
           <SummaryCard
             label={t('integrations.kind.mcp')}
@@ -445,6 +452,61 @@ export default function IntegrationsConnected() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </KindSection>
+          ) : null}
+
+          {showSection('calendar') ? (
+            <KindSection title={t('integrations.kind.calendar')}>
+              {calendarRows.length === 0 ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-text-muted">
+                    {t('integrations.connected.emptyCalendar', {
+                      defaultValue: 'No calendar connected yet. Sync Google or Outlook into Agenda.',
+                    })}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" asChild>
+                      <Link to={marketplacePathWithKind('calendar')}>
+                        {t('integrations.connected.browseCalendar', {
+                          defaultValue: 'Browse calendars',
+                        })}
+                      </Link>
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to="/agenda">{t('agendaPage.openAgenda')}</Link>
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <ul className="space-y-2">
+                    {calendarRows.map((row) => (
+                      <li
+                        key={row.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{row.display_name}</p>
+                          <p className="text-[11px] text-text-muted truncate">
+                            {row.provider}
+                            {typeof row.event_count === 'number'
+                              ? ` · ${t('agendaPage.calendar.eventCount', { count: row.event_count })}`
+                              : ''}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="ghost" asChild>
+                          <Link to="/agenda">{t('integrations.actions.manage')}</Link>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-4">
+                    <Button size="sm" variant="secondary" asChild>
+                      <Link to="/agenda">{t('agendaPage.openAgenda')}</Link>
+                    </Button>
+                  </div>
+                </>
               )}
             </KindSection>
           ) : null}

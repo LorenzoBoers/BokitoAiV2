@@ -33,6 +33,7 @@ export function countForInboxQueue(
       return counts.inboxByQueue.all
     case 'awaiting-decision':
     case 'awaiting_decision':
+    case 'decisions':
       return counts.agentsAttention
     default:
       return 0

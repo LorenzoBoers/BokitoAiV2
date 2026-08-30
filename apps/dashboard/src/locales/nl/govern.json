@@ -117,7 +117,9 @@
     "intro": "Per toolcategorie: weigeren blokkeert de actie, vragen maakt een inline beslissing aan, toestaan voert de actie automatisch uit met een auditrecord.",
     "saved": "Toestemming opgeslagen.",
     "toolOverrideSaved": "{{toolName}}: {{mode}}",
-    "toolOverrideCleared": "{{toolName}}: categorie-standaard"
+    "toolOverrideCleared": "{{toolName}}: categorie-standaard",
+    "learningNote": "Learning heeft {{category}} aangescherpt van {{from}} naar {{to}}.",
+    "learningIntro": "Recente automatische aanscherpingen (toestaan naar eerst vragen). Losser maken blijft hier een handmatige edit."
   },
   "toolCategories": {
     "messaging": { "label": "Berichten", "hint": "Antwoorden, beslissingen en gespreksacties." },

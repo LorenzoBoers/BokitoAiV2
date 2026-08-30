@@ -74,6 +74,21 @@ def _parse_address_list(raw: str | None) -> list[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
+def format_mailbox_from(address: str, display_name: str | None = None) -> str:
+    """Build a From value: ``Name <addr>`` when a display name is set."""
+    addr = (address or "").strip()
+    name = (display_name or "").strip()
+    if not addr:
+        return name
+    if not name:
+        return addr
+    # Quote when the display name has specials (RFC 5322-ish).
+    if any(ch in name for ch in (',', ';', '<', '>', '"', '\\')):
+        safe = name.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{safe}" <{addr}>'
+    return f"{name} <{addr}>"
+
+
 def _append_signature(
     html_body: str, account: ChannelAccount, override: str | None = None
 ) -> str:
@@ -128,11 +143,14 @@ def format_outbound(
     attachment_payloads: list[dict[str, Any]] | None = None,
     signature_html: str | None = None,
     apply_signature: bool = True,
+    from_display_name: str | None = None,
 ) -> dict[str, Any]:
     """Build the provider request payload for an outbound email.
 
     `attachment_payloads` items carry hydrated bytes: {name, mime, data}.
     When ``apply_signature`` is False, ``body_html`` is used as-is (already signed).
+    ``from_display_name`` sets the visible From name; the address always stays
+    ``account.address`` (mailbox OAuth identity).
     """
     if apply_signature:
         html_body = compose_outbound_html(
@@ -149,11 +167,13 @@ def format_outbound(
     cc_addrs = _parse_address_list(cc)
     bcc_addrs = _parse_address_list(bcc)
     files = attachment_payloads or []
+    sender_name = (from_display_name or "").strip() or (account.display_name or "").strip() or None
+    from_header = format_mailbox_from(account.address, sender_name)
 
     if account.provider == "gmail":
         mime = EmailMessage()
         mime["To"] = ", ".join(to_addrs)
-        mime["From"] = account.address
+        mime["From"] = from_header
         mime["Subject"] = subject
         if cc_addrs:
             mime["Cc"] = ", ".join(cc_addrs)
@@ -181,13 +201,8 @@ def format_outbound(
         return payload
     if account.provider == "bokito":
         # Resend Send API. Threading relies on standard RFC headers.
-        sender = (
-            f"{account.display_name} <{account.address}>"
-            if account.display_name
-            else account.address
-        )
         resend_payload: dict[str, Any] = {
-            "from": sender,
+            "from": from_header,
             "to": to_addrs,
             "subject": subject,
             "text": body_text,
@@ -217,6 +232,12 @@ def format_outbound(
             "body": {"contentType": "HTML", "content": html_body},
             "toRecipients": [{"emailAddress": {"address": addr}} for addr in to_addrs],
         }
+        # Best-effort: Graph may ignore custom From on personal mailboxes
+        # without sendAs; address still matches the connected mailbox.
+        if sender_name:
+            message["from"] = {
+                "emailAddress": {"address": account.address, "name": sender_name}
+            }
         if cc_addrs:
             message["ccRecipients"] = [{"emailAddress": {"address": addr}} for addr in cc_addrs]
         if bcc_addrs:
@@ -240,6 +261,8 @@ def format_outbound(
         "subject": subject,
         "body_text": body_text,
         "body_html": html_body,
+        "from": from_header,
+        "from_display_name": sender_name,
         "cc": cc,
         "bcc": bcc,
         "in_reply_to": in_reply_to,
@@ -335,6 +358,7 @@ async def send_via_provider(
     attachments: list[dict[str, Any]] | None = None,
     session: AsyncSession | None = None,
     signature_html: str | None = None,
+    from_display_name: str | None = None,
 ) -> tuple[str, str]:
     """Send an email through the account's provider.
 
@@ -361,6 +385,7 @@ async def send_via_provider(
         thread_provider_id=thread_provider_id,
         attachment_payloads=attachment_payloads,
         apply_signature=False,
+        from_display_name=from_display_name,
     )
     if account.provider == "mock":
         return "sent", final_html

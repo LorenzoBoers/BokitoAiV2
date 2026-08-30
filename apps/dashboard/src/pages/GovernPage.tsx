@@ -31,6 +31,7 @@ import {
   type AuditEventRow,
   type AutonomyPostureId,
   type GovernToolRow,
+  type LearningAllowanceNote,
   type PlatformChangeRow,
 } from '../lib/govern-api'
 import {
@@ -144,6 +145,7 @@ export default function GovernPage() {
   const [allowances, setAllowances] = useState<Record<string, AllowanceMode>>({})
   const [categories, setCategories] = useState<string[]>([])
   const [tools, setTools] = useState<GovernToolRow[]>([])
+  const [learningHistory, setLearningHistory] = useState<LearningAllowanceNote[]>([])
   const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -180,6 +182,7 @@ export default function GovernPage() {
         setAllowances(allowanceResp.allowances)
         setCategories(allowanceResp.categories)
         setTools(allowanceResp.tools)
+        setLearningHistory(allowanceResp.learning_history ?? [])
         setPostureState(allowanceResp.posture)
         setRefreshedAt(new Date())
       })
@@ -574,6 +577,24 @@ export default function GovernPage() {
                 <p className="text-xs text-text-muted">
                   {t('allowances.intro')}
                 </p>
+                {learningHistory.length > 0 ? (
+                  <div className="rounded-lg border border-border/60 bg-bg-muted/40 px-3 py-2 space-y-1.5">
+                    <p className="text-[11px] text-text-muted">{t('allowances.learningIntro')}</p>
+                    {learningHistory.slice(0, 3).map((note, index) => (
+                      <p
+                        key={`${note.category ?? 'cat'}-${note.at ?? index}`}
+                        className="text-xs text-text-secondary"
+                        title={note.reason}
+                      >
+                        {t('allowances.learningNote', {
+                          category: toolCategoryLabel(String(note.category || ''), t),
+                          from: allowanceModeLabel((note.from as AllowanceMode) || 'allow', t),
+                          to: allowanceModeLabel((note.to as AllowanceMode) || 'ask', t),
+                        })}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
                 {categories.map((category) => {
                   const current = allowances[category] ?? 'ask'
                   const categoryTools = tools.filter((tool) => tool.category === category && tool.gated)

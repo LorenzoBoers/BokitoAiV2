@@ -51,8 +51,16 @@ class AgentCreateBody(BaseModel):
 class AgentUpdateBody(BaseModel):
     name: str | None = None
     system_prompt: str | None = None
-    # Signature (HTML) appended to outbound replies sent as this agent.
+    # Plain-text signature appended to outbound replies sent as this agent.
+    email_signature_text: str | None = None
+    # Legacy HTML field — converted to plain text on write.
     email_signature_html: str | None = None
+    # Default Send as on approvals for this agent: user (impersonate) | agent.
+    reply_send_as: str | None = None
+    avatar_kind: str | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_image_url: str | None = None
 
 
 class TriggerAgentBody(BaseModel):
@@ -308,6 +316,12 @@ async def update_agent(
         name=body.name,
         system_prompt=body.system_prompt,
         email_signature_html=body.email_signature_html,
+        email_signature_text=body.email_signature_text,
+        reply_send_as=body.reply_send_as,
+        avatar_kind=body.avatar_kind,
+        avatar_icon=body.avatar_icon,
+        avatar_color=body.avatar_color,
+        avatar_image_url=body.avatar_image_url,
     )
     from app.services.audit import record_audit
 

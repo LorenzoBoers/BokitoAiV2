@@ -19,7 +19,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 MODULE_SKILL_DIR = Path(__file__).resolve().parent.parent / "data" / "module_skills"
 
 ModuleStatus = Literal["available", "coming_soon"]
-TenantModuleStatus = Literal["off", "on", "connected", "coming_soon"]
+# Public lifecycle shown in UI / nav. Legacy "off"/"on" still accepted when reading.
+InstallState = Literal["not_installed", "setup", "installed"]
+TenantModuleStatus = Literal[
+    "not_installed",
+    "setup",
+    "installed",
+    "connected",
+    "coming_soon",
+    # Legacy aliases kept for older clients.
+    "off",
+    "on",
+]
 MODULE_SETTINGS_KEY = "modules"
 MODULE_TOOL_PREFIXES: dict[str, str] = {
     "accounting": "accounting_",
@@ -29,6 +40,7 @@ MODULE_TOOL_PREFIXES: dict[str, str] = {
 }
 
 SETUP_PATH_PREFIX = "/modules"
+WORKSPACE_PATH_PREFIX = "/ai/modules"
 
 
 @dataclass(frozen=True)
@@ -50,15 +62,38 @@ class ModuleSpec:
     def setup_path(self) -> str:
         return f"{SETUP_PATH_PREFIX}/{self.slug}"
 
-    def tenant_status(self, *, connected: bool, enabled: bool = False) -> TenantModuleStatus:
+    @property
+    def workspace_path(self) -> str:
+        return f"{WORKSPACE_PATH_PREFIX}/{self.slug}"
+
+    def tenant_status(
+        self,
+        *,
+        connected: bool,
+        enabled: bool = False,
+        install_state: InstallState | None = None,
+    ) -> TenantModuleStatus:
         if self.status == "coming_soon":
             return "coming_soon"
-        if not enabled:
-            return "off"
-        return "connected" if connected else "on"
+        state = install_state or ("installed" if enabled else "not_installed")
+        if state == "not_installed":
+            return "not_installed"
+        if state == "setup":
+            return "setup"
+        return "connected" if connected else "installed"
 
-    def serialize(self, *, connected: bool = False, enabled: bool = False) -> dict[str, Any]:
+    def serialize(
+        self,
+        *,
+        connected: bool = False,
+        enabled: bool = False,
+        install_state: InstallState | None = None,
+    ) -> dict[str, Any]:
         live = connected if self.status == "available" else False
+        state: InstallState = install_state or (
+            "installed" if enabled else "not_installed"
+        )
+        is_installed = state == "installed"
         return {
             "slug": self.slug,
             "name": self.name,
@@ -73,9 +108,13 @@ class ModuleSpec:
             "setup_steps": list(self.setup_steps),
             "capability_summary": self.capability_summary,
             "setup_path": self.setup_path,
-            "enabled": enabled,
+            "workspace_path": self.workspace_path,
+            "enabled": is_installed,
             "connected": live,
-            "tenant_status": self.tenant_status(connected=live, enabled=enabled),
+            "install_state": state,
+            "tenant_status": self.tenant_status(
+                connected=live, enabled=is_installed, install_state=state
+            ),
         }
 
 
@@ -123,10 +162,11 @@ MODULES: list[ModuleSpec] = [
         ),
         needs_when="invoices, VAT, ledgers, outstanding balances, or bookkeeping",
         setup_steps=(
-            "Turn Accounting on under Settings > Modules.",
-            "Choose a package (KING, Bjorn Lunden, or Moneybird).",
-            "Connect with OAuth or an API key.",
+            "Install Accounting under Settings > Modules.",
+            "Assign at least one AI agent (mark one as default for setup chat).",
+            "Optionally enable a platform integration this module can use (KING, Bjorn Lunden, or Moneybird).",
             "If more than one administration appears, pick which one agents should use.",
+            "Chat with the default agent to finish checklist items, then choose Finish setup.",
         ),
         capability_summary=(
             "Agents can list administrations, contacts, invoices, ledger lines, "
@@ -226,40 +266,86 @@ def get_module(slug: str) -> ModuleSpec | None:
 
 
 def parse_module_flags(settings: dict[str, Any] | None) -> dict[str, bool]:
-    """Read Tenant.settings_json.modules into {slug: enabled}."""
+    """Read Tenant.settings_json.modules into {slug: enabled/installed}."""
+    states = parse_module_install_states(settings)
+    return {slug: state == "installed" for slug, state in states.items()}
+
+
+def parse_module_install_states(
+    settings: dict[str, Any] | None,
+) -> dict[str, InstallState]:
+    """Read install lifecycle per module slug."""
     raw = (settings or {}).get(MODULE_SETTINGS_KEY)
     if not isinstance(raw, dict):
         return {}
-    flags: dict[str, bool] = {}
+    out: dict[str, InstallState] = {}
     for slug, row in raw.items():
+        key = str(slug)
         if isinstance(row, bool):
-            flags[str(slug)] = row
-        elif isinstance(row, dict) and "enabled" in row:
-            flags[str(slug)] = bool(row["enabled"])
-    return flags
+            out[key] = "installed" if row else "not_installed"
+            continue
+        if not isinstance(row, dict):
+            continue
+        raw_state = str(row.get("install_state") or "").strip().lower()
+        if raw_state in ("not_installed", "setup", "installed"):
+            out[key] = raw_state  # type: ignore[assignment]
+            continue
+        # Legacy: enabled bool without install_state.
+        if "enabled" in row:
+            out[key] = "installed" if bool(row["enabled"]) else "not_installed"
+    return out
 
 
 def module_is_enabled(
     spec: ModuleSpec, *, connected: bool, flags: dict[str, bool]
 ) -> bool:
-    """Explicit flag wins; a live connector keeps a module on for existing tenants."""
+    """Tools and agent skills require install_state=installed (enabled flag)."""
     if spec.slug in flags:
         return flags[spec.slug]
+    # Legacy tenants that only have a live connector and never flipped the switch
+    # stay enabled so existing workspaces do not silently lose tools.
     return connected
+
+
+def module_install_state_for(
+    spec: ModuleSpec,
+    *,
+    connected: bool,
+    states: dict[str, InstallState],
+    flags: dict[str, bool],
+) -> InstallState:
+    if spec.status == "coming_soon":
+        return "not_installed"
+    if spec.slug in states:
+        return states[spec.slug]
+    if module_is_enabled(spec, connected=connected, flags=flags):
+        return "installed"
+    return "not_installed"
 
 
 def serialize_modules(
     *,
     connected_slugs: set[str] | None = None,
     enabled_slugs: set[str] | None = None,
+    install_states: dict[str, InstallState] | None = None,
 ) -> list[dict[str, Any]]:
     """Public module rows for the marketplace API and agent tools."""
     connected = connected_slugs or set()
     enabled = enabled_slugs if enabled_slugs is not None else set()
-    return [
-        m.serialize(connected=m.slug in connected, enabled=m.slug in enabled)
-        for m in MODULES
-    ]
+    states = install_states or {}
+    rows: list[dict[str, Any]] = []
+    for m in MODULES:
+        state = states.get(m.slug)
+        if state is None:
+            state = "installed" if m.slug in enabled else "not_installed"
+        rows.append(
+            m.serialize(
+                connected=m.slug in connected,
+                enabled=state == "installed",
+                install_state=state,
+            )
+        )
+    return rows
 
 
 def filter_tools_for_modules(
@@ -330,15 +416,44 @@ async def tenant_module_flags(session: AsyncSession, tenant_id: UUID) -> dict[st
 async def tenant_module_sets(
     session: AsyncSession, tenant_id: UUID
 ) -> tuple[set[str], set[str]]:
-    """Return (enabled_slugs, connected_slugs) for a tenant."""
+    """Return (enabled_slugs, connected_slugs) for a tenant.
+
+    ``enabled_slugs`` means install_state=installed (tools available).
+    """
     connected = await connected_module_slugs(session, tenant_id)
-    flags = await tenant_module_flags(session, tenant_id)
-    enabled = {
-        module.slug
-        for module in MODULES
-        if module_is_enabled(module, connected=module.slug in connected, flags=flags)
-    }
+    settings = await _tenant_settings(session, tenant_id)
+    flags = parse_module_flags(settings)
+    states = parse_module_install_states(settings)
+    enabled: set[str] = set()
+    for module in MODULES:
+        state = module_install_state_for(
+            module,
+            connected=module.slug in connected,
+            states=states,
+            flags=flags,
+        )
+        if state == "installed":
+            enabled.add(module.slug)
     return enabled, connected
+
+
+async def tenant_module_install_states(
+    session: AsyncSession, tenant_id: UUID
+) -> dict[str, InstallState]:
+    connected = await connected_module_slugs(session, tenant_id)
+    settings = await _tenant_settings(session, tenant_id)
+    flags = parse_module_flags(settings)
+    states = parse_module_install_states(settings)
+    return {
+        module.slug: module_install_state_for(
+            module,
+            connected=module.slug in connected,
+            states=states,
+            flags=flags,
+        )
+        for module in MODULES
+        if module.status == "available"
+    }
 
 
 async def enabled_module_slugs(session: AsyncSession, tenant_id: UUID) -> set[str]:
@@ -351,25 +466,64 @@ async def module_is_on(session: AsyncSession, tenant_id: UUID, slug: str) -> boo
     return slug in enabled
 
 
+async def user_can_access_module(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    *,
+    user_id: Any,
+    role: str,
+) -> bool:
+    """Per-user module access from prefs. Owners/admins always have access.
+
+    ``user_access`` pref: {"mode": "all_members"|"selected", "user_ids": [...]}
+    Missing pref or mode all_members = every member may use the module.
+    """
+    if role in ("owner", "admin"):
+        return True
+    prefs = await get_module_prefs(session, tenant_id, slug)
+    user_access = prefs.get("user_access")
+    if not isinstance(user_access, dict) or user_access.get("mode") != "selected":
+        return True
+    allowed = {str(u) for u in (user_access.get("user_ids") or [])}
+    return str(user_id) in allowed
+
+
 async def serialize_modules_for_tenant(
     session: AsyncSession, tenant_id: UUID
 ) -> list[dict[str, Any]]:
     enabled, connected = await tenant_module_sets(session, tenant_id)
-    return serialize_modules(connected_slugs=connected, enabled_slugs=enabled)
+    states = await tenant_module_install_states(session, tenant_id)
+    rows = serialize_modules(
+        connected_slugs=connected,
+        enabled_slugs=enabled,
+        install_states=states,
+    )
+    from app.services.module_agents import module_roster_summaries
+
+    roster = await module_roster_summaries(session, tenant_id)
+    for row in rows:
+        summary = roster.get(row["slug"]) or {}
+        row["assigned_agent_count"] = int(summary.get("assigned_agent_count") or 0)
+        row["default_agent_id"] = summary.get("default_agent_id")
+    return rows
 
 
-async def set_module_enabled(
+async def _write_module_row(
     session: AsyncSession,
     tenant_id: UUID,
     slug: str,
-    enabled: bool,
     *,
+    install_state: InstallState,
     actor_id: Any = None,
+    audit_action: str,
+    summary: str,
 ) -> dict[str, Any]:
-    """Persist an operator on/off switch. Does not revoke connections."""
     spec = MODULE_BY_SLUG.get(slug)
     if spec is None:
         raise ValueError(f"Unknown module '{slug}'")
+    if spec.status == "coming_soon" and install_state != "not_installed":
+        raise ValueError(f"Module '{slug}' is not available yet")
     from app.models.auth import Tenant
     from app.services.audit import record_audit
 
@@ -381,7 +535,8 @@ async def set_module_enabled(
     modules = dict(raw) if isinstance(raw, dict) else {}
     current = modules.get(slug)
     row = dict(current) if isinstance(current, dict) else {}
-    row["enabled"] = bool(enabled)
+    row["install_state"] = install_state
+    row["enabled"] = install_state == "installed"
     modules[slug] = row
     settings[MODULE_SETTINGS_KEY] = modules
     tenant.settings_json = json.dumps(settings)
@@ -390,15 +545,19 @@ async def set_module_enabled(
     await record_audit(
         session,
         tenant_id,
-        action="module:enabled" if enabled else "module:disabled",
+        action=audit_action,
         actor_type="user" if actor_id else "system",
         actor_id=str(actor_id) if actor_id else "",
         resource_type="module",
         resource_id=slug,
-        summary=f"{spec.name} {'on' if enabled else 'off'}",
-        after={"slug": slug, "enabled": bool(enabled)},
+        summary=summary,
+        after={
+            "slug": slug,
+            "install_state": install_state,
+            "enabled": install_state == "installed",
+        },
     )
-    if enabled:
+    if install_state in ("setup", "installed"):
         from app.services.module_sources import ensure_platform_seeds
 
         await ensure_platform_seeds(session, tenant_id, slug)
@@ -406,20 +565,144 @@ async def set_module_enabled(
     return rows[slug]
 
 
+async def set_module_enabled(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    enabled: bool,
+    *,
+    actor_id: Any = None,
+) -> dict[str, Any]:
+    """Legacy on/off: maps to installed / not_installed."""
+    if enabled:
+        from app.services.module_agents import module_agent_count
+
+        if await module_agent_count(session, tenant_id, slug) < 1:
+            raise ValueError(
+                "Assign at least one AI agent to this module before finishing setup"
+            )
+        return await _write_module_row(
+            session,
+            tenant_id,
+            slug,
+            install_state="installed",
+            actor_id=actor_id,
+            audit_action="module:enabled",
+            summary=f"{MODULE_BY_SLUG[slug].name} installed",
+        )
+    from app.services.module_agents import clear_module_agents
+
+    row = await _write_module_row(
+        session,
+        tenant_id,
+        slug,
+        install_state="not_installed",
+        actor_id=actor_id,
+        audit_action="module:disabled",
+        summary=f"{MODULE_BY_SLUG[slug].name} uninstalled",
+    )
+    await clear_module_agents(session, tenant_id, slug)
+    row["assigned_agent_count"] = 0
+    row["default_agent_id"] = None
+    return row
+
+
+async def install_module(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    *,
+    actor_id: Any = None,
+) -> dict[str, Any]:
+    """Start install: module enters setup until the operator finishes setup."""
+    return await _write_module_row(
+        session,
+        tenant_id,
+        slug,
+        install_state="setup",
+        actor_id=actor_id,
+        audit_action="module:install_started",
+        summary=f"{MODULE_BY_SLUG[slug].name} install started",
+    )
+
+
+async def complete_module_setup(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    *,
+    actor_id: Any = None,
+) -> dict[str, Any]:
+    """Mark setup done → installed (tools + AI nav). Requires ≥1 assigned agent."""
+    from app.services.module_agents import module_agent_count
+
+    states = await tenant_module_install_states(session, tenant_id)
+    current = states.get(slug, "not_installed")
+    if current == "not_installed":
+        raise ValueError("Install the module before finishing setup")
+    if await module_agent_count(session, tenant_id, slug) < 1:
+        raise ValueError(
+            "Assign at least one AI agent to this module before finishing setup"
+        )
+    return await _write_module_row(
+        session,
+        tenant_id,
+        slug,
+        install_state="installed",
+        actor_id=actor_id,
+        audit_action="module:installed",
+        summary=f"{MODULE_BY_SLUG[slug].name} installed",
+    )
+
+
+async def uninstall_module(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    *,
+    actor_id: Any = None,
+) -> dict[str, Any]:
+    """Remove module from the tenant. Connections stay on the platform."""
+    from app.services.module_agents import clear_module_agents
+
+    row = await _write_module_row(
+        session,
+        tenant_id,
+        slug,
+        install_state="not_installed",
+        actor_id=actor_id,
+        audit_action="module:uninstalled",
+        summary=f"{MODULE_BY_SLUG[slug].name} uninstalled",
+    )
+    await clear_module_agents(session, tenant_id, slug)
+    row["assigned_agent_count"] = 0
+    row["default_agent_id"] = None
+    return row
+
+
 async def enable_module_for_provider(
     session: AsyncSession, tenant_id: UUID, provider_slug: str
 ) -> None:
-    """Turn the parent module on when a package is connected."""
+    """When a package is connected, move the parent module into setup if needed.
+
+    Finishing install still requires assigning at least one agent via
+    ``complete_module_setup``.
+    """
     slug = module_for_provider(provider_slug)
     if not slug:
         return
-    flags = await tenant_module_flags(session, tenant_id)
-    if flags.get(slug) is True:
+    states = await tenant_module_install_states(session, tenant_id)
+    current = states.get(slug, "not_installed")
+    if current in ("installed", "setup"):
         return
-    await set_module_enabled(session, tenant_id, slug, True)
-    from app.services.module_sources import ensure_platform_seeds
-
-    await ensure_platform_seeds(session, tenant_id, slug)
+    await _write_module_row(
+        session,
+        tenant_id,
+        slug,
+        install_state="setup",
+        audit_action="module:install_started",
+        summary=f"{MODULE_BY_SLUG[slug].name} setup started via package",
+    )
 
 
 def module_prefs(settings: dict[str, Any] | None, slug: str) -> dict[str, Any]:
@@ -444,6 +727,8 @@ async def update_module_prefs(
     default_connection_id: str | None = None,
     default_company_by_connection: dict[str, str] | None = None,
     clear_default_connection: bool = False,
+    writes_enabled: bool | None = None,
+    user_access: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist operator defaults for multi-registration modules."""
     if MODULE_BY_SLUG.get(slug) is None:
@@ -475,6 +760,14 @@ async def update_module_prefs(
             else:
                 merged.pop(cid, None)
         row["default_company_by_connection"] = merged
+    if writes_enabled is not None:
+        row["writes_enabled"] = bool(writes_enabled)
+    if user_access is not None:
+        mode = str(user_access.get("mode") or "all_members")
+        if mode not in ("all_members", "selected"):
+            mode = "all_members"
+        user_ids = [str(u) for u in (user_access.get("user_ids") or []) if str(u).strip()]
+        row["user_access"] = {"mode": mode, "user_ids": user_ids}
     modules[slug] = row
     settings[MODULE_SETTINGS_KEY] = modules
     tenant.settings_json = json.dumps(settings)

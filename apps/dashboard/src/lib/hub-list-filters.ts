@@ -30,7 +30,6 @@ const RUNS_QUEUE_TO_VIEW: Record<string, View> = {
   all: 'internal',
   updates: 'updates',
   results: 'results',
-  'awaiting-decision': 'awaiting_decision',
 }
 
 export type LeafConfig = {
@@ -56,17 +55,15 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         mode: 'customer',
         variant: 'customer',
       }
-    case 'runs':
-      // Decisions can sit on email/widget threads as well as internal run
-      // threads — do not scope that queue to folder=internal or Cockpit's
-      // "Awaiting decision" count will open an empty list.
-      if (leaf.queue === 'awaiting-decision') {
-        return {
-          filters: { view: 'awaiting_decision' },
-          mode: 'agent',
-          variant: 'customer',
-        }
+    case 'decisions':
+      // Open DecisionRequests across customer and internal threads — do not
+      // scope by folder or Cockpit / Agents deep links open an empty list.
+      return {
+        filters: { view: 'awaiting_decision' },
+        mode: 'agent',
+        variant: 'customer',
       }
+    case 'runs':
       return {
         filters: {
           folder: 'internal',

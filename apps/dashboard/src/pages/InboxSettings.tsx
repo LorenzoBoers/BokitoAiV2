@@ -19,7 +19,6 @@ import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import ChannelList from '../components/inbox/ChannelList'
 import AddChannelDialog from '../components/inbox/AddChannelDialog'
-import ProviderLogo from '../components/email/ProviderLogo'
 import { BrandMark } from '../components/integrations/BrandMark'
 import type { RoutingRule } from '../types/inbox'
 import { useAuth } from '../context/AuthContext'
@@ -104,8 +103,8 @@ type MailboxTarget = { connectionId: number; address: string }
 /** Overlapping marks for every connectable channel kind next to the section title. */
 function ChannelKindsMark() {
   const chips: ReactNode[] = [
-    <ProviderLogo key="outlook" provider="outlook" className="h-[13px] w-[13px] object-contain" />,
-    <ProviderLogo key="gmail" provider="gmail" className="h-[13px] w-[13px] object-contain" />,
+    <BrandMark key="outlook" slug="outlook" size={13} />,
+    <BrandMark key="gmail" slug="gmail" size={13} />,
     <BrandMark key="whatsapp" slug="whatsapp" size={13} />,
     <BrandMark key="slack" slug="slack" size={13} />,
     <MessageSquare key="widget" size={12} className="text-text-secondary" />,

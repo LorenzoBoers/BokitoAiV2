@@ -97,6 +97,15 @@ async def build_tenant_digest(
             PlatformChange.status.in_(("draft", "pending_review")),
         )
     )
+    from app.models.audit import AuditEvent
+
+    allowances_tightened = await _count(
+        select(func.count()).select_from(AuditEvent).where(
+            AuditEvent.tenant_id == tenant_id,
+            AuditEvent.action == "learning:allowance_tightened",
+            AuditEvent.created_at >= since,
+        )
+    )
     return {
         "period": period,
         "open_threads": open_threads,
@@ -108,6 +117,7 @@ async def build_tenant_digest(
         "rules_active": rules_active,
         "rules_suggested": rules_suggested,
         "learning_proposals": learning_proposals,
+        "allowances_tightened": allowances_tightened,
     }
 
 
@@ -131,6 +141,10 @@ def digest_paragraphs(digest: dict[str, Any], tenant_name: str) -> list[str]:
     if digest.get("learning_proposals"):
         learning_bits.append(
             f"{digest['learning_proposals']} learning proposal(s) waiting in Govern"
+        )
+    if digest.get("allowances_tightened"):
+        learning_bits.append(
+            f"{digest['allowances_tightened']} policy slider(s) tightened toward ask-first"
         )
     if learning_bits:
         lines.append("Learning: " + ", ".join(learning_bits) + ".")

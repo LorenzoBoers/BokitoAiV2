@@ -82,6 +82,10 @@ async def list_module_connections(
     if not default_connection_id and len(connections) == 1:
         connections[0]["is_default"] = True
 
+    from app.config import get_settings
+
+    tenant_writes = bool(prefs.get("writes_enabled"))
+    platform_writes = bool(get_settings().accounting_writes_enabled)
     return {
         "module_slug": module_slug,
         "default_connection_id": default_connection_id or (
@@ -91,7 +95,11 @@ async def list_module_connections(
         "prefs": {
             "default_connection_id": default_connection_id or None,
             "default_company_by_connection": company_map,
+            "writes_enabled": tenant_writes,
+            "user_access": prefs.get("user_access"),
         },
+        # Writes execute only when the platform switch AND tenant pref are on.
+        "writes_active": platform_writes and tenant_writes,
     }
 
 

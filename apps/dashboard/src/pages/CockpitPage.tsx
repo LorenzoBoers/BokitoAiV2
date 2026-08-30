@@ -39,7 +39,7 @@ import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { patchSignalThread } from '../lib/signals-api'
 import { snoozeUntilIso, SNOOZE_PRESETS } from '../lib/snooze'
 import { translateDecisionText } from '../lib/activity-labels'
-import { agentRunsPath, attentionThreadPath, channelPath, inboxPath } from '../lib/messages-paths'
+import { agentRunsPath, attentionThreadPath, channelPath, decisionsPath, inboxPath } from '../lib/messages-paths'
 import { isPageGuideDismissed } from '../lib/page-guides'
 import { agentWorkforceRunUrl } from '../lib/workforce-run-urls'
 import { enrichContactsFromThreads, listContacts, type ContactRow } from '../lib/contacts-api'
@@ -419,7 +419,7 @@ export default function CockpitPage() {
   const firstAttention = attentionThreads[0]
   const decisionHref = firstAttention
     ? attentionThreadPath(firstAttention)
-    : agentRunsPath('awaiting-decision')
+    : decisionsPath()
   // Prefer live attention list when summary lags (e.g. internal agent-run decisions).
   const openDecisionCount = Math.max(summary?.open_decisions ?? 0, attentionThreads.length)
   const freshAttention = attentionThreads.filter((thread) => {

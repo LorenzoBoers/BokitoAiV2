@@ -54,7 +54,7 @@ async def test_collect_tenant_snapshot_includes_agents_projects(client: AsyncCli
     assert "MMXM Trading" in prompt
     assert "Pipeline scan" in prompt
     assert "Modules:" in prompt
-    assert "accounting — off" in prompt
+    assert "accounting — not installed" in prompt
     assert len(prompt) < 1800
 
     live_prompt = await build_tenant_snapshot_prompt(session_override, tenant.id)

@@ -99,13 +99,16 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             system_prompt="Test orchestra agent",
         )
     )
-    # Use a connectable provider: the email settings API hides mock accounts.
+    # Mock mailbox: sendable without OAuth so inbound AI / approve-send tests
+    # exercise the happy path. Real providers without credentials are
+    # action_required (cannot send); dedicated tests cover that path.
+    # The email settings API hides mock accounts from the operator UI.
     session_override.add(
         ChannelAccount(
             tenant_id=tenant.id,
             channel="email",
             address="support@test.local",
-            provider="outlook",
+            provider="mock",
         )
     )
     from app.services.workspace import upsert_doc

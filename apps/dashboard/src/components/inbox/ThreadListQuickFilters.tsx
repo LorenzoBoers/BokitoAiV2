@@ -11,7 +11,6 @@ import {
   Search,
   Settings,
   SquarePen,
-  Scale,
   X,
 } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
@@ -78,7 +77,6 @@ const FILTERS: Array<{
 }> = [
   { id: 'all', labelKey: 'listFilters.all' },
   { id: 'needsReply', labelKey: 'listFilters.needsReply', icon: MessageSquareReply },
-  { id: 'needsDecision', labelKey: 'listFilters.needsDecision', icon: Scale },
   { id: 'unread', labelKey: 'listFilters.unread', icon: Mail },
   { id: 'pinned', labelKey: 'listFilters.pinned', icon: Pin },
 ]

@@ -1,7 +1,7 @@
 ---
 title: Approve and decline decisions
-intro: Agents ask inside the thread when a step needs your judgment.
-description: Approve, edit or decline decision cards in the thread, from Cockpit, or from Slack when it is connected.
+intro: Agents ask inside the thread when a step needs your judgment. Every open approval shares one Decisions leaf.
+description: Approve, edit or decline decision cards in the thread, from the Decisions queue, Cockpit, or Slack when it is connected.
 keywords: decisions, approvals, decision requests, slack, human in the loop
 sort: 20
 related: communication,agent-runs,autonomy,govern
@@ -9,17 +9,17 @@ related: communication,agent-runs,autonomy,govern
 
 # Approve and decline decisions
 
-A decision request is a message in the thread, not a separate queue. Open Communication or Agent runs when something is waiting on you.
+A decision request is a message in the thread. Communication has one **Decisions** leaf that lists every thread with an open card — customer and internal together. You still act on the card inside the thread.
 
-Automated mail (receipts, newsletters, no-reply senders) does not fill the Decisions queue. The agent notes those quietly on the thread. If tip cards piled up from earlier mail, open [Agents](/docs/ai/agents) and use **Clear tip cards**.
+Automated mail (receipts, newsletters, no-reply senders) does not fill Decisions. The agent notes those quietly on the thread. If tip cards piled up from earlier mail, open [Agents](/docs/ai/agents) and use **Clear tip cards**.
 
 ## Find a waiting decision
 
 ![A waiting decision in the thread](/api/docs/assets/decisions/approve.png)
-*Open the thread from Communication, Agent runs or Cockpit.*
+*Open the thread from Decisions, Cockpit, or a notification.*
 
-1. Open the thread from Communication, [Agent runs](/docs/inbox/agent-runs) **Decisions**, or Cockpit **Awaiting decision**.
-2. Scroll to the decision card. It shows the proposed action and why the agent stopped.
+1. Open **Communication** → **Decisions**, or open Cockpit **Awaiting decision** / **Needs attention**. Both land on the same list.
+2. Select a thread and scroll to the decision card. It shows the proposed action and why the agent stopped.
 3. The bell menu in the top bar points at the same card.
 
 ## Approve, edit or decline

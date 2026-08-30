@@ -5,22 +5,33 @@ import { moduleStatusLabelKey, type IntegrationModuleRow } from '../../lib/integ
 const DEFAULTS: Record<ReturnType<typeof moduleStatusLabelKey>, string> = {
   comingSoon: 'Coming soon',
   connectedBadge: 'Connected',
-  onBadge: 'On',
-  offBadge: 'Off',
+  installedBadge: 'Installed',
+  setupBadge: 'Setup',
+  notInstalledBadge: 'Not installed',
+  onBadge: 'Installed',
+  offBadge: 'Not installed',
 }
 
-const VARIANT: Record<ReturnType<typeof moduleStatusLabelKey>, 'warning' | 'success' | 'accent' | 'neutral'> =
-  {
-    comingSoon: 'warning',
-    connectedBadge: 'success',
-    onBadge: 'accent',
-    offBadge: 'neutral',
-  }
+const VARIANT: Record<
+  ReturnType<typeof moduleStatusLabelKey>,
+  'warning' | 'success' | 'accent' | 'neutral'
+> = {
+  comingSoon: 'warning',
+  connectedBadge: 'success',
+  installedBadge: 'success',
+  setupBadge: 'accent',
+  notInstalledBadge: 'neutral',
+  onBadge: 'success',
+  offBadge: 'neutral',
+}
 
 export function ModuleStatusBadge({
   module,
 }: {
-  module: Pick<IntegrationModuleRow, 'status' | 'tenant_status' | 'connected' | 'enabled'>
+  module: Pick<
+    IntegrationModuleRow,
+    'status' | 'tenant_status' | 'connected' | 'enabled' | 'install_state'
+  >
 }) {
   const { t } = useTranslation('nav')
   const key = moduleStatusLabelKey(module)

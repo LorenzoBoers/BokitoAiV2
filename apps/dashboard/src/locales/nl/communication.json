@@ -140,11 +140,10 @@
   },
   "runsChips": {
     "heading": "Agent-runs",
-    "subtitle": "Achtergrondwerk en items die op jou wachten.",
+    "subtitle": "Achtergrondwerk en resultaten.",
     "all": "Alles",
     "updates": "Updates",
-    "results": "Resultaten",
-    "decisions": "Beslissingen"
+    "results": "Resultaten"
   },
   "threadList": {
     "loading": "Laden...",
@@ -153,6 +152,8 @@
     "emptyUnread": "Geen ongelezen gesprekken in deze lijst.",
     "emptyNeedsReply": "Niets waar jij aan zet bent. Beantwoorde klanten staan onder Alles.",
     "emptyNeedsDecision": "Geen gesprekken die op een beslissing wachten in deze lijst.",
+    "emptyDecisions": "Niets wacht op een beslissing.",
+    "emptyDecisionsHint": "Als een agent een ja of nee nodig heeft, verschijnt het gesprek hier — klant en intern in één lijst.",
     "emptyPinned": "Nog geen vastgezette gesprekken. Zet er een vast om hem bovenaan te houden.",
     "showAllConversations": "Alle gesprekken tonen",
     "openDecisionsQueue": "Beslissingen openen",
@@ -205,6 +206,27 @@
     "earlierDraft": "Eerder concept — terzijde gelegd",
     "automatedExplainer": "Dit lijkt een automatisch bericht, dus er is geen antwoord opgesteld.",
     "decisionNeeded": "Beslissing nodig",
+    "accounting": {
+      "title": "Boekhoudactie",
+      "kinds": {
+        "party": "Nieuwe boekhoudrelatie",
+        "booking": "Journaalpost",
+        "document": "Boekhouddocument",
+        "payment": "Betalingsregistratie"
+      },
+      "fields": {
+        "company": "Administratie",
+        "party": "Relatie",
+        "kind": "Type",
+        "description": "Omschrijving",
+        "date": "Datum",
+        "journal": "Dagboek",
+        "reference": "Referentie",
+        "email": "E-mail",
+        "lines": "Regels",
+        "amount": "Bedrag"
+      }
+    },
     "answerPlaceholder": "Typ je antwoord...",
     "submitAnswer": "Antwoord versturen",
     "cancel": "Annuleren",
@@ -350,7 +372,9 @@
       "running": "Bezig",
       "completed": "Afgerond",
       "failed": "Mislukt",
-      "cancelled": "Geannuleerd"
+      "cancelled": "Geannuleerd",
+      "calendar": "Kalender",
+      "planned": "Gepland"
     },
     "agendaKind": {
       "wake": "Agent-wake",
@@ -360,7 +384,8 @@
       "once": "Taak",
       "cron": "Terugkerend",
       "interval": "Herhalend",
-      "heartbeat": "Check-in"
+      "heartbeat": "Check-in",
+      "calendar": "Kalender"
     },
     "agentRuntime": {
       "active": "Actief",

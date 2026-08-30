@@ -7,12 +7,13 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.notification import DecisionRequest
 from app.models.project import Project
+from app.models.signal import Signal, SignalMessage
 
 ROLE_SLUG_MAP = {
     "po": "orchestrator",
@@ -64,7 +65,13 @@ def role_slug(agent: Agent) -> str:
     return ROLE_SLUG_MAP.get(agent.role, agent.role)
 
 
-def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None) -> dict[str, Any]:
+def serialize_runtime_agent(
+    agent: Agent,
+    *,
+    latest_run: AgentRun | None = None,
+    open_conversations: int = 0,
+    awaiting_decision: int = 0,
+) -> dict[str, Any]:
     org_id = str(tenant_numeric_id(agent.tenant_id))
     slug = agent.slug or _slugify(agent.name)
     rslug = role_slug(agent)
@@ -82,7 +89,7 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
             activity_id = str(latest_run.id)
             if not summary:
                 summary = latest_run.subject or "Running"
-    return {
+    payload = {
         "id": str(agent.id),
         "organisation_id": org_id,
         "name": agent.name,
@@ -99,14 +106,73 @@ def serialize_runtime_agent(agent: Agent, *, latest_run: AgentRun | None = None)
         "kind": agent.kind,
         "is_lead": bool(agent.is_lead),
         "is_active": bool(agent.is_active),
-        "email_signature_html": str(
-            _parse_json(agent.settings_json).get("email_signature_html") or ""
-        ),
+        "email_signature_html": "",
+        "email_signature_text": "",
+        "reply_send_as": "agent",
         "current_session_id": session_id,
         "current_activity_id": activity_id,
         "current_activity_summary": summary or None,
+        "open_conversations": int(open_conversations),
+        "awaiting_decision": int(awaiting_decision),
         "updated_at": _ms(agent.updated_at or agent.created_at),
     }
+    from app.services.agent_avatar import avatar_payload
+    from app.services.signatures import (
+        agent_reply_send_as,
+        agent_signature_html,
+        agent_signature_text,
+    )
+
+    payload["email_signature_text"] = agent_signature_text(agent)
+    # Keep HTML field for older clients / preview: derived from plain text or legacy.
+    payload["email_signature_html"] = agent_signature_html(agent)
+    payload["reply_send_as"] = agent_reply_send_as(agent)
+    payload.update(avatar_payload(agent))
+    return payload
+
+
+async def _conversation_counts_by_agent(
+    session: AsyncSession, tenant_id: UUID, agent_ids: list[UUID]
+) -> tuple[dict[UUID, int], dict[UUID, int]]:
+    """Open customer threads and real awaiting-decision counts per agent."""
+    if not agent_ids:
+        return {}, {}
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+
+    open_rows = (
+        await session.execute(
+            select(Signal.agent_id, func.count())
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.agent_id.in_(agent_ids),
+                Signal.status == "open",
+                Signal.channel.notin_(("assistant",)),
+            )
+            .group_by(Signal.agent_id)
+        )
+    ).all()
+    open_by = {agent_id: int(count) for agent_id, count in open_rows if agent_id}
+
+    decision_rows = (
+        await session.execute(
+            select(Signal.agent_id, func.count(func.distinct(Signal.id)))
+            .select_from(Signal)
+            .join(SignalMessage, SignalMessage.signal_id == Signal.id)
+            .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.agent_id.in_(agent_ids),
+                Signal.status.notin_(("closed", "spam")),
+                Signal.channel != "assistant",
+                SignalMessage.kind == "decision_request",
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.title != NO_REPLY_DECISION_TITLE,
+            )
+            .group_by(Signal.agent_id)
+        )
+    ).all()
+    decision_by = {agent_id: int(count) for agent_id, count in decision_rows if agent_id}
+    return open_by, decision_by
 
 
 # Roles a workspace admin may pick when creating a worker agent. Orchestrators
@@ -136,8 +202,16 @@ async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[di
     for run in runs_result.scalars().all():
         if run.agent_id is not None and run.agent_id not in latest_by_agent:
             latest_by_agent[run.agent_id] = run
+    open_by, decision_by = await _conversation_counts_by_agent(
+        session, tenant_id, [a.id for a in agents]
+    )
     return [
-        serialize_runtime_agent(agent, latest_run=latest_by_agent.get(agent.id))
+        serialize_runtime_agent(
+            agent,
+            latest_run=latest_by_agent.get(agent.id),
+            open_conversations=open_by.get(agent.id, 0),
+            awaiting_decision=decision_by.get(agent.id, 0),
+        )
         for agent in agents
     ]
 
@@ -322,8 +396,14 @@ async def update_agent(
     name: str | None = None,
     system_prompt: str | None = None,
     email_signature_html: str | None = None,
+    email_signature_text: str | None = None,
+    reply_send_as: str | None = None,
+    avatar_kind: str | None = None,
+    avatar_icon: str | None = None,
+    avatar_color: str | None = None,
+    avatar_image_url: str | None = None,
 ) -> dict[str, Any]:
-    """Edit a company agent's identity (name), system prompt, and signature."""
+    """Edit a company agent's identity (name), system prompt, signature, avatar."""
     result = await session.execute(
         select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
     )
@@ -337,17 +417,62 @@ async def update_agent(
         agent.name = clean
     if system_prompt is not None:
         agent.system_prompt = system_prompt.strip()
-    if email_signature_html is not None:
-        from app.services.signatures import MAX_SIGNATURE_LENGTH, SIGNATURE_KEY
-
-        signature = email_signature_html.strip()
-        if len(signature) > MAX_SIGNATURE_LENGTH:
-            raise HTTPException(status_code=400, detail="Signature too long")
+    settings_touch = (
+        email_signature_html is not None
+        or email_signature_text is not None
+        or reply_send_as is not None
+        or avatar_kind is not None
+        or avatar_icon is not None
+        or avatar_color is not None
+        or avatar_image_url is not None
+    )
+    if settings_touch:
         stored = _parse_json(agent.settings_json)
-        if signature:
-            stored[SIGNATURE_KEY] = signature
-        else:
+        if email_signature_text is not None or email_signature_html is not None:
+            from app.services.signatures import (
+                MAX_SIGNATURE_LENGTH,
+                SIGNATURE_KEY,
+                SIGNATURE_TEXT_KEY,
+                html_signature_to_plain_text,
+            )
+
+            if email_signature_text is not None:
+                signature = email_signature_text.strip()
+            else:
+                signature = html_signature_to_plain_text(email_signature_html or "")
+            if len(signature) > MAX_SIGNATURE_LENGTH:
+                raise HTTPException(status_code=400, detail="Signature too long")
+            if signature:
+                stored[SIGNATURE_TEXT_KEY] = signature
+            else:
+                stored.pop(SIGNATURE_TEXT_KEY, None)
+            # Drop legacy HTML so plain text stays the single source of truth.
             stored.pop(SIGNATURE_KEY, None)
+        if reply_send_as is not None:
+            from app.services.signatures import SEND_AS_CHOICES
+
+            value = reply_send_as.strip().lower()
+            if value not in SEND_AS_CHOICES:
+                raise HTTPException(
+                    status_code=400, detail="reply_send_as must be 'user' or 'agent'"
+                )
+            stored["reply_send_as"] = value
+        if any(
+            value is not None
+            for value in (avatar_kind, avatar_icon, avatar_color, avatar_image_url)
+        ):
+            from app.services.agent_avatar import apply_avatar_settings
+
+            try:
+                stored = apply_avatar_settings(
+                    stored,
+                    avatar_kind=avatar_kind,
+                    avatar_icon=avatar_icon,
+                    avatar_color=avatar_color,
+                    avatar_image_url=avatar_image_url,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
         agent.settings_json = json.dumps(stored)
     agent.updated_at = datetime.utcnow()
     session.add(agent)

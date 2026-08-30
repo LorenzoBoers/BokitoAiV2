@@ -198,7 +198,7 @@ async def test_outlook_reply_uses_graph_reply_endpoint():
         return _Resp()
 
     with patch.object(email_adapter, "_post_send", new=AsyncMock(side_effect=fake_post)):
-        status = await email_adapter.send_via_provider(
+        status, _html = await email_adapter.send_via_provider(
             account,
             to_address="client@x.nl",
             subject="Re: BTW",

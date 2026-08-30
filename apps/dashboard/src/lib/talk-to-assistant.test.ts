@@ -8,7 +8,13 @@ import {
 describe('talkToAssistantPath', () => {
   it('adds a prefill query', () => {
     expect(talkToAssistantPath('Turn on the check-in')).toBe(
-      '/communication/new?prefill=Turn%20on%20the%20check-in',
+      '/communication/new?prefill=Turn+on+the+check-in',
+    )
+  })
+
+  it('adds agent and prefill', () => {
+    expect(talkToAssistantPath('Help set up Accounting', 'agent-1')).toBe(
+      '/communication/new?prefill=Help+set+up+Accounting&agent=agent-1',
     )
   })
 

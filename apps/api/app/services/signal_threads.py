@@ -139,7 +139,7 @@ def serialize_thread(
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
     folder = "internal" if is_internal_channel(signal.channel) else "external"
-    return {
+    payload: dict[str, Any] = {
         "id": str(signal.id),
         "organisation_id": str(signal.tenant_id),
         "email_connection_id": email_conn_id,
@@ -177,6 +177,15 @@ def serialize_thread(
         "project_id": str(signal.project_id) if signal.project_id else None,
         "created_at": _iso(signal.created_at),
     }
+    if agent:
+        from app.services.agent_avatar import avatar_payload
+
+        av = avatar_payload(agent)
+        payload["agent_avatar_kind"] = av["avatar_kind"]
+        payload["agent_avatar_icon"] = av["avatar_icon"]
+        payload["agent_avatar_color"] = av["avatar_color"]
+        payload["agent_avatar_image_url"] = av["avatar_image_url"]
+    return payload
 
 
 def serialize_message(message: SignalMessage, *, decision: DecisionRequest | None = None) -> dict[str, Any]:
@@ -1468,11 +1477,14 @@ async def reply_to_thread(
         send_status = "scheduled"
     elif direction == "outbound":
         from app.channels import deliver_outbound
-        from app.services.signatures import resolve_signature_html
+        from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
         # Manual replies are sent as the operator: their signature (mailbox
         # signature as fallback) is appended server-side.
         signature_html = await resolve_signature_html(
+            session, tenant_id, send_as="user", user_id=user_id
+        )
+        from_display_name = await resolve_from_display_name(
             session, tenant_id, send_as="user", user_id=user_id
         )
         delivery = await deliver_outbound(
@@ -1484,6 +1496,7 @@ async def reply_to_thread(
             bcc=bcc,
             attachments=attachments,
             signature_html=signature_html,
+            from_display_name=from_display_name,
         )
         send_status = delivery.status
         if send_status == "skipped":
@@ -1608,12 +1621,20 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
             attachments = json.loads(message.attachments_json or "[]")
         except (TypeError, ValueError):
             attachments = []
-        from app.services.signatures import resolve_signature_html
+        from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
+        send_as = "user" if message.author_user_id else "agent"
         signature_html = await resolve_signature_html(
             session,
             message.tenant_id,
-            send_as="user" if message.author_user_id else "agent",
+            send_as=send_as,
+            user_id=message.author_user_id,
+            agent_id=message.author_agent_id or signal.agent_id,
+        )
+        from_display_name = await resolve_from_display_name(
+            session,
+            message.tenant_id,
+            send_as=send_as,
             user_id=message.author_user_id,
             agent_id=message.author_agent_id or signal.agent_id,
         )
@@ -1627,6 +1648,7 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
                 bcc=meta.get("bcc"),
                 attachments=attachments or None,
                 signature_html=signature_html,
+                from_display_name=from_display_name,
             )
             status = delivery.status
             if delivery.body_html:

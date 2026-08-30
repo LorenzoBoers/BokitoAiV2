@@ -20,7 +20,7 @@ import {
 } from '../lib/integration-setup-url'
 import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
-import { ModulePowerSwitch } from '../components/integrations/ModulePowerSwitch'
+import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
 import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
 import { moduleHomePath, moduleIsOn, plannedProviderLabel } from '../lib/integration-modules'
 import {
@@ -55,7 +55,7 @@ export default function IntegrationsMarketplace() {
   const kindFilter = parseKindFilter(searchParams.get('kind'))
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const statusFilter = parseStatusFilter(searchParams.get('status'))
-  const { applications, modules, loadError, refreshCatalog, setModuleEnabled } =
+  const { applications, modules, loadError, refreshCatalog, runModuleAction } =
     useIntegrationCatalog()
 
   const [hubOpen, setHubOpen] = useState(false)
@@ -380,20 +380,24 @@ export default function IntegrationsMarketplace() {
                 </Link>
                 <ModuleStatusBadge module={section.module} />
                 {section.module.status === 'coming_soon' ? null : (
-                  <ModulePowerSwitch module={section.module} onToggle={setModuleEnabled} />
+                  <ModuleInstallControls
+                    module={section.module}
+                    onAction={runModuleAction}
+                    compact
+                  />
                 )}
                 {section.module.status === 'coming_soon' ? null : (
                   <Link
                     to={moduleHomePath(section.module)}
                     className="text-xs font-medium text-accent hover:underline"
                   >
-                    {moduleIsOn(section.module) &&
-                    !(section.module.tenant_status === 'connected' || section.module.connected)
-                      ? t('integrations.modules.connectCta', {
-                          defaultValue: 'Connect a package',
-                        })
-                      : t('integrations.modules.manageCta', {
+                    {moduleIsOn(section.module)
+                      ? t('integrations.modules.manageCta', {
                           defaultValue: 'Manage {{name}}',
+                          name: section.name,
+                        })
+                      : t('integrations.modules.setupCta', {
+                          defaultValue: 'View {{name}}',
                           name: section.name,
                         })}
                   </Link>

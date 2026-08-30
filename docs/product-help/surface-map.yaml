@@ -187,9 +187,12 @@ agents:
 decisions:
   section: ai
   routes:
+    - /communication/decisions
     - /communication/inbox/open
   code_globs:
     - apps/dashboard/src/components/inbox/DecisionRequestMessage.tsx
+    - apps/dashboard/src/lib/messages-paths.ts
+    - apps/dashboard/src/lib/notification-path.ts
     - apps/api/app/services/signal_decisions.py
   screenshots:
     - approve
@@ -266,6 +269,7 @@ integrations:
     - /settings/marketplace
     - /modules
     - /modules/:slug
+    - /ai/modules/:slug
     - /settings/modules
     - /settings/modules/:slug
   code_globs:
@@ -278,6 +282,8 @@ integrations:
     - apps/api/app/modules/**
     - apps/api/app/services/module_sources.py
     - apps/api/app/services/module_connections.py
+    - apps/api/app/services/module_agents.py
+    - apps/dashboard/src/components/modules/**
   screenshots:
     - marketplace
     - modules-hub

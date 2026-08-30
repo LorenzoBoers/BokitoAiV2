@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { Archive, CalendarDays, Copy, Crown, MessageSquare, MoreHorizontal, Network, Pause, Play, Settings, ShieldCheck } from 'lucide-react'
+import { Archive, CalendarDays, Copy, Crown, MessageSquare, MoreHorizontal, Network, Pause, Pencil, Play, Settings, ShieldCheck } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
@@ -12,6 +12,7 @@ import { AgentModelCard } from '../components/workforce/AgentModelCard'
 import { AgentToolsPicker } from '../components/workforce/AgentToolsPicker'
 import { AgentInstructionsCard } from '../components/workforce/AgentInstructionsCard'
 import { AgentSignatureCard } from '../components/workforce/AgentSignatureCard'
+import { AgentVisualCard } from '../components/workforce/AgentVisualCard'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { CardGridSkeleton } from '../components/ui/skeleton'
@@ -26,7 +27,7 @@ import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
 import { agentChatPath, agentRunsPath, inboxPath } from '../lib/messages-paths'
 import { agendaOccurrenceHref, workLogRunsPath } from '../lib/agenda-thread'
-import { formatAppWeekdayDateTime } from '../lib/app-locale'
+import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
 import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { archiveAgent, setLeadAgent, updateAgentStatus } from '../lib/workforce-api'
@@ -72,7 +73,10 @@ export default function AiAgentDetail() {
   const [runs, setRuns] = useState<WorkLogRow[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
+  const [openConversations, setOpenConversations] = useState<InboxThread[]>([])
+  const [openConversationsTotal, setOpenConversationsTotal] = useState(0)
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
+  const [visualEditing, setVisualEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusBusy, setStatusBusy] = useState(false)
@@ -88,7 +92,8 @@ export default function AiAgentDetail() {
     setLoading(true)
     setError(null)
     try {
-      const [agentRows, projectRows, passportRows, agendaRows, triggerRows, threadsResult] = await Promise.all([
+      const [agentRows, projectRows, passportRows, agendaRows, triggerRows, threadsResult, openThreadsResult] =
+        await Promise.all([
         listAgents(),
         listProjects(),
         listAgentPassports()
@@ -102,6 +107,13 @@ export default function AiAgentDetail() {
         token
           ? listThreads(token, { folder: 'internal', perPage: 80 }).catch(() => ({ items: [] as InboxThread[] }))
           : Promise.resolve({ items: [] as InboxThread[] }),
+        token && agentId
+          ? listThreads(token, {
+              agentId,
+              view: 'all_open',
+              perPage: 5,
+            }).catch(() => ({ items: [] as InboxThread[], itemsTotal: 0 }))
+          : Promise.resolve({ items: [] as InboxThread[], itemsTotal: 0 }),
       ])
       let runRows: WorkLogRow[] = []
       try {
@@ -119,6 +131,10 @@ export default function AiAgentDetail() {
       setRuns(runRows)
       setProjects(projectRows)
       setInternalThreads(threadsResult.items)
+      setOpenConversations(openThreadsResult.items)
+      setOpenConversationsTotal(
+        Math.max(openThreadsResult.itemsTotal ?? 0, openThreadsResult.items.length),
+      )
       const soon = Date.now() - 60_000
       const agentRow = agentRows.find((row) => row.id === agentId)
       const agentHints = agentRow
@@ -132,8 +148,7 @@ export default function AiAgentDetail() {
             const at = new Date(item.at.endsWith('Z') || item.at.includes('+') ? item.at : `${item.at}Z`).getTime()
             return Number.isFinite(at) && at >= soon && item.status !== 'done' && item.status !== 'completed'
           })
-          .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
-          .slice(0, 5),
+          .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()),
       )
     } catch (e) {
       setAgent(null)
@@ -149,6 +164,14 @@ export default function AiAgentDetail() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return
+    if (window.location.hash !== '#conversations') return
+    const el = document.getElementById('conversations')
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [loading, openConversations.length])
 
   const mappedThreads = useMemo(
     () =>
@@ -273,7 +296,16 @@ export default function AiAgentDetail() {
           <Card className="px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <AiAvatar name={agent.name} seed={agent.id} size={34} className="mt-0.5" />
+                <AiAvatar
+                  name={agent.name}
+                  seed={agent.id}
+                  size={34}
+                  className="mt-0.5"
+                  kind={agent.avatar_kind}
+                  icon={agent.avatar_icon}
+                  color={agent.avatar_color}
+                  imageUrl={agent.avatar_image_url}
+                />
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
@@ -285,6 +317,30 @@ export default function AiAgentDetail() {
                         <Crown size={11} aria-hidden />
                         {t('workforce.agents.leadBadge')}
                       </span>
+                    ) : null}
+                    {isAdmin && agent.kind !== 'personal' ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-text-muted hover:text-text-heading"
+                        title={t('workforce.agents.visualEdit')}
+                        aria-label={t('workforce.agents.visualEdit')}
+                        aria-expanded={visualEditing}
+                        onClick={() => {
+                          setVisualEditing((open) => !open)
+                          if (!visualEditing) {
+                            requestAnimationFrame(() => {
+                              document.getElementById('agent-visual')?.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'nearest',
+                              })
+                            })
+                          }
+                        }}
+                      >
+                        <Pencil size={14} aria-hidden />
+                      </Button>
                     ) : null}
                   </div>
                   <p className="mt-0.5 text-sm text-text-muted">
@@ -497,77 +553,148 @@ export default function AiAgentDetail() {
             }}
           />
 
-          {agendaItems.length > 0 ? (
-            <Card className="px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-semibold text-text-heading">
-                    {t('workforce.agents.agendaTitle')}
-                  </h3>
-                  <p className="text-sm text-text-muted">
-                    {t('workforce.agents.agendaDescription')}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" asChild>
-                    <Link to={`/agenda?agent=${agent.id}`}>
-                      {t('workforce.agents.openFullAgenda')}
-                    </Link>
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" asChild>
-                    <Link to={AGENDA_AUTOMATIONS_PATH}>
-                      {t('workforce.agents.openAgendaAutomations')}
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-              <div className="mt-3 space-y-1.5">
-                {agendaItems.map((item) => {
-                  const href = agendaOccurrenceHref(item, mappedThreads, agent.id)
-                  const at = new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`)
-                  return (
-                    <Link
-                      key={item.id}
-                      to={href}
-                      className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm transition-colors hover:border-accent/40"
-                    >
-                      <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
-                      <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
-                        {translateDecisionText(item.name, t) || item.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-text-muted">{agendaKindLabel(item.kind, t)}</span>
-                      <span className="shrink-0 text-xs tabular-nums text-text-muted">
-                        {formatAppWeekdayDateTime(at, i18n.language)}
-                      </span>
-                    </Link>
-                  )
-                })}
-              </div>
-            </Card>
-          ) : agent && !loading ? (
-            <Card className="px-4 py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold text-text-heading">
-                    {t('workforce.agents.agendaTitle')}
-                  </h3>
-                  <p className="mt-1 text-sm text-text-muted">{t('workforce.agents.agendaEmptyHint')}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" asChild>
-                    <Link to={`/agenda?agent=${agent.id}`}>
-                      {t('workforce.agents.scheduleOnAgenda')}
-                    </Link>
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" asChild>
-                    <Link to={AGENDA_AUTOMATIONS_PATH}>
-                      {t('workforce.agents.openAgendaAutomations')}
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </Card>
+          {agent.kind !== 'personal' ? (
+            <AgentVisualCard
+              agentId={agent.id}
+              agentName={agent.name}
+              avatarKind={agent.avatar_kind}
+              avatarIcon={agent.avatar_icon}
+              avatarColor={agent.avatar_color}
+              avatarImageUrl={agent.avatar_image_url}
+              canEdit={isAdmin}
+              hideChrome
+              editing={visualEditing}
+              onEditingChange={setVisualEditing}
+              onChanged={() => void load()}
+            />
           ) : null}
+
+          <div
+            id="conversations"
+            className="grid scroll-mt-4 gap-4 lg:grid-cols-2"
+          >
+            <Card className="flex min-h-0 flex-col px-4 py-3">
+              <div>
+                <h3 className="text-base font-semibold text-text-heading">
+                  {t('workforce.agents.conversationsTitle')}
+                </h3>
+                <p className="text-sm text-text-muted">
+                  {t('workforce.agents.conversationsDescription')}
+                </p>
+              </div>
+              {openConversations.length === 0 ? (
+                <p className="mt-3 text-sm text-text-muted">{t('workforce.agents.conversationsEmpty')}</p>
+              ) : (
+                <div className="mt-3 flex flex-1 flex-col">
+                  <div className="space-y-1.5">
+                    {openConversations.slice(0, 5).map((thread) => {
+                      const needsDecision = Boolean(thread.hasOpenDecision)
+                      return (
+                        <Link
+                          key={String(thread.id)}
+                          to={agentChatPath(agent.id, { queue: 'open', threadId: String(thread.id) })}
+                          className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm transition-colors hover:border-accent/40"
+                        >
+                          <MessageSquare size={13} className="shrink-0 text-text-muted" aria-hidden />
+                          <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
+                            {thread.emailSubject || t('workforce.agents.conversationUntitled')}
+                          </span>
+                          {needsDecision ? (
+                            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-accent">
+                              {t('workforce.agents.needsDecisionBadge')}
+                            </span>
+                          ) : null}
+                          {thread.lastMessageAt ? (
+                            <span
+                              className="shrink-0 text-xs tabular-nums text-text-muted"
+                              title={formatAppDateTime(new Date(thread.lastMessageAt), i18n.language)}
+                            >
+                              {formatAppDateTime(new Date(thread.lastMessageAt), i18n.language)}
+                            </span>
+                          ) : null}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-3 border-t border-border/50 pt-3">
+                    <Button type="button" size="sm" variant="outline" className="w-full" asChild>
+                      <Link to={agentChatPath(agent.id, { queue: 'open' })}>
+                        {t('workforce.agents.viewAllConversations', {
+                          count: openConversationsTotal,
+                          defaultValue: 'View all ({{count}})',
+                        })}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <Card className="flex min-h-0 flex-col px-4 py-3">
+              <div>
+                <h3 className="text-base font-semibold text-text-heading">
+                  {t('workforce.agents.agendaTitle')}
+                </h3>
+                <p className="text-sm text-text-muted">
+                  {t('workforce.agents.agendaDescription')}
+                </p>
+              </div>
+              {agendaItems.length === 0 ? (
+                <div className="mt-3 flex flex-1 flex-col">
+                  <p className="text-sm text-text-muted">{t('workforce.agents.agendaEmptyHint')}</p>
+                  <div className="mt-auto border-t border-border/50 pt-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="outline" className="flex-1" asChild>
+                        <Link to={`/agenda?agent=${agent.id}`}>
+                          {t('workforce.agents.scheduleOnAgenda')}
+                        </Link>
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" asChild>
+                        <Link to={AGENDA_AUTOMATIONS_PATH}>
+                          {t('workforce.agents.openAgendaAutomations')}
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 flex flex-1 flex-col">
+                  <div className="space-y-1.5">
+                    {agendaItems.slice(0, 5).map((item) => {
+                      const href = agendaOccurrenceHref(item, mappedThreads, agent.id)
+                      const at = new Date(item.at.endsWith('Z') ? item.at : `${item.at}Z`)
+                      return (
+                        <Link
+                          key={item.id}
+                          to={href}
+                          className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-elevated/45 px-3 py-2 text-sm transition-colors hover:border-accent/40"
+                        >
+                          <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
+                          <span className="min-w-0 flex-1 truncate font-medium text-text-heading">
+                            {translateDecisionText(item.name, t) || item.name}
+                          </span>
+                          <span className="shrink-0 text-xs text-text-muted">{agendaKindLabel(item.kind, t)}</span>
+                          <span className="shrink-0 text-xs tabular-nums text-text-muted">
+                            {formatAppWeekdayDateTime(at, i18n.language)}
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-3 border-t border-border/50 pt-3">
+                    <Button type="button" size="sm" variant="outline" className="w-full" asChild>
+                      <Link to={`/agenda?agent=${agent.id}`}>
+                        {t('workforce.agents.viewAllAgenda', {
+                          count: agendaItems.length,
+                          defaultValue: 'View all ({{count}})',
+                        })}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
 
           {agent.kind !== 'personal' ? (
             <AgentInstructionsCard
@@ -583,7 +710,8 @@ export default function AiAgentDetail() {
             <AgentSignatureCard
               agentId={agent.id}
               agentName={agent.name}
-              signatureHtml={agent.email_signature_html ?? ''}
+              signatureText={agent.email_signature_text ?? ''}
+              replySendAs={agent.reply_send_as === 'user' ? 'user' : 'agent'}
               canEdit={isAdmin}
               onChanged={() => void load()}
             />

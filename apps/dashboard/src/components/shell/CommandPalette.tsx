@@ -24,7 +24,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
-import { agentChatPath, agentRunsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
+import { agentChatPath, agentRunsPath, decisionsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
 import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
@@ -157,13 +157,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       {
         id: 'inbox-needs-decision',
         label: t('palette.needsDecision'),
-        hint: t('palette.inboxOpenHint'),
+        hint: t('palette.decisionsHint'),
         group: t('palette.groupInbox'),
         icon: Inbox,
-        run: () => {
-          inboxComm?.setQuickFilter('needsDecision')
-          navigate(`${inboxPath('open')}?filter=needsDecision`)
-        },
+        run: () => navigate(decisionsPath()),
       },
       {
         id: 'inbox-new-chat',

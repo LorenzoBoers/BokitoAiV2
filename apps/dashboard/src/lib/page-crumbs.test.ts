@@ -11,6 +11,9 @@ describe('extra crumbs', () => {
     expect(extraCrumbsForPath('/communication/runs/awaiting-decision')).toEqual([
       { labelKey: 'crumbs.decisions' },
     ])
+    expect(extraCrumbsForPath('/communication/decisions')).toEqual([
+      { labelKey: 'crumbs.decisions' },
+    ])
     expect(extraCrumbsForPath('/ai/assistant/external/installation')).toEqual([
       { labelKey: 'crumbs.widgetInstall' },
     ])

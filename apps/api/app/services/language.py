@@ -10,9 +10,14 @@ Two independent language axes:
   (``settings.ai_reply_language``).
 
 - **Workspace language** — the language of text the AI writes *for the
-  team*: no-reply summaries, explanations, decision context. Tenant-wide
-  (``settings.ai_workspace_language``), falling back to
-  ``PLATFORM_DEFAULT_LANGUAGE`` (Dutch unless overridden).
+  team*: operator chats, setup threads, no-reply summaries, explanations,
+  decision context. Tenant-wide (``settings.ai_workspace_language``),
+  falling back to ``PLATFORM_DEFAULT_LANGUAGE`` (Dutch unless overridden).
+
+Internal AgentLoop surfaces (assistant, setup, @agent) inject
+``internal_language_instruction`` from the workspace language. External
+trust (widget / inbound customer) injects reply + workspace rules so
+customer replies can still mirror the visitor.
 
 Static UI copy on suggestion cards (titles, button labels) is not handled
 here; the dashboard translates those client-side via i18n.
@@ -97,3 +102,31 @@ def workspace_language_instruction(code: str) -> str:
         f"Any summary or explanation addressed to the internal team "
         f"(including the text after NO_REPLY_NEEDED:) must be written in {name}."
     )
+
+
+def internal_language_instruction(code: str) -> str:
+    """Prompt block for operator / assistant / setup chats (not customer channels)."""
+    name = LANGUAGE_NAMES.get(code, "Dutch")
+    return (
+        f"Write every reply in {name}. This is an internal Bokito conversation "
+        f"on a {name} workspace. Do not switch to another language unless the "
+        f"operator explicitly asks you to."
+    )
+
+
+def language_rules_for_trust(trust: str, tenant: Tenant | None) -> str:
+    """Language section for AgentLoop system prompts.
+
+    Internal/operator trust uses the tenant workspace language. External
+    (customer) trust mirrors the customer's message unless reply_language is pinned.
+    """
+    if trust == "external":
+        reply = resolve_reply_language(tenant, None)
+        workspace = resolve_workspace_language(tenant)
+        return (
+            "## Language\n"
+            f"- {reply_language_instruction(reply)}\n"
+            f"- {workspace_language_instruction(workspace)}"
+        )
+    workspace = resolve_workspace_language(tenant)
+    return f"## Language\n{internal_language_instruction(workspace)}"
