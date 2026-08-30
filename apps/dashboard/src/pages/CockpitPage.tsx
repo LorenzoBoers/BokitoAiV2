@@ -313,7 +313,7 @@ export default function CockpitPage() {
         return fallback
       })
     Promise.all([
-      bokitoGetCockpitSummary(token),
+      slice(bokitoGetCockpitSummary(token), null as CockpitSummary | null, t('cockpitPage.sliceSummary')),
       slice(getPosture().then((r) => r.posture), null as AutonomyPostureId | null, t('cockpitPage.slicePosture')),
       slice(
         listGovernChanges('pending_review').then((rows) =>

@@ -326,6 +326,13 @@ async def _pinned_ids(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> 
 
 
 async def _signals_with_open_decisions(session: AsyncSession, tenant_id: UUID) -> set[UUID]:
+    """Signals with a real awaiting decision (reply draft, tool gate, escalate).
+
+    Excludes "No reply needed" tip cards on automated mail — those must not
+    inflate Agents / Cockpit attention counts or the Decisions queue.
+    """
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+
     result = await session.execute(
         select(Signal.id)
         .join(SignalMessage, SignalMessage.signal_id == Signal.id)
@@ -336,9 +343,31 @@ async def _signals_with_open_decisions(session: AsyncSession, tenant_id: UUID) -
             Signal.status.notin_(("closed", "spam")),
             SignalMessage.kind == "decision_request",
             DecisionRequest.status == "awaiting_human",
+            DecisionRequest.title != NO_REPLY_DECISION_TITLE,
         )
     )
     return {row for row in result.scalars().all()}
+
+
+async def count_no_reply_suggestions(session: AsyncSession, tenant_id: UUID) -> int:
+    """Awaiting 'No reply needed' tip cards (excluded from agents_attention)."""
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+
+    result = await session.execute(
+        select(func.count(func.distinct(Signal.id)))
+        .select_from(Signal)
+        .join(SignalMessage, SignalMessage.signal_id == Signal.id)
+        .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
+        .where(
+            Signal.tenant_id == tenant_id,
+            Signal.channel != "assistant",
+            Signal.status.notin_(("closed", "spam")),
+            SignalMessage.kind == "decision_request",
+            DecisionRequest.status == "awaiting_human",
+            DecisionRequest.title == NO_REPLY_DECISION_TITLE,
+        )
+    )
+    return int(result.scalar_one() or 0)
 
 
 def _visibility_predicate(visible_account_ids: set[UUID] | None):
@@ -381,9 +410,11 @@ async def nav_badge_counts(
     all_unread = await _count(open_status, unread, customer_inbox)
 
     agents_attention = 0
+    no_reply_suggestions = 0
     if include_agents_attention:
         open_dec = await _signals_with_open_decisions(session, tenant_id)
         agents_attention = len(open_dec)
+        no_reply_suggestions = await count_no_reply_suggestions(session, tenant_id)
 
     return {
         "inbox_unread": my_unread + unassigned_unread,
@@ -393,6 +424,7 @@ async def nav_badge_counts(
             "all": all_unread,
         },
         "agents_attention": agents_attention,
+        "no_reply_suggestions": no_reply_suggestions,
     }
 
 
@@ -2091,3 +2123,92 @@ async def _record_no_reply_outcome(
         user_id=user_id,
         auto_promote=auto_promote,
     )
+
+
+async def dismiss_no_reply_suggestions(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    *,
+    also_close_threads: bool = False,
+) -> dict[str, Any]:
+    """Clear backlog of awaiting 'No reply needed' tip cards in one action.
+
+    Resolves each as keep_open (card gone, thread stays open) unless
+    ``also_close_threads`` is set. Does not teach inbox rules — bulk dismiss
+    is cleanup, not a preference signal.
+    """
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+    from app.services.decisions import resolve_decision_message
+
+    rows = (
+        await session.execute(
+            select(DecisionRequest, SignalMessage.signal_id)
+            .join(SignalMessage, SignalMessage.decision_id == DecisionRequest.id)
+            .join(Signal, Signal.id == SignalMessage.signal_id)
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.title == NO_REPLY_DECISION_TITLE,
+                Signal.status.notin_(("closed", "spam")),
+            )
+        )
+    ).all()
+
+    seen_decisions: set[UUID] = set()
+    dismissed = 0
+    closed = 0
+    for decision, signal_id in rows:
+        if decision.id in seen_decisions:
+            continue
+        seen_decisions.add(decision.id)
+        await resolve_decision_message(
+            session,
+            tenant_id,
+            decision.id,
+            action="approve",
+            user_id=user_id,
+            option_id="keep_open",
+        )
+        session.add(
+            SignalEvent(
+                signal_id=signal_id,
+                tenant_id=tenant_id,
+                event_type="decision_dismissed",
+                actor_type="user",
+                actor_id=str(user_id),
+                payload_json=json.dumps(
+                    {
+                        "decision_id": str(decision.id),
+                        "action": "dismiss",
+                        "option_id": "keep_open",
+                        "via": "bulk_no_reply",
+                    }
+                ),
+            )
+        )
+        dismissed += 1
+        if also_close_threads:
+            signal = (
+                await session.execute(
+                    select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+                )
+            ).scalar_one_or_none()
+            if signal and signal.status == "open":
+                signal.status = "closed"
+                signal.updated_at = datetime.utcnow()
+                session.add(signal)
+                session.add(
+                    SignalEvent(
+                        signal_id=signal_id,
+                        tenant_id=tenant_id,
+                        event_type="thread_updated",
+                        actor_type="user",
+                        actor_id=str(user_id),
+                        payload_json=json.dumps({"status": "closed", "bulk": "close", "via": "bulk_no_reply"}),
+                    )
+                )
+                closed += 1
+
+    await session.commit()
+    return {"ok": True, "dismissed": dismissed, "closed": closed}

@@ -20,11 +20,14 @@ import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { useOptionalNavBadges } from '../context/NavBadgeContext'
 import { useAuth } from '../context/AuthContext'
 import { listThreads } from '../lib/inbox-api'
+import { dismissNoReplySuggestions } from '../lib/signals-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import { filterLibraryAgents, sortAgentsForLibrary } from '../lib/workforce-nav-agents'
 import { agentStatusI18nKey, agentWorkState } from '../lib/agent-status'
 import { cn } from '../lib/utils'
+import { toast } from 'sonner'
+import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 
 function AgentQuickLinks({
   agentId,
@@ -172,12 +175,13 @@ export default function AiAgents() {
   const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
-  const { counts } = useOptionalNavBadges()
+  const { counts, refresh: refreshBadges } = useOptionalNavBadges()
   const { token } = useAuth()
   const [attentionHref, setAttentionHref] = useState(agentRunsPath('awaiting-decision'))
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [dismissingNoReply, setDismissingNoReply] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
@@ -217,6 +221,27 @@ export default function AiAgents() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const dismissNoReply = useCallback(
+    async (alsoClose: boolean) => {
+      if (!token) return
+      setDismissingNoReply(true)
+      try {
+        const result = await dismissNoReplySuggestions(token, { alsoClose })
+        toast.success(
+          alsoClose
+            ? t('workforce.agents.noReplyDismissedClosed', { count: result.dismissed })
+            : t('workforce.agents.noReplyDismissed', { count: result.dismissed }),
+        )
+        await refreshBadges()
+      } catch (err) {
+        toast.error(formatApiErrorMessage(err, t('workforce.agents.noReplyDismissFailed')))
+      } finally {
+        setDismissingNoReply(false)
+      }
+    },
+    [token, t, refreshBadges],
+  )
 
   useEffect(() => {
     if (!token || counts.agentsAttention <= 0) {
@@ -278,6 +303,38 @@ export default function AiAgents() {
             {t('workforce.agents.attentionAction')}
           </span>
         </Link>
+      ) : null}
+      {counts.noReplySuggestions > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-bg-elevated/40 px-4 py-3">
+          <span>
+            <span className="block text-sm font-medium text-text-heading">
+              {t('workforce.agents.noReplyTitle', { count: counts.noReplySuggestions })}
+            </span>
+            <span className="mt-0.5 block text-xs text-text-muted">
+              {t('workforce.agents.noReplyHint')}
+            </span>
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={dismissingNoReply}
+              onClick={() => void dismissNoReply(false)}
+            >
+              {t('workforce.agents.noReplyDismiss')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={dismissingNoReply}
+              onClick={() => void dismissNoReply(true)}
+            >
+              {t('workforce.agents.noReplyDismissAndClose')}
+            </Button>
+          </div>
+        </div>
       ) : null}
       <header className="flex items-start justify-between gap-3">
         <div>

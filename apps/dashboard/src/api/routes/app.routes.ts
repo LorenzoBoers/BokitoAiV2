@@ -91,6 +91,7 @@ export const appRoutes = {
     tags: '/signals/tags',
     tag: (tag: string) => `/signals/tags/${encodeURIComponent(tag)}`,
     badgeCounts: '/signals/badge-counts',
+    dismissNoReplySuggestions: '/signals/dismiss-no-reply-suggestions',
     bulk: '/signals/bulk',
     savedReplies: '/signals/saved-replies',
     savedReply: (replyId: string) => `/signals/saved-replies/${replyId}`,

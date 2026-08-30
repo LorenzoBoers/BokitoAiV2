@@ -119,17 +119,17 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             return {"skipped": True, "reason": "workspace_member"}
 
         # Automated / no-reply mail (system notifications, newsletters, bounces):
-        # never draft a reply. Surface a compact action suggestion instead —
-        # close the thread, create a task, or keep it open.
+        # never draft a reply. Note it on the timeline without an awaiting
+        # decision card — tip cards flooded the attention queue on busy mailboxes.
         from app.services.automated_mail import classify_automated_email, clip_with_ellipsis
 
         classification = classify_automated_email(sender_address, headers=auto_headers)
         if classification["automated"]:
-            from app.services.inbound_agent import create_action_suggestion
+            from app.services.inbound_agent import acknowledge_automated_mail
 
             agent = await resolve_agent_for_signal(session, signal)
             preview = clip_with_ellipsis(msg.body_preview or msg.body_text or "")
-            delivery = await create_action_suggestion(
+            delivery = await acknowledge_automated_mail(
                 session,
                 UUID(tenant_id),
                 signal,

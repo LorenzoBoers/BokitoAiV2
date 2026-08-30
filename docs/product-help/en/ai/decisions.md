@@ -11,6 +11,8 @@ related: communication,agent-runs,autonomy,govern
 
 A decision request is a message in the thread, not a separate queue. Open Communication or Agent runs when something is waiting on you.
 
+Automated mail (receipts, newsletters, no-reply senders) does not fill the Decisions queue. The agent notes those quietly on the thread. If tip cards piled up from earlier mail, open [Agents](/docs/ai/agents) and use **Clear tip cards**.
+
 ## Find a waiting decision
 
 ![A waiting decision in the thread](/api/docs/assets/decisions/approve.png)

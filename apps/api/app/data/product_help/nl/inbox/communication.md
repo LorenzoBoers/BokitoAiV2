@@ -69,7 +69,7 @@ Haal een agent erbij als je wilt sparren, iets wilt laten opzoeken of het gespre
 *Keuzekaarten verschijnen in de tijdlijn.*
 
 1. Een keuzekaart verschijnt wanneer een agent jouw oordeel nodig heeft.
-2. Lees het voorstel. Keur goed, pas aan of wijs af. **Later** / **Niet nu** parkeert het gesprek tot morgen 9:00, zodat het uit Open verdwijnt.
+2. Lees het voorstel. Bij meerdere concrete keuzes houdt elke knop z’n eigen label (bijvoorbeeld versturen vs annuleren vs klant vragen). Keur goed, pas aan of wijs af. **Later** / **Niet nu** parkeert het gesprek tot morgen 9:00, zodat het uit Open verdwijnt. De enkele knop **Ik doe het zelf** is alleen om AI te pauzeren zodat jij overneemt.
 3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Taak aanmaken** goedkeuren opent een opvolging op de [Agenda](/docs/ai/agenda). Je kunt ook vanuit het gespreksmenu een taak maken. Zie [Beslissingen](/docs/ai/decisions).
 
 ## Vang een websitebezoeker

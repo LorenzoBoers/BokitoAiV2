@@ -63,9 +63,10 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 ## Koppel WhatsApp of Slack
 
 1. Kies **Kanaal toevoegen** en daarna **WhatsApp Business** of **Slack-workspace**. Marketplacekaarten voor deze apps sturen je hier ook heen.
-2. Voor WhatsApp vul je **Telefoonnummer-ID** en **Toegangstoken** in (een permanent System User-token) en kies je **Nummer koppelen**. Kopieer **Webhook-URL** en **Verify token** naar het Meta App Dashboard onder WhatsApp, Configuration. Tijdelijke Meta-tokens verlopen na 24 uur.
-3. Voor Slack vul je **Bot-token** en **Signing secret** in en kies je **Workspace koppelen**. Kopieer **Events-URL** en **Interactivity-URL** naar je Slack-app. Keuzekaarten kunnen daar binnenkomen met **Goedkeuren** en **Weigeren**.
-4. Websitechat is de [Chatwidget](/docs/inbox/widget); die rij opent de widgetinstellingen. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
+2. WhatsApp is een stapsgewijze setup: **Voorbereiden in Meta** (app, nummer, Phone number ID, permanent System User-token), daarna **Plakken in Bokito** (weergavenaam, Telefoonnummer-ID, optioneel WABA-ID, toegangstoken) en **Nummer koppelen**. De Phone number ID is een lang getal uit Meta → WhatsApp → API Setup — niet je telefoonnummer.
+3. Na het koppelen toont Bokito **Webhook-URL** en **Verify token**. Plak die in Meta onder WhatsApp → Configuration, abonneer op **messages**, en stuur een testbericht. Tijdelijke Meta-tokens verlopen na 24 uur.
+4. Voor Slack vul je **Bot-token** en **Signing secret** in en kies je **Workspace koppelen**. Kopieer **Events-URL** en **Interactivity-URL** naar je Slack-app. Keuzekaarten kunnen daar binnenkomen met **Goedkeuren** en **Weigeren**.
+5. Websitechat is de [Chatwidget](/docs/inbox/widget); die rij opent de widgetinstellingen. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
 
 ## Bewaar antwoorden die het team hergebruikt
 

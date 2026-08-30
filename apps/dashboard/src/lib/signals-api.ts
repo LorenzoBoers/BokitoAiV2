@@ -899,8 +899,35 @@ export type SignalBadgeCounts = {
   inbox_unread: number
   inbox_by_queue: { my: number; unassigned: number; all: number }
   agents_attention: number
+  no_reply_suggestions: number
 }
 
 export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadgeCounts> {
-  return apiGet<SignalBadgeCounts>(appRoutes.signals.badgeCounts, token)
+  const raw = await apiGet<Partial<SignalBadgeCounts> & Record<string, unknown>>(
+    appRoutes.signals.badgeCounts,
+    token,
+  )
+  const queue = (raw.inbox_by_queue as SignalBadgeCounts['inbox_by_queue'] | undefined) ?? {
+    my: 0,
+    unassigned: 0,
+    all: 0,
+  }
+  return {
+    inbox_unread: Number(raw.inbox_unread ?? 0),
+    inbox_by_queue: {
+      my: Number(queue.my ?? 0),
+      unassigned: Number(queue.unassigned ?? 0),
+      all: Number(queue.all ?? 0),
+    },
+    agents_attention: Number(raw.agents_attention ?? 0),
+    no_reply_suggestions: Number(raw.no_reply_suggestions ?? 0),
+  }
+}
+
+export async function dismissNoReplySuggestions(
+  token: string,
+  opts?: { alsoClose?: boolean },
+): Promise<{ ok: boolean; dismissed: number; closed: number }> {
+  const qs = opts?.alsoClose ? '?also_close=true' : ''
+  return apiPost(appRoutes.signals.dismissNoReplySuggestions + qs, {}, token)
 }

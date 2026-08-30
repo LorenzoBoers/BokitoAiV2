@@ -22,6 +22,8 @@ Agents are the AI workers for this workspace. Open **Agents** to add one, change
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
 
+When agents need a yes or no, a banner opens **Decisions** in Communication. Tip cards for automated mail (receipts, newsletters) do not count there. If those tips piled up, the banner **Clear tip cards** removes them without changing real decisions.
+
 Your **personal assistant** is not a company agent. Open **Settings**, then **My assistant**. Set **Assistant name**, **Instructions**, and **Default chat** (company agent or my assistant), then **Save changes**. **Open a new chat** starts from that default. Only you see that assistant.
 
 ## Brief an agent

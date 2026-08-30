@@ -31,6 +31,8 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         )
     ).scalar_one()
 
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+
     open_decisions = (
         await session.execute(
             select(func.count(func.distinct(Signal.id)))
@@ -43,6 +45,8 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
                 Signal.status.notin_(("closed", "spam")),
                 SignalMessage.kind == "decision_request",
                 DecisionRequest.status == "awaiting_human",
+                # Tip cards on automated mail are not operator blockers.
+                DecisionRequest.title != NO_REPLY_DECISION_TITLE,
             )
         )
     ).scalar_one()

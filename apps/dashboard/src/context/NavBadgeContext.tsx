@@ -20,12 +20,14 @@ export type NavBadgeCounts = {
   inboxUnread: number
   inboxByQueue: { my: number; unassigned: number; all: number }
   agentsAttention: number
+  noReplySuggestions: number
 }
 
 const EMPTY_COUNTS: NavBadgeCounts = {
   inboxUnread: 0,
   inboxByQueue: { my: 0, unassigned: 0, all: 0 },
   agentsAttention: 0,
+  noReplySuggestions: 0,
 }
 
 function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCounts>>): NavBadgeCounts {
@@ -37,6 +39,7 @@ function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCount
       all: payload.inbox_by_queue.all,
     },
     agentsAttention: payload.agents_attention,
+    noReplySuggestions: payload.no_reply_suggestions,
   }
 }
 

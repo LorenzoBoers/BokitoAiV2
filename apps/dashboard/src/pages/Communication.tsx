@@ -1132,7 +1132,11 @@ export default function Communication() {
     if (onboardingStatus && !onboardingStatus.completed && !onboardingDismissed) {
       return (
         <div className="h-full min-h-0 overflow-y-auto">
-          <OnboardingChecklist status={onboardingStatus} onDismiss={dismissOnboarding} />
+          <OnboardingChecklist
+            status={onboardingStatus}
+            onDismiss={dismissOnboarding}
+            onStatusRefresh={retryOnboarding}
+          />
         </div>
       )
     }

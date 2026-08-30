@@ -11,6 +11,8 @@ related: communication,agent-runs,autonomy,govern
 
 Een beslisverzoek is een bericht in het gesprek, geen aparte wachtrij. Open Communicatie of Agent-runs wanneer iets op jou wacht.
 
+Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) vult de Beslissingen-wachtrij niet. De agent noteert die stil in het gesprek. Als tipkaarten van eerdere mail zich hebben opgestapeld, open [Agents](/docs/ai/agents) en gebruik **Tipkaarten wissen**.
+
 ## Vind een wachtende beslissing
 
 ![Een wachtende beslissing in het gesprek](/api/docs/assets/decisions/approve.png)

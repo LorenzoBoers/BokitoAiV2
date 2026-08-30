@@ -342,6 +342,23 @@ async def badge_counts(
     )
 
 
+@router.post("/dismiss-no-reply-suggestions")
+async def dismiss_no_reply_suggestions(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    also_close: bool = False,
+):
+    """Dismiss awaiting 'No reply needed' tip cards (optional: close those threads)."""
+    if auth.role not in ("owner", "admin") and not auth.is_staff:
+        raise HTTPException(status_code=403, detail="Admin required")
+    return await svc.dismiss_no_reply_suggestions(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        also_close_threads=also_close,
+    )
+
+
 class TagCreateBody(BaseModel):
     name: str
     description: str = ""

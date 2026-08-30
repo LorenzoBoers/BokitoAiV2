@@ -437,6 +437,8 @@
     "installWidget": "Install website widget",
     "subtitle": "A few steps and Bokito runs on your organization's knowledge.",
     "progress": "{{done}} of {{total}} completed",
+    "nextStep": "Next: {{title}}",
+    "almostDone": "Almost done — open the setup guide for the rest",
     "dismiss": "Hide setup",
     "showAgain": "Show setup again",
     "dismissedHint": "The setup card is hidden. You can bring it back anytime.",
@@ -467,7 +469,10 @@
       "watching": {
         "title": "Let the assistant watch",
         "description": "The hourly check-in wakes the assistant. It only writes in Communication when something needs you.",
-        "cta": "Turn on check-in"
+        "cta": "Turn on check-in",
+        "enabling": "Turning on…",
+        "enabled": "Check-in is on. The assistant will watch in the background.",
+        "enableFailed": "Could not turn on check-in. Open the setup guide to try again."
       },
       "team": {
         "title": "Invite your team",
@@ -871,6 +876,7 @@
       "snoozeExpired": "Snooze expired",
       "widgetSeen": "Seen by the customer",
       "agentReviewed": "AI reviewed this message",
+      "noReplyNoted": "No reply needed — automated message",
       "agentInvoked": "Agent invoked",
       "agentReplied": "AI replied",
       "suggestionCreated": "AI drafted a suggestion",

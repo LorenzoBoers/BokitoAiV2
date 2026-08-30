@@ -437,6 +437,8 @@
     "installWidget": "Installeer websitewidget",
     "subtitle": "Een paar stappen en Bokito draait op de kennis van jouw organisatie.",
     "progress": "{{done}} van {{total}} afgerond",
+    "nextStep": "Volgende: {{title}}",
+    "almostDone": "Bijna klaar — open de setupgids voor de rest",
     "dismiss": "Setup verbergen",
     "showAgain": "Setup opnieuw tonen",
     "dismissedHint": "De setupkaart is verborgen. Je kunt die altijd terugzetten.",
@@ -467,7 +469,10 @@
       "watching": {
         "title": "Laat de assistent waken",
         "description": "De uurlijkse check-in wekt de assistent. Die schrijft alleen in Communicatie als iets jou nodig heeft.",
-        "cta": "Check-in aanzetten"
+        "cta": "Check-in aanzetten",
+        "enabling": "Bezig met aanzetten…",
+        "enabled": "Check-in staat aan. De assistent waakt op de achtergrond.",
+        "enableFailed": "Kon check-in niet aanzetten. Open de setupgids om het opnieuw te proberen."
       },
       "team": {
         "title": "Nodig je team uit",
@@ -871,6 +876,7 @@
       "snoozeExpired": "Uitstel verlopen",
       "widgetSeen": "Gezien door de klant",
       "agentReviewed": "AI heeft dit bericht beoordeeld",
+      "noReplyNoted": "Geen antwoord nodig — automatisch bericht",
       "agentInvoked": "Agent aangeroepen",
       "agentReplied": "AI heeft geantwoord",
       "suggestionCreated": "AI heeft een suggestie opgesteld",

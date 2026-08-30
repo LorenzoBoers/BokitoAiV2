@@ -167,26 +167,28 @@ async def create_action_suggestion(
         tenant_id=tenant_id,
         user_id=signal.assigned_user_id,
         kind="decision_request",
-        title="No reply needed",
-        body=text[:500],
-        status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
-        payload_json=json.dumps(
-            {
-                "kind": "action_suggestion",
-                "channel": signal.channel,
-                "signal_id": str(signal.id),
-                "reason": reason,
-                "run_id": str(run_id) if run_id else None,
-            }
-        ),
+    title="No reply needed",
+    body=text[:500],
+    status=await decision_bell_status(session, tenant_id, signal.assigned_user_id),
+    payload_json=json.dumps(
+        {
+            "kind": "action_suggestion",
+            "channel": signal.channel,
+            "signal_id": str(signal.id),
+            "reason": reason,
+            "run_id": str(run_id) if run_id else None,
+        }
+    ),
     )
     session.add(notification)
     await session.flush()
 
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+
     decision = DecisionRequest(
         tenant_id=tenant_id,
         notification_id=notification.id,
-        title="No reply needed",
+        title=NO_REPLY_DECISION_TITLE,
         summary=text,
         options_json=json.dumps(options),
         status="awaiting_human",
@@ -237,6 +239,51 @@ async def create_action_suggestion(
         "message_id": str(message.id),
         "channel": signal.channel,
         "delivery": "no_reply_needed",
+    }
+
+
+async def acknowledge_automated_mail(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Signal,
+    agent: Agent | None,
+    *,
+    summary: str,
+    reason: str = "",
+) -> dict:
+    """Quietly note heuristic automated mail without blocking the attention queue.
+
+    Newsletters, receipts, and no-reply senders used to create an awaiting
+    "No reply needed" card for every message — that flooded Agents / Cockpit
+    with hundreds of fake blockers. Operators still see a timeline note and
+    can close or act from Open; learning rules remain the path to auto-close.
+    """
+    text = (summary or "").strip() or "Automated notification; no reply needed."
+    apply_suggested_actions(signal)
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            event_type="no_reply_noted",
+            actor_type="agent" if agent else "system",
+            actor_id=str(agent.id) if agent else "",
+            payload_json=json.dumps(
+                {
+                    "kind": "automated_mail",
+                    "reason": reason,
+                    "summary": text[:500],
+                }
+            ),
+        )
+    )
+    await session.commit()
+    return {
+        "suggestion": False,
+        "kind": "automated_mail_ack",
+        "reason": reason,
+        "channel": signal.channel,
+        "delivery": "no_reply_noted",
     }
 
 

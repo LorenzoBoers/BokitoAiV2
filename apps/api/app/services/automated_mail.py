@@ -38,6 +38,11 @@ _NO_REPLY_RE = re.compile("|".join(_NO_REPLY_LOCAL_PATTERNS), re.IGNORECASE)
 # Sentinel the suggest-mode agent returns when it decides no reply is needed.
 NO_REPLY_SENTINEL = "NO_REPLY_NEEDED"
 
+# DecisionRequest.title for tip cards on automated / no-reply mail. Attention
+# badges and the Decisions queue exclude these — they are soft guidance on the
+# thread, not items that block agents.
+NO_REPLY_DECISION_TITLE = "No reply needed"
+
 
 def is_no_reply_address(address: str) -> bool:
     """True when the sender address is an unattended (no-reply style) mailbox."""

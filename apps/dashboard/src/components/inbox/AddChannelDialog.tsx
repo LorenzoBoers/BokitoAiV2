@@ -270,7 +270,11 @@ export default function AddChannelDialog({
       ? t('channelsPage.email.pickDescription')
       : choice === 'relay'
         ? t('channelsPage.option.relayHint')
-        : t('channelsPage.addChannelDescription')
+        : choice === 'whatsapp'
+          ? t('whatsappCard.dialogDescription')
+          : choice === 'slack'
+            ? t('slackCard.dialogDescription')
+            : t('channelsPage.addChannelDescription')
 
   const relaysLeft = relayOptions ? relayOptions.maxRelays - relayOptions.used : null
   const preview = relayOptions
@@ -282,7 +286,7 @@ export default function AddChannelDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[520px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border/70 bg-bg-surface p-5 shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border/70 bg-bg-surface p-5 shadow-2xl">
           <div className="flex items-start gap-2.5">
             {choice !== 'menu' ? (
               <button

@@ -22,6 +22,8 @@ Agents zijn de AI-werkers van deze workspace. Open **Agents** om er een toe te v
 
 Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.** Ze kunnen nog steeds chatten vanuit Communicatie.
 
+Wanneer agents een ja of nee nodig hebben, opent een banner **Beslissingen** in Communicatie. Tipkaarten voor automatische mail (bonnen, nieuwsbrieven) tellen daar niet mee. Als die tips zich hebben opgestapeld, wist **Tipkaarten wissen** ze zonder echte beslissingen te wijzigen.
+
 Je **persoonlijke assistent** is geen bedrijfsagent. Open **Instellingen** en daarna **Mijn assistent**. Zet **Naam van de assistent**, **Instructies** en **Standaardchat** (bedrijfsagent of mijn assistent), en kies **Wijzigingen opslaan**. **Nieuwe chat openen** start vanaf die standaard. Alleen jij ziet die assistent.
 
 ## Brief een agent

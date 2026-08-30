@@ -494,6 +494,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   snooze_expired: (t) => t('timeline.events.snoozeExpired'),
   widget_seen: (t) => t('timeline.events.widgetSeen'),
   agent_processed: (t) => t('timeline.events.agentReviewed'),
+  no_reply_noted: (t) => t('timeline.events.noReplyNoted'),
   agent_invoked: (t) => t('timeline.events.agentInvoked'),
   agent_replied: (t) => t('timeline.events.agentReplied'),
   suggestion_created: (t) => t('timeline.events.suggestionCreated'),
@@ -521,6 +522,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
 // activity reads as one visual system instead of scattered divider lines.
 const AI_EVENT_TYPES = new Set([
   'agent_processed',
+  'no_reply_noted',
   'agent_invoked',
   'agent_replied',
   'suggestion_created',

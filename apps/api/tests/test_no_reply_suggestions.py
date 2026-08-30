@@ -119,6 +119,123 @@ def test_extract_no_reply_sentinel():
     assert extract_no_reply_summary("") is None
 
 
+@pytest.mark.asyncio
+async def test_acknowledge_automated_mail_has_no_decision(client: AsyncClient, session_override):
+    from app.models.agent import Agent
+    from app.services.inbound_agent import acknowledge_automated_mail
+
+    await _auth_headers(client)
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    agent = (
+        (
+            await session_override.execute(
+                select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            )
+        )
+        .scalars()
+        .first()
+    )
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="mock",
+        subject="Your receipt",
+        contact_email="noreply@shop.nl",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+
+    result = await acknowledge_automated_mail(
+        session_override,
+        tenant.id,
+        signal,
+        agent,
+        summary="Order confirmation.",
+        reason="no_reply_address",
+    )
+    assert result["delivery"] == "no_reply_noted"
+    assert result["suggestion"] is False
+    tip_msgs = (
+        await session_override.execute(
+            select(SignalMessage).where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.kind == "decision_request",
+            )
+        )
+    ).scalars().all()
+    assert tip_msgs == []
+
+
+@pytest.mark.asyncio
+async def test_no_reply_cards_excluded_from_agents_attention(client: AsyncClient, session_override):
+    """Tip cards must not inflate the Agents / Cockpit attention badge."""
+    headers = await _auth_headers(client)
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    from app.models.agent import Agent
+    from app.services.inbound_agent import create_action_suggestion
+    from app.services.signal_threads import count_no_reply_suggestions, nav_badge_counts
+
+    agent = (
+        (
+            await session_override.execute(
+                select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
+            )
+        )
+        .scalars()
+        .first()
+    )
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="mock",
+        subject="Newsletter",
+        contact_email="newsletter@shop.nl",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    await create_action_suggestion(
+        session_override,
+        tenant.id,
+        signal,
+        agent,
+        summary="Weekly digest.",
+        reason="mailing_list",
+    )
+    assert await count_no_reply_suggestions(session_override, tenant.id) >= 1
+    from app.models.auth import User
+
+    user = (
+        await session_override.execute(select(User).where(User.email == "admin@bokito.ai"))
+    ).scalar_one_or_none()
+    if user is None:
+        from scripts.seed import TEST_EMAIL
+
+        user = (
+            await session_override.execute(select(User).where(User.email == TEST_EMAIL))
+        ).scalar_one()
+    badges = await nav_badge_counts(
+        session_override, tenant.id, user.id, include_agents_attention=True
+    )
+    # The tip card must not be counted as agents_attention.
+    assert badges["no_reply_suggestions"] >= 1
+    # agents_attention may be >0 from seed data; the tip signal itself is excluded.
+    from app.services.signal_threads import _signals_with_open_decisions
+
+    open_dec = await _signals_with_open_decisions(session_override, tenant.id)
+    assert signal.id not in open_dec
+
+    listed = await client.get("/api/signals?view=awaiting_decision", headers=headers)
+    assert listed.status_code == 200
+    ids = {item["id"] for item in listed.json()["items"]}
+    assert str(signal.id) not in ids
+
+
 # ── action suggestion decision ───────────────────────────────────
 
 

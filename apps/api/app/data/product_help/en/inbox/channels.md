@@ -63,9 +63,10 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 ## Connect WhatsApp or Slack
 
 1. Choose **Add channel**, then **WhatsApp Business** or **Slack workspace**. Marketplace cards for these apps also send you here.
-2. For WhatsApp, enter **Phone number ID** and **Access token** (a permanent System User token), then **Connect number**. Copy **Webhook URL** and **Verify token** into the Meta App Dashboard under WhatsApp, Configuration. Temporary Meta tokens expire after 24 hours.
-3. For Slack, enter **Bot token** and **Signing secret**, then **Connect workspace**. Copy **Events URL** and **Interactivity URL** into your Slack app. Decision cards can arrive there with **Approve** and **Deny**.
-4. Website chat is the [Chat widget](/docs/inbox/widget); its row opens the widget settings. After you connect, these channels appear in the Communication sidebar.
+2. WhatsApp is a guided setup: **Prepare in Meta** (app, number, Phone number ID, permanent System User token), then **Paste in Bokito** (display name, Phone number ID, optional WABA ID, access token) and **Connect number**. The Phone number ID is a long number from Meta → WhatsApp → API Setup — not your phone number.
+3. After connecting, Bokito shows **Webhook URL** and **Verify token**. Paste those in Meta under WhatsApp → Configuration, subscribe to **messages**, and send a test message. Temporary Meta tokens expire after 24 hours.
+4. For Slack, enter **Bot token** and **Signing secret**, then **Connect workspace**. Copy **Events URL** and **Interactivity URL** into your Slack app. Decision cards can arrive there with **Approve** and **Deny**.
+5. Website chat is the [Chat widget](/docs/inbox/widget); its row opens the widget settings. After you connect, these channels appear in the Communication sidebar.
 
 ## Save replies the team can reuse
 

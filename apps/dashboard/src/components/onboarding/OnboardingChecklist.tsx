@@ -7,8 +7,10 @@ import { useAuth } from '../../context/AuthContext'
 import { appScopedGet, appScopedPost } from '../../lib/api'
 import { appRoutes } from '../../api/routes/app.routes'
 import { inboxPath } from '../../lib/messages-paths'
-import { talkToAssistantPath } from '../../lib/talk-to-assistant'
+import { listTriggers, updateTrigger } from '../../lib/orchestration-api'
+import { platformCheckInTrigger, talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { readOnboardingDismissed, writeOnboardingDismissed } from '../../lib/onboarding-dismiss'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
 export type OnboardingStepId = 'email' | 'company' | 'assistant' | 'watching' | 'first_decision' | 'team'
 
@@ -78,6 +80,40 @@ export function useOnboardingStatus(): {
   return { status, loading, error, retry, dismissed, dismiss, undismiss }
 }
 
+function useEnablePlatformCheckIn(onEnabled?: () => void): {
+  enable: () => void
+  enabling: boolean
+} {
+  const { t } = useTranslation('communication')
+  const [enabling, setEnabling] = useState(false)
+
+  const enable = useCallback(() => {
+    if (enabling) return
+    setEnabling(true)
+    void listTriggers()
+      .then(async (triggers) => {
+        const heartbeat = platformCheckInTrigger(triggers)
+        if (!heartbeat) {
+          toast.error(t('onboarding.steps.watching.enableFailed'))
+          return
+        }
+        if (heartbeat.enabled) {
+          onEnabled?.()
+          return
+        }
+        await updateTrigger(heartbeat.id, { enabled: true })
+        toast.success(t('onboarding.steps.watching.enabled'))
+        onEnabled?.()
+      })
+      .catch((err) => {
+        toast.error(formatApiErrorMessage(err, t('onboarding.steps.watching.enableFailed')))
+      })
+      .finally(() => setEnabling(false))
+  }, [enabling, onEnabled, t])
+
+  return { enable, enabling }
+}
+
 const STEP_META: Record<OnboardingStepId, { to: string }> = {
   email: { to: '/settings/channels' },
   company: { to: '/knowledge' },
@@ -119,15 +155,29 @@ const ASSISTANT_SETUP_TO = talkToAssistantPath(
 const nextStepCtaClass =
   'inline-flex w-full items-center justify-center rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60 sm:w-auto'
 
-function NextStepCta({ step }: { step: { id: OnboardingStepId; done: boolean } }) {
+function NextStepCta({
+  step,
+  onWatchEnabled,
+}: {
+  step: { id: OnboardingStepId; done: boolean }
+  onWatchEnabled?: () => void
+}) {
   const { t } = useTranslation('communication')
   const { start, starting } = useDemoThread()
+  const { enable, enabling } = useEnablePlatformCheckIn(onWatchEnabled)
   const meta = STEP_META[step.id]
 
   if (step.id === 'first_decision') {
     return (
       <button type="button" onClick={start} disabled={starting} className={nextStepCtaClass}>
         {t(`onboarding.steps.${step.id}.cta`)}
+      </button>
+    )
+  }
+  if (step.id === 'watching') {
+    return (
+      <button type="button" onClick={enable} disabled={enabling} className={nextStepCtaClass}>
+        {enabling ? t('onboarding.steps.watching.enabling') : t(`onboarding.steps.${step.id}.cta`)}
       </button>
     )
   }
@@ -142,9 +192,11 @@ function NextStepCta({ step }: { step: { id: OnboardingStepId; done: boolean } }
 export default function OnboardingChecklist({
   status,
   onDismiss,
+  onStatusRefresh,
 }: {
   status: OnboardingStatus
   onDismiss?: () => void
+  onStatusRefresh?: () => void
 }) {
   const { t } = useTranslation('communication')
   const doneCount = status.steps.filter((step) => step.done).length
@@ -173,7 +225,9 @@ export default function OnboardingChecklist({
           </h2>
           <p className="text-sm leading-relaxed text-text-secondary">{t('onboarding.continueSubtitle')}</p>
           <p className="text-xs text-text-muted">
-            {t('onboarding.progress', { done: doneCount, total: status.steps.length })}
+            {nextStep
+              ? t('onboarding.nextStep', { title: t(`onboarding.steps.${nextStep.id}.title`) })
+              : t('onboarding.progress', { done: doneCount, total: status.steps.length })}
           </p>
         </div>
       </div>
@@ -198,7 +252,7 @@ export default function OnboardingChecklist({
               </p>
             </div>
           </div>
-          <NextStepCta step={nextStep} />
+          <NextStepCta step={nextStep} onWatchEnabled={onStatusRefresh} />
         </div>
       ) : null}
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
@@ -224,22 +278,22 @@ export default function OnboardingChecklist({
 /** Compact dismissible banner (Cockpit). */
 export function OnboardingCompactCard() {
   const { t } = useTranslation('communication')
-  const { status, dismissed, dismiss } = useOnboardingStatus()
+  const { status, dismissed, dismiss, retry } = useOnboardingStatus()
 
   if (!status || status.completed || dismissed) return null
-  const doneCount = status.steps.filter((step) => step.done).length
   const nextStep = status.steps.find((step) => !step.done)
 
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-xl border border-border/60 bg-bg-elevated/50 px-4 py-3">
+    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-bg-elevated/50 px-4 py-3">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
         <ListChecks size={16} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-text-heading">{t('onboarding.continueTitle')}</p>
         <p className="truncate text-xs text-text-secondary">
-          {t('onboarding.progress', { done: doneCount, total: status.steps.length })}
-          {nextStep ? ` - ${t(`onboarding.steps.${nextStep.id}.title`)}` : ''}
+          {nextStep
+            ? t('onboarding.nextStep', { title: t(`onboarding.steps.${nextStep.id}.title`) })
+            : t('onboarding.almostDone')}
         </p>
       </div>
       <Link
@@ -248,7 +302,11 @@ export function OnboardingCompactCard() {
       >
         {t('onboarding.openGuide')}
       </Link>
-      {nextStep && nextStep.id !== 'watching' ? <NextStepCta step={nextStep} /> : null}
+      {nextStep ? (
+        <div className="shrink-0 [&_a]:px-3 [&_a]:py-1.5 [&_a]:text-xs [&_button]:px-3 [&_button]:py-1.5 [&_button]:text-xs">
+          <NextStepCta step={nextStep} onWatchEnabled={retry} />
+        </div>
+      ) : null}
       <button
         type="button"
         onClick={dismiss}

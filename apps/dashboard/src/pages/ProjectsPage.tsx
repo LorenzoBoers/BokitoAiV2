@@ -128,6 +128,14 @@ function ProjectCard({
                   <Bot size={14} />
                   {t('projects.page.openLead')}
                 </DropdownMenu.Item>
+              ) : canManage ? (
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                  onSelect={() => navigate(`/projects/${project.id}`)}
+                >
+                  <Bot size={14} />
+                  {t('projects.page.assignLead')}
+                </DropdownMenu.Item>
               ) : null}
               {canManage ? (
                 <>
@@ -233,6 +241,14 @@ function ProjectCard({
               className="text-[11px] font-medium text-accent hover:underline"
             >
               {t('projects.page.openLead')}
+            </Link>
+          ) : canManage ? (
+            <Link
+              to={`/projects/${project.id}`}
+              onClick={(event) => event.stopPropagation()}
+              className="text-[11px] font-medium text-accent hover:underline"
+            >
+              {t('projects.page.assignLead')}
             </Link>
           ) : null}
           <Link
