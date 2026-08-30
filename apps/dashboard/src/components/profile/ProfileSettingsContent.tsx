@@ -11,7 +11,6 @@ import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders, resendVerif
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import SignatureEditor from '../inbox/SignatureEditor'
-import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
 
 // ── inline editable field ────────────────────────────────────────────────────
@@ -548,9 +547,6 @@ export function ProfileSettingsContent() {
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
           <Link to="/settings/channels" className="font-medium text-accent hover:underline">
             {t('profile:links.openMailboxSignatures')}
-          </Link>
-          <Link to={MY_ASSISTANT_SETTINGS_PATH} className="font-medium text-accent hover:underline">
-            {t('profile:links.openAssistant')}
           </Link>
           <Link to="/settings/notifications" className="font-medium text-accent hover:underline">
             {t('profile:links.openNotifications')}

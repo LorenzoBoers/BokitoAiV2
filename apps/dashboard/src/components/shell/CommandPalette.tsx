@@ -24,7 +24,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
 import { TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
-import { agentRunsPath, assistantPath, inboxPath } from '../../lib/messages-paths'
+import { agentChatPath, agentRunsPath, inboxPath, newConversationPath } from '../../lib/messages-paths'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
 import { agentWorkforceRunUrl } from '../../lib/workforce-run-urls'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
@@ -32,7 +32,6 @@ import { threadHubPath } from '../../lib/message-composer'
 import { composeEmailPath, newAgentPath, newContactPath } from '../../lib/compose-intent'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
-import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { listRecentPages } from '../../lib/recent-pages'
 import { listSignalThreads } from '../../lib/signals-api'
 import { listContacts, type ContactRow } from '../../lib/contacts-api'
@@ -167,11 +166,11 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         },
       },
       {
-        id: 'inbox-assistant',
-        label: t('support.section.assistant'),
+        id: 'inbox-new-chat',
+        label: t('support.newChat'),
         group: t('palette.groupInbox'),
         icon: MessageSquare,
-        run: () => navigate(assistantPath()),
+        run: () => navigate(newConversationPath()),
       },
       {
         id: 'inbox-agent-runs',
@@ -195,7 +194,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       label: c.title || t('palette.untitledConversation'),
       group: t('palette.groupSessions'),
       icon: MessageSquare,
-      run: () => navigate(assistantPath(c.id)),
+      run: () => {
+        if (c.agent_id) navigate(agentChatPath(c.agent_id, c.id))
+        else navigate(newConversationPath())
+      },
     }))
     const actions: PaletteItem[] = [
       {
@@ -232,13 +234,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         group: t('palette.groupActions'),
         icon: Settings,
         run: () => navigate('/settings/notifications'),
-      },
-      {
-        id: 'action-my-assistant',
-        label: t('assistantSettings.title'),
-        group: t('palette.groupActions'),
-        icon: Bot,
-        run: () => navigate(MY_ASSISTANT_SETTINGS_PATH),
       },
       ...(mailboxReady
         ? [

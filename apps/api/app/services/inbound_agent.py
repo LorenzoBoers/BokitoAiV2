@@ -630,13 +630,17 @@ async def persist_inbound_agent_reply(
         signature_html = await resolve_signature_html(
             session, tenant_id, send_as="agent", agent_id=agent.id
         )
-        delivery_status = await deliver_outbound(
+        delivery = await deliver_outbound(
             session,
             signal,
             body_text=text,
             subject=f"Re: {signal.subject}" if signal.subject else "Reply",
             signature_html=signature_html,
         )
+        delivery_status = delivery.status
+        if delivery.body_html:
+            message.body_html = delivery.body_html
+            session.add(message)
         if delivery_status.startswith("sent"):
             message.auto_sent = True
             session.add(message)

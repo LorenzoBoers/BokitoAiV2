@@ -1475,7 +1475,7 @@ async def reply_to_thread(
         signature_html = await resolve_signature_html(
             session, tenant_id, send_as="user", user_id=user_id
         )
-        send_status = await deliver_outbound(
+        delivery = await deliver_outbound(
             session,
             signal,
             body_text=body_text,
@@ -1485,8 +1485,11 @@ async def reply_to_thread(
             attachments=attachments,
             signature_html=signature_html,
         )
+        send_status = delivery.status
         if send_status == "skipped":
             send_status = "sent"
+        if delivery.body_html:
+            body_html = delivery.body_html
     message_meta: dict[str, Any] = {}
     if cc:
         message_meta["cc"] = cc
@@ -1615,7 +1618,7 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
             agent_id=message.author_agent_id or signal.agent_id,
         )
         try:
-            status = await deliver_outbound(
+            delivery = await deliver_outbound(
                 session,
                 signal,
                 body_text=message.body_text,
@@ -1625,6 +1628,9 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
                 attachments=attachments or None,
                 signature_html=signature_html,
             )
+            status = delivery.status
+            if delivery.body_html:
+                message.body_html = delivery.body_html
         except Exception as exc:  # noqa: BLE001 — one bad message must not stall the queue
             logger.exception("Scheduled send failed for message %s", message.id)
             status = f"failed:{type(exc).__name__}"[:80]

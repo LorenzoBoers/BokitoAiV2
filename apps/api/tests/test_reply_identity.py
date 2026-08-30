@@ -286,6 +286,10 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
     # Without an identity signature the mailbox fallback applies.
     out_html = _append_signature("<p>Body</p>", account, override=None)
     assert "Mailbox sig" in out_html
+    # Empty override means "already signed" — do not fall back to mailbox.
+    out_html = _append_signature("<p>Body</p>", account, override="")
+    assert out_html == "<p>Body</p>"
+    assert "Mailbox sig" not in out_html
 
 
 # ── settings endpoints ───────────────────────────────────────────

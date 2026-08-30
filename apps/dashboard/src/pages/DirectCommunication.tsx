@@ -33,7 +33,7 @@ import {
   type InboxThread,
   type ThreadId,
 } from '../lib/inbox-api'
-import { agentChatPath, assistantPath, leafFromPath, leafPath, SUB_QUEUE_TO_VIEW } from '../lib/messages-paths'
+import { agentChatPath, leafFromPath, leafPath, SUB_QUEUE_TO_VIEW } from '../lib/messages-paths'
 
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
   switch (quickFilter) {
@@ -70,7 +70,7 @@ export default function DirectCommunication() {
 
   const leaf = leafFromPath(location.pathname)
   const isAgentScope = leaf?.type === 'agent'
-  const agentQueue = leaf?.type === 'agent' || leaf?.type === 'assistant' ? leaf.queue : undefined
+  const agentQueue = leaf?.type === 'agent' ? leaf.queue : undefined
   const listView = agentQueue ? SUB_QUEUE_TO_VIEW[agentQueue] : 'all_open'
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
@@ -103,15 +103,14 @@ export default function DirectCommunication() {
     void loadTargets()
   }, [loadTargets])
 
-  const personalAgent = targets.find((t) => t.kind === 'personal') ?? null
   const activeAgent: ChatTarget | null = useMemo(() => {
     if (isAgentScope && routeAgentId) {
-      return targets.find((t) => t.id === routeAgentId) ?? null
+      return targets.find((row) => row.id === routeAgentId) ?? null
     }
-    return personalAgent
-  }, [isAgentScope, routeAgentId, targets, personalAgent])
+    return null
+  }, [isAgentScope, routeAgentId, targets])
 
-  const filterAgentId = isAgentScope ? routeAgentId : personalAgent?.id
+  const filterAgentId = isAgentScope ? routeAgentId : undefined
 
   const listContextKey = `direct:${filterAgentId ?? 'none'}:${listView}:${projectId ?? ''}`
 
@@ -179,13 +178,13 @@ export default function DirectCommunication() {
   }, [])
 
   const basePath = useMemo(() => {
-    if (leaf?.type === 'agent' || leaf?.type === 'assistant') {
+    if (leaf?.type === 'agent') {
       return leafPath(leaf)
     }
     if (isAgentScope && routeAgentId) {
       return agentChatPath(routeAgentId)
     }
-    return assistantPath()
+    return '/communication/new'
   }, [leaf, isAgentScope, routeAgentId])
 
   const handleSelectThread = useCallback(
@@ -348,8 +347,8 @@ export default function DirectCommunication() {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
         <Bot size={28} className="text-text-muted" />
-        <p className="mt-3 text-sm text-text-secondary">{t('directChat.emptyHint')}</p>
-        <p className="mt-1 text-sm text-text-muted">{t('directChat.noAssistantConfigured')}</p>
+        <p className="mt-3 text-sm font-medium text-text-primary">{t('newConversation.noAgentsAvailable')}</p>
+        <p className="mt-1 text-sm text-text-muted">{t('newConversation.noAgentsAvailableForUser')}</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           <Link
             to="/communication/new"
@@ -358,10 +357,10 @@ export default function DirectCommunication() {
             {t('directChat.newChat')}
           </Link>
           <Link
-            to="/settings/assistant"
+            to="/agents"
             className="rounded-lg border border-border/60 px-3.5 py-2 text-xs font-semibold text-text-heading hover:bg-bg-hover"
           >
-            {t('directChat.configureAssistant')}
+            {t('newConversation.openAgents')}
           </Link>
         </div>
       </div>

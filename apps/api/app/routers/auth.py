@@ -192,9 +192,6 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
     user.last_tenant_id = tenant.id
     await bootstrap_tenant(session, tenant.id)
-    from app.services.personal_agents import get_or_create_personal_agent
-
-    await get_or_create_personal_agent(session, tenant.id, user, commit=False)
     await session.commit()
 
     # Soft verification gate: the account works immediately, but outbound
@@ -691,9 +688,6 @@ async def accept_invite(
     user.last_tenant_id = invite.tenant_id
     # Reaching the tokenized link proves control of the invited mailbox.
     user.email_verified = True
-    from app.services.personal_agents import get_or_create_personal_agent
-
-    await get_or_create_personal_agent(session, invite.tenant_id, user, commit=False)
     invite.accepted_at = datetime.utcnow()
     tenant_result = await session.execute(select(Tenant).where(Tenant.id == invite.tenant_id))
     tenant = tenant_result.scalar_one()
@@ -792,9 +786,6 @@ async def workspace_setup_accept_invite(
         session.add(Membership(tenant_id=invite.tenant_id, user_id=user.id, role=invite.role))
     user.last_tenant_id = invite.tenant_id
     invite.accepted_at = datetime.utcnow()
-    from app.services.personal_agents import get_or_create_personal_agent
-
-    await get_or_create_personal_agent(session, invite.tenant_id, user, commit=False)
     from app.services.audit import record_audit
 
     await record_audit(

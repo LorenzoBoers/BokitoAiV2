@@ -31,13 +31,13 @@ Bokito has one sidebar. Each item answers a different question. Use the command 
 
 **Email & messages**, **AI reply settings**, **Chat widget**, **Members**, **Providers & models**, **Integrations**, **Setup guide** and **Govern** live here. Owners and admins spend time here; members rarely need it. See the [setup guide](/docs/getting-started/setup-guide).
 
-Personal screens — **Profile**, **Notifications**, **My assistant** — are yours, not workspace docs. They do not change how the team answers customers.
+Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. They do not change how the team answers customers.
 
 ## Use the command palette
 
 1. Press `Ctrl+K` (Windows) or `Cmd+K` (Mac) from any signed-in page.
 2. Type to jump. Results group under **Recent**, **Go to**, **Actions**, **Sessions**, **Threads**, **Contacts**, **Inbox queues**, **Knowledge** and **Settings**.
-3. With an empty query, **Actions** also offers **New chat**, **Talk to my assistant**, **Invite a teammate**, **Open my profile**, **Open notifications**, **My assistant**, **New email**, **New contact**, **New agent**, **Connect mailbox**, **Open setup guide** and **Open help**.
+3. With an empty query, **Actions** also offers **New chat**, **Talk to an agent**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **Connect mailbox**, **Open setup guide** and **Open help**.
 4. Settings pages appear after you type. You can **Switch to light mode** or **Switch to dark mode** from the palette too.
 
 Communication search in the thread list searches conversations. The palette is for jumping, not for inbox filters.

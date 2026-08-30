@@ -79,11 +79,38 @@ def _append_signature(
 ) -> str:
     """Append exactly one signature: the resolved identity signature when
     provided (user or agent, see services/signatures.py), otherwise the
-    mailbox-level `signature_html` fallback."""
-    signature = override if override else (account_settings(account).get("signature_html") or "")
+    mailbox-level `signature_html` fallback.
+
+    Pass ``override=""`` to skip appending (caller already composed the final
+    HTML). Pass ``override=None`` to use the mailbox fallback.
+    """
+    if override is not None:
+        signature = override
+    else:
+        signature = account_settings(account).get("signature_html") or ""
     if not signature:
         return html_body
     return f"{html_body}<br><br>{signature}"
+
+
+def compose_outbound_html(
+    *,
+    body_text: str,
+    body_html: str | None = None,
+    account: ChannelAccount | None = None,
+    signature_html: str | None = None,
+) -> str:
+    """Build the HTML that will actually be delivered (body + one signature).
+
+    Callers persist this on ``SignalMessage.body_html`` so the timeline shows
+    the same signature the recipient received.
+    """
+    html = body_html or f"<p>{(body_text or '').replace(chr(10), '<br>')}</p>"
+    if account is not None:
+        return _append_signature(html, account, override=signature_html)
+    if signature_html:
+        return f"{html}<br><br>{signature_html}"
+    return html
 
 
 def format_outbound(
@@ -100,13 +127,22 @@ def format_outbound(
     thread_provider_id: str | None = None,
     attachment_payloads: list[dict[str, Any]] | None = None,
     signature_html: str | None = None,
+    apply_signature: bool = True,
 ) -> dict[str, Any]:
     """Build the provider request payload for an outbound email.
 
     `attachment_payloads` items carry hydrated bytes: {name, mime, data}.
+    When ``apply_signature`` is False, ``body_html`` is used as-is (already signed).
     """
-    html_body = body_html or f"<p>{body_text.replace(chr(10), '<br>')}</p>"
-    html_body = _append_signature(html_body, account, override=signature_html)
+    if apply_signature:
+        html_body = compose_outbound_html(
+            body_text=body_text,
+            body_html=body_html,
+            account=account,
+            signature_html=signature_html,
+        )
+    else:
+        html_body = body_html or f"<p>{(body_text or '').replace(chr(10), '<br>')}</p>"
     # `to_address` may carry multiple comma/semicolon-separated recipients
     # (compose to several people); normalize once for both providers.
     to_addrs = _parse_address_list(to_address) or [to_address]
@@ -299,25 +335,35 @@ async def send_via_provider(
     attachments: list[dict[str, Any]] | None = None,
     session: AsyncSession | None = None,
     signature_html: str | None = None,
-) -> str:
-    """Send an email through the account's provider. Returns a send status."""
+) -> tuple[str, str]:
+    """Send an email through the account's provider.
+
+    Returns ``(send_status, final_html)`` where ``final_html`` is the body
+    including the signature that was actually handed to the provider.
+    """
     attachment_payloads = await _load_attachment_payloads(attachments)
+    final_html = compose_outbound_html(
+        body_text=body_text,
+        body_html=body_html,
+        account=account,
+        signature_html=signature_html,
+    )
     payload = format_outbound(
         account,
         to_address=to_address,
         subject=subject,
         body_text=body_text,
-        body_html=body_html,
+        body_html=final_html,
         cc=cc,
         bcc=bcc,
         in_reply_to=in_reply_to,
         references=references,
         thread_provider_id=thread_provider_id,
         attachment_payloads=attachment_payloads,
-        signature_html=signature_html,
+        apply_signature=False,
     )
     if account.provider == "mock":
-        return "sent"
+        return "sent", final_html
 
     if account.provider == "bokito":
         # Built-in address: platform-level Resend key, no per-account OAuth.
@@ -326,18 +372,18 @@ async def send_via_provider(
         api_key = get_settings().resend_api_key
         if not api_key:
             if not get_settings().is_production:
-                return "sent"
-            return "failed:no_credentials"
+                return "sent", final_html
+            return "failed:no_credentials", final_html
         try:
             res = await _post_send(RESEND_SEND_URL, payload, api_key)
         except httpx.HTTPError:
-            return "failed:network"
+            return "failed:network", final_html
         if res.status_code in (200, 201, 202):
-            return "sent"
+            return "sent", final_html
         logger.warning(
             "resend send failed status=%s body=%s", res.status_code, res.text[:300]
         )
-        return f"failed:{res.status_code}"
+        return f"failed:{res.status_code}", final_html
 
     creds = _credentials(account)
     token = creds.get("access_token")
@@ -347,8 +393,8 @@ async def send_via_provider(
         if not get_settings().is_production:
             # Dev mailboxes connected via the mock OAuth flow have placeholder
             # credentials; store-only "send" keeps every reply flow working.
-            return "sent"
-        return "failed:no_credentials"
+            return "sent", final_html
+        return "failed:no_credentials", final_html
 
     if account.provider == "outlook" and reply_to_provider_id:
         # Graph threads replies server-side; sendMail cannot set In-Reply-To.
@@ -370,11 +416,11 @@ async def send_via_provider(
                 to_address=to_address,
                 subject=subject,
                 body_text=body_text,
-                body_html=body_html,
+                body_html=final_html,
                 cc=cc,
                 bcc=bcc,
                 attachment_payloads=attachment_payloads,
-                signature_html=signature_html,
+                apply_signature=False,
             )
             return await _post_send(GRAPH_SEND_URL, fresh, current_token)
         return res
@@ -382,15 +428,15 @@ async def send_via_provider(
     try:
         res = await _attempt(token)
         if res.status_code in (200, 201, 202):
-            return "sent"
+            return "sent", final_html
         if res.status_code == 401:
             refreshed = await _refresh_access_token(session, account)
             if not refreshed:
-                return "failed:auth_expired"
+                return "failed:auth_expired", final_html
             retry = await _attempt(refreshed)
             if retry.status_code in (200, 201, 202):
-                return "sent"
-            return f"failed:{retry.status_code}"
-        return f"failed:{res.status_code}"
+                return "sent", final_html
+            return f"failed:{retry.status_code}", final_html
+        return f"failed:{res.status_code}", final_html
     except httpx.HTTPError:
-        return "failed:network"
+        return "failed:network", final_html

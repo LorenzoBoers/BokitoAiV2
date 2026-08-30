@@ -15,20 +15,14 @@ describe('talkToAssistantPath', () => {
   it('returns the bare path when empty', () => {
     expect(talkToAssistantPath('  ')).toBe('/communication/new')
   })
-
-  it('targets the company assistant when requested', () => {
-    expect(talkToAssistantPath('Help me set up', { kind: 'company' })).toBe(
-      '/communication/new?prefill=Help%20me%20set%20up&kind=company',
-    )
-  })
 })
 
 describe('enabledAutomationCount', () => {
   it('ignores seeded-but-paused triggers', () => {
     expect(
       enabledAutomationCount([
-        { enabled: false, kind: 'heartbeat' },
-        { enabled: true, kind: 'interval' },
+        { enabled: false },
+        { enabled: true },
       ]),
     ).toBe(1)
   })

@@ -176,11 +176,9 @@ agents:
   section: ai
   routes:
     - /agents
-    - /settings/assistant
   code_globs:
     - apps/dashboard/src/pages/AiAgents.tsx
     - apps/dashboard/src/pages/AiAgentDetail.tsx
-    - apps/dashboard/src/pages/MyAssistantSettings.tsx
     - apps/dashboard/src/components/workforce/**
   screenshots:
     - agent-brief

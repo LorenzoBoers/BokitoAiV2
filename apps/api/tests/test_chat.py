@@ -11,7 +11,17 @@ async def test_chat_flow(client: AsyncClient):
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    conv = await client.post("/api/chat/conversations", json={"title": "Test chat"}, headers=headers)
+    targets = await client.get("/api/chat/targets", headers=headers)
+    assert targets.status_code == 200
+    items = targets.json()["items"]
+    assert items, "seeded workspace must expose at least one company agent"
+    agent_id = items[0]["id"]
+
+    conv = await client.post(
+        "/api/chat/conversations",
+        json={"title": "Test chat", "agent_id": agent_id},
+        headers=headers,
+    )
     assert conv.status_code == 200
     conv_id = conv.json()["id"]
 
@@ -23,6 +33,29 @@ async def test_chat_flow(client: AsyncClient):
     assert msg.status_code == 200
     assert msg.json()["message"]["role"] == "assistant"
     assert "mock" in msg.json()["message"]["content"].lower() or "bokito" in msg.json()["message"]["content"].lower()
+
+
+@pytest.mark.asyncio
+async def test_chat_targets_company_only_and_create_requires_agent(client: AsyncClient):
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    targets = await client.get("/api/chat/targets", headers=headers)
+    assert targets.status_code == 200
+    payload = targets.json()
+    assert all(item.get("kind") == "company" for item in payload["items"])
+    assert "personal" not in {item.get("kind") for item in payload["items"]}
+
+    missing = await client.post(
+        "/api/chat/conversations",
+        json={"title": "No agent"},
+        headers=headers,
+    )
+    assert missing.status_code == 400, missing.text
+    detail = missing.json().get("detail", missing.text)
+    assert "choose" in str(detail).lower()
 
 
 @pytest.mark.asyncio

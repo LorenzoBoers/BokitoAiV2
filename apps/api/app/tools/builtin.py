@@ -207,7 +207,7 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         agent_id=identity_agent_id,
     )
 
-    delivery = await deliver_outbound(
+    delivery_result = await deliver_outbound(
         ctx.session,
         signal,
         body_text=body_text,
@@ -215,12 +215,17 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         body_html=body_html if isinstance(body_html, str) else None,
         signature_html=signature_html,
     )
+    delivery = delivery_result.status
     if delivery == "skipped":
         # Channels without provider delivery (widget/chat): the visitor
         # receives the message live via the gateway publish below.
         delivery = "sent"
     if not delivery.startswith("sent"):
         return {"error": f"Delivery failed: {delivery}", "delivery": delivery}
+
+    stored_html = delivery_result.body_html or (
+        body_html if isinstance(body_html, str) else ""
+    )
 
     as_user = send_as == "user"
     metadata: dict[str, Any] = {
@@ -241,7 +246,7 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         author_user_id=ctx.user_id if as_user else None,
         subject=subject,
         body_text=body_text,
-        body_html=body_html if isinstance(body_html, str) else "",
+        body_html=stored_html,
         body_preview=body_text[:200],
         send_status=delivery,
         auto_sent=False,
@@ -347,11 +352,8 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
     if not ctx.agent:
         return {"error": "Only an agent can take over a conversation"}
     if getattr(ctx.agent, "kind", "company") != "company":
-        # Personal assistants serve one user; customer threads are handled by
-        # company agents (same rule as inbound routing).
         return {
-            "error": "A personal assistant cannot handle a customer conversation",
-            "hint": "Suggest a reply instead, or ask a company agent to take over.",
+            "error": "Only a company agent can handle a customer conversation",
         }
 
     result = await ctx.session.execute(

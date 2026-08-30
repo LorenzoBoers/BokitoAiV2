@@ -36,7 +36,7 @@ Members answer threads. They do not connect mailboxes, change Inbox AI, or chang
 
 ## Personal settings stay personal
 
-Each person has **Profile**, **Notifications** and **My assistant**. Those screens are theirs. They do not appear in these workspace docs and they do not change how the team answers customers. See [Agents](/docs/ai/agents) for the personal assistant, and [Communication](/docs/inbox/communication) for the shared inbox.
+Each person has **Profile** and **Notifications**. Those screens are theirs. They do not appear in these workspace docs and they do not change how the team answers customers. See [Agents](/docs/ai/agents) for company agents, and [Communication](/docs/inbox/communication) for the shared inbox.
 
 ## What to do next
 

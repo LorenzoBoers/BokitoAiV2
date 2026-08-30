@@ -31,7 +31,6 @@ from app.services.assistant_threads import (
 )
 from app.services.personal_agents import (
     allowed_company_agents,
-    get_or_create_personal_agent,
     get_user_preference,
     resolve_chat_target,
 )
@@ -91,19 +90,20 @@ async def chat_targets(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Chat targets for the current user: personal assistant first, then permitted company agents."""
-    personal = await get_or_create_personal_agent(session, auth.tenant.id, auth.user)
+    """Company agents the current user may chat with. Empty when none are permitted."""
     is_admin = auth.role in ("owner", "admin")
     company = await allowed_company_agents(session, auth.tenant.id, auth.user.id, is_admin=is_admin)
     pref = await get_user_preference(session, auth.tenant.id, auth.user.id)
-    default_id = personal.id
+    default_id: UUID | None = None
     if pref and pref.default_chat_agent_id:
-        valid_ids = {personal.id, *(a.id for a in company)}
+        valid_ids = {a.id for a in company}
         if pref.default_chat_agent_id in valid_ids:
             default_id = pref.default_chat_agent_id
-    items = [_serialize_target(personal, is_default=personal.id == default_id)]
-    items.extend(_serialize_target(a, is_default=a.id == default_id) for a in company)
-    return {"items": items, "default_agent_id": str(default_id)}
+    items = [_serialize_target(a, is_default=a.id == default_id) for a in company]
+    return {
+        "items": items,
+        "default_agent_id": str(default_id) if default_id else None,
+    }
 
 
 @router.get("/conversations")

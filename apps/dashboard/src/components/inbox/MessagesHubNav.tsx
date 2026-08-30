@@ -7,7 +7,6 @@ import {
   Mail,
   Plus,
   Settings,
-  Sparkles,
   Tag,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -365,7 +364,6 @@ function TagsSection({ rows, activeLeaf, defaultQueueFor, t }: TagsSectionProps)
 }
 
 type AgentsSectionProps = {
-  assistant: ChatTarget | null
   agents: ChatTarget[]
   loading: boolean
   activeLeaf: HubLeaf | null
@@ -373,23 +371,13 @@ type AgentsSectionProps = {
   t: TFn
 }
 
-function AgentsSection({ assistant, agents, loading, activeLeaf, defaultQueueFor, t }: AgentsSectionProps) {
+function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: AgentsSectionProps) {
   return (
     <div className="space-y-0.5">
-      {assistant ? (
-        <SidebarFolder
-          baseLeaf={{ type: 'assistant' }}
-          label={t('crumbs.myAssistant')}
-          title={assistant.name}
-          icon={<Sparkles size={14} className="shrink-0 text-ai-ink" />}
-          activeLeaf={activeLeaf}
-          defaultQueue={defaultQueueFor({ type: 'assistant' })}
-        />
-      ) : null}
       {loading ? (
         <p className="px-3 py-1 text-[12px] text-text-muted">{t('support.agents.loading')}</p>
       ) : null}
-      {!loading && agents.length === 0 && !assistant ? (
+      {!loading && agents.length === 0 ? (
         <div className="space-y-1 px-3 py-1">
           <p className="text-[12px] text-text-muted">
             {t('support.agents.empty')}
@@ -487,7 +475,6 @@ export default function MessagesHubNav() {
     }
   }, [token])
 
-  const assistant = targets.find((target) => target.kind === 'personal') ?? null
   const companyAgents = targets.filter((target) => target.kind === 'company')
   const inboxBaseLeaf: HubLeaf = { type: 'inbox' }
   const inboxDefaultQueue = defaultQueueFor(inboxBaseLeaf)
@@ -496,7 +483,7 @@ export default function MessagesHubNav() {
   const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
     channels: channelsLoading ? null : channelFolders.length,
     tags: tagRows == null ? null : tagRows.length,
-    agents: targetsLoading ? null : companyAgents.length + (assistant ? 1 : 0),
+    agents: targetsLoading ? null : companyAgents.length,
   }
 
   const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
@@ -519,7 +506,6 @@ export default function MessagesHubNav() {
     ),
     agents: (
       <AgentsSection
-        assistant={assistant}
         agents={companyAgents}
         loading={targetsLoading}
         activeLeaf={activeLeaf}

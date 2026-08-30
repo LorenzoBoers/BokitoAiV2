@@ -13,7 +13,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     labelKey: 'settings.groups.personal',
     links: [
       { labelKey: 'settings.links.profileSecurity', to: '/settings/profile', hintKey: 'settings.hints.profileSecurity' },
-      { labelKey: 'settings.links.myAssistant', to: '/settings/assistant', hintKey: 'settings.hints.myAssistant' },
       { labelKey: 'settings.links.notifications', to: '/settings/notifications', hintKey: 'settings.hints.notifications' },
     ],
   },

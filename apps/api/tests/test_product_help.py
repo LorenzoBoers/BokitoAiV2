@@ -54,7 +54,6 @@ REQUIRED_PAGE_GUIDE_ROUTES = {
 
 REQUIRED_SETTINGS_ROUTES = {
     "/settings/profile",
-    "/settings/assistant",
     "/settings/notifications",
     "/settings/setup",
     "/settings/general",

@@ -43,7 +43,7 @@ async def get_or_create_widget_thread(
 ) -> Signal:
     """Resolve the Signal thread for a widget session.
 
-    Logged-in users get a personal assistant thread (channel="assistant");
+    Logged-in users get an assistant-channel thread (channel="assistant");
     anonymous visitors get a widget thread linked to a Contact.
     """
     if conversation_id:

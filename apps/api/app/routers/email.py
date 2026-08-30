@@ -297,7 +297,7 @@ async def send_email(
     signature_html = await resolve_signature_html(
         session, auth.tenant.id, send_as="user", user_id=auth.user.id
     )
-    send_status = await deliver_outbound(
+    delivery = await deliver_outbound(
         session,
         signal,
         body_text=body.body_text,
@@ -310,6 +310,7 @@ async def send_email(
         attachments=attachments,
         signature_html=signature_html,
     )
+    send_status = delivery.status
     if send_status == "skipped":
         # Mock/dev accounts skip actual delivery; record as sent for dev UX.
         send_status = "sent"
@@ -334,7 +335,7 @@ async def send_email(
         to_addresses=json.dumps(recipients),
         subject=body.subject or signal.subject,
         body_text=body.body_text,
-        body_html=body.body_html or "",
+        body_html=delivery.body_html or body.body_html or "",
         body_preview=body.body_text[:200],
         attachments_json=json.dumps(attachments),
         metadata_json=json.dumps(message_meta) if message_meta else "{}",

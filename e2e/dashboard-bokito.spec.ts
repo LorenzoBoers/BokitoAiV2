@@ -109,11 +109,10 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Govern' })).toBeVisible({ timeout: 20000 })
   })
 
-  test('my assistant settings page renders', async ({ page }) => {
+  test('settings assistant redirects to new conversation', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/settings/assistant')
-    await expect(page.getByRole('heading', { name: 'My assistant' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByLabel('Assistant name')).toBeVisible({ timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/new/, { timeout: 20000 })
   })
 
   test('agents page renders agent library', async ({ page }) => {

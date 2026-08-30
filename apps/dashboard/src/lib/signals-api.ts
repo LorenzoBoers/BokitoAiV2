@@ -267,7 +267,7 @@ function normalizeThreadSession(row: unknown): ThreadSession | null {
 }
 
 /** Why an agent is offered on a thread; drives the picker's hint label. */
-export type ThreadAgentReason = 'channel' | 'project' | 'company' | 'personal'
+export type ThreadAgentReason = 'channel' | 'project' | 'company'
 
 export type ThreadAgentCandidate = {
   id: string
@@ -283,7 +283,7 @@ export async function listThreadAgentCandidates(
     appRoutes.signals.threadAgentCandidates(threadId),
     token,
   )
-  const reasons: ThreadAgentReason[] = ['channel', 'project', 'company', 'personal']
+  const reasons: ThreadAgentReason[] = ['channel', 'project', 'company']
   return (payload.items ?? [])
     .map((row): ThreadAgentCandidate | null => {
       if (!row || typeof row !== 'object') return null

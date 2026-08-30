@@ -159,9 +159,9 @@ async def test_agent_candidates_rank_channel_agent_first(
     r = await client.get(f"/api/signals/{thread.id}/agent-candidates", headers=headers)
     assert r.status_code == 200, r.text
     items = r.json()["items"]
-    assert items, "at least the channel agent and the personal assistant"
+    assert items, "at least the channel agent"
     assert items[0]["reason"] == "channel"
-    assert items[-1]["reason"] == "personal"
+    assert all(row["reason"] != "personal" for row in items)
     assert len({row["id"] for row in items}) == len(items)  # no duplicates
 
     # An explicit candidate becomes the session agent.
@@ -307,7 +307,7 @@ async def test_take_over_conversation_pins_the_agent(
 
 
 @pytest.mark.asyncio
-async def test_personal_assistant_cannot_take_over(
+async def test_inactive_personal_agent_cannot_take_over(
     client: AsyncClient, session_override: AsyncSession
 ):
     headers = await _login(client)
@@ -316,14 +316,17 @@ async def test_personal_assistant_cannot_take_over(
     from app.models.agent import Agent
     from app.tools import execute_tool
 
-    # Listing candidates provisions the caller's personal assistant.
-    await client.get(f"/api/signals/{thread.id}/agent-candidates", headers=headers)
-    personal = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == thread.tenant_id, Agent.kind == "personal")
-        )
-    ).scalars().first()
-    assert personal is not None
+    legacy = Agent(
+        tenant_id=thread.tenant_id,
+        name="Legacy personal",
+        role="assistant",
+        kind="personal",
+        is_active=False,
+        chat_access="nobody",
+    )
+    session_override.add(legacy)
+    await session_override.commit()
+    await session_override.refresh(legacy)
 
     result = await execute_tool(
         session_override,
@@ -332,7 +335,7 @@ async def test_personal_assistant_cannot_take_over(
         "take_over_conversation",
         {},
         signal_id=thread.id,
-        agent=personal,
+        agent=legacy,
         approved=True,
     )
     assert "error" in result
@@ -343,8 +346,12 @@ async def test_session_rejected_on_assistant_thread(
     client: AsyncClient, session_override: AsyncSession
 ):
     headers = await _login(client)
+    targets = (await client.get("/api/chat/targets", headers=headers)).json()["items"]
+    assert targets
     r = await client.post(
-        "/api/chat/conversations", headers=headers, json={"title": "Losse chat"}
+        "/api/chat/conversations",
+        headers=headers,
+        json={"title": "Losse chat", "agent_id": targets[0]["id"]},
     )
     conversation_id = r.json()["id"]
     r = await client.post(f"/api/signals/{conversation_id}/sessions", headers=headers, json={})

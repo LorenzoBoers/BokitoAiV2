@@ -11,7 +11,7 @@ import {
 } from '../lib/bokito-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { lastInboxPath } from '../lib/inbox-prefs'
-import { agentChatPath, assistantPath } from '../lib/messages-paths'
+import { agentChatPath } from '../lib/messages-paths'
 import { ComposerCard } from '../components/ui/ComposerCard'
 import { canComposeToAddress, composeEmailPath } from '../lib/compose-intent'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
@@ -27,8 +27,9 @@ import type { MentionItem } from '../lib/mentions'
 type PickerFilter = 'all' | 'company' | 'people'
 
 /**
- * Composer-first "New conversation" surface: pick a recipient in the To-field
- * (personal assistant preselected), type, and Enter starts the chat.
+ * Composer-first "New conversation" surface: pick a company agent (or email a
+ * person), type, and Enter starts the chat. An agent must be chosen explicitly;
+ * `default_agent_id` may preselect when it is in the permitted list.
  */
 export default function NewConversationPage() {
   const { t } = useTranslation(['communication', 'nav'])
@@ -93,14 +94,12 @@ export default function NewConversationPage() {
       setTargets(data.items)
       setContacts(people)
       const agentParam = searchParams.get('agent')?.trim()
-      const kindParam = searchParams.get('kind')
       const last = readLastChatTarget()
+      const defaultId = data.default_agent_id
       const preselect =
         data.items.find((row) => row.id === agentParam) ??
-        (kindParam === 'company' ? data.items.find((row) => row.kind === 'company') : undefined) ??
         data.items.find((row) => row.id === last) ??
-        data.items.find((row) => row.id === data.default_agent_id) ??
-        data.items[0] ??
+        (defaultId ? data.items.find((row) => row.id === defaultId) : undefined) ??
         null
       setSelected(preselect)
     } catch {
@@ -155,10 +154,9 @@ export default function NewConversationPage() {
 
   const filteredTargets = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase()
-    return targets.filter((t) => {
+    return targets.filter((row) => {
       if (pickerFilter === 'people') return false
-      if (pickerFilter === 'company' && t.kind !== 'company') return false
-      if (q && !t.name.toLowerCase().includes(q)) return false
+      if (q && !row.name.toLowerCase().includes(q)) return false
       return true
     })
   }, [targets, pickerQuery, pickerFilter])
@@ -177,10 +175,7 @@ export default function NewConversationPage() {
   }, [canSendEmail, contacts, pickerQuery, pickerFilter])
   const filteredContacts = matchingContacts.slice(0, 8)
 
-  // Typing a full address that is not a contact yet must not dead-end in
-  // "no matches": offer starting an email to that address directly.
-  const targetLabel = (target: ChatTarget) =>
-    target.kind === 'personal' ? t('newConversation.myAssistant') : target.name
+  const targetLabel = (target: ChatTarget) => target.name
 
   const directEmailQuery = useMemo(() => {
     if (!canSendEmail) return null
@@ -213,13 +208,14 @@ export default function NewConversationPage() {
     try {
       const created = await bokitoCreateConversation(token, content.slice(0, 60), selected.id)
       void refreshSessions()
-      const path =
-        selected.kind === 'company'
-          ? agentChatPath(selected.id, created.id)
-          : assistantPath(created.id)
-      navigate(path, { state: { autoSend: content } })
+      navigate(agentChatPath(selected.id, created.id), { state: { autoSend: content } })
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('newConversation.startError'))
+      const message = err instanceof Error ? err.message : t('newConversation.startError')
+      if (/no agents available/i.test(message)) {
+        setError(t('newConversation.noAgentsAvailableForUser'))
+      } else {
+        setError(message)
+      }
       setSending(false)
     }
   }, [mention.raw, token, selected, sending, navigate, refreshSessions, t])
@@ -233,6 +229,8 @@ export default function NewConversationPage() {
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     mention.onKeyDown(e, () => void start())
   }
+
+  const noAgents = !loadingTargets && targets.length === 0
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -248,7 +246,31 @@ export default function NewConversationPage() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[680px] px-4 pt-10">
+          {noAgents ? (
+            <div className="rounded-xl border border-border/60 bg-bg-surface px-5 py-8 text-center shadow-card">
+              <Bot size={28} className="mx-auto text-text-muted" />
+              <p className="mt-3 text-[15px] font-medium text-text-primary">
+                {t('newConversation.noAgentsAvailable')}
+              </p>
+              <p className="mt-1.5 text-[12.5px] text-text-muted">
+                {t('newConversation.noAgentsAvailableForUser')}
+              </p>
+              <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
+                <Link to="/agents" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('newConversation.openAgents')}
+                </Link>
+                <Link to="/settings/setup" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('newConversation.openSetup')}
+                </Link>
+                <Link to="/knowledge" className="text-[12px] font-medium text-accent hover:underline">
+                  {t('newConversation.openKnowledge')}
+                </Link>
+              </div>
+            </div>
+          ) : null}
+
           {/* To: picker */}
+          {!noAgents ? (
           <div ref={pickerRef} className="relative">
             <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-bg-surface px-3 py-2 shadow-card">
               <span className="text-[12px] font-medium text-text-muted" title={t('newConversation.toHint')}>{t('newConversation.to')}</span>
@@ -288,11 +310,9 @@ export default function NewConversationPage() {
                         <Bot size={11} />
                       </span>
                       <span className="truncate text-[13px] text-text-primary">{targetLabel(selected)}</span>
-                      {selected.kind === 'company' ? (
-                        <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated px-1.5 py-px text-[10px] text-text-muted">
-                          {t('newConversation.companyAgent')}
-                        </span>
-                      ) : null}
+                      <span className="shrink-0 rounded-full border border-border/60 bg-bg-elevated px-1.5 py-px text-[10px] text-text-muted">
+                        {t('newConversation.companyAgent')}
+                      </span>
                     </>
                   ) : (
                     <span className="text-[13px] text-text-muted">{t('newConversation.chooseRecipient')}</span>
@@ -311,8 +331,8 @@ export default function NewConversationPage() {
                   {filteredTargets.length === 0 && filteredContacts.length === 0 && !directEmailQuery ? (
                     <div className="px-3 py-2.5">
                       <p className="text-[12px] text-text-muted">
-                        {targets.length === 0 && contacts.length === 0
-                          ? t('newConversation.noAgents')
+                        {targets.length === 0
+                          ? t('newConversation.noAgentsAvailable')
                           : t('newConversation.noMatches')}
                       </p>
                       {targets.length === 0 ? (
@@ -344,9 +364,7 @@ export default function NewConversationPage() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[12.5px] text-text-primary">{targetLabel(target)}</span>
                             <span className="block text-[10.5px] text-text-muted">
-                              {target.kind === 'personal'
-                                ? t('newConversation.personalAssistant')
-                                : t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
+                              {t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
                             </span>
                           </span>
                           {selected?.id === target.id ? <Check size={13} className="shrink-0 text-accent" /> : null}
@@ -414,21 +432,11 @@ export default function NewConversationPage() {
               </div>
             ) : null}
           </div>
+          ) : null}
 
           {/* Quick chips */}
+          {!noAgents ? (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                const assistant = targets.find((row) => row.kind === 'personal') ?? targets[0] ?? null
-                if (assistant) choose(assistant)
-                composerRef.current?.focus()
-              }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
-            >
-              <Bot size={11} />
-              {t('newConversation.chatWithAssistant')}
-            </button>
             <Link
               to={canSendEmail ? composeEmailPath() : '/settings/channels'}
               className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-text-secondary transition-colors hover:border-accent/40 hover:text-text-primary"
@@ -455,8 +463,10 @@ export default function NewConversationPage() {
               </button>
             ) : null}
           </div>
+          ) : null}
 
           {/* Composer */}
+          {!noAgents ? (
           <div className="mt-6">
             {error ? (
               <div className="mb-2 flex items-center gap-2 px-1">
@@ -515,6 +525,7 @@ export default function NewConversationPage() {
               </button>
             </ComposerCard>
           </div>
+          ) : null}
         </div>
       </div>
     </div>

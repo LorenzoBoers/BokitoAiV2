@@ -1747,7 +1747,7 @@
     "openProfile": "Open my profile",
     "openNotifications": "Open notifications",
     "openBookkeeping": "Open bookkeeping",
-    "talkAssistant": "Talk to my assistant",
+    "talkAssistant": "Talk to an agent",
     "talkPrefill": "Help me with today's work. What needs attention?",
     "openAgenda": "Open Agenda",
     "openGovernDrafts": "Review Govern drafts"
@@ -3769,7 +3769,6 @@
     "links": {
       "profile": "Profile",
       "profileSecurity": "Profile & security",
-      "myAssistant": "My assistant",
       "notifications": "Notifications",
       "setupGuide": "Setup guide",
       "inbox": "Email and channels",
@@ -3798,7 +3797,6 @@
     },
     "hints": {
       "profileSecurity": "Name, photo, password and email signature",
-      "myAssistant": "Your personal assistant",
       "notifications": "When Bokito should notify you",
       "setupGuide": "Guided checklist to get started",
       "general": "Company name and language",
@@ -3948,7 +3946,7 @@
     "emptyHint": "Agents use this to answer. Add a document, chat with an agent, or publish customer articles in Help center.",
     "openAgents": "Open Agents",
     "openSetup": "Open setup guide",
-    "talkAssistant": "Talk to your assistant",
+    "talkAssistant": "Talk to an agent",
     "tryPrefill": "Use our knowledge docs to answer: what do we already know that would help with today's work?",
     "usedByAgents": "Agents read this while they work.",
     "openRuns": "Open Agent runs",

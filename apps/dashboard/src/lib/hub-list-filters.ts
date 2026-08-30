@@ -110,7 +110,7 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     default:
-      // assistant/agent chats are handled by DirectCommunication
+      // agent chats are handled by DirectCommunication
       return { filters: { folder: 'inbox', view: 'all' }, mode: 'customer', variant: 'customer' }
   }
 }

@@ -223,8 +223,10 @@ async def test_send_email_passes_cc_html_attachments(
     captured: dict = {}
 
     async def fake_deliver(session, signal, **kwargs):
+        from app.channels.outbound import OutboundDelivery
+
         captured.update(kwargs)
-        return "sent"
+        return OutboundDelivery("sent", body_html=kwargs.get("body_html"))
 
     attachment = {
         "id": "a1",

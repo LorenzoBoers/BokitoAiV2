@@ -12,10 +12,11 @@ class Agent(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     name: str
     role: str = Field(default="assistant")  # assistant | po | orchestrator | coding | orchestra
-    # personal = one user's own assistant (owner_user_id set); company = shared workforce agent.
-    kind: str = Field(default="company", index=True)  # company | personal
+    # company = shared workforce agent. Legacy rows may still have kind=personal
+    # (inactive); new agents are always company.
+    kind: str = Field(default="company", index=True)  # company
     owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-    # Who may open a direct chat with this company agent (personal agents: owner only).
+    # Who may open a direct chat with this company agent.
     chat_access: str = Field(default="nobody")  # everyone | selected | nobody
     # Exactly one active company agent per tenant carries the lead flag; it is
     # the default fallback whenever nothing more specific is bound to an item.

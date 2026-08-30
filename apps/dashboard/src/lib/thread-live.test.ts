@@ -171,13 +171,13 @@ describe('upsertThreadRow', () => {
   })
 
   it('replaces known threads in place and keeps agent enrichment', () => {
-    const existing = thread({ agentId: 'a-1', agentName: 'Bokito', agentKind: 'personal' })
+    const existing = thread({ agentId: 'a-1', agentName: 'Bokito', agentKind: 'company' })
     const incoming = thread({ emailSubject: 'Re: Order 42', hasUnread: true })
     const next = upsertThreadRow([existing], incoming)
     expect(next).toHaveLength(1)
     expect(next[0].emailSubject).toBe('Re: Order 42')
     expect(next[0].agentName).toBe('Bokito')
-    expect(next[0].agentKind).toBe('personal')
+    expect(next[0].agentKind).toBe('company')
   })
 })
 

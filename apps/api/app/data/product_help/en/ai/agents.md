@@ -1,8 +1,8 @@
 ---
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
-description: Brief agents, set chat access, pause them, add an email signature, and keep your personal assistant private.
-keywords: agents, ai workforce, pause, chat access, signature, my assistant
+description: Brief company agents, set chat access, pause them, and add an email signature.
+keywords: agents, ai workforce, pause, chat access, signature
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -24,7 +24,7 @@ Members can open an agent to read it. They see **You can read this agent. Ask an
 
 When agents need a yes or no, a banner opens **Decisions** in Communication. Tip cards for automated mail (receipts, newsletters) do not count there. If those tips piled up, the banner **Clear tip cards** removes them without changing real decisions.
 
-Your **personal assistant** is not a company agent. Open **Settings**, then **My assistant**. Set **Assistant name**, **Instructions**, and **Default chat** (company agent or my assistant), then **Save changes**. **Open a new chat** starts from that default. Only you see that assistant.
+New chats in Communication require a **company agent**. If none are available for you, the composer shows **No agents available**. Open **Agents** or the setup guide to add one.
 
 ## Brief an agent
 
@@ -41,7 +41,7 @@ Your **personal assistant** is not a company agent. Open **Settings**, then **My
 2. Open **Communication** on the same page (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.
 3. **Nobody** keeps background work (Agenda, Inbox AI) without a direct chat from Communication.
 
-Leads and personal assistants do not use the same pause and access controls as company agents.
+Leads do not use the same pause and access controls as other company agents.
 
 ## Add an agent signature
 

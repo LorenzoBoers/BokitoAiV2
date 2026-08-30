@@ -6,12 +6,12 @@ import { useAuth } from '../context/AuthContext'
 import { appRoutes } from '../api/routes'
 import { apiPost } from './api'
 import { bokitoCreateConversation } from './bokito-api'
-import { agentChatPath, assistantPath } from './messages-paths'
+import { agentChatPath, newConversationPath } from './messages-paths'
 
 export type CorrectionSubject = {
   /** Host customer thread; the correction chat is grounded in its transcript. */
   threadId: string
-  /** Responsible agent; falls back to the personal assistant when unknown. */
+  /** Responsible company agent. */
   agentId?: string | null
   agentName?: string | null
   subjectType: 'message' | 'decision'
@@ -48,6 +48,11 @@ export function useCorrectionChat() {
   const startCorrection = useCallback(
     async (subject: CorrectionSubject) => {
       if (!token || starting) return
+      if (!subject.agentId) {
+        toast.error(t('actions.correctionStartError'))
+        navigate(newConversationPath())
+        return
+      }
       setStarting(true)
       try {
         // Learning signal first; the chat is best-effort on top of it.
@@ -61,13 +66,10 @@ export function useCorrectionChat() {
         const created = await bokitoCreateConversation(
           token,
           'Correction',
-          subject.agentId ?? undefined,
+          subject.agentId,
           { contextSignalId: subject.threadId },
         )
-        const path =
-          created.agent_kind === 'company' && created.agent_id
-            ? agentChatPath(created.agent_id, created.id)
-            : assistantPath(created.id)
+        const path = agentChatPath(created.agent_id ?? subject.agentId, created.id)
         navigate(path, { state: { autoSend: correctionPrompt(subject) } })
       } catch {
         toast.error(t('actions.correctionStartError'))

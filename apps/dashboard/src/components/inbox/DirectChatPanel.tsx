@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowUp, Bot, Check, ClipboardCopy, PanelRight, Pencil, Square, Trash2, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
-import { agentChatPath, assistantPath } from '../../lib/messages-paths'
+import { agentChatPath } from '../../lib/messages-paths'
 import { onGatewayEvent } from '../../lib/gateway'
 import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
@@ -700,7 +700,6 @@ export function DirectChatEmptyState({ agentLabel }: { agentLabel: string }) {
   )
 }
 
-export function directPathForAgent(agentId: string, kind: 'personal' | 'company', threadId?: string): string {
-  if (kind === 'company') return agentChatPath(agentId, threadId)
-  return assistantPath(threadId)
+export function directPathForAgent(agentId: string, _kind?: string, threadId?: string): string {
+  return agentChatPath(agentId, threadId)
 }

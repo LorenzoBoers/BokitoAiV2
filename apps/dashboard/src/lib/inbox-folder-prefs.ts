@@ -70,8 +70,6 @@ export function folderScopeKey(leaf: HubLeaf): string {
       return `tag:${leaf.tag}`
     case 'agent':
       return `agent:${leaf.agentId}`
-    case 'assistant':
-      return 'assistant'
     default:
       return leaf.type
   }

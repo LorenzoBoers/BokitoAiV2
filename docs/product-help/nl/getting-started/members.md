@@ -36,7 +36,7 @@ Leden beantwoorden gesprekken. Ze koppelen geen mailboxen, wijzigen Inbox AI nie
 
 ## Persoonlijke instellingen blijven persoonlijk
 
-Iedereen heeft **Profiel**, **Notificaties** en **Mijn assistent**. Die schermen zijn van hen. Ze staan niet in deze workspacedocs en ze veranderen niet hoe het team klanten beantwoordt. Zie [Agents](/docs/ai/agents) voor de persoonlijke assistent, en [Communicatie](/docs/inbox/communication) voor de gedeelde inbox.
+Iedereen heeft **Profiel** en **Notificaties**. Die schermen zijn van hen. Ze staan niet in deze workspacedocs en ze veranderen niet hoe het team klanten beantwoordt. Zie [Agents](/docs/ai/agents) voor bedrijfsagents, en [Communicatie](/docs/inbox/communication) voor de gedeelde inbox.
 
 ## Wat nu
 

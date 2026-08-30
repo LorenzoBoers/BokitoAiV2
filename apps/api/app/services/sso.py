@@ -55,9 +55,6 @@ async def _create_workspace_for(session: AsyncSession, user: User) -> Tenant:
     user.last_tenant_id = tenant.id
     session.add(user)
     await bootstrap_tenant(session, tenant.id)
-    from app.services.personal_agents import get_or_create_personal_agent
-
-    await get_or_create_personal_agent(session, tenant.id, user, commit=False)
     return tenant
 
 

@@ -95,7 +95,6 @@ export default function FoldersAndTagsManager() {
           },
         ]
       : []),
-    { leaf: { type: 'assistant' } as HubLeaf, label: t('crumbs.myAssistant') },
   ]
 
   const setGlobalDefault = useCallback(

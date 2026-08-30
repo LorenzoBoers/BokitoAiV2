@@ -62,6 +62,13 @@ export default function AssistantScreen() {
   const targets = targetsData?.items ?? []
   const defaultAgentId = targetsData?.default_agent_id ?? null
 
+  useEffect(() => {
+    if (selectedAgentId) return
+    if (defaultAgentId && targets.some((row) => row.id === defaultAgentId)) {
+      setSelectedAgentId(defaultAgentId)
+    }
+  }, [defaultAgentId, selectedAgentId, targets])
+
   const activeId = conversationId ?? conversations[0]?.id ?? null
   const { data: messages = [], refetch: refetchMessages, isError: messagesError } = useChatMessages(activeId)
   const gatewayStream = useSignalStream(activeId)
@@ -80,6 +87,9 @@ export default function AssistantScreen() {
   const ensureConversation = useCallback(async () => {
     if (activeId) return activeId
     const agentId = selectedAgentId ?? defaultAgentId ?? undefined
+    if (!agentId) {
+      throw new Error('no-agents')
+    }
     const created = await create.mutateAsync({ title: t('assistant.defaultTitle'), agentId })
     setConversationId(created.id)
     if (created.agent_id) setSelectedAgentId(created.agent_id)
@@ -89,6 +99,15 @@ export default function AssistantScreen() {
   const send = async () => {
     const content = draft.trim()
     if (!content || isStreaming) return
+    if (!selectedAgentId && !defaultAgentId && targets.length === 0) {
+      Alert.alert(t('assistant.noAgentsAvailable'))
+      return
+    }
+    if (!selectedAgentId && !defaultAgentId) {
+      Alert.alert(t('assistant.chooseAgent'))
+      setPickerOpen(true)
+      return
+    }
     setDraft('')
     setStreaming(true)
     setStreamText('')
@@ -106,7 +125,11 @@ export default function AssistantScreen() {
     } catch (err) {
       if (!(err instanceof Error && err.name === 'AbortError')) {
         setDraft(content)
-        Alert.alert(t('assistant.sendFailed'))
+        if (err instanceof Error && err.message === 'no-agents') {
+          Alert.alert(t('assistant.noAgentsAvailable'))
+        } else {
+          Alert.alert(t('assistant.sendFailed'))
+        }
       }
     } finally {
       abortRef.current = null
@@ -122,11 +145,16 @@ export default function AssistantScreen() {
   }
 
   const handleCreateConversation = async (agentId?: string) => {
+    const resolved = agentId ?? selectedAgentId ?? defaultAgentId ?? undefined
+    if (!resolved) {
+      Alert.alert(t('assistant.noAgentsAvailable'))
+      return
+    }
     try {
-      const created = await create.mutateAsync({ title: t('assistant.newTitle'), agentId })
+      const created = await create.mutateAsync({ title: t('assistant.newTitle'), agentId: resolved })
       setConversationId(created.id)
-      if (agentId) setSelectedAgentId(agentId)
-      else if (created.agent_id) setSelectedAgentId(created.agent_id)
+      setSelectedAgentId(resolved)
+      if (created.agent_id) setSelectedAgentId(created.agent_id)
     } catch {
       Alert.alert(t('assistant.actionFailed'))
     }

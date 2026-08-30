@@ -436,7 +436,7 @@ export default function ModuleSetupPage() {
                 </ol>
               ) : null}
               <Button asChild>
-                <Link to={talkToAssistantPath(setupPrefill, { kind: 'company' })}>
+                <Link to={talkToAssistantPath(setupPrefill)}>
                   {t('integrations.modules.setup.openAssistant', {
                     defaultValue: 'Continue with company assistant',
                   })}

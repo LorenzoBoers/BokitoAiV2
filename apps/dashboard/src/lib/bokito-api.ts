@@ -150,7 +150,8 @@ export async function bokitoGetCockpitActivity(token: string, limit = 50, before
 export type ConversationWithAgent = Conversation & {
   agent_id?: string | null
   agent_name?: string | null
-  agent_kind?: 'personal' | 'company' | null
+  /** Company agents only going forward; `personal` may still appear on legacy rows. */
+  agent_kind?: 'company' | 'personal' | null
 }
 
 export async function bokitoListConversations(token: string, channel?: string) {
@@ -158,37 +159,21 @@ export async function bokitoListConversations(token: string, channel?: string) {
   return bokitoFetch<ConversationWithAgent[]>(`/api/chat/conversations${query}`, token)
 }
 
-/** A chat target: the user's personal assistant or a permitted company agent. */
+/** A chat target: a company agent the user is permitted to message. */
 export type ChatTarget = {
   id: string
   name: string
-  kind: 'personal' | 'company'
+  kind: 'company'
   role: string
   runtime_status: string
   is_default: boolean
 }
 
 export async function bokitoListChatTargets(token: string) {
-  return bokitoFetch<{ items: ChatTarget[]; default_agent_id: string }>('/api/chat/targets', token)
-}
-
-export type MyAssistant = {
-  agent: { id: string; name: string; instructions: string; model: string; kind: string }
-  default_chat_agent_id: string
-}
-
-export async function bokitoGetMyAssistant(token: string) {
-  return bokitoFetch<MyAssistant>('/api/me/assistant', token)
-}
-
-export async function bokitoPatchMyAssistant(
-  token: string,
-  patch: { name?: string; instructions?: string; default_chat_agent_id?: string },
-) {
-  return bokitoFetch<MyAssistant>('/api/me/assistant', token, {
-    method: 'PATCH',
-    body: JSON.stringify(patch),
-  })
+  return bokitoFetch<{ items: ChatTarget[]; default_agent_id: string | null }>(
+    '/api/chat/targets',
+    token,
+  )
 }
 
 // Model/provider types and API — see lib/models-api.ts

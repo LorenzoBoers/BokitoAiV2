@@ -1,8 +1,8 @@
 ---
 title: Zo werken Agents
 intro: De bibliotheek van AI-werkers. Communicatie is waar ze praten; deze pagina is waar je ze aanneemt en brief.
-description: Brief agents, zet chattoegang, pauzeer ze, voeg een e-mailhandtekening toe en houd je persoonlijke assistent privé.
-keywords: agents, ai-workforce, pauze, chattoegang, handtekening, mijn assistent
+description: Brief bedrijfsagents, zet chattoegang, pauzeer ze en voeg een e-mailhandtekening toe.
+keywords: agents, ai-workforce, pauze, chattoegang, handtekening
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -24,7 +24,7 @@ Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken
 
 Wanneer agents een ja of nee nodig hebben, opent een banner **Beslissingen** in Communicatie. Tipkaarten voor automatische mail (bonnen, nieuwsbrieven) tellen daar niet mee. Als die tips zich hebben opgestapeld, wist **Tipkaarten wissen** ze zonder echte beslissingen te wijzigen.
 
-Je **persoonlijke assistent** is geen bedrijfsagent. Open **Instellingen** en daarna **Mijn assistent**. Zet **Naam van de assistent**, **Instructies** en **Standaardchat** (bedrijfsagent of mijn assistent), en kies **Wijzigingen opslaan**. **Nieuwe chat openen** start vanaf die standaard. Alleen jij ziet die assistent.
+Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschikbaar is voor jou, toont de composer **Geen agents beschikbaar**. Open **Agents** of de setupgids om er een toe te voegen.
 
 ## Brief een agent
 
@@ -41,7 +41,7 @@ Je **persoonlijke assistent** is geen bedrijfsagent. Open **Instellingen** en da
 2. Open **Communicatie** op dezelfde pagina (chattoegang). Kies **Iedereen**, **Geselecteerde gebruikers** of **Niemand**.
 3. **Niemand** houdt achtergrondwerk (Agenda, Inbox AI) zonder directe chat vanuit Communicatie.
 
-Leads en persoonlijke assistenten gebruiken niet dezelfde pauze- en toegangscontroles als bedrijfsagents.
+Leads gebruiken niet dezelfde pauze- en toegangscontroles als andere bedrijfsagents.
 
 ## Voeg een agenthandtekening toe
 

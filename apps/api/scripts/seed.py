@@ -20,7 +20,6 @@ from app.models.inbox import InboxSettings
 from app.models.integration import McpServer
 from app.models.project import Project
 from app.services.auth import hash_password
-from app.services.personal_agents import get_or_create_personal_agent
 from app.services.workspace import get_doc_by_path, upsert_doc
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
 
@@ -107,9 +106,6 @@ async def seed() -> None:
             await session.flush()
             session.add(Membership(tenant_id=demo.id, user_id=demo_user.id, role="owner"))
             await bootstrap_tenant(session, demo.id)
-            await get_or_create_personal_agent(session, demo.id, demo_user, commit=False)
-
-        await get_or_create_personal_agent(session, tenant.id, user, commit=False)
 
         if os.environ.get("SEED_TRADING_TENANT", "").strip().lower() in ("1", "true", "yes"):
             await _seed_autotrading_tenant(session)

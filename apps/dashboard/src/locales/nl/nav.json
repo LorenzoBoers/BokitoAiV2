@@ -1771,7 +1771,7 @@
     "openProfile": "Open mijn profiel",
     "openNotifications": "Open meldingen",
     "openBookkeeping": "Boekhouding openen",
-    "talkAssistant": "Praat met mijn assistent",
+    "talkAssistant": "Praat met een agent",
     "talkPrefill": "Help me met het werk van vandaag. Wat vraagt aandacht?",
     "openAgenda": "Agenda openen",
     "openGovernDrafts": "Govern-concepten bekijken"
@@ -3780,7 +3780,6 @@
     "links": {
       "profile": "Profiel",
       "profileSecurity": "Profiel en beveiliging",
-      "myAssistant": "Mijn assistent",
       "notifications": "Notificaties",
       "setupGuide": "Setupgids",
       "inbox": "Mailboxen",
@@ -3809,7 +3808,6 @@
     },
     "hints": {
       "profileSecurity": "Naam, foto, wachtwoord en e-mailhandtekening",
-      "myAssistant": "Je persoonlijke assistent",
       "notifications": "Wanneer Bokito je moet waarschuwen",
       "setupGuide": "Begeleide checklist om te starten",
       "general": "Bedrijfsnaam en taal",
@@ -4038,7 +4036,7 @@
     "emptyHint": "Agents gebruiken dit om te antwoorden. Voeg een document toe, chat met een agent, of publiceer klantartikelen in het Helpcentrum.",
     "openAgents": "Agents openen",
     "openSetup": "Setupgids openen",
-    "talkAssistant": "Praat met je assistent",
+    "talkAssistant": "Praat met een agent",
     "tryPrefill": "Gebruik onze kennisdocumenten om te antwoorden: wat weten we al dat helpt bij het werk van vandaag?",
     "usedByAgents": "Agents lezen dit tijdens het werk.",
     "openRuns": "Agent-runs openen",

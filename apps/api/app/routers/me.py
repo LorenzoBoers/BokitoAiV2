@@ -1,4 +1,4 @@
-"""Per-user settings: the personal assistant and chat preferences."""
+"""Per-user settings: UI preferences and chat defaults."""
 
 from datetime import datetime
 from typing import Annotated
@@ -12,22 +12,13 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import UserPreference
 from app.services.language import platform_default_ui_language
-from app.services.personal_agents import (
-    allowed_company_agents,
-    get_or_create_personal_agent,
-    get_user_preference,
-)
+from app.services.personal_agents import allowed_company_agents, get_user_preference
 
 router = APIRouter(prefix="/me", tags=["me"])
 
 
-class AssistantPatch(BaseModel):
-    name: str | None = None
-    instructions: str | None = None
-    default_chat_agent_id: UUID | None = None
-
-
 class PreferencesPatch(BaseModel):
+    default_chat_agent_id: UUID | None = None
     ui_language: str | None = None
     # First-run tour state (intro_done, completed, dismissed, version, ...).
     # Shallow-merged so future tour keys need no API change.
@@ -167,65 +158,17 @@ async def patch_my_preferences(
         }
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
-    await session.commit()
-    stored_lang = stored.get("ui_language")
-    return {
-        "ui_language": stored_lang if stored_lang in ("en", "nl") else platform_default_ui_language(),
-        "tour": _tour_state(stored),
-        "inbox_folders": _inbox_folders_state(stored),
-    }
 
-
-async def _assistant_payload(session: AsyncSession, auth: AuthContext) -> dict:
-    agent = await get_or_create_personal_agent(session, auth.tenant.id, auth.user)
-    pref = await get_user_preference(session, auth.tenant.id, auth.user.id)
-    default_id = agent.id
-    if pref and pref.default_chat_agent_id:
-        default_id = pref.default_chat_agent_id
-    return {
-        "agent": {
-            "id": str(agent.id),
-            "name": agent.name,
-            "instructions": agent.system_prompt,
-            "model": agent.model,
-            "kind": agent.kind,
-        },
-        "default_chat_agent_id": str(default_id),
-    }
-
-
-@router.get("/assistant")
-async def get_my_assistant(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await _assistant_payload(session, auth)
-
-
-@router.patch("/assistant")
-async def patch_my_assistant(
-    body: AssistantPatch,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    agent = await get_or_create_personal_agent(session, auth.tenant.id, auth.user)
-    if body.name is not None:
-        name = body.name.strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="Assistant name cannot be empty")
-        agent.name = name
-    if body.instructions is not None:
-        agent.system_prompt = body.instructions
-    agent.updated_at = datetime.utcnow()
-
+    default_chat_agent_id: str | None = None
     if body.default_chat_agent_id is not None:
-        valid_ids = {agent.id} | {
-            a.id
-            for a in await allowed_company_agents(
-                session, auth.tenant.id, auth.user.id, is_admin=auth.role in ("owner", "admin")
-            )
-        }
+        company = await allowed_company_agents(
+            session, auth.tenant.id, auth.user.id, is_admin=auth.role in ("owner", "admin")
+        )
+        valid_ids = {a.id for a in company}
+        # Explicit null clears the preference; otherwise must be a permitted company agent.
         if body.default_chat_agent_id not in valid_ids:
+            # Allow clearing via a sentinel? Prefer Optional and use a separate flag.
+            # Callers send a company agent id only.
             raise HTTPException(status_code=400, detail="Not a permitted chat target")
         pref = await get_user_preference(session, auth.tenant.id, auth.user.id)
         if not pref:
@@ -233,6 +176,38 @@ async def patch_my_assistant(
             session.add(pref)
         pref.default_chat_agent_id = body.default_chat_agent_id
         pref.updated_at = datetime.utcnow()
+        default_chat_agent_id = str(body.default_chat_agent_id)
+    else:
+        pref = await get_user_preference(session, auth.tenant.id, auth.user.id)
+        if pref and pref.default_chat_agent_id:
+            default_chat_agent_id = str(pref.default_chat_agent_id)
 
     await session.commit()
-    return await _assistant_payload(session, auth)
+    stored_lang = stored.get("ui_language")
+    return {
+        "ui_language": stored_lang if stored_lang in ("en", "nl") else platform_default_ui_language(),
+        "tour": _tour_state(stored),
+        "inbox_folders": _inbox_folders_state(stored),
+        "default_chat_agent_id": default_chat_agent_id,
+    }
+
+
+@router.get("/chat-default")
+async def get_chat_default(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Preferred company agent for new chats, if any."""
+    pref = await get_user_preference(session, auth.tenant.id, auth.user.id)
+    company = await allowed_company_agents(
+        session, auth.tenant.id, auth.user.id, is_admin=auth.role in ("owner", "admin")
+    )
+    default_id = pref.default_chat_agent_id if pref else None
+    if default_id and default_id not in {a.id for a in company}:
+        default_id = None
+    return {
+        "default_chat_agent_id": str(default_id) if default_id else None,
+        "agents": [
+            {"id": str(a.id), "name": a.name, "role": a.role} for a in company
+        ],
+    }

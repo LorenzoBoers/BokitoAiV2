@@ -189,7 +189,7 @@ export default function SetupHubPage() {
         actions: [
           {
             label: t('setupGuidePage.intelligence.setupAssistant'),
-            to: talkToAssistantPath(assistantPrompt, { kind: 'company' }),
+            to: talkToAssistantPath(assistantPrompt),
             primary: !(companyDone && assistantDone),
           },
           { label: t('setupGuidePage.intelligence.openKnowledge'), to: '/knowledge' },
@@ -233,7 +233,7 @@ export default function SetupHubPage() {
             : []),
           {
             label: t('setupGuidePage.automations.askAssistant'),
-            to: talkToAssistantPath(t('setupGuidePage.automations.assistantPrompt'), { kind: 'company' }),
+            to: talkToAssistantPath(t('setupGuidePage.automations.assistantPrompt')),
             primary: !checkIn || checkIn.enabled,
           },
           { label: t('setupGuidePage.automations.openAgenda'), to: '/agenda?view=automations' },
@@ -323,7 +323,7 @@ export default function SetupHubPage() {
                 </p>
               </div>
               <Link
-                to={talkToAssistantPath(assistantPrompt, { kind: 'company' })}
+                to={talkToAssistantPath(assistantPrompt)}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
               >
                 <Bot size={13} />

@@ -55,7 +55,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 
 ## Zet een handtekening en routing
 
-1. Open het rijmenu van een mailbox en daarna **Handtekening**. Uitgaande mail vanaf die mailbox voegt die toe.
+1. Open het rijmenu van een mailbox en daarna **Handtekening**. Uitgaande mail vanaf die mailbox voegt die toe. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
 2. Open **Routing**. De pagina heet **Routingregels**. Kies **Regel toevoegen**. Regels lopen van boven naar beneden; de eerste match wint. Versleep om te herordenen.
 3. Zet **Type voorwaarde** op **Afzenderdomein**, **Onderwerp bevat** of **Mailbox**, daarna **Toewijzen aan** een persoon (of **Niet toewijzen**) en optioneel **Labels**. Zet **Regel is actief** aan.
 4. Gebruik de kolom **Agent** op de rij om nieuwe gesprekken van dat kanaal naar een specifieke agent te sturen. Zonder route behandelt de **lead agent** nieuwe gesprekken. Maak één e-mailkanaal **Primair** als je er meerdere hebt.

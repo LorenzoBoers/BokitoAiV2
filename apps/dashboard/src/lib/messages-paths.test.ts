@@ -100,10 +100,8 @@ describe('sameLeafScope', () => {
     ).toBe(false)
   })
 
-  it('round-trips agent and assistant folders with queues', () => {
+  it('round-trips agent folders with queues', () => {
     const leaves: HubLeaf[] = [
-      { type: 'assistant' },
-      { type: 'assistant', queue: 'open' },
       { type: 'agent', agentId: 'abc' },
       { type: 'agent', agentId: 'abc', queue: 'mine' },
     ]
@@ -113,17 +111,15 @@ describe('sameLeafScope', () => {
     expect(leafPath({ type: 'agent', agentId: 'abc', queue: 'open' })).toBe(
       '/communication/agent/abc/open',
     )
-    expect(leafPath({ type: 'assistant', queue: 'closed' })).toBe('/communication/assistant/closed')
   })
 
-  it('matches agent and assistant scopes regardless of queue', () => {
+  it('matches agent scopes regardless of queue', () => {
     expect(
       sameLeafScope(
         { type: 'agent', agentId: '1', queue: 'open' },
         { type: 'agent', agentId: '1' },
       ),
     ).toBe(true)
-    expect(sameLeafScope({ type: 'assistant', queue: 'mine' }, { type: 'assistant' })).toBe(true)
     expect(
       sameLeafScope({ type: 'agent', agentId: '1' }, { type: 'agent', agentId: '2' }),
     ).toBe(false)
@@ -187,7 +183,6 @@ describe('default queue resolution', () => {
     ).toBe('channel:email:12')
     expect(folderScopeKey({ type: 'tag', tag: 'vip', queue: 'open' })).toBe('tag:vip')
     expect(folderScopeKey({ type: 'agent', agentId: 'a1', queue: 'closed' })).toBe('agent:a1')
-    expect(folderScopeKey({ type: 'assistant', queue: 'open' })).toBe('assistant')
     expect(folderScopeKey({ type: 'inbox', queue: 'mine' })).toBe('inbox')
   })
 })

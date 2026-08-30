@@ -4,12 +4,11 @@
  * The hub is organized as sidebar "leaves"; each leaf drives the thread-list
  * column and the conversation pane:
  *
- * - `inbox`     — assignable conversations across channels (excludes assistant chats)
- * - `assistant` — chats with your personal assistant (optional sub-queue)
- * - `agent`     — direct chats with a company agent (optional sub-queue)
- * - `runs`      — internal agent activity (updates, results, decisions)
- * - `channel`   — threads of one connected channel (email mailbox, webchat, ...)
- * - `tag`       — cross-channel tag folder (optional sub-queue)
+ * - `inbox`   — assignable conversations across channels
+ * - `agent`   — direct chats with a company agent (optional sub-queue)
+ * - `runs`    — internal agent activity (updates, results, decisions)
+ * - `channel` — threads of one connected channel (email mailbox, webchat, ...)
+ * - `tag`     — cross-channel tag folder (optional sub-queue)
  */
 
 export const INBOX_QUEUES = ['all', 'mine', 'open', 'unassigned', 'snoozed', 'closed', 'spam'] as const
@@ -39,7 +38,6 @@ export const SUB_QUEUE_TO_VIEW = {
 
 export type HubLeaf =
   | { type: 'inbox'; queue?: InboxQueue }
-  | { type: 'assistant'; queue?: SubQueue }
   | { type: 'agent'; agentId: string; queue?: SubQueue }
   | { type: 'runs'; queue: RunsQueue }
   | { type: 'channel'; channelKey: ChannelKey; connectionId?: string; queue?: SubQueue }
@@ -55,18 +53,6 @@ export function inboxPath(queue?: InboxQueue | null, threadId?: string | null): 
 }
 
 type PathOpts = { queue?: SubQueue; threadId?: string | null }
-
-/** Personal assistant chats. Accepts a thread id string or `{ queue, threadId }`. */
-export function assistantPath(
-  threadIdOrOpts?: string | null | PathOpts,
-): string {
-  if (threadIdOrOpts && typeof threadIdOrOpts === 'object') {
-    let base = '/communication/assistant'
-    if (threadIdOrOpts.queue) base += `/${threadIdOrOpts.queue}`
-    return withThread(base, threadIdOrOpts.threadId)
-  }
-  return withThread('/communication/assistant', threadIdOrOpts)
-}
 
 /** Company-agent chats. Second arg is a thread id string or `{ queue, threadId }`. */
 export function agentChatPath(
@@ -127,8 +113,6 @@ export function leafPath(leaf: HubLeaf, threadId?: string | null): string {
   switch (leaf.type) {
     case 'inbox':
       return inboxPath(leaf.queue, threadId)
-    case 'assistant':
-      return assistantPath({ queue: leaf.queue, threadId })
     case 'agent':
       return agentChatPath(leaf.agentId, { queue: leaf.queue, threadId })
     case 'runs':
@@ -172,13 +156,6 @@ export function leafFromPath(pathname: string): HubLeaf | null {
       return {
         type: 'inbox',
         queue: raw && isInboxQueue(raw) ? raw : undefined,
-      }
-    }
-    case 'assistant': {
-      const first = parts[0] ? decodeURIComponent(parts[0]) : undefined
-      return {
-        type: 'assistant',
-        queue: first && isSubQueue(first) ? first : undefined,
       }
     }
     case 'agent': {
@@ -238,7 +215,6 @@ export function sameLeafScope(a: HubLeaf | null, b: HubLeaf): boolean {
   }
   if (a.type === 'tag' && b.type === 'tag') return a.tag === b.tag
   if (a.type === 'agent' && b.type === 'agent') return a.agentId === b.agentId
-  if (a.type === 'assistant' && b.type === 'assistant') return true
   return leafKey(a) === leafKey(b)
 }
 
@@ -247,8 +223,6 @@ export function leafKey(leaf: HubLeaf): string {
   switch (leaf.type) {
     case 'inbox':
       return leaf.queue ? `inbox:${leaf.queue}` : 'inbox'
-    case 'assistant':
-      return `assistant${leaf.queue ? `:${leaf.queue}` : ''}`
     case 'agent':
       return `agent:${leaf.agentId}${leaf.queue ? `:${leaf.queue}` : ''}`
     case 'runs':

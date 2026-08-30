@@ -11,7 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import { bokitoListConversations, type ConversationWithAgent } from '../lib/bokito-api'
-import { assistantPath, newConversationPath } from '../lib/messages-paths'
+import { agentChatPath, newConversationPath } from '../lib/messages-paths'
 import { onGatewayEvent } from '../lib/gateway'
 
 const GATEWAY_DEBOUNCE_MS = 1_200
@@ -79,9 +79,14 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
 
   const openConversation = useCallback(
     (id: string) => {
-      navigate(assistantPath(id))
+      const conv = conversations.find((c) => c.id === id)
+      if (conv?.agent_id) {
+        navigate(agentChatPath(conv.agent_id, id))
+        return
+      }
+      navigate(newConversationPath())
     },
-    [navigate],
+    [navigate, conversations],
   )
 
   const value = useMemo(

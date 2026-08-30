@@ -58,37 +58,28 @@ async def test_member_cannot_install_mcp(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_member_can_change_own_assistant_model_but_not_company(client: AsyncClient):
-    """The My Assistant page lets every user pick their assistant's model;
-    company agents stay admin-only."""
+async def test_member_cannot_change_company_agent_model(client: AsyncClient):
+    """Company agent models are admin-only; personal assistants no longer exist."""
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     member = await _member(client, owner, "model-member@example.com")
 
-    # Provision the member's personal assistant and read its id.
     r = await client.get("/api/me/assistant", headers=member)
-    assert r.status_code == 200, r.text
-    own_agent_id = r.json()["agent"]["id"]
-    own_model = r.json()["agent"]["model"]
+    assert r.status_code == 404
 
-    # Authorization must pass for the member's own assistant. The model catalog
-    # is not seeded in tests, so accept 200 (valid model) or 400 (catalog miss);
-    # what matters is that it is not a 403.
-    r = await client.patch(
-        f"/api/workforce/agents/{own_agent_id}/model",
-        headers=member,
-        json={"model": own_model},
-    )
-    assert r.status_code != 403, r.text
-
-    # A company agent is still off-limits for plain members.
     r = await client.get("/api/workforce/agents", headers=member)
     assert r.status_code == 200
-    company = next((a for a in r.json().get("items", r.json())
-                    if isinstance(a, dict) and a.get("kind") != "personal"), None)
-    if company:
-        r = await client.patch(
-            f"/api/workforce/agents/{company['id']}/model",
-            headers=member,
-            json={"model": "claude-sonnet-4-5"},
-        )
-        assert r.status_code == 403
+    company = next(
+        (
+            a
+            for a in r.json().get("items", r.json())
+            if isinstance(a, dict) and a.get("kind") == "company"
+        ),
+        None,
+    )
+    assert company is not None
+    r = await client.patch(
+        f"/api/workforce/agents/{company['id']}/model",
+        headers=member,
+        json={"model": "claude-sonnet-4-5"},
+    )
+    assert r.status_code == 403

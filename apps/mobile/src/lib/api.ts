@@ -406,7 +406,7 @@ export type ChatTarget = {
 
 export type ChatTargetsResponse = {
   items: ChatTarget[]
-  default_agent_id: string
+  default_agent_id: string | null
 }
 
 export const listConversations = () => apiGet<Conversation[]>('/api/chat/conversations?channel=assistant')

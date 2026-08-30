@@ -31,13 +31,13 @@ Bokito heeft één zijbalk. Elk item beantwoordt een andere vraag. Gebruik het c
 
 **E-mail en berichten**, **AI-antwoordinstellingen**, **Chatwidget**, **Leden**, **Providers en modellen**, **Integraties**, **Setupgids** en **Govern** staan hier. Eigenaren en admins komen hier; leden zelden. Zie de [setupgids](/docs/getting-started/setup-guide).
 
-Persoonlijke schermen — **Profiel**, **Notificaties**, **Mijn assistent** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
+Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Ze veranderen niet hoe het team klanten beantwoordt.
 
 ## Gebruik het commandopalet
 
 1. Druk `Ctrl+K` (Windows) of `Cmd+K` (Mac) vanaf elke ingelogde pagina.
 2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Inbox-wachtrijen**, **Kennis** en **Instellingen**.
-3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met mijn assistent**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Mijn assistent**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen** en **Hulp openen**.
+3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen** en **Hulp openen**.
 4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
 Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen, niet om inboxfilters te zetten.

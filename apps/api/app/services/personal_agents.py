@@ -1,75 +1,22 @@
-"""Personal assistants + chat target permissions.
+"""Company chat targets — who a member may start a direct agent chat with.
 
-Every user gets one personal Agent (kind="personal", owner_user_id set) per
-tenant — their default chat target. Company agents (kind="company") can be
-opened for direct chat when their chat_access allows the user.
+Personal assistants (kind=\"personal\") are retired. Members pick a company
+agent they are allowed to chat with; if none are available the API returns
+an empty list / 409.
 """
 
 from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from fastapi import HTTPException
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentChatUser
-from app.models.auth import Membership, User, UserPreference
+from app.models.auth import User, UserPreference
 
-PERSONAL_ASSISTANT_PROMPT = """You are {name}, the personal assistant of {owner}.
-Help them with their daily work inside this workspace: answer questions, draft
-messages and documents, look things up in workspace knowledge, and coordinate
-with company agents when needed. Be concise, concrete, and proactive."""
-
-
-def _assistant_name(user: User) -> str:
-    base = (user.display_name or user.email.split("@")[0]).strip()
-    first = base.split(" ")[0] if base else "My"
-    return f"{first}'s assistant" if first != "My" else "My assistant"
-
-
-async def get_personal_agent(
-    session: AsyncSession, tenant_id: UUID, user_id: UUID
-) -> Agent | None:
-    result = await session.execute(
-        select(Agent).where(
-            Agent.tenant_id == tenant_id,
-            Agent.kind == "personal",
-            Agent.owner_user_id == user_id,
-        )
-    )
-    return result.scalars().first()
-
-
-def build_personal_agent(tenant_id: UUID, user: User) -> Agent:
-    name = _assistant_name(user)
-    return Agent(
-        tenant_id=tenant_id,
-        name=name,
-        role="assistant",
-        kind="personal",
-        owner_user_id=user.id,
-        chat_access="nobody",
-        runtime_status="standby",
-        system_prompt=PERSONAL_ASSISTANT_PROMPT.format(
-            name=name, owner=user.display_name or user.email
-        ),
-    )
-
-
-async def get_or_create_personal_agent(
-    session: AsyncSession, tenant_id: UUID, user: User, *, commit: bool = True
-) -> Agent:
-    agent = await get_personal_agent(session, tenant_id, user.id)
-    if agent:
-        return agent
-    agent = build_personal_agent(tenant_id, user)
-    session.add(agent)
-    if commit:
-        await session.commit()
-        await session.refresh(agent)
-    else:
-        await session.flush()
-    return agent
+NO_AGENTS_DETAIL = "No agents available for user"
 
 
 async def allowed_company_agents(
@@ -123,43 +70,56 @@ async def get_user_preference(
 
 
 async def resolve_chat_target(
-    session: AsyncSession, tenant_id: UUID, user: User, agent_id: UUID | None, *, is_admin: bool = False
+    session: AsyncSession,
+    tenant_id: UUID,
+    user: User,
+    agent_id: UUID | None,
+    *,
+    is_admin: bool = False,
 ) -> Agent:
-    """Validate an explicit target, or fall back to preference -> personal agent."""
-    personal = await get_or_create_personal_agent(session, tenant_id, user, commit=False)
+    """Resolve a company chat target. ``agent_id`` is required.
+
+    Raises 409 when the user has no permitted company agents, 400 when
+    ``agent_id`` is missing, 403 when the chosen agent is not permitted.
+    """
+    company = await allowed_company_agents(
+        session, tenant_id, user.id, is_admin=is_admin
+    )
+    if not company:
+        raise HTTPException(status_code=409, detail=NO_AGENTS_DETAIL)
+
     if agent_id is None:
-        pref = await get_user_preference(session, tenant_id, user.id)
-        agent_id = pref.default_chat_agent_id if pref else None
-        if agent_id is None or agent_id == personal.id:
-            return personal
-    if agent_id == personal.id:
-        return personal
-    for agent in await allowed_company_agents(session, tenant_id, user.id, is_admin=is_admin):
-        if agent.id == agent_id:
-            return agent
-    return personal
-
-
-async def provision_missing_personal_agents(session: AsyncSession) -> int:
-    """Backfill: one personal assistant per membership. Returns count created."""
-    memberships = (await session.execute(select(Membership))).scalars().all()
-    existing = (
-        await session.execute(
-            select(Agent.tenant_id, Agent.owner_user_id).where(Agent.kind == "personal")
+        raise HTTPException(
+            status_code=400,
+            detail="Choose which agent to talk to",
         )
-    ).all()
-    have = {(t, u) for t, u in existing}
-    users = {u.id: u for u in (await session.execute(select(User))).scalars().all()}
-    created = 0
-    for m in memberships:
-        if (m.tenant_id, m.user_id) in have:
-            continue
-        user = users.get(m.user_id)
-        if not user or not user.is_active:
-            continue
-        session.add(build_personal_agent(m.tenant_id, user))
-        have.add((m.tenant_id, m.user_id))
-        created += 1
-    if created:
-        await session.commit()
-    return created
+    by_id = {a.id: a for a in company}
+    agent = by_id.get(agent_id)
+    if agent is None:
+        raise HTTPException(status_code=403, detail="Agent not available for chat")
+    return agent
+
+
+async def deactivate_personal_agents(session: AsyncSession) -> int:
+    """Soft-retire legacy personal assistants. Clears prefs pointing at them."""
+    personal_ids = list(
+        (
+            await session.execute(
+                select(Agent.id).where(Agent.kind == "personal", Agent.is_active.is_(True))
+            )
+        ).scalars().all()
+    )
+    if not personal_ids:
+        return 0
+    await session.execute(
+        update(Agent)
+        .where(Agent.id.in_(personal_ids))
+        .values(is_active=False, runtime_status="paused")
+    )
+    await session.execute(
+        update(UserPreference)
+        .where(UserPreference.default_chat_agent_id.in_(personal_ids))
+        .values(default_chat_agent_id=None)
+    )
+    await session.commit()
+    return len(personal_ids)

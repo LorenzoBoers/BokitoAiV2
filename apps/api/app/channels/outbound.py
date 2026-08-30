@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,21 @@ from app.channels import slack as slack_adapter
 from app.channels import whatsapp as whatsapp_adapter
 from app.models.channel import ChannelAccount
 from app.models.signal import Signal, SignalMessage
+
+
+@dataclass(frozen=True)
+class OutboundDelivery:
+    """Result of delivering a reply to an external channel.
+
+    ``body_html`` is set for email and is the exact HTML that was sent
+    (including signature), so callers can persist it on the timeline.
+    """
+
+    status: str
+    body_html: str | None = None
+
+    def startswith(self, prefix: str) -> bool:
+        return self.status.startswith(prefix)
 
 
 def _message_metadata(message: SignalMessage) -> dict:
@@ -101,39 +117,40 @@ async def deliver_outbound(
     bcc: str | None = None,
     attachments: list[dict] | None = None,
     signature_html: str | None = None,
-) -> str:
+) -> OutboundDelivery:
     """Send `body_text` to the external party of this thread.
 
-    Returns a send status string (`sent`, `failed:...`, or `skipped` for
-    channels without external delivery such as internal/assistant threads).
+    Returns an ``OutboundDelivery`` whose ``status`` is `sent`, `failed:…`,
+    or `skipped` (channels without external delivery). For email, ``body_html``
+    is the final HTML including the signature that was handed to the provider.
 
     `signature_html` is the identity-resolved signature (user or agent, see
     services/signatures.py); when None the mailbox signature is the fallback.
     """
     if signal.channel not in ("email", "slack", "whatsapp"):
-        return "skipped"
+        return OutboundDelivery("skipped")
     if signal.channel == "email" and not signal.channel_account_id:
         fallback = await _workspace_email_account(session, signal.tenant_id)
         if fallback:
             signal.channel_account_id = fallback.id
             session.add(signal)
         else:
-            return "skipped"
+            return OutboundDelivery("skipped")
     if not signal.channel_account_id:
-        return "skipped"
+        return OutboundDelivery("skipped")
     result = await session.execute(
         select(ChannelAccount).where(ChannelAccount.id == signal.channel_account_id)
     )
     account = result.scalar_one_or_none()
     if not account or not account.is_enabled:
-        return "failed:no_account"
+        return OutboundDelivery("failed:no_account")
 
     if signal.channel == "email":
         recipient = (to_address or "").strip() or signal.contact_email
         if not recipient:
-            return "failed:no_recipient"
+            return OutboundDelivery("failed:no_recipient")
         in_reply_to, references, reply_to_provider_id = await _reply_context(session, signal.id)
-        return await email_adapter.send_via_provider(
+        status, final_html = await email_adapter.send_via_provider(
             account,
             to_address=recipient,
             subject=subject or signal.subject,
@@ -149,12 +166,15 @@ async def deliver_outbound(
             session=session,
             signature_html=signature_html,
         )
+        return OutboundDelivery(status, body_html=final_html)
     if signal.channel == "whatsapp":
         # thread_external_id IS the customer's wa_id (one thread per number).
         recipient = (to_address or "").strip() or (signal.external_id or "").strip()
-        return await whatsapp_adapter.send_message(
+        status = await whatsapp_adapter.send_message(
             account, to_address=recipient, body_text=body_text
         )
-    return await slack_adapter.send_message(
+        return OutboundDelivery(status)
+    status = await slack_adapter.send_message(
         account, thread_external_id=signal.external_id, body_text=body_text
     )
+    return OutboundDelivery(status)

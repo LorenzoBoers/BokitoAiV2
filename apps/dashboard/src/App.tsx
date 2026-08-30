@@ -14,7 +14,7 @@ import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-set
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { CardGridSkeleton } from './components/ui/skeleton'
-import { agentChatPath, agentRunsPath, assistantPath, channelPath, inboxPath } from './lib/messages-paths'
+import { agentChatPath, agentRunsPath, channelPath, inboxPath, newConversationPath } from './lib/messages-paths'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
 // Public pages
@@ -47,7 +47,6 @@ const WorkspaceDocs = lazy(() => import('./pages/WorkspaceDocs'))
 
 // Settings sections
 const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
-const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
 const ModelsSettings = lazy(() => import('./pages/ModelsSettings'))
 const DeveloperSettings = lazy(() => import('./pages/DeveloperSettings'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
@@ -136,25 +135,16 @@ function RedirectModulesLegacy() {
   return <Navigate to={`/modules${rest}${location.search}`} replace />
 }
 
-/** `/c/:conversationId` → `/communication/assistant/t/:conversationId`. */
+/** Legacy personal-assistant / bare chat URLs → New conversation (pick a company agent). */
 function LegacyConversationRedirect() {
-  const { conversationId } = useParams<{ conversationId: string }>()
   const location = useLocation()
-  return <Navigate to={assistantPath(conversationId)} state={location.state} replace />
+  return <Navigate to={newConversationPath()} state={location.state} replace />
 }
 
-/** `/communication/chat/...` → assistant thread routes. */
-function LegacyChatRedirect() {
-  const { conversationId } = useParams<{ conversationId?: string }>()
-  const location = useLocation()
-  return <Navigate to={assistantPath(conversationId)} state={location.state} replace />
-}
-
-/** `/communication/direct/my[...]` → `/communication/assistant[...]`. */
+/** `/communication/direct/my[...]` → New conversation (personal assistant removed). */
 function LegacyDirectMyRedirect() {
-  const { threadId } = useParams<{ threadId?: string }>()
   const location = useLocation()
-  return <Navigate to={`${assistantPath(threadId)}${location.search}`} state={location.state} replace />
+  return <Navigate to={`${newConversationPath()}${location.search}`} state={location.state} replace />
 }
 
 /** `/communication/direct/agent/:agentId[...]` → `/communication/agent/:agentId[...]`. */
@@ -272,11 +262,11 @@ export default function App() {
             <Route path="/communication/inbox/:queue" element={<Communication />} />
             <Route path="/communication/inbox/:queue/t/:threadId" element={<Communication />} />
 
-            {/* Assistant + agent chats */}
-            <Route path="/communication/assistant" element={<DirectCommunication />} />
-            <Route path="/communication/assistant/t/:threadId" element={<DirectCommunication />} />
-            <Route path="/communication/assistant/:queue" element={<DirectCommunication />} />
-            <Route path="/communication/assistant/:queue/t/:threadId" element={<DirectCommunication />} />
+            {/* Legacy personal assistant leaf → New chat */}
+            <Route path="/communication/assistant/*" element={<Navigate to={newConversationPath()} replace />} />
+            <Route path="/communication/assistant" element={<Navigate to={newConversationPath()} replace />} />
+
+            {/* Company agent chats */}
             <Route path="/communication/agent/:agentId" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/t/:threadId" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
@@ -304,9 +294,9 @@ export default function App() {
             <Route path="/communication/tag/:tag/:queue/t/:threadId" element={<Communication />} />
 
             {/* Legacy hub routes */}
-            <Route path="/communication/chat" element={<LegacyChatRedirect />} />
-            <Route path="/communication/chat/:conversationId" element={<LegacyChatRedirect />} />
-            <Route path="/communication/direct" element={<Navigate to={assistantPath()} replace />} />
+            <Route path="/communication/chat" element={<LegacyConversationRedirect />} />
+            <Route path="/communication/chat/:conversationId" element={<LegacyConversationRedirect />} />
+            <Route path="/communication/direct" element={<Navigate to={newConversationPath()} replace />} />
             <Route path="/communication/direct/my" element={<LegacyDirectMyRedirect />} />
             <Route path="/communication/direct/my/t/:threadId" element={<LegacyDirectMyRedirect />} />
             <Route path="/communication/direct/agent/:agentId" element={<LegacyDirectAgentRedirect />} />
@@ -352,7 +342,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsHomeRedirect />} />
             <Route path="/settings/setup" element={<SetupHubPage />} />
             <Route path="/settings/profile" element={<ProfileSettings />} />
-            <Route path="/settings/assistant" element={<MyAssistantSettings />} />
+            <Route path="/settings/assistant" element={<Navigate to={newConversationPath()} replace />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />
             <Route path="/settings/access-security" element={<Navigate to="/settings/profile" replace />} />
             <Route path="/settings/general" element={<WorkspaceSettings />} />
@@ -389,9 +379,9 @@ export default function App() {
           <Route path="/skills" element={<Navigate to="/knowledge" replace />} />
           <Route path="/workspace" element={<Navigate to="/knowledge" replace />} />
           <Route path="/workspace/:docId" element={<LegacyWorkspaceDocRedirect />} />
-          <Route path="/chat" element={<Navigate to={assistantPath()} replace />} />
+          <Route path="/chat" element={<Navigate to={newConversationPath()} replace />} />
           <Route path="/c/:conversationId" element={<LegacyConversationRedirect />} />
-          <Route path="/sessions" element={<Navigate to={assistantPath()} replace />} />
+          <Route path="/sessions" element={<Navigate to={newConversationPath()} replace />} />
           <Route path="/messages/*" element={<LegacyMessagesRedirect />} />
           <Route path="/messages" element={<LegacyMessagesRedirect />} />
           <Route path="/inbox/*" element={<LegacyInboxRedirect />} />

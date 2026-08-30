@@ -187,7 +187,7 @@ async def thread_agent_candidates(
     owns its work, and every other permitted agent is a specialist the
     operator may call in. `reason` drives the label in the picker.
     """
-    from app.services.personal_agents import allowed_company_agents, get_or_create_personal_agent
+    from app.services.personal_agents import allowed_company_agents
     from app.services.routing import resolve_agent_for_signal
 
     thread = await _load_host_thread(session, tenant_id, thread_id)
@@ -226,9 +226,6 @@ async def thread_agent_candidates(
     for agent in await allowed_company_agents(session, tenant_id, user.id, is_admin=is_admin):
         add(agent, "company")
 
-    # Committed on purpose: the returned ids must stay valid for the follow-up
-    # "start session" call.
-    add(await get_or_create_personal_agent(session, tenant_id, user), "personal")
     return ranked
 
 

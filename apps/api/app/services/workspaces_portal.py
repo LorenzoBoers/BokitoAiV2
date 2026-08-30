@@ -207,9 +207,6 @@ async def create_workspace(
     user.last_tenant_id = tenant.id
     session.add(user)
     await bootstrap_tenant(session, tenant.id)
-    from app.services.personal_agents import get_or_create_personal_agent
-
-    await get_or_create_personal_agent(session, tenant.id, user, commit=False)
     await session.commit()
     await session.refresh(tenant)
     from app.services.auth import create_access_token

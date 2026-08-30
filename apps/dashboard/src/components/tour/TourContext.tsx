@@ -152,7 +152,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     persist({ completed: true })
     setPhase('idle')
     const prompt = t('setupPrompt', { lng: i18n.resolvedLanguage })
-    const dest = talkToAssistantPath(prompt, { kind: 'company' })
+    const dest = talkToAssistantPath(prompt)
     navigate(`${dest}${dest.includes('?') ? '&' : '?'}autosend=1`)
   }, [persist, navigate, t, i18n.resolvedLanguage])
 
