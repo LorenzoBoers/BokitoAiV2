@@ -10,7 +10,8 @@ Revises: 022_module_agent_scope
   tenant_secrets -> provider_connections, inbox_settings -> settings_json.inbox
 - Drop legacy tables: project_queue_items, queue_item_doc_links,
   runtime_profiles, tenant_secrets, inbox_settings
-- Drop agent_tasks.default_runtime_profile_id (passport lives on Agent)
+- Drop runtime_profile FKs/columns on agent_tasks, agents, workstream_steps
+  (passport lives on Agent)
 """
 
 from __future__ import annotations
@@ -218,15 +219,8 @@ def upgrade() -> None:
     _migrate_tenant_secrets(bind)
     _migrate_inbox_settings(bind)
 
-    # --- Drop legacy FK/column on agent_tasks -------------------------------
-    inspector = sa.inspect(bind)
-    if "default_runtime_profile_id" in _cols(inspector, "agent_tasks"):
-        # Drop FK first when present.
-        for fk in inspector.get_foreign_keys("agent_tasks"):
-            if "default_runtime_profile_id" in (fk.get("constrained_columns") or []):
-                if fk.get("name"):
-                    op.drop_constraint(fk["name"], "agent_tasks", type_="foreignkey")
-        op.drop_column("agent_tasks", "default_runtime_profile_id")
+    # --- Drop runtime_profile FKs/columns before dropping the table ---------
+    _drop_runtime_profile_refs(bind)
 
     # --- Drop legacy tables (children first) --------------------------------
     for table in (
@@ -239,6 +233,41 @@ def upgrade() -> None:
         inspector = sa.inspect(bind)
         if inspector.has_table(table):
             op.drop_table(table)
+
+
+def _drop_runtime_profile_refs(bind) -> None:
+    """Drop FKs and columns that reference runtime_profiles.
+
+    Staging/prod Postgres still has agents.default_runtime_profile_id and
+    workstream_steps.runtime_profile_id; dropping runtime_profiles without
+    clearing those first fails with DependentObjectsStillExistError.
+    """
+    inspector = sa.inspect(bind)
+    if not inspector.has_table("runtime_profiles"):
+        return
+
+    # Known columns from earlier revisions; also catch any FK to runtime_profiles.
+    known_cols = {
+        "agent_tasks": ("default_runtime_profile_id",),
+        "agents": ("default_runtime_profile_id",),
+        "workstream_steps": ("runtime_profile_id",),
+    }
+    for table, cols in known_cols.items():
+        if not inspector.has_table(table):
+            continue
+        table_cols = _cols(inspector, table)
+        fks = list(inspector.get_foreign_keys(table))
+        for fk in fks:
+            referred = fk.get("referred_table")
+            constrained = fk.get("constrained_columns") or []
+            if referred == "runtime_profiles" or any(c in known_cols.get(table, ()) for c in constrained):
+                if fk.get("name"):
+                    op.drop_constraint(fk["name"], table, type_="foreignkey")
+        for col in cols:
+            if col in table_cols:
+                op.drop_column(table, col)
+        # Refresh per-table so later iterations see a consistent inspector.
+        inspector = sa.inspect(bind)
 
 
 def _migrate_queue_items(bind) -> None:
