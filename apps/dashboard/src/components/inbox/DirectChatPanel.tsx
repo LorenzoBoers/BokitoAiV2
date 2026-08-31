@@ -29,6 +29,8 @@ import { AI_CARD_CLASS, AI_ICON_BOX_CLASS, AI_TEXT_CLASS, AiMark } from '../ai/A
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
 import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
+import { accountingProposalFromOptions } from '../../lib/accounting-proposal'
+import { AccountingProposalBlock } from './AccountingProposalBlock'
 import ChatMarkdown from './ChatMarkdown'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
@@ -217,6 +219,7 @@ function ChatDecisionCard({
   const integrationProvider =
     options.find((o) => isModuleSetupAction(o.action_type))?.provider?.trim() || null
   const integrationBrand = integrationProvider ? resolveProviderBrand(integrationProvider) : null
+  const accountingProposal = accountingProposalFromOptions(options)
 
   const act = async (option: ChatDecisionOption) => {
     if (!token || busy || resolved) return
@@ -282,6 +285,7 @@ function ChatDecisionCard({
           {displayBody}
         </p>
       ) : null}
+      {accountingProposal ? <AccountingProposalBlock proposal={accountingProposal} /> : null}
       {!resolved ? (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {options.map((option, idx) => (

@@ -42,6 +42,9 @@ def serialize_decision_for_chat(decision: Any) -> dict[str, Any]:
                     if isinstance(o.get("payload"), dict)
                     else None
                 ),
+                # Full option payload so chat clients can summarize structured
+                # proposals (accounting writes, calendar events) on the card.
+                "payload": o.get("payload") if isinstance(o.get("payload"), dict) else None,
             }
             for o in options
             if isinstance(o, dict)

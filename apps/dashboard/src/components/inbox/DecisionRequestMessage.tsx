@@ -14,6 +14,8 @@ import {
   UserRound,
   Zap,
 } from 'lucide-react'
+import { accountingProposalFromOptions } from '../../lib/accounting-proposal'
+import { AccountingProposalBlock } from './AccountingProposalBlock'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
 import { composeDefaultSignatureHtml, plainTextToSignatureHtml, withAgentDisclaimer } from '../../lib/default-signature'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
@@ -137,47 +139,6 @@ function draftBodyFromOptions(options: DecisionOption[], fallback: string): stri
   return fallback
 }
 
-type AccountingProposal = {
-  /** Write kind derived from the apply tool name, e.g. "party" | "booking". */
-  kind: string
-  rows: Array<{ label: string; value: string }>
-}
-
-/**
- * Accounting write proposals carry the canonical payload on the approve
- * option (action_type `accounting_apply_*`). Surface the fields that matter
- * for the approval: administration, contact/booking details, and amounts.
- */
-function accountingProposalFromOptions(options: DecisionOption[]): AccountingProposal | null {
-  const option = options.find((o) => (o.action_type ?? '').startsWith('accounting_apply_'))
-  if (!option?.payload) return null
-  const kind = (option.action_type ?? '').replace('accounting_apply_', '')
-  const payload = option.payload
-  const rows: Array<{ label: string; value: string }> = []
-  const push = (label: string, value: unknown) => {
-    if (value === null || value === undefined) return
-    const text = String(value).trim()
-    if (text) rows.push({ label, value: text })
-  }
-  push('company', payload.company_id)
-  push('party', payload.party_id ?? payload.name)
-  push('kind', payload.kind)
-  push('description', payload.description)
-  push('date', payload.date)
-  push('journal', payload.journal_code)
-  push('reference', payload.reference)
-  push('email', payload.email)
-  const lines = payload.lines
-  if (Array.isArray(lines) && lines.length > 0) {
-    const total = lines.reduce((sum, line) => {
-      const amount = Number((line as Record<string, unknown>)?.amount)
-      return Number.isFinite(amount) && amount > 0 ? sum + amount : sum
-    }, 0)
-    push('lines', `${lines.length}${total > 0 ? ` — ${total.toFixed(2)}` : ''}`)
-  }
-  push('amount', payload.amount)
-  return rows.length > 0 ? { kind, rows } : null
-}
 
 /** Team-facing remarks the agent produced alongside the draft (never emailed). */
 function internalNoteFromOptions(options: DecisionOption[]): string {
@@ -725,29 +686,7 @@ export default function DecisionRequestMessage({
                 </div>
               ) : null}
             </div>
-            {accountingProposal ? (
-              <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
-                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
-                  {t(`decisionCard.accounting.kinds.${accountingProposal.kind}`, {
-                    defaultValue: t('decisionCard.accounting.title'),
-                  })}
-                </p>
-                <dl className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-                  {accountingProposal.rows.map((row) => (
-                    <div key={row.label} className="flex min-w-0 gap-1.5">
-                      <dt className="shrink-0 text-text-muted">
-                        {t(`decisionCard.accounting.fields.${row.label}`, {
-                          defaultValue: row.label,
-                        })}
-                      </dt>
-                      <dd className="min-w-0 truncate text-text-primary" title={row.value}>
-                        {row.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            ) : null}
+            {accountingProposal ? <AccountingProposalBlock proposal={accountingProposal} /> : null}
             {internalNote ? (
               <div className="mt-3 border-l-2 border-border/70 pl-3">
                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-text-muted">

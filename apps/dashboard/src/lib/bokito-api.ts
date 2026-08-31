@@ -27,6 +27,8 @@ export type ChatDecisionOption = {
   id: string
   label?: string
   action_type?: string
+  /** Full option payload; structured proposals (accounting, calendar) render from it. */
+  payload?: Record<string, unknown> | null
   /** Integration provider slug on `setup_integration` options (brand logo + deep-link). */
   provider?: string | null
   /** Module slug when the card should open `/modules/:slug`. */
