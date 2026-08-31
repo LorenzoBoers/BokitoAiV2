@@ -280,7 +280,14 @@ async def test_bjorn_lunden_install_discovers_accounting_tools(
 
 
 @pytest.mark.asyncio
-async def test_king_accountancy_install_discovers_read_tools(client: AsyncClient):
+async def test_king_accountancy_install_discovers_read_tools(
+    client: AsyncClient, monkeypatch
+):
+    # A developer's local env may hold a real partner key for live smokes;
+    # this test must not hit the live Cloudswitch login.
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "king_finance_partner_key", "")
     headers = await _auth_headers(client)
 
     install = await client.post(
