@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test'
 import { loginDashboard } from './helpers'
 
 test.describe('Dashboard', () => {
-  test('assistant leaf renders direct chats', async ({ page }) => {
+  test('new conversation leaf is reachable from the communication hub', async ({ page }) => {
     await loginDashboard(page)
-    await page.goto('/communication/assistant')
-    await expect(page.getByText('assistant').first()).toBeVisible({ timeout: 20000 })
+    await page.goto('/communication/new')
+    await expect(page.getByText('New conversation').first()).toBeVisible({ timeout: 20000 })
   })
 
   test('communication rail shows fixed inbox block and customizable sections', async ({ page }) => {
@@ -13,7 +13,6 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/inbox/all')
     await expect(page.getByRole('link', { name: 'New chat' })).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('link', { name: 'Unassigned' })).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('button', { name: 'Assistant' })).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('button', { name: 'Channels' })).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('button', { name: 'Agents' })).toBeVisible({ timeout: 20000 })
   })
@@ -29,16 +28,16 @@ test.describe('Dashboard', () => {
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: 'Agents' })).toBeHidden({ timeout: 20000 })
     await page.reload()
-    await expect(page.getByRole('button', { name: 'Assistant' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Channels' })).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('button', { name: 'Agents' })).toBeHidden({ timeout: 20000 })
   })
 
-  test('new conversation surface shows To-picker with default target', async ({ page }) => {
+  test('new conversation surface shows To-picker with default company agent', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/communication/new')
     await expect(page.getByText('New conversation').first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByText('To:')).toBeVisible({ timeout: 20000 })
-    await expect(page.getByText('My assistant').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText('Bokito Assistant').first()).toBeVisible({ timeout: 20000 })
   })
 
   test('cockpit page renders stats', async ({ page }) => {
@@ -51,19 +50,19 @@ test.describe('Dashboard', () => {
   test('legacy chat, messages and inbox routes redirect into the communication hub', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/chat')
-    await expect(page).toHaveURL(/\/communication\/assistant/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/new/, { timeout: 20000 })
     await page.goto('/messages')
     await expect(page).toHaveURL(/\/communication\/inbox\/all/, { timeout: 20000 })
     await page.goto('/sessions')
-    await expect(page).toHaveURL(/\/communication\/assistant/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/new/, { timeout: 20000 })
     await page.goto('/inbox/customers/all')
     await expect(page).toHaveURL(/\/communication\/inbox\/open/, { timeout: 20000 })
     await page.goto('/communication/direct/my')
-    await expect(page).toHaveURL(/\/communication\/assistant/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/new/, { timeout: 20000 })
     await page.goto('/communication/customers/my')
     await expect(page).toHaveURL(/\/communication\/inbox\/mine/, { timeout: 20000 })
     await page.goto('/communication/agents/awaiting-decision')
-    await expect(page).toHaveURL(/\/communication\/runs\/awaiting-decision/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/decisions/, { timeout: 20000 })
   })
 
   test('legacy routes redirect to new nav', async ({ page }) => {
@@ -84,9 +83,9 @@ test.describe('Dashboard', () => {
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
   })
 
-  test('agent decisions queue lists seeded thread', async ({ page }) => {
+  test('decisions queue lists seeded thread', async ({ page }) => {
     await loginDashboard(page)
-    await page.goto('/communication/runs/awaiting-decision')
+    await page.goto('/communication/decisions')
     await expect(page.getByText('Goedkeuring: inbox routing rule').first()).toBeVisible({ timeout: 60000 })
   })
 
@@ -115,10 +114,10 @@ test.describe('Dashboard', () => {
     await expect(page).toHaveURL(/\/communication\/new/, { timeout: 20000 })
   })
 
-  test('agents page renders agent library', async ({ page }) => {
+  test('agents page renders agents library', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/agents')
-    await expect(page.getByRole('heading', { name: 'Agent library' })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('heading', { name: 'Agents' })).toBeVisible({ timeout: 20000 })
   })
 
   test('skills route redirects into knowledge', async ({ page }) => {

@@ -36,8 +36,12 @@ async def test_chat_flow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_chat_targets_company_only_and_create_requires_agent(client: AsyncClient):
+async def test_chat_targets_company_only_and_create_requires_agent(
+    client: AsyncClient, session_override
+):
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+    from app.models.agent import Agent
+    from app.models.auth import Tenant
 
     login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
@@ -47,6 +51,22 @@ async def test_chat_targets_company_only_and_create_requires_agent(client: Async
     payload = targets.json()
     assert all(item.get("kind") == "company" for item in payload["items"])
     assert "personal" not in {item.get("kind") for item in payload["items"]}
+
+    # Single lead may be auto-picked; add a second lead so create without agent_id fails.
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
+    session_override.add(
+        Agent(
+            tenant_id=tenant.id,
+            name="Second Lead",
+            role="assistant",
+            kind="company",
+            chat_access="everyone",
+            is_lead=True,
+        )
+    )
+    await session_override.commit()
 
     missing = await client.post(
         "/api/chat/conversations",
