@@ -965,6 +965,8 @@
     "retry": "Opnieuw",
     "loadError": "Kon de activiteitengeschiedenis niet laden.",
     "teamMember": "Teamlid",
+    "system": "Systeem",
+    "live": "Live",
     "timelineNow": "Nu",
     "timelineExecuted": "Uitgevoerd",
     "timelineFailed": "Mislukt",
@@ -2063,7 +2065,7 @@
     },
     "activity": {
       "label": "Activiteit",
-      "hint": "Agent-runs, updates en resultaten"
+      "hint": "Live tijdlijn van agent- en teamwerk"
     },
     "contacts": {
       "label": "Contacten",

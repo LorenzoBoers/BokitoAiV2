@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.services.signal_threads import clean_message_preview
 
 # Outlook (and some relays) assign a new conversationId when a Gmail client
 # replies even though In-Reply-To/References are intact. Fall back to RFC
@@ -328,7 +329,7 @@ async def ingest_inbound(
         from_address=inbound.sender_address,
         subject=inbound.subject,
         body_text=inbound.body_text,
-        body_preview=inbound.body_text[:200],
+        body_preview=clean_message_preview(inbound.body_text, limit=200),
         body_html=str(inbound.metadata.get("body_html") or ""),
         attachments_json=json.dumps(inbound.metadata.get("attachments") or []),
         external_id=inbound.external_id,

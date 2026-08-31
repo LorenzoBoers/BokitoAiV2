@@ -6,6 +6,7 @@ export type PageCrumb = {
 
 export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/cockpit/usage')) return [{ labelKey: 'cockpitTabs.usage' }]
+  if (pathname.startsWith('/activity')) return [{ labelKey: 'support.activity.label' }]
   if (pathname.startsWith('/communication/activity')) return [{ labelKey: 'support.activity.label' }]
   if (pathname.startsWith('/contacts/companies/')) return [{ labelKey: 'crumbs.company' }]
   if (/^\/contacts\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.person' }]

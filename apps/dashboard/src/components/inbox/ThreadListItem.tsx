@@ -115,8 +115,9 @@ export default function ThreadListItem({
     !showNeedsReply &&
     thread.status === 'open' &&
     thread.lastMessageDirection === 'outbound'
-  // Customer channel still owned by AI (human takeover clears the violet cue).
-  const aiManaged = !isDirect && !isAgentThread && !thread.aiPaused
+  // Purple cue only when AI has real work on the thread (open decision).
+  // Default !aiPaused ownership no longer paints every customer row violet.
+  const aiActive = !isDirect && !isAgentThread && Boolean(thread.hasOpenDecision)
 
   return (
     <div
@@ -130,14 +131,14 @@ export default function ThreadListItem({
         }
       }}
       data-active={isSelected || undefined}
-      data-ai-managed={aiManaged || undefined}
+      data-ai-managed={aiActive || undefined}
       className={cn(
         'row-interactive w-full cursor-pointer text-left px-3 rounded-md group/thread',
         compact ? 'py-1.5' : 'py-2.5',
         isSelected
           ? 'bg-accent/10 border border-accent/20'
           : 'hover:bg-bg-hover/50 border border-transparent',
-        aiManaged &&
+        aiActive &&
           (isSelected
             ? 'shadow-[inset_3px_0_0_0_rgb(var(--color-ai)/0.55)]'
             : 'border-ai/20 bg-ai/[0.04] shadow-[inset_3px_0_0_0_rgb(var(--color-ai)/0.45),0_8px_20px_-14px_rgb(var(--color-ai)/0.35)]'),

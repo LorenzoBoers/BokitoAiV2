@@ -89,8 +89,8 @@ export function agentRunsPath(queue: RunsQueue = 'all', threadId?: string | null
  */
 export function activityTerminalPath(agentId?: string | null): string {
   return agentId
-    ? `/communication/activity?agent=${encodeURIComponent(agentId)}`
-    : '/communication/activity'
+    ? `/activity?agent=${encodeURIComponent(agentId)}`
+    : '/activity'
 }
 
 /** Sole Communication leaf for open DecisionRequests (customer + internal). */

@@ -350,19 +350,60 @@ def _extract_gmail_html(payload: dict[str, Any]) -> str:
     return ""
 
 
+def _gmail_part_header(part: dict[str, Any], name: str) -> str:
+    target = name.lower()
+    for header in part.get("headers") or []:
+        if str(header.get("name") or "").lower() == target:
+            return str(header.get("value") or "").strip()
+    return ""
+
+
+def normalize_content_id(value: str) -> str:
+    return (value or "").strip().strip("<>").strip()
+
+
+def rewrite_cid_urls(html: str, cid_to_url: dict[str, str]) -> str:
+    """Replace cid: references in email HTML with hosted attachment URLs."""
+    if not html or not cid_to_url:
+        return html
+    lookup = {normalize_content_id(k): v for k, v in cid_to_url.items() if k and v}
+
+    def repl(match: re.Match[str]) -> str:
+        quote = match.group(1)
+        key = normalize_content_id(match.group(2))
+        url = lookup.get(key)
+        if not url:
+            return match.group(0)
+        return f"src={quote}{url}{quote}"
+
+    return re.sub(r"""src=(["'])cid:([^"']+)\1""", repl, html, flags=re.IGNORECASE)
+
+
 def _extract_gmail_attachments(payload: dict[str, Any]) -> list[dict[str, Any]]:
     attachments: list[dict[str, Any]] = []
 
     def walk(part: dict[str, Any]) -> None:
         filename = part.get("filename") or ""
-        if filename:
-            body = part.get("body", {})
+        body = part.get("body", {}) or {}
+        attachment_id = body.get("attachmentId")
+        content_id = normalize_content_id(_gmail_part_header(part, "content-id"))
+        disposition = _gmail_part_header(part, "content-disposition").lower()
+        mime = part.get("mimeType", "application/octet-stream")
+        # Classic MIME inline images often have a Content-ID and empty filename.
+        if attachment_id and (filename or content_id):
+            if not filename:
+                ext = "bin"
+                if isinstance(mime, str) and "/" in mime:
+                    ext = mime.split("/", 1)[1].split(";", 1)[0].strip() or "bin"
+                filename = f"inline-{content_id[:24] or 'image'}.{ext}"
             attachments.append(
                 {
                     "filename": filename,
-                    "mime": part.get("mimeType", "application/octet-stream"),
+                    "mime": mime,
                     "size": body.get("size", 0),
-                    "attachment_id": body.get("attachmentId"),
+                    "attachment_id": attachment_id,
+                    "content_id": content_id or None,
+                    "inline": "inline" in disposition or bool(content_id and not disposition.startswith("attachment")),
                 }
             )
         for child in part.get("parts", []) or []:
@@ -721,6 +762,7 @@ async def _hydrate_outlook_attachments(
         )
         return
     stored_list: list[dict[str, Any]] = []
+    cid_map: dict[str, str] = {}
     for att in resp.json().get("value", []) or []:
         if att.get("@odata.type") != "#microsoft.graph.fileAttachment":
             continue
@@ -733,15 +775,22 @@ async def _hydrate_outlook_attachments(
             continue
         if not data or len(data) > MAX_ATTACHMENT_BYTES:
             continue
+        content_id = normalize_content_id(str(att.get("contentId") or ""))
         stored = await _store_attachment(
             tenant_id,
-            filename=str(att.get("name") or "file"),
+            filename=str(att.get("name") or (f"inline-{content_id[:24]}.bin" if content_id else "file")),
             mime=str(att.get("contentType") or "application/octet-stream"),
             data=data,
         )
         if stored:
+            if content_id:
+                stored["content_id"] = content_id
+                stored["inline"] = bool(att.get("isInline"))
+                cid_map[content_id] = str(stored.get("url") or "")
             stored_list.append(stored)
     item["attachments"] = stored_list
+    if cid_map and item.get("body_html"):
+        item["body_html"] = rewrite_cid_urls(str(item.get("body_html") or ""), cid_map)
 
 
 async def _hydrate_gmail_attachments(
@@ -751,6 +800,7 @@ async def _hydrate_gmail_attachments(
     if not raw_attachments or not item.get("message_id"):
         return
     hydrated: list[dict[str, Any]] = []
+    cid_map: dict[str, str] = {}
     for att in raw_attachments:
         aid = att.get("attachment_id")
         if not aid:
@@ -776,8 +826,15 @@ async def _hydrate_gmail_attachments(
             data=data,
         )
         if stored:
+            content_id = normalize_content_id(str(att.get("content_id") or ""))
+            if content_id:
+                stored["content_id"] = content_id
+                stored["inline"] = bool(att.get("inline"))
+                cid_map[content_id] = str(stored.get("url") or "")
             hydrated.append(stored)
     item["attachments"] = hydrated
+    if cid_map and item.get("body_html"):
+        item["body_html"] = rewrite_cid_urls(str(item.get("body_html") or ""), cid_map)
 
 
 async def _hydrate_attachments(

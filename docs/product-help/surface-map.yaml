@@ -103,11 +103,13 @@ communication:
 agent-runs:
   section: inbox
   routes:
+    - /activity
     - /communication/activity
     - /communication/runs
     - /communication/runs/all
     - /communication/agent/{agentId}/activity
   code_globs:
+    - apps/dashboard/src/pages/ActivityTerminalPage.tsx
     - apps/dashboard/src/pages/Communication.tsx
     - apps/dashboard/src/components/inbox/ThreadList.tsx
   screenshots:

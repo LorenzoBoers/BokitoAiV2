@@ -871,6 +871,10 @@
     "ccLine": "CC: {{recipients}}",
     "today": "Today",
     "yesterday": "Yesterday",
+    "showQuoted": "Show quoted text",
+    "hideQuoted": "Hide quoted text",
+    "showFullMessage": "Show full message",
+    "showLessMessage": "Show less",
     "notDelivered": "Not delivered",
     "deliveryFail": {
       "authExpired": "mailbox connection expired, reconnect it under Channels",

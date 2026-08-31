@@ -11,7 +11,7 @@ export function workLogDetailUrl(run: {
   if (run.agent_id) {
     return agentWorkforceRunUrl(run.agent_id, run.id)
   }
-  return '/communication/activity'
+  return '/activity'
 }
 
 export function messageWorkLogUrl(
@@ -20,5 +20,5 @@ export function messageWorkLogUrl(
   agentId?: string | null,
 ): string {
   if (agentId) return agentWorkforceRunUrl(agentId, workLogId)
-  return '/communication/activity'
+  return '/activity'
 }

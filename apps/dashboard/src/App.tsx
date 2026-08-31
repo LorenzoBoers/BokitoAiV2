@@ -172,10 +172,16 @@ function LegacyDirectAgentRedirect() {
   )
 }
 
-/** `/communication/agent/:agentId/activity[...]` → activity terminal filtered to that agent. */
+/** `/communication/agent/:agentId/activity[...]` → activity timeline filtered to that agent. */
 function LegacyAgentActivityRedirect() {
   const { agentId } = useParams<{ agentId: string }>()
   return <Navigate to={activityTerminalPath(agentId ?? null)} replace />
+}
+
+/** `/communication/activity` → `/activity` (preserve agent/q filters). */
+function LegacyCommunicationActivityRedirect() {
+  const location = useLocation()
+  return <Navigate to={`/activity${location.search}`} replace />
 }
 
 const LEGACY_CUSTOMER_QUEUE_MAP: Record<string, string> = {
@@ -297,14 +303,11 @@ export default function App() {
             {/* Company agent chats */}
             <Route path="/communication/agent/:agentId" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/t/:threadId" element={<DirectCommunication />} />
-            {/* Per-agent activity → global terminal filtered to that agent */}
+            {/* Per-agent activity → global activity timeline filtered to that agent */}
             <Route path="/communication/agent/:agentId/activity" element={<LegacyAgentActivityRedirect />} />
             <Route path="/communication/agent/:agentId/activity/t/:threadId" element={<LegacyAgentActivityRedirect />} />
             <Route path="/communication/agent/:agentId/:queue" element={<DirectCommunication />} />
             <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<DirectCommunication />} />
-
-            {/* Activity — terminal-style live history of all agent work */}
-            <Route path="/communication/activity" element={<ActivityTerminalPage />} />
 
             {/* Decisions — sole exception queue for open DecisionRequests */}
             <Route path="/communication/decisions" element={<Communication />} />
@@ -359,8 +362,10 @@ export default function App() {
 
           {/* Control */}
           <Route path="/cockpit" element={<CockpitPage />} />
-          <Route path="/cockpit/activity" element={<Navigate to="/communication/activity" replace />} />
+          <Route path="/cockpit/activity" element={<Navigate to="/activity" replace />} />
           <Route path="/cockpit/usage" element={<UsagePage />} />
+          <Route path="/activity" element={<ActivityTerminalPage />} />
+          <Route path="/communication/activity" element={<LegacyCommunicationActivityRedirect />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
@@ -424,7 +429,6 @@ export default function App() {
           {/* Legacy redirects */}
           <Route path="/home" element={<Navigate to="/cockpit" replace />} />
           <Route path="/overview" element={<Navigate to="/cockpit" replace />} />
-          <Route path="/activity" element={<Navigate to="/communication/activity" replace />} />
           <Route path="/usage" element={<Navigate to="/cockpit/usage" replace />} />
           <Route path="/skills" element={<Navigate to="/knowledge" replace />} />
           <Route path="/workspace" element={<Navigate to="/knowledge" replace />} />

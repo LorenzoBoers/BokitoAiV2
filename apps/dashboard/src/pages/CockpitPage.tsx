@@ -733,7 +733,7 @@ export default function CockpitPage() {
               <h2 className="text-[14px] font-semibold text-text-heading">{t('cockpitPage.recentEvents')}</h2>
               <p className="text-[12px] text-text-muted">{t('cockpitPage.recentEventsHint')}</p>
             </div>
-            <Link to="/communication/activity" className="text-[12px] font-medium text-accent hover:underline">
+            <Link to="/activity" className="text-[12px] font-medium text-accent hover:underline">
               {t('cockpitPage.openActivity')}
             </Link>
           </div>
@@ -773,7 +773,7 @@ export default function CockpitPage() {
                     ? agentWorkforceRunUrl(ev.agent_id, ev.run_id)
                     : ev.agent_id
                       ? `/agents/${ev.agent_id}`
-                      : '/communication/activity'
+                      : '/activity'
                 const body = (
                   <>
                     <span

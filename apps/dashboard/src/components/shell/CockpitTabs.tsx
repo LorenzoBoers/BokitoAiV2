@@ -7,7 +7,7 @@ const TABS = [
 ] as const
 
 /** Inner tab strip for the Reports surface (Overview / Usage) — the live
- * activity log moved to the Communication hub (`/communication/activity`). */
+ * activity log moved to `/activity` (standalone timeline). */
 export default function CockpitTabs() {
   const { t } = useTranslation('nav')
   return (

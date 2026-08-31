@@ -735,9 +735,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [token, t])
 
-  const messageLayout: 'chat' | 'email' =
-    detail && resolveComposerSurface(detail.thread).channel === 'email' ? 'email' : 'chat'
-
   const groups = useMemo<DayGroup[]>(() => {
     if (!detail) return []
     const timeline: TimelineEntry[] = [
@@ -776,28 +773,60 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return groupByDay(timeline, t, i18n.language)
   }, [detail, t, i18n.language])
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+  const latestMessageId = useMemo(() => {
+    for (let g = groups.length - 1; g >= 0; g -= 1) {
+      const entries = groups[g]?.entries ?? []
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        const entry = entries[i]
+        if (entry?.kind === 'message') return entry.id
+      }
+    }
+    return null
+  }, [groups])
+
+  const messageLayout: 'chat' | 'email' =
+    detail && resolveComposerSurface(detail.thread).channel === 'email' ? 'email' : 'chat'
+
+  const scrollToLatestMessage = useCallback((behavior: ScrollBehavior = 'auto') => {
     const container = scrollRef.current
     if (!container) return
     programmaticScrollRef.current = true
-    const top = Math.max(0, container.scrollHeight - container.clientHeight)
-    if (behavior === 'smooth') {
-      container.scrollTo({ top, behavior: 'smooth' })
+    const latest = container.querySelector('[data-latest-message="true"]') as HTMLElement | null
+    if (latest) {
+      const containerRect = container.getBoundingClientRect()
+      const latestRect = latest.getBoundingClientRect()
+      const nextTop = Math.max(0, container.scrollTop + (latestRect.top - containerRect.top) - 8)
+      if (behavior === 'smooth') {
+        container.scrollTo({ top: nextTop, behavior: 'smooth' })
+      } else {
+        container.scrollTop = nextTop
+      }
     } else {
-      container.scrollTop = top
+      const top = Math.max(0, container.scrollHeight - container.clientHeight)
+      if (behavior === 'smooth') {
+        container.scrollTo({ top, behavior: 'smooth' })
+      } else {
+        container.scrollTop = top
+      }
     }
     window.setTimeout(() => {
       programmaticScrollRef.current = false
     }, 120)
   }, [])
 
-  const pinToBottom = useCallback(
+  const pinToLatest = useCallback(
     (behavior: ScrollBehavior = 'auto') => {
       anchorToBottomRef.current = true
-      scrollToBottom(behavior)
+      scrollToLatestMessage(behavior)
     },
-    [scrollToBottom],
+    [scrollToLatestMessage],
   )
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    scrollToLatestMessage(behavior)
+  }, [scrollToLatestMessage])
+
+  const pinToBottom = pinToLatest
 
   const loadedThreadId = detail?.thread.id ?? null
   const messageCount = detail?.messages.length ?? 0
@@ -1669,7 +1698,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
       {onToggleTakeover &&
       !isInternalThread(thread) &&
-      ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') ? (
+      ['email', 'widget', 'chat', 'whatsapp', 'assistant'].includes(thread.channel ?? '') &&
+      (thread.aiPaused || Boolean(thread.hasOpenDecision) || Boolean(detail?.sessions?.some((s) => !s.closedAt))) ? (
         <div
           className={`flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-1.5 ${
             thread.aiPaused
@@ -1796,7 +1826,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                   item.kind === 'message' &&
                   (!prevItem || formatHourMinute(prevItem.time, i18n.language) !== formatHourMinute(item.time, i18n.language))
                 return (
-                <div key={item.id} className={item.kind === 'events' ? 'mb-1.5' : 'mb-3'}>
+                <div
+                  key={item.id}
+                  className={item.kind === 'events' ? 'mb-1.5' : 'mb-3'}
+                  data-latest-message={item.id === latestMessageId ? 'true' : undefined}
+                >
                   {showTime ? (
                     <div className="sticky top-9 z-10 flex justify-center pointer-events-none mb-1">
                       <span

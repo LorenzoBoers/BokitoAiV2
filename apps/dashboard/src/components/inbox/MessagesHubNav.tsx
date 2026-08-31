@@ -377,7 +377,7 @@ type AgentsSectionProps = {
 
 function AgentsSection({ agents, loading, activeLeaf, defaultQueueFor, t }: AgentsSectionProps) {
   const location = useLocation()
-  const activityTerminalActive = location.pathname.startsWith('/communication/activity')
+  const activityTerminalActive = location.pathname === '/activity' || location.pathname.startsWith('/activity/')
   const locationSearch = location.search
   return (
     <div className="space-y-0.5">

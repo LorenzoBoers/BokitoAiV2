@@ -71,6 +71,35 @@ async def resolve_email_account_by_numeric_id(
     return None
 
 
+_ZERO_WIDTH_RE = re.compile(r"[\u200b\u200c\u200d\u2060\ufeff\u00ad\u034f]")
+_QUOTE_CUT_RE = re.compile(
+    r"(?:"
+    r"\n\s*On .{10,160} wrote:"
+    r"|\n\s*Op .{10,160} schreef .+:"
+    r"|\n\s*-{2,}\s*Original Message\s*-{2,}"
+    r"|\n\s*From:\s"
+    r"|\n\s*Van:\s"
+    r"|\n\s*Verzonden:\s"
+    r"|\n\s*Sent:\s"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def clean_message_preview(text: str, *, limit: int = 140) -> str:
+    """Keep only the 'new' head of an email/chat body for list previews."""
+    snippet = _ZERO_WIDTH_RE.sub("", text or "")
+    snippet = snippet.replace("\r\n", "\n").replace("\r", "\n")
+    cut = _QUOTE_CUT_RE.search(snippet)
+    if cut:
+        snippet = snippet[: cut.start()]
+    snippet = snippet.strip().replace("\n", " ")
+    snippet = re.sub(r"\s{2,}", " ", snippet)
+    if snippet.startswith("[mock]"):
+        snippet = snippet[len("[mock]") :].strip()
+    return snippet[:limit]
+
+
 def _is_placeholder_preview(text: str) -> bool:
     low = text.lower()
     return (
@@ -81,10 +110,7 @@ def _is_placeholder_preview(text: str) -> bool:
 
 
 def _clean_thread_preview(text: str) -> str:
-    snippet = (text or "").strip().replace("\n", " ")
-    if snippet.startswith("[mock]"):
-        snippet = snippet[len("[mock]") :].strip()
-    return snippet[:140]
+    return clean_message_preview(text, limit=140)
 
 
 async def _latest_message_previews(
@@ -895,7 +921,7 @@ async def update_note(
         return None
     prev_mentions = {int(num) for _, num in MENTION_PATTERN.findall(message.body_text or "")}
     message.body_text = body_text
-    message.body_preview = body_text[:200]
+    message.body_preview = clean_message_preview(body_text, limit=200)
     # Notes are created with a body_html mirror (see reply_to_thread); keep it
     # in sync or the timeline keeps rendering the stale HTML after an edit.
     message.body_html = f"<p>{body_text}</p>"
@@ -1519,7 +1545,7 @@ async def reply_to_thread(
         to_addresses=signal.contact_email,
         subject=signal.subject,
         body_text=body_text,
-        body_preview=body_text[:200],
+        body_preview=clean_message_preview(body_text, limit=200),
         body_html=body_html or f"<p>{body_text}</p>",
         attachments_json=json.dumps(attachments or []),
         metadata_json=json.dumps(message_meta) if message_meta else "{}",

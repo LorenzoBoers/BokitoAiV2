@@ -871,6 +871,10 @@
     "ccLine": "CC: {{recipients}}",
     "today": "Vandaag",
     "notDelivered": "Niet afgeleverd",
+    "showQuoted": "Toon geciteerde tekst",
+    "hideQuoted": "Verberg geciteerde tekst",
+    "showFullMessage": "Toon volledig bericht",
+    "showLessMessage": "Toon minder",
     "deliveryFail": {
       "authExpired": "mailboxkoppeling verlopen, verbind deze opnieuw via Kanalen",
       "noMailbox": "geen gekoppelde mailbox voor dit kanaal",

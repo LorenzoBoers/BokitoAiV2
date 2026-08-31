@@ -965,6 +965,8 @@
     "retry": "Retry",
     "loadError": "Could not load activity history.",
     "teamMember": "Team member",
+    "system": "System",
+    "live": "Live",
     "timelineNow": "Now",
     "timelineExecuted": "Executed",
     "timelineFailed": "Failed",
@@ -2063,7 +2065,7 @@
     },
     "activity": {
       "label": "Activity",
-      "hint": "Agent runs, updates and results"
+      "hint": "Live timeline of agent and team work"
     },
     "contacts": {
       "label": "Contacts",

@@ -2,29 +2,29 @@
 title: Follow agent activity
 intro: Scheduled scans and finished results live under Activity — open approvals sit under Decisions.
 description: Open Activity to review agent work without mixing it into customer Open. Pending approvals use the Decisions leaf.
-keywords: activity, agent runs, scheduled, results, queue, inbox
+keywords: activity, agent runs, scheduled, results, queue, inbox, timeline
 sort: 15
 related: communication,decisions,agenda,cockpit
 ---
 
 # Follow agent activity
 
-Activity is the live work log of your AI: one terminal-style feed of everything agents did and are doing, streamed as it happens. It stays out of Open so customer mail does not compete with background jobs. Open approvals live under [Decisions](/docs/ai/decisions).
+Activity is the live work timeline of your AI: everything agents did and are doing, streamed as it happens. It is its own page — not nested next to the inbox thread list — so customer mail does not compete with background jobs. Open approvals live under [Decisions](/docs/ai/decisions).
 
-## Open the Activity terminal
+## Open the Activity timeline
 
 ![Agent activity list](/api/docs/assets/agent-runs/runs-list.png)
-*One live log for the whole AI workforce.*
+*One live timeline for the whole AI workforce.*
 
-1. In Communication, open **Activity**, pinned at the bottom of the sidebar next to Contacts. Customer mail stays under **All communication**.
-2. Read the log like a terminal: each line shows the time, the agent, the step and its result — green for finished work, red for failures, blue for work in progress. New lines stream in live; **Jump to newest** keeps the view following the tail.
+1. In Communication, open **Activity**, pinned at the bottom of the sidebar next to Contacts. That opens the Activity page (same chrome as Contacts), not a view inside the thread list.
+2. Read the timeline: each row shows the time, who acted, the step and its result — green for finished work, red for failures, blue for work in progress. New rows stream in live; **Jump to newest** keeps the view following the end.
 3. Filter with the agent chips at the top or the search field; **Load older** pages further back in history.
-4. Click a line to open the run conversation behind it. For items waiting on a yes or no, open the purple **Decisions** sub-view under All communication — the same list Reports **Awaiting decision** uses. A paused agent will not finish a wake until you resume it on [Agents](/docs/ai/agents).
+4. Click a row to open the run conversation behind it. For items waiting on a yes or no, open the purple **Decisions** sub-view under All communication — the same list Reports **Awaiting decision** uses. A paused agent will not finish a wake until you resume it on [Agents](/docs/ai/agents).
 
 ## Check one agent's work log
 
 1. In the **Agents** section of the sidebar, expand an agent's folder.
-2. Open its **Activity** sub-view. It opens the same terminal filtered to that agent — your chats with the agent stay in its folder, the work log stays in Activity, never mixed into one list.
+2. Open its **Activity** sub-view. It opens the same timeline filtered to that agent — your chats with the agent stay in its folder, the work log stays in Activity, never mixed into one list.
 
 ## Open a run and decide
 

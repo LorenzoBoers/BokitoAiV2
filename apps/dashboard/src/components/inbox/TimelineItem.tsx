@@ -250,6 +250,63 @@ function flipLightness(rgb: Rgb, minL: number, maxL: number): Rgb {
 
 const cssRgb = ({ r, g, b }: Rgb) => `rgb(${r} ${g} ${b})`
 
+const EMAIL_QUOTE_SELECTORS = [
+  '.gmail_quote',
+  '.gmail_quote_container',
+  '.gmail_extra',
+  '#divRplyFwdMsg',
+  '#mail-editor-reference-message-container',
+  'blockquote[type="cite"]',
+  'div[id="appendonsend"]',
+].join(',')
+
+const EMAIL_HEIGHT_CAP_PX = 480
+
+function findEmailQuoteRoots(doc: Document): HTMLElement[] {
+  const roots: HTMLElement[] = []
+  const seen = new Set<HTMLElement>()
+  const add = (el: HTMLElement | null) => {
+    if (!el || seen.has(el)) return
+    // Prefer outermost quote block when nested.
+    for (const existing of roots) {
+      if (existing.contains(el)) return
+      if (el.contains(existing)) {
+        seen.delete(existing)
+        roots.splice(roots.indexOf(existing), 1)
+      }
+    }
+    seen.add(el)
+    roots.push(el)
+  }
+
+  doc.querySelectorAll(EMAIL_QUOTE_SELECTORS).forEach((node) => {
+    if (node instanceof HTMLElement) add(node)
+  })
+
+  // Outlook / Apple Mail plain wrappers: a horizontal rule or "On … wrote" /
+  // "Op … schreef" line that begins the quoted trail.
+  const walk = doc.body ? Array.from(doc.body.querySelectorAll('div, p, span, hr')) : []
+  for (const node of walk) {
+    if (!(node instanceof HTMLElement)) continue
+    if (node.closest(EMAIL_QUOTE_SELECTORS)) continue
+    const text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim()
+    if (
+      /^On .{10,120} wrote:$/i.test(text) ||
+      /^Op .{10,120} schreef .+:$/i.test(text) ||
+      /^-----Original Message-----$/i.test(text)
+    ) {
+      // Collapse from this marker through the rest of its parent siblings.
+      const parent = node.parentElement
+      if (parent && parent !== doc.body) {
+        add(parent)
+      } else {
+        add(node)
+      }
+    }
+  }
+  return roots
+}
+
 // Renders email HTML inside a sandboxed iframe so the email's <style> tags,
 // link colors and other global rules do not bleed into the host app.
 //
@@ -261,7 +318,11 @@ const cssRgb = ({ r, g, b }: Rgb) => `rgb(${r} ${g} ${b})`
 function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
   const { t } = useTranslation('communication')
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const [height, setHeight] = useState(80)
+  const quoteRootsRef = useRef<HTMLElement[]>([])
+  const [naturalHeight, setNaturalHeight] = useState(80)
+  const [quotesCollapsed, setQuotesCollapsed] = useState(true)
+  const [hasQuotes, setHasQuotes] = useState(false)
+  const [expandedFull, setExpandedFull] = useState(false)
 
   const measure = useCallback(() => {
     const iframe = iframeRef.current
@@ -273,7 +334,7 @@ function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
       doc.body?.scrollHeight ?? 0,
       40,
     )
-    setHeight(next)
+    setNaturalHeight(next)
   }, [])
 
   // Light emails get their colors rewritten in place (no CSS filter — filters
@@ -344,12 +405,33 @@ a { color: #60a5fa; }
     doc.head.appendChild(style)
   }, [])
 
+  const applyQuoteCollapse = useCallback(
+    (collapsed: boolean) => {
+      for (const el of quoteRootsRef.current) {
+        el.style.display = collapsed ? 'none' : ''
+      }
+      measure()
+    },
+    [measure],
+  )
+
   const handleLoad = useCallback(() => {
     const iframe = iframeRef.current
     const doc = iframe?.contentDocument
     if (doc && isDark) applyDarkTheme(doc)
+    if (!doc) {
+      measure()
+      return
+    }
+    const roots = findEmailQuoteRoots(doc)
+    quoteRootsRef.current = roots
+    setHasQuotes(roots.length > 0)
+    setQuotesCollapsed(true)
+    setExpandedFull(false)
+    if (roots.length > 0) {
+      for (const el of roots) el.style.display = 'none'
+    }
     measure()
-    if (!doc) return
     doc.querySelectorAll('img').forEach((img) => {
       if (!img.complete) {
         img.addEventListener('load', measure, { once: true })
@@ -366,6 +448,13 @@ a { color: #60a5fa; }
     const id = window.setTimeout(measure, 250)
     return () => window.clearTimeout(id)
   }, [measure, html])
+
+  useEffect(() => {
+    setHasQuotes(false)
+    setQuotesCollapsed(true)
+    setExpandedFull(false)
+    quoteRootsRef.current = []
+  }, [html])
 
   // Theme switches without a reload: (re)apply on an already-loaded document.
   useEffect(() => {
@@ -408,21 +497,55 @@ table { max-width: 100% !important; }
 a { color: #2563eb; }
 </style></head><body><div id="bokito-email-root">${html}</div></body></html>`
 
+  const capped = !expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
+  const displayHeight = capped ? EMAIL_HEIGHT_CAP_PX : naturalHeight
+
   return (
-    <iframe
-      ref={iframeRef}
-      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-      srcDoc={wrappedHtml}
-      onLoad={handleLoad}
-      title={t('timeline.events.emailContent')}
-      className="block w-full bg-transparent"
-      style={{
-        height: `${height}px`,
-        border: 0,
-        background: 'transparent',
-        colorScheme: 'light',
-      }}
-    />
+    <div className="space-y-1.5">
+      <div className={cn('relative overflow-hidden', capped && 'max-h-[480px]')}>
+        <iframe
+          ref={iframeRef}
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+          srcDoc={wrappedHtml}
+          onLoad={handleLoad}
+          title={t('timeline.events.emailContent')}
+          className="block w-full bg-transparent"
+          style={{
+            height: `${displayHeight}px`,
+            border: 0,
+            background: 'transparent',
+            colorScheme: 'light',
+          }}
+        />
+        {capped ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-bg-surface to-transparent" />
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {hasQuotes ? (
+          <button
+            type="button"
+            className="text-[11px] font-medium text-text-muted hover:text-text-primary"
+            onClick={() => {
+              const next = !quotesCollapsed
+              setQuotesCollapsed(next)
+              applyQuoteCollapse(next)
+            }}
+          >
+            {quotesCollapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')}
+          </button>
+        ) : null}
+        {capped || (expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX) ? (
+          <button
+            type="button"
+            className="text-[11px] font-medium text-text-muted hover:text-text-primary"
+            onClick={() => setExpandedFull((v) => !v)}
+          >
+            {expandedFull ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
+          </button>
+        ) : null}
+      </div>
+    </div>
   )
 }
 
@@ -916,7 +1039,10 @@ export function MessageTimelineItem({ message, layout = 'chat', contactName, con
       <MessageAttachments attachments={attachmentItems} />
     </div>
   ) : (
-    <MessageHtmlBody html={message.bodyHtml ?? ''} />
+    <div className="space-y-1">
+      <MessageHtmlBody html={message.bodyHtml ?? ''} />
+      <MessageAttachments attachments={attachmentItems} />
+    </div>
   )
 
   const contactAvatar = (
