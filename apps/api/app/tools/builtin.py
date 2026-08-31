@@ -1837,7 +1837,7 @@ register_tool(
 )
 
 
-def _parse_when(raw: Any) -> "datetime | None":
+def _parse_when(raw: Any):
     from datetime import datetime as _dt
 
     text = str(raw or "").strip()

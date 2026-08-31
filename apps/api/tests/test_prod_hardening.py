@@ -5,7 +5,6 @@ import json
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
